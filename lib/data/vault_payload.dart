@@ -12,7 +12,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 6: orden persistido del árbol de páginas (sidebar) por `parentId`.
 /// Esquema 7: estado de integraciones nativas (Jira).
 /// Esquema 8: papelera de páginas (`FolioPage.trashedAt`).
-const int kVaultPayloadVersion = 8;
+/// Esquema 9: tombstones de sync multi-dispositivo + `syncClock`.
+const int kVaultPayloadVersion = 9;
 
 class VaultPayload {
   VaultPayload({
@@ -28,6 +29,8 @@ class VaultPayload {
     List<FolioPageTemplate>? pageTemplates,
     JiraIntegrationState? jira,
     YouTrackIntegrationState? youtrack,
+    Map<String, int>? pageTombstones,
+    this.syncClock = 0,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        pageOrderByParent = pageOrderByParent ?? {},
@@ -37,7 +40,8 @@ class VaultPayload {
        aiActiveChatIndex = aiActiveChatIndex ?? 0,
        pageTemplates = pageTemplates ?? const [],
        jira = jira ?? JiraIntegrationState.empty,
-       youtrack = youtrack ?? YouTrackIntegrationState.empty;
+       youtrack = youtrack ?? YouTrackIntegrationState.empty,
+       pageTombstones = pageTombstones ?? const {};
 
   final int version;
   final List<FolioPage> pages;
@@ -52,6 +56,12 @@ class VaultPayload {
   final List<FolioPageTemplate> pageTemplates;
   final JiraIntegrationState jira;
   final YouTrackIntegrationState youtrack;
+
+  /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
+  final Map<String, int> pageTombstones;
+
+  /// Reloj monótono de sync (Lamport ligero) para ordenar revisiones de pack.
+  final int syncClock;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -68,7 +78,10 @@ class VaultPayload {
     if (pageTemplates.isNotEmpty)
       'pageTemplates': pageTemplates.map((t) => t.toJson()).toList(),
     if (jira.connections.isNotEmpty || jira.sources.isNotEmpty) 'jira': jira.toJson(),
-    if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty) 'youtrack': youtrack.toJson(),
+    if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty)
+      'youtrack': youtrack.toJson(),
+    if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
+    if (syncClock > 0) 'syncClock': syncClock,
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -131,6 +144,22 @@ class VaultPayload {
         .toList();
     final jira = JiraIntegrationState.fromJson(j['jira']);
     final youtrack = YouTrackIntegrationState.fromJson(j['youtrack']);
+    final pageTombstones = <String, int>{};
+    final rawTombs = j['pageTombstones'];
+    if (rawTombs is Map) {
+      for (final e in rawTombs.entries) {
+        final key = '${e.key}'.trim();
+        if (key.isEmpty) continue;
+        final v = e.value;
+        if (v is num) {
+          pageTombstones[key] = v.toInt();
+        } else if (v is String) {
+          final parsed = int.tryParse(v);
+          if (parsed != null) pageTombstones[key] = parsed;
+        }
+      }
+    }
+    final syncClock = (j['syncClock'] as num?)?.toInt() ?? 0;
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
@@ -144,6 +173,8 @@ class VaultPayload {
       pageTemplates: templates,
       jira: jira,
       youtrack: youtrack,
+      pageTombstones: pageTombstones,
+      syncClock: syncClock,
     );
   }
 

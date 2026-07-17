@@ -723,4 +723,77 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     final day = d.day.toString().padLeft(2, '0');
     return 'folio-libreta-$y-$m-$day.folio.zip';
   }
+
+  Future<void> _uploadAppProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final ok = await ctrl.pushAppProfileNow(notifyUser: true);
+    if (!mounted) return;
+    if (ok) {
+      _snack(l10n.folioCloudAppProfilePushOk);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
+  }
+
+  Future<void> _restoreAppProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final ok = await ctrl.restoreAppProfileFromCloud();
+    if (!mounted) return;
+    if (ok) {
+      _snack(l10n.folioCloudAppProfileRestoreOk);
+    } else if (ctrl.lastError == 'empty_cloud_profile') {
+      _snack(l10n.folioCloudAppProfileEmptyCloud);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
+  }
+
+  Future<void> _restoreVaultProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final vaultId = _s.activeVaultId ?? VaultPaths.activeVaultId ?? '';
+    if (vaultId.isEmpty) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin vaultId)');
+      return;
+    }
+    final ok = await ctrl.restoreVaultProfileFromCloud(vaultId);
+    if (!mounted) return;
+    if (ok) {
+      await _loadVaultBackupPrefs();
+      _snack(l10n.folioCloudAppProfileRestoreOk);
+    } else if (ctrl.lastError == 'empty_cloud_vault_profile') {
+      _snack(l10n.folioCloudAppProfileEmptyCloud);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
+  }
 }

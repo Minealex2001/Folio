@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -2676,6 +2676,445 @@ exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "pub
         usedBytes: newUsed,
         quotaBytes: quota,
         legacyBytes,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
+exports.folioGetDeviceSyncMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultSync")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        deviceId: typeof data.deviceId === "string" ? data.deviceId : "",
+        deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
+        updatedAt: (_d = data.updatedAt) !== null && _d !== void 0 ? _d : null,
+    };
+});
+function assertDeviceSyncPackStoragePath(uid, vaultId, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/vaults/${vaultId}/device-sync/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const packPath = assertDeviceSyncPackStoragePath(uid, vaultId, (_c = request.data) === null || _c === void 0 ? void 0 : _c.packStoragePath);
+    const packSizeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.packSizeBytes;
+    const packSize = typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+        ? Math.max(0, Math.trunc(packSizeRaw))
+        : 0;
+    if (packSize <= 0 || packSize > 80 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+    }
+    const fpRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim() : "";
+    // Fingerprint corto (hex FNV); limitar tamaño.
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    const deviceIdRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.deviceId;
+    const deviceId = typeof deviceIdRaw === "string" ? deviceIdRaw.trim().slice(0, 128) : "";
+    const deviceNameRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.deviceName;
+    const deviceName = typeof deviceNameRaw === "string"
+        ? deviceNameRaw.trim().slice(0, 120)
+        : "";
+    const oldPathRaw = (_h = request.data) === null || _h === void 0 ? void 0 : _h.oldPackStoragePath;
+    let oldPackSize = 0;
+    let oldPackPath = "";
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        oldPackPath = assertDeviceSyncPackStoragePath(uid, vaultId, oldPathRaw);
+        const oldSzRaw = (_j = request.data) === null || _j === void 0 ? void 0 : _j.oldPackSizeBytes;
+        oldPackSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_k = userSnap.data()) !== null && _k !== void 0 ? _k : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const delta = packSize - oldPackSize;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(packPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "Sync pack not found in storage or size mismatch.");
+    }
+    const syncRef = userRef.collection("vaultSync").doc(vaultId);
+    const prevSync = await syncRef.get();
+    const prevRev = typeof ((_l = prevSync.data()) === null || _l === void 0 ? void 0 : _l.rev) === "number"
+        ? Math.trunc(prevSync.data().rev)
+        : 0;
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    await syncRef.set({
+        rev: prevRev + 1,
+        contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
+        packStoragePath: packPath,
+        packSizeBytes: packSize,
+        deviceId,
+        deviceName,
+        updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // No bloquea el finalize si falla el borrado del pack anterior.
+        }
+    }
+    return {
+        ok: true,
+        rev: prevRev + 1,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
+function assertAppProfilePackPath(uid, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/app-profile/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+function assertVaultProfilePackPath(uid, vaultId, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/vault-profiles/${vaultId}/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+exports.folioGetAppProfileMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("appProfile")
+        .doc("meta")
+        .get();
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const wrapB64 = typeof data.restoreWrapB64 === "string" ? data.restoreWrapB64.trim() : "";
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        hasRestoreWrap: wrapB64.length > 0,
+        iconIds: Array.isArray(data.iconIds) ? data.iconIds : [],
+        updatedAt: (_c = data.updatedAt) !== null && _c !== void 0 ? _c : null,
+    };
+});
+exports.folioGetAppProfileRestoreWrap = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("appProfile")
+        .doc("meta")
+        .get();
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const wrapB64 = typeof data.restoreWrapB64 === "string" ? data.restoreWrapB64.trim() : "";
+    return {
+        ok: true,
+        restoreWrapB64: wrapB64,
+    };
+});
+exports.folioFinalizeAppProfile = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const packPath = assertAppProfilePackPath(uid, (_b = request.data) === null || _b === void 0 ? void 0 : _b.packStoragePath);
+    const packSizeRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.packSizeBytes;
+    const packSize = typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+        ? Math.max(0, Math.trunc(packSizeRaw))
+        : 0;
+    if (packSize <= 0 || packSize > 16 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+    }
+    const fpRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim().toLowerCase() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    const iconIdsRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.iconIds;
+    const iconIds = [];
+    if (Array.isArray(iconIdsRaw)) {
+        for (const id of iconIdsRaw) {
+            if (typeof id !== "string")
+                continue;
+            const t = id.trim();
+            if (t && t.length <= 128 && !t.includes("/") && !t.includes("..")) {
+                iconIds.push(t);
+            }
+        }
+    }
+    if (iconIds.length > 500) {
+        throw new https_1.HttpsError("invalid-argument", "Too many iconIds");
+    }
+    let oldPackSize = 0;
+    let oldPackPath = "";
+    const oldPathRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        oldPackPath = assertAppProfilePackPath(uid, oldPathRaw);
+        const oldSzRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.oldPackSizeBytes;
+        oldPackSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const wrapB64Raw = (_h = request.data) === null || _h === void 0 ? void 0 : _h.restoreWrapB64;
+    let restoreWrapB64 = null;
+    if (wrapB64Raw != null && String(wrapB64Raw).trim() !== "") {
+        const s = String(wrapB64Raw).trim();
+        let buf;
+        try {
+            buf = Buffer.from(s, "base64");
+        }
+        catch {
+            throw new https_1.HttpsError("invalid-argument", "restoreWrapB64 invalid");
+        }
+        if (buf.length < 44 || buf.length > 4096) {
+            throw new https_1.HttpsError("invalid-argument", "restoreWrapB64 size invalid");
+        }
+        restoreWrapB64 = s;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_j = userSnap.data()) !== null && _j !== void 0 ? _j : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const delta = packSize - oldPackSize;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(packPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "App profile pack not found or size mismatch.");
+    }
+    const metaRef = userRef.collection("appProfile").doc("meta");
+    const prev = await metaRef.get();
+    const prevRev = typeof ((_k = prev.data()) === null || _k === void 0 ? void 0 : _k.rev) === "number"
+        ? Math.trunc(prev.data().rev)
+        : 0;
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    const patch = {
+        rev: prevRev + 1,
+        contentFingerprint: fingerprint.slice(0, 200),
+        packStoragePath: packPath,
+        packSizeBytes: packSize,
+        iconIds,
+        updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (restoreWrapB64 != null) {
+        patch.restoreWrapB64 = restoreWrapB64;
+    }
+    await metaRef.set(patch, { merge: true });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    return {
+        ok: true,
+        rev: prevRev + 1,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
+exports.folioGetVaultProfileMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultProfiles")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        hasRestoreWrap: typeof data.restoreWrapB64 === "string" &&
+            data.restoreWrapB64.trim().length > 0,
+        updatedAt: (_d = data.updatedAt) !== null && _d !== void 0 ? _d : null,
+    };
+});
+exports.folioFinalizeVaultProfile = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const packPath = assertVaultProfilePackPath(uid, vaultId, (_c = request.data) === null || _c === void 0 ? void 0 : _c.packStoragePath);
+    const packSizeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.packSizeBytes;
+    const packSize = typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+        ? Math.max(0, Math.trunc(packSizeRaw))
+        : 0;
+    if (packSize <= 0 || packSize > 8 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+    }
+    const fpRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim().toLowerCase() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    let oldPackSize = 0;
+    let oldPackPath = "";
+    const oldPathRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        oldPackPath = assertVaultProfilePackPath(uid, vaultId, oldPathRaw);
+        const oldSzRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.oldPackSizeBytes;
+        oldPackSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_h = userSnap.data()) !== null && _h !== void 0 ? _h : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const delta = packSize - oldPackSize;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(packPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "Vault profile pack not found or size mismatch.");
+    }
+    const metaRef = userRef.collection("vaultProfiles").doc(vaultId);
+    const prev = await metaRef.get();
+    const prevRev = typeof ((_j = prev.data()) === null || _j === void 0 ? void 0 : _j.rev) === "number"
+        ? Math.trunc(prev.data().rev)
+        : 0;
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    await metaRef.set({
+        rev: prevRev + 1,
+        contentFingerprint: fingerprint.slice(0, 200),
+        packStoragePath: packPath,
+        packSizeBytes: packSize,
+        updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    return {
+        ok: true,
+        rev: prevRev + 1,
+        usedBytes: newUsed,
+        quotaBytes: quota,
         totalUsedBytes: newUsed + legacyBytes,
     };
 });

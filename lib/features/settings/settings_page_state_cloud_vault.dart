@@ -260,11 +260,18 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: conflicts.map((conflict) {
-                      final subtitle = l10nC.settingsSyncConflictCardSubtitle(
-                        conflict.fromPeerId,
-                        conflict.remotePageCount,
-                        _formatSyncConflictTimestamp(conflict.createdAtMs),
-                      );
+                      final subtitle = conflict.isBlockConflict
+                          ? l10nC.settingsSyncBlockConflictCardSubtitle(
+                              conflict.fromPeerId,
+                              conflict.pageId ?? '',
+                              conflict.blockId ?? '',
+                              _formatSyncConflictTimestamp(conflict.createdAtMs),
+                            )
+                          : l10nC.settingsSyncConflictCardSubtitle(
+                              conflict.fromPeerId,
+                              conflict.remotePageCount,
+                              _formatSyncConflictTimestamp(conflict.createdAtMs),
+                            );
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
@@ -283,12 +290,38 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              l10nC.settingsSyncConflictHeading,
+                              conflict.isBlockConflict
+                                  ? l10nC.settingsSyncBlockConflictHeading
+                                  : l10nC.settingsSyncConflictHeading,
                               style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 8),
                             Text(subtitle),
+                            if (conflict.isBlockConflict &&
+                                conflict.localBlockJson != null &&
+                                conflict.remoteBlockJson != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                l10nC.settingsSyncBlockConflictLocalPreview(
+                                  '${conflict.localBlockJson!['text'] ?? ''}'
+                                      .trim(),
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10nC.settingsSyncBlockConflictRemotePreview(
+                                  '${conflict.remoteBlockJson!['text'] ?? ''}'
+                                      .trim(),
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,

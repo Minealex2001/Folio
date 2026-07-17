@@ -489,7 +489,7 @@ Implementado en `lib/services/collab/collab_session_controller.dart`.
 
 ## 22. Sincronización P2P entre dispositivos
 
-Implementado en `lib/services/device_sync/device_sync_controller.dart`.
+Implementado en `lib/services/device_sync/device_sync_controller.dart`. El merge lógico es compartido con Folio Cloud (`lib/services/sync/vault_sync_merge.dart`).
 
 ### Protocolo de red
 
@@ -504,10 +504,10 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 ### Características
 
 - **Emparejamiento**: handshake de petición/aceptación bilateral; los peers emparejados se persisten en `SharedPreferences`.
-- **Relay opcional**: `syncRelayEnabled` permite atravesar NATs cuando el multicast no funciona.
-- **Snapshot export/import**: la sincronización transfiere snapshots completos de la libreta.
-- **Detección de conflictos**: fingerprint de base + detección de cambio concurrente (local y remoto modificaron desde el mismo baseline).  
-  - Si hay conflicto: no sobrescribir local → registrar en `syncPendingConflicts` → confirmar sync para evitar reintentos.
+- **Relay opcional**: `syncRelayEnabled` permite atravesar NATs cuando el multicast no funciona (flag de UI; el relay en sí no está implementado — la sync por internet va por Folio Cloud).
+- **Pack de sync**: export/import usa `folio.sync.pack.v1` (`VaultSyncPack`): payload lógico + adjuntos content-addressed bajo `attachments/`.
+- **Merge semántico (página/bloque)**: `VaultSyncMergeEngine` hace unión a 3 vías (local · remoto · baseline). Páginas/bloques distintos se conservan; el mismo bloque editado en ambos lados genera conflicto **granular** (se mantiene local, el remoto se guarda en historial/revisión). Tombstones de páginas borradas evitan resucitar contenido.
+- **Resolución de conflictos**: UI en Ajustes por conflicto de bloque o legado; `resolveSyncConflictKeepLocal` / `resolveSyncConflictAcceptRemote`.
 - **Peers estables**: la última IP conocida de un peer se conserva incluso si el discovery falla (redes con multicast inestable).
 - Supresión de callback `onPersisted` durante `applySyncSnapshotBytes` para evitar bucles push↔import.
 
@@ -683,12 +683,37 @@ El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas
 
 | Flag | Rol |
 |------|-----|
-| `backup` | Copias ZIP **cifradas** en Storage bajo `users/{uid}/backups/**` |
+| `backup` | Copias ZIP **cifradas** en Storage bajo `users/{uid}/backups/**` y **sync multi-dispositivo** (packs en `device-sync/`) |
 | `cloudAi` | IA hospedada en Cloud Functions (claves del proveedor solo en servidor); consumo con **Ink** |
 | `publishWeb` | HTML público en `published/{uid}/**` + índice Firestore `publishedPages` |
 | `realtimeCollab` | Colaboración en vivo (salas Firestore, subida de medios colaborativos) cuando el plan lo incluye |
 
 Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
+
+### Sincronización multi-dispositivo (casi en tiempo real)
+
+Distinta de la **copia/restauración** (reemplazo consciente): la sync automática **siempre hace merge** con el mismo motor que P2P.
+
+- Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`).
+- Tras persistir (debounce ~2 s), sube un pack cifrado a `users/{uid}/vaults/{vaultId}/device-sync/packs/` y finaliza con **`folioFinalizeDeviceSync`** (señal en Firestore `users/{uid}/vaultSync/{vaultId}`).
+- Otros dispositivos escuchan el doc (`snapshots`) o, en Windows/Linux, hacen **polling REST ~3 s**; descargan, descifran y llaman a `VaultSession.applySyncSnapshotBytes` (merge + adjuntos).
+- Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
+- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync`.
+
+### Perfil de ajustes (cuenta + libreta)
+
+Backup cifrado de **preferencias** (no del contenido de la libreta), separado en dos capas:
+
+| Capa | Alcance | Storage / Firestore |
+|------|---------|---------------------|
+| **Perfil de app** | Tema, IA, atajos, iconos custom, layout, telemetría, integraciones… | `users/{uid}/app-profile/` + `users/{uid}/appProfile/meta` |
+| **Perfil por libreta** | Copias programadas, onboarding home, contraseñas de backup (en ciphertext) | `users/{uid}/vault-profiles/{vaultId}/` + `users/{uid}/vaultProfiles/{vaultId}` |
+
+- Cliente: `lib/services/folio_cloud/folio_cloud_settings_sync.dart` (`FolioCloudSettingsSyncController`), formato `lib/data/folio_settings_profile_format.dart`, builder/applier en `lib/services/settings/`.
+- Pack AES-GCM (mismo patrón que cloud-pack); clave de perfil de app independiente del vault; iconos custom como blobs en `app-profile/icons/{iconId}`.
+- Excluye estado local al dispositivo (`syncDeviceId`, `syncLastSuccessMs`, `syncPendingConflicts`, `lockScreenAutoQuickUnlockDone`).
+- Toggle `AppSettings.cloudAppProfileSyncEnabled`; al detectar perfil remoto tras login: diálogo restaurar / empezar de nuevo **solo si el fingerprint/`updatedAt` remoto no coinciden con el último perfil ya reconocido en este dispositivo** (persistido en prefs); si el local ya coincide con la nube, no se pregunta. Ajustes → Folio Cloud (subir/restaurar) y Ajustes → Libreta (restaurar prefs de la libreta).
+- Callables: `folioGetAppProfileMeta`, `folioGetAppProfileRestoreWrap`, `folioFinalizeAppProfile`, `folioGetVaultProfileMeta`, `folioFinalizeVaultProfile` (cuota `folioBackup.usedBytes`, entitlement `canUseCloudBackup`).
 
 ### Copia cifrada en la nube
 
@@ -733,6 +758,7 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 | Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements` |
 | Copias / vault / almacenamiento | `folioListVaultBackups`, `folioDeleteVaultCloudPack`, `folioDeleteVaultLegacyBackup`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
 | Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack`, `folioDeleteVaultCloudPack` |
+| Sync multi-dispositivo | `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` |
 | IA | `folioCloudAiComplete`, `folioCloudAiCompleteHttp`, `folioCloudAiPricing`, `folioCloudTranscribeChunk` |
 | Operaciones | `monthlyInkRefill` (programada) |
 | Otras HTTP | `folioJiraExchangeOAuth`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
@@ -1122,6 +1148,7 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 ### UI
 
+- Menú **⋯** de cada página/carpeta en el sidebar (`_SidebarTile`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover).
 - Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
 - Entrada fija **Papelera** en el pie del sidebar (`showPageTrashSheet` en `page_trash_sheet.dart`): restaurar, eliminar definitivamente, vaciar, con aviso de retención 30 días.
 - Badge de conteo cuando hay elementos en papelera.
@@ -1242,6 +1269,9 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 | `syncDeviceName` | String | Nombre del dispositivo en la red |
 | `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
+| `cloudDeviceSyncEnabled` | bool | Sync multi-dispositivo vía Folio Cloud |
+| `cloudAppProfileSyncEnabled` | bool | Sync/backup del perfil de ajustes (app + libreta) vía Folio Cloud |
+| `cloudAppProfileAckUid` / `AckFingerprint` / `AckUpdatedAtMs` | string/int | Último perfil de cuenta ya ofrecido/aceptado (evita repetir el diálogo si no cambió) |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
 | `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
 | `quillToolCallingEnabled` | bool | Bucle de tool-calling de Quill (default `true`; se puede desactivar en Ajustes; sección 23) |

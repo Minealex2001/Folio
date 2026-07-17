@@ -64,6 +64,8 @@ import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
+import '../services/sync/vault_sync_merge.dart';
+import '../services/sync/vault_sync_pack.dart';
 import '../l10n/generated/app_localizations.dart';
 
 part 'vault_session_ai.dart';
@@ -122,6 +124,10 @@ class SyncConflictEntry {
     required this.remoteFingerprint,
     required this.remoteSnapshotBytes,
     required this.remotePageCount,
+    this.pageId,
+    this.blockId,
+    this.remoteBlockJson,
+    this.localBlockJson,
   });
 
   final String id;
@@ -130,6 +136,18 @@ class SyncConflictEntry {
   final String remoteFingerprint;
   final List<int> remoteSnapshotBytes;
   final int remotePageCount;
+
+  /// Conflicto granular de bloque (null = legado a nivel de libreta).
+  final String? pageId;
+  final String? blockId;
+  final Map<String, dynamic>? remoteBlockJson;
+  final Map<String, dynamic>? localBlockJson;
+
+  bool get isBlockConflict =>
+      pageId != null &&
+      pageId!.isNotEmpty &&
+      blockId != null &&
+      blockId!.isNotEmpty;
 }
 
 class VaultSession extends ChangeNotifier {
@@ -371,8 +389,12 @@ class VaultSession extends ChangeNotifier {
   late final PageTreeController _pageTree;
   late final VaultAiController _aiController;
   String _syncBaselineFingerprint = '';
+  VaultPayload? _syncBaselinePayload;
   int _syncPendingConflicts = 0;
   final List<SyncConflictEntry> _syncConflicts = [];
+  final Map<String, int> _pageTombstones = {};
+  int _syncClock = 0;
+  static const VaultSyncMergeEngine _syncMerge = VaultSyncMergeEngine();
   Duration _idleLockDuration = const Duration(minutes: 15);
   bool _lockOnAppBackground = false;
   bool _vaultUsesEncryption = true;
@@ -954,6 +976,10 @@ class VaultSession extends ChangeNotifier {
       ..addAll(payload.pageTemplates);
     _jira = payload.jira;
     _youtrack = payload.youtrack;
+    _pageTombstones
+      ..clear()
+      ..addAll(payload.pageTombstones);
+    _syncClock = payload.syncClock;
     _resetUndoRedoState();
   }
 
@@ -3350,6 +3376,7 @@ class VaultSession extends ChangeNotifier {
     _pageAcl.remove(id);
     _comments.removeWhere((c) => c.pageId == id);
     _pageIdsPendingRevision.remove(id);
+    _pageTombstones[id] = DateTime.now().toUtc().millisecondsSinceEpoch;
     if (wasSelected) {
       _pickInitialSelection();
       unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
@@ -4890,6 +4917,8 @@ class VaultSession extends ChangeNotifier {
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
       jira: _jira,
       youtrack: _youtrack,
+      pageTombstones: Map<String, int>.from(_pageTombstones),
+      syncClock: _syncClock,
     );
   }
 
@@ -4915,80 +4944,90 @@ class VaultSession extends ChangeNotifier {
   Future<List<int>?> exportSyncSnapshotBytes() async {
     if (_state != VaultFlowState.unlocked) return null;
     if (vaultUsesEncryption && _dek == null) return null;
-    final payload = VaultPayload(
-      version: kVaultPayloadVersion,
-      pages: _pages,
-      pageOrderByParent: _pageOrderByParent,
-      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
-        _pageRevisions.entries.map(
-          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
-        ),
-      ),
-      pageAcl: Map<String, Map<String, String>>.fromEntries(
-        _pageAcl.entries.map(
-          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
-        ),
-      ),
-      localProfiles: List<LocalProfile>.from(_localProfiles),
-      comments: List<LocalPageComment>.from(_comments),
-      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
-      aiActiveChatIndex: _aiActiveChatIndex,
-      pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
-      jira: _jira,
-      youtrack: _youtrack,
-    );
-    return payload.encodeUtf8();
+    final payload = _buildVaultPayloadForPersist();
+    if (kIsWeb) {
+      return VaultSyncPack(
+        payload: payload,
+        attachments: const [],
+      ).encodeUtf8();
+    }
+    try {
+      final pack = await buildVaultSyncPackFromDisk(payload: payload);
+      return pack.encodeUtf8();
+    } catch (_) {
+      return VaultSyncPack(
+        payload: payload,
+        attachments: const [],
+      ).encodeUtf8();
+    }
   }
 
-  Future<bool> applySyncSnapshotBytes(
+  /// Aplica un pack/snapshot remoto con merge semántico (Cloud + P2P).
+  /// Aplica un snapshot de sync. [changed] es true solo si el merge escribió estado local.
+  Future<({bool ok, bool changed})> applySyncSnapshotBytes(
     List<int> rawBytes, [
     String fromPeerId = '',
   ]) async {
-    if (_state != VaultFlowState.unlocked) return false;
-    if (vaultUsesEncryption && _dek == null) return false;
+    if (_state != VaultFlowState.unlocked) {
+      return (ok: false, changed: false);
+    }
+    if (vaultUsesEncryption && _dek == null) {
+      return (ok: false, changed: false);
+    }
     try {
-      final localSnapshot = await exportSyncSnapshotBytes();
-      if (localSnapshot == null) return false;
-      final localFingerprint = _syncFingerprintBytes(localSnapshot);
-      final remoteFingerprint = _syncFingerprintBytes(rawBytes);
-      if (localFingerprint == remoteFingerprint) {
+      final pack = VaultSyncPack.decodeFlexible(rawBytes);
+      await materializeVaultSyncPackAttachments(pack);
+
+      final localPayload = _buildVaultPayloadForPersist();
+      final remotePayload = pack.payload;
+      final localFp = VaultSyncMergeEngine.payloadFingerprint(localPayload);
+      final remoteFp = VaultSyncMergeEngine.payloadFingerprint(remotePayload);
+      if (localFp == remoteFp) {
         if (_syncBaselineFingerprint.isEmpty) {
-          _syncBaselineFingerprint = localFingerprint;
+          _syncBaselineFingerprint = localFp;
+          _syncBaselinePayload = VaultPayload.decodeUtf8(
+            localPayload.encodeUtf8(),
+          );
         }
-        // Snapshot idéntico: confirmamos sync sin tocar estado ni persistir.
-        return true;
+        return (ok: true, changed: false);
       }
 
-      if (_syncBaselineFingerprint.isEmpty) {
-        _syncBaselineFingerprint = localFingerprint;
-      }
-
-      final localChanged = localFingerprint != _syncBaselineFingerprint;
-      final remoteChanged = remoteFingerprint != _syncBaselineFingerprint;
-
-      if (localChanged && remoteChanged) {
-        _registerSyncConflict(
-          fromPeerId: fromPeerId,
-          remoteFingerprint: remoteFingerprint,
-          remoteSnapshotBytes: rawBytes,
-        );
-        // Conflicto concurrente: prioriza no sobrescribir el estado local.
-        return true;
-      }
-
-      if (localChanged && !remoteChanged) {
-        // El remoto está atrasado respecto a lo local; conservar local evita rollback.
-        return true;
-      }
-
-      final payload = VaultPayload.decodeUtf8(rawBytes);
-      await _applyResolvedSyncPayload(
-        payload,
-        remoteFingerprint: remoteFingerprint,
+      final result = _syncMerge.merge(
+        local: localPayload,
+        remote: remotePayload,
+        baseline: _syncBaselinePayload,
       );
-      return true;
-    } catch (_) {
-      return false;
+
+      for (final conflict in result.blockConflicts) {
+        _registerBlockSyncConflict(
+          fromPeerId: fromPeerId,
+          conflict: conflict,
+          remoteFingerprint: remoteFp,
+          remoteSnapshotBytes: rawBytes,
+          remotePageCount: remotePayload.pages.length,
+        );
+      }
+
+      if (!result.changed && result.blockConflicts.isEmpty) {
+        return (ok: true, changed: false);
+      }
+
+      await _applyResolvedSyncPayload(
+        result.payload,
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(
+          result.payload,
+        ),
+        setAsBaseline: true,
+      );
+      return (ok: true, changed: true);
+    } catch (e, st) {
+      AppLogger.error(
+        'applySyncSnapshotBytes failed',
+        tag: 'sync',
+        error: e,
+        stackTrace: st,
+      );
+      return (ok: false, changed: false);
     }
   }
 
@@ -4996,10 +5035,11 @@ class VaultSession extends ChangeNotifier {
     final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
     if (index == -1) return;
     _syncConflicts.removeAt(index);
-    final localSnapshot = await exportSyncSnapshotBytes();
-    if (localSnapshot != null) {
-      _syncBaselineFingerprint = _syncFingerprintBytes(localSnapshot);
-    }
+    final localSnapshot = _buildVaultPayloadForPersist();
+    _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+      localSnapshot,
+    );
+    _syncBaselinePayload = VaultPayload.decodeUtf8(localSnapshot.encodeUtf8());
     _notifySyncConflictCountChanged();
     notifyListeners();
   }
@@ -5009,10 +5049,48 @@ class VaultSession extends ChangeNotifier {
     if (index == -1) return false;
     final entry = _syncConflicts[index];
     try {
-      final payload = VaultPayload.decodeUtf8(entry.remoteSnapshotBytes);
+      if (entry.isBlockConflict &&
+          entry.remoteBlockJson != null &&
+          entry.pageId != null &&
+          entry.blockId != null) {
+        final page = _pageById(entry.pageId!);
+        if (page == null) return false;
+        final bi = page.blocks.indexWhere((b) => b.id == entry.blockId);
+        if (bi < 0) return false;
+        page.blocks[bi] = FolioBlock.fromJson(
+          Map<String, dynamic>.from(entry.remoteBlockJson!),
+        );
+        _contentEpoch++;
+        notifyListeners();
+        await _persistence.persistNowSuppressed();
+        _rebuildSearchIndex();
+        final localSnapshot = _buildVaultPayloadForPersist();
+        _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+          localSnapshot,
+        );
+        _syncBaselinePayload = VaultPayload.decodeUtf8(
+          localSnapshot.encodeUtf8(),
+        );
+        _syncConflicts.removeAt(index);
+        _notifySyncConflictCountChanged();
+        notifyListeners();
+        return true;
+      }
+
+      final pack = VaultSyncPack.decodeFlexible(entry.remoteSnapshotBytes);
+      await materializeVaultSyncPackAttachments(pack);
+      final localPayload = _buildVaultPayloadForPersist();
+      final result = _syncMerge.merge(
+        local: localPayload,
+        remote: pack.payload,
+        baseline: _syncBaselinePayload,
+      );
       await _applyResolvedSyncPayload(
-        payload,
-        remoteFingerprint: entry.remoteFingerprint,
+        result.payload,
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(
+          result.payload,
+        ),
+        setAsBaseline: true,
       );
       _syncConflicts.removeAt(index);
       _notifySyncConflictCountChanged();
@@ -5023,25 +5101,20 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  void _registerSyncConflict({
+  void _registerBlockSyncConflict({
     required String fromPeerId,
+    required VaultSyncBlockConflict conflict,
     required String remoteFingerprint,
     required List<int> remoteSnapshotBytes,
+    required int remotePageCount,
   }) {
     final existing = _syncConflicts.any(
       (entry) =>
-          entry.fromPeerId == fromPeerId &&
+          entry.pageId == conflict.pageId &&
+          entry.blockId == conflict.blockId &&
           entry.remoteFingerprint == remoteFingerprint,
     );
     if (existing) return;
-    var remotePageCount = 0;
-    try {
-      remotePageCount = VaultPayload.decodeUtf8(
-        remoteSnapshotBytes,
-      ).pages.length;
-    } catch (_) {
-      remotePageCount = 0;
-    }
     _syncConflicts.add(
       SyncConflictEntry(
         id: _uuid.v4(),
@@ -5050,6 +5123,10 @@ class VaultSession extends ChangeNotifier {
         remoteFingerprint: remoteFingerprint,
         remoteSnapshotBytes: List<int>.from(remoteSnapshotBytes),
         remotePageCount: remotePageCount,
+        pageId: conflict.pageId,
+        blockId: conflict.blockId,
+        remoteBlockJson: conflict.remoteBlock.toJson(),
+        localBlockJson: conflict.localBlock.toJson(),
       ),
     );
     _notifySyncConflictCountChanged();
@@ -5059,6 +5136,7 @@ class VaultSession extends ChangeNotifier {
   Future<void> _applyResolvedSyncPayload(
     VaultPayload payload, {
     required String remoteFingerprint,
+    bool setAsBaseline = true,
   }) async {
     final previousSelectedPageId = _selectedPageId;
     _pages = List<FolioPage>.from(payload.pages);
@@ -5077,7 +5155,10 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
     await _persistence.persistNowSuppressed();
     _rebuildSearchIndex();
-    _syncBaselineFingerprint = remoteFingerprint;
+    if (setAsBaseline) {
+      _syncBaselineFingerprint = remoteFingerprint;
+      _syncBaselinePayload = VaultPayload.decodeUtf8(payload.encodeUtf8());
+    }
   }
 
   void _notifySyncConflictCountChanged() {
@@ -5087,18 +5168,6 @@ class VaultSession extends ChangeNotifier {
     } catch (_) {
       // No bloquea flujo si falla la notificación externa.
     }
-  }
-
-  String _syncFingerprintBytes(List<int> data) {
-    // FNV-1a 32-bit for lightweight snapshot change detection (JS-safe).
-    var hash = 0x811c9dc5;
-    const prime = 0x01000193;
-    const mask = 0xffffffff;
-    for (final b in data) {
-      hash ^= b;
-      hash = (hash * prime) & mask;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   bool _dekMatchesQuickStorage(Uint8List dek) {
@@ -5298,6 +5367,8 @@ class VaultSession extends ChangeNotifier {
       comments: List<LocalPageComment>.from(_comments),
       aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
       aiActiveChatIndex: _aiActiveChatIndex,
+      pageTombstones: Map<String, int>.from(_pageTombstones),
+      syncClock: _syncClock,
     );
 
     final dekBytes = await _repo.encryptPlainVaultWithPassword(

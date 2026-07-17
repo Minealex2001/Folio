@@ -45,6 +45,24 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
+
+      // Señal de sync multi-dispositivo (lectura cliente; escritura solo Functions).
+      match /vaultSync/{vaultId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Perfil de ajustes de la app (cuenta).
+      match /appProfile/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Preferencias por libreta.
+      match /vaultProfiles/{vaultId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // Familias: lectura permitida para el dueño o miembros del grupo

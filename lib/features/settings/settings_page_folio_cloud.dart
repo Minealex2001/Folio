@@ -119,6 +119,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.onRefreshBilling,
     required this.onOpenBackups,
     required this.onPublishedPages,
+    required this.cloudDeviceSyncEnabled,
+    required this.onCloudDeviceSyncChanged,
+    required this.cloudAppProfileSyncEnabled,
+    required this.onCloudAppProfileSyncChanged,
+    this.onUploadAppProfile,
+    this.onRestoreAppProfile,
   });
 
   final ColorScheme scheme;
@@ -143,6 +149,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onRefreshBilling;
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
+  final bool cloudDeviceSyncEnabled;
+  final ValueChanged<bool> onCloudDeviceSyncChanged;
+  final bool cloudAppProfileSyncEnabled;
+  final ValueChanged<bool> onCloudAppProfileSyncChanged;
+  final VoidCallback? onUploadAppProfile;
+  final VoidCallback? onRestoreAppProfile;
 
   Future<void> _showInkPricingTable(BuildContext context) {
     const preferredOrder = <String>[
@@ -1056,6 +1068,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ],
           ),
         ),
+        if (snap.canUseCloudBackup)
+          SwitchListTile(
+            secondary: const Icon(Icons.sync_outlined),
+            title: Text(l10n.folioCloudDeviceSyncTitle),
+            subtitle: Text(l10n.folioCloudDeviceSyncSubtitle),
+            value: cloudDeviceSyncEnabled,
+            onChanged: busy ? null : onCloudDeviceSyncChanged,
+          ),
+        if (snap.canUseCloudBackup) ...[
+          _SettingsSubsectionTitle(
+            title: l10n.folioCloudSubsectionAccountProfile,
+            scheme: scheme,
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            secondary: const Icon(Icons.tune_outlined),
+            title: Text(l10n.folioCloudAppProfileSyncTitle),
+            subtitle: Text(l10n.folioCloudAppProfileSyncSubtitle),
+            value: cloudAppProfileSyncEnabled,
+            onChanged: busy ? null : onCloudAppProfileSyncChanged,
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_upload_outlined),
+            title: Text(l10n.folioCloudAppProfileUploadNow),
+            enabled: !busy && cloudAppProfileSyncEnabled,
+            onTap: busy || !cloudAppProfileSyncEnabled
+                ? null
+                : onUploadAppProfile,
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download_outlined),
+            title: Text(l10n.folioCloudAppProfileRestore),
+            enabled: !busy && cloudAppProfileSyncEnabled,
+            onTap: busy || !cloudAppProfileSyncEnabled
+                ? null
+                : onRestoreAppProfile,
+          ),
+        ],
         if (snap.canUseCloudBackup)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),

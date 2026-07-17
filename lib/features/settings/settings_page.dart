@@ -54,6 +54,7 @@ import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
@@ -134,6 +135,7 @@ class SettingsPage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    this.cloudSettingsSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     this.initialSection,
@@ -142,6 +144,7 @@ class SettingsPage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final String? initialSection;
@@ -1557,6 +1560,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       listenable: Listenable.merge([
                                         _cloud,
                                         _folio,
+                                        _app,
                                       ]),
                                       builder: (context, _) {
                                         if (!_folio.isAvailable) {
@@ -1617,6 +1621,32 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _openFolioCloudBackupsDialog,
                                           onPublishedPages:
                                               _openPublishedPagesDialog,
+                                          cloudDeviceSyncEnabled:
+                                              _app.cloudDeviceSyncEnabled,
+                                          onCloudDeviceSyncChanged: (v) {
+                                            unawaited(
+                                              _app.setCloudDeviceSyncEnabled(v),
+                                            );
+                                          },
+                                          cloudAppProfileSyncEnabled:
+                                              _app.cloudAppProfileSyncEnabled,
+                                          onCloudAppProfileSyncChanged: (v) {
+                                            unawaited(
+                                              _app.setCloudAppProfileSyncEnabled(
+                                                v,
+                                              ),
+                                            );
+                                          },
+                                          onUploadAppProfile: () {
+                                            unawaited(
+                                              _uploadAppProfileFromSettings(),
+                                            );
+                                          },
+                                          onRestoreAppProfile: () {
+                                            unawaited(
+                                              _restoreAppProfileFromSettings(),
+                                            );
+                                          },
                                           onSubscribeFamily: () =>
                                               _openFolioCheckout(
                                                 FolioCheckoutKind
@@ -2356,6 +2386,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ? _runBackupNowToScheduledFolder
                                             : null,
                                       ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.settings_backup_restore_outlined,
+                                      ),
+                                      title: Text(
+                                        l10n.folioCloudVaultProfileRestore,
+                                      ),
+                                      enabled:
+                                          widget.cloudSettingsSyncController !=
+                                              null &&
+                                          _app.cloudAppProfileSyncEnabled &&
+                                          _folio.snapshot.canUseCloudBackup,
+                                      onTap: () {
+                                        unawaited(
+                                          _restoreVaultProfileFromSettings(),
+                                        );
+                                      },
+                                    ),
                                     const Divider(height: 1),
                                     _SettingsSubsectionTitle(
                                       title: l10n.settingsSubsectionDrive,

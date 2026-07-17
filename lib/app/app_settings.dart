@@ -340,6 +340,45 @@ class VaultBackupPrefs {
       retentionCount: retentionCount ?? this.retentionCount,
     );
   }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'enabled': enabled,
+        'folderEnabled': folderEnabled,
+        'intervalMinutes': intervalMinutes,
+        'directory': directory,
+        'lastMs': lastMs,
+        'alsoCloud': alsoCloud,
+        'folderRequiresAuth': folderRequiresAuth,
+        'folderUsername': folderUsername,
+        'folderDomain': folderDomain,
+        'webdavEnabled': webdavEnabled,
+        'webdavBaseUrl': webdavBaseUrl,
+        'webdavRemotePath': webdavRemotePath,
+        'webdavUsername': webdavUsername,
+        'retentionCount': retentionCount,
+      };
+
+  factory VaultBackupPrefs.fromJson(Map? raw) {
+    if (raw == null) return VaultBackupPrefs.defaults;
+    return VaultBackupPrefs(
+      enabled: raw['enabled'] == true,
+      folderEnabled: raw['folderEnabled'] == true,
+      intervalMinutes: (raw['intervalMinutes'] as num?)?.toInt() ??
+          AppSettings.defaultScheduledVaultBackupIntervalMinutes,
+      directory: (raw['directory'] as String? ?? '').trim(),
+      lastMs: (raw['lastMs'] as num?)?.toInt() ?? 0,
+      alsoCloud: raw['alsoCloud'] == true,
+      folderRequiresAuth: raw['folderRequiresAuth'] == true,
+      folderUsername: (raw['folderUsername'] as String? ?? '').trim(),
+      folderDomain: (raw['folderDomain'] as String? ?? '').trim(),
+      webdavEnabled: raw['webdavEnabled'] == true,
+      webdavBaseUrl: (raw['webdavBaseUrl'] as String? ?? '').trim(),
+      webdavRemotePath:
+          (raw['webdavRemotePath'] as String? ?? '/folio-backups').trim(),
+      webdavUsername: (raw['webdavUsername'] as String? ?? '').trim(),
+      retentionCount: (raw['retentionCount'] as num?)?.toInt() ?? 10,
+    );
+  }
 }
 
 /// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar la libreta.
@@ -472,6 +511,15 @@ class AppSettings extends ChangeNotifier {
   static const _syncDeviceNameKey = 'folio_device_sync_device_name';
   static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
   static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
+  static const _cloudDeviceSyncEnabledKey = 'folio_cloud_device_sync_enabled';
+  static const _cloudAppProfileSyncEnabledKey =
+      'folio_cloud_app_profile_sync_enabled';
+  static const _cloudAppProfileAckUidKey =
+      'folio_cloud_app_profile_ack_uid';
+  static const _cloudAppProfileAckFpKey =
+      'folio_cloud_app_profile_ack_fp';
+  static const _cloudAppProfileAckUpdatedAtMsKey =
+      'folio_cloud_app_profile_ack_updated_at_ms';
   static const _recentSearchQueriesKey = 'folio_recent_search_queries_v1';
   static const _scheduledVaultBackupEnabledKey =
       'folio_scheduled_vault_backup_enabled';
@@ -708,6 +756,11 @@ class AppSettings extends ChangeNotifier {
   String _syncDeviceName = '';
   int _syncPendingConflicts = 0;
   int _syncLastSuccessMs = 0;
+  bool _cloudDeviceSyncEnabled = true;
+  bool _cloudAppProfileSyncEnabled = true;
+  String _cloudAppProfileAckUid = '';
+  String _cloudAppProfileAckFingerprint = '';
+  int _cloudAppProfileAckUpdatedAtMs = 0;
   List<String> _recentSearchQueries = const [];
   bool _scheduledVaultBackupEnabled = false;
   int _scheduledVaultBackupIntervalMinutes =
@@ -855,6 +908,13 @@ class AppSettings extends ChangeNotifier {
       _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
   int get syncPendingConflicts => _syncPendingConflicts;
   int get syncLastSuccessMs => _syncLastSuccessMs;
+  bool get cloudDeviceSyncEnabled => _cloudDeviceSyncEnabled;
+  bool get cloudAppProfileSyncEnabled => _cloudAppProfileSyncEnabled;
+
+  /// Último perfil de ajustes de la cuenta ya ofrecido/aceptado en este dispositivo.
+  String get cloudAppProfileAckUid => _cloudAppProfileAckUid;
+  String get cloudAppProfileAckFingerprint => _cloudAppProfileAckFingerprint;
+  int get cloudAppProfileAckUpdatedAtMs => _cloudAppProfileAckUpdatedAtMs;
   List<String> get recentSearchQueries =>
       List.unmodifiable(_recentSearchQueries);
   bool get scheduledVaultBackupEnabled => _scheduledVaultBackupEnabled;
@@ -908,6 +968,10 @@ class AppSettings extends ChangeNotifier {
   }
 
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
+  Map<String, List<CustomIconEntry>> get integrationCustomIconsByApp =>
+      Map<String, List<CustomIconEntry>>.unmodifiable(
+        _integrationCustomIconsByApp,
+      );
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
     if (key.isEmpty) return const <CustomIconEntry>[];
@@ -916,6 +980,44 @@ class AppSettings extends ChangeNotifier {
 
   List<IntegrationAppApproval> get approvedIntegrationAppApprovals =>
       _approvedIntegrationApps.values.toList(growable: false);
+
+  /// Expuesto para backup de perfil de cuenta (sin device-local).
+  bool get betaBannerDismissed => _betaBannerDismissed;
+
+  String exportInAppShortcutsJson() =>
+      serializeShortcutOverrides(_inAppShortcuts);
+
+  Future<void> applyInAppShortcutsJson(String json) async {
+    _inAppShortcuts = parseShortcutOverrides(json, defaultShortcutMap());
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_inAppShortcutsKey, serializeShortcutOverrides(_inAppShortcuts));
+  }
+
+  Future<void> replaceRecentSearchQueries(List<String> queries) async {
+    _recentSearchQueries = _sanitizeRecentSearchList(queries);
+    notifyListeners();
+    final p = await _prefs();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  /// Notifica a Folio Cloud settings sync que el perfil de app cambió.
+  VoidCallback? onAppProfileChanged;
+  void Function(String vaultId)? onVaultProfileChanged;
+
+  void notifyAppProfileChanged() {
+    try {
+      onAppProfileChanged?.call();
+    } catch (_) {}
+  }
+
+  void notifyVaultProfileChanged(String vaultId) {
+    final vid = vaultId.trim();
+    if (vid.isEmpty) return;
+    try {
+      onVaultProfileChanged?.call(vid);
+    } catch (_) {}
+  }
   Map<String, String> get approvedIntegrationApps {
     final mapped = <String, String>{};
     for (final entry in _approvedIntegrationApps.entries) {
@@ -1168,6 +1270,15 @@ class AppSettings extends ChangeNotifier {
       999,
     );
     _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
+    _cloudDeviceSyncEnabled = p.getBool(_cloudDeviceSyncEnabledKey) ?? true;
+    _cloudAppProfileSyncEnabled =
+        p.getBool(_cloudAppProfileSyncEnabledKey) ?? true;
+    _cloudAppProfileAckUid =
+        (p.getString(_cloudAppProfileAckUidKey) ?? '').trim();
+    _cloudAppProfileAckFingerprint =
+        (p.getString(_cloudAppProfileAckFpKey) ?? '').trim();
+    _cloudAppProfileAckUpdatedAtMs =
+        p.getInt(_cloudAppProfileAckUpdatedAtMsKey) ?? 0;
     _recentSearchQueries = _sanitizeRecentSearchList(
       p.getStringList(_recentSearchQueriesKey),
     );
@@ -2309,6 +2420,46 @@ class AppSettings extends ChangeNotifier {
     await p.setBool(_syncEnabledKey, value);
   }
 
+  Future<void> setCloudDeviceSyncEnabled(bool value) async {
+    if (_cloudDeviceSyncEnabled == value) return;
+    _cloudDeviceSyncEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_cloudDeviceSyncEnabledKey, value);
+  }
+
+  Future<void> setCloudAppProfileSyncEnabled(bool value) async {
+    if (_cloudAppProfileSyncEnabled == value) return;
+    _cloudAppProfileSyncEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_cloudAppProfileSyncEnabledKey, value);
+  }
+
+  /// Marca el perfil remoto como ya visto (no volver a preguntar si no cambia).
+  Future<void> setCloudAppProfileAcknowledged({
+    required String uid,
+    required String fingerprint,
+    int updatedAtMs = 0,
+  }) async {
+    final safeUid = uid.trim();
+    final safeFp = fingerprint.trim();
+    final safeMs = updatedAtMs < 0 ? 0 : updatedAtMs;
+    if (safeUid.isEmpty || safeFp.isEmpty) return;
+    if (_cloudAppProfileAckUid == safeUid &&
+        _cloudAppProfileAckFingerprint == safeFp &&
+        _cloudAppProfileAckUpdatedAtMs == safeMs) {
+      return;
+    }
+    _cloudAppProfileAckUid = safeUid;
+    _cloudAppProfileAckFingerprint = safeFp;
+    _cloudAppProfileAckUpdatedAtMs = safeMs;
+    final p = await _prefs();
+    await p.setString(_cloudAppProfileAckUidKey, safeUid);
+    await p.setString(_cloudAppProfileAckFpKey, safeFp);
+    await p.setInt(_cloudAppProfileAckUpdatedAtMsKey, safeMs);
+  }
+
   Future<void> setSyncRelayEnabled(bool value) async {
     if (_syncRelayEnabled == value) return;
     _syncRelayEnabled = value;
@@ -2997,6 +3148,7 @@ class AppSettings extends ChangeNotifier {
     final p = await _prefs();
     await _writeVaultBackupPrefs(p, vid, prefs);
     notifyListeners();
+    notifyVaultProfileChanged(vid);
   }
 
   Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {

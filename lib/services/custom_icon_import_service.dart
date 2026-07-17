@@ -261,6 +261,34 @@ class CustomIconImportService {
     return File(p.join(dir.path, '$id$extension'));
   }
 
+  /// Restaura un icono con [id] conocido (perfil Folio Cloud).
+  Future<String> writeIconBytesWithId({
+    required String id,
+    required List<int> bytes,
+    required String mimeType,
+  }) async {
+    final normalizedMime = mimeType.toLowerCase().trim();
+    final extension = _extensionForMimeType(normalizedMime);
+    if (extension == null) {
+      throw const CustomIconImportException('Unsupported icon mime');
+    }
+    if (bytes.isEmpty || bytes.length > maxBytes) {
+      throw const CustomIconImportException('Icon size invalid');
+    }
+    final safeId = id.trim();
+    if (safeId.isEmpty) {
+      throw const CustomIconImportException('Icon id empty');
+    }
+    final file = await _createTargetFile(safeId, extension);
+    if (normalizedMime == 'image/svg+xml') {
+      final svg = utf8.decode(bytes, allowMalformed: true).trim();
+      await file.writeAsString(svg, flush: true);
+    } else {
+      await file.writeAsBytes(bytes, flush: true);
+    }
+    return file.path;
+  }
+
   String _sanitizeLabel(String? label, {required String fallback}) {
     final trimmed = label?.trim() ?? '';
     if (trimmed.isNotEmpty) return trimmed;

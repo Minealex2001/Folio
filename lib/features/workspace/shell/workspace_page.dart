@@ -44,6 +44,7 @@ import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
@@ -94,6 +95,7 @@ class WorkspacePage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    this.cloudSettingsSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -103,6 +105,7 @@ class WorkspacePage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -1600,6 +1603,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           deviceSyncController: widget.deviceSyncController,
+          cloudSettingsSyncController: widget.cloudSettingsSyncController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
           initialSection: initialSection,
