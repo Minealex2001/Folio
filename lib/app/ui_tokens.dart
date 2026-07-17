@@ -227,8 +227,9 @@ class FolioSidebar {
   /// overflow.
   static const double collapseThreshold = 32;
 
-  /// Ancho mínimo de una fila de página para mostrar sus acciones hover
-  /// inline (renombrar, mover, borrar, ...) sin que se produzca overflow.
+  /// Ancho mínimo de una fila de página para mostrar sus acciones inline
+  /// (menú ⋯: renombrar, mover, borrar, …) sin overflow. En móvil/web el menú
+  /// se muestra siempre; en escritorio nativo, al hover.
   static const double tileActionsMinWidth = 200;
 }
 

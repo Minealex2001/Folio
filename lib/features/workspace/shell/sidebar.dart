@@ -1562,7 +1562,14 @@ class _SidebarTileState extends State<_SidebarTile> {
     final hasChildren = widget.hasChildren;
     final collapsed = widget.collapsed;
     final isFolder = page.isFolder;
-    final showRowActions = _hovered;
+    // En táctil/web no hay hover fiable: las acciones (⋯) deben quedar visibles.
+    // En escritorio nativo se revelan al pasar el ratón.
+    final isDesktopPointer =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    final showRowActions = _hovered || !isDesktopPointer;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(widget.indent, 0, 0, FolioSpace.xs),
