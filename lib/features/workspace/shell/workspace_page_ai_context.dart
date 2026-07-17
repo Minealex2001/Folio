@@ -63,8 +63,10 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         ),
       ),
     ];
-    if (needle.isEmpty) return suggestions.take(8).toList();
-    final ranked = FolioVaultLightSearch(_s.activePages).rankPageIds(needle, maxResults: 6);
+    if (needle.isEmpty) return suggestions.take(12).toList();
+    final ranked = FolioVaultLightSearch(
+      _s.activePages,
+    ).rankPageIds(needle, maxResults: 10);
     final rankedSet = ranked.toSet();
     final merged = <_AiContextItem>[];
     for (final id in ranked) {
@@ -79,13 +81,36 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       );
     }
     for (final item in suggestions) {
-      if (merged.length >= 8) break;
+      if (merged.length >= 12) break;
       if (item.kind == _AiContextItemKind.page && rankedSet.contains(item.id)) {
         continue;
       }
       if (item.label.toLowerCase().contains(needle)) merged.add(item);
     }
-    return merged.take(8).toList();
+    return merged.take(12).toList();
+  }
+
+  String? _subtitleForAiContextItem(
+    _AiContextItem item,
+    AppLocalizations l10n,
+  ) {
+    switch (item.kind) {
+      case _AiContextItemKind.addFile:
+        return l10n.aiAttachFileSubtitle;
+      case _AiContextItemKind.page:
+        if (item.id == '__open_pages__') return l10n.aiAttachPageSubtitle;
+        return null;
+      case _AiContextItemKind.editorSelection:
+        return l10n.aiAttachSelectionSubtitle;
+      case _AiContextItemKind.meetingNote:
+        return l10n.aiAttachMeetingSubtitle;
+      case _AiContextItemKind.lastMeetingOnPage:
+        return l10n.aiAttachLastMeetingSubtitle;
+      case _AiContextItemKind.currentPage:
+        return l10n.aiAttachCurrentPageSubtitle;
+      case _AiContextItemKind.file:
+        return null;
+    }
   }
 
   bool _chatInputHasContextTrigger() {
@@ -108,24 +133,156 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
     _aiContextMenuOverlay = null;
     _aiContextMenuPinned = false;
     _aiContextMenuView = _AiContextMenuView.root;
+    _aiContextQuery = '';
+    if (_aiContextMenuSearchController.text.isNotEmpty) {
+      _aiContextMenuSearchController.clear();
+    }
   }
 
   void _showAiContextMenu({String initialQuery = '', bool pinned = false}) {
     _aiContextQuery = initialQuery;
     _aiContextMenuPinned = pinned;
-    _aiContextMenuSelectedIndex = 0;
-    _aiContextMenuUsingKeyboard = false;
     final l10n = AppLocalizations.of(context);
+    if (_aiContextMenuView == _AiContextMenuView.pages &&
+        _aiContextMenuSearchController.text != _aiContextQuery) {
+      _aiContextMenuSearchController.value = TextEditingValue(
+        text: _aiContextQuery,
+        selection: TextSelection.collapsed(offset: _aiContextQuery.length),
+      );
+    }
     final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
-    if (suggestions.isEmpty) {
+    if (suggestions.isEmpty &&
+        _aiContextMenuView != _AiContextMenuView.pages) {
       _hideAiContextMenu();
       return;
     }
-    _aiContextMenuOverlay?.remove();
+    // Si el overlay ya está abierto, solo refrescar (p. ej. teclado / búsqueda).
+    if (_aiContextMenuOverlay != null) {
+      _aiContextMenuOverlay!.markNeedsBuild();
+      return;
+    }
+    _aiContextMenuSelectedIndex = 0;
+    _aiContextMenuUsingKeyboard = false;
     _aiContextMenuOverlay = OverlayEntry(
       builder: (context) {
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
+        final isPages = _aiContextMenuView == _AiContextMenuView.pages;
+        final items = _buildAiContextSuggestions(l10n, _aiContextQuery);
+
+        Widget actionTile(_AiContextItem item, int index) {
+          final alreadySelected =
+              item.kind == _AiContextItemKind.page &&
+              item.id != '__open_pages__' &&
+              _activeChat.contextPageIds.contains(item.id);
+          final isCurrentSelected =
+              item.kind == _AiContextItemKind.currentPage &&
+              _activeChat.includePageContext &&
+              _activeChat.contextPageIds.isEmpty;
+          final selected = alreadySelected || isCurrentSelected;
+          final isKeyboardSelected =
+              _aiContextMenuUsingKeyboard &&
+              index == _aiContextMenuSelectedIndex;
+          final subtitle = _subtitleForAiContextItem(item, l10n);
+          final icon = selected
+              ? Icons.check_circle_rounded
+              : _iconForAiContextItem(item.kind);
+
+          return Material(
+            color: isKeyboardSelected
+                ? scheme.primaryContainer.withValues(alpha: 0.35)
+                : Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                _aiContextMenuUsingKeyboard = false;
+                unawaited(_applyAiContextSuggestion(item));
+              },
+              child: MouseRegion(
+                onEnter: (_) {
+                  if (!_aiContextMenuUsingKeyboard) return;
+                  _aiContextMenuSelectedIndex = index;
+                  _aiContextMenuUsingKeyboard = false;
+                  _aiContextMenuOverlay?.markNeedsBuild();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? scheme.primary.withValues(alpha: 0.14)
+                              : scheme.surfaceContainerHighest.withValues(
+                                  alpha: 0.9,
+                                ),
+                          borderRadius: BorderRadius.circular(FolioRadius.sm),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 18,
+                          color: selected
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (item.id == '__open_pages__')
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: scheme.onSurfaceVariant,
+                        )
+                      else if (selected)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            l10n.aiAttachPageAlreadyAdded,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         return Positioned.fill(
           child: Stack(
             children: [
@@ -142,69 +299,155 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
                 followerAnchor: Alignment.bottomLeft,
                 offset: const Offset(0, -8),
                 child: Material(
-                  elevation: 8,
+                  elevation: 10,
+                  shadowColor: scheme.shadow.withValues(alpha: 0.18),
                   color: scheme.surface,
                   borderRadius: BorderRadius.circular(FolioRadius.lg),
                   clipBehavior: Clip.antiAlias,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 320,
-                      maxHeight: 280,
+                    constraints: BoxConstraints(
+                      minWidth: 280,
+                      maxWidth: math.min(
+                        360,
+                        MediaQuery.sizeOf(context).width - 24,
+                      ),
+                      maxHeight: math.min(
+                        420,
+                        MediaQuery.sizeOf(context).height * 0.55,
+                      ),
                     ),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      shrinkWrap: true,
-                      itemCount: suggestions.length,
-                      itemBuilder: (context, index) {
-                        final item = suggestions[index];
-                        final alreadySelected =
-                            item.kind == _AiContextItemKind.page &&
-                            item.id != '__open_pages__' &&
-                            _activeChat.contextPageIds.contains(item.id);
-                        final isKeyboardSelected =
-                            _aiContextMenuUsingKeyboard &&
-                            index == _aiContextMenuSelectedIndex;
-                        final bgColor = isKeyboardSelected
-                            ? scheme.primaryContainer.withValues(alpha: 0.3)
-                            : Colors.transparent;
-                        return MouseRegion(
-                          onEnter: (_) {
-                            if (_aiContextMenuUsingKeyboard) {
-                              _setStateSafe(() {
-                                _aiContextMenuSelectedIndex = index;
-                                _aiContextMenuUsingKeyboard = false;
-                              });
-                            }
-                          },
-                          child: Container(
-                            color: bgColor,
-                            child: ListTile(
-                              dense: true,
-                              leading: Icon(
-                                alreadySelected
-                                    ? Icons.check_rounded
-                                    : _iconForAiContextItem(item.kind),
-                                size: 18,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (isPages)
+                                IconButton(
+                                  tooltip: l10n.aiAttachMenuBack,
+                                  onPressed: () {
+                                    _aiContextMenuView =
+                                        _AiContextMenuView.root;
+                                    _aiContextQuery = '';
+                                    _aiContextMenuSearchController.clear();
+                                    _aiContextMenuOverlay?.markNeedsBuild();
+                                  },
+                                  icon: const Icon(
+                                    Icons.arrow_back_rounded,
+                                    size: 20,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isPages
+                                          ? l10n.aiAttachMenuSectionPages
+                                          : l10n.aiAttachMenuTitle,
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isPages
+                                          ? l10n.aiAttachPageSubtitle
+                                          : l10n.aiAttachMenuSubtitle,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              title: Text(
-                                item.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              IconButton(
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).closeButtonTooltip,
+                                onPressed: _hideAiContextMenu,
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                                visualDensity: VisualDensity.compact,
                               ),
-                              trailing: item.id == '__open_pages__'
-                                  ? const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                    )
-                                  : null,
-                              onTap: () {
-                                _aiContextMenuUsingKeyboard = false;
-                                _applyAiContextSuggestion(item);
+                            ],
+                          ),
+                        ),
+                        if (isPages)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                            child: TextField(
+                              autofocus: pinned,
+                              controller: _aiContextMenuSearchController,
+                              onChanged: (value) {
+                                _aiContextQuery = value;
+                                _aiContextMenuOverlay?.markNeedsBuild();
                               },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: l10n.aiAttachMenuSearchPagesHint,
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                ),
+                                prefixIconConstraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                                filled: true,
+                                fillColor: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.55),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    FolioRadius.md,
+                                  ),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                            child: Text(
+                              l10n.aiAttachMenuSectionActions,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
                             ),
                           ),
-                        );
-                      },
+                        Flexible(
+                          child: items.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Text(
+                                    l10n.aiContextComposerHint,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  shrinkWrap: true,
+                                  itemCount: items.length,
+                                  itemBuilder: (context, index) =>
+                                      actionTile(items[index], index),
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -249,7 +492,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       case _AiContextItemKind.file:
         return Icons.attach_file_rounded;
       case _AiContextItemKind.addFile:
-        return Icons.add_circle_outline_rounded;
+        return Icons.upload_file_rounded;
       case _AiContextItemKind.meetingNote:
         return Icons.mic_rounded;
       case _AiContextItemKind.editorSelection:
@@ -290,6 +533,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       case _AiContextItemKind.page:
         if (item.id == '__open_pages__') {
           _aiContextMenuView = _AiContextMenuView.pages;
+          _aiContextQuery = '';
           _showAiContextMenu(pinned: true);
           return;
         }
@@ -302,11 +546,11 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         break;
       case _AiContextItemKind.addFile:
         await _pickAiAttachments();
-        _showAiContextMenu(pinned: true);
+        _hideAiContextMenu();
         break;
       case _AiContextItemKind.meetingNote:
         await _pickMeetingNoteAttachment();
-        _showAiContextMenu(pinned: true);
+        _hideAiContextMenu();
         break;
       case _AiContextItemKind.editorSelection:
         _aiAttachNextEditorSelection = true;
@@ -343,6 +587,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
   void _openCloudContextPickerFromButton() {
     _chatInputFocusNode.requestFocus();
     _aiContextMenuView = _AiContextMenuView.root;
+    _aiContextQuery = '';
     _showAiContextMenu(pinned: true);
   }
 
@@ -383,4 +628,3 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
     }
   }
 }
-

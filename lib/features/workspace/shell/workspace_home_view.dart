@@ -1938,7 +1938,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
                       alignment: Alignment.centerLeft,
                       child: ActionChip(
                         avatar: Icon(
-                          Icons.auto_awesome_rounded,
+                          FolioIcons.quill,
                           size: 18,
                           color: scheme.primary,
                         ),

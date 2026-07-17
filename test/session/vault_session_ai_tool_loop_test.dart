@@ -148,17 +148,15 @@ void main() {
   );
 
   test(
-    'agentChatWithAi(useToolCalling: true) limita el bucle a 3 pasos cuando el proveedor es Folio Cloud (cobra tinta por llamada)',
+    'agentChatWithAi(useToolCalling: true) permite hasta 8 pasos de tool loop (paridad MCP)',
     () async {
       AiCompletionResult loopingCall(int i) => AiCompletionResult(
         text: '',
         toolCalls: [AiToolCall(id: 'c$i', name: 'noop', arguments: {'i': i})],
       );
       final ai = _ScriptedAiService([
-        loopingCall(1),
-        loopingCall(2),
-        loopingCall(3),
-        const AiCompletionResult(text: 'Cierre forzado por límite de tinta.'),
+        for (var i = 1; i <= 8; i++) loopingCall(i),
+        const AiCompletionResult(text: 'Cierre forzado por maxSteps.'),
       ], providerName: 'folio_cloud');
       final session = _readySession(ai);
 
@@ -168,9 +166,9 @@ void main() {
         useToolCalling: true,
       );
 
-      // maxSteps=3 para folio_cloud: 3 llamadas con tool call + 1 de cierre = 4.
-      expect(ai.callCount, 4);
-      expect(outcome.reply, 'Cierre forzado por límite de tinta.');
+      // maxSteps=8: 8 llamadas con tool call + 1 de cierre = 9.
+      expect(ai.callCount, 9);
+      expect(outcome.reply, 'Cierre forzado por maxSteps.');
     },
   );
 }

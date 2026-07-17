@@ -152,6 +152,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   OverlayEntry? _aiContextMenuOverlay;
   String _aiContextQuery = '';
   bool _aiContextMenuPinned = false;
+  final TextEditingController _aiContextMenuSearchController =
+      TextEditingController();
   _AiContextMenuView _aiContextMenuView = _AiContextMenuView.root;
   List<String> _aiAttachmentPaths = [];
   final Map<String, _MeetingNoteAiPayload> _aiMeetingPayloads = {};
@@ -250,11 +252,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
       setState(() => _aiPanelCollapsed = collapsed);
     }
     unawaited(widget.appSettings.setAiChatPanelCollapsed(collapsed));
-  }
-
-  String _t(String es, String en) {
-    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
-    return lang.startsWith('es') ? es : en;
   }
 
   int _inkCostForOperationKind(String kind) {
@@ -587,8 +584,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
             children: [
               if (!isUser)
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   margin: const EdgeInsets.only(right: 12, top: 4),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -600,7 +597,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    FolioIcons.quill,
                     size: 16,
                     color: scheme.onSecondaryContainer,
                   ),
@@ -1051,6 +1048,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputFocusNode.dispose();
     _aiThreadSearchController.dispose();
     _aiChatScrollController.dispose();
+    _aiContextMenuSearchController.dispose();
     super.dispose();
   }
 
@@ -1495,7 +1493,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     borderRadius: BorderRadius.circular(FolioRadius.lg),
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    FolioIcons.quill,
                     color: scheme.onPrimaryContainer,
                   ),
                 ),
@@ -2145,8 +2143,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   ? l10n.hideComments
                   : l10n.showComments,
               icon: widget.appSettings.workspaceCommentsVisible
-                  ? Icons.chat_bubble_rounded
-                  : Icons.chat_bubble_outline_rounded,
+                  ? FolioIcons.quill
+                  : FolioIcons.quillOutlined,
               onPressed: () async {
                 await widget.appSettings.setWorkspaceCommentsVisible(
                   !widget.appSettings.workspaceCommentsVisible,
@@ -2695,13 +2693,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ],
       );
     } else if (useSplitAi) {
+      final splitMode = QuillChatLayout.resolve(
+        viewportWidth: width,
+        splitView: true,
+      );
+      final splitWidth = _aiPanelWidth.clamp(
+        QuillChatLayout.minWidth(splitMode),
+        QuillChatLayout.maxWidth(width, splitMode),
+      );
       shellEditorBody = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(flex: 3, child: editorContent),
           const VerticalDivider(width: 1),
           SizedBox(
-            width: _aiPanelWidth.clamp(280.0, 520.0),
+            width: splitWidth,
             child: Material(
               color: scheme.surfaceContainerLow,
               child: _aiPanelCollapsed
@@ -2714,6 +2720,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } else {
       shellEditorBody = editorContent;
     }
+    final aiDockMode = QuillChatLayout.resolve(
+      viewportWidth: width,
+      splitView: false,
+    );
+    final aiDockBodyH = (height - (compact ? 60.0 : 64.0)).clamp(120.0, height);
+    final aiDockDisplayH = _aiPanelCollapsed
+        ? 56.0
+        : QuillChatLayout.clampDockHeight(
+            desired: _aiPanelHeight,
+            availableBodyHeight: aiDockBodyH,
+            mode: aiDockMode,
+          );
+
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2782,13 +2801,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     : _buildAiPanel(context))
               : null,
           aiFloatingWidth: _aiPanelCollapsed ? 56 : _aiPanelWidth,
-          aiFloatingHeight: _aiPanelCollapsed ? 56 : _aiPanelHeight,
+          aiFloatingHeight: aiDockDisplayH,
           aiFloatingShowResizeHandles: useDesktopAiDock && !_aiPanelCollapsed,
           onResizeAiPanelWidth: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
-                  final maxW = (width * 0.5).clamp(300.0, 720.0);
+                  final mode = QuillChatLayout.resolve(
+                    viewportWidth: width,
+                    splitView: false,
+                  );
+                  final maxW = QuillChatLayout.maxWidth(width, mode);
+                  final minW = QuillChatLayout.minWidth(mode);
                   setState(() {
-                    _aiPanelWidth = (_aiPanelWidth - d).clamp(280.0, maxW);
+                    _aiPanelWidth = (_aiPanelWidth - d).clamp(minW, maxW);
                   });
                   unawaited(
                     widget.appSettings.setAiChatPanelWidth(_aiPanelWidth),
@@ -2797,11 +2821,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
               : null,
           onResizeAiPanelHeight: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
+                  final mode = QuillChatLayout.resolve(
+                    viewportWidth: width,
+                    splitView: false,
+                  );
+                  // Altura del body ≈ ventana − AppBar (el dock vive bajo el toolbar).
+                  final appBarH = compact ? 60.0 : 64.0;
+                  final bodyH = (height - appBarH).clamp(120.0, height);
+                  final maxH = QuillChatLayout.maxDockHeightForBody(bodyH);
+                  final modeMax = QuillChatLayout.maxHeight(bodyH, mode);
+                  final cap = modeMax < maxH ? modeMax : maxH;
+                  final minH = QuillChatLayout.minHeight(mode) <= cap
+                      ? QuillChatLayout.minHeight(mode)
+                      : 56.0;
                   setState(() {
-                    _aiPanelHeight = (_aiPanelHeight + d).clamp(
-                      320.0,
-                      height * 0.85,
-                    );
+                    _aiPanelHeight = (_aiPanelHeight + d).clamp(minH, cap);
                   });
                   unawaited(
                     widget.appSettings.setAiChatPanelHeight(_aiPanelHeight),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/ui_tokens.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Fila de estado mostrada mientras el bucle de tool-calling de Quill
 /// (`ai_tool_loop.dart`) está ejecutando una acción concreta — p. ej. "Quill
@@ -88,61 +89,59 @@ class AiToolErrorChip extends StatelessWidget {
 }
 
 /// Traduce el nombre técnico de una tool a una etiqueta legible para
-/// [AiToolActivityIndicator]. `null`/desconocida cae a una etiqueta genérica.
+/// [AiToolActivityIndicator]. Desconocida cae a una etiqueta genérica.
 String aiToolActivityLabel({
   required String toolName,
-  required bool isEs,
+  required AppLocalizations l10n,
 }) {
-  const labelsEs = {
-    'create_page': 'Quill está creando una página…',
-    'create_folder': 'Quill está creando una carpeta…',
-    'append_blocks_to_page': 'Quill está añadiendo contenido…',
-    'replace_page_blocks': 'Quill está reescribiendo la página…',
-    'edit_page_blocks': 'Quill está editando bloques…',
-    'insert_blocks_at_position': 'Quill está insertando contenido…',
-    'insert_todos': 'Quill está añadiendo tareas…',
-    'insert_tasks': 'Quill está añadiendo tareas…',
-    'translate_page_bilingual': 'Quill está traduciendo…',
-    'rename_page': 'Quill está renombrando la página…',
-    'move_page': 'Quill está moviendo la página…',
-    'reorder_page': 'Quill está reordenando la página…',
-    'duplicate_page': 'Quill está duplicando la página…',
-    'set_page_emoji': 'Quill está cambiando el icono…',
-    'add_page_tag': 'Quill está añadiendo una etiqueta…',
-    'remove_page_tag': 'Quill está quitando una etiqueta…',
-    'trash_page': 'Quill está moviendo la página a la papelera…',
-    'restore_page': 'Quill está restaurando la página…',
-    'permanently_delete_page': 'Quill está borrando la página…',
-    'empty_trash': 'Quill está vaciando la papelera…',
-    'delete_folder_flatten_children': 'Quill está borrando la carpeta…',
-    'search_pages': 'Quill está buscando en tu libreta…',
-    'list_children': 'Quill está explorando tus páginas…',
-  };
-  const labelsEn = {
-    'create_page': 'Quill is creating a page…',
-    'create_folder': 'Quill is creating a folder…',
-    'append_blocks_to_page': 'Quill is adding content…',
-    'replace_page_blocks': 'Quill is rewriting the page…',
-    'edit_page_blocks': 'Quill is editing blocks…',
-    'insert_blocks_at_position': 'Quill is inserting content…',
-    'insert_todos': 'Quill is adding to-dos…',
-    'insert_tasks': 'Quill is adding tasks…',
-    'translate_page_bilingual': 'Quill is translating…',
-    'rename_page': 'Quill is renaming the page…',
-    'move_page': 'Quill is moving the page…',
-    'reorder_page': 'Quill is reordering the page…',
-    'duplicate_page': 'Quill is duplicating the page…',
-    'set_page_emoji': 'Quill is changing the icon…',
-    'add_page_tag': 'Quill is adding a tag…',
-    'remove_page_tag': 'Quill is removing a tag…',
-    'trash_page': 'Quill is moving the page to trash…',
-    'restore_page': 'Quill is restoring the page…',
-    'permanently_delete_page': 'Quill is deleting the page…',
-    'empty_trash': 'Quill is emptying the trash…',
-    'delete_folder_flatten_children': 'Quill is deleting the folder…',
-    'search_pages': 'Quill is searching your notebook…',
-    'list_children': 'Quill is browsing your pages…',
-  };
-  final table = isEs ? labelsEs : labelsEn;
-  return table[toolName] ?? (isEs ? 'Quill está trabajando…' : 'Quill is working…');
+  switch (toolName) {
+    case 'create_page':
+      return l10n.aiToolActivityCreatePage;
+    case 'create_folder':
+      return l10n.aiToolActivityCreateFolder;
+    case 'append_blocks_to_page':
+      return l10n.aiToolActivityAppendBlocks;
+    case 'replace_page_blocks':
+      return l10n.aiToolActivityReplaceBlocks;
+    case 'edit_page_blocks':
+      return l10n.aiToolActivityEditBlocks;
+    case 'insert_blocks_at_position':
+      return l10n.aiToolActivityInsertBlocks;
+    case 'insert_todos':
+      return l10n.aiToolActivityInsertTodos;
+    case 'insert_tasks':
+      return l10n.aiToolActivityInsertTasks;
+    case 'translate_page_bilingual':
+      return l10n.aiToolActivityTranslate;
+    case 'rename_page':
+      return l10n.aiToolActivityRenamePage;
+    case 'move_page':
+      return l10n.aiToolActivityMovePage;
+    case 'reorder_page':
+      return l10n.aiToolActivityReorderPage;
+    case 'duplicate_page':
+      return l10n.aiToolActivityDuplicatePage;
+    case 'set_page_emoji':
+      return l10n.aiToolActivitySetEmoji;
+    case 'add_page_tag':
+      return l10n.aiToolActivityAddTag;
+    case 'remove_page_tag':
+      return l10n.aiToolActivityRemoveTag;
+    case 'trash_page':
+      return l10n.aiToolActivityTrashPage;
+    case 'restore_page':
+      return l10n.aiToolActivityRestorePage;
+    case 'permanently_delete_page':
+      return l10n.aiToolActivityDeletePage;
+    case 'empty_trash':
+      return l10n.aiToolActivityEmptyTrash;
+    case 'delete_folder_flatten_children':
+      return l10n.aiToolActivityDeleteFolder;
+    case 'search_pages':
+      return l10n.aiToolActivitySearchPages;
+    case 'list_children':
+      return l10n.aiToolActivityListChildren;
+    default:
+      return l10n.aiToolActivityWorking;
+  }
 }

@@ -79,11 +79,14 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
 
   void _onAiToolEvent(AiToolLoopEvent event) {
     if (!mounted) return;
-    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final l10n = AppLocalizations.of(context);
     switch (event.kind) {
       case AiToolLoopEventKind.toolCallStart:
         _setStateSafe(() {
-          _aiToolActivityLabel = aiToolActivityLabel(toolName: event.call.name, isEs: isEs);
+          _aiToolActivityLabel = aiToolActivityLabel(
+            toolName: event.call.name,
+            l10n: l10n,
+          );
         });
       case AiToolLoopEventKind.toolCallResult:
         _setStateSafe(() => _aiToolActivityLabel = null);

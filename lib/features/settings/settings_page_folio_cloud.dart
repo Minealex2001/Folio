@@ -499,7 +499,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           label: l10n.folioCloudFeatureBackup,
                         ),
                         membershipChip(
-                          icon: Icons.auto_awesome_outlined,
+                          icon: FolioIcons.quillOutlined,
                           label: l10n.folioCloudFeatureCloudAi,
                         ),
                         membershipChip(

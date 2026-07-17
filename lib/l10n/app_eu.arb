@@ -565,7 +565,21 @@
   "aiContextAddFile": "Erantsi fitxategia",
   "aiContextAddPage": "Erantsi orrialdea",
   "aiContextEditorSelection": "Sartu editorearen hautapena (hurrengo bidalketa)",
-  "aiContextLastMeetingOnPage": "Sartu orrialdeko azken bilera (hurrengo bidalketa)",
+  "aiContextLastMeetingOnPage": "Sartu orrialdeko azken bilera (hurrengo bidalketa)"
+  ,"aiAttachMenuTitle": "Add to chat"
+  ,"aiAttachMenuSubtitle": "Context, files, or meeting notes for this question"
+  ,"aiAttachMenuBack": "Back"
+  ,"aiAttachMenuSearchPagesHint": "Search pages…"
+  ,"aiAttachMenuSectionActions": "Actions"
+  ,"aiAttachMenuSectionPages": "Pages"
+  ,"aiAttachFileSubtitle": "PDF, text, images, or other files"
+  ,"aiAttachPageSubtitle": "Pick notebook pages as context"
+  ,"aiAttachSelectionSubtitle": "Current editor selection on the next message"
+  ,"aiAttachMeetingSubtitle": "Transcript or audio from a meeting note"
+  ,"aiAttachLastMeetingSubtitle": "Last meeting on the open page on the next message"
+  ,"aiAttachCurrentPageSubtitle": "Use only the open page as context"
+  ,"aiAttachPageAlreadyAdded": "Already added"
+,
   "aiShowPanel": "Erakutsi AA panela",
   "aiHidePanel": "Ezkutatu AA panela",
   "aiPanelResizeHandle": "Aldatu AA panelaren tamaina",
@@ -2125,7 +2139,52 @@
   "settingsAiHeroQuillCloudOnly": "AA Quill Cloud-en exekutatzen da (hodeiko AA harpidetza edo erositako tinta).",
   "settingsAiHeroLocalDefault": "Konektatu Ollama edo LM Studio lokalean; laguntzaileak hemen konfiguratzen duzun eredil eta testuingurua erabiltzen ditu.",
   "settingsAiHeroQuillMobileOnly": "Gailu honetan Quill-ek Quill Cloud soilik erabil dezake. Aukeratu Quill Cloud AA gaitzeko.",
-  "settingsAiChipCloud": "Hodeian",
+  "settingsAiChipCloud": "Hodeian"
+  ,"settingsAiSectionBasic": "Basics"
+  ,"settingsAiSectionExperience": "Quill experience"
+  ,"settingsAiSectionAdvanced": "Advanced"
+  ,"settingsAiCompareExpandTitle": "Cloud or local?"
+  ,"settingsAiQuillInstructionsTitle": "Quill instructions"
+  ,"settingsAiQuillInstructionsSubtitle": "Create custom instructions for Quill to use automatically"
+  ,"settingsAiQuillInstructionsNew": "New"
+  ,"settingsAiQuillInstructionsView": "View"
+  ,"settingsAiQuillInstructionsEdit": "Edit"
+  ,"settingsAiQuillInstructionsDelete": "Delete"
+  ,"settingsAiQuillInstructionsDeleteTitle": "Delete instructions?"
+  ,"settingsAiQuillInstructionsDeleteBody": "Are you sure you want to delete \"{name}\"?"
+  ,"@settingsAiQuillInstructionsDeleteBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"aiApiKeyLabel": "API key"
+  ,"aiApiKeyHint": "Enter your API key"
+  ,"aiApiKeyGeminiHelp": "Get your API key at aistudio.google.com"
+  ,"aiApiKeyOpenAiHelp": "Get your API key at platform.openai.com"
+  ,"aiProviderNotSet": "Not set"
+  ,"aiProviderNotReadyCloud": "Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/ink in Settings."
+  ,"aiProviderNotReadyLocal": "AI provider not available. Verify your connection or key in Settings."
+  ,"aiToolActivityWorking": "Quill is working…"
+  ,"aiToolActivityCreatePage": "Quill is creating a page…"
+  ,"aiToolActivityCreateFolder": "Quill is creating a folder…"
+  ,"aiToolActivityAppendBlocks": "Quill is adding content…"
+  ,"aiToolActivityReplaceBlocks": "Quill is rewriting the page…"
+  ,"aiToolActivityEditBlocks": "Quill is editing blocks…"
+  ,"aiToolActivityInsertBlocks": "Quill is inserting content…"
+  ,"aiToolActivityInsertTodos": "Quill is adding to-dos…"
+  ,"aiToolActivityInsertTasks": "Quill is adding tasks…"
+  ,"aiToolActivityTranslate": "Quill is translating…"
+  ,"aiToolActivityRenamePage": "Quill is renaming the page…"
+  ,"aiToolActivityMovePage": "Quill is moving the page…"
+  ,"aiToolActivityReorderPage": "Quill is reordering the page…"
+  ,"aiToolActivityDuplicatePage": "Quill is duplicating the page…"
+  ,"aiToolActivitySetEmoji": "Quill is changing the icon…"
+  ,"aiToolActivityAddTag": "Quill is adding a tag…"
+  ,"aiToolActivityRemoveTag": "Quill is removing a tag…"
+  ,"aiToolActivityTrashPage": "Quill is moving the page to trash…"
+  ,"aiToolActivityRestorePage": "Quill is restoring the page…"
+  ,"aiToolActivityDeletePage": "Quill is deleting the page…"
+  ,"aiToolActivityEmptyTrash": "Quill is emptying the trash…"
+  ,"aiToolActivityDeleteFolder": "Quill is deleting the folder…"
+  ,"aiToolActivitySearchPages": "Quill is searching your notebook…"
+  ,"aiToolActivityListChildren": "Quill is browsing your pages…"
+,
   "settingsAiSnackFirebaseUnavailableBuild": "Firebase ez dago erabilgarri konpilazio honetan.",
   "settingsAiSnackSignInCloudAccount": "Hasi saioa hodeiko kontuan (Ezarpenak).",
   "settingsAiProviderSwitchFailed": "Ezin izan da AA hornitzailea aldatu: {error}",

@@ -34,25 +34,23 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     // Handle keyboard navigation when context menu is open
     if (_aiContextMenuOverlay != null) {
       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        _setStateSafe(() {
-          _aiContextMenuSelectedIndex = math.max(
-            0,
-            _aiContextMenuSelectedIndex - 1,
-          );
-          _aiContextMenuUsingKeyboard = true;
-        });
+        _aiContextMenuSelectedIndex = math.max(
+          0,
+          _aiContextMenuSelectedIndex - 1,
+        );
+        _aiContextMenuUsingKeyboard = true;
+        _aiContextMenuOverlay?.markNeedsBuild();
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         final l10n = AppLocalizations.of(context);
         final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
-        _setStateSafe(() {
-          _aiContextMenuSelectedIndex = math.min(
-            suggestions.length - 1,
-            _aiContextMenuSelectedIndex + 1,
-          );
-          _aiContextMenuUsingKeyboard = true;
-        });
+        _aiContextMenuSelectedIndex = math.min(
+          suggestions.length - 1,
+          _aiContextMenuSelectedIndex + 1,
+        );
+        _aiContextMenuUsingKeyboard = true;
+        _aiContextMenuOverlay?.markNeedsBuild();
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -60,7 +58,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
         if (_aiContextMenuSelectedIndex >= 0 &&
             _aiContextMenuSelectedIndex < suggestions.length) {
-          _applyAiContextSuggestion(suggestions[_aiContextMenuSelectedIndex]);
+          unawaited(
+            _applyAiContextSuggestion(suggestions[_aiContextMenuSelectedIndex]),
+          );
           return KeyEventResult.handled;
         }
       }
@@ -102,7 +102,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.auto_awesome_rounded,
+              FolioIcons.quill,
               size: 16,
               color: scheme.onSecondaryContainer,
             ),
@@ -136,51 +136,6 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAiChatContextRow(
-    ThemeData theme,
-    ColorScheme scheme,
-    AppLocalizations l10n,
-  ) {
-    final u = _lastChatTokenUsage;
-    final window = math.max(1, widget.appSettings.aiContextWindowTokens);
-    final prompt = u?.promptTokens;
-    if (prompt == null) {
-      return Text(
-        l10n.aiContextUsageUnavailable,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: scheme.onSurfaceVariant,
-        ),
-      );
-    }
-    final frac = math.min(1.0, prompt / window);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Tooltip(
-          message: l10n.aiContextUsageTooltip(window),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(FolioRadius.xs),
-            child: LinearProgressIndicator(
-              value: frac,
-              minHeight: 5,
-              backgroundColor: scheme.surfaceContainerHigh,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.aiContextUsageSummary(
-            _formatTokenCount(prompt),
-            _formatTokenCount(u!.completionTokens),
-          ),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 
@@ -284,7 +239,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
             width: 56,
             height: 56,
             child: Icon(
-              Icons.chat_bubble_rounded,
+              FolioIcons.quill,
               color: scheme.onPrimaryContainer,
               size: 28,
             ),
@@ -303,9 +258,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         backgroundColor: Colors.transparent,
         builder: (sheetContext) {
           return DraggableScrollableSheet(
-            initialChildSize: 0.92,
-            minChildSize: 0.38,
-            maxChildSize: 0.98,
+            initialChildSize: 0.85,
+            minChildSize: 0.55,
+            maxChildSize: 0.95,
             expand: false,
             builder: (ctx, scrollController) {
               _mobileSheetChatScroll = scrollController;
@@ -378,7 +333,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
           heroTag: 'mobile_quill_chat_fab',
           tooltip: l10n.aiShowPanel,
           onPressed: () => unawaited(_openMobileAiChatSheet()),
-          child: const Icon(Icons.chat_bubble_rounded),
+          child: const Icon(FolioIcons.quill),
         ),
     ];
     return Column(
@@ -400,6 +355,13 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    final media = MediaQuery.sizeOf(context);
+    final layoutMode = QuillChatLayout.resolve(
+      viewportWidth: media.width,
+      splitView: widget.appSettings.aiChatSplitView,
+      forceMobile: media.width < FolioDesktop.compactBreakpoint,
+    );
+    final flatChrome = QuillChatLayout.useFlatChrome(layoutMode);
     final isCloudProvider =
         widget.appSettings.aiProvider == AiProvider.quillCloud;
     final showInkInChat =
@@ -414,15 +376,17 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         inkSnap.totalInk > 0 &&
         inkSnap.totalInk <= lowInkThreshold;
     final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
-    final dockWide =
-        MediaQuery.sizeOf(context).width >= FolioDesktop.compactBreakpoint;
+    final showSplitToggle =
+        layoutMode == QuillChatLayoutMode.dockNarrow ||
+        layoutMode == QuillChatLayoutMode.dockWide ||
+        layoutMode == QuillChatLayoutMode.split;
 
     String providerLabel() {
       switch (widget.appSettings.aiProvider) {
         case AiProvider.none:
-          return _t('Sin configurar', 'Not set');
+          return l10n.aiProviderNotSet;
         case AiProvider.quillCloud:
-          return 'Folio Cloud';
+          return 'Quill Cloud';
         case AiProvider.ollama:
           return 'Ollama';
         case AiProvider.lmStudio:
@@ -435,7 +399,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     }
 
     final aiReady = widget.session.aiEnabled;
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final threadCount = _s.aiChatThreads.length;
+    final activeIdx = threadCount == 0
+        ? 0
+        : _s.aiActiveChatIndex.clamp(0, threadCount - 1);
+    final activeTitle = threadCount == 0
+        ? l10n.aiAssistantTitle
+        : _s.aiChatThreads[activeIdx].title;
+    final headerPad = layoutMode == QuillChatLayoutMode.mobile ? 12.0 : 10.0;
+    final edgeRadius = flatChrome ? FolioRadius.md : FolioRadius.lg;
+    final contextItems = _buildActiveAiContextItems(l10n);
+    final tokenUsage = _lastChatTokenUsage;
+    final tokenWindow = math.max(1, widget.appSettings.aiContextWindowTokens);
 
     return SafeArea(
       top: false,
@@ -445,127 +420,53 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         color: scheme.surface,
         child: Column(
           children: [
-            Container(
-              margin: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    scheme.surfaceContainerHighest,
-                    scheme.surfaceContainerHigh,
-                  ],
-                ),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.45),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: scheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-                borderRadius: BorderRadius.circular(FolioRadius.xl),
-              ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(headerPad, headerPad, 4, 4),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          scheme.primaryContainer,
-                          scheme.tertiaryContainer,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(FolioRadius.sm),
                     ),
                     child: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 22,
+                      FolioIcons.quill,
+                      size: 18,
                       color: scheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                l10n.aiAssistantTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
-                                  color: scheme.onSurface,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                Icons.tune_rounded,
-                                size: 18,
-                                color: scheme.primary,
-                              ),
-                              tooltip: isEs ? 'Gestionar instrucciones de Quill' : 'Manage Quill instructions',
-                              onPressed: () => _openSettings(initialSection: 'ai'),
-                            ),
-                            const SizedBox(width: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.primary.withValues(
-                                      alpha: 0.10,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    l10n.aiBetaBadge,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.6,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        Text(
+                          activeTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                        const SizedBox(height: 4),
                         Text(
                           _aiPanelContextSubtitle(l10n),
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant.withValues(
-                              alpha: 0.95,
-                            ),
-                            height: 1.35,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.aiManageQuillInstructionsTooltip,
+                    onPressed: () => _openSettings(initialSection: 'ai'),
+                    icon: const Icon(Icons.tune_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     tooltip: l10n.aiChatHeaderMenuTooltip,
@@ -583,9 +484,10 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         estInkCost: estInkCost,
                       ),
                     ),
-                    icon: const Icon(Icons.more_vert_rounded),
+                    icon: const Icon(Icons.more_vert_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
                   ),
-                  if (dockWide)
+                  if (showSplitToggle)
                     IconButton(
                       tooltip: l10n.aiChatSplitViewTooltip,
                       onPressed: () async {
@@ -598,7 +500,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         widget.appSettings.aiChatSplitView
                             ? Icons.view_column_rounded
                             : Icons.view_sidebar_rounded,
+                        size: 20,
                       ),
+                      visualDensity: VisualDensity.compact,
                     ),
                   IconButton(
                     tooltip: l10n.aiHidePanel,
@@ -609,33 +513,36 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         _applyAiChatPanelCollapsed(true);
                       }
                     },
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
             ),
             if (!aiReady)
               Container(
-                margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                padding: const EdgeInsets.all(12),
+                margin: EdgeInsets.fromLTRB(headerPad, 0, headerPad, 8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: scheme.errorContainer.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.error.withValues(alpha: 0.35)),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                  border: Border.all(
+                    color: scheme.error.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: scheme.onErrorContainer,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         isCloudProvider
-                            ? (isEs
-                                ? 'Quill Cloud no está listo. Inicia sesión en Folio Cloud o verifica tu cuenta/tinta en Ajustes.'
-                                : 'Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/ink in Settings.')
-                            : (isEs
-                                ? 'El proveedor de IA no está disponible. Verifica tu conexión o clave en Ajustes.'
-                                : 'AI provider not available. Verify your connection or key in Settings.'),
+                            ? l10n.aiProviderNotReadyCloud
+                            : l10n.aiProviderNotReadyLocal,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onErrorContainer,
                           fontWeight: FontWeight.w600,
@@ -651,118 +558,99 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                   ],
                 ),
               ),
-            Container(
-              height: 92,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            Padding(
+              padding: EdgeInsets.fromLTRB(headerPad, 0, headerPad, 8),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        tooltip: l10n.aiChatThreadsPickerTooltip,
-                        onPressed: _aiChatBusy
-                            ? null
-                            : () => unawaited(_showAiThreadsPickerSheet()),
-                        icon: const Icon(Icons.list_alt_rounded),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _aiThreadSearchController,
-                          onChanged: (_) => _setStateSafe(() {}),
-                          decoration: InputDecoration(
-                            hintText: l10n.aiThreadSearchHint,
-                            isDense: true,
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
                   Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Builder(
-                            builder: (ctx) {
-                              final indices = _filteredAiChatThreadIndices(
-                                _aiThreadSearchController.text,
-                              );
-                              return ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: indices.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(width: 6),
-                                itemBuilder: (context, j) {
-                                  final i = indices[j];
-                                  final active = i == _s.aiActiveChatIndex;
-                                  return ChoiceChip(
-                                    label: Text(
-                                      _s.aiChatThreads[i].title,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    selected: active,
-                                    visualDensity: VisualDensity.compact,
-                                    onSelected: _aiChatBusy
-                                        ? null
-                                        : (_) {
-                                            _s.syncActiveAiChatAttachmentPaths(
-                                              _aiAttachmentPaths,
-                                            );
-                                            _setStateSafe(
-                                              () => _lastChatTokenUsage = null,
-                                            );
-                                            _s.selectAiChat(i);
-                                          },
-                                  );
-                                },
-                              );
-                            },
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(FolioRadius.md),
+                      onTap: _aiChatBusy
+                          ? null
+                          : () => unawaited(_showAiThreadsPickerSheet()),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest.withValues(
+                            alpha: 0.55,
+                          ),
+                          borderRadius: BorderRadius.circular(FolioRadius.md),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.35),
                           ),
                         ),
-                        const SizedBox(width: 2),
-                        IconButton(
-                          tooltip: l10n.aiRenameChatTooltip,
-                          onPressed: _aiChatBusy
-                              ? null
-                              : _showRenameActiveChatDialog,
-                          icon: const Icon(Icons.edit_outlined),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.forum_outlined,
+                              size: 16,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                activeTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.expand_more_rounded,
+                              size: 18,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: l10n.aiDeleteCurrentChat,
-                          onPressed: _aiChatBusy ? null : _deleteActiveChat,
-                          icon: const Icon(Icons.delete_outline_rounded),
-                        ),
-                        const SizedBox(width: 2),
-                        FilledButton.tonal(
-                          onPressed: _aiChatBusy ? null : _createNewChat,
-                          child: Text(l10n.aiNewChat),
-                        ),
-                      ],
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: l10n.aiRenameChatTooltip,
+                    onPressed: _aiChatBusy ? null : _showRenameActiveChatDialog,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    tooltip: l10n.aiDeleteCurrentChat,
+                    onPressed: _aiChatBusy ? null : _deleteActiveChat,
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  FilledButton.tonal(
+                    onPressed: _aiChatBusy ? null : _createNewChat,
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: Text(l10n.aiNewChat),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 10),
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10),
+                margin: EdgeInsets.symmetric(horizontal: headerPad),
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerLow,
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.35),
-                  ),
-                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: flatChrome
+                      ? Border(
+                          top: BorderSide(
+                            color: scheme.outlineVariant.withValues(alpha: 0.35),
+                          ),
+                        )
+                      : Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                  borderRadius: flatChrome
+                      ? BorderRadius.zero
+                      : BorderRadius.circular(edgeRadius),
                 ),
                 child: Builder(
                   builder: (context) {
@@ -772,7 +660,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                       return LayoutBuilder(
                         builder: (context, constraints) {
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.all(28),
+                            padding: const EdgeInsets.all(24),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 minHeight: constraints.maxHeight,
@@ -781,22 +669,12 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      width: 56,
-                                      height: 56,
-                                      decoration: BoxDecoration(
-                                        color: scheme.primary.withValues(
-                                          alpha: 0.10,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.forum_outlined,
-                                        color: scheme.primary,
-                                        size: 28,
-                                      ),
+                                    Icon(
+                                      Icons.forum_outlined,
+                                      color: scheme.primary,
+                                      size: 32,
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 12),
                                     Text(
                                       l10n.aiChatEmptyHint,
                                       textAlign: TextAlign.center,
@@ -806,7 +684,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                             height: 1.55,
                                           ),
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 16),
                                     FilledButton.tonal(
                                       onPressed: () {
                                         _chatInputFocusNode.requestFocus();
@@ -827,7 +705,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     return ListView.builder(
                       controller:
                           chatListScrollController ?? _aiChatScrollController,
-                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                       itemCount: msgs.length + typingExtra,
                       itemBuilder: (context, i) {
                         if (_aiChatBusy && i == msgs.length) {
@@ -848,257 +726,231 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: EdgeInsets.fromLTRB(headerPad, 8, headerPad, headerPad),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [scheme.surfaceContainerHighest, scheme.surface],
-                  ),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
                   border: Border.all(
                     color: scheme.outlineVariant.withValues(alpha: 0.40),
                   ),
-                  borderRadius: BorderRadius.circular(26),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(edgeRadius),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Theme(
-                      data: theme.copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        key: ValueKey<String>(_activeChat.id),
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-                        title: Text(
-                          l10n.aiChatComposerContextTileTitle,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          l10n.aiChatComposerContextTileSubtitle,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildAiChatContextRow(theme, scheme, l10n),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                            child: Text(
-                              l10n.aiChatKeyboardHint,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant.withValues(
-                                  alpha: 0.88,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (showInkInChat)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 8,
-                                right: 8,
-                                top: 2,
-                                bottom: 6,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.water_drop_outlined,
-                                    size: 16,
-                                    color: inkLooksLow
-                                        ? scheme.tertiary
-                                        : scheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      l10n.aiChatInkEstimatedCost(estInkCost),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: scheme.onSurfaceVariant
-                                                .withValues(alpha: 0.92),
-                                            fontWeight: FontWeight.w600,
-                                            height: 1.25,
-                                          ),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (tokenUsage?.promptTokens != null) ...[
+                                  Tooltip(
+                                    message: l10n.aiContextUsageTooltip(
+                                      tokenWindow,
+                                    ),
+                                    child: _QuillComposerMetaChip(
+                                      icon: Icons.memory_outlined,
+                                      label: l10n.aiContextUsageSummary(
+                                        _formatTokenCount(
+                                          tokenUsage!.promptTokens,
+                                        ),
+                                        _formatTokenCount(
+                                          tokenUsage.completionTokens,
+                                        ),
+                                      ),
+                                      scheme: scheme,
                                     ),
                                   ),
+                                  const SizedBox(width: 6),
+                                ],
+                                if (showInkInChat) ...[
+                                  Tooltip(
+                                    message: l10n.aiChatInkBreakdownTooltip(
+                                      inkSnap.monthlyBalance,
+                                      inkSnap.purchasedBalance,
+                                    ),
+                                    child: _QuillComposerMetaChip(
+                                      icon: Icons.water_drop_outlined,
+                                      label: '${inkSnap.totalInk}',
+                                      scheme: scheme,
+                                      emphasize: inkLooksLow || inkLooksEmpty,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _QuillComposerMetaChip(
+                                    icon: Icons.bolt_outlined,
+                                    label: '~$estInkCost',
+                                    scheme: scheme,
+                                  ),
                                   if (inkLooksLow || inkLooksEmpty) ...[
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 4),
                                     TextButton(
                                       onPressed: _openSettings,
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
                                       child: Text(l10n.folioCloudBuyInk),
                                     ),
                                   ],
                                 ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (contextItems.isEmpty)
+                            Text(
+                              l10n.aiContextComposerHelper,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.9,
+                                ),
+                              ),
+                            )
+                          else
+                            SizedBox(
+                              height: 34,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: contextItems.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 6),
+                                itemBuilder: (context, i) {
+                                  final item = contextItems[i];
+                                  return InputChip(
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    padding: EdgeInsets.zero,
+                                    labelPadding: const EdgeInsets.only(
+                                      right: 6,
+                                    ),
+                                    avatar: Icon(
+                                      _iconForAiContextItem(item.kind),
+                                      size: 14,
+                                    ),
+                                    label: Text(
+                                      item.label,
+                                      style: theme.textTheme.labelSmall,
+                                    ),
+                                    onDeleted:
+                                        item.kind == _AiContextItemKind.addFile
+                                        ? null
+                                        : () => _removeAiContextItem(item),
+                                  );
+                                },
                               ),
                             ),
-                          Builder(
-                            builder: (context) {
-                              final items = _buildActiveAiContextItems(l10n);
-                              if (items.isEmpty) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: 8,
-                                    left: 8,
-                                    right: 8,
-                                    top: 4,
-                                  ),
-                                  child: Text(
-                                    l10n.aiContextComposerHint,
-                                    style: theme.textTheme.labelSmall
-                                        ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                        ),
-                                  ),
-                                );
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: 8,
-                                  left: 8,
-                                  right: 8,
-                                  top: 4,
-                                ),
-                                child: Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: items
-                                      .map(
-                                        (item) => InputChip(
-                                          visualDensity:
-                                              VisualDensity.compact,
-                                          avatar: Icon(
-                                            _iconForAiContextItem(item.kind),
-                                            size: 16,
-                                          ),
-                                          label: Text(item.label),
-                                          onDeleted:
-                                              item.kind ==
-                                                  _AiContextItemKind.addFile
-                                              ? null
-                                              : () => _removeAiContextItem(
-                                                  item,
-                                                ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
                     CompositedTransformTarget(
                       link: _aiComposerLayerLink,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openCloudContextPickerFromButton,
+                            icon: const Icon(Icons.add_circle_outline_rounded),
+                            tooltip: l10n.aiAttach,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          if (_transcribingVoice)
+                            const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: FolioLoadingIndicator(
+                                size: FolioLoadingSize.small,
+                              ),
+                            )
+                          else
                             IconButton(
-                              onPressed: (_aiChatBusy || !aiReady)
-                                  ? null
-                                  : _openCloudContextPickerFromButton,
-                              icon: const Icon(
-                                Icons.add_circle_outline_rounded,
+                              onPressed:
+                                  !aiReady ? null : _toggleVoiceRecording,
+                              icon: Icon(
+                                _recordingVoice
+                                    ? Icons.stop_circle_rounded
+                                    : Icons.mic_rounded,
+                                color: _recordingVoice
+                                    ? scheme.error
+                                    : scheme.onSurfaceVariant,
                               ),
-                              tooltip: l10n.aiAttach,
-                              padding: const EdgeInsets.all(12),
-                              color: scheme.onSurfaceVariant,
+                              tooltip: _recordingVoice
+                                  ? l10n.aiDictationRecordingStopTooltip
+                                  : l10n.aiDictationRecordingMicTooltip,
+                              visualDensity: VisualDensity.compact,
                             ),
-                            const SizedBox(width: 4),
-                            if (_transcribingVoice)
-                              const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: FolioLoadingIndicator(size: FolioLoadingSize.small),
-                              )
-                            else
-                              IconButton(
-                                onPressed: !aiReady ? null : _toggleVoiceRecording,
-                                icon: Icon(
-                                  _recordingVoice
-                                      ? Icons.stop_circle_rounded
-                                      : Icons.mic_rounded,
-                                  color: _recordingVoice
-                                      ? Colors.red
-                                      : scheme.onSurfaceVariant,
+                          Expanded(
+                            child: Focus(
+                              onKeyEvent: _onChatInputKey,
+                              child: TextField(
+                                focusNode: _chatInputFocusNode,
+                                controller: _chatInputController,
+                                readOnly: _aiChatBusy || !aiReady,
+                                minLines: 1,
+                                maxLines: layoutMode ==
+                                        QuillChatLayoutMode.mobile
+                                    ? 4
+                                    : 5,
+                                onTap: _updateAiContextMenu,
+                                onChanged: (_) {
+                                  _updateAiContextMenu();
+                                  _updateInkEstimateFromComposer();
+                                },
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontSize:
+                                      layoutMode == QuillChatLayoutMode.mobile
+                                          ? 15
+                                          : null,
                                 ),
-                                tooltip: _recordingVoice
-                                    ? l10n.aiDictationRecordingStopTooltip
-                                    : l10n.aiDictationRecordingMicTooltip,
-                                padding: const EdgeInsets.all(12),
-                              ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Focus(
-                                  onKeyEvent: _onChatInputKey,
-                                  child: TextField(
-                                    focusNode: _chatInputFocusNode,
-                                    controller: _chatInputController,
-                                    readOnly: _aiChatBusy || !aiReady,
-                                    minLines: 1,
-                                    maxLines: 5,
-                                    onTap: _updateAiContextMenu,
-                                    onChanged: (_) {
-                                      _updateAiContextMenu();
-                                      _updateInkEstimateFromComposer();
-                                    },
-                                    decoration: InputDecoration(
-                                      border: InputBorder.none,
-                                      hintText: l10n.aiInputHintCopilot,
-                                      helperText: l10n.aiContextComposerHelper,
-                                      helperMaxLines: 2,
-                                      isDense: true,
-                                      hintStyle: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: scheme.onSurfaceVariant
-                                                .withValues(alpha: 0.85),
-                                          ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                          ),
-                                    ),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: l10n.aiInputHintCopilot,
+                                  isDense: true,
+                                  hintStyle: theme.textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant
+                                            .withValues(alpha: 0.85),
+                                      ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed: (_aiChatBusy || !aiReady) ? null : _sendAiChat,
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(44, 44),
-                                shape: const CircleBorder(),
-                                padding: EdgeInsets.zero,
-                              ),
-                              child: _aiChatBusy
-                                  ? const FolioLoadingIndicator(
-                                      size: FolioLoadingSize.small,
-                                      color: Colors.white,
-                                    )
-                                  : const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 20,
-                                    ),
+                          ),
+                          const SizedBox(width: 4),
+                          FilledButton(
+                            onPressed:
+                                (_aiChatBusy || !aiReady) ? null : _sendAiChat,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(40, 40),
+                              shape: const CircleBorder(),
+                              padding: EdgeInsets.zero,
                             ),
-                          ],
-                        ),
+                            child: _aiChatBusy
+                                ? FolioLoadingIndicator(
+                                    size: FolioLoadingSize.small,
+                                    color: scheme.onPrimary,
+                                  )
+                                : const Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 18,
+                                  ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1110,6 +962,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
       ),
     );
   }
+
   Future<void> _toggleVoiceRecording() async {
     final l10n = AppLocalizations.of(context);
     if (_recordingVoice) {
@@ -1191,5 +1044,48 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     }
   }
 
+}
+
+class _QuillComposerMetaChip extends StatelessWidget {
+  const _QuillComposerMetaChip({
+    required this.icon,
+    required this.label,
+    required this.scheme,
+    this.emphasize = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final ColorScheme scheme;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = emphasize ? scheme.tertiary : scheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(FolioRadius.sm),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 

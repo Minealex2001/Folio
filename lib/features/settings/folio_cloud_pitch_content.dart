@@ -463,7 +463,7 @@ class _FolioCloudPitchContentState extends State<FolioCloudPitchContent>
           const SizedBox(height: FolioSpace.sm),
           featureCard(
             stepIndex: 1,
-            icon: Icons.auto_awesome_rounded,
+            icon: FolioIcons.quill,
             title: l10n.onboardingFolioCloudFeatureAiTitle,
             body: l10n.onboardingFolioCloudFeatureAiBody,
             accent: [

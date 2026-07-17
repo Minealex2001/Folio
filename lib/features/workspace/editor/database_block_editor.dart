@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_database_data.dart';
@@ -1311,7 +1312,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           ),
           if (widget.aiService != null && editable)
             IconButton(
-              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+              icon: const Icon(FolioIcons.quill, size: 16),
               tooltip: _t('Generar con IA', 'Generate with AI'),
               onPressed: () => _generateAiPropertyValue(row, property),
               padding: EdgeInsets.zero,

@@ -37,28 +37,6 @@ extension _SettingsPageAiActions on _SettingsPageState {
     await _refreshReleaseReadiness();
   }
 
-  Future<bool> _confirmAiBetaEnable() async {
-    final l10n = AppLocalizations.of(context);
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => FolioDialog(
-        title: Text(l10n.aiBetaEnableTitle),
-        content: Text(l10n.aiBetaEnableBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.aiBetaEnableConfirm),
-          ),
-        ],
-      ),
-    );
-    return go == true;
-  }
-
   Future<bool> _confirmQuillGlobalScopeIfNeeded() async {
     if (_app.hasAcceptedQuillGlobalScope) return true;
     final l10n = AppLocalizations.of(context);

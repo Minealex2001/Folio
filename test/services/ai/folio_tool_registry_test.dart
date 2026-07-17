@@ -29,6 +29,22 @@ void main() {
       expect(page.blocks.map((b) => b.type), ['h1', 'paragraph']);
     });
 
+    test('create_page rechaza blocks vacíos', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+
+      final result = await registry.execute(
+        _call('create_page', {
+          'title': 'Vacía',
+          'blocks': <Map<String, dynamic>>[],
+        }),
+      );
+
+      expect(result.isError, isTrue);
+      expect(session.pages, isEmpty);
+      expect(result.content, contains('blocks'));
+    });
+
     test('append_blocks_to_page añade bloques al final', () async {
       final session = VaultSession();
       session.addPage(parentId: null);

@@ -3,6 +3,24 @@ import 'package:folio/session/vault_session.dart';
 
 void main() {
   group('AI intent detection', () {
+    test('detecta create_page con crearme (clítico) y typo del usuario', () {
+      final session = VaultSession();
+      expect(
+        session.detectCreatePageIntentForTesting(
+          'Puedes crearme una pagina con informacion y diagramas sobre la guerra civil española?',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+      expect(
+        session.detectCreatePageIntentForTesting(
+          'Créame una nota sobre Roma',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+    });
+
     test('detecta create_page en ES con nota/pagina', () {
       final session = VaultSession();
       expect(

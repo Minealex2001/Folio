@@ -49,7 +49,7 @@ extension VaultSessionAi on VaultSession {
         '"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",',
       )
       ..writeln(
-        '"reply":"${isEs ? 'texto breve para usuario (1–4 frases máximo)' : 'brief user-facing text (max 1–4 sentences)'}",',
+        '"reply":"${isEs ? 'texto útil para el usuario: completo por defecto; corto solo si pide «corto»/«breve»' : 'useful user-facing text: thorough by default; short only if they ask for brief/short'}",',
       )
       ..writeln(
         '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",',
@@ -95,6 +95,9 @@ extension VaultSessionAi on VaultSession {
       )
       ..writeln(
         '- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'create_page: "blocks" DEBE traer contenido sustancial (mínimo ~8–15 bloques con texto real): intro, h2/h3, párrafos, listas. Si pide diagramas, incluye bloques type=mermaid (y/o table). NUNCA dejes blocks vacío ni digas al usuario que añada el contenido él.' : 'create_page: "blocks" MUST include substantial content (at least ~8–15 blocks with real text): intro, h2/h3, paragraphs, lists. If they ask for diagrams, include type=mermaid blocks (and/or table). NEVER leave blocks empty or tell the user to fill the page themselves.'}',
       )
       ..writeln(
         '- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de la pagina abierta, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}',
@@ -607,9 +610,9 @@ IDENTIDAD: Tu nombre es Quill. Si te presentas o hablas de ti, usa ese nombre.
 En Folio, «página» = nota del árbol lateral con bloques (párrafo, imagen, tabla…). El usuario pregunta por Folio salvo que cite explícitamente WordPress, HTML, React, etc.
 NO respondas con etiquetas HTML <img>, CMS ni frameworks web ante frases como «añadir imagen a la página», «bloque», «nota», «mi página en Folio».
 
-Ayuda frecuente (respuestas breves y concretas):
+Ayuda frecuente sobre la app (concreta; el chat general puede ser más largo):
 • Imagen: con una página abierta, botón flotante + (abajo a la derecha) → bloque «Imagen». Alternativa: en un párrafo escribe / y elige «Imagen». En bloque vacío, «Elegir imagen»: en escritorio suele abrir el selector de archivos; en móvil, galería. Pegar una URL directa a un archivo de imagen en un bloque de texto puede convertirlo en bloque imagen. Menú ⋮ del bloque: cambiar o quitar imagen; puedes ajustar el ancho mostrado.
-• Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, etc.).
+• Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, mermaid, etc.).
 • Panel de chat con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de páginas en el contexto; otro icono elige varias páginas de referencia.
 • Ajustes: engranaje. Búsqueda: lupa. Bloquear libreta: candado.
 '''
@@ -622,9 +625,9 @@ IDENTITY: Your name is Quill. When you introduce yourself or refer to yourself, 
 In Folio a "page" is a sidebar note made of blocks. The user means Folio unless they explicitly name WordPress, HTML, React, etc.
 Do NOT answer Folio how-to questions with HTML <img>, CMS steps, or web frameworks.
 
-Quick help (be concise):
+Quick app help (keep how-to tips concrete; general chat may be longer):
 • Image: With a page open, floating + (bottom-right) → "Image" block. Or type / in a paragraph and pick Image. In an empty image block use "Choose image" (desktop: file picker; mobile: gallery). Pasting a direct image file URL in a text block may turn it into an image block. Block ⋮ menu: replace/clear; adjust width.
-• Other blocks: same + button or / in a paragraph.
+• Other blocks: same + button or / in a paragraph (table, file, code, mermaid, etc.).
 • Quill chat panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
 • Settings: gear. Search: magnifying glass. Lock vault: padlock.
 '''
@@ -773,8 +776,33 @@ For images/blocks: use the + button or / command in a paragraph.
               ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app.'
               : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app.');
 
+    final wantsCreatePage = _looksLikeCreatePageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
+
     final systemPrompt = StringBuffer()
       ..writeln(agentIdentity)
+      ..writeln()
+      ..writeln(_folioToolAgentPlaybook(isEs: isEs))
+      ..writeln()
+      ..writeln(_folioAgentInAppGuideCompact(isEs: isEs));
+    if (wantsCreatePage) {
+      systemPrompt
+        ..writeln()
+        ..writeln(
+          isEs
+              ? 'El usuario pide crear una página nueva. Debes llamar a la tool create_page '
+                    'con "title" y "blocks" rellenos de contenido sustancial en la misma llamada '
+                    '(mínimo ~8–15 bloques: intro, h2/h3, párrafos, listas; mermaid/table si pide diagramas). '
+                    'No crees solo el título. No digas al usuario que añada el contenido él.'
+              : 'The user wants a new page. You must call create_page with "title" and substantial '
+                    '"blocks" in the same call (at least ~8–15 blocks: intro, h2/h3, paragraphs, lists; '
+                    'mermaid/table if they ask for diagrams). Do not create a title-only page. '
+                    'Do not tell the user to fill the page themselves.',
+        );
+    }
+    systemPrompt
       ..writeln()
       ..writeln(_aiLanguageRule(languageCode, isEsInstruction: isEs))
       ..writeln()
@@ -788,11 +816,7 @@ For images/blocks: use the + button or / command in a paragraph.
     final registry = FolioToolRegistry(this, scopePageId: scopePageId);
     final toolAi = withToolCallingSupport(ai, isEs: isEs);
 
-    // Folio Cloud cobra tinta por cada llamada a la IA (mismo `operationKind`
-    // en cada paso del bucle); los proveedores locales no tienen ese coste.
-    // Se limita el número de pasos para Folio Cloud para no disparar el
-    // consumo de tinta en un turno con muchas acciones encadenadas.
-    final maxSteps = ai.providerName == 'folio_cloud' ? 3 : 6;
+    final maxSteps = 8;
 
     final baseRequest = AiCompletionRequest(
       prompt: prompt.trim(),
@@ -816,11 +840,15 @@ For images/blocks: use the + button or / command in a paragraph.
       maxSteps: maxSteps,
     );
 
+    await _maybeEnrichThinCreatePageFromToolLoop(
+      outcome: outcome,
+      userPrompt: prompt,
+      attachments: attachments,
+    );
+
     var reply = outcome.finalText.trim();
     if (reply.isEmpty && outcome.hasToolCalls) {
-      reply = isEs
-          ? 'Listo, he aplicado los cambios solicitados.'
-          : 'Done, I applied the requested changes.';
+      reply = _summarizeToolLoopOutcome(outcome, isEs: isEs);
     }
 
     return AgentChatOutcome(
@@ -829,6 +857,87 @@ For images/blocks: use the + button or / command in a paragraph.
       toolCalls: outcome.steps.map((s) => s.call).toList(),
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
     );
+  }
+
+  /// Instrucciones de agente (estilo cliente MCP): preferir tools, contenido real,
+  /// no delegar el trabajo al usuario.
+  String _folioToolAgentPlaybook({required bool isEs}) {
+    if (isEs) {
+      return '''
+Modo agente (como un cliente MCP competente):
+- Si la petición implica crear/editar/buscar en la libreta, USA las tools disponibles; no digas solo lo que harías.
+- Responde de forma útil y completa por defecto; sé breve solo si el usuario pide «corto» o «breve».
+- Al crear o editar páginas, rellena siempre bloques con contenido real (nunca una página vacía o solo título).
+- Si piden diagramas, usa bloques type=mermaid y/o table.
+- Si una tool falla (p. ej. blocks vacío), corrige los argumentos y vuelve a llamarla.
+- Al terminar, escribe un resumen claro de lo hecho (título, qué incluye); no digas «añádelo tú».
+'''
+          .trim();
+    }
+    return '''
+Agent mode (like a capable MCP client):
+- If the request implies creating/editing/searching the vault, USE the available tools; do not only describe what you would do.
+- Be useful and thorough by default; keep it short only if the user asks for brief/short.
+- When creating or editing pages, always fill blocks with real content (never an empty or title-only page).
+- If they ask for diagrams, use type=mermaid and/or table blocks.
+- If a tool fails (e.g. empty blocks), fix the arguments and call it again.
+- When done, write a clear summary of what you did; never tell the user to fill the page themselves.
+'''
+        .trim();
+  }
+
+  /// Si create_page dejó muy poco contenido, rellena la página con el generador
+  /// dedicado (mismo criterio de calidad que el atajo sin tool-calling).
+  Future<void> _maybeEnrichThinCreatePageFromToolLoop({
+    required AiToolLoopOutcome outcome,
+    required String userPrompt,
+    required List<AiFileAttachment> attachments,
+  }) async {
+    for (final step in outcome.steps) {
+      if (step.call.name != 'create_page' || step.result.isError) continue;
+      final pageId = _pageIdFromToolResultJson(step.result.content);
+      if (pageId == null) continue;
+      final page = _pageById(pageId);
+      if (page == null) continue;
+      final useful = page.blocks
+          .where((b) => b.type == 'divider' || b.text.trim().isNotEmpty)
+          .length;
+      if (useful >= 4) continue;
+      try {
+        await generateContentWithAi(
+          pageId: pageId,
+          prompt: userPrompt,
+          attachments: attachments,
+        );
+      } catch (_) {
+        // Mejor dejar la página fina que fallar todo el turno.
+      }
+    }
+  }
+
+  String? _pageIdFromToolResultJson(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['pageId'] is String) {
+        final id = (decoded['pageId'] as String).trim();
+        return id.isEmpty ? null : id;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  String _summarizeToolLoopOutcome(
+    AiToolLoopOutcome outcome, {
+    required bool isEs,
+  }) {
+    final names = outcome.steps.map((s) => s.call.name).toSet().toList();
+    if (names.isEmpty) {
+      return isEs ? 'Listo.' : 'Done.';
+    }
+    final joined = names.join(', ');
+    return isEs
+        ? 'He aplicado las acciones solicitadas ($joined).'
+        : 'I applied the requested actions ($joined).';
   }
 
   /// Fase 3 (Q&A fundamentado): si [prompt] tiene forma de pregunta sobre la
@@ -867,10 +976,9 @@ For images/blocks: use the + button or / command in a paragraph.
     String? cloudInkOperation,
     String extraContextSections = '',
     String systemPromptOverride = '',
-    /// Flag de dogfood (`AppSettings.quillToolCallingEnabled`): si es `true`,
-    /// delega en el bucle de tool-calling real (`_agentChatWithAiToolLoop`)
-    /// en vez del camino JSON legado de más abajo. Default `false` para no
-    /// cambiar el comportamiento de nadie que no lo haya activado a propósito.
+    /// Si es `true`, usa el bucle de tool-calling (`_agentChatWithAiToolLoop`),
+    /// alineado con el MCP local. Default del llamador suele venir de
+    /// `AppSettings.quillToolCallingEnabled` (activado por defecto).
     bool useToolCalling = false,
     /// Solo con [useToolCalling]: notifica cada inicio/resultado de tool-call
     /// para que la UI muestre feedback en vivo (`ai_tool_activity_indicator.dart`).
@@ -1326,6 +1434,37 @@ For images/blocks: use the + button or / command in a paragraph.
             ),
           );
         }
+        // Si el modelo devolvió create_page sin contenido útil, no publicar
+        // una página vacía (párrafo de relleno): usar el generador dedicado.
+        if (!_aiBlockSpecsHaveUsefulContent(parsedBlocks)) {
+          final generated = await generateStandalonePageWithAi(
+            prompt: prompt,
+            parentId: wantsSubpage ? scopePage?.id : null,
+            attachments: attachments,
+          );
+          final created = _pageById(generated.pageId);
+          final createdTitle =
+              created?.title ?? (isEs ? 'Nueva página IA' : 'New AI page');
+          final failed = generated.blockCount == 0;
+          return finish(
+            _formatAgentDecisionReply(
+              mode: mode,
+              reason: isEs
+                  ? 'create_page llegó sin contenido; generé la página con el flujo dedicado.'
+                  : 'create_page arrived without content; generated the page via the dedicated flow.',
+              reply: failed
+                  ? (isEs
+                        ? 'He creado la página "$createdTitle", pero no conseguí generar contenido automáticamente. '
+                              'Prueba a pedírmelo de nuevo o sé más específico sobre lo que quieres que incluya.'
+                        : 'I created the page "$createdTitle", but I couldn\'t generate content automatically. '
+                              'Try asking again or be more specific about what you want it to include.')
+                  : (isEs
+                        ? 'He creado la página "$createdTitle" con ${generated.blockCount} bloque(s) de contenido.'
+                        : 'I created the page "$createdTitle" with ${generated.blockCount} block(s) of content.'),
+              isEs: isEs,
+            ),
+          );
+        }
         final id = VaultSession._uuid.v4();
         final blocks = _materializeAiBlocks(id, parsedBlocks);
         _pages.add(
@@ -1520,7 +1659,7 @@ For images/blocks: use the + button or / command in a paragraph.
                   '{'
                   '"mode":"edit_current",'
                   '"reason":"${isEs ? 'motivo breve' : 'short reason'}",'
-                  '"reply":"${isEs ? 'texto breve' : 'short text'}",'
+                  '"reply":"${isEs ? 'texto útil para el usuario' : 'useful user-facing text'}",'
                   '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"...","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
                   '}\n'
                   '${isEs ? 'No escribas explicación, solo JSON.' : 'Do not write explanations, only JSON.'}\n\n'
@@ -2109,16 +2248,46 @@ For images/blocks: use the + button or / command in a paragraph.
         _containsIntentPhrase(p, 'documento') ||
         _containsIntentPhrase(p, 'document');
     final hasCreateVerb =
-        _containsIntentPhrase(p, 'crea') ||
-        _containsIntentPhrase(p, 'crear') ||
-        _containsIntentPhrase(p, 'creame') ||
-        _containsIntentPhrase(p, 'genera') ||
-        _containsIntentPhrase(p, 'generate') ||
-        _containsIntentPhrase(p, 'create') ||
-        _containsIntentPhrase(p, 'hazme') ||
+        _hasCreatePageVerbToken(p) ||
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
+  }
+
+  /// True si algún token es verbo de creación (`crea`, `crearme`, `generame`…).
+  /// Usa prefijo de raíz porque `_containsIntentPhrase` exige token exacto y
+  /// fallaba con «crearme» / «créame» (bug: página vacía sin generador dedicado).
+  bool _hasCreatePageVerbToken(String normalizedText) {
+    const exact = {
+      'crea',
+      'crear',
+      'creame',
+      'crearme',
+      'creanos',
+      'creadme',
+      'genera',
+      'generar',
+      'generame',
+      'generarme',
+      'generate',
+      'creating',
+      'create',
+      'hazme',
+      'hazmeuna',
+    };
+    const prefixes = ['crea', 'crear', 'genera', 'generar', 'create'];
+    final tokens = normalizedText
+        .split(RegExp(r'[^a-z0-9_]+'))
+        .where((t) => t.isNotEmpty);
+    for (final t in tokens) {
+      if (exact.contains(t)) return true;
+      if (prefixes.any((root) => t == root || t.startsWith(root))) {
+        // Evita falsos positivos tipo "creacionismo" / "creative" muy largos:
+        // raíces cortas solo si el token no es mucho más largo que la raíz+clítico.
+        if (t.length <= 12) return true;
+      }
+    }
+    return false;
   }
 
   bool _looksLikeBilingualTranslateIntent(
@@ -2525,6 +2694,29 @@ For images/blocks: use the + button or / command in a paragraph.
       if (t.isNotEmpty) return false;
     }
     return true;
+  }
+
+  bool _aiBlockSpecsHaveUsefulContent(List<_AiBlockSpec> specs) {
+    var useful = 0;
+    for (final s in specs) {
+      final type = _normalizeAiBlockType(s.type);
+      if (type == 'divider') {
+        useful++;
+        continue;
+      }
+      if (type == 'table') {
+        final hasRows = s.tableRows != null && s.tableRows!.isNotEmpty;
+        if (hasRows || s.text.trim().isNotEmpty) useful++;
+        continue;
+      }
+      final url = s.url?.trim();
+      if (url != null && url.isNotEmpty) {
+        useful++;
+        continue;
+      }
+      if (s.text.trim().isNotEmpty) useful++;
+    }
+    return useful > 0;
   }
 
   List<String> _splitMarkdownRow(String line) {

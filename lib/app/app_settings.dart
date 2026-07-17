@@ -13,6 +13,7 @@ import 'package:system_theme/system_theme.dart';
 import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
+import 'ui_tokens.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/quill_system_prompt.dart';
@@ -580,12 +581,12 @@ class AppSettings extends ChangeNotifier {
   static const double minWorkspaceSidebarWidth = 300;
   static const double maxWorkspaceSidebarWidth = 480;
   static const double defaultWorkspaceSidebarWidth = 320;
-  static const double minAiChatPanelWidth = 280;
-  static const double maxAiChatPanelWidth = 720;
-  static const double defaultAiChatPanelWidth = 360;
-  static const double minAiChatPanelHeight = 320;
-  static const double maxAiChatPanelHeight = 1000;
-  static const double defaultAiChatPanelHeight = 520;
+  static const double minAiChatPanelWidth = QuillChatLayout.absoluteMinWidth;
+  static const double maxAiChatPanelWidth = QuillChatLayout.absoluteMaxWidth;
+  static const double defaultAiChatPanelWidth = 380;
+  static const double minAiChatPanelHeight = QuillChatLayout.absoluteMinHeight;
+  static const double maxAiChatPanelHeight = QuillChatLayout.absoluteMaxHeight;
+  static const double defaultAiChatPanelHeight = 560;
   static const String defaultUpdaterGithubOwner = 'Minealex2001';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
@@ -630,9 +631,9 @@ class AppSettings extends ChangeNotifier {
   bool _aiAlwaysShowThought = false;
   /// Flag de dogfood/rollout del bucle de tool-calling real de Quill
   /// (`runToolLoop` + `FolioToolRegistry`), detrás del cual convive con el
-  /// camino JSON legado de `agentChatWithAi`. Default `false`: por defecto
-  /// el comportamiento de Quill no cambia hasta activarlo explícitamente.
-  bool _quillToolCallingEnabled = false;
+  /// camino JSON legado de `agentChatWithAi`. Default `true`: el camino
+  /// recomendado (alineado con MCP); se puede desactivar en Ajustes.
+  bool _quillToolCallingEnabled = true;
   /// Fase 5: servidor MCP local (desktop-only) que expone el catálogo de
   /// acciones de Quill a clientes MCP externos (Claude Desktop, Claude Code...).
   /// Default `false`: opt-in explícito, nunca arranca un servidor local sin
@@ -1002,7 +1003,7 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
-    _quillToolCallingEnabled = p.getBool(_quillToolCallingEnabledKey) ?? false;
+    _quillToolCallingEnabled = p.getBool(_quillToolCallingEnabledKey) ?? true;
     _mcpServerEnabled = p.getBool(_mcpServerEnabledKey) ?? false;
     _mcpServerAuthToken = p.getString(_mcpServerAuthTokenKey) ?? '';
     _aiLaunchProviderWithApp = p.getBool(_aiLaunchProviderWithAppKey) ?? false;

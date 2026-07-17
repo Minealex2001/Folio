@@ -8,6 +8,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -1221,7 +1222,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                   ),
                   if (onAskQuill != null)
                     btn(
-                      icon: Icons.smart_toy_outlined,
+                      icon: FolioIcons.quillOutlined,
                       tip: AppLocalizations.of(context).blockEditorAskQuillTooltip,
                       onActivate: onAskQuill!,
                     ),
@@ -1561,7 +1562,7 @@ class _FolioFormatToolbarState extends State<FolioFormatToolbar> {
                       ),
                     if (widget.onAskQuill != null)
                       btn(
-                        icon: Icons.smart_toy_outlined,
+                        icon: FolioIcons.quillOutlined,
                         tip: AppLocalizations.of(context).blockEditorAskQuillTooltip,
                         onPressed: () {
                           _restoreSelectionIfPossible();

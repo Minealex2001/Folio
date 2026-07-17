@@ -515,6 +515,16 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 
 ## 23. Asistente IA Quill
 
+Quill es una función **estable** (fuera de beta): el panel de chat ya no muestra badge BETA y activar la IA en Ajustes no pide confirmación de fase beta. Sigue haciendo falta el aviso de alcance global (Quill es un ajuste de la app, no solo de la libreta actual).
+
+### Ajustes → IA (orden)
+
+Un solo panel con tres bloques:
+
+1. **Básico** — hero con estado real (activo/proveedor/modelo), comparativa Cloud vs local (abierta si aún no hay setup; colapsable si ya hay), activar IA, proveedor y modelo.
+2. **Experiencia Quill** — pensamiento, vista dividida, Copilot experimental e instrucciones personalizadas.
+3. **Avanzado** (colapsado) — MCP local, ventana de contexto, endpoint, API key, timeout y listado de modelos.
+
 ### Proveedores (`AiProvider`)
 
 | Proveedor | Descripción |
@@ -533,44 +543,47 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 | `append_current` | Añade el resultado al final de la página |
 | `replace_current` | Reemplaza el contenido de la página |
 | `edit_current` | Edita secciones específicas de la página |
-| `create_page` | Crea una nueva página con el resultado |
+| `create_page` | Crea una nueva página **con bloques de contenido ya redactados** (no solo el título) |
+
+Si el modelo elige `create_page` sin contenido útil, Folio hace fallback a `generateStandalonePageWithAi` (generador dedicado con reintento) en lugar de dejar una página vacía. Frases tipo «créame una página…» se detectan como intención de creación (incluidos clíticos `crearme` / `créame`).
+
+### Tool-calling (recomendado)
+
+- Ajuste **`quillToolCallingEnabled`** (default **activado**): usa `runToolLoop` + `FolioToolRegistry` (mismas acciones que el MCP local).
+- Con el flag desactivado, Quill usa el JSON legado (`mode`/`reply`/`blocks`).
+- La tool `create_page` **rechaza** `blocks` vacío; el modelo debe rellenar contenido (p. ej. `mermaid` si piden diagramas).
+- Las respuestas de chat son **completas por defecto**; breves solo si el usuario pide «corto»/«breve».
+- **Paridad con MCP**: el bucle admite hasta **8** pasos (create + reintentos + cierre). El system prompt pide actuar como agente (preferir tools, no páginas solo-título). Si `create_page` deja pocos bloques útiles (&lt;4), Quill rellena con `generateContentWithAi` sobre esa página.
 
 ### Interfaz de chat (panel Quill)
 
-Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje y aplicación de snapshots en `lib/features/workspace/shell/workspace_page.dart`.
+Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje en `workspace_page.dart`. Límites adaptativos: `QuillChatLayout` en `lib/app/ui_tokens.dart` (`mobile` / `dockNarrow` / `dockWide` / `split`).
 
 #### Cabecera y modo de panel
 
-- **Cabecera densa**: título del hilo + subtítulo de contexto (página actual, *N* páginas o contexto desactivado) sin reservar filas extra para proveedor/tinta en la barra principal.
-- Menú **«⋮»** abre una **hoja inferior** con el proveedor activo (local vs nube) y, si aplica Folio Cloud, **tinta restante**, desglose mensual vs comprada, **coste estimado** de la siguiente respuesta y atajo a comprar tinta cuando el saldo está vacío.
-- En **dock ancho**, botón de **vista dividida** (`aiChatSplitView` en ajustes): alterna entre panel lateral acoplado al editor y panel tipo lateral clásico (tooltip `aiChatSplitViewTooltip`).
-- **Móvil**: el chat abre en **`DraggableScrollableSheet`** (~92% altura inicial, redimensionable); al cerrar, **FAB** compacto para volver a mostrar el panel.
+- **Cabecera fina**: avatar + título del hilo + subtítulo de contexto; acciones (ajustes, menú, split, cerrar) en iconos compactos. Sin gradiente/badge pesado.
+- Mini barra de **tokens / tinta** siempre visible bajo la cabecera.
+- Menú **«⋮»** abre hoja con proveedor e ink (Folio Cloud).
+- **Layout adaptativo**: dock estrecho (&lt;1280), dock amplio (≥1280), split (borde plano, sin sombra) y móvil (`DraggableScrollableSheet` ~0.55–0.95). El dock se **acota siempre al body** del workspace (bajo el AppBar): no puede crecer por encima del toolbar; el botón cerrar permanece accesible.
 
 #### Hilos de conversación
 
-- **Búsqueda** en línea que filtra por título; la misma consulta alimenta la fila de **chips** horizontales (acceso rápido) y el listado del modal.
-- Botón de **lista** abre **bottom sheet** con lista vertical scrollable, altura acotada (~55% pantalla), campo de búsqueda y estado vacío localizado si no hay coincidencias.
-- **Renombrar**, **eliminar** el hilo activo y **Nuevo chat** se deshabilitan mientras `_aiChatBusy` para evitar carreras con la generación en curso.
+- Fila compacta: selector del hilo activo (abre sheet con búsqueda) + renombrar / eliminar / **Nuevo chat**.
+- El sheet de hilos (`workspace_page_ai_threads.dart`) conserva búsqueda y lista vertical.
 
 #### Lista de mensajes
 
-- Burbujas diferenciadas usuario/asistente; **marca de tiempo** en mensajes del asistente.
-- **Razonamiento vs respuesta final**: si el contenido separa *thought* y cuerpo, bloque plegable etiquetado (`aiAgentThought`) con el razonamiento; debajo, divisor y cuerpo. Ajuste **`aiAlwaysShowThought`** para forzar el razonamiento siempre expandido.
-- **Typewriter** en respuestas nuevas del asistente (velocidad adaptada a la longitud); la animación se limita al hilo actual y a mensajes recién añadidos.
-- **Mientras genera** (`_aiChatBusy`): al final del listado, fila con la misma jerarquía visual que una respuesta (avatar + burbuja) rellenada con **`FolioAiChatReplySkeleton`** (varias barras redondeadas y **shimmer** vía `ShaderMask`); accesibilidad con `Semantics` y `aiTypingSemantics` (live region). No se muestran los puntos clásicos del indicador de escritura en esa fila.
-- **Menú «⋮»** en respuestas del asistente: copiar solo el **cuerpo** visible, copiar **JSON estructurado** del `agentApplySnapshot` si existe, copiar **mensaje completo**.
-- **Pulgares útil / no útil**: valores `helpful` y `not_helpful` en `AiChatMessage.feedback` (`lib/services/ai/ai_types.dart`), persistidos con `VaultSession.updateMessageInActiveAiChat`. La UI usa solo ese campo (sin mapa local por índice), de modo que el voto **no se arrastra** al cambiar de hilo; el panel hace `setState` cuando el **fingerprint** de feedbacks del hilo activo cambia.
-- Respuestas con **snapshot de agente** (`blocks` / `operations`): botones para **aplicar** a la página abierta (p. ej. insertar al final, reemplazar, ejecutar operaciones) según el flujo en sesión.
+- Burbujas unificadas (avatar 28 px, `FolioRadius.lg`); typing/tool activity alineados.
+- **Razonamiento**, typewriter, shimmer, feedback y snapshots de agente: sin cambios de comportamiento.
 
 #### Compositor
 
-- **`ExpansionTile`** «Contexto de esta pregunta» (título y subtítulo localizados): al expandir, **uso del contexto** respecto a la ventana de tokens (barra + resumen + tooltip), **chips `@`**, adjuntos, texto de **atajos** (`Enter` envía, `Ctrl+Enter` nueva línea).
-- Con **`_aiChatBusy`**: campo de entrada en **solo lectura**, envío deshabilitado o sustituido por indicador de ocupación para evitar doble envío.
-- Menú **`@`** con **navegación por teclado** cuando el overlay está abierto (`↑` / `↓` / `Enter` / `Esc`).
+- Fila compacta **siempre visible** (sin `ExpansionTile`): chips de tokens de la última respuesta, tinta restante y coste estimado; chips horizontales de contexto/`@`/adjuntos (o hint `aiContextComposerHelper`).
+- El icono de marca de Quill es una **pluma** (`FolioIcons.quill` / `history_edu`) en chat, ajustes, onboarding, home y toolbar «Ask Quill».
 
 #### Estado vacío y datos auxiliares
 
-- Pantalla sin mensajes: icono, **`aiChatEmptyHint`** y botón **`aiChatEmptyFocusComposer`** que enfoca el compositor.
+- Pantalla sin mensajes: icono, **`aiChatEmptyHint`** y botón **`aiChatEmptyFocusComposer`**.
 - Tras cada respuesta: **`AiTokenUsage`** cuando el backend lo devuelve.
 - **Adjuntos**: `AiFileAttachment` (nombre, MIME, contenido).
 
@@ -1231,7 +1244,7 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
 | `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
-| `quillToolCallingEnabled` | bool | Flag de dogfood: bucle de tool-calling real de Quill en vez del camino JSON legado (sección 23) |
+| `quillToolCallingEnabled` | bool | Bucle de tool-calling de Quill (default `true`; se puede desactivar en Ajustes; sección 23) |
 | `mcpServerEnabled` | bool | Servidor MCP local activado (sección 45); desktop-only |
 | `mcpServerAuthToken` | String | Token Bearer persistente del servidor MCP local (sección 45) |
 

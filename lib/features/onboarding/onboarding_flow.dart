@@ -997,7 +997,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _OnboardingStepId.folioCloud:
         return Icons.cloud_outlined;
       case _OnboardingStepId.quillIntro:
-        return Icons.auto_awesome_rounded;
+        return FolioIcons.quill;
       case _OnboardingStepId.usageProfile:
         return Icons.tune_rounded;
       case _OnboardingStepId.ready:
@@ -2473,7 +2473,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.auto_awesome_rounded, size: 64, color: scheme.primary),
+        Icon(FolioIcons.quill, size: 64, color: scheme.primary),
         const SizedBox(height: FolioSpace.lg),
         Text(
           l10n.quillIntroTitle,

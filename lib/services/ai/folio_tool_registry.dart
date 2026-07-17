@@ -168,7 +168,9 @@ class FolioToolRegistry {
     name: 'create_page',
     description:
         'Crea una página nueva en la libreta con un título y una lista de '
-        'bloques de contenido ya redactados por el modelo.',
+        'bloques de contenido ya redactados por el modelo. '
+        'Obligatorio: "blocks" con contenido sustancial (varios bloques con texto); '
+        'nunca crear una página vacía. Si piden diagramas, incluye type=mermaid.',
     parameters: [
       AiToolParam(
         name: 'title',
@@ -189,7 +191,7 @@ class FolioToolRegistry {
         description:
             'Bloques de contenido: [{type, text, checked?}]. type es uno de '
             'paragraph|h1|h2|h3|bullet|numbered|todo|task|quote|code|callout|'
-            'toggle|divider|table.',
+            'toggle|divider|table|mermaid|equation. Requerido y no vacío.',
         required: true,
       ),
     ],
@@ -204,13 +206,19 @@ class FolioToolRegistry {
     final parentId = (args['parentId'] as String?)?.trim();
     final id = _uuid.v4();
     final blocks = _blocksFromArgs(id, args);
+    if (blocks.isEmpty) {
+      return AiToolResult.error(
+        call.id,
+        'Falta contenido: "blocks" no puede estar vacío. '
+        'Vuelve a llamar create_page con título y varios bloques con texto '
+        '(h2, párrafos, listas; mermaid si piden diagramas).',
+      );
+    }
     _session.createPageWithId(
       id: id,
       title: title,
       parentId: (parentId == null || parentId.isEmpty) ? null : parentId,
-      blocks: blocks.isEmpty
-          ? [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')]
-          : blocks,
+      blocks: blocks,
     );
     return AiToolResult.ok(
       call.id,

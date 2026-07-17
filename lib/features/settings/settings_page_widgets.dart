@@ -29,7 +29,7 @@ class _SettingsSectionRail extends StatelessWidget {
       case _SettingsSectionId.uiWorkspace:
         return Icons.palette_outlined;
       case _SettingsSectionId.ai:
-        return Icons.psychology_outlined;
+        return FolioIcons.quillOutlined;
       case _SettingsSectionId.sync:
         return Icons.sync_rounded;
       case _SettingsSectionId.about:
@@ -229,7 +229,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         subtitle = 'Temas, atajos de teclado y más';
         break;
       case _SettingsSectionId.ai:
-        icon = Icons.psychology_outlined;
+        icon = FolioIcons.quillOutlined;
         gradientColors = const [Color(0xFF26A69A), Color(0xFF00796B)];
         subtitle = widget.app.aiEnabled
             ? 'Proveedor: ${_providerLabel(widget.app.aiProvider, widget.l10n)}'
