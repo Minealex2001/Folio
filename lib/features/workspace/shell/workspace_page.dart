@@ -49,6 +49,7 @@ import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
 import '../../sync/cloud_device_sync_status_button.dart';
+import '../../sync/sync_conflict_merge_sheet.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
 import '../../../services/device_sync/device_sync_controller.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -1759,6 +1760,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  Future<void> _openSyncConflicts({String? filterPageId}) {
+    return showSyncConflictMergeSheet(
+      context: context,
+      session: _s,
+      filterPageId: filterPageId,
+      onOpenPage: (pageId) => _s.selectPage(pageId),
+    );
+  }
+
   List<String> _buildPagePathSegments(FolioPage? page) {
     if (page == null) return const <String>[];
     final byId = <String, FolioPage>{for (final p in _s.pages) p.id: p};
@@ -2381,7 +2391,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             saveListenable: _s.persistence,
             controller: widget.cloudDeviceSyncController,
             pendingConflicts: widget.appSettings.syncPendingConflicts,
-            onOpenConflicts: () => _openSettings(initialSection: 'cloud'),
+            onOpenConflicts: () => unawaited(_openSyncConflicts()),
             onOpenVault: (entry) async {
               try {
                 await _s.switchVault(entry.id);
@@ -2571,7 +2581,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
-      editorMaxWidth: _zenMode ? 740.0 : widget.appSettings.editorContentWidth,
+      editorMaxWidth: showKanbanBoard || showDrivePage || showCanvasPage
+          ? double.infinity
+          : (_zenMode ? 740.0 : widget.appSettings.editorContentWidth),
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
           _s.updatePageTitleLive(page.id, value);
@@ -2580,6 +2592,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
       onOpenSettings: _openSettings,
+      onOpenSyncConflicts: () => unawaited(_openSyncConflicts()),
       onOpenGraph: _openGraphView,
       onOpenTemplateGallery: _openTemplateGalleryFromHome,
       onLockVault: () => unawaited(_s.lock()),
@@ -2680,13 +2693,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
           .revisionsForPage(page.id)
           .where((r) => r.revisionId.startsWith('sync_remote_'))
           .length;
-      if (remoteRevCount > 0) {
+      final pageConflicts = _s.syncConflicts
+          .where((c) => c.pageId == page.id)
+          .length;
+      if (remoteRevCount > 0 || pageConflicts > 0) {
         editorContent = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SyncRemoteRevisionBanner(
               remoteRevisionCount: remoteRevCount,
+              pageConflictCount: pageConflicts,
               onOpenHistory: _openPageHistoryScreen,
+              onReviewConflicts: pageConflicts > 0
+                  ? () => unawaited(_openSyncConflicts(filterPageId: page.id))
+                  : null,
               onDismiss: () {
                 setState(() => _dismissedSyncRemoteBanners.add(page.id));
               },

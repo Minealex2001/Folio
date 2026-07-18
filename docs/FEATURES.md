@@ -135,6 +135,7 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- **Ancho completo**: en vista tablero (y también Drive/Canvas dedicados) el contenido ignora `editorContentWidth` y usa todo el ancho del panel; las columnas Kanban reparten el espacio disponible (mín. 260 px; scroll horizontal si no caben).
 - **Creación de tareas**: «Añadir tarea» y el «+» de columna crean un borrador local (`FolioTaskData.defaults`) y abren el mismo panel/sheet de detalle que al editar una tarjeta (`task_details_panel.dart`); no hay diálogos de creación aparte.
 - Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
 - El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task` y desplegable en el panel de detalle; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
@@ -285,6 +286,15 @@ Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShor
 | `Ctrl+W` | Cerrar página |
 
 Todos son remapeables por el usuario.
+
+### Historial de navegación (botones 4/5 del ratón)
+
+En escritorio, los botones laterales del ratón (atrás / adelante) navegan como en un navegador:
+
+- **Atrás (botón 4)**: si hay una pantalla apilada (ajustes, grafo, galería de plantillas, etc.), la cierra (`Navigator.maybePop`). Si no, vuelve a la página o Home visitado anteriormente.
+- **Adelante (botón 5)**: avanza en el historial de páginas/Home (no reabre rutas `push`).
+- El historial vive en `WorkspaceNavigationHistory` (`lib/session/workspace_navigation_history.dart`), enganchado a `VaultSession.selectPage` / `clearSelectedPage`. Se inicializa al desbloquear y se vacía al bloquear o cambiar de libreta.
+- `Alt+[` / `Alt+]` siguen siendo página adyacente en la lista, no historial.
 
 ---
 
@@ -509,7 +519,7 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`. El merge
 - **Relay opcional**: `syncRelayEnabled` permite atravesar NATs cuando el multicast no funciona (flag de UI; el relay en sí no está implementado — la sync por internet va por Folio Cloud).
 - **Pack de sync**: export/import usa `folio.sync.pack.v1` (`VaultSyncPack`): payload lógico + adjuntos content-addressed bajo `attachments/`.
 - **Merge semántico (página/bloque)**: `VaultSyncMergeEngine` hace unión a 3 vías (local · remoto · baseline). Páginas/bloques distintos se conservan; el mismo bloque editado en ambos lados genera conflicto **granular** (se mantiene local, el remoto se guarda en historial/revisión). Tombstones de páginas borradas evitan resucitar contenido.
-- **Resolución de conflictos**: UI en Ajustes por conflicto de bloque o legado; `resolveSyncConflictKeepLocal` / `resolveSyncConflictAcceptRemote`.
+- **Resolución de conflictos**: UI tipo merge de Git (`SyncConflictMergeSheet`) con título de página legible, diff por hunks (tu versión / la otra / ambas), aplicar merge, mantener local o aceptar remoto. Acceso desde el chip de sync, banner del editor, Home y Ajustes (misma UI). La cola de conflictos se persiste por libreta (`SyncConflictStore`) y se restaura al desbloquear; el contador `syncPendingConflicts` se alinea con la cola real.
 - **Peers estables**: la última IP conocida de un peer se conserva incluso si el discovery falla (redes con multicast inestable).
 - Supresión de callback `onPersisted` durante `applySyncSnapshotBytes` para evitar bucles push↔import.
 
@@ -712,7 +722,7 @@ Distinta de la **copia/restauración** (reemplazo consciente): la sync automáti
 - **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro generan clave de sync sin abrir. Poll periódico (~20 s) de todas las libretas + listener/poll de la activa.
 - Cifrado con DEK cacheada / en memoria o clave estable de vault en claro; **no pide contraseña** ni depende del restore-wrap del cloud-pack.
 - Otros dispositivos escuchan el doc (`snapshots`) o, en **Windows** (sin Firestore nativo), hacen **polling REST ~2 s en foreground / ~4 s en idle**; tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
-- Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución en **Ajustes → Folio Cloud** y en Ajustes → Sincronización (P2P); mismo contador `syncPendingConflicts`.
+- Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución con merge por hunks desde el chip de sync, banner del editor, Home o **Ajustes → Folio Cloud** / Sincronización (P2P); cola persistente por libreta y mismo contador `syncPendingConflicts`.
 - Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
 - Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v1 pack o v2 manifiesto + `newBlobs`/`deleteBlobs`). Al finalizar, `oldPackStoragePath` / `oldManifestStoragePath` inválidos o de otra libreta se **ignoran** (no fallan el push); el cliente solo envía rutas que pertenecen al `vaultId` actual (evita el error al sincronizar una libreta recién creada en la web tras otra activa). Antes de omitir la subida de un blob por caché, **comprueba que exista** en Storage; si falta, lo re-sube. No borra blobs obsoletos al instante (evita 404 en pulls concurrentes); ante pull 404 repara con push local.
 

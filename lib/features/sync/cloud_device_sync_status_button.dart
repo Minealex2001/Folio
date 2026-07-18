@@ -512,22 +512,29 @@ class _VaultSyncTile extends StatelessWidget {
   }
 }
 
-/// Banner compacto cuando la página abierta tiene revisiones `sync_remote_*`.
+/// Banner compacto cuando la página abierta tiene revisiones `sync_remote_*`
+/// o conflictos de sync pendientes de esa página.
 class SyncRemoteRevisionBanner extends StatelessWidget {
   const SyncRemoteRevisionBanner({
     super.key,
     required this.remoteRevisionCount,
     required this.onOpenHistory,
     required this.onDismiss,
+    this.pageConflictCount = 0,
+    this.onReviewConflicts,
   });
 
   final int remoteRevisionCount;
+  final int pageConflictCount;
   final VoidCallback onOpenHistory;
+  final VoidCallback? onReviewConflicts;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    if (remoteRevisionCount <= 0) return const SizedBox.shrink();
+    if (remoteRevisionCount <= 0 && pageConflictCount <= 0) {
+      return const SizedBox.shrink();
+    }
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Material(
@@ -540,18 +547,28 @@ class SyncRemoteRevisionBanner extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                l10n.folioCloudDeviceSyncRemoteRevisionBanner(
-                  remoteRevisionCount,
-                ),
+                pageConflictCount > 0
+                    ? l10n.folioCloudDeviceSyncConflictsTooltip(
+                        pageConflictCount,
+                      )
+                    : l10n.folioCloudDeviceSyncRemoteRevisionBanner(
+                        remoteRevisionCount,
+                      ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSecondaryContainer,
                     ),
               ),
             ),
-            TextButton(
-              onPressed: onOpenHistory,
-              child: Text(l10n.folioCloudDeviceSyncViewHistory),
-            ),
+            if (onReviewConflicts != null)
+              TextButton(
+                onPressed: onReviewConflicts,
+                child: Text(l10n.syncConflictMergeReviewConflicts),
+              ),
+            if (remoteRevisionCount > 0)
+              TextButton(
+                onPressed: onOpenHistory,
+                child: Text(l10n.folioCloudDeviceSyncViewHistory),
+              ),
             IconButton(
               tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
               onPressed: onDismiss,
@@ -563,3 +580,4 @@ class SyncRemoteRevisionBanner extends StatelessWidget {
     );
   }
 }
+

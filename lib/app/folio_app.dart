@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/gestures.dart'
+    show kBackMouseButton, kForwardMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:dynamic_color/dynamic_color.dart';
@@ -945,6 +947,25 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.touchActivity();
   }
 
+  void _onMouseNavigationButtons(PointerDownEvent event) {
+    final back = (event.buttons & kBackMouseButton) != 0;
+    final forward = (event.buttons & kForwardMouseButton) != 0;
+    if (!back && !forward) return;
+    if (!widget.session.isUnlocked) return;
+
+    if (back) {
+      final nav = _navKey.currentState;
+      if (nav != null && nav.canPop()) {
+        nav.maybePop();
+        return;
+      }
+      widget.session.navigateHistoryBack();
+      return;
+    }
+
+    widget.session.navigateHistoryForward();
+  }
+
   bool _hasEditableTextFocus() {
     final ctx = FocusManager.instance.primaryFocus?.context;
     if (ctx == null) return false;
@@ -1633,7 +1654,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
             },
             child: Listener(
               behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) => _onGlobalUserActivity(),
+              onPointerDown: (event) {
+                _onGlobalUserActivity();
+                _onMouseNavigationButtons(event);
+              },
               onPointerSignal: (_) => _onGlobalUserActivity(),
               onPointerPanZoomStart: (_) => _onGlobalUserActivity(),
               child: content,

@@ -35,6 +35,7 @@ class WorkspaceHomeView extends StatefulWidget {
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
     this.onOpenSettings,
+    this.onOpenSyncConflicts,
     this.onOpenGraph,
     this.onOpenTemplateGallery,
     this.onLockVault,
@@ -64,6 +65,7 @@ class WorkspaceHomeView extends StatefulWidget {
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenSyncConflicts;
   final VoidCallback? onOpenGraph;
   final VoidCallback? onOpenTemplateGallery;
   final VoidCallback? onLockVault;
@@ -722,12 +724,24 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         if (conflicts > 0) {
           lines.add(const SizedBox(height: FolioSpace.xs));
           lines.add(
-            Text(
-              l10n.workspaceHomeVaultSyncConflicts(conflicts),
-              style: textTheme.bodyMedium?.copyWith(
-                color: scheme.error,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: widget.onOpenSyncConflicts,
+                style: TextButton.styleFrom(
+                  foregroundColor: scheme.error,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  l10n.workspaceHomeVaultSyncConflicts(conflicts),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
               ),
             ),
           );

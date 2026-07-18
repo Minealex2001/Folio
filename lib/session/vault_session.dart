@@ -65,9 +65,14 @@ import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
 import '../services/folio_cloud/device_sync_key_cache.dart';
+import '../services/sync/sync_conflict_entry.dart';
+import '../services/sync/sync_conflict_store.dart';
 import '../services/sync/vault_sync_merge.dart';
 import '../services/sync/vault_sync_pack.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'workspace_navigation_history.dart';
+
+export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
 
 part 'vault_session_ai.dart';
 
@@ -115,40 +120,6 @@ class _PageUndoSnapshot {
   final String title;
   final String? emoji;
   final List<FolioBlock> blocks;
-}
-
-class SyncConflictEntry {
-  const SyncConflictEntry({
-    required this.id,
-    required this.fromPeerId,
-    required this.createdAtMs,
-    required this.remoteFingerprint,
-    required this.remoteSnapshotBytes,
-    required this.remotePageCount,
-    this.pageId,
-    this.blockId,
-    this.remoteBlockJson,
-    this.localBlockJson,
-  });
-
-  final String id;
-  final String fromPeerId;
-  final int createdAtMs;
-  final String remoteFingerprint;
-  final List<int> remoteSnapshotBytes;
-  final int remotePageCount;
-
-  /// Conflicto granular de bloque (null = legado a nivel de libreta).
-  final String? pageId;
-  final String? blockId;
-  final Map<String, dynamic>? remoteBlockJson;
-  final Map<String, dynamic>? localBlockJson;
-
-  bool get isBlockConflict =>
-      pageId != null &&
-      pageId!.isNotEmpty &&
-      blockId != null &&
-      blockId!.isNotEmpty;
 }
 
 class VaultSession extends ChangeNotifier {
@@ -207,12 +178,14 @@ class VaultSession extends ChangeNotifier {
     final active = _pages.where((p) => !p.isTrashed).toList();
     if (active.isEmpty) {
       _selectedPageId = null;
+      _navigationHistory.seed(null);
       return;
     }
     if (preferPersistedPreference) {
       final p = await SharedPreferences.getInstance();
       if (p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false) {
         _selectedPageId = null;
+        _navigationHistory.seed(null);
         return;
       }
       final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
@@ -222,12 +195,14 @@ class VaultSession extends ChangeNotifier {
             saved.isNotEmpty &&
             active.any((pg) => pg.id == saved)) {
           _selectedPageId = saved;
+          _navigationHistory.seed(saved);
           return;
         }
       }
     }
     final roots = active.where((p) => p.parentId == null).toList();
     _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
+    _navigationHistory.seed(_selectedPageId);
   }
 
   bool _isManagedAttachmentPath(String? path) {
@@ -382,6 +357,9 @@ class VaultSession extends ChangeNotifier {
   JiraIntegrationState _jira = JiraIntegrationState.empty;
   YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
   String? _selectedPageId;
+  final WorkspaceNavigationHistory _navigationHistory =
+      WorkspaceNavigationHistory();
+  bool _applyingHistoryNavigation = false;
   Timer? _revisionIdleTimer;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
@@ -393,6 +371,7 @@ class VaultSession extends ChangeNotifier {
   VaultPayload? _syncBaselinePayload;
   int _syncPendingConflicts = 0;
   final List<SyncConflictEntry> _syncConflicts = [];
+  final SyncConflictStore _conflictStore = SyncConflictStore();
   final Map<String, int> _pageTombstones = {};
   int _syncClock = 0;
   static const VaultSyncMergeEngine _syncMerge = VaultSyncMergeEngine();
@@ -2101,6 +2080,23 @@ class VaultSession extends ChangeNotifier {
         context: {'stack': '$st'},
       );
     }
+    await _restorePersistedSyncConflicts();
+  }
+
+  Future<void> _restorePersistedSyncConflicts() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    final loaded = await _conflictStore.load(vid);
+    _syncConflicts
+      ..clear()
+      ..addAll(loaded);
+    _notifySyncConflictCountChanged();
+  }
+
+  Future<void> _persistSyncConflicts() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    await _conflictStore.save(vid, List<SyncConflictEntry>.from(_syncConflicts));
   }
 
   /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
@@ -2115,6 +2111,8 @@ class VaultSession extends ChangeNotifier {
     _pages = [];
     _pageRevisions.clear();
     _pageAcl.clear();
+    // La cola sigue en prefs; se restaura al desbloquear. No tocar AppSettings.
+    _syncConflicts.clear();
     _localProfiles
       ..clear()
       ..add(LocalProfile(id: 'local-default', name: 'Local user'));
@@ -2131,6 +2129,8 @@ class VaultSession extends ChangeNotifier {
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
     _selectedPageId = null;
+    _navigationHistory.clear();
+    _applyingHistoryNavigation = false;
   }
 
   /// Hooks que vacían a la sesión estado editable con debounce propio (p. ej.
@@ -2263,6 +2263,9 @@ class VaultSession extends ChangeNotifier {
     if (page == null || page.isTrashed) return;
     touchActivity();
     _selectedPageId = id;
+    if (!_applyingHistoryNavigation) {
+      _navigationHistory.record(id);
+    }
     AppLogger.debug(
       'selectPage',
       tag: 'workspace',
@@ -2295,7 +2298,77 @@ class VaultSession extends ChangeNotifier {
     if (_selectedPageId == null) return;
     touchActivity();
     _selectedPageId = null;
+    if (!_applyingHistoryNavigation) {
+      _navigationHistory.record(null);
+    }
     notifyListeners();
+  }
+
+  bool get canNavigateHistoryBack => _navigationHistory.canGoBack;
+
+  bool get canNavigateHistoryForward => _navigationHistory.canGoForward;
+
+  bool _isNavigationHistoryVisitValid(String? pageId) {
+    if (pageId == null) return true;
+    final page = _pageById(pageId);
+    return page != null && !page.isTrashed;
+  }
+
+  /// Aplica la entrada actual del historial sin volver a registrarla.
+  void _applyNavigationHistoryCurrent() {
+    final id = _navigationHistory.current;
+    if (id == null) {
+      if (_selectedPageId == null) return;
+      _selectedPageId = null;
+      notifyListeners();
+      return;
+    }
+    final page = _pageById(id);
+    if (page == null || page.isTrashed) return;
+    touchActivity();
+    _selectedPageId = id;
+    notifyListeners();
+    final requestId = ++_selectedPagePersistRequestId;
+    final activeVaultId = VaultPaths.activeVaultId;
+    unawaited(
+      _persistLastSelectedPageForActiveVault(
+        id,
+        vaultId: activeVaultId,
+        requestId: requestId,
+      ),
+    );
+  }
+
+  /// Retrocede en el historial de páginas/home. No cierra rutas del [Navigator].
+  bool navigateHistoryBack() {
+    if (!_navigationHistory.canGoBack) return false;
+    _applyingHistoryNavigation = true;
+    try {
+      if (!_navigationHistory.goBack(isValid: _isNavigationHistoryVisitValid)) {
+        return false;
+      }
+      _applyNavigationHistoryCurrent();
+      return true;
+    } finally {
+      _applyingHistoryNavigation = false;
+    }
+  }
+
+  /// Avanza en el historial de páginas/home.
+  bool navigateHistoryForward() {
+    if (!_navigationHistory.canGoForward) return false;
+    _applyingHistoryNavigation = true;
+    try {
+      if (!_navigationHistory.goForward(
+        isValid: _isNavigationHistoryVisitValid,
+      )) {
+        return false;
+      }
+      _applyNavigationHistoryCurrent();
+      return true;
+    } finally {
+      _applyingHistoryNavigation = false;
+    }
   }
 
   void selectAiChat(int index) {
@@ -2573,8 +2646,7 @@ class VaultSession extends ChangeNotifier {
         blocks: blocks,
       ),
     );
-    _selectedPageId = id;
-    notifyListeners();
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
     return id;
   }
@@ -2621,8 +2693,7 @@ class VaultSession extends ChangeNotifier {
     _pageOrderByParent
         .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
         .add(id);
-    _selectedPageId = id;
-    notifyListeners();
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
   }
 
@@ -5351,6 +5422,7 @@ class VaultSession extends ChangeNotifier {
     );
     _syncBaselinePayload = VaultPayload.decodeUtf8(localSnapshot.encodeUtf8());
     _notifySyncConflictCountChanged();
+    await _persistSyncConflicts();
     notifyListeners();
   }
 
@@ -5383,6 +5455,7 @@ class VaultSession extends ChangeNotifier {
         );
         _syncConflicts.removeAt(index);
         _notifySyncConflictCountChanged();
+        await _persistSyncConflicts();
         notifyListeners();
         return true;
       }
@@ -5404,6 +5477,48 @@ class VaultSession extends ChangeNotifier {
       );
       _syncConflicts.removeAt(index);
       _notifySyncConflictCountChanged();
+      await _persistSyncConflicts();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Aplica texto fusionado (merge por hunks) al bloque en conflicto.
+  Future<bool> resolveSyncConflictWithMergedText(
+    String conflictId,
+    String mergedText,
+  ) async {
+    final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
+    if (index == -1) return false;
+    final entry = _syncConflicts[index];
+    if (!entry.isBlockConflict ||
+        entry.pageId == null ||
+        entry.blockId == null) {
+      return false;
+    }
+    try {
+      final page = _pageById(entry.pageId!);
+      if (page == null) return false;
+      final bi = page.blocks.indexWhere((b) => b.id == entry.blockId);
+      if (bi < 0) return false;
+      final current = page.blocks[bi];
+      // Preferir metadatos locales; texto fusionado; delta rich se regenera desde plain.
+      current.text = mergedText;
+      current.richTextDeltaJson = null;
+      _contentEpoch++;
+      notifyListeners();
+      await _persistence.persistNowSuppressed();
+      _rebuildSearchIndex();
+      final localSnapshot = _buildVaultPayloadForPersist();
+      _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+        localSnapshot,
+      );
+      _syncBaselinePayload = VaultPayload.decodeUtf8(localSnapshot.encodeUtf8());
+      _syncConflicts.removeAt(index);
+      _notifySyncConflictCountChanged();
+      await _persistSyncConflicts();
       notifyListeners();
       return true;
     } catch (_) {
@@ -5440,6 +5555,7 @@ class VaultSession extends ChangeNotifier {
       ),
     );
     _notifySyncConflictCountChanged();
+    unawaited(_persistSyncConflicts());
     notifyListeners();
   }
 
@@ -5877,8 +5993,7 @@ class VaultSession extends ChangeNotifier {
         blocks: copiedBlocks,
       ),
     );
-    _selectedPageId = id;
-    notifyListeners();
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
     return id;
   }

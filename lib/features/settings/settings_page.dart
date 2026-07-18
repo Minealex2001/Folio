@@ -69,6 +69,7 @@ import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import '../release_notes/release_notes_page.dart';
+import '../sync/sync_conflict_merge_sheet.dart';
 import 'jira_integration_settings.dart';
 import 'youtrack_integration_settings.dart';
 import 'release_readiness.dart';

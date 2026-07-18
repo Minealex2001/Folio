@@ -135,6 +135,7 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- **Ancho completo**: en vista tablero (y también Drive/Canvas dedicados) el contenido ignora `editorContentWidth` y usa todo el ancho del panel; las columnas Kanban reparten el espacio disponible (mín. 260 px; scroll horizontal si no caben).
 - **Creación de tareas**: «Añadir tarea» y el «+» de columna crean un borrador local (`FolioTaskData.defaults`) y abren el mismo panel/sheet de detalle que al editar una tarjeta (`task_details_panel.dart`); no hay diálogos de creación aparte.
 - Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
 - El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task` y desplegable en el panel de detalle; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
@@ -285,6 +286,15 @@ Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShor
 | `Ctrl+W` | Cerrar página |
 
 Todos son remapeables por el usuario.
+
+### Historial de navegación (botones 4/5 del ratón)
+
+En escritorio, los botones laterales del ratón (atrás / adelante) navegan como en un navegador:
+
+- **Atrás (botón 4)**: si hay una pantalla apilada (ajustes, grafo, galería de plantillas, etc.), la cierra (`Navigator.maybePop`). Si no, vuelve a la página o Home visitado anteriormente.
+- **Adelante (botón 5)**: avanza en el historial de páginas/Home (no reabre rutas `push`).
+- El historial vive en `WorkspaceNavigationHistory` (`lib/session/workspace_navigation_history.dart`), enganchado a `VaultSession.selectPage` / `clearSelectedPage`. Se inicializa al desbloquear y se vacía al bloquear o cambiar de libreta.
+- `Alt+[` / `Alt+]` siguen siendo página adyacente en la lista, no historial.
 
 ---
 

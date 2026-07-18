@@ -1257,6 +1257,15 @@ class _KanbanViewKanban extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final columnCount = data.columns.length;
+        final gaps =
+            FolioSpace.md * math.max(0, columnCount - 1);
+        final columnWidth = math.max(
+          260.0,
+          columnCount == 0
+              ? constraints.maxWidth
+              : (constraints.maxWidth - gaps) / columnCount,
+        );
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
@@ -1268,7 +1277,7 @@ class _KanbanViewKanban extends StatelessWidget {
                   for (var i = 0; i < data.columns.length; i++) ...[
                     if (i > 0) const SizedBox(width: FolioSpace.md),
                     SizedBox(
-                      width: math.max(260, constraints.maxWidth / 3.2),
+                      width: columnWidth,
                       child: _KanbanColumn(
                         title: columnTitle(data.columns[i]),
                         color: columnColor(data.columns[i]),
