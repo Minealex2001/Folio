@@ -654,3 +654,21 @@ Future<void> applyImportToVaultRoot(
     }
   }
 }
+
+/// Importa a un [vaultId] concreto (web y nativo) sin depender de rutas nativas.
+Future<void> applyImportToVaultId(
+  Directory extractedDir,
+  String vaultId,
+) async {
+  final id = vaultId.trim();
+  if (id.isEmpty) {
+    throw VaultBackupException('vaultId vacío.');
+  }
+  await VaultPaths.initVaultStorage(id);
+  if (kIsWeb) {
+    await _applyImportToVaultStorageFromExtractedDir(extractedDir, id);
+    return;
+  }
+  final root = await VaultPaths.vaultDirectoryForId(id);
+  await applyImportToVaultRoot(extractedDir, root);
+}

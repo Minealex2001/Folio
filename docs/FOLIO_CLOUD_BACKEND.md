@@ -19,6 +19,8 @@ Como refuerzo para escritorio, también existe `folioCloudAiCompleteHttp` (HTTP 
 
 Stripe y la Tienda pueden convivir: el estado **por canal** vive en `users/{uid}.billing.stripe` y `users/{uid}.billing.microsoftStore`; la vista efectiva que leen las reglas (`folioCloud`, `ink`, índice) la calcula **`recomputeEffectiveFolioCloud`** tras webhooks Stripe o la callable **`validateMicrosoftStoreEntitlements`**.
 
+Sin suscripción de pago, `recomputeEffectiveFolioCloud` otorga el **plan free**: `folioCloud.plan = "free"`, `active = true`, `features.backup = true` (resto false), `folioBackup.quotaBytes = 500 MiB`, `ink.monthlyBalance = 0`. Con suscripción: `plan = "cloud"`, cuota base 5 GiB (15 GiB estudiante) + extras, refill de tinta mensual como antes.
+
 ### Partner Center y Azure AD
 
 1. Crea en Partner Center la **suscripción mensual** y los **consumibles** de tinta (mismos importes lógicos que en Stripe).

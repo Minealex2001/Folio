@@ -1050,7 +1050,7 @@
   ,"cloudAuthErrorGeneric": "No se pudo iniciar sesión. Inténtalo de nuevo."
   ,"cloudAuthDialogTitle": "Folio Cloud"
   ,"cloudAuthSubtitleSignIn": "Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu libreta local."
-  ,"cloudAuthSubtitleRegister": "Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago."
+  ,"cloudAuthSubtitleRegister": "Crea credenciales para Folio Cloud. Al registrarte obtienes 500 MB de copias en la nube y sync entre dispositivos (sin tinta mensual). Tus notas no se suben hasta que actives copias o sync."
   ,"cloudAuthModeSignIn": "Iniciar sesión"
   ,"cloudAuthModeRegister": "Registrarse"
   ,"cloudAuthConfirmPasswordLabel": "Confirmar contraseña"
@@ -1144,6 +1144,40 @@
   ,"folioCloudInkCount": "{count}"
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Plan mensual Folio Cloud activo"
+  ,"folioCloudPlanFreeHeadline": "Plan gratuito Folio Cloud"
+  ,"folioCloudPlanFreeSubtitle": "500 MB de copias en la nube y sincronización entre dispositivos. Sin tinta mensual: suscríbete para IA en la nube y más espacio."
+  ,"folioCloudImportAllWarningTitle": "Importar libretas de la nube"
+  ,"folioCloudImportAllWarningBodyEmpty": "Se descargarán e importarán todas las libretas de tu cuenta. La libreta local está vacía: la primera de la nube ocupará este espacio y el resto se añadirán. La contraseña de la cuenta solo se usa para importar; el desbloqueo de cada libreta sigue siendo el suyo."
+  ,"folioCloudImportAllWarningBodyKeepLocal": "Se descargarán e importarán todas las libretas de tu cuenta como libretas nuevas. Tu libreta local se conserva. La contraseña de la cuenta solo se usa para importar; el desbloqueo de cada libreta sigue siendo el suyo."
+  ,"folioCloudImportAllConfirm": "Importar todas"
+  ,"folioCloudImportAllProgress": "Importando {current} de {total}: {name}"
+  ,"@folioCloudImportAllProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"},
+      "name": {"type": "String"}
+    }
+  }
+  ,"folioCloudImportAllVaultPasswordTitle": "Contraseña de la libreta"
+  ,"folioCloudImportAllVaultPasswordBody": "La contraseña de la cuenta no abre «{name}». Introduce la contraseña master de esa libreta para importarla."
+  ,"@folioCloudImportAllVaultPasswordBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  }
+  ,"folioCloudImportAllDone": "Se importaron {count} libretas."
+  ,"@folioCloudImportAllDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  }
+  ,"folioCloudImportAllNone": "No hay libretas con copia en la nube para importar."
+  ,"folioCloudImportAllPartialFail": "Algunas libretas no se pudieron importar ({failed})."
+  ,"@folioCloudImportAllPartialFail": {
+    "placeholders": {
+      "failed": {"type": "int"}
+    }
+  }
   ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
   ,"folioCloudSubscribeFamily": "Plan Familiar (4,99 € + 2,99 €/miembro al mes)"
   ,"folioCloudSubscribeStudent": "Tarifa Estudiante (2,49 €/mes)"

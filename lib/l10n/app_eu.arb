@@ -1148,6 +1148,40 @@
   "folioCloudInkCount": "{count}",
   "@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}},
   "folioCloudPlanActiveHeadline": "Folio Cloud hileko plan aktiboa",
+  "folioCloudPlanFreeHeadline": "Folio Cloud doako plana",
+  "folioCloudPlanFreeSubtitle": "500 MB hodeiko kopiak eta gailuen arteko sinkronizazioa. Hileko tintarik gabe — harpidetu zaitez hodeiko IA eta biltegi gehiagorako.",
+  "folioCloudImportAllWarningTitle": "Inportatu koadernoak hodeitik",
+  "folioCloudImportAllWarningBodyEmpty": "Zure kontuko koaderno guztiak deskargatu eta inportatuko dira. Tokiko koadernoa hutsik dago: hodeiko lehenengoak toki hau beteko du eta gainerakoak gehituko dira. Kontuaren pasahitza inportatzeko bakarrik erabiltzen da; koaderno bakoitza bere master pasahitzarekin desblokeatzen da.",
+  "folioCloudImportAllWarningBodyKeepLocal": "Zure kontuko koaderno guztiak koaderno berri gisa deskargatu eta inportatuko dira. Tokiko koadernoa gordetzen da. Kontuaren pasahitza inportatzeko bakarrik erabiltzen da; koaderno bakoitza bere master pasahitzarekin desblokeatzen da.",
+  "folioCloudImportAllConfirm": "Inportatu guztiak",
+  "folioCloudImportAllProgress": "Inportatzen {current}/{total}: {name}",
+  "@folioCloudImportAllProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"},
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllVaultPasswordTitle": "Koadernoaren pasahitza",
+  "folioCloudImportAllVaultPasswordBody": "Kontuaren pasahitzak ezin du «{name}» ireki. Sartu koaderno horren master pasahitza inportatzeko.",
+  "@folioCloudImportAllVaultPasswordBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllDone": "{count} koaderno inportatu dira.",
+  "@folioCloudImportAllDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "folioCloudImportAllNone": "Ez dago hodeiko koadernorik inportatzeko.",
+  "folioCloudImportAllPartialFail": "Koaderno batzuk ezin izan dira inportatu ({failed}).",
+  "@folioCloudImportAllPartialFail": {
+    "placeholders": {
+      "failed": {"type": "int"}
+    }
+  },
   "folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/hilean",
   "folioCloudSubscribeFamily": "Familia Plana (4,99 € + 2,99 €/kidea hilean)",
   "folioCloudSubscribeStudent": "Ikasle Tarifa (2,49 €/hilean)",

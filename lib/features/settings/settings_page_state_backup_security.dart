@@ -415,7 +415,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
       return false;
     }
     final l10n = AppLocalizations.of(context);
-    final ok = await showDialog<bool>(
+    final password = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => FolioCloudReauthDialog(
@@ -425,7 +425,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
         initialEmail: _cloud.user?.email,
       ),
     );
-    return ok == true;
+    return password != null && password.isNotEmpty;
   }
 
   Future<void> _runBackupNowToScheduledFolder() async {

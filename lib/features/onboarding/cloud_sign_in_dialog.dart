@@ -88,7 +88,7 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
         email: _email.text,
         password: _password.text,
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(_password.text);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() {
@@ -209,7 +209,7 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
           child: Text(l10n.cancel),
         ),
         FilledButton(

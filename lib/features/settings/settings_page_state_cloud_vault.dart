@@ -12,7 +12,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       }
     }
     if (!mounted) return;
-    await showDialog<void>(
+    final accountPassword = await showDialog<String>(
       context: context,
       builder: (ctx) => _CloudAuthDialog(
         initialRegister: register,
@@ -26,6 +26,17 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
           });
         },
       ),
+    );
+    if (!mounted) return;
+    if (accountPassword == null || accountPassword.isEmpty) return;
+    if (!_cloud.isSignedIn) return;
+
+    await showFolioCloudImportAllVaultsFlow(
+      context: context,
+      session: _s,
+      entitlements: _folio,
+      accountPassword: accountPassword,
+      telemetrySettings: _app,
     );
   }
 

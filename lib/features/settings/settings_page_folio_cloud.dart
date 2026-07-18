@@ -371,17 +371,19 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isPaid = snap.isPaidPlan;
+    final isFree = snap.isFreePlan;
 
     Widget membershipChip({required IconData icon, required String label}) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: snap.active
+          color: isPaid
               ? Colors.white.withValues(alpha: 0.15)
               : scheme.surfaceContainerLowest.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: snap.active
+            color: isPaid
                 ? Colors.white.withValues(alpha: 0.22)
                 : scheme.outlineVariant.withValues(alpha: 0.32),
           ),
@@ -392,13 +394,13 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             Icon(
               icon,
               size: 14,
-              color: snap.active ? Colors.white : scheme.onSurfaceVariant,
+              color: isPaid ? Colors.white : scheme.onSurfaceVariant,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: snap.active ? Colors.white : scheme.onSurface,
+                color: isPaid ? Colors.white : scheme.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -448,7 +450,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: snap.active
+                  gradient: isPaid
                       ? LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -467,12 +469,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                   borderRadius: BorderRadius.circular(FolioRadius.xl),
                   border: Border.all(
-                    color: snap.active
+                    color: isPaid
                         ? scheme.primary.withValues(alpha: 0.5)
                         : scheme.outlineVariant.withValues(alpha: 0.45),
                     width: 1.5,
                   ),
-                  boxShadow: snap.active
+                  boxShadow: isPaid
                       ? [
                           BoxShadow(
                             color: scheme.primary.withValues(alpha: 0.25),
@@ -498,17 +500,21 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           width: 46,
                           height: 46,
                           decoration: BoxDecoration(
-                            color: snap.active
+                            color: isPaid
                                 ? Colors.white.withValues(alpha: 0.18)
                                 : scheme.surface.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(14),
-                            border: snap.active
+                            border: isPaid
                                 ? Border.all(color: Colors.white.withValues(alpha: 0.25))
                                 : null,
                           ),
                           child: Icon(
-                            snap.active ? Icons.workspace_premium_rounded : Icons.cloud_outlined,
-                            color: snap.active ? Colors.white : scheme.primary,
+                            isPaid
+                                ? Icons.workspace_premium_rounded
+                                : (isFree
+                                    ? Icons.cloud_done_outlined
+                                    : Icons.cloud_outlined),
+                            color: isPaid ? Colors.white : scheme.primary,
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -518,35 +524,53 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                             children: [
                               Text(
                                 () {
-                                  if (!snap.active) return l10n.folioCloudSubscriptionNoneTitle;
-                                  if (snap.isStudent) return l10n.folioCloudPlanActiveStudent;
+                                  if (isFree) {
+                                    return l10n.folioCloudPlanFreeHeadline;
+                                  }
+                                  if (!snap.active) {
+                                    return l10n.folioCloudSubscriptionNoneTitle;
+                                  }
+                                  if (snap.isStudent) {
+                                    return l10n.folioCloudPlanActiveStudent;
+                                  }
                                   if (snap.isFamily) {
-                                    if (snap.familyOwnerUid != null) return l10n.folioCloudPlanActiveFamilyMember;
+                                    if (snap.familyOwnerUid != null) {
+                                      return l10n.folioCloudPlanActiveFamilyMember;
+                                    }
                                     return l10n.folioCloudPlanActiveFamily;
                                   }
                                   return l10n.folioCloudPlanActiveHeadline;
                                 }(),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w900,
-                                  color: snap.active ? Colors.white : scheme.onSurface,
+                                  color: isPaid ? Colors.white : scheme.onSurface,
                                   letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 () {
-                                  if (!snap.active) return l10n.folioCloudSubscriptionNoneSubtitle;
-                                  if (snap.isStudent) return '1000 gotas/mes • 15 GB espacio de copias';
+                                  if (isFree) {
+                                    return l10n.folioCloudPlanFreeSubtitle;
+                                  }
+                                  if (!snap.active) {
+                                    return l10n.folioCloudSubscriptionNoneSubtitle;
+                                  }
+                                  if (snap.isStudent) {
+                                    return '1000 gotas/mes • 15 GB espacio de copias';
+                                  }
                                   if (snap.isFamily) {
                                     if (snap.familyOwnerUid != null) {
-                                      return l10n.folioCloudFamilyMemberNote(snap.familyOwnerUid!);
+                                      return l10n.folioCloudFamilyMemberNote(
+                                        snap.familyOwnerUid!,
+                                      );
                                     }
                                     return '500 gotas/mes • 5 GB espacio de copias • Admin';
                                   }
                                   return l10n.folioCloudSubscriptionActive;
                                 }(),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: snap.active
+                                  color: isPaid
                                       ? Colors.white.withValues(alpha: 0.85)
                                       : scheme.onSurfaceVariant,
                                   height: 1.35,
@@ -566,17 +590,19 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           icon: Icons.backup_outlined,
                           label: l10n.folioCloudFeatureBackup,
                         ),
-                        membershipChip(
-                          icon: FolioIcons.quillOutlined,
-                          label: l10n.folioCloudFeatureCloudAi,
-                        ),
-                        membershipChip(
-                          icon: Icons.public_outlined,
-                          label: l10n.folioCloudFeaturePublishWeb,
-                        ),
+                        if (isPaid) ...[
+                          membershipChip(
+                            icon: FolioIcons.quillOutlined,
+                            label: l10n.folioCloudFeatureCloudAi,
+                          ),
+                          membershipChip(
+                            icon: Icons.public_outlined,
+                            label: l10n.folioCloudFeaturePublishWeb,
+                          ),
+                        ],
                       ],
                     ),
-                    if (!snap.active) ...[
+                    if (!isPaid) ...[
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -588,7 +614,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 14),
-                    if (snap.active) ...[
+                    if (isPaid) ...[
                       Row(
                         children: [
                           Expanded(
@@ -721,7 +747,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              if (snap.active && snap.familyOwnerUid == null && !snap.isStudent) ...[
+              if (snap.isPaidPlan && snap.familyOwnerUid == null && !snap.isStudent) ...[
                 const SizedBox(height: 16),
                 Card(
                   margin: EdgeInsets.zero,

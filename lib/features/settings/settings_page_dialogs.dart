@@ -72,7 +72,7 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
         );
       }
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(pass);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

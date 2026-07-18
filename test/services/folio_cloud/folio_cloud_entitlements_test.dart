@@ -81,13 +81,31 @@ void main() {
       expect(snap.subscriptionStatus, 'active');
     });
 
-    test('returns empty entitlements when folioCloud missing', () {
-      final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
-        'stripeCustomerId': 'cus_x',
-      });
-      expect(snap.active, isFalse);
-      expect(snap.subscriptionStatus, isNull);
+    test('parses free plan with backup and no cloudAi', () {
+      final data = <String, dynamic>{
+        'folioCloud': <String, dynamic>{
+          'active': true,
+          'plan': 'free',
+          'subscriptionStatus': 'free',
+          'features': <String, dynamic>{
+            'backup': true,
+            'cloudAi': false,
+            'publishWeb': false,
+            'realtimeCollab': false,
+          },
+        },
+        'folioBackup': <String, dynamic>{
+          'quotaBytes': 524288000,
+          'usedBytes': 0,
+        },
+      };
+      final snap = FolioCloudSnapshot.fromUserDoc(data);
+      expect(snap.active, isTrue);
+      expect(snap.isFreePlan, isTrue);
+      expect(snap.isPaidPlan, isFalse);
+      expect(snap.canUseCloudBackup, isTrue);
       expect(snap.canUseCloudAi, isFalse);
+      expect(snap.backupQuotaBytes, 524288000);
     });
 
     test('folioStaff enables cloud features without active subscription', () {

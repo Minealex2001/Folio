@@ -1147,6 +1147,40 @@
   "folioCloudInkCount": "{count}",
   "@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}},
   "folioCloudPlanActiveHeadline": "Pla mensual de Folio Cloud actiu",
+  "folioCloudPlanFreeHeadline": "Pla gratuït de Folio Cloud",
+  "folioCloudPlanFreeSubtitle": "500 MB de còpies al núvol i sincronització entre dispositius. Sense tinta mensual: subscriu-te per a IA al núvol i més espai.",
+  "folioCloudImportAllWarningTitle": "Importar llibretes del núvol",
+  "folioCloudImportAllWarningBodyEmpty": "Es baixaran i importaran totes les llibretes del teu compte. La llibreta local està buida: la primera del núvol ocuparà aquest espai i la resta s'afegiran. La contrasenya del compte només s'usa per importar; el desbloqueig de cada llibreta segueix sent el seu.",
+  "folioCloudImportAllWarningBodyKeepLocal": "Es baixaran i importaran totes les llibretes del teu compte com a llibretes noves. La llibreta local es conserva. La contrasenya del compte només s'usa per importar; el desbloqueig de cada llibreta segueix sent el seu.",
+  "folioCloudImportAllConfirm": "Importar totes",
+  "folioCloudImportAllProgress": "Important {current} de {total}: {name}",
+  "@folioCloudImportAllProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"},
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllVaultPasswordTitle": "Contrasenya de la llibreta",
+  "folioCloudImportAllVaultPasswordBody": "La contrasenya del compte no obre «{name}». Introdueix la contrasenya master d'aquesta llibreta per importar-la.",
+  "@folioCloudImportAllVaultPasswordBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllDone": "S'han importat {count} llibretes.",
+  "@folioCloudImportAllDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "folioCloudImportAllNone": "No hi ha llibretes al núvol per importar.",
+  "folioCloudImportAllPartialFail": "Algunes llibretes no s'han pogut importar ({failed}).",
+  "@folioCloudImportAllPartialFail": {
+    "placeholders": {
+      "failed": {"type": "int"}
+    }
+  },
   "folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes",
   "folioCloudSubscribeFamily": "Pla Familiar (4,99 € + 2,99 €/membre al mes)",
   "folioCloudSubscribeStudent": "Tarifa Estudiant (2,49 €/mes)",

@@ -268,7 +268,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
       }
     }
     if (!mounted) return;
-    await showDialog<bool>(
+    await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => CloudSignInDialog(

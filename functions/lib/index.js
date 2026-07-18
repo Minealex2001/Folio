@@ -841,10 +841,31 @@ function priceBackupStoragePackLarge(isDebug) {
 }
 /** 5 GiB base con suscripción Folio Cloud (backup). */
 const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+/** 500 MiB base para cuentas free (copias + sync; sin tinta). */
+const FREE_BACKUP_QUOTA_BYTES = 500 * 1024 * 1024;
 /** Cuota efectiva para cuentas staff (`users/{uid}.folioStaff`): sin límite práctico en servidor. */
 const FOLIO_STAFF_BACKUP_QUOTA_BYTES = Number.MAX_SAFE_INTEGER;
 function isFolioStaffUser(data) {
     return data.folioStaff === true;
+}
+/** Plan free explícito (`folioCloud.plan === "free"`). */
+function isFolioCloudFreePlan(fc) {
+    return (fc === null || fc === void 0 ? void 0 : fc.plan) === "free";
+}
+/**
+ * Suscripción de pago (Stripe/MS/familia), no el free tier.
+ * Docs legacy sin `plan` se tratan como de pago si `active` y status de suscripción real.
+ */
+function isFolioCloudPaidPlan(fc) {
+    var _a;
+    if (!fc || fc.active !== true)
+        return false;
+    if (fc.plan === "free")
+        return false;
+    if (fc.plan === "cloud")
+        return true;
+    const status = String((_a = fc.subscriptionStatus) !== null && _a !== void 0 ? _a : "");
+    return (status === "active" || status === "trialing" || status === "past_due");
 }
 const BACKUP_STORAGE_GRANT_SMALL_BYTES = 20 * 1024 * 1024 * 1024;
 const BACKUP_STORAGE_GRANT_MEDIUM_BYTES = 75 * 1024 * 1024 * 1024;
@@ -1162,11 +1183,17 @@ async function updateFolioBackupQuotaBytes(uid) {
         const subExtra = folioBackupStripeSubscriptionExtraField(data);
         const used = folioBackupUsedField(data);
         const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
-        const baseQuota = isStudent
-            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
-            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        const freePlan = isFolioCloudFreePlan(fc);
+        const baseQuota = freePlan
+            ? FREE_BACKUP_QUOTA_BYTES
+            : isStudent
+                ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+                : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        // Free: 500 MiB + compras únicas de almacenamiento; extras de suscripción solo en plan de pago.
         const quotaBytes = active && backupOk
-            ? baseQuota + purchased + subExtra
+            ? freePlan
+                ? baseQuota + purchased
+                : baseQuota + purchased + subExtra
             : 0;
         tx.set(ref, {
             folioBackup: {
@@ -1212,13 +1239,11 @@ async function recomputeEffectiveFolioCloud(uid) {
     const stripeBilling = billing.stripe;
     const msBilling = billing.microsoftStore;
     const familyOwnerUid = data.familyOwnerUid;
-    let isFamilyMemberActive = false;
     let ownerFc = null;
     if (familyOwnerUid) {
         const ownerSnap = await db.collection("users").doc(familyOwnerUid).get();
         if (ownerSnap.exists) {
             ownerFc = (_d = ownerSnap.data()) === null || _d === void 0 ? void 0 : _d.folioCloud;
-            isFamilyMemberActive = (ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.active) === true;
         }
     }
     let stripeStatus = "canceled";
@@ -1229,6 +1254,8 @@ async function recomputeEffectiveFolioCloud(uid) {
     if (familyOwnerUid) {
         stripeStatus = (_e = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionStatus) !== null && _e !== void 0 ? _e : "canceled";
         stripePriceId = (_f = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionPriceId) !== null && _f !== void 0 ? _f : undefined;
+        // Solo heredar si el dueño tiene plan de pago (no free tier).
+        const isFamilyMemberActive = isFolioCloudPaidPlan(ownerFc);
         stripeActiveFlag = isFamilyMemberActive;
         isFamily = true;
         isStudent = false;
@@ -1246,8 +1273,12 @@ async function recomputeEffectiveFolioCloud(uid) {
                 stripeStatus = String((_h = fc.subscriptionStatus) !== null && _h !== void 0 ? _h : "canceled");
                 const sp = fc.subscriptionPriceId;
                 stripePriceId = typeof sp === "string" && sp ? sp : undefined;
+                // No tratar plan free / status "free" como suscripción de pago.
                 stripeActiveFlag =
-                    Boolean(fc.active) && stripeStatus !== "canceled";
+                    Boolean(fc.active) &&
+                        stripeStatus !== "canceled" &&
+                        stripeStatus !== "free" &&
+                        fc.plan !== "free";
             }
         }
     }
@@ -1277,17 +1308,34 @@ async function recomputeEffectiveFolioCloud(uid) {
             publishWeb: false,
             realtimeCollab: false,
         };
-    const features = {
+    const paidActive = stripeActiveFlag || msMonthlyActive;
+    let features = {
         backup: stripeFeatures.backup || msFeatures.backup,
         cloudAi: stripeFeatures.cloudAi || msFeatures.cloudAi,
         publishWeb: stripeFeatures.publishWeb || msFeatures.publishWeb,
         realtimeCollab: stripeFeatures.realtimeCollab || msFeatures.realtimeCollab,
     };
-    const folioActive = stripeActiveFlag || msMonthlyActive;
+    let folioActive = paidActive;
+    let folioPlan = "cloud";
     let subscriptionStatus = stripeStatus;
     if (msMonthlyActive &&
         (!stripeActiveFlag || stripeStatus === "canceled")) {
         subscriptionStatus = "active";
+    }
+    if (!paidActive) {
+        // Free tier: copias + sync (backup), 0 tinta, sin IA ni publishWeb.
+        folioActive = true;
+        folioPlan = "free";
+        subscriptionStatus = "free";
+        features = {
+            backup: true,
+            cloudAi: false,
+            publishWeb: false,
+            realtimeCollab: false,
+        };
+    }
+    else {
+        folioPlan = "cloud";
     }
     let stripeMonthlyActive = false;
     if (stripeActiveFlag && stripe && stripePriceId) {
@@ -1307,6 +1355,7 @@ async function recomputeEffectiveFolioCloud(uid) {
         folioCloud: {
             subscriptionStatus,
             active: folioActive,
+            plan: folioPlan,
             features,
             subscriptionPriceId: stripePriceId !== null && stripePriceId !== void 0 ? stripePriceId : null,
             isFamily,
@@ -2466,7 +2515,14 @@ function effectiveBackupQuotaBytes(data) {
     const fc = data.folioCloud;
     const features = fc === null || fc === void 0 ? void 0 : fc.features;
     if ((fc === null || fc === void 0 ? void 0 : fc.active) === true && (features === null || features === void 0 ? void 0 : features.backup) === true) {
-        return (FOLIO_BACKUP_BASE_QUOTA_BYTES +
+        if (isFolioCloudFreePlan(fc)) {
+            return FREE_BACKUP_QUOTA_BYTES + folioBackupPurchasedField(data);
+        }
+        const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
+        const base = isStudent
+            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        return (base +
             folioBackupPurchasedField(data) +
             folioBackupStripeSubscriptionExtraField(data));
     }
@@ -3139,6 +3195,14 @@ exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: 
     const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
     const usedCloud = folioBackupUsedField(data);
     const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const fc = data.folioCloud;
+    const freePlan = isFolioCloudFreePlan(fc);
+    const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
+    const baseQuotaBytes = freePlan
+        ? FREE_BACKUP_QUOTA_BYTES
+        : isStudent
+            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
     return {
         ok: true,
         usedBytes: usedCloud + legacyBytes,
@@ -3147,7 +3211,8 @@ exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: 
         quotaBytes: effectiveBackupQuotaBytes(data),
         purchasedBytes: folioBackupPurchasedField(data),
         subscriptionExtraBytes: folioBackupStripeSubscriptionExtraField(data),
-        baseQuotaBytes: FOLIO_BACKUP_BASE_QUOTA_BYTES,
+        baseQuotaBytes,
+        plan: freePlan ? "free" : "cloud",
     };
 });
 exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
@@ -3492,11 +3557,11 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "publ
         .map((x) => x.trim())
         .filter((x) => x.length > 0);
     vaultIds.sort((a, b) => a.localeCompare(b));
-    const indexSnap = await db
-        .collection("users")
-        .doc(uid)
-        .collection("vaultBackupIndex")
-        .get();
+    const userRef = db.collection("users").doc(uid);
+    const [indexSnap, vaultBackupsSnap] = await Promise.all([
+        userRef.collection("vaultBackupIndex").get(),
+        userRef.collection("vaultBackups").get(),
+    ]);
     const nameById = new Map();
     for (const d of indexSnap.docs) {
         const data = d.data();
@@ -3504,7 +3569,25 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "publ
         if (name)
             nameById.set(d.id, name);
     }
-    const vaults = vaultIds.map((id) => {
+    // Solo libretas con copias reales (legacy backups/ o cloud-pack).
+    // Excluye las que solo tienen device-sync/ u otras carpetas no-backup.
+    const hasCloudPackMeta = new Set();
+    for (const d of vaultBackupsSnap.docs) {
+        const data = d.data();
+        const cp = typeof data.latestCloudPackSnapshotPath === "string"
+            ? data.latestCloudPackSnapshotPath.trim()
+            : "";
+        if (cp)
+            hasCloudPackMeta.add(d.id);
+    }
+    const withRealBackups = (await Promise.all(vaultIds.map(async (id) => {
+        if (hasCloudPackMeta.has(id))
+            return id;
+        if (await vaultCloudBackupHasRemainingFiles(uid, id))
+            return id;
+        return null;
+    }))).filter((id) => id != null);
+    const vaults = withRealBackups.map((id) => {
         var _a;
         return ({
             vaultId: id,

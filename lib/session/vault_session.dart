@@ -413,6 +413,11 @@ class VaultSession extends ChangeNotifier {
     return _registry.vaults;
   }
 
+  Future<bool> containsVault(String vaultId) async {
+    await _registry.load();
+    return _registry.containsVault(vaultId);
+  }
+
   /// Nombre de la libreta activa para mostrar en Ajustes (p. ej. copias).
   Future<String> getActiveVaultDisplayLabel() async {
     await _registry.load();
@@ -1222,7 +1227,10 @@ class VaultSession extends ChangeNotifier {
     }
     _resumeVaultIdAfterNewVault = current;
     final newId = _uuid.v4();
-    await VaultPaths.vaultDirectoryForId(newId);
+    await VaultPaths.initVaultStorage(newId);
+    if (!kIsWeb) {
+      await VaultPaths.vaultDirectoryForId(newId);
+    }
     final ordinal = _registry.vaults.length + 1;
     await _registry.add(
       VaultEntry(
@@ -1335,12 +1343,10 @@ class VaultSession extends ChangeNotifier {
     String? displayName,
     bool deleteExtractedDir = false,
   }) async {
-    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     try {
       await validateImportZip(extractedDir, backupPassword);
       final newId = _uuid.v4();
-      final root = await VaultPaths.vaultDirectoryForId(newId);
-      await applyImportToVaultRoot(extractedDir, root);
+      await applyImportToVaultId(extractedDir, newId);
       await _registry.load();
       await _registry.add(
         VaultEntry(
@@ -1360,6 +1366,89 @@ class VaultSession extends ChangeNotifier {
         } catch (_) {}
       }
     }
+  }
+
+  /// Importa un cloud-pack/ZIP ya extraído usando el [cloudVaultId] remoto
+  /// (no genera un UUID nuevo). No desbloquea la libreta.
+  ///
+  /// Si [overwriteIfExists] y hay una libreta local vacía con otro id, se
+  /// elimina ese slot y se registra [cloudVaultId].
+  Future<void> importCloudVaultAsLocal({
+    required String cloudVaultId,
+    required Directory extractedDir,
+    required String password,
+    String? displayName,
+    bool overwriteIfExists = false,
+    bool setActive = false,
+  }) async {
+    final id = cloudVaultId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('cloudVaultId vacío');
+    }
+    await validateImportZip(extractedDir, password);
+    await _registry.load();
+
+    final already = _registry.containsVault(id) ||
+        await VaultPaths.vaultExistsForId(id);
+    if (already && !overwriteIfExists) {
+      throw StateError('La libreta $id ya existe en este dispositivo.');
+    }
+
+    if (overwriteIfExists) {
+      final activeId = VaultPaths.activeVaultId;
+      if (activeId != null &&
+          activeId != id &&
+          await isLocalVaultEmptyForCloudImport()) {
+        await VaultPaths.deleteVaultDirectory(activeId);
+        if (_registry.containsVault(activeId)) {
+          await _registry.remove(activeId);
+        }
+      }
+      if (already) {
+        await VaultPaths.deleteVaultDirectory(id);
+      }
+    }
+
+    await applyImportToVaultId(extractedDir, id);
+
+    if (!_registry.containsVault(id)) {
+      final ordinal = _registry.vaults.length + 1;
+      await _registry.add(
+        VaultEntry(
+          id: id,
+          displayName: displayName ?? 'Libreta $ordinal',
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    } else if (displayName != null && displayName.trim().isNotEmpty) {
+      await _registry.rename(id, displayName.trim());
+    }
+
+    if (setActive) {
+      VaultPaths.setActiveVaultId(id);
+      await _registry.setActiveVaultId(id);
+    }
+    notifyListeners();
+  }
+
+  /// Heurística 2B: slot vacío / onboarding / solo páginas starter.
+  Future<bool> isLocalVaultEmptyForCloudImport() async {
+    await _registry.load();
+    if (_state == VaultFlowState.needsOnboarding) return true;
+    final activeId = VaultPaths.activeVaultId;
+    if (activeId == null || activeId.isEmpty) return true;
+    if (!await VaultPaths.vaultExistsForId(activeId)) return true;
+    if (_state == VaultFlowState.unlocked) {
+      if (_pages.isEmpty) return true;
+      final onlyStarter = _pages.every((p) => p.id.startsWith('starter_'));
+      if (onlyStarter) {
+        // Sin adjuntos de usuario ≈ libreta recién creada con páginas iniciales.
+        return true;
+      }
+      return false;
+    }
+    // Locked / initializing: si hay payload real, no está vacía.
+    return !(await VaultPaths.vaultExists());
   }
 
   /// Importa una copia (ZIP o TAR.GZ) y **machaca** la libreta activa.
@@ -1693,8 +1782,7 @@ class VaultSession extends ChangeNotifier {
       id = _uuid.v4();
       VaultPaths.setActiveVaultId(id);
     }
-    final root = await VaultPaths.vaultDirectoryForId(id);
-    await applyImportToVaultRoot(extractedDir, root);
+    await applyImportToVaultId(extractedDir, id);
 
     if (!_registry.containsVault(id)) {
       final ordinal = _registry.vaults.length + 1;

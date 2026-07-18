@@ -1147,6 +1147,40 @@
   "folioCloudInkCount": "{count}",
   "@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}},
   "folioCloudPlanActiveHeadline": "Plano mensal Folio Cloud ativo",
+  "folioCloudPlanFreeHeadline": "Plano gratuito Folio Cloud",
+  "folioCloudPlanFreeSubtitle": "500 MB de cópias na nuvem e sincronização entre dispositivos. Sem tinta mensal — assine para IA na nuvem e mais espaço.",
+  "folioCloudImportAllWarningTitle": "Importar cadernos da nuvem",
+  "folioCloudImportAllWarningBodyEmpty": "Todos os cadernos da sua conta serão transferidos e importados. O caderno local está vazio: o primeiro da nuvem ocupará este espaço e os restantes serão adicionados. A palavra-passe da conta só é usada para importar; o desbloqueio de cada caderno continua a ser o seu.",
+  "folioCloudImportAllWarningBodyKeepLocal": "Todos os cadernos da sua conta serão transferidos e importados como cadernos novos. O caderno local é mantido. A palavra-passe da conta só é usada para importar; o desbloqueio de cada caderno continua a ser o seu.",
+  "folioCloudImportAllConfirm": "Importar todos",
+  "folioCloudImportAllProgress": "A importar {current} de {total}: {name}",
+  "@folioCloudImportAllProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"},
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllVaultPasswordTitle": "Palavra-passe do caderno",
+  "folioCloudImportAllVaultPasswordBody": "A palavra-passe da conta não abre «{name}». Introduza a palavra-passe master desse caderno para o importar.",
+  "@folioCloudImportAllVaultPasswordBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "folioCloudImportAllDone": "Foram importados {count} cadernos.",
+  "@folioCloudImportAllDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "folioCloudImportAllNone": "Não há cadernos na nuvem para importar.",
+  "folioCloudImportAllPartialFail": "Alguns cadernos não puderam ser importados ({failed}).",
+  "@folioCloudImportAllPartialFail": {
+    "placeholders": {
+      "failed": {"type": "int"}
+    }
+  },
   "folioCloudSubscribeMonthly": "Folio Cloud €4,99/mês",
   "folioCloudSubscribeFamily": "Plano Familiar (€4,99 + €2,99/membro/mês)",
   "folioCloudSubscribeStudent": "Tarifa Estudante (€2,49/mês)",

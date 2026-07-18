@@ -1052,7 +1052,7 @@
   ,"cloudAuthErrorGeneric": "Sign-in failed. Try again."
   ,"cloudAuthDialogTitle": "Folio Cloud"
   ,"cloudAuthSubtitleSignIn": "Use your Folio Cloud email and password. Nothing here changes your local vault."
-  ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials. Your notes on this device are not uploaded until you enable backups or other paid features."
+  ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials. Signing up gives you 500 MB of cloud backups and multi-device sync (no monthly ink). Your notes are not uploaded until you enable backups or sync."
   ,"cloudAuthModeSignIn": "Sign in"
   ,"cloudAuthModeRegister": "Register"
   ,"cloudAuthConfirmPasswordLabel": "Confirm password"
@@ -1146,6 +1146,40 @@
   ,"folioCloudInkCount": "{count}"
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
+  ,"folioCloudPlanFreeHeadline": "Folio Cloud free plan"
+  ,"folioCloudPlanFreeSubtitle": "500 MB of cloud backups and multi-device sync. No monthly ink — subscribe for cloud AI and more storage."
+  ,"folioCloudImportAllWarningTitle": "Import notebooks from the cloud"
+  ,"folioCloudImportAllWarningBodyEmpty": "All notebooks in your account will be downloaded and imported. Your local notebook is empty: the first cloud notebook will fill this slot and the rest will be added. Your account password is only used for import; unlocking each notebook still uses its own master password."
+  ,"folioCloudImportAllWarningBodyKeepLocal": "All notebooks in your account will be downloaded and imported as new notebooks. Your local notebook is kept. Your account password is only used for import; unlocking each notebook still uses its own master password."
+  ,"folioCloudImportAllConfirm": "Import all"
+  ,"folioCloudImportAllProgress": "Importing {current} of {total}: {name}"
+  ,"@folioCloudImportAllProgress": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"},
+      "name": {"type": "String"}
+    }
+  }
+  ,"folioCloudImportAllVaultPasswordTitle": "Notebook password"
+  ,"folioCloudImportAllVaultPasswordBody": "Your account password cannot open “{name}”. Enter that notebook’s master password to import it."
+  ,"@folioCloudImportAllVaultPasswordBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  }
+  ,"folioCloudImportAllDone": "Imported {count} notebooks."
+  ,"@folioCloudImportAllDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  }
+  ,"folioCloudImportAllNone": "No cloud notebooks to import."
+  ,"folioCloudImportAllPartialFail": "Some notebooks could not be imported ({failed})."
+  ,"@folioCloudImportAllPartialFail": {
+    "placeholders": {
+      "failed": {"type": "int"}
+    }
+  }
   ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
   ,"folioCloudSubscribeFamily": "Family Plan (€4.99 + €2.99/member/mo)"
   ,"folioCloudSubscribeStudent": "Student Tier (€2.49/mo)"

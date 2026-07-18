@@ -181,6 +181,7 @@ class FolioCloudSnapshot {
     required this.publishWeb,
     required this.realtimeCollab,
     this.folioStaff = false,
+    this.plan,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
     this.backupPurchasedBytes = 0,
@@ -198,6 +199,10 @@ class FolioCloudSnapshot {
 
   final bool active;
   final String? subscriptionStatus;
+
+  /// `free` | `cloud` (Firestore `folioCloud.plan`); null en docs legacy.
+  final String? plan;
+
   final bool backup;
   final bool cloudAi;
   final bool publishWeb;
@@ -230,6 +235,19 @@ class FolioCloudSnapshot {
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
   FolioInkSnapshot get ink => _ink ?? FolioInkSnapshot.empty;
 
+  /// Plan free (500 MiB, backup+sync, 0 tinta).
+  bool get isFreePlan =>
+      plan == 'free' ||
+      (active &&
+          backup &&
+          !cloudAi &&
+          !publishWeb &&
+          (subscriptionStatus?.toLowerCase() == 'free'));
+
+  /// Suscripción de pago (no free tier).
+  bool get isPaidPlan =>
+      folioStaff || (active && !isFreePlan && (cloudAi || publishWeb || plan == 'cloud'));
+
   /// Alineado con reglas de Storage (`folioCloud.active` + feature o `folioStaff`).
   bool get canUseCloudBackup => folioStaff || (active && backup);
 
@@ -246,6 +264,7 @@ class FolioCloudSnapshot {
   static const FolioCloudSnapshot empty = FolioCloudSnapshot(
     active: false,
     subscriptionStatus: null,
+    plan: null,
     backup: false,
     cloudAi: false,
     publishWeb: false,
@@ -279,6 +298,7 @@ class FolioCloudSnapshot {
       return FolioCloudSnapshot(
         active: false,
         subscriptionStatus: null,
+        plan: null,
         backup: false,
         cloudAi: false,
         publishWeb: false,
@@ -303,11 +323,17 @@ class FolioCloudSnapshot {
     var active = _folioBool(m['active']);
     final statusNorm =
         m['subscriptionStatus']?.toString().trim().toLowerCase();
+    final planRaw = m['plan']?.toString().trim().toLowerCase();
+    final plan = (planRaw == 'free' || planRaw == 'cloud') ? planRaw : null;
     // Si `active` falta o quedó desincronizado pero el estado Stripe es de alta.
     if (!active &&
         (statusNorm == 'active' ||
             statusNorm == 'trialing' ||
             statusNorm == 'past_due')) {
+      active = true;
+    }
+    // Free tier: active + plan/status free.
+    if (!active && (plan == 'free' || statusNorm == 'free')) {
       active = true;
     }
     int seatsVal = 0;
@@ -322,6 +348,7 @@ class FolioCloudSnapshot {
     return FolioCloudSnapshot(
       active: active,
       subscriptionStatus: m['subscriptionStatus']?.toString(),
+      plan: plan,
       backup: f('backup'),
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),

@@ -679,7 +679,14 @@ Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo
 
 ### Entitlements (`folioCloud.features`)
 
-El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas que la app y las reglas usan como contrato:
+El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas que la app y las reglas usan como contrato. **Toda cuenta Firebase** recibe además un **plan free** (`folioCloud.plan = "free"`) sin suscripción de pago:
+
+| Plan | `plan` | Cuota copias | Features | Tinta mensual |
+|------|--------|--------------|----------|---------------|
+| Gratuito (cuenta) | `free` | **500 MiB** | `backup` (+ sync multi-dispositivo); sin `cloudAi` / `publishWeb` / `realtimeCollab` | **0** |
+| Folio Cloud de pago | `cloud` | 5 GiB (15 GiB estudiante) + extras «Biblioteca» | según precio | 500 (1000 estudiante) |
+
+Al suscribirse, los 500 MiB se **sustituyen** por la cuota del plan de pago (no se suman).
 
 | Flag | Rol |
 |------|-----|
@@ -688,7 +695,7 @@ El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas
 | `publishWeb` | HTML público en `published/{uid}/**` + índice Firestore `publishedPages` |
 | `realtimeCollab` | Colaboración en vivo (salas Firestore, subida de medios colaborativos) cuando el plan lo incluye |
 
-Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
+Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `isFreePlan`, `isPaidPlan`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
 
 ### Sincronización multi-dispositivo (casi en tiempo real)
 
@@ -723,7 +730,10 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 - Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo). El envoltorio de recuperación del cloud-pack se toma de `vault.keys` (libreta cifrada) o se genera automáticamente (libreta en claro); **no se pide contraseña** en la copia programada ni en la sync.
 - En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
 - Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
-- **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
+- **`folioListBackupVaults`** solo incluye libretas con copias reales (`backups/` legacy o `cloud-packs/` / meta de cloud-pack); **no** lista las que solo tienen sync multi-dispositivo (`device-sync/`), que va por separado.
+- **Cuota de almacenamiento** de copias: **500 MiB** en plan free; con suscripción base **5 GiB** (estudiante **15 GiB**) y ampliaciones («Biblioteca» pequeña/mediana/grande). Catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
+- **Importar todas al iniciar sesión** (onboarding «desde Folio Cloud» o Ajustes → cuenta): aviso, descarga e importa todas las libretas con cloud-pack conservando el `vaultId` remoto. Si la libreta local está vacía, la primera ocupa ese slot; si tiene contenido, se conserva y todas se añaden. La contraseña de la **cuenta** se usa solo como `restorePassword` del envoltorio; el desbloqueo habitual sigue siendo la master de cada libreta. Fallback: pedir master de esa libreta si no coincide. Cliente: `folio_cloud_import_all_vaults.dart` + `folio_cloud_import_all_dialog.dart`.
+- **Multi-libreta en web**: IndexedDB admite varias libretas; `prepareNewVault` / `importVaultBackupAsNew` / `importCloudVaultAsLocal` ya no dependen de `Directory` nativo en web.
 
 ### IA en la nube
 
