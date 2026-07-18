@@ -2294,7 +2294,6 @@
   ,"vaultStarterQuillMermaidCaption": "Proba rápida de Mermaid:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear caderno] --> Organizar[Organizar páxinas]\nOrganizar --> Escribir[Escribir e enlazar ideas]\nEscribir --> Revisar[Buscar, revisar e mellorar]"
   ,"settingsAccentColorTitle": "Cor de acento"
-  ,"settingsAccentFollowSystem": "Windows"
   ,"settingsAccentFolioDefault": "Folio"
   ,"settingsAccentCustom": "Personalizado"
   ,"settingsAccentPickColor": "Elixir cor predefinida"

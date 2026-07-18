@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
@@ -1549,7 +1549,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     await widget.appSettings.setScheduledVaultBackupAlsoUploadCloud(
       _draftScheduledBackupAlsoUploadCloud,
     );
-    if (defaultTargetPlatform == TargetPlatform.windows) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
       await widget.appSettings.setMinimizeToTray(_draftMinimizeToTray);
       await widget.appSettings.setCloseToTray(_draftCloseToTray);
       await widget.appSettings.setWindowsNotificationsEnabled(
@@ -1655,7 +1655,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           segments: [
             ButtonSegment<FolioAccentColorMode>(
               value: FolioAccentColorMode.followSystem,
-              label: Text(l10n.settingsAccentFollowSystem),
+              label: Text(FolioAdaptive.currentPlatformName()),
               icon: const Icon(Icons.palette_outlined, size: 18),
             ),
             ButtonSegment<FolioAccentColorMode>(
@@ -1756,7 +1756,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final choices = AppSettings.scheduledVaultBackupIntervalChoicesMinutes;
-    final isWindows = defaultTargetPlatform == TargetPlatform.windows;
+    final isWindows =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

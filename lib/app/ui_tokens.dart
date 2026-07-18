@@ -257,4 +257,24 @@ class FolioAdaptive {
     return defaultTargetPlatform == TargetPlatform.android &&
         !isAndroidDesktopLikeWidth(width);
   }
+
+  /// Nombre del sistema operativo actual (nombre de marca, no traducible),
+  /// para etiquetas como "seguir acento del sistema". `defaultTargetPlatform`
+  /// ya refleja el SO real también en web (se infiere del user agent).
+  static String currentPlatformName() {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.fuchsia:
+        return 'Fuchsia';
+    }
+  }
 }

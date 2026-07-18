@@ -2292,7 +2292,6 @@
   "vaultStarterQuillMermaidCaption": "Prova ràpida de Mermaid:",
   "vaultStarterQuillMermaidSource": "graph TD\nInici[Crear quadern] --> Organitzar[Organitzar pàgines]\nOrganitzar --> Escriure[Escriure i enllaçar idees]\nEscriure --> Revisar[Cercar, revisar i millorar]",
   "settingsAccentColorTitle": "Color d'accent",
-  "settingsAccentFollowSystem": "Windows",
   "settingsAccentFolioDefault": "Folio",
   "settingsAccentCustom": "Personalitzat",
   "settingsAccentPickColor": "Trieu un color predefinit",

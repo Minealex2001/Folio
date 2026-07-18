@@ -2293,7 +2293,6 @@
   "vaultStarterQuillMermaidCaption": "Mermaid proba azkarra:",
   "vaultStarterQuillMermaidSource": "graph TD\nHasiera[Sortu koadernoa] --> Antolatu[Antolatu orriak]\nAntolatu --> Idatzi[Idatzi eta lotu ideiak]\nIdatzi --> Berrikusi[Bilatu, berrikusi eta hobetu]",
   "settingsAccentColorTitle": "Azentu-kolorea",
-  "settingsAccentFollowSystem": "Windows",
   "settingsAccentFolioDefault": "Folio",
   "settingsAccentCustom": "Pertsonalizatua",
   "settingsAccentPickColor": "Aurrezarritako kolorea aukeratu",

@@ -2290,7 +2290,6 @@
   ,"vaultStarterQuillMermaidCaption": "Prueba rápida de Mermaid:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]"
   ,"settingsAccentColorTitle": "Color de acento"
-  ,"settingsAccentFollowSystem": "Windows"
   ,"settingsAccentFolioDefault": "Folio"
   ,"settingsAccentCustom": "Personalizado"
   ,"settingsAccentPickColor": "Elegir color predefinido"

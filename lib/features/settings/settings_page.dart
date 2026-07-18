@@ -2768,7 +2768,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                             value: FolioAccentColorMode
                                                 .followSystem,
                                             label: Text(
-                                              l10n.settingsAccentFollowSystem,
+                                              FolioAdaptive
+                                                  .currentPlatformName(),
                                             ),
                                             icon: const Icon(
                                               Icons.palette_outlined,

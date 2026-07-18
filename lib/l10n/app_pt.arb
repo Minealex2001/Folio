@@ -2292,7 +2292,6 @@
   "vaultStarterQuillMermaidCaption": "Teste rápido de Mermaid:",
   "vaultStarterQuillMermaidSource": "graph TD\nInicio[Criar caderno] --> Organizar[Organizar páginas]\nOrganizar --> Escrever[Escrever e ligar ideias]\nEscrever --> Rever[Procurar, rever e melhorar]",
   "settingsAccentColorTitle": "Cor de destaque",
-  "settingsAccentFollowSystem": "Windows",
   "settingsAccentFolioDefault": "Folio",
   "settingsAccentCustom": "Personalizado",
   "settingsAccentPickColor": "Escolher cor predefinida",

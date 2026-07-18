@@ -2293,7 +2293,6 @@
   ,"vaultStarterQuillMermaidCaption": "Quick Mermaid tryout:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nStart[Create notebook] --> Organize[Organize pages]\nOrganize --> Write[Write and link ideas]\nWrite --> Review[Search, review, improve]"
   ,"settingsAccentColorTitle": "Accent color"
-  ,"settingsAccentFollowSystem": "Windows"
   ,"settingsAccentFolioDefault": "Folio"
   ,"settingsAccentCustom": "Custom"
   ,"settingsAccentPickColor": "Choose preset color"

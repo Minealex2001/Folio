@@ -737,6 +737,13 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 - Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
 
+### Cliente web (Vercel / dominios MineAlex)
+
+- Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción).
+- Lecturas/escrituras de Firebase Storage desde el browser requieren CORS en el bucket (`storage-cors.json` → `gs://folio-minealexgames.firebasestorage.app`). Sin ello fallan sync de perfil, copias y media. Detalle y comando: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) («Storage CORS»).
+- Esos mismos hosts deben estar en Firebase Auth → Authorized domains.
+- Si Vercel **Deployment Protection** (SSO) está activo en Production, la app y `manifest.json` redirigen al login de Vercel; desactivar protección pública en beta/prod o limitarla a previews.
+
 ### Facturación
 
 - **Stripe**: `createCheckoutSession`, `createBillingPortalSession`, webhook **`stripeWebhook`**; sincronización manual **`syncFolioCloudSubscriptionFromStripe`** si hace falta.

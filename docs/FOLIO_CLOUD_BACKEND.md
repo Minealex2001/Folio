@@ -65,6 +65,30 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 - **`users/{uid}/backups/**`** y **`users/{uid}/vaults/{vaultId}/backups/**` / **`cloud-packs/**`**: escritura solo si `folioCloud.active` y `folioCloud.features.backup` (reglas en [`storage.rules`](../storage.rules)). En **Windows/Linux** el cliente no puede listar con `listAll()` (SDK C++ devuelve vacío); la app usa la callable **`folioListVaultBackups`**, que lista con Admin SDK (misma condición de plan en servidor). Para borrar el cloud-pack incremental: **`folioDeleteVaultCloudPack`**. Para borrar un archivo legacy: **`folioDeleteVaultLegacyBackup`**. Si la libreta se queda sin copias, ambas purgan Storage + índice + meta (`vaultRemoved: true`).
 - **`published/{uid}/**`**: lectura pública; escritura solo con `features.publishWeb`. El índice Firestore `publishedPages` exige lo mismo (solo cliente con plan; el HTML sigue en Storage).
 
+### Storage CORS (web / Vercel)
+
+En el navegador, `getData` / download URLs / subidas del SDK hacen `fetch` cross-origin a `firebasestorage.googleapis.com`. Sin CORS en el bucket, el browser bloquea aunque la respuesta sea 200 (típico: `[settings_sync] restore FAILED`).
+
+Configuración en repo: [`storage-cors.json`](../storage-cors.json). Orígenes canónicos:
+
+- `https://foliobeta.minealexgames.com` (beta)
+- `https://folio.minealexgames.com` (producción)
+- `http://localhost` / `http://127.0.0.1` (Flutter web local)
+
+Aplicar o actualizar (PowerShell, proyecto `folio-minealexgames`):
+
+```powershell
+gcloud config set project folio-minealexgames
+gcloud storage buckets update gs://folio-minealexgames.firebasestorage.app --cors-file=storage-cors.json
+gcloud storage buckets describe gs://folio-minealexgames.firebasestorage.app --format="default(cors_config)"
+```
+
+La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); CORS solo habilita el origen del browser. Los previews `*.vercel.app` **no** están en la allowlist: usar los dominios MineAlex.
+
+**Auth:** en Firebase Console → Authentication → Settings → Authorized domains deben figurar `foliobeta.minealexgames.com` y `folio.minealexgames.com` (además de `localhost` y `*.firebaseapp.com` / `*.web.app`).
+
+**Vercel Deployment Protection:** si beta/prod redirigen a login de Vercel (`vercel.com/sso-api`), el PWA/`manifest.json` y el acceso público fallan. Desactivar protección en Production (o limitar a Previews) en el dashboard del proyecto Vercel; no se arregla con CORS del bucket.
+
 ## Flujos en la app (cliente)
 
 - **Suscripción mensual Folio Cloud** (Stripe → webhook → `users/{uid}.folioCloud`): activa las tres capacidades que el backend expone como `features`: `backup`, `cloudAi`, `publishWeb` (ver `folioCloudFeaturesFromPriceId` en Functions).
