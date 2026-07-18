@@ -3293,6 +3293,15 @@ export const folioGetDeviceSyncMeta = onCall(
           : 0,
       deviceId: typeof data.deviceId === "string" ? data.deviceId : "",
       deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
+      displayName:
+        typeof data.displayName === "string" ? data.displayName : "",
+      vaultMode: typeof data.vaultMode === "string" ? data.vaultMode : "",
+      packKeyKind:
+        typeof data.packKeyKind === "string" ? data.packKeyKind : "",
+      dekAccountWrapB64:
+        typeof data.dekAccountWrapB64 === "string"
+          ? data.dekAccountWrapB64
+          : "",
       updatedAt: data.updatedAt ?? null,
     };
   }
@@ -3509,6 +3518,33 @@ export const folioFinalizeDeviceSync = onCall(
         syncFormatVersion: isV2 ? 2 : 1,
         updatedAt: FieldValue.serverTimestamp(),
       };
+      const displayNameRaw = (request.data as any)?.displayName;
+      if (typeof displayNameRaw === "string" && displayNameRaw.trim()) {
+        patch.displayName = displayNameRaw.trim().slice(0, 120);
+      }
+      const vaultModeRaw = (request.data as any)?.vaultMode;
+      if (
+        typeof vaultModeRaw === "string" &&
+        (vaultModeRaw.trim() === "plain" || vaultModeRaw.trim() === "encrypted")
+      ) {
+        patch.vaultMode = vaultModeRaw.trim();
+      }
+      const packKeyKindRaw = (request.data as any)?.packKeyKind;
+      if (
+        typeof packKeyKindRaw === "string" &&
+        (packKeyKindRaw.trim() === "account" ||
+          packKeyKindRaw.trim() === "vault")
+      ) {
+        patch.packKeyKind = packKeyKindRaw.trim();
+      }
+      const dekWrapRaw = (request.data as any)?.dekAccountWrapB64;
+      if (typeof dekWrapRaw === "string" && dekWrapRaw.trim()) {
+        const w = dekWrapRaw.trim();
+        // Límite razonable (~4 KiB) para DEK envuelta.
+        if (w.length <= 8192) {
+          patch.dekAccountWrapB64 = w;
+        }
+      }
       if (isV2) {
         patch.manifestStoragePath = manifestPath;
         patch.manifestSizeBytes = manifestSize;
@@ -3545,6 +3581,49 @@ export const folioFinalizeDeviceSync = onCall(
       totalUsedBytes: newUsed + legacyBytes,
       syncFormatVersion: isV2 ? 2 : 1,
     };
+  }
+);
+
+export const folioListDeviceSyncVaults = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultSync")
+      .get();
+    const vaults = snap.docs.map((d) => {
+      const data = (d.data() ?? {}) as Record<string, unknown>;
+      const pack =
+        typeof data.packStoragePath === "string"
+          ? data.packStoragePath.trim()
+          : "";
+      const manifest =
+        typeof data.manifestStoragePath === "string"
+          ? data.manifestStoragePath.trim()
+          : "";
+      const fp =
+        typeof data.contentFingerprint === "string"
+          ? data.contentFingerprint.trim()
+          : "";
+      return {
+        vaultId: d.id,
+        displayName:
+          typeof data.displayName === "string" ? data.displayName.trim() : "",
+        vaultMode:
+          typeof data.vaultMode === "string" ? data.vaultMode.trim() : "",
+        rev: typeof data.rev === "number" ? Math.trunc(data.rev) : 0,
+        contentFingerprint: fp,
+        hasCloudPack: fp.length > 0 && (pack.length > 0 || manifest.length > 0),
+      };
+    });
+    vaults.sort((a, b) => a.vaultId.localeCompare(b.vaultId));
+    return { vaults };
   }
 );
 

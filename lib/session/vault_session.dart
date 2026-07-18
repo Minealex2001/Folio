@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart' show Locale;
@@ -2061,7 +2062,17 @@ class VaultSession extends ChangeNotifier {
         }
         await cache.save(vid, _dek!);
       } else {
-        await cache.ensurePlainVaultSyncKey(vid);
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          final key = await DeviceSyncKeyCache.plainPackKey(
+            uid: uid,
+            vaultId: vid,
+          );
+          final raw = await key.extractBytes();
+          await cache.save(vid, raw);
+        } else {
+          await cache.ensurePlainVaultSyncKey(vid);
+        }
       }
       AppLogger.debug(
         'device sync key cached after unlock',

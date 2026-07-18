@@ -11,8 +11,8 @@ import '../app_logger.dart';
 /// Cache de material de cifrado para device-sync **sin** desbloquear la libreta.
 ///
 /// - Libreta cifrada: DEK (32 bytes), se guarda al desbloquear.
-/// - Libreta en claro: clave estable aleatoria (no derivada de `vault.bin`,
-///   para que el MAC no cambie al editar).
+/// - Libreta en claro: clave determinista por cuenta+vaultId (misma en todos
+///   los dispositivos) o, en legado, clave estable aleatoria en caché.
 ///
 /// Vive en el almacén seguro del SO. Necesario para sync tipo Drive en
 /// segundo plano mientras la UI está en pantalla de bloqueo.
@@ -25,9 +25,22 @@ class DeviceSyncKeyCache {
 
   final FlutterSecureStorage _secure;
 
-  static String _key(String vaultId) => 'folio_device_sync_key_v1_$vaultId';
+  static const _prefsPrefix = 'folio_device_sync_key_v1_';
+  static String _key(String vaultId) => '$_prefsPrefix${vaultId.trim()}';
   static String _prefsFallback(String vaultId) =>
-      'folio_device_sync_key_prefs_v1_$vaultId';
+      'folio_device_sync_key_prefs_v1_${vaultId.trim()}';
+
+  /// Clave de pack determinista para libretas en claro (cross-device).
+  static Future<SecretKey> plainPackKey({
+    required String uid,
+    required String vaultId,
+  }) async {
+    final material = utf8.encode(
+      'FolioDeviceSyncPlainV1:${uid.trim()}:${vaultId.trim()}',
+    );
+    final digest = await Sha256().hash(material);
+    return VaultCrypto.dekFromBytes(Uint8List.fromList(digest.bytes));
+  }
 
   Future<void> save(String vaultId, List<int> keyBytes) async {
     final id = vaultId.trim();

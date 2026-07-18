@@ -58,6 +58,10 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   required int oldManifestSize,
   required String oldPackPath,
   required int oldPackSize,
+  String displayName = '',
+  String vaultMode = '',
+  String packKeyKind = 'account',
+  String dekAccountWrapB64 = '',
   DeviceSyncTransferProgress? onProgress,
 }) async {
   AppLogger.info(
@@ -192,6 +196,11 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
       'deviceId': deviceId,
       'deviceName': deviceName,
       'newBlobs': newBlobList,
+      if (displayName.trim().isNotEmpty) 'displayName': displayName.trim(),
+      if (vaultMode.trim().isNotEmpty) 'vaultMode': vaultMode.trim(),
+      if (packKeyKind.trim().isNotEmpty) 'packKeyKind': packKeyKind.trim(),
+      if (dekAccountWrapB64.trim().isNotEmpty)
+        'dekAccountWrapB64': dekAccountWrapB64.trim(),
       if (deleteBlobList.isNotEmpty) 'deleteBlobs': deleteBlobList,
       if (safeOldManifest.isNotEmpty)
         'oldManifestStoragePath': safeOldManifest,

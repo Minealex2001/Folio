@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
@@ -8,6 +9,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/app_settings.dart';
+import '../../crypto/vault_crypto.dart';
 import '../../data/vault_paths.dart';
 import '../../data/vault_registry.dart';
 import '../../session/vault_session.dart';
@@ -15,7 +17,9 @@ import '../app_logger.dart';
 import '../folio_firestore_support.dart';
 import '../sync/vault_sync_merge.dart';
 import '../sync/vault_sync_pack.dart';
+import 'device_sync_vault_bootstrap.dart';
 import 'device_sync_vault_status.dart';
+import 'device_sync_key_cache.dart';
 import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_pack_crypto.dart';
@@ -47,6 +51,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   final VaultSession _session;
   final FolioCloudEntitlementsController _entitlements;
   final void Function(String message)? _onEvent;
+  bool _disposed = false;
 
   static const Duration _pushDebounce = Duration(seconds: 3);
   static const Duration _pollIntervalForeground = Duration(seconds: 2);
@@ -115,7 +120,6 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   int get vaultsNeedingAttention => _vaultStatuses
       .where(
         (v) =>
-            v.phase == DeviceSyncVaultPhase.needsUnlock ||
             v.phase == DeviceSyncVaultPhase.error ||
             v.phase == DeviceSyncVaultPhase.pending,
       )
@@ -154,7 +158,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     return _status != 'error' && vaultsNeedingAttention == 0;
   }
 
-  /// Tras desbloquear, cachea la DEK/clave de sync para el background.
+  /// Tras desbloquear, cachea la DEK/clave de sync y sube bootstrap de inmediato.
   Future<void> cacheKeyForActiveVault() async {
     final vaultId = VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) return;
@@ -166,7 +170,19 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           await _headless.keyCache.save(vaultId, dek);
         }
       } else {
-        await _headless.keyCache.ensurePlainVaultSyncKey(vaultId);
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          final key = await DeviceSyncKeyCache.plainPackKey(
+            uid: uid,
+            vaultId: vaultId,
+          );
+          final raw = await key.extractBytes();
+          await _headless.keyCache.save(vaultId, raw);
+        }
+      }
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        await _uploadBootstrapAfterPush(uid: uid, vaultId: vaultId);
       }
     } catch (e) {
       AppLogger.warn(
@@ -287,8 +303,15 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     unawaited(disposeController());
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
   }
 
   Future<void> _refreshRemoteMetaOnce() async {
@@ -457,11 +480,20 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      final vaultKey = packKey;
+      final accountKey = await resolveAccountProfilePackKeyQuietly();
+      final wireKey = accountKey ?? vaultKey;
+      final packKeyKind = accountKey != null ? 'account' : 'vault';
+      final wrapB64 = await _uploadBootstrapAfterPush(
+        uid: user.uid,
+        vaultId: vaultId,
+      );
+
       final result = await pushDeviceSyncIncremental(
         uid: user.uid,
         vaultId: vaultId,
         pack: pack,
-        packKey: packKey,
+        packKey: wireKey,
         contentFingerprint: fp,
         deviceId: _settings.syncDeviceId,
         deviceName: _settings.syncDeviceName,
@@ -470,6 +502,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         oldManifestSize: _cachedManifestSize,
         oldPackPath: _cachedPackPath,
         oldPackSize: _cachedPackSize,
+        displayName: pack.payload.displayName,
+        vaultMode: _session.vaultUsesEncryption ? 'encrypted' : 'plain',
+        packKeyKind: packKeyKind,
+        dekAccountWrapB64: wrapB64 ?? '',
         onProgress: (done, total, fraction) {
           _setTransferProgress(fraction, done, total);
         },
@@ -575,23 +611,30 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       },
     );
     try {
-      final packKey = await _resolvePackKeyQuietly();
-      if (packKey == null) {
+      final vaultKey = await _resolvePackKeyQuietly();
+      final accountKey = await resolveAccountProfilePackKeyQuietly();
+      if (vaultKey == null && accountKey == null) {
         _setStatus('idle');
         return;
       }
+      final wireKeys = <SecretKey?>[accountKey, vaultKey];
 
       late final Uint8List plain;
       if (syncFormatVersion >= 2 && manifestStoragePath.isNotEmpty) {
-        final rebuilt = await pullDeviceSyncIncremental(
-          manifestStoragePath: manifestStoragePath,
-          packKey: packKey,
-          onProgress: (done, total, fraction) {
-            _setTransferProgress(fraction, done, total);
+        plain = await _decryptWirePack(
+          keys: wireKeys,
+          decryptWith: (key) async {
+            final rebuilt = await pullDeviceSyncIncremental(
+              manifestStoragePath: manifestStoragePath,
+              packKey: key,
+              onProgress: (done, total, fraction) {
+                _setTransferProgress(fraction, done, total);
+              },
+            );
+            _cachedRemoteBlobIds = rebuilt.blobIds;
+            return rebuilt.packBytes;
           },
         );
-        plain = rebuilt.packBytes;
-        _cachedRemoteBlobIds = rebuilt.blobIds;
         _cachedManifestPath = manifestStoragePath;
       } else {
         final cipher = await folioStorageGetData(
@@ -601,9 +644,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         if (cipher == null || cipher.isEmpty) {
           throw StateError('Empty sync pack download');
         }
-        plain = await cloudPackDecryptBytes(
-          blob: cipher,
-          packKey: packKey,
+        plain = await _decryptWirePack(
+          keys: wireKeys,
+          decryptWith: (key) =>
+              cloudPackDecryptBytes(blob: cipher, packKey: key),
         );
         _cachedPackPath = packStoragePath;
       }
@@ -855,13 +899,19 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       );
     }
 
-    // Sin clave de sync en este dispositivo (libreta cifrada nunca abierta aquí).
-    final packKey = await _headless.resolvePackKey(entry.id);
+    // Sin clave local: adoptar DEK desde bootstrap remoto (sin desbloquear).
+    var packKey = await _headless.resolvePackKey(entry.id);
+    packKey ??= await adoptDeviceSyncPackKeyFromBootstrap(
+      vaultId: entry.id,
+      keyCache: _headless.keyCache,
+      headless: _headless,
+    );
     if (packKey == null) {
+      // Aún no hay wrap en la nube: pendiente de sync del origen, no "desbloquea".
       return DeviceSyncVaultStatus(
         vaultId: entry.id,
         displayName: entry.displayName,
-        phase: DeviceSyncVaultPhase.needsUnlock,
+        phase: DeviceSyncVaultPhase.pending,
         isActive: isActive,
         lastSuccessMs: ack?.successMs ?? 0,
         remoteRev: rev,
@@ -879,12 +929,14 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   }
 
   /// Sincroniza todas las libretas locales (headless si están bloqueadas).
+  /// Antes, descarga libretas nuevas que solo existan en la nube.
   Future<void> syncAllVaults() async {
     if (!isEnabled) return;
     if (_allVaultsSyncInFlight) return;
     _allVaultsSyncInFlight = true;
     try {
       await _ensureAckLoaded();
+      await _discoverAndMaterializeRemoteVaults();
       final entries = await _session.listVaultEntries();
       AppLogger.info(
         'syncAllVaults start',
@@ -895,6 +947,12 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       var active = 0;
       for (final e in entries) {
         try {
+          // Asegura DEK/clave sin desbloquear (bootstrap de cuenta).
+          await adoptDeviceSyncPackKeyFromBootstrap(
+            vaultId: e.id,
+            keyCache: _headless.keyCache,
+            headless: _headless,
+          );
           final activeId = VaultPaths.activeVaultId;
           if (e.id == activeId && _session.isUnlocked) {
             active++;
@@ -930,6 +988,49 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     }
   }
 
+  Future<void> _discoverAndMaterializeRemoteVaults() async {
+    try {
+      final remote = await listRemoteDeviceSyncVaults();
+      if (remote.isEmpty) return;
+      final local = await _session.listVaultEntries();
+      final localIds = {for (final e in local) e.id};
+      var added = 0;
+      for (final r in remote) {
+        if (!r.hasCloudPack) continue;
+        if (localIds.contains(r.vaultId)) continue;
+        final ok = await materializeRemoteDeviceSyncVault(
+          remote: r,
+          headless: _headless,
+          keyCache: _headless.keyCache,
+        );
+        if (ok) {
+          added++;
+          localIds.add(r.vaultId);
+        }
+      }
+      if (added > 0) {
+        AppLogger.info(
+          'discovered remote vaults materialized',
+          tag: 'cloud_sync',
+          context: {'added': added},
+        );
+        // El registry cambió: la UI (selector de libretas) debe refrescarse.
+        _session.notifyListeners();
+      }
+    } catch (e, st) {
+      AppLogger.warn(
+        'discover remote vaults failed',
+        tag: 'cloud_sync',
+        context: {'error': '$e'},
+      );
+      AppLogger.debug(
+        'discover remote vaults stack',
+        tag: 'cloud_sync',
+        context: {'stack': '$st'},
+      );
+    }
+  }
+
   Future<void> _syncVaultHeadless({
     required String vaultId,
     bool forcePull = false,
@@ -958,16 +1059,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final packKey = await _headless.resolvePackKey(vaultId);
-    if (packKey == null) {
-      AppLogger.debug(
-        'headless skip: no sync key yet (desbloquea una vez en este dispositivo)',
-        tag: 'cloud_sync',
-        context: {'vaultId': vaultId},
-      );
-      return;
-    }
-
+    var packKey = await _headless.resolvePackKey(vaultId);
+    packKey ??= await adoptDeviceSyncPackKeyFromBootstrap(
+      vaultId: vaultId,
+      keyCache: _headless.keyCache,
+      headless: _headless,
+    );
+    // Meta puede traer el wrap aunque Storage aún no tenga el fichero.
     Map<String, dynamic>? data;
     try {
       if (folioFirestoreSupported) {
@@ -991,6 +1089,17 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       );
       return;
     }
+    packKey ??= await _vaultKeyFromMetaWrap(data, vaultId: vaultId);
+
+    final accountKey = await resolveAccountProfilePackKeyQuietly();
+    if (packKey == null && accountKey == null) {
+      AppLogger.debug(
+        'headless skip: no pack key (bootstrap account wrap aún no disponible)',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId},
+      );
+      return;
+    }
 
     final remoteFp = '${data?['contentFingerprint'] ?? ''}'.trim();
     final packPath = '${data?['packStoragePath'] ?? ''}'.trim();
@@ -998,6 +1107,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     final formatVersion = _asInt(data?['syncFormatVersion']);
     final rev = _asInt(data?['rev']);
     final deviceId = '${data?['deviceId'] ?? ''}'.trim();
+    final packKeyKind = '${data?['packKeyKind'] ?? ''}'.trim();
     final isV2 = formatVersion >= 2 && manifestPath.isNotEmpty;
     final hasRemote =
         remoteFp.isNotEmpty && (packPath.isNotEmpty || manifestPath.isNotEmpty);
@@ -1016,13 +1126,21 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     if (shouldPull) {
       _setStatus('pulling');
       try {
+        final wireKeys = packKeyKind == 'vault'
+            ? <SecretKey?>[packKey, accountKey]
+            : <SecretKey?>[accountKey, packKey];
         late final Uint8List plain;
         if (isV2) {
-          final rebuilt = await pullDeviceSyncIncremental(
-            manifestStoragePath: manifestPath,
-            packKey: packKey,
+          plain = await _decryptWirePack(
+            keys: wireKeys,
+            decryptWith: (key) async {
+              final rebuilt = await pullDeviceSyncIncremental(
+                manifestStoragePath: manifestPath,
+                packKey: key,
+              );
+              return rebuilt.packBytes;
+            },
           );
-          plain = rebuilt.packBytes;
         } else {
           final cipher = await folioStorageGetData(
             FirebaseStorage.instance.ref().child(packPath),
@@ -1031,7 +1149,21 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           if (cipher == null || cipher.isEmpty) {
             throw StateError('Empty sync pack');
           }
-          plain = await cloudPackDecryptBytes(blob: cipher, packKey: packKey);
+          plain = await _decryptWirePack(
+            keys: wireKeys,
+            decryptWith: (key) =>
+                cloudPackDecryptBytes(blob: cipher, packKey: key),
+          );
+        }
+        // Tras pull con clave de cuenta, reintentar adoptar DEK local.
+        packKey ??= await adoptDeviceSyncPackKeyFromBootstrap(
+          vaultId: vaultId,
+          keyCache: _headless.keyCache,
+          headless: _headless,
+        );
+        packKey ??= await _vaultKeyFromMetaWrap(data, vaultId: vaultId);
+        if (packKey == null) {
+          throw StateError('headless apply needs vault DEK after wire pull');
         }
         final applied = await _headless.applyRemotePack(
           vaultId: vaultId,
@@ -1069,13 +1201,17 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           _setStatus('error');
           return;
         }
-        // Manifiesto remoto sin blobs: seguir al push local para reparar.
         AppLogger.warn(
           'headless pull: missing blobs, will push local',
           tag: 'cloud_sync',
           context: {'vaultId': vaultId},
         );
       }
+    }
+
+    if (packKey == null) {
+      _setStatus('idle');
+      return;
     }
 
     // Push si el local no está reconocido como el remoto actual.
@@ -1101,12 +1237,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     _setStatus('pushing');
     try {
       final prevIds = <String>{};
-      // Sin caché de blobs por vault inactivo: primera subida reenvía todo.
+      final wireKey = accountKey ?? packKey;
+      final wrapB64 = await _uploadBootstrapAfterPush(uid: uid, vaultId: vaultId);
       final result = await pushDeviceSyncIncremental(
         uid: uid,
         vaultId: vaultId,
         pack: pack,
-        packKey: packKey,
+        packKey: wireKey,
         contentFingerprint: localFp,
         deviceId: _settings.syncDeviceId,
         deviceName: _settings.syncDeviceName,
@@ -1115,6 +1252,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         oldManifestSize: isV2 ? _asInt(data?['manifestSizeBytes']) : 0,
         oldPackPath: !isV2 ? packPath : '',
         oldPackSize: !isV2 ? _asInt(data?['packSizeBytes']) : 0,
+        displayName: pack.payload.displayName,
+        vaultMode: await _headless.isPlain(vaultId) ? 'plain' : 'encrypted',
+        packKeyKind: accountKey != null ? 'account' : 'vault',
+        dekAccountWrapB64: wrapB64 ?? '',
       );
       await _ackStore.saveAck(
         vaultId: vaultId,
@@ -1143,23 +1284,111 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     }
   }
 
+  Future<Uint8List> _decryptWirePack({
+    required List<SecretKey?> keys,
+    required Future<Uint8List> Function(SecretKey key) decryptWith,
+  }) async {
+    Object? lastError;
+    for (final key in keys) {
+      if (key == null) continue;
+      try {
+        return await decryptWith(key);
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw StateError('device-sync decrypt failed: $lastError');
+  }
+
+  Future<SecretKey?> _vaultKeyFromMetaWrap(
+    Map<String, dynamic>? data, {
+    String? vaultId,
+  }) async {
+    final b64 = '${data?['dekAccountWrapB64'] ?? ''}'.trim();
+    if (b64.isEmpty) return null;
+    final accountKey = await resolveAccountProfilePackKeyQuietly();
+    if (accountKey == null) return null;
+    try {
+      final wrap = base64Decode(b64);
+      final clear = await cloudPackDecryptBytes(blob: wrap, packKey: accountKey);
+      if (clear.length != VaultCrypto.dekLength) return null;
+      final id = vaultId ?? _boundVaultId ?? VaultPaths.activeVaultId;
+      if (id != null && id.isNotEmpty) {
+        await _headless.keyCache.save(id, clear);
+      }
+      return await VaultCrypto.dekFromBytes(clear);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<SecretKey?> _resolvePackKeyQuietly() async {
     if (_session.state != VaultFlowState.unlocked) return null;
-    if (_session.vaultUsesEncryption &&
-        _session.cloudPackRestoreDekMaterial == null) {
+    final vaultId = VaultPaths.activeVaultId;
+    if (vaultId == null || vaultId.isEmpty) return null;
+    if (_session.vaultUsesEncryption) {
+      if (_session.cloudPackRestoreDekMaterial == null) {
+        AppLogger.warn(
+          'device sync skipped: encrypted vault without DEK in memory',
+          tag: 'cloud_sync',
+        );
+        return null;
+      }
+      try {
+        return await _session.cloudPackEncryptionKey();
+      } catch (e) {
+        AppLogger.warn(
+          'device sync pack key unavailable',
+          tag: 'cloud_sync',
+          context: {'error': '$e'},
+        );
+        return null;
+      }
+    }
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return null;
+    try {
+      final key = await DeviceSyncKeyCache.plainPackKey(
+        uid: uid,
+        vaultId: vaultId,
+      );
+      final raw = await key.extractBytes();
+      await _headless.keyCache.save(vaultId, raw);
+      return key;
+    } catch (e) {
       AppLogger.warn(
-        'device sync skipped: encrypted vault without DEK in memory',
+        'device sync plain pack key unavailable',
         tag: 'cloud_sync',
+        context: {'error': '$e'},
       );
       return null;
     }
+  }
+
+  Future<String?> _uploadBootstrapAfterPush({
+    required String uid,
+    required String vaultId,
+  }) async {
     try {
-      return await _session.cloudPackEncryptionKey();
+      final isPlain = await _headless.isPlain(vaultId);
+      List<int>? dek;
+      if (!isPlain) {
+        if (VaultPaths.activeVaultId == vaultId && _session.isUnlocked) {
+          dek = _session.cloudPackRestoreDekMaterial;
+        }
+        dek ??= await _headless.keyCache.read(vaultId);
+      }
+      return await uploadDeviceSyncBootstrap(
+        uid: uid,
+        vaultId: vaultId,
+        encrypted: !isPlain,
+        dekBytes: dek,
+      );
     } catch (e) {
       AppLogger.warn(
-        'device sync pack key unavailable',
+        'device sync bootstrap upload failed',
         tag: 'cloud_sync',
-        context: {'error': '$e'},
+        context: {'vaultId': vaultId, 'error': '$e'},
       );
       return null;
     }

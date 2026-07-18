@@ -46,6 +46,12 @@ class DeviceSyncVaultStatus {
   bool get isOk =>
       phase == DeviceSyncVaultPhase.synced ||
       phase == DeviceSyncVaultPhase.emptyCloud;
+
+  /// Ya no bloqueamos la UI pidiendo desbloqueo; el sync adopta la clave sola.
+  bool get wantsOpenAction =>
+      !isActive &&
+      phase != DeviceSyncVaultPhase.needsUnlock &&
+      phase != DeviceSyncVaultPhase.pending;
 }
 
 class DeviceSyncVaultAck {

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -2771,6 +2771,12 @@ exports.folioGetDeviceSyncMeta = (0, https_1.onCall)({ cors: true, invoker: "pub
             : 0,
         deviceId: typeof data.deviceId === "string" ? data.deviceId : "",
         deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
+        displayName: typeof data.displayName === "string" ? data.displayName : "",
+        vaultMode: typeof data.vaultMode === "string" ? data.vaultMode : "",
+        packKeyKind: typeof data.packKeyKind === "string" ? data.packKeyKind : "",
+        dekAccountWrapB64: typeof data.dekAccountWrapB64 === "string"
+            ? data.dekAccountWrapB64
+            : "",
         updatedAt: (_d = data.updatedAt) !== null && _d !== void 0 ? _d : null,
     };
 });
@@ -2906,7 +2912,7 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
     }
     const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
     const { newUsed, quota, newRev } = await db.runTransaction(async (tx) => {
-        var _a, _b;
+        var _a, _b, _c, _d, _e, _f;
         const [userSnap, prevSync] = await Promise.all([
             tx.get(userRef),
             tx.get(syncRef),
@@ -2942,6 +2948,29 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
             syncFormatVersion: isV2 ? 2 : 1,
             updatedAt: FieldValue.serverTimestamp(),
         };
+        const displayNameRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.displayName;
+        if (typeof displayNameRaw === "string" && displayNameRaw.trim()) {
+            patch.displayName = displayNameRaw.trim().slice(0, 120);
+        }
+        const vaultModeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.vaultMode;
+        if (typeof vaultModeRaw === "string" &&
+            (vaultModeRaw.trim() === "plain" || vaultModeRaw.trim() === "encrypted")) {
+            patch.vaultMode = vaultModeRaw.trim();
+        }
+        const packKeyKindRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.packKeyKind;
+        if (typeof packKeyKindRaw === "string" &&
+            (packKeyKindRaw.trim() === "account" ||
+                packKeyKindRaw.trim() === "vault")) {
+            patch.packKeyKind = packKeyKindRaw.trim();
+        }
+        const dekWrapRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.dekAccountWrapB64;
+        if (typeof dekWrapRaw === "string" && dekWrapRaw.trim()) {
+            const w = dekWrapRaw.trim();
+            // Límite razonable (~4 KiB) para DEK envuelta.
+            if (w.length <= 8192) {
+                patch.dekAccountWrapB64 = w;
+            }
+        }
         if (isV2) {
             patch.manifestStoragePath = manifestPath;
             patch.manifestSizeBytes = manifestSize;
@@ -2979,6 +3008,42 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
         totalUsedBytes: newUsed + legacyBytes,
         syncFormatVersion: isV2 ? 2 : 1,
     };
+});
+exports.folioListDeviceSyncVaults = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultSync")
+        .get();
+    const vaults = snap.docs.map((d) => {
+        var _a;
+        const data = ((_a = d.data()) !== null && _a !== void 0 ? _a : {});
+        const pack = typeof data.packStoragePath === "string"
+            ? data.packStoragePath.trim()
+            : "";
+        const manifest = typeof data.manifestStoragePath === "string"
+            ? data.manifestStoragePath.trim()
+            : "";
+        const fp = typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint.trim()
+            : "";
+        return {
+            vaultId: d.id,
+            displayName: typeof data.displayName === "string" ? data.displayName.trim() : "",
+            vaultMode: typeof data.vaultMode === "string" ? data.vaultMode.trim() : "",
+            rev: typeof data.rev === "number" ? Math.trunc(data.rev) : 0,
+            contentFingerprint: fp,
+            hasCloudPack: fp.length > 0 && (pack.length > 0 || manifest.length > 0),
+        };
+    });
+    vaults.sort((a, b) => a.vaultId.localeCompare(b.vaultId));
+    return { vaults };
 });
 function assertAppProfilePackPath(uid, raw) {
     const path = typeof raw === "string" ? raw.trim() : "";

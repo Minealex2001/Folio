@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../crypto/vault_crypto.dart';
 import '../../data/storage/vault_storage.dart';
@@ -34,14 +35,44 @@ class HeadlessDeviceSyncVault {
       vaultId,
       VaultPaths.vaultModeFile,
     );
-    if (raw == null) return false;
-    return String.fromCharCodes(raw).trim().toLowerCase() == 'plain';
+    if (raw != null) {
+      return String.fromCharCodes(raw).trim().toLowerCase() == 'plain';
+    }
+    // Sin vault.mode: si no hay vault.keys y vault.bin es JSON legible → plain.
+    final keys = await VaultStorage.instance.readVaultFile(
+      vaultId,
+      VaultPaths.wrappedDekFile,
+    );
+    if (keys != null && keys.isNotEmpty) return false;
+    final bin = await VaultStorage.instance.readVaultFile(
+      vaultId,
+      VaultPaths.cipherPayloadFile,
+    );
+    if (bin == null || bin.isEmpty) return false;
+    try {
+      final text = String.fromCharCodes(bin).trimLeft();
+      if (!text.startsWith('{')) return false;
+      VaultPayload.decodeUtf8(bin);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Resuelve la clave de pack. Null si la libreta cifrada nunca se desbloqueó
   /// en este dispositivo (aún no hay DEK en caché ni quick-unlock).
   Future<SecretKey?> resolvePackKey(String vaultId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (await isPlain(vaultId)) {
+      if (uid != null && uid.isNotEmpty) {
+        final key = await DeviceSyncKeyCache.plainPackKey(
+          uid: uid,
+          vaultId: vaultId,
+        );
+        final raw = await key.extractBytes();
+        await _keys.save(vaultId, raw);
+        return key;
+      }
       return _keys.ensurePlainVaultSyncKey(vaultId);
     }
     final cached = await _keys.readSecretKey(vaultId);
@@ -186,12 +217,19 @@ class HeadlessDeviceSyncVault {
       await materializeVaultSyncPackAttachmentsForVault(vaultId, pack);
       final local = await loadPayload(vaultId, packKey);
       if (local == null) {
-        AppLogger.warn(
-          'headless applyRemotePack: no local payload',
+        // Primera materialización / libreta vacía: instalar remoto tal cual.
+        await savePayload(
+          vaultId: vaultId,
+          packKey: packKey,
+          payload: pack.payload,
+        );
+        final outFp = VaultSyncMergeEngine.payloadFingerprint(pack.payload);
+        AppLogger.info(
+          'headless applyRemotePack installed remote (no local)',
           tag: 'cloud_sync',
           context: {'vaultId': vaultId},
         );
-        return (ok: false, changed: false, fingerprint: null);
+        return (ok: true, changed: true, fingerprint: outFp);
       }
       final localFp = VaultSyncMergeEngine.payloadFingerprint(local);
       final remoteFp = VaultSyncMergeEngine.payloadFingerprint(pack.payload);

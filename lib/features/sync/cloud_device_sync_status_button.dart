@@ -183,7 +183,8 @@ class CloudDeviceSyncStatusButton extends StatelessWidget {
                               _VaultSyncTile(
                                 status: v,
                                 l10n: l10n,
-                                onOpen: v.isActive || onOpenVault == null
+                                onOpen: (!v.wantsOpenAction ||
+                                        onOpenVault == null)
                                     ? null
                                     : () async {
                                         Navigator.of(ctx).pop();
@@ -474,9 +475,10 @@ class _VaultSyncTile extends StatelessWidget {
               )
             : l10n.folioCloudDeviceSyncVaultPhaseSynced;
       case DeviceSyncVaultPhase.needsUnlock:
-        icon = Icons.lock_open_outlined;
-        color = scheme.tertiary;
-        subtitle = l10n.folioCloudDeviceSyncVaultPhaseNeedsUnlock;
+        // Legado: ya no pedimos desbloqueo; tratamos como pendiente de sync.
+        icon = Icons.hourglass_empty;
+        color = scheme.onSurfaceVariant;
+        subtitle = l10n.folioCloudDeviceSyncStatusPending;
       case DeviceSyncVaultPhase.emptyCloud:
         icon = Icons.cloud_off_outlined;
         color = scheme.onSurfaceVariant;
