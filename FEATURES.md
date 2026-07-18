@@ -252,7 +252,7 @@ Se activa escribiendo `/` en un bloque de texto compatible.
 
 ## 9. Atajos Markdown inline
 
-Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShortcut`):
+Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShortcut`), también en el camino WYSIWYG (Quill) al hacer flush del documento:
 
 | Escritura | Resultado |
 |---|---|
@@ -264,6 +264,8 @@ Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShor
 | `### Texto` | Convierte a bloque `h3` |
 
 > Los encabezados con solo `# ` (sin texto) no se convierten para evitar perder el foco mientras se escribe.
+>
+> Si `- ` / `* ` / `[] ` se escriben en una **línea nueva** dentro de un párrafo (p. ej. tras `Shift+Enter`), Folio parte el bloque: el texto anterior permanece y se inserta un bloque `bullet`/`todo` debajo (modelo 1 ítem = 1 bloque). Así no quedan listas markdown “falsas” dentro de un solo párrafo.
 
 ---
 
@@ -530,9 +532,12 @@ Un solo panel con tres bloques:
 | Proveedor | Descripción |
 |---|---|
 | `none` | Sin IA |
-| `ollama` | Servidor Ollama local |
-| `lmStudio` | LM Studio local |
+| `ollama` | Servidor Ollama local (**solo escritorio**) |
+| `lmStudio` | LM Studio local (**solo escritorio**) |
 | `quillCloud` | API de inferencia de Folio Cloud |
+| `openAi` / `gemini` | BYOK con API key propia |
+
+En **web**, **Android** e **iOS** no hay Ollama/LM Studio (`aiLocalProvidersSupported == false`); Quill se activa con Folio Cloud (y opcionalmente OpenAI/Gemini con clave).
 
 ### Modos de operación (`lib/session/vault_session_ai.dart`)
 
@@ -701,12 +706,14 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 
 Distinta de la **copia/restauración** (reemplazo consciente): la sync automática **siempre hace merge** con el mismo motor que P2P.
 
-- Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`).
-- Tras persistir (debounce ~3 s), sube un pack cifrado a `users/{uid}/vaults/{vaultId}/device-sync/packs/` y finaliza con **`folioFinalizeDeviceSync`** (señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Al arrancar la sync (toggle o desbloqueo) también siembra un push si aún no hay fingerprint local.
+- Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`) + transporte incremental `folio_cloud_device_sync_incremental.dart`.
+- Tras persistir (debounce ~3 s), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
+- Indicador global en el workspace (chip/icono) con sheet: estado de **todas las libretas locales**, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y acceso a conflictos pendientes. El chip muestra “Todas las libretas están sincronizadas” cuando cada libreta está al día (o sin pack en la nube); si otra libreta tiene cambios remotos más nuevos, avisa y permite abrirla.
 - Cifrado con la **DEK en memoria** (libreta ya desbloqueada) o clave derivada del vault en claro; **no pide contraseña** ni depende del restore-wrap del cloud-pack.
-- Otros dispositivos escuchan el doc (`snapshots`) o, en Windows/Linux, hacen **polling REST ~10 s**; descargan, descifran y llaman a `VaultSession.applySyncSnapshotBytes` (merge + adjuntos).
+- Otros dispositivos escuchan el doc (`snapshots`) o, en **Windows** (sin Firestore nativo), hacen **polling REST ~2 s en foreground / ~4 s en idle**; tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
+- Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución en **Ajustes → Folio Cloud** y en Ajustes → Sincronización (P2P); mismo contador `syncPendingConflicts`.
 - Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
-- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync`.
+- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v1 pack o v2 manifiesto + `newBlobs`/`deleteBlobs`).
 
 ### Perfil de ajustes (cuenta + libreta)
 
@@ -719,6 +726,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 - Cliente: `lib/services/folio_cloud/folio_cloud_settings_sync.dart` (`FolioCloudSettingsSyncController`), formato `lib/data/folio_settings_profile_format.dart`, builder/applier en `lib/services/settings/`.
 - Pack AES-GCM (mismo patrón que cloud-pack); clave de perfil de app independiente del vault; iconos custom como blobs en `app-profile/icons/{iconId}`.
+- **Clave canónica de cuenta**: al push/pull se prioriza el `restoreWrapB64` del servidor sobre la caché local (evita packs cifrados con clave huérfana tras carreras multi-dispositivo). Si el MAC falla tras adoptar el wrap, se corta el auto-reintento y se ofrece el diálogo restaurar / empezar de nuevo; «empezar de nuevo» (`keepLocalAndPush`) **reescribe** pack + wrap alineados.
 - Excluye estado local al dispositivo (`syncDeviceId`, `syncLastSuccessMs`, `syncPendingConflicts`, `lockScreenAutoQuickUnlockDone`).
 - Toggle `AppSettings.cloudAppProfileSyncEnabled`; al detectar perfil remoto tras login: diálogo restaurar / empezar de nuevo **solo si el fingerprint/`updatedAt` remoto no coinciden con el último perfil ya reconocido en este dispositivo** (persistido en prefs); si el local ya coincide con la nube, no se pregunta. Ajustes → Folio Cloud (subir/restaurar) y Ajustes → Libreta (restaurar prefs de la libreta).
 - Callables: `folioGetAppProfileMeta`, `folioGetAppProfileRestoreWrap`, `folioFinalizeAppProfile`, `folioGetVaultProfileMeta`, `folioFinalizeVaultProfile` (cuota `folioBackup.usedBytes`, entitlement `canUseCloudBackup`).
@@ -732,8 +740,8 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 - Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
 - **`folioListBackupVaults`** solo incluye libretas con copias reales (`backups/` legacy o `cloud-packs/` / meta de cloud-pack); **no** lista las que solo tienen sync multi-dispositivo (`device-sync/`), que va por separado.
 - **Cuota de almacenamiento** de copias: **500 MiB** en plan free; con suscripción base **5 GiB** (estudiante **15 GiB**) y ampliaciones («Biblioteca» pequeña/mediana/grande). Catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
-- **Importar todas al iniciar sesión** (onboarding «desde Folio Cloud» o Ajustes → cuenta): aviso, descarga e importa todas las libretas con cloud-pack conservando el `vaultId` remoto. Si la libreta local está vacía, la primera ocupa ese slot; si tiene contenido, se conserva y todas se añaden. La contraseña de la **cuenta** se usa solo como `restorePassword` del envoltorio; el desbloqueo habitual sigue siendo la master de cada libreta. Fallback: pedir master de esa libreta si no coincide. Cliente: `folio_cloud_import_all_vaults.dart` + `folio_cloud_import_all_dialog.dart`.
-- **Multi-libreta en web**: IndexedDB admite varias libretas; `prepareNewVault` / `importVaultBackupAsNew` / `importCloudVaultAsLocal` ya no dependen de `Directory` nativo en web.
+- **Importar todas al iniciar sesión** (onboarding «desde Folio Cloud» o Ajustes → cuenta): aviso, descarga e importa todas las libretas con cloud-pack conservando el `vaultId` remoto. Si la libreta local está vacía, la primera ocupa ese slot; si tiene contenido, se conserva y todas se añaden. La contraseña de la **cuenta** se usa solo como `restorePassword` del envoltorio; el desbloqueo habitual sigue siendo la master de cada libreta. Fallback: pedir master de esa libreta si no coincide. Cliente: `folio_cloud_import_all_vaults.dart` + `folio_cloud_import_all_dialog.dart`. La descarga va a memoria (`ExtractedVaultBackup` / `downloadCloudPackToMemoryForRestore`) para funcionar también en web.
+- **Multi-libreta en web**: IndexedDB admite varias libretas; `prepareNewVault` / cambiar libreta / `importCloudVaultAsLocalFromMemory` e importar-todas desde Folio Cloud no dependen de `Directory` nativo. El import ZIP local y Notion siguen siendo solo escritorio (aviso en onboarding web).
 
 ### IA en la nube
 
@@ -746,6 +754,16 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 ### Publicación web
 
 - Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
+
+### Cliente web (Vercel / dominios MineAlex)
+
+- Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción).
+- Lecturas/escrituras de Firebase Storage desde el browser requieren CORS en el bucket (`storage-cors.json` → `gs://folio-minealexgames.firebasestorage.app`). Incluye `*` para que `flutter run -d chrome` (`localhost:<puerto>`) no falle; las reglas Auth siguen protegiendo objetos. Detalle: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) («Storage CORS»).
+- Esos mismos hosts deben estar en Firebase Auth → Authorized domains.
+- Si Vercel **Deployment Protection** (SSO) está activo en Production, la app y `manifest.json` redirigen al login de Vercel; desactivar protección pública en beta/prod o limitarla a previews.
+- **PWA instalable**: `web/manifest.json` (`display: standalone`, iconos 192/512 + maskable), meta tags iOS en `index.html`, service worker de Flutter (`flutter build web` sin `--pwa-strategy=none`). En la sidebar web: botón **Instalar Folio** (prompt nativo vía `beforeinstallprompt`, o guía manual en Safari/iOS). Headers en `vercel.json` para `manifest.json` y `flutter_service_worker.js`. La instalación completa requiere HTTPS (beta/prod); en local probar con `flutter run -d chrome --release`.
+- **Sin buscador de actualizaciones** (`FolioDistribution.offersGitHubSelfUpdate == false` en web): la web se actualiza al redeploy; no hay «Buscar actualizaciones» ni chequeo al arrancar.
+- **IA como en móvil**: sin Ollama/LM Studio; Quill Cloud (y BYOK OpenAI/Gemini si se configura).
 
 ### Facturación
 
@@ -904,6 +922,10 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 - `FolioSpace`: espaciados estándar.
 - `FolioMotion`: duraciones y curvas de animación.
 
+### Banner DEBUG de Flutter
+
+- El `MaterialApp` de Folio desactiva `debugShowCheckedModeBanner` para no mostrar la cinta «DEBUG» en builds de depuración.
+
 ---
 
 ## 33. Iconos de página personalizados
@@ -955,6 +977,7 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 - `lib/services/updater/`: comprueba nuevas versiones disponibles.
 - Notificación in-app cuando hay una actualización.
 - Descarga e instalación guiada (Windows: `.msix`; macOS: `.dmg`; Linux: AppImage).
+- **No aplica en web** ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`).
 
 ---
 
@@ -962,7 +985,11 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 - URL de reporte: `kFolioBugReportUrl`.
 - Flags de build: `folio_build_flags` (debug/profile/release, plataforma, versión).
-- Log estructurado: `AppLogger` (`lib/services/app_logger.dart`).
+- Log estructurado unificado: `AppLogger` (`lib/services/app_logger.dart`).
+  - Destinos: terminal (`debugPrint`, visible en `flutter run`), DevTools (`dart:developer` log) y archivo `folio.log` (sink no-web; entra en reportes de diagnóstico).
+  - Niveles: `debug` / `info` / `warn` / `error`. Tags: `folio.<tag>` (p. ej. `bootstrap`, `env`, `vault`, `cloud_sync`, `settings_sync`, `auth`, `onboarding`, `workspace`, `settings`, `persistence`, `entitlements`, `checkout`, `backup`, `smb`, `web-portal`, `store`).
+  - Contexto opcional JSON (`context:`) con ids, conteos y códigos — nunca contraseñas, claves, tokens ni contenido de páginas.
+  - Migración: residuales `debugPrint`/`print` de sync cloud, entitlements, env, checkout, backups, vault, SMB, portal web y Store unificados en `AppLogger`.
 - Historial de sesiones IA y gestión de hilos persistida localmente.
 - Telemetría opcional (Analytics / eventos con sesión Cloud): ver `docs/TELEMETRY.md`; desactivable en Ajustes → Privacidad.
 
@@ -1302,17 +1329,19 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 
 `builld_all.ps1` se rehízo con un **menú interactivo** (además del modo directo por parámetros para CI). Al ejecutarlo sin argumentos (`.\builld_all.ps1`) muestra un menú con:
 
-- **Publicar RELEASE estable** en GitHub: compila el instalador Windows (`Folio-Setup-<semver>.exe` vía Inno Setup) y ejecuta `gh release create v<semver>` con `--generate-notes`.
-- **Publicar PRE-RELEASE / Beta**: igual, pero con `--prerelease` (alimenta el canal Beta del updater, ver [RELEASES.md](RELEASES.md)).
-- **Publicar solo notas** (changelog) sin adjuntar instalador.
-- **Compilar TODO** (Windows ZIP + MSIX + APK + Linux), o cada plataforma por separado.
+- **Publicar RELEASE / PRE-RELEASE**: compila **todas las formas de distribución posibles** en el host (instalador Windows `.exe`, ZIP portable Windows, MSIX Store, APK + AAB Android, ZIP Linux nativo o vía WSL, ZIP macOS solo en Mac) y las adjunta a `gh release create` (estable o `--prerelease` para el canal Beta; ver [RELEASES.md](RELEASES.md)).
+- **Publicar solo notas** (changelog) sin adjuntar artefactos.
+- **Compilar TODO** o cada plataforma por separado (incluye acción `macos`).
 - **Generar solo el instalador Windows** (`.exe`).
 - **Mantenimiento**: `flutter clean` y cambio de versión en `pubspec.yaml`.
 
 Detalles de implementación:
 
-- **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
+- **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
 - **Instalador dinámico:** genera un `.iss` temporal con rutas absolutas al `Release` actual y `OutputDir`, evitando las rutas fijas obsoletas. Requiere `ISCC.exe` (Inno Setup); localizado por PATH o rutas por defecto.
+- **Publicación multi-asset:** `Publish-Release` adjunta todos los artefactos de la versión actual en `Output/` (no solo el instalador). El instalador `.exe` sigue siendo obligatorio para release/prerelease.
+- **Linux:** en host Linux compila nativo; en Windows intenta **WSL** (Flutter + `zip` + deps GTK en la distro). Si no hay entorno, avisa y continúa (best-effort en `build-all` / publish).
+- **macOS:** solo en host Darwin (`flutter build macos` → ZIP del `.app`). Desde Windows/Linux se omite con aviso; el workflow CI tiene job `macos-latest`.
 - **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget`, `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`. El `target_commitish` se **autodetecta** (rama actual si existe en `origin`, o rama por defecto del remoto → `main`) para evitar el error `Invalid target_commitish` cuando la rama por defecto no es `master`.
 - **Robustez de caché:** opción `-Clean` / entrada de menú para `flutter clean` (resuelve el error de `CMakeCache.txt` cuando el repo se mueve de carpeta).
 - **Codificación:** el script se mantiene en ASCII para evitar fallos de parseo entre Windows PowerShell 5.1 (ANSI) y PowerShell 7 (UTF-8).
@@ -1356,7 +1385,7 @@ En Windows, con el engine de Flutter 3.44 y el SDK C++ de Firebase, la app crash
 
 - **Callables IA (móvil/macOS):** timeout de 120 s en `folio_cloud_callable.dart` con mapeo a `deadline-exceeded`.
 - **Cloud-pack:** rollback de snapshot y blobs nuevos si falla `folioFinalizeCloudPack`.
-- **Logging:** `catch` silenciosos sustituidos por `AppLogger` en cloud-pack sync, backup metadata y entitlements.
+- **Logging:** `AppLogger` unificado (terminal + DevTools + `folio.log`); migración de `debugPrint`/`print`; hitos en auth, vault unlock/key cache, sync incremental/headless, import-all, onboarding, workspace y settings.
 - **IA cloud:** errores no tipados preservan el mensaje real antes de mapear a `unavailable`.
 - **Entitlements:** cancelación serializada del listener de documento por UID (`await _docSub?.cancel()`).
 - **Backup:** comprobación de existencia del archivo antes de `putFile`.

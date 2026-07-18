@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 import '../../firebase_options.dart';
+import '../app_logger.dart';
 
 /// Verifica correo+contraseña Folio Cloud vía Identity Toolkit REST (HTTP).
 ///
@@ -37,43 +37,48 @@ Future<void> verifyFolioCloudPasswordViaIdentityToolkit({
         )
         .timeout(const Duration(seconds: 15));
   } on TimeoutException catch (e, st) {
-    log(
-      'IdentityToolkit timeout posting to ${uri.host}.',
-      name: 'FolioCloudAuth',
+    AppLogger.error(
+      'IdentityToolkit timeout',
+      tag: 'auth',
       error: e,
       stackTrace: st,
+      context: {'host': uri.host},
     );
     throw FirebaseAuthException(code: 'network-request-failed');
   } on SocketException catch (e, st) {
-    log(
-      'IdentityToolkit socket error posting to ${uri.host}.',
-      name: 'FolioCloudAuth',
+    AppLogger.error(
+      'IdentityToolkit socket error',
+      tag: 'auth',
       error: e,
       stackTrace: st,
+      context: {'host': uri.host},
     );
     throw FirebaseAuthException(code: 'network-request-failed');
   } on HttpException catch (e, st) {
-    log(
-      'IdentityToolkit HTTP error posting to ${uri.host}.',
-      name: 'FolioCloudAuth',
+    AppLogger.error(
+      'IdentityToolkit HTTP error',
+      tag: 'auth',
       error: e,
       stackTrace: st,
+      context: {'host': uri.host},
     );
     throw FirebaseAuthException(code: 'network-request-failed');
   } on http.ClientException catch (e, st) {
-    log(
-      'IdentityToolkit client error posting to ${uri.host}.',
-      name: 'FolioCloudAuth',
+    AppLogger.error(
+      'IdentityToolkit client error',
+      tag: 'auth',
       error: e,
       stackTrace: st,
+      context: {'host': uri.host},
     );
     throw FirebaseAuthException(code: 'network-request-failed');
   } catch (e, st) {
-    log(
-      'IdentityToolkit unexpected error posting to ${uri.host}.',
-      name: 'FolioCloudAuth',
+    AppLogger.error(
+      'IdentityToolkit unexpected error',
+      tag: 'auth',
       error: e,
       stackTrace: st,
+      context: {'host': uri.host},
     );
     throw FirebaseAuthException(code: 'network-request-failed');
   }

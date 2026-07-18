@@ -1,10 +1,8 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import '../../app/app_settings.dart';
 import '../../crypto/vault_crypto.dart';
+import '../../data/vault_backup.dart';
 import '../../session/vault_session.dart';
+import '../app_logger.dart';
 import 'folio_cloud_backup.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_pack_sync.dart';
@@ -44,6 +42,9 @@ typedef FolioCloudVaultPasswordPrompt =
 ///
 /// Usa [accountPassword] solo como `restorePassword` del cloud-pack.
 /// No cambia la master de cada libreta ni desbloquea de forma permanente.
+///
+/// En todas las plataformas descarga a memoria (sin `Directory.systemTemp`),
+/// para que web (IndexedDB) funcione igual que desktop.
 Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
   required VaultSession session,
   required String accountPassword,
@@ -54,6 +55,11 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
 }) async {
   final vaults = await listFolioCloudBackupVaults(
     entitlementSnapshot: entitlements,
+  );
+  AppLogger.info(
+    'importAllFolioCloudVaults start',
+    tag: 'cloud-pack',
+    context: {'vaultCount': vaults.length},
   );
   if (vaults.isEmpty) {
     return const FolioCloudImportAllResult(
@@ -82,6 +88,11 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
     // Ya materializada localmente con el mismo id → no volver a importar.
     if (await session.containsVault(entry.vaultId)) {
       skipped++;
+      AppLogger.debug(
+        'import vault skipped: already local',
+        tag: 'cloud-pack',
+        context: {'vaultId': entry.vaultId},
+      );
       continue;
     }
 
@@ -93,6 +104,11 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
     if (!hasCloudPack) {
       skipped++;
       errors.add('$label: no cloud-pack');
+      AppLogger.debug(
+        'import vault skipped: no cloud-pack',
+        tag: 'cloud-pack',
+        context: {'vaultId': entry.vaultId},
+      );
       continue;
     }
 
@@ -104,14 +120,12 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
     }
 
     var restorePassword = (isPlain == true) ? '' : accountPassword;
-    Directory? tmp;
     try {
-      tmp = await Directory.systemTemp.createTemp('folio_import_all_');
+      ExtractedVaultBackup? backup;
       try {
-        await downloadCloudPackToDirectoryForRestore(
+        backup = await downloadCloudPackToMemoryForRestore(
           vaultId: entry.vaultId,
           restorePassword: restorePassword,
-          extractDir: tmp,
           entitlementSnapshot: entitlements,
           telemetrySettings: telemetrySettings,
         );
@@ -126,26 +140,32 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
         if (fallback == null || fallback.isEmpty) {
           failed++;
           errors.add('$label: password');
+          AppLogger.warn(
+            'import vault failed: password needed',
+            tag: 'cloud-pack',
+            context: {'vaultId': entry.vaultId},
+          );
           continue;
         }
         restorePassword = fallback;
-        await downloadCloudPackToDirectoryForRestore(
+        backup = await downloadCloudPackToMemoryForRestore(
           vaultId: entry.vaultId,
           restorePassword: restorePassword,
-          extractDir: tmp,
           entitlementSnapshot: entitlements,
           telemetrySettings: telemetrySettings,
         );
       }
 
       final isFirst = imported == 0 && localEmpty;
-      await session.importCloudVaultAsLocal(
+      await session.importCloudVaultAsLocalFromMemory(
         cloudVaultId: entry.vaultId,
-        extractedDir: tmp,
+        backup: backup,
         password: restorePassword,
         displayName: entry.displayName.trim().isEmpty ? null : entry.displayName,
         overwriteIfExists: isFirst,
-        setActive: isFirst || (imported == 0 && !localEmpty && session.activeVaultId == null),
+        setActive:
+            isFirst ||
+            (imported == 0 && !localEmpty && session.activeVaultId == null),
       );
 
       if (firstId == null) {
@@ -153,21 +173,35 @@ Future<FolioCloudImportAllResult> importAllFolioCloudVaults({
         firstPwd = restorePassword;
       }
       imported++;
+      AppLogger.info(
+        'import vault ok',
+        tag: 'cloud-pack',
+        context: {
+          'vaultId': entry.vaultId,
+          'plain': isPlain == true,
+        },
+      );
     } catch (e) {
       failed++;
       errors.add('$label: $e');
-    } finally {
-      try {
-        if (tmp != null && tmp.existsSync()) {
-          await tmp.delete(recursive: true);
-        }
-      } catch (_) {}
-      // Evita aviso unused en web analysis donde Directory puede ser stub.
-      if (kIsWeb) {
-        // no-op
-      }
+      AppLogger.error(
+        'import vault failed',
+        tag: 'cloud-pack',
+        error: e,
+        context: {'vaultId': entry.vaultId},
+      );
     }
   }
+
+  AppLogger.info(
+    'importAllFolioCloudVaults done',
+    tag: 'cloud-pack',
+    context: {
+      'imported': imported,
+      'skipped': skipped,
+      'failed': failed,
+    },
+  );
 
   return FolioCloudImportAllResult(
     imported: imported,

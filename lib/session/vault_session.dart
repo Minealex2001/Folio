@@ -64,6 +64,7 @@ import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
+import '../services/folio_cloud/device_sync_key_cache.dart';
 import '../services/sync/vault_sync_merge.dart';
 import '../services/sync/vault_sync_pack.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -863,6 +864,7 @@ class VaultSession extends ChangeNotifier {
           _pages = List.from(payload.pages);
           _loadRevisionsFromPayload(payload);
           _ensureOrderForCurrentPages();
+          await _applySyncedDisplayName(payload.displayName);
           await _applyInitialPageSelection(preferPersistedPreference: true);
           _state = VaultFlowState.unlocked;
           purgeExpiredTrash();
@@ -1271,7 +1273,19 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> switchVault(String vaultId) async {
     await _registry.load();
-    if (!_registry.containsVault(vaultId)) return;
+    if (!_registry.containsVault(vaultId)) {
+      AppLogger.warn(
+        'switchVault: vault not in registry',
+        tag: 'vault',
+        context: {'vaultId': vaultId},
+      );
+      return;
+    }
+    AppLogger.info(
+      'switchVault',
+      tag: 'vault',
+      context: {'vaultId': vaultId, 'from': _vaultId},
+    );
     await lock();
     VaultPaths.setActiveVaultId(vaultId);
     await _registry.setActiveVaultId(vaultId);
@@ -1283,6 +1297,8 @@ class VaultSession extends ChangeNotifier {
     final id = _vaultId;
     if (id == null) return;
     await _registry.rename(id, displayName);
+    // Persistir en el payload para que el sync multi-dispositivo propague el nombre.
+    scheduleSave();
     notifyListeners();
   }
 
@@ -1386,10 +1402,66 @@ class VaultSession extends ChangeNotifier {
       throw ArgumentError('cloudVaultId vacío');
     }
     await validateImportZip(extractedDir, password);
+    await _prepareCloudVaultSlot(
+      id: id,
+      overwriteIfExists: overwriteIfExists,
+    );
+    await applyImportToVaultId(extractedDir, id);
+    await _registerImportedCloudVault(
+      id: id,
+      displayName: displayName,
+      setActive: setActive,
+    );
+  }
+
+  /// Igual que [importCloudVaultAsLocal] con árbol en memoria (web / IndexedDB).
+  Future<void> importCloudVaultAsLocalFromMemory({
+    required String cloudVaultId,
+    required ExtractedVaultBackup backup,
+    required String password,
+    String? displayName,
+    bool overwriteIfExists = false,
+    bool setActive = false,
+  }) async {
+    final id = cloudVaultId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('cloudVaultId vacío');
+    }
+    AppLogger.info(
+      'importCloudVaultAsLocalFromMemory start',
+      tag: 'vault',
+      context: {
+        'vaultId': id,
+        'overwrite': overwriteIfExists,
+        'setActive': setActive,
+      },
+    );
+    await validateImportBackup(backup, password);
+    await _prepareCloudVaultSlot(
+      id: id,
+      overwriteIfExists: overwriteIfExists,
+    );
+    await applyImportToVaultIdFromMemory(backup, id);
+    await _registerImportedCloudVault(
+      id: id,
+      displayName: displayName,
+      setActive: setActive,
+    );
+    AppLogger.info(
+      'importCloudVaultAsLocalFromMemory ok',
+      tag: 'vault',
+      context: {'vaultId': id},
+    );
+  }
+
+  Future<void> _prepareCloudVaultSlot({
+    required String id,
+    required bool overwriteIfExists,
+  }) async {
     await _registry.load();
 
-    final already = _registry.containsVault(id) ||
-        await VaultPaths.vaultExistsForId(id);
+    final already =
+        _registry.containsVault(id) || await VaultPaths.vaultExistsForId(id);
     if (already && !overwriteIfExists) {
       throw StateError('La libreta $id ya existe en este dispositivo.');
     }
@@ -1408,9 +1480,13 @@ class VaultSession extends ChangeNotifier {
         await VaultPaths.deleteVaultDirectory(id);
       }
     }
+  }
 
-    await applyImportToVaultId(extractedDir, id);
-
+  Future<void> _registerImportedCloudVault({
+    required String id,
+    required String? displayName,
+    required bool setActive,
+  }) async {
     if (!_registry.containsVault(id)) {
       final ordinal = _registry.vaults.length + 1;
       await _registry.add(
@@ -1676,6 +1752,7 @@ class VaultSession extends ChangeNotifier {
         VaultPayload(
           version: kVaultPayloadVersion,
           pages: _pages,
+          displayName: displayName ?? 'Notion importado',
           pageRevisions: const {},
           pageAcl: const {},
           localProfiles: [
@@ -1803,7 +1880,52 @@ class VaultSession extends ChangeNotifier {
     _resumeVaultIdAfterNewVault = null;
   }
 
+  /// Onboarding por copia en memoria (cloud-pack en web / IndexedDB).
+  Future<void> completeOnboardingFromMemory(
+    ExtractedVaultBackup backup,
+    String backupPassword,
+  ) async {
+    await _registry.load();
+    if (VaultPaths.activeVaultId != null && await VaultPaths.vaultExists()) {
+      throw StateError('Ya hay datos en la libreta actual.');
+    }
+    await validateImportBackup(backup, backupPassword);
+
+    var id = VaultPaths.activeVaultId;
+    if (id == null) {
+      id = _uuid.v4();
+      VaultPaths.setActiveVaultId(id);
+    }
+    await applyImportToVaultIdFromMemory(backup, id);
+
+    if (!_registry.containsVault(id)) {
+      final ordinal = _registry.vaults.length + 1;
+      await _registry.add(
+        VaultEntry(
+          id: id,
+          displayName: 'Libreta $ordinal',
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    }
+    await _registry.setActiveVaultId(id);
+
+    final plainImported = await _repo.isPlaintextVault();
+    _vaultUsesEncryption = !plainImported;
+
+    await unlockWithPassword(backupPassword);
+    _resumeVaultIdAfterNewVault = null;
+  }
+
   Future<void> unlockWithPassword(String password) async {
+    AppLogger.info(
+      'unlockWithPassword start',
+      tag: 'vault',
+      context: {
+        'vaultId': _vaultId,
+        'encrypted': vaultUsesEncryption,
+      },
+    );
     if (!vaultUsesEncryption) {
       _dek = null;
       try {
@@ -1811,13 +1933,25 @@ class VaultSession extends ChangeNotifier {
         _pages = List.from(payload.pages);
         _loadRevisionsFromPayload(payload);
         _ensureOrderForCurrentPages();
+        await _applySyncedDisplayName(payload.displayName);
         await _applyInitialPageSelection(preferPersistedPreference: true);
         _state = VaultFlowState.unlocked;
         purgeExpiredTrash();
         _restartIdleLockTimer();
+        await _cacheDeviceSyncKeyAfterUnlock();
+        AppLogger.info(
+          'unlockWithPassword ok (plain)',
+          tag: 'vault',
+          context: {'vaultId': _vaultId, 'pages': _pages.length},
+        );
         notifyListeners();
       } on VaultCorruptionException {
         _state = VaultFlowState.recovery;
+        AppLogger.error(
+          'unlockWithPassword recovery (plain corruption)',
+          tag: 'vault',
+          context: {'vaultId': _vaultId},
+        );
         notifyListeners();
       }
       return;
@@ -1829,14 +1963,26 @@ class VaultSession extends ChangeNotifier {
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
       _ensureOrderForCurrentPages();
+      await _applySyncedDisplayName(payload.displayName);
       await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
       purgeExpiredTrash();
       _restartIdleLockTimer();
+      await _cacheDeviceSyncKeyAfterUnlock();
+      AppLogger.info(
+        'unlockWithPassword ok',
+        tag: 'vault',
+        context: {'vaultId': _vaultId, 'pages': _pages.length},
+      );
       notifyListeners();
     } on VaultCorruptionException {
       _dek = null;
       _state = VaultFlowState.recovery;
+      AppLogger.error(
+        'unlockWithPassword recovery (corruption)',
+        tag: 'vault',
+        context: {'vaultId': _vaultId},
+      );
       notifyListeners();
     }
   }
@@ -1870,10 +2016,17 @@ class VaultSession extends ChangeNotifier {
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
+    await _applySyncedDisplayName(payload.displayName);
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _cacheDeviceSyncKeyAfterUnlock();
+    AppLogger.info(
+      'unlockWithDeviceAuth ok',
+      tag: 'vault',
+      context: {'vaultId': _vaultId, 'pages': _pages.length},
+    );
     notifyListeners();
   }
 
@@ -1898,11 +2051,56 @@ class VaultSession extends ChangeNotifier {
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
+    await _applySyncedDisplayName(payload.displayName);
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _cacheDeviceSyncKeyAfterUnlock();
+    AppLogger.info(
+      'unlockWithPasskey ok',
+      tag: 'vault',
+      context: {'vaultId': _vaultId, 'pages': _pages.length},
+    );
     notifyListeners();
+  }
+
+  /// Guarda DEK / clave de sync estable para device-sync en segundo plano.
+  Future<void> _cacheDeviceSyncKeyAfterUnlock() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    try {
+      final cache = DeviceSyncKeyCache();
+      if (vaultUsesEncryption) {
+        if (_dek == null || _dek!.length != VaultCrypto.dekLength) {
+          AppLogger.warn(
+            'device sync key cache skipped: missing DEK',
+            tag: 'vault',
+            context: {'vaultId': vid},
+          );
+          return;
+        }
+        await cache.save(vid, _dek!);
+      } else {
+        await cache.ensurePlainVaultSyncKey(vid);
+      }
+      AppLogger.debug(
+        'device sync key cached after unlock',
+        tag: 'vault',
+        context: {'vaultId': vid, 'encrypted': vaultUsesEncryption},
+      );
+    } catch (e, st) {
+      AppLogger.warn(
+        'device sync key cache failed after unlock',
+        tag: 'vault',
+        context: {'vaultId': vid, 'error': '$e'},
+      );
+      AppLogger.debug(
+        'device sync key cache stack',
+        tag: 'vault',
+        context: {'stack': '$st'},
+      );
+    }
   }
 
   /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
@@ -1952,6 +2150,8 @@ class VaultSession extends ChangeNotifier {
     await _persistLastSelectedPageBeforeLock();
     // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
     await flushPendingSave();
+    // Asegura DEK en caché para sync en segundo plano tras bloquear.
+    await _cacheDeviceSyncKeyAfterUnlock();
     _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
@@ -2063,6 +2263,11 @@ class VaultSession extends ChangeNotifier {
     if (page == null || page.isTrashed) return;
     touchActivity();
     _selectedPageId = id;
+    AppLogger.debug(
+      'selectPage',
+      tag: 'workspace',
+      context: {'pageId': id, 'vaultId': _vaultId},
+    );
     notifyListeners();
     final requestId = ++_selectedPagePersistRequestId;
     final activeVaultId = VaultPaths.activeVaultId;
@@ -3283,6 +3488,11 @@ class VaultSession extends ChangeNotifier {
   void movePageToTrash(String id) {
     if (!canMovePageToTrash(id)) return;
     final subtree = activeSubtreeIds(id);
+    AppLogger.info(
+      'movePageToTrash',
+      tag: 'workspace',
+      context: {'pageId': id, 'subtreeCount': subtree.length},
+    );
     final now = DateTime.now().toUtc();
     var selectionHit = false;
     for (final pageId in subtree) {
@@ -3324,6 +3534,11 @@ class VaultSession extends ChangeNotifier {
     if (root == null || !root.isTrashed) return;
     final subtree = _trashedSubtreeIds(id);
     if (subtree.isEmpty) return;
+    AppLogger.info(
+      'restoreFromTrash',
+      tag: 'workspace',
+      context: {'pageId': id, 'subtreeCount': subtree.length},
+    );
     for (final pageId in subtree) {
       final p = _pageById(pageId);
       if (p == null) continue;
@@ -3828,8 +4043,10 @@ class VaultSession extends ChangeNotifier {
   }
 
   bool _isDescendant({required String ancestorId, required String nodeId}) {
+    final seen = <String>{};
     var cur = _pageById(nodeId);
     while (cur != null) {
+      if (!seen.add(cur.id)) return false; // ciclo parentId
       if (cur.parentId == ancestorId) return true;
       if (cur.parentId == null) return false;
       cur = _pageById(cur.parentId!);
@@ -4984,9 +5201,13 @@ class VaultSession extends ChangeNotifier {
   }
 
   VaultPayload _buildVaultPayloadForPersist() {
+    final name = _vaultId == null
+        ? ''
+        : (_registry.entryFor(_vaultId!)?.displayName ?? '').trim();
     return VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+      displayName: name,
       pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
@@ -5077,6 +5298,7 @@ class VaultSession extends ChangeNotifier {
             localPayload.encodeUtf8(),
           );
         }
+        await _applySyncedDisplayName(remotePayload.displayName);
         return (ok: true, changed: false);
       }
 
@@ -5240,6 +5462,7 @@ class VaultSession extends ChangeNotifier {
       _pickInitialSelection();
       _contentEpoch++;
     }
+    await _applySyncedDisplayName(payload.displayName);
     notifyListeners();
     await _persistence.persistNowSuppressed();
     _rebuildSearchIndex();
@@ -5247,6 +5470,17 @@ class VaultSession extends ChangeNotifier {
       _syncBaselineFingerprint = remoteFingerprint;
       _syncBaselinePayload = VaultPayload.decodeUtf8(payload.encodeUtf8());
     }
+  }
+
+  /// Actualiza el registro local si el pack trae un nombre de libreta.
+  Future<void> _applySyncedDisplayName(String raw) async {
+    final name = raw.trim();
+    if (name.isEmpty) return;
+    final id = _vaultId;
+    if (id == null || id.isEmpty) return;
+    final current = _registry.entryFor(id)?.displayName.trim() ?? '';
+    if (current == name) return;
+    await _registry.rename(id, name);
   }
 
   void _notifySyncConflictCountChanged() {
@@ -5440,6 +5674,8 @@ class VaultSession extends ChangeNotifier {
     final payload = VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+      displayName: (_registry.entryFor(_vaultId ?? '')?.displayName ?? '')
+          .trim(),
       pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(

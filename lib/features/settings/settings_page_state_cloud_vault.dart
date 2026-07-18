@@ -3,6 +3,11 @@ part of 'settings_page.dart';
 extension _SettingsPageCloudVaultActions on _SettingsPageState {
   Future<void> _showCloudAuthDialog({required bool register}) async {
     final l10n = AppLocalizations.of(context);
+    AppLogger.info(
+      'cloud auth dialog',
+      tag: 'settings',
+      context: {'register': register},
+    );
     if (defaultTargetPlatform == TargetPlatform.windows) {
       final ok = await folioGoogleApisReachable();
       if (!ok) {
@@ -28,9 +33,17 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       ),
     );
     if (!mounted) return;
-    if (accountPassword == null || accountPassword.isEmpty) return;
+    if (accountPassword == null || accountPassword.isEmpty) {
+      AppLogger.debug('cloud auth dialog cancelled', tag: 'settings');
+      return;
+    }
     if (!_cloud.isSignedIn) return;
 
+    AppLogger.info(
+      'cloud auth ok → import all vaults',
+      tag: 'settings',
+      context: {'uid': _cloud.user?.uid},
+    );
     await showFolioCloudImportAllVaultsFlow(
       context: context,
       session: _s,
@@ -270,7 +283,15 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: conflicts.map((conflict) {
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          l10nC.folioCloudDeviceSyncConflictKeepLocalHint,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      ...conflicts.map((conflict) {
                       final subtitle = conflict.isBlockConflict
                           ? l10nC.settingsSyncBlockConflictCardSubtitle(
                               conflict.fromPeerId,
@@ -370,7 +391,8 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
+                    ],
                   ),
                 );
               },

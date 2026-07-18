@@ -77,6 +77,7 @@ import 'folio_cloud_import_all_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
+import '../../services/app_logger.dart';
 import '../../services/platform/browser_file_download.dart';
 import '../../services/secure_credential_storage.dart';
 import '../../services/backup_destinations/backup_export_runner.dart';
@@ -1634,6 +1635,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                           cloudDeviceSyncController:
                                               widget.cloudDeviceSyncController,
                                           onCloudDeviceSyncChanged: (v) {
+                                            AppLogger.info(
+                                              'cloud device sync toggled',
+                                              tag: 'settings',
+                                              context: {'enabled': v},
+                                            );
                                             unawaited(
                                               _app.setCloudDeviceSyncEnabled(v),
                                             );
@@ -1641,6 +1647,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                           cloudAppProfileSyncEnabled:
                                               _app.cloudAppProfileSyncEnabled,
                                           onCloudAppProfileSyncChanged: (v) {
+                                            AppLogger.info(
+                                              'cloud app profile sync toggled',
+                                              tag: 'settings',
+                                              context: {'enabled': v},
+                                            );
                                             unawaited(
                                               _app.setCloudAppProfileSyncEnabled(
                                                 v,
@@ -1657,6 +1668,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _restoreAppProfileFromSettings(),
                                             );
                                           },
+                                          pendingSyncConflicts:
+                                              _app.syncPendingConflicts,
+                                          onResolveSyncConflicts:
+                                              _showSyncConflictsDialog,
                                           onSubscribeFamily: () =>
                                               _openFolioCheckout(
                                                 FolioCheckoutKind

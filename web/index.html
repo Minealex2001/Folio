@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Folio — your private, encrypted digital notebook.">
   <meta name="theme-color" content="#455A64">
 
@@ -17,6 +17,7 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="icon" type="image/x-icon" href="favicon.ico"/>
 
   <title>Folio</title>
@@ -25,6 +26,68 @@
   <style>
     body { background-color: #455A64; margin: 0; }
   </style>
+  <script>
+    // Captura el evento de instalación PWA antes de que Flutter monte la UI.
+    // Comunicación con Dart solo vía CustomEvent / data-* (sin js_interop).
+    (function () {
+      var deferred = null;
+      var root = document.documentElement;
+
+      function setCanInstall(v) {
+        if (v) root.setAttribute('data-folio-pwa-can-install', '1');
+        else root.removeAttribute('data-folio-pwa-can-install');
+      }
+      function setStandalone(v) {
+        if (v) root.setAttribute('data-folio-pwa-standalone', '1');
+        else root.removeAttribute('data-folio-pwa-standalone');
+      }
+
+      setCanInstall(false);
+      setStandalone((function () {
+        try {
+          if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+            return true;
+          }
+          if (window.navigator && window.navigator.standalone === true) {
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      })());
+
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+        setCanInstall(true);
+        window.dispatchEvent(new Event('folio-pwa-can-install'));
+      });
+      window.addEventListener('appinstalled', function () {
+        deferred = null;
+        setCanInstall(false);
+        setStandalone(true);
+        window.dispatchEvent(new Event('folio-pwa-installed'));
+      });
+      window.addEventListener('folio-pwa-request-install', function () {
+        function emit(outcome) {
+          window.dispatchEvent(new CustomEvent('folio-pwa-prompt-result', { detail: outcome }));
+        }
+        if (!deferred) {
+          emit('unavailable');
+          return;
+        }
+        var promptEvent = deferred;
+        deferred = null;
+        setCanInstall(false);
+        promptEvent.prompt().then(function () {
+          return promptEvent.userChoice;
+        }).then(function (choice) {
+          emit((choice && choice.outcome) ? choice.outcome : 'dismissed');
+        }).catch(function () {
+          emit('unavailable');
+        });
+      });
+    })();
+  </script>
 </head>
 <body>
   <!-- Passkeys Web SDK (corbado/flutter-passkeys) -->

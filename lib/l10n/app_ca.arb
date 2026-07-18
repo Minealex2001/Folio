@@ -1109,6 +1109,10 @@
   "folioCloudSubscriptionNoneSubtitle": "Activa un pla per tenir còpies xifrades, IA al núvol i publicació web.",
   "folioCloudFeatureBackup": "Còpia al núvol",
   "folioCloudDeviceSyncTitle": "Sincronització entre dispositius",
+  "folioCloudUnifiedSheetTitle": "Desament i sincronització",
+  "folioCloudUnifiedLocalSaveSection": "Aquest dispositiu",
+  "folioCloudUnifiedTooltip": "{local} · {cloud}",
+  "@folioCloudUnifiedTooltip": {"placeholders": {"local": {"type": "String"}, "cloud": {"type": "String"}}},
   "folioCloudDeviceSyncSubtitle": "Propaga canvis gairebé a l'instant als altres dispositius (fusió per pàgina/bloc; no substitueix una restauració manual).",
   "folioCloudDeviceSyncStatusSyncing": "Sincronitzant…",
   "folioCloudDeviceSyncStatusError": "Error de sincronització — reintentant…",
@@ -1121,6 +1125,29 @@
   "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
   "folioCloudDeviceSyncAgoHours": "fa {hours} h",
   "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
+  "folioCloudDeviceSyncNow": "Sincronitza ara",
+  "folioCloudDeviceSyncConflictsTooltip": "{count, plural, one{1 conflicte pendent} other{{count} conflictes pendents}}",
+  "@folioCloudDeviceSyncConflictsTooltip": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncOpenConflicts": "Resoldre conflictes ({count})",
+  "@folioCloudDeviceSyncOpenConflicts": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncConflictHint": "S'ha conservat la teva versió a la pàgina. L'altra s'ha desat a l'historial de revisions.",
+  "folioCloudDeviceSyncConflictKeepLocalHint": "Es manté la teva versió local. La de l'altre dispositiu queda a l'historial de la pàgina (revisió sync_remote).",
+  "folioCloudDeviceSyncRemoteRevisionBanner": "{count, plural, one{Hi ha 1 versió remota de sync a l'historial d'aquesta pàgina} other{Hi ha {count} versions remotes de sync a l'historial d'aquesta pàgina}}",
+  "@folioCloudDeviceSyncRemoteRevisionBanner": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncViewHistory": "Veure historial",
+  "folioCloudDeviceSyncResolveConflictsTile": "Conflictes de sincronització",
+  "folioCloudDeviceSyncNowOk": "Sincronització completada.",
+  "folioCloudDeviceSyncNowFail": "No s'ha pogut sincronitzar. Revisa el detall de l'error.",
+  "folioCloudDeviceSyncNowDisabled": "Activa la sincronització entre dispositius o desbloqueja la llibreta.",
+  "folioCloudDeviceSyncAllVaultsOk": "Totes les llibretes estan sincronitzades",
+  "folioCloudDeviceSyncVaultsNeedAttention": "{count, plural, one{1 llibreta necessita sincronitzar-se} other{{count} llibretes necessiten sincronitzar-se}}",
+  "@folioCloudDeviceSyncVaultsNeedAttention": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncVaultsSection": "Llibretes",
+  "folioCloudDeviceSyncVaultPhaseSynced": "Sincronitzada",
+  "folioCloudDeviceSyncVaultPhaseNeedsUnlock": "Desbloqueja-la un cop en aquest dispositiu per sincronitzar en segon pla",
+  "folioCloudDeviceSyncVaultPhaseEmpty": "Encara no hi ha còpia de sync al núvol",
+  "folioCloudDeviceSyncVaultActive": "activa",
+  "folioCloudDeviceSyncOpenVault": "Obrir",
   "folioCloudSubsectionAccountProfile": "Perfil del compte",
   "folioCloudAppProfileSyncTitle": "Sincronitzar ajustos de l'app",
   "folioCloudAppProfileSyncSubtitle": "Desa el tema, la IA, les dreceres, les icones personalitzades i altres preferències al teu compte Folio Cloud (xifrat).",
@@ -1132,7 +1159,7 @@
   "folioCloudAppProfileStartFreshAction": "Començar de nou",
   "folioCloudAppProfilePushOk": "Ajustos pujats a Folio Cloud.",
   "folioCloudAppProfileRestoreOk": "Ajustos restaurats des de Folio Cloud.",
-  "folioCloudAppProfileRestoreFail": "No s'han pogut sincronitzar els ajustos amb Folio Cloud.",
+  "folioCloudAppProfileRestoreFail": "No s'han pogut desxifrar els ajustos del núvol (clau distinta). Tria «començar de nou» per pujar els d'aquest dispositiu, o restaura des d'un altre que sí sincronitzi.",
   "folioCloudAppProfileEmptyCloud": "Encara no hi ha un perfil d'ajustos al núvol. Puja'l primer des d'aquest dispositiu.",
   "folioCloudVaultProfileRestore": "Restaurar preferències d'aquesta llibreta",
   "folioCloudFeatureCloudAi": "IA al núvol",
@@ -2376,6 +2403,12 @@
   ,"importPdfNoText": "El PDF no conté text extrectable"
   ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
   ,"webDesktopOnlyNotice": "Només disponible a l'aplicació d'escriptori"
+  ,"installWebApp": "Instal·la Folio"
+  ,"installWebAppTooltip": "Instal·la com a aplicació en aquest dispositiu"
+  ,"installWebAppHowToTitle": "Instal·la Folio com a app"
+  ,"installWebAppHowToBody": "A Chrome o Edge: menú ⋮ → «Instal·la Folio» o «Instal·la l'aplicació».\n\nA Safari (iPhone/iPad): Comparteix → «Afegeix a la pantalla d'inici».\n\nA Firefox: menú → «Instal·la».\n\nLa instal·lació completa requereix el lloc publicat (HTTPS); en local usa flutter run --release."
+  ,"installWebAppDone": "Folio s'ha instal·lat en aquest dispositiu."
+  ,"installWebAppDismissed": "Instal·lació cancel·lada."
   ,"appStoreTooltipRefresh": "Actualitzar"
   ,"releaseNotesTitle": "Notes de la versió"
   ,"releaseNotesContinue": "Continuar"

@@ -1,4 +1,5 @@
-# Equivale a builld_all.ps1: Windows (ZIP GitHub + MSIX opcional), APK Android, ZIP Linux.
+# Equivale a builld_all.ps1: Windows (ZIP GitHub + MSIX opcional + instalador),
+# APK Android, ZIP Linux y ZIP macOS.
 # Manual: Actions → "Folio build all" → Run workflow.
 #
 # Opcional: secret repo FOLIO_MS_STORE_ENV (multilínea) con solo líneas MS_STORE_* para el build Store.
@@ -81,7 +82,7 @@ jobs:
         working-directory: ${{ env.REPO_DIR }}
         run: |
           $skipMsix = ($env:SKIP_MSIX_INPUT -eq 'true')
-          $args = @('-SkipAndroid', '-SkipLinux')
+          $args = @('-SkipAndroid', '-SkipLinux', '-SkipMacOS')
           if ($skipMsix) { $args += '-SkipMicrosoftStore' }
           & ./builld_all.ps1 @args
 
@@ -136,15 +137,16 @@ jobs:
           yes | flutter doctor --android-licenses || true
           flutter doctor -v
 
-      - name: Build APK
+      - name: Build APK + AAB
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
         run: |
           cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
           flutter build apk --release --dart-define=FOLIO_DISTRIBUTION=play_store
+          flutter build appbundle --release --dart-define=FOLIO_DISTRIBUTION=play_store
 
-      - name: Copy APK to Output
+      - name: Copy APK/AAB to Output
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
         run: |
@@ -152,13 +154,16 @@ jobs:
           raw=$(grep '^version:' pubspec.yaml | head -1 | sed 's/^version:[[:space:]]*//')
           ver="${raw//+/-}"
           cp -f build/app/outputs/flutter-apk/app-release.apk "Output/Folio-Android-PlayStore-${ver}.apk"
+          cp -f build/app/outputs/bundle/release/app-release.aab "Output/Folio-Android-PlayStore-${ver}.aab"
           ls -la Output/
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: folio-output-android
-          path: ${{ env.REPO_DIR }}/Output/*.apk
+          path: |
+            ${{ env.REPO_DIR }}/Output/*.apk
+            ${{ env.REPO_DIR }}/Output/*.aab
           if-no-files-found: error
 
   linux-bundle:
@@ -216,5 +221,64 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: folio-output-linux
+          path: ${{ env.REPO_DIR }}/Output/*.zip
+          if-no-files-found: error
+
+  macos-app:
+    name: macOS app ZIP
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        shell: bash
+        run: |
+          repo_url="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git clone --no-tags --depth 1 "$repo_url" "$REPO_DIR"
+          cd "$REPO_DIR"
+          git fetch --no-tags --depth 1 origin "${{ github.sha }}"
+          git checkout --detach FETCH_HEAD
+
+      - name: Install Flutter SDK (pinned)
+        shell: bash
+        run: |
+          flutter_dir="$HOME/flutter"
+          if [ ! -x "$flutter_dir/bin/flutter" ]; then
+            git clone https://github.com/flutter/flutter.git "$flutter_dir"
+          fi
+          cd "$flutter_dir"
+          git fetch --depth 1 origin "$FLUTTER_PIN"
+          git checkout --detach FETCH_HEAD
+          echo "$flutter_dir/bin" >> "$GITHUB_PATH"
+
+      - name: Build macOS
+        shell: bash
+        working-directory: ${{ env.REPO_DIR }}
+        run: |
+          cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+          dart pub get --enforce-lockfile
+          flutter config --enable-macos-desktop
+          flutter build macos --release --dart-define=FOLIO_DISTRIBUTION=github
+
+      - name: ZIP .app to Output
+        shell: bash
+        working-directory: ${{ env.REPO_DIR }}
+        run: |
+          root="$GITHUB_WORKSPACE/$REPO_DIR"
+          mkdir -p "$root/Output"
+          raw=$(grep '^version:' pubspec.yaml | head -1 | sed 's/^version:[[:space:]]*//')
+          ver="${raw//+/-}"
+          app_dir=$(find "$root/build/macos/Build/Products/Release" -maxdepth 1 -name '*.app' -type d | head -1)
+          if [ -z "$app_dir" ]; then
+            echo "No se encontro .app en Release" >&2
+            ls -la "$root/build/macos/Build/Products/Release" || true
+            exit 1
+          fi
+          (cd "$(dirname "$app_dir")" && zip -r "$root/Output/Folio-macOS-GitHub-${ver}.zip" "$(basename "$app_dir")")
+          ls -la "$root/Output/"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: folio-output-macos
           path: ${{ env.REPO_DIR }}/Output/*.zip
           if-no-files-found: error

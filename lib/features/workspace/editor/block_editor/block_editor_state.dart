@@ -569,12 +569,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     void flushNow() {
       if (!mounted) return;
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
-      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
       final caret = qc.selection.baseOffset;
+      final idx = _controllerBlockIds.indexOf(block.id);
+      if (!_ignoreShortcuts &&
+          idx >= 0 &&
+          _tryQuillMarkdownShortcuts(
+            pageId: pageId,
+            blockId: block.id,
+            md: md,
+            plain: qc.document.toPlainText(),
+            caretPlain: caret,
+            index: idx,
+          )) {
+        return;
+      }
+      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
       _quillLastMdByBlockId[block.id] = md;
       _runWithShortcutsIgnored(() {
         _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
-        final idx = _controllerBlockIds.indexOf(block.id);
         if (idx >= 0 && idx < _controllers.length) {
           final safe = caret.clamp(0, md.length);
           _controllers[idx].value = TextEditingValue(
@@ -1856,6 +1868,207 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return s.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trimRight();
   }
 
+  /// Quill / el codec suelen dejar un `\n` final de bloque; los atajos
+  /// comparan contra `- ` / `* ` / etc. sin ese newline.
+  static String _stripTrailingQuillNewline(String s) {
+    if (s.endsWith('\r\n')) return s.substring(0, s.length - 2);
+    if (s.endsWith('\n')) return s.substring(0, s.length - 1);
+    return s;
+  }
+
+  static const _markdownShortcutBlockTypes = {
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'toggle',
+    'quote',
+    'callout',
+  };
+
+  /// Atajos markdown desde el flush Quill (bloque entero o línea del caret).
+  bool _tryQuillMarkdownShortcuts({
+    required String pageId,
+    required String blockId,
+    required String md,
+    required String plain,
+    required int caretPlain,
+    required int index,
+  }) {
+    final pg = _s.selectedPage;
+    if (pg == null || pg.id != pageId) return false;
+    final bi = pg.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return false;
+    if (!_markdownShortcutBlockTypes.contains(pg.blocks[bi].type)) {
+      return false;
+    }
+
+    final normalized = _stripTrailingQuillNewline(md);
+    if (_tryMarkdownShortcut(pageId, blockId, normalized, index)) {
+      _replaceQuillMarkdown(blockId, '', caret: 0);
+      if (_slashBlockId == blockId) {
+        _dismissInlineSlash(clearTypedCommand: false);
+      }
+      if (_mentionBlockId == blockId) {
+        _dismissInlineMention();
+      }
+      return true;
+    }
+    return _tryQuillLineListShortcut(
+      pageId: pageId,
+      blockId: blockId,
+      md: md,
+      plain: plain,
+      caretPlain: caretPlain,
+      index: index,
+    );
+  }
+
+  /// Si la línea del caret es exactamente `- ` / `* ` / `[] `, parte el bloque
+  /// y crea un `bullet`/`todo` Folio (1 ítem = 1 bloque).
+  bool _tryQuillLineListShortcut({
+    required String pageId,
+    required String blockId,
+    required String md,
+    required String plain,
+    required int caretPlain,
+    required int index,
+  }) {
+    final pg = _s.selectedPage;
+    if (pg == null || pg.id != pageId) return false;
+    final bi = pg.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return false;
+    final cur = pg.blocks[bi];
+    if (!_markdownShortcutBlockTypes.contains(cur.type)) return false;
+
+    final mdNorm = _stripTrailingQuillNewline(md).replaceAll('\r\n', '\n');
+    final plainNorm =
+        _stripTrailingQuillNewline(plain).replaceAll('\r\n', '\n');
+    if (!mdNorm.contains('\n')) return false;
+
+    final plainLines = plainNorm.split('\n');
+    if (plainLines.isEmpty) return false;
+    var remaining = caretPlain.clamp(0, plainNorm.length);
+    var lineIdx = 0;
+    for (; lineIdx < plainLines.length; lineIdx++) {
+      final len = plainLines[lineIdx].length;
+      if (remaining <= len) break;
+      remaining -= len + 1;
+    }
+    if (lineIdx >= plainLines.length) {
+      lineIdx = plainLines.length - 1;
+    }
+
+    final mdLines = mdNorm.split('\n');
+    if (lineIdx >= mdLines.length) return false;
+    final line = mdLines[lineIdx];
+
+    String? listType;
+    if (line == '- ' || line == '* ') {
+      listType = 'bullet';
+    } else if (line == '[] ' || line == '[ ] ') {
+      listType = 'todo';
+    }
+    if (listType == null) return false;
+
+    final before = mdLines.sublist(0, lineIdx).join('\n');
+    final after = lineIdx + 1 < mdLines.length
+        ? mdLines.sublist(lineIdx + 1).join('\n')
+        : '';
+
+    _ignoreShortcuts = true;
+
+    if (before.isEmpty) {
+      _pendingFocusBlockId = blockId;
+      _pendingCursorOffset = 0;
+      _s.changeBlockType(pageId, blockId, listType);
+      _s.updateBlockTextFull(pageId, blockId, '', null);
+      _replaceQuillMarkdown(blockId, '', caret: 0);
+      if (index < _controllers.length) {
+        _controllers[index].value = const TextEditingValue(
+          text: '',
+          selection: TextSelection.collapsed(offset: 0),
+        );
+      }
+      if (after.isNotEmpty) {
+        final afterId = '${pageId}_${_uuid.v4()}';
+        _s.insertBlockAfter(
+          pageId: pageId,
+          afterBlockId: blockId,
+          block: FolioBlock(id: afterId, type: 'paragraph', text: after),
+        );
+      }
+    } else {
+      final listId = '${pageId}_${_uuid.v4()}';
+      _pendingFocusBlockId = listId;
+      _pendingCursorOffset = 0;
+      _s.updateBlockTextFull(pageId, blockId, before, null);
+      _replaceQuillMarkdown(blockId, before, caret: before.length);
+      if (index < _controllers.length) {
+        _controllers[index].value = TextEditingValue(
+          text: before,
+          selection: TextSelection.collapsed(offset: before.length),
+        );
+      }
+      _s.insertBlockAfter(
+        pageId: pageId,
+        afterBlockId: blockId,
+        block: FolioBlock(
+          id: listId,
+          type: listType,
+          text: '',
+          checked: listType == 'todo' ? false : null,
+          depth: cur.depth,
+          appearance: cur.appearance,
+        ),
+      );
+      if (after.isNotEmpty) {
+        final afterId = '${pageId}_${_uuid.v4()}';
+        _s.insertBlockAfter(
+          pageId: pageId,
+          afterBlockId: listId,
+          block: FolioBlock(id: afterId, type: 'paragraph', text: after),
+        );
+      }
+    }
+
+    _ignoreShortcuts = false;
+    if (_slashBlockId == blockId) {
+      _dismissInlineSlash(clearTypedCommand: false);
+    }
+    if (_mentionBlockId == blockId) {
+      _dismissInlineMention();
+    }
+    return true;
+  }
+
+  /// Sustituye el documento Quill tras un atajo sin reentrar en conversiones.
+  void _replaceQuillMarkdown(String blockId, String md, {int? caret}) {
+    final existing = _quillByBlockId[blockId];
+    if (existing == null) {
+      _quillLastMdByBlockId[blockId] = md;
+      return;
+    }
+    _quillDebounceByBlockId[blockId]?.cancel();
+    _quillDebounceByBlockId.remove(blockId);
+    final wasIgnoring = _ignoreShortcuts;
+    _ignoreShortcuts = true;
+    existing.document = FolioMarkdownQuillCodec.markdownToDocument(md);
+    _quillLastMdByBlockId[blockId] = md;
+    var plain = existing.document.toPlainText();
+    var maxOff = plain.length;
+    if (plain.endsWith('\n') && maxOff > 0) maxOff -= 1;
+    final off = (caret ?? 0).clamp(0, maxOff);
+    existing.updateSelection(
+      TextSelection.collapsed(offset: off),
+      quill.ChangeSource.local,
+    );
+    _ignoreShortcuts = wasIgnoring;
+  }
+
   /// `#` / `##` solos (o solo con espacios): el markdown no pinta texto y el
   /// campo con color transparente parece “vacío”; no usar vista previa aún.
   static bool _isIncompleteAtxHeadingLine(String text) {
@@ -2005,20 +2218,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     String text,
     int index,
   ) {
+    // Quill deja `\n` final; el camino TextField no. Normalizar antes de comparar.
+    final normalized = _stripTrailingQuillNewline(text);
     String? type;
     var replacement = '';
-    final fenceLang = folioParseMarkdownCodeFenceShortcut(text);
+    final fenceLang = folioParseMarkdownCodeFenceShortcut(normalized);
 
     // No convertir con `# ` / `## ` / `### ` + espacio: pierde el foco y
     // impide escribir “# Título” en la misma línea. Usa /h1 o pega “# Texto”.
-    if (text == '- ' || text == '* ') {
+    if (normalized == '- ' || normalized == '* ') {
       type = 'bullet';
-    } else if (text == '[] ' || text == '[ ] ') {
+    } else if (normalized == '[] ' || normalized == '[ ] ') {
       type = 'todo';
     } else if (fenceLang != null) {
       type = 'code';
-    } else if (!text.contains('\n') && !text.contains('\r')) {
-      final m = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(text);
+    } else if (!normalized.contains('\n') && !normalized.contains('\r')) {
+      final m = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(normalized);
       if (m != null) {
         final n = m.group(1)!.length;
         final body = m.group(2)!.trim();
@@ -2042,7 +2257,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _s.setBlockCodeLanguage(pageId, blockId, fenceLang);
       _pendingCursorOffset = 0;
     }
-    _s.updateBlockText(pageId, blockId, replacement);
+    // Limpiar Delta: el markdown `replacement` es la fuente de verdad.
+    _s.updateBlockTextFull(pageId, blockId, replacement, null);
     if (index < _controllers.length) {
       _controllers[index].value = TextEditingValue(
         text: replacement,

@@ -301,8 +301,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _lastVaultFlowForTelemetry = nextVault;
     }
     if (widget.session.state == VaultFlowState.locked) {
-      _lastCloudDeviceSyncShouldRun = false;
-      unawaited(_cloudDeviceSyncController?.stopWatching());
+      // Device-sync sigue en segundo plano (headless) aunque la libreta esté
+      // bloqueada; solo se cierra la UI del workspace.
       unawaited(_cloudSettingsSyncController?.stopWatching());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final nav = _navKey.currentState;
@@ -311,11 +311,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           nav.pop();
         }
       });
+      // Relanzar sync headless si estaba parado.
+      unawaited(_syncCloudDeviceSyncLifecycle(force: true));
     } else if (widget.session.state == VaultFlowState.unlocked) {
       _lastCloudDeviceSyncShouldRun =
           _cloudDeviceSyncController?.isEnabled ?? false;
       unawaited(_cloudDeviceSyncController?.start());
       unawaited(_syncCloudSettingsSyncLifecycle());
+      unawaited(_cloudDeviceSyncController?.cacheKeyForActiveVault());
     }
     unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
@@ -848,9 +851,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   Future<void> _syncCloudDeviceSyncLifecycle({bool force = false}) async {
     final ctrl = _cloudDeviceSyncController;
     if (ctrl == null) return;
-    final shouldRun =
-        ctrl.isEnabled && widget.session.state == VaultFlowState.unlocked;
+    // Sync multi-dispositivo no exige libreta desbloqueada (headless + cache DEK).
+    final shouldRun = ctrl.isEnabled;
     if (!force && shouldRun == _lastCloudDeviceSyncShouldRun) return;
+    AppLogger.info(
+      'device sync lifecycle',
+      tag: 'cloud_sync',
+      context: {
+        'shouldRun': shouldRun,
+        'force': force,
+        'prev': _lastCloudDeviceSyncShouldRun,
+      },
+    );
     _lastCloudDeviceSyncShouldRun = shouldRun;
     if (shouldRun) {
       await ctrl.start();
@@ -862,9 +874,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   Future<void> _syncCloudSettingsSyncLifecycle() async {
     final ctrl = _cloudSettingsSyncController;
     if (ctrl == null) return;
-    if (ctrl.isEnabled &&
+    final shouldRun = ctrl.isEnabled &&
         (widget.session.state == VaultFlowState.unlocked ||
-            FirebaseAuth.instance.currentUser != null)) {
+            FirebaseAuth.instance.currentUser != null);
+    AppLogger.debug(
+      'settings sync lifecycle',
+      tag: 'settings_sync',
+      context: {
+        'shouldRun': shouldRun,
+        'enabled': ctrl.isEnabled,
+        'vaultState': widget.session.state.name,
+      },
+    );
+    if (shouldRun) {
       await ctrl.start();
     } else {
       await ctrl.stopWatching();
@@ -998,7 +1020,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       return;
     }
 
-    // Local providers check (Ollama and LM Studio are only supported on desktop/web)
+    // Local providers (Ollama / LM Studio) solo en escritorio.
     final isLocalProvider = provider == AiProvider.ollama || provider == AiProvider.lmStudio;
     if (isLocalProvider && !aiLocalProvidersSupported) {
       widget.session.setAiService(null);
@@ -1498,11 +1520,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       // El listener de Firestore (o el poll) puede haber muerto/pausado en
       // background; forzar relanzarlo + un refresco inmediato al volver.
       unawaited(_syncCloudDeviceSyncLifecycle(force: true));
+      _cloudDeviceSyncController?.setAppInForeground(true);
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      _cloudDeviceSyncController?.setAppInForeground(false);
       widget.session.onAppBackgrounded();
       if (widget.appSettings.minimizeToTray) {
         unawaited(_desktop?.hideToTray());
@@ -1522,6 +1546,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       androidDynamicAccent: androidLightDynamic?.primary,
     );
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,

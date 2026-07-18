@@ -15,7 +15,9 @@ import '../../../app/widgets/folio_interactions.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
+import '../../../services/app_logger.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/platform/pwa_install.dart';
 import '../editor/block_editor_support_widgets.dart';
 import '../recent_page_visits.dart';
 import '../templates/template_gallery_page.dart';
@@ -314,20 +316,46 @@ class _SidebarState extends State<Sidebar> {
     };
 
     final rows = <_VisiblePageRow>[];
-    void walk(String? parentId, double indent) {
+    // Camino actual + ya emitidos: evita ciclos parent/orden (p. ej. tras sync).
+    final walking = <String>{};
+    final emitted = <String>{};
+    const maxDepth = 64;
+
+    void walk(String? parentId, double indent, int depth) {
+      if (depth > maxDepth) return;
       final orderIds = session.pageOrderForParent(parentId);
       if (orderIds.isEmpty) return;
-      for (final id in orderIds) {
+      for (final rawId in orderIds) {
+        final id = rawId.trim();
+        if (id.isEmpty) continue;
+        if (walking.contains(id) || emitted.contains(id)) continue;
         final p = byId[id];
         if (p == null) continue;
+        // Ignorar entradas de orden inconsistentes con parentId (aristas fantasma).
+        final expectedParent = parentId;
+        final actualParent = p.parentId;
+        if (expectedParent == null) {
+          if (actualParent != null && actualParent.trim().isNotEmpty) continue;
+        } else if (actualParent != expectedParent) {
+          continue;
+        }
+        emitted.add(id);
         rows.add(_VisiblePageRow(page: p, indent: indent));
         if (hasChildrenById[p.id] == true && !_isCollapsed(p.id)) {
-          walk(p.id, indent + 14);
+          walking.add(p.id);
+          walk(p.id, indent + 14, depth + 1);
+          walking.remove(p.id);
         }
       }
     }
 
-    walk(null, 4);
+    walk(null, 4, 0);
+    // Cualquier página no alcanzada (ciclo / orden inconsistente) al final.
+    for (final p in pages) {
+      if (emitted.contains(p.id)) continue;
+      emitted.add(p.id);
+      rows.add(_VisiblePageRow(page: p, indent: 4));
+    }
     return (rows: rows, hasChildrenById: hasChildrenById);
   }
 
@@ -405,6 +433,30 @@ class _SidebarState extends State<Sidebar> {
         showFolioSnack(context, '$e', error: true);
       }
     }
+  }
+
+  Future<void> _installWebApp(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final outcome = await PwaInstallController.instance.promptInstall();
+    if (!context.mounted) return;
+    switch (outcome) {
+      case PwaInstallOutcome.accepted:
+        showFolioSnack(context, l10n.installWebAppDone);
+      case PwaInstallOutcome.dismissed:
+        showFolioSnack(context, l10n.installWebAppDismissed);
+      case PwaInstallOutcome.unavailable:
+        await _showInstallWebAppHowTo(context);
+    }
+  }
+
+  Future<void> _showInstallWebAppHowTo(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    await FolioDialog.info(
+      context,
+      title: Text(l10n.installWebAppHowToTitle),
+      content: Text(l10n.installWebAppHowToBody),
+      okLabel: l10n.ok,
+    );
   }
 
   Future<void> _renameActiveVault() async {
@@ -819,7 +871,12 @@ class _SidebarState extends State<Sidebar> {
       if (confirmed != true || !mounted) return;
       session.movePageToTrash(page.id);
     } catch (e, stack) {
-      debugPrint('ERROR in _showDeletePageConfirmMenu: $e\n$stack');
+      AppLogger.error(
+        'Delete page confirm menu failed',
+        tag: 'vault',
+        error: e,
+        stackTrace: stack,
+      );
     }
   }
 
@@ -1440,16 +1497,54 @@ class _SidebarState extends State<Sidebar> {
                   FolioSpace.sm,
                   FolioSpace.xs,
                 ),
-                child: FilledButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://minealexgames.com/folio'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  icon: const Icon(Icons.download_rounded),
-                  label: Text(l10n.downloadDesktopApp),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(40),
-                  ),
+                child: ListenableBuilder(
+                  listenable: PwaInstallController.instance,
+                  builder: (context, _) {
+                    final pwa = PwaInstallController.instance;
+                    if (pwa.isStandalone) {
+                      return const SizedBox.shrink();
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (pwa.canInstall)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: FolioSpace.xs),
+                            child: FilledButton.icon(
+                              onPressed: () => unawaited(_installWebApp(context)),
+                              icon: const Icon(Icons.install_desktop_rounded),
+                              label: Text(l10n.installWebApp),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(40),
+                              ),
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: FolioSpace.xs),
+                            child: FilledButton.tonalIcon(
+                              onPressed: () => unawaited(_showInstallWebAppHowTo(context)),
+                              icon: const Icon(Icons.add_to_home_screen_rounded),
+                              label: Text(l10n.installWebApp),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(40),
+                              ),
+                            ),
+                          ),
+                        FilledButton.icon(
+                          onPressed: () => launchUrl(
+                            Uri.parse('https://minealexgames.com/folio'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          icon: const Icon(Icons.download_rounded),
+                          label: Text(l10n.downloadDesktopApp),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             Padding(

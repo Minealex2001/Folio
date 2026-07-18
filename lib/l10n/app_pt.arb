@@ -1109,6 +1109,10 @@
   "folioCloudSubscriptionNoneSubtitle": "Ative um plano para backup criptografado, IA na nuvem e publicação na web.",
   "folioCloudFeatureBackup": "Backup na nuvem",
   "folioCloudDeviceSyncTitle": "Sincronização entre dispositivos",
+  "folioCloudUnifiedSheetTitle": "Guardar e sincronizar",
+  "folioCloudUnifiedLocalSaveSection": "Este dispositivo",
+  "folioCloudUnifiedTooltip": "{local} · {cloud}",
+  "@folioCloudUnifiedTooltip": {"placeholders": {"local": {"type": "String"}, "cloud": {"type": "String"}}},
   "folioCloudDeviceSyncSubtitle": "Propaga alterações quase instantaneamente aos outros dispositivos (merge por página/bloco; não substitui uma restauração manual).",
   "folioCloudDeviceSyncStatusSyncing": "A sincronizar…",
   "folioCloudDeviceSyncStatusError": "Erro de sincronização — a tentar novamente…",
@@ -1121,6 +1125,29 @@
   "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
   "folioCloudDeviceSyncAgoHours": "há {hours} h",
   "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
+  "folioCloudDeviceSyncNow": "Sincronizar agora",
+  "folioCloudDeviceSyncConflictsTooltip": "{count, plural, one{1 conflito pendente} other{{count} conflitos pendentes}}",
+  "@folioCloudDeviceSyncConflictsTooltip": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncOpenConflicts": "Resolver conflitos ({count})",
+  "@folioCloudDeviceSyncOpenConflicts": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncConflictHint": "A sua versão foi mantida na página. A outra ficou no histórico de revisões.",
+  "folioCloudDeviceSyncConflictKeepLocalHint": "Mantém-se a sua versão local. A do outro dispositivo fica no histórico da página (revisão sync_remote).",
+  "folioCloudDeviceSyncRemoteRevisionBanner": "{count, plural, one{Há 1 versão remota de sync no histórico desta página} other{Há {count} versões remotas de sync no histórico desta página}}",
+  "@folioCloudDeviceSyncRemoteRevisionBanner": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncViewHistory": "Ver histórico",
+  "folioCloudDeviceSyncResolveConflictsTile": "Conflitos de sincronização",
+  "folioCloudDeviceSyncNowOk": "Sincronização concluída.",
+  "folioCloudDeviceSyncNowFail": "Não foi possível sincronizar. Veja o detalhe do erro.",
+  "folioCloudDeviceSyncNowDisabled": "Ative a sincronização entre dispositivos ou desbloqueie o caderno.",
+  "folioCloudDeviceSyncAllVaultsOk": "Todos os cadernos estão sincronizados",
+  "folioCloudDeviceSyncVaultsNeedAttention": "{count, plural, one{1 caderno precisa sincronizar} other{{count} cadernos precisam sincronizar}}",
+  "@folioCloudDeviceSyncVaultsNeedAttention": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncVaultsSection": "Cadernos",
+  "folioCloudDeviceSyncVaultPhaseSynced": "Sincronizado",
+  "folioCloudDeviceSyncVaultPhaseNeedsUnlock": "Desbloqueie uma vez neste dispositivo para sincronizar em segundo plano",
+  "folioCloudDeviceSyncVaultPhaseEmpty": "Ainda sem pacote de sync na nuvem",
+  "folioCloudDeviceSyncVaultActive": "ativo",
+  "folioCloudDeviceSyncOpenVault": "Abrir",
   "folioCloudSubsectionAccountProfile": "Perfil da conta",
   "folioCloudAppProfileSyncTitle": "Sincronizar definições da app",
   "folioCloudAppProfileSyncSubtitle": "Guarda o tema, IA, atalhos, ícones personalizados e outras preferências na sua conta Folio Cloud (encriptado).",
@@ -1132,7 +1159,7 @@
   "folioCloudAppProfileStartFreshAction": "Começar de novo",
   "folioCloudAppProfilePushOk": "Definições carregadas para o Folio Cloud.",
   "folioCloudAppProfileRestoreOk": "Definições restauradas do Folio Cloud.",
-  "folioCloudAppProfileRestoreFail": "Não foi possível sincronizar as definições com o Folio Cloud.",
+  "folioCloudAppProfileRestoreFail": "Não foi possível decifrar as definições da nuvem (chave diferente). Escolha «começar de novo» para carregar as deste dispositivo, ou restaure a partir de outro que sincronize corretamente.",
   "folioCloudAppProfileEmptyCloud": "Ainda não há um perfil de definições na nuvem. Carregue primeiro neste dispositivo.",
   "folioCloudVaultProfileRestore": "Restaurar preferências deste caderno",
   "folioCloudFeatureCloudAi": "IA na nuvem",
@@ -2376,6 +2403,12 @@
   ,"importPdfNoText": "O PDF não contém texto extraível"
   ,"downloadDesktopApp": "Baixar aplicativo para desktop"
   ,"webDesktopOnlyNotice": "Disponível apenas no aplicativo de desktop"
+  ,"installWebApp": "Instalar Folio"
+  ,"installWebAppTooltip": "Instalar como aplicativo neste dispositivo"
+  ,"installWebAppHowToTitle": "Instalar Folio como app"
+  ,"installWebAppHowToBody": "No Chrome ou Edge: menu ⋮ → «Instalar Folio» ou «Instalar aplicativo».\n\nNo Safari (iPhone/iPad): Partilhar → «Adicionar ao ecrã principal».\n\nNo Firefox: menu → «Instalar».\n\nA instalação completa requer o site publicado (HTTPS); em local use flutter run --release."
+  ,"installWebAppDone": "O Folio foi instalado neste dispositivo."
+  ,"installWebAppDismissed": "Instalação cancelada."
   ,"appStoreTooltipRefresh": "Atualizar"
   ,"releaseNotesTitle": "Notas da versão"
   ,"releaseNotesContinue": "Continuar"

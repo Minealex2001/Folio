@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// Canal de distribución en tiempo de compilación.
 ///
 /// `flutter build ... --dart-define=FOLIO_DISTRIBUTION=github`
@@ -24,12 +26,15 @@ abstract final class FolioDistribution {
 
   /// Comprobar versiones nuevas y descargar instalador/APK desde GitHub Releases.
   ///
-  /// Falso en [isMicrosoftStore] e [isPlayStore]: las tiendas distribuyen actualizaciones.
-  /// Las **notas de versión** del release en GitHub pueden seguir mostrándose en esos builds
-  /// (solo lectura); ver [GitHubReleaseUpdater.fetchReleaseNotesForVersion].
+  /// Falso en [isMicrosoftStore], [isPlayStore] y **web** (la web se actualiza
+  /// al redeploy; no hay instalador). Las **notas de versión** del release en
+  /// GitHub pueden seguir mostrándose en builds de tienda (solo lectura); ver
+  /// [GitHubReleaseUpdater.fetchReleaseNotesForVersion].
   ///
-  /// Verdadero en [isGitHub] y en modo legado (cadena vacía u otro valor).
+  /// Verdadero en [isGitHub] y en modo legado (cadena vacía u otro valor) en
+  /// escritorio/móvil fuera de tiendas.
   static bool get offersGitHubSelfUpdate {
+    if (kIsWeb) return false;
     if (isMicrosoftStore) return false;
     if (isPlayStore) return false;
     return true;

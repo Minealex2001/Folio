@@ -13,12 +13,14 @@ import '../services/ai/ai_types.dart';
 /// Esquema 7: estado de integraciones nativas (Jira).
 /// Esquema 8: papelera de páginas (`FolioPage.trashedAt`).
 /// Esquema 9: tombstones de sync multi-dispositivo + `syncClock`.
-const int kVaultPayloadVersion = 9;
+/// Esquema 10: `displayName` de la libreta (sync multi-dispositivo).
+const int kVaultPayloadVersion = 10;
 
 class VaultPayload {
   VaultPayload({
     this.version = kVaultPayloadVersion,
     required this.pages,
+    this.displayName = '',
     Map<String, List<String>>? pageOrderByParent,
     Map<String, List<FolioPageRevision>>? pageRevisions,
     Map<String, Map<String, String>>? pageAcl,
@@ -45,6 +47,8 @@ class VaultPayload {
 
   final int version;
   final List<FolioPage> pages;
+  /// Nombre visible de la libreta (sincronizado entre dispositivos).
+  final String displayName;
   /// Orden del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
   final Map<String, List<String>> pageOrderByParent;
   final Map<String, List<FolioPageRevision>> pageRevisions;
@@ -66,6 +70,7 @@ class VaultPayload {
   Map<String, dynamic> toJson() => {
     'version': version,
     'pages': pages.map((p) => p.toJson()).toList(),
+    if (displayName.trim().isNotEmpty) 'displayName': displayName.trim(),
     if (pageOrderByParent.isNotEmpty) 'pageOrderByParent': pageOrderByParent,
     'pageRevisions': pageRevisions.map(
       (k, v) => MapEntry(k, v.map((r) => r.toJson()).toList()),
@@ -160,9 +165,11 @@ class VaultPayload {
       }
     }
     final syncClock = (j['syncClock'] as num?)?.toInt() ?? 0;
+    final displayName = '${j['displayName'] ?? ''}'.trim();
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
+      displayName: displayName,
       pageOrderByParent: pageOrderByParent,
       pageRevisions: pageRevisions,
       pageAcl: acl,

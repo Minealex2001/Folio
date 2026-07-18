@@ -12,6 +12,7 @@ import '../../models/block.dart';
 import '../../models/folio_page.dart';
 import '../../models/folio_page_revision.dart';
 import '../../session/vault_session.dart';
+import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
 import '../folio_firestore_support.dart';
@@ -771,14 +772,29 @@ class CollabSessionController extends ChangeNotifier {
     // colaboración en tiempo real usa `collabRooms`, así que queda deshabilitada.
     if (!folioFirestoreSupported) {
       _lastError = 'collab_unsupported_platform';
+      AppLogger.warn(
+        'createRoom unsupported platform',
+        tag: 'collab',
+        context: {'pageId': pageId},
+      );
       notifyListeners();
       return null;
     }
     if (!folioCloudEntitlements.snapshot.canRealtimeCollab) {
       _lastError = 'no_entitlement';
+      AppLogger.warn(
+        'createRoom no entitlement',
+        tag: 'collab',
+        context: {'pageId': pageId},
+      );
       notifyListeners();
       return null;
     }
+    AppLogger.info(
+      'createRoom start',
+      tag: 'collab',
+      context: {'pageId': pageId},
+    );
     try {
       final res = await callFolioHttpsCallable('createCollabRoom', {
         'vaultPageId': pageId,
@@ -805,9 +821,20 @@ class CollabSessionController extends ChangeNotifier {
         if (snap.exists) {
           await _sealPendingE2eRoom(snap.data() ?? {});
         }
+        AppLogger.info(
+          'createRoom ok',
+          tag: 'collab',
+          context: {'pageId': pageId, 'roomId': rid},
+        );
         return rid;
       }
     } catch (e) {
+      AppLogger.error(
+        'createRoom failed',
+        tag: 'collab',
+        error: e,
+        context: {'pageId': pageId},
+      );
       _lastError = '$e';
       notifyListeners();
     }
@@ -888,6 +915,11 @@ class CollabSessionController extends ChangeNotifier {
     }
     if (Firebase.apps.isEmpty) return false;
     if (FirebaseAuth.instance.currentUser == null) return false;
+    AppLogger.info(
+      'joinRoom start',
+      tag: 'collab',
+      context: {'pageId': pageId},
+    );
     try {
       final res = await callFolioHttpsCallable('joinCollabRoomByCode', {
         'joinCode': joinCodeInput,
@@ -902,9 +934,20 @@ class CollabSessionController extends ChangeNotifier {
         final code = joinCodeInput.trim();
         vaultSession.setPageCollabRoomId(pageId, rid, joinCode: code);
         attach(pageId: pageId, roomId: rid, initialJoinCode: code);
+        AppLogger.info(
+          'joinRoom ok',
+          tag: 'collab',
+          context: {'pageId': pageId, 'roomId': rid},
+        );
         return true;
       }
     } catch (e) {
+      AppLogger.error(
+        'joinRoom failed',
+        tag: 'collab',
+        error: e,
+        context: {'pageId': pageId},
+      );
       _lastError = '$e';
       notifyListeners();
     }

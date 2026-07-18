@@ -130,6 +130,10 @@ Future<FolioCloudImportAllResult?> showFolioCloudImportAllVaultsFlow({
     if (result.failed > 0) {
       msg.write(' ');
       msg.write(l10n.folioCloudImportAllPartialFail(result.failed));
+      if (result.errors.isNotEmpty) {
+        msg.write(' ');
+        msg.write(result.errors.first);
+      }
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg.toString())),

@@ -54,19 +54,16 @@ Future<void> main() async {
                 'hasClientSecret': _hasJiraClientSecret(),
               },
             );
-            // ignore: avoid_print
-            print(
-              '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
-              'hasClientSecret=${_hasJiraClientSecret()}',
-            );
           } else {
             AppLogger.warn('local env file not found', tag: 'env');
           }
         } catch (e, st) {
-          AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
-          AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
-          // ignore: avoid_print
-          print('[folio.env] load failed error=$e');
+          AppLogger.error(
+            'local env load failed',
+            tag: 'env',
+            error: e,
+            stackTrace: st,
+          );
         }
       }
 

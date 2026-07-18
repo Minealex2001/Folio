@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+
+import '../app_logger.dart';
 
 /// Best-effort reachability check for Google APIs used by Firebase Auth.
 ///
@@ -23,37 +24,52 @@ Future<bool> folioGoogleApisReachable({
     // Cualquier respuesta indica reachability (aunque sea 404/302/etc.).
     return res.statusCode > 0;
   } on TimeoutException catch (e, st) {
-    log(
-      'Reachability timeout to ${uri.host}.',
-      name: 'FolioCloudAuth',
-      error: e,
-      stackTrace: st,
+    AppLogger.warn(
+      'Reachability timeout',
+      tag: 'auth',
+      context: {'host': uri.host},
+    );
+    AppLogger.debug(
+      'Reachability timeout detail',
+      tag: 'auth',
+      context: {'error': '$e', 'stack': '$st'},
     );
     return false;
   } on SocketException catch (e, st) {
-    log(
-      'Reachability socket error to ${uri.host}.',
-      name: 'FolioCloudAuth',
-      error: e,
-      stackTrace: st,
+    AppLogger.warn(
+      'Reachability socket error',
+      tag: 'auth',
+      context: {'host': uri.host, 'error': '$e'},
+    );
+    AppLogger.debug(
+      'Reachability socket detail',
+      tag: 'auth',
+      context: {'stack': '$st'},
     );
     return false;
   } on HttpException catch (e, st) {
-    log(
-      'Reachability HTTP error to ${uri.host}.',
-      name: 'FolioCloudAuth',
-      error: e,
-      stackTrace: st,
+    AppLogger.warn(
+      'Reachability HTTP error',
+      tag: 'auth',
+      context: {'host': uri.host, 'error': '$e'},
+    );
+    AppLogger.debug(
+      'Reachability HTTP detail',
+      tag: 'auth',
+      context: {'stack': '$st'},
     );
     return false;
   } catch (e, st) {
-    log(
-      'Reachability unexpected error to ${uri.host}.',
-      name: 'FolioCloudAuth',
-      error: e,
-      stackTrace: st,
+    AppLogger.warn(
+      'Reachability unexpected error',
+      tag: 'auth',
+      context: {'host': uri.host, 'error': '$e'},
+    );
+    AppLogger.debug(
+      'Reachability unexpected detail',
+      tag: 'auth',
+      context: {'stack': '$st'},
     );
     return false;
   }
 }
-

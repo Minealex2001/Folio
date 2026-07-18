@@ -1,12 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../crypto/vault_crypto.dart';
+import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_pack_crypto.dart';
 
 /// Clave AES del perfil de ajustes de la cuenta (no depende del vault).
@@ -32,14 +33,22 @@ class FolioAppProfileCrypto {
       final local = await _storage.read(key: _localKey(uid));
       if (local != null && local.isNotEmpty) return local;
     } catch (e) {
-      debugPrint('[settings_sync] secure storage read failed: $e');
+      AppLogger.warn(
+        'Secure storage read failed',
+        tag: 'settings_sync',
+        context: {'error': '$e'},
+      );
     }
     try {
       final p = await SharedPreferences.getInstance();
       final v = p.getString(_prefsKey(uid));
       if (v != null && v.isNotEmpty) return v;
     } catch (e) {
-      debugPrint('[settings_sync] prefs key read failed: $e');
+      AppLogger.warn(
+        'Prefs key read failed',
+        tag: 'settings_sync',
+        context: {'error': '$e'},
+      );
     }
     return null;
   }
@@ -50,13 +59,21 @@ class FolioAppProfileCrypto {
       await _storage.write(key: _localKey(uid), value: b64);
       wroteSecure = true;
     } catch (e) {
-      debugPrint('[settings_sync] secure storage write failed: $e');
+      AppLogger.warn(
+        'Secure storage write failed',
+        tag: 'settings_sync',
+        context: {'error': '$e'},
+      );
     }
     try {
       final p = await SharedPreferences.getInstance();
       await p.setString(_prefsKey(uid), b64);
     } catch (e) {
-      debugPrint('[settings_sync] prefs key write failed: $e');
+      AppLogger.warn(
+        'Prefs key write failed',
+        tag: 'settings_sync',
+        context: {'error': '$e'},
+      );
       if (!wroteSecure) rethrow;
     }
   }
@@ -76,16 +93,20 @@ class FolioAppProfileCrypto {
   /// primer push/pull (dos dispositivos "primeros" a la vez) y quedó
   /// huérfano respecto al resto de la cuenta. Solo funciona con wraps sin
   /// contraseña (marcador plano); si el wrap remoto está protegido con
-  /// contraseña no hay forma de recuperar automáticamente.
+  /// contraseña hace falta [restorePassword].
   Future<SecretKey?> adoptCanonicalKey({
     required String uid,
     required String restoreWrapB64,
+    String restorePassword = '',
   }) async {
     final wrap = restoreWrapB64.trim();
     if (wrap.isEmpty) return null;
     try {
       final wrapped = base64Decode(wrap);
-      final dek = _tryUnwrapAccountMarker(wrapped);
+      final dek = await _unwrapRestoreWrap(
+        wrapped,
+        password: restorePassword,
+      );
       if (dek == null) return null;
       await _writeLocalRaw(uid, base64Encode(dek));
       return VaultCrypto.dekFromBytes(dek);
@@ -94,29 +115,83 @@ class FolioAppProfileCrypto {
     }
   }
 
+  /// Emite el wrap de la clave local actual (o crea una) para subirlo al
+  /// servidor. Usado al reclamar la cuenta con «mantener local».
+  Future<({SecretKey key, Uint8List wrapB64})> exportLocalKeyWrap({
+    required String uid,
+    String password = '',
+  }) async {
+    final local = await _readLocalRaw(uid);
+    Uint8List dek;
+    if (local != null && local.isNotEmpty) {
+      try {
+        final bytes = base64Decode(local);
+        if (bytes.length == 32) {
+          dek = Uint8List.fromList(bytes);
+        } else {
+          dek = VaultCrypto.randomBytes(32);
+          await _writeLocalRaw(uid, base64Encode(dek));
+        }
+      } catch (_) {
+        dek = VaultCrypto.randomBytes(32);
+        await _writeLocalRaw(uid, base64Encode(dek));
+      }
+    } else {
+      dek = VaultCrypto.randomBytes(32);
+      await _writeLocalRaw(uid, base64Encode(dek));
+    }
+    final wrapBytes = password.isEmpty
+        ? _wrapAccountMarker(dek)
+        : await VaultCrypto.wrapDek(dek: dek, password: password);
+    return (key: await VaultCrypto.dekFromBytes(dek), wrapB64: wrapBytes);
+  }
+
   /// Obtiene o crea la clave local. Si hay [restoreWrapB64] + [password], restaura.
+  ///
+  /// Con [preferRemoteWrap] = true, si el servidor ya tiene wrap se adopta esa
+  /// clave aunque exista caché local distinta — evita cifrar packs nuevos con
+  /// una clave huérfana mientras el wrap de cuenta sigue siendo otro.
   Future<({SecretKey key, Uint8List? newWrapB64})> ensurePackKey({
     required String uid,
     String? restoreWrapB64,
     String? restorePassword,
+    bool preferRemoteWrap = false,
   }) async {
+    final wrap = restoreWrapB64?.trim() ?? '';
+    final pw = restorePassword ?? '';
+
+    if (preferRemoteWrap && wrap.isNotEmpty) {
+      final dek = await _unwrapRestoreWrap(
+        base64Decode(wrap),
+        password: pw,
+      );
+      if (dek != null) {
+        await _writeLocalRaw(uid, base64Encode(dek));
+        return (key: await VaultCrypto.dekFromBytes(dek), newWrapB64: null);
+      }
+    }
+
     final local = await _readLocalRaw(uid);
     if (local != null && local.isNotEmpty) {
       try {
         final bytes = base64Decode(local);
         if (bytes.length == 32) {
-          return (key: await VaultCrypto.dekFromBytes(bytes), newWrapB64: null);
+          return (
+            key: await VaultCrypto.dekFromBytes(bytes),
+            newWrapB64: null,
+          );
         }
       } catch (_) {}
     }
 
-    final wrap = restoreWrapB64?.trim() ?? '';
-    final pw = restorePassword ?? '';
     if (wrap.isNotEmpty) {
-      final wrapped = base64Decode(wrap);
-      final plainMarker = _tryUnwrapAccountMarker(wrapped);
-      final dek = plainMarker ??
-          await VaultCrypto.unwrapDek(wrapped: wrapped, password: pw);
+      final dek = await _unwrapRestoreWrap(
+        base64Decode(wrap),
+        password: pw,
+      );
+      if (dek == null) {
+        throw StateError('App profile restore wrap could not be unwrapped');
+      }
       await _writeLocalRaw(uid, base64Encode(dek));
       return (key: await VaultCrypto.dekFromBytes(dek), newWrapB64: null);
     }
@@ -128,6 +203,20 @@ class FolioAppProfileCrypto {
         ? _wrapAccountMarker(raw)
         : await VaultCrypto.wrapDek(dek: raw, password: pw);
     return (key: await VaultCrypto.dekFromBytes(raw), newWrapB64: wrapBytes);
+  }
+
+  Future<Uint8List?> _unwrapRestoreWrap(
+    List<int> wrapped, {
+    required String password,
+  }) async {
+    final plainMarker = _tryUnwrapAccountMarker(wrapped);
+    if (plainMarker != null) return plainMarker;
+    if (password.isEmpty) return null;
+    try {
+      return await VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// `folioapk1` + DEK(32) + padding hasta ≥44 bytes (validación del callable).

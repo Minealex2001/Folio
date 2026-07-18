@@ -126,6 +126,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.onCloudAppProfileSyncChanged,
     this.onUploadAppProfile,
     this.onRestoreAppProfile,
+    this.pendingSyncConflicts = 0,
+    this.onResolveSyncConflicts,
   });
 
   final ColorScheme scheme;
@@ -157,6 +159,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final ValueChanged<bool> onCloudAppProfileSyncChanged;
   final VoidCallback? onUploadAppProfile;
   final VoidCallback? onRestoreAppProfile;
+  final int pendingSyncConflicts;
+  final VoidCallback? onResolveSyncConflicts;
 
   Widget _buildDeviceSyncStatus(
     BuildContext context,
@@ -186,18 +190,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 16, color: color ?? scheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color ?? scheme.onSurfaceVariant,
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color ?? scheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color ?? scheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
+              TextButton(
+                onPressed: busy || ctrl.isSyncing
+                    ? null
+                    : () async {
+                        final ok = await ctrl.syncNow();
+                        if (!context.mounted) return;
+                        final msg = !ctrl.isEnabled
+                            ? l10n.folioCloudDeviceSyncNowDisabled
+                            : (ok
+                                  ? l10n.folioCloudDeviceSyncNowOk
+                                  : l10n.folioCloudDeviceSyncNowFail);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(msg)),
+                        );
+                      },
+                child: Text(l10n.folioCloudDeviceSyncNow),
+              ),
+            ],
           ),
+          if (ctrl.transferProgress != null) ...[
+            const SizedBox(height: 6),
+            LinearProgressIndicator(value: ctrl.transferProgress),
+          ],
         ],
       ),
     );
@@ -1160,6 +1190,31 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
           ),
         if (snap.canUseCloudBackup && cloudDeviceSyncEnabled)
           _buildDeviceSyncStatus(context, scheme, l10n),
+        if (snap.canUseCloudBackup &&
+            cloudDeviceSyncEnabled &&
+            onResolveSyncConflicts != null)
+          ListTile(
+            leading: Icon(
+              Icons.warning_amber_rounded,
+              color: pendingSyncConflicts > 0 ? scheme.error : null,
+            ),
+            title: Text(l10n.folioCloudDeviceSyncResolveConflictsTile),
+            subtitle: Text(
+              pendingSyncConflicts <= 0
+                  ? l10n.settingsSyncNoConflictsSubtitle
+                  : l10n.settingsSyncConflictsNeedReview(pendingSyncConflicts),
+            ),
+            trailing: pendingSyncConflicts > 0
+                ? TextButton(
+                    onPressed: busy ? null : onResolveSyncConflicts,
+                    child: Text(l10n.settingsResolve),
+                  )
+                : null,
+            enabled: !busy && pendingSyncConflicts > 0,
+            onTap: busy || pendingSyncConflicts <= 0
+                ? null
+                : onResolveSyncConflicts,
+          ),
         if (snap.canUseCloudBackup) ...[
           _SettingsSubsectionTitle(
             title: l10n.folioCloudSubsectionAccountProfile,

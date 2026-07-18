@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/app_logger.dart';
 import '../data/vault_payload.dart';
 
 /// Estado visible del guardado en disco.
@@ -51,7 +52,11 @@ class VaultPersistenceController extends ChangeNotifier {
       try {
         hook();
       } catch (e) {
-        debugPrint('[vault] pending flush hook failed: $e');
+        AppLogger.warn(
+          'Pending flush hook failed',
+          tag: 'vault',
+          context: {'error': '$e'},
+        );
       }
     }
   }
@@ -109,8 +114,15 @@ class VaultPersistenceController extends ChangeNotifier {
       await _savePayload(_buildPayload());
       persisted = true;
       _status = SaveStatus.saved;
-    } catch (e) {
+      AppLogger.debug('persist ok', tag: 'persistence');
+    } catch (e, st) {
       _status = SaveStatus.error;
+      AppLogger.error(
+        'persist failed',
+        tag: 'persistence',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     } finally {
       _persistDepth--;
@@ -121,7 +133,13 @@ class VaultPersistenceController extends ChangeNotifier {
     if (persisted && _suppressPersistedCallbackDepth == 0) {
       try {
         onPersisted?.call();
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.warn(
+          'onPersisted callback failed',
+          tag: 'persistence',
+          context: {'error': '$e'},
+        );
+      }
     }
   }
 

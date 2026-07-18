@@ -1110,6 +1110,10 @@
   "folioCloudSubscriptionNoneSubtitle": "Aktibatu plan bat babeskopia enkriptatuak, hodeiko AA eta web-argitalpena izateko.",
   "folioCloudFeatureBackup": "Hodeiko babeskopia",
   "folioCloudDeviceSyncTitle": "Gailuen arteko sinkronizazioa",
+  "folioCloudUnifiedSheetTitle": "Gordetzea eta sinkronizazioa",
+  "folioCloudUnifiedLocalSaveSection": "Gailu hau",
+  "folioCloudUnifiedTooltip": "{local} · {cloud}",
+  "@folioCloudUnifiedTooltip": {"placeholders": {"local": {"type": "String"}, "cloud": {"type": "String"}}},
   "folioCloudDeviceSyncSubtitle": "Aldaketak ia berehala hedatzen ditu zure beste gailuetara (orri/bloke merge; ez du eskuzko leheneratzea ordezkatzen).",
   "folioCloudDeviceSyncStatusSyncing": "Sinkronizatzen…",
   "folioCloudDeviceSyncStatusError": "Sinkronizazio errorea — berriz saiatzen…",
@@ -1122,6 +1126,29 @@
   "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
   "folioCloudDeviceSyncAgoHours": "duela {hours} h",
   "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
+  "folioCloudDeviceSyncNow": "Sinkronizatu orain",
+  "folioCloudDeviceSyncConflictsTooltip": "{count, plural, one{Gatazka 1 zain} other{{count} gatazka zain}}",
+  "@folioCloudDeviceSyncConflictsTooltip": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncOpenConflicts": "Gatazkak ebatzi ({count})",
+  "@folioCloudDeviceSyncOpenConflicts": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncConflictHint": "Zure bertsioa gorde da orrian. Bestearen historia-berrikuspenetan geratu da.",
+  "folioCloudDeviceSyncConflictKeepLocalHint": "Tokiko bertsioa mantentzen da. Beste gailuaren bertsioa orriaren historian geratzen da (sync_remote).",
+  "folioCloudDeviceSyncRemoteRevisionBanner": "{count, plural, one{Sync urruneko bertsio 1 dago orri honen historian} other{Sync urruneko {count} bertsio daude orri honen historian}}",
+  "@folioCloudDeviceSyncRemoteRevisionBanner": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncViewHistory": "Ikusi historia",
+  "folioCloudDeviceSyncResolveConflictsTile": "Sinkronizazio-gatazkak",
+  "folioCloudDeviceSyncNowOk": "Sinkronizazioa amaituta.",
+  "folioCloudDeviceSyncNowFail": "Ezin izan da sinkronizatu. Begiratu errorearen xehetasuna.",
+  "folioCloudDeviceSyncNowDisabled": "Aktibatu gailuen arteko sinkronizazioa edo desblokeatu koadernoa.",
+  "folioCloudDeviceSyncAllVaultsOk": "Koaderno guztiak sinkronizatuta daude",
+  "folioCloudDeviceSyncVaultsNeedAttention": "{count, plural, one{Koaderno 1 sinkronizatu behar da} other{{count} koaderno sinkronizatu behar dira}}",
+  "@folioCloudDeviceSyncVaultsNeedAttention": {"placeholders": {"count": {"type": "int"}}},
+  "folioCloudDeviceSyncVaultsSection": "Koadernoak",
+  "folioCloudDeviceSyncVaultPhaseSynced": "Sinkronizatuta",
+  "folioCloudDeviceSyncVaultPhaseNeedsUnlock": "Desblokeatu behin gailu honetan atzeko planoko sinkronizazioa gaitzeko",
+  "folioCloudDeviceSyncVaultPhaseEmpty": "Oraindik ez dago sync kopiarik hodeian",
+  "folioCloudDeviceSyncVaultActive": "aktiboa",
+  "folioCloudDeviceSyncOpenVault": "Ireki",
   "folioCloudSubsectionAccountProfile": "Kontuaren profila",
   "folioCloudAppProfileSyncTitle": "Aplikazioaren ezarpenak sinkronizatu",
   "folioCloudAppProfileSyncSubtitle": "Gaia, AA, lasterbideak, ikono pertsonalizatuak eta beste hobespenak zure Folio Cloud kontuan gordetzen ditu (zifratuta).",
@@ -1133,7 +1160,7 @@
   "folioCloudAppProfileStartFreshAction": "Berriro hasi",
   "folioCloudAppProfilePushOk": "Ezarpenak Folio Cloud-era igo dira.",
   "folioCloudAppProfileRestoreOk": "Ezarpenak Folio Cloud-etik leheneratu dira.",
-  "folioCloudAppProfileRestoreFail": "Ezin izan dira ezarpenak Folio Cloud-ekin sinkronizatu.",
+  "folioCloudAppProfileRestoreFail": "Ezin izan dira hodeiko ezarpenak deszifratu (gako desberdina). Aukeratu «berriz hasi» gailu honetakoak igotzeko, edo leheneratu ondo sinkronizatzen duen beste gailu batetik.",
   "folioCloudAppProfileEmptyCloud": "Oraindik ez dago ezarpen-profilik hodeian. Igo ezazu lehenik gailu honetatik.",
   "folioCloudVaultProfileRestore": "Koaderno honen hobespenak leheneratu",
   "folioCloudFeatureCloudAi": "Hodeiko AA",
@@ -2377,6 +2404,12 @@
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
   ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
   ,"webDesktopOnlyNotice": "Mahaigaineko aplikazioan bakarrik erabilgarri"
+  ,"installWebApp": "Instalatu Folio"
+  ,"installWebAppTooltip": "Instalatu aplikazio gisa gailu honetan"
+  ,"installWebAppHowToTitle": "Instalatu Folio app gisa"
+  ,"installWebAppHowToBody": "Chrome edo Edge-n: menua ⋮ → «Instalatu Folio» edo «Instalatu aplikazioa».\n\nSafari-n (iPhone/iPad): Partekatu → «Gehitu hasierako pantailara».\n\nFirefox-en: menua → «Instalatu».\n\nInstalazio osoak gune argitaratua (HTTPS) behar du; lokalean erabili flutter run --release."
+  ,"installWebAppDone": "Folio gailu honetan instalatu da."
+  ,"installWebAppDismissed": "Instalazioa bertan behera utzi da."
   ,"appStoreTooltipRefresh": "Freskatu"
   ,"releaseNotesTitle": "Bertsio oharrak"
   ,"releaseNotesContinue": "Jarraitu"

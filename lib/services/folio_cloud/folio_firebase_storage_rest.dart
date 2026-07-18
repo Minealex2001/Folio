@@ -105,6 +105,25 @@ Future<void> folioFirebaseStorageRestPutData(
   _ensureSuccess(res, body: res.body);
 }
 
+/// Comprueba existencia sin descargar el cuerpo (`alt=media` → 404 si falta).
+Future<bool> folioFirebaseStorageRestObjectExists(Reference ref) async {
+  try {
+    final idToken = await _idTokenWithRetry();
+    final encoded = _encodeObjectName(ref.fullPath);
+    final uri = Uri.parse(
+      'https://firebasestorage.googleapis.com/v0/b/${ref.bucket}/o/$encoded',
+    );
+    final res = await http
+        .get(uri, headers: _authHeaders(idToken))
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode == 404) return false;
+    if (res.statusCode >= 200 && res.statusCode < 300) return true;
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Sube un archivo con sesión resumible (copias grandes sin `taskEvent`).
 Future<void> folioFirebaseStorageRestPutFile(
   Reference ref,

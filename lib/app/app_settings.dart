@@ -97,9 +97,10 @@ WorkspaceHomeColumnLayout _parseWorkspaceHomeColumnLayout(String? raw) {
   }
 }
 
-/// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
+/// Ollama y LM Studio solo en escritorio; en web/Android/iOS Quill usa Folio Cloud
+/// (y BYOK OpenAI/Gemini si el usuario los configura).
 bool get aiLocalProvidersSupported {
-  if (kIsWeb) return true;
+  if (kIsWeb) return false;
   return defaultTargetPlatform != TargetPlatform.android &&
       defaultTargetPlatform != TargetPlatform.iOS;
 }

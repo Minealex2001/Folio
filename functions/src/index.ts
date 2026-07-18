@@ -3266,6 +3266,11 @@ export const folioGetDeviceSyncMeta = onCall(
       .doc(vaultId)
       .get();
     const data = (snap.data() ?? {}) as Record<string, unknown>;
+    const formatVersion =
+      typeof data.syncFormatVersion === "number" &&
+      Number.isFinite(data.syncFormatVersion)
+        ? Math.trunc(data.syncFormatVersion as number)
+        : 1;
     return {
       ok: true as const,
       rev: typeof data.rev === "number" ? data.rev : 0,
@@ -3277,6 +3282,15 @@ export const folioGetDeviceSyncMeta = onCall(
         typeof data.packStoragePath === "string" ? data.packStoragePath : "",
       packSizeBytes:
         typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+      syncFormatVersion: formatVersion,
+      manifestStoragePath:
+        typeof data.manifestStoragePath === "string"
+          ? data.manifestStoragePath
+          : "",
+      manifestSizeBytes:
+        typeof data.manifestSizeBytes === "number"
+          ? data.manifestSizeBytes
+          : 0,
       deviceId: typeof data.deviceId === "string" ? data.deviceId : "",
       deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
       updatedAt: data.updatedAt ?? null,
@@ -3300,6 +3314,22 @@ function assertDeviceSyncPackStoragePath(
   return path;
 }
 
+function assertDeviceSyncManifestStoragePath(
+  uid: string,
+  vaultId: string,
+  raw: unknown
+): string {
+  const path = typeof raw === "string" ? raw.trim() : "";
+  const prefix = `users/${uid}/vaults/${vaultId}/device-sync/manifests/`;
+  if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+    throw new HttpsError("invalid-argument", "manifestStoragePath invalid");
+  }
+  if (path.length > 512) {
+    throw new HttpsError("invalid-argument", "manifestStoragePath too long");
+  }
+  return path;
+}
+
 export const folioFinalizeDeviceSync = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
@@ -3309,22 +3339,16 @@ export const folioFinalizeDeviceSync = onCall(
     const uid = request.auth.uid;
     await assertFolioCloudBackupAllowed(uid);
     const vaultId = assertValidVaultId((request.data as any)?.vaultId);
-    const packPath = assertDeviceSyncPackStoragePath(
-      uid,
-      vaultId,
-      (request.data as any)?.packStoragePath
-    );
-    const packSizeRaw = (request.data as any)?.packSizeBytes;
-    const packSize =
-      typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
-        ? Math.max(0, Math.trunc(packSizeRaw))
-        : 0;
-    if (packSize <= 0 || packSize > 80 * 1024 * 1024) {
-      throw new HttpsError("invalid-argument", "packSizeBytes invalid");
-    }
+
+    const formatRaw = (request.data as any)?.syncFormatVersion;
+    const syncFormatVersion =
+      typeof formatRaw === "number" && Number.isFinite(formatRaw)
+        ? Math.max(1, Math.trunc(formatRaw))
+        : 1;
+    const isV2 = syncFormatVersion >= 2;
+
     const fpRaw = (request.data as any)?.contentFingerprint;
     const fingerprint = typeof fpRaw === "string" ? fpRaw.trim() : "";
-    // Fingerprint corto (hex FNV); limitar tamaño.
     if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
       throw new HttpsError("invalid-argument", "contentFingerprint invalid");
     }
@@ -3337,27 +3361,95 @@ export const folioFinalizeDeviceSync = onCall(
         ? deviceNameRaw.trim().slice(0, 120)
         : "";
 
-    const oldPathRaw = (request.data as any)?.oldPackStoragePath;
-    let oldPackSize = 0;
+    let packPath = "";
+    let packSize = 0;
+    let manifestPath = "";
+    let manifestSize = 0;
     let oldPackPath = "";
-    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
-      oldPackPath = assertDeviceSyncPackStoragePath(
+    let oldPackSize = 0;
+    let oldManifestPath = "";
+    let oldManifestSize = 0;
+
+    if (isV2) {
+      manifestPath = assertDeviceSyncManifestStoragePath(
         uid,
         vaultId,
-        oldPathRaw
+        (request.data as any)?.manifestStoragePath
       );
-      const oldSzRaw = (request.data as any)?.oldPackSizeBytes;
-      oldPackSize =
-        typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
-          ? Math.max(0, Math.trunc(oldSzRaw))
+      const manifestSizeRaw = (request.data as any)?.manifestSizeBytes;
+      manifestSize =
+        typeof manifestSizeRaw === "number" && Number.isFinite(manifestSizeRaw)
+          ? Math.max(0, Math.trunc(manifestSizeRaw))
           : 0;
+      if (manifestSize <= 0 || manifestSize > 16 * 1024 * 1024) {
+        throw new HttpsError("invalid-argument", "manifestSizeBytes invalid");
+      }
+    } else {
+      packPath = assertDeviceSyncPackStoragePath(
+        uid,
+        vaultId,
+        (request.data as any)?.packStoragePath
+      );
+      const packSizeRaw = (request.data as any)?.packSizeBytes;
+      packSize =
+        typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+          ? Math.max(0, Math.trunc(packSizeRaw))
+          : 0;
+      if (packSize <= 0 || packSize > 80 * 1024 * 1024) {
+        throw new HttpsError("invalid-argument", "packSizeBytes invalid");
+      }
+    }
+
+    // Rutas "old*" son solo para cuota/cleanup: si vienen de otra libreta o
+    // están corruptas, ignorarlas (no tumbar el finalize del pack nuevo).
+    const oldPathRaw = (request.data as any)?.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+      try {
+        oldPackPath = assertDeviceSyncPackStoragePath(uid, vaultId, oldPathRaw);
+        const oldSzRaw = (request.data as any)?.oldPackSizeBytes;
+        oldPackSize =
+          typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+            ? Math.max(0, Math.trunc(oldSzRaw))
+            : 0;
+      } catch {
+        oldPackPath = "";
+        oldPackSize = 0;
+      }
+    }
+    const oldManifestRaw = (request.data as any)?.oldManifestStoragePath;
+    if (typeof oldManifestRaw === "string" && oldManifestRaw.trim()) {
+      try {
+        oldManifestPath = assertDeviceSyncManifestStoragePath(
+          uid,
+          vaultId,
+          oldManifestRaw
+        );
+        const oldMzRaw = (request.data as any)?.oldManifestSizeBytes;
+        oldManifestSize =
+          typeof oldMzRaw === "number" && Number.isFinite(oldMzRaw)
+            ? Math.max(0, Math.trunc(oldMzRaw))
+            : 0;
+      } catch {
+        oldManifestPath = "";
+        oldManifestSize = 0;
+      }
+    }
+
+    const newBlobs = parseCloudPackBlobSizeList((request.data as any)?.newBlobs);
+    const deleteBlobs = parseCloudPackBlobSizeList(
+      (request.data as any)?.deleteBlobs
+    );
+    if (newBlobs.length > 2000 || deleteBlobs.length > 2000) {
+      throw new HttpsError("invalid-argument", "Too many blob entries");
     }
 
     const userRef = db.collection("users").doc(uid);
     const syncRef = userRef.collection("vaultSync").doc(vaultId);
-
     const bucket = admin.storage().bucket();
-    const [fileMeta] = await bucket.file(packPath).getMetadata();
+
+    const primaryPath = isV2 ? manifestPath : packPath;
+    const primarySize = isV2 ? manifestSize : packSize;
+    const [fileMeta] = await bucket.file(primaryPath).getMetadata();
     const rawSz = (fileMeta as { size?: string | number }).size;
     const metaSize =
       typeof rawSz === "number"
@@ -3365,18 +3457,19 @@ export const folioFinalizeDeviceSync = onCall(
         : typeof rawSz === "string"
           ? Number(rawSz)
           : 0;
-    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+    if (
+      !Number.isFinite(metaSize) ||
+      metaSize <= 0 ||
+      Math.abs(metaSize - primarySize) > 16
+    ) {
       throw new HttpsError(
         "failed-precondition",
-        "Sync pack not found in storage or size mismatch."
+        "Sync pack/manifest not found in storage or size mismatch."
       );
     }
 
     const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
 
-    // Lectura+escritura de `rev` y de la cuota en una única transacción:
-    // dos dispositivos finalizando sync casi a la vez no deben poder leer el
-    // mismo `prevRev`/`usedBytes` y pisarse mutuamente la escritura.
     const { newUsed, quota, newRev } = await db.runTransaction(async (tx) => {
       const [userSnap, prevSync] = await Promise.all([
         tx.get(userRef),
@@ -3385,7 +3478,11 @@ export const folioFinalizeDeviceSync = onCall(
       const udata = (userSnap.data() ?? {}) as Record<string, unknown>;
       const used = folioBackupUsedField(udata);
       const quota = effectiveBackupQuotaBytes(udata);
-      const delta = packSize - oldPackSize;
+      let delta = primarySize - (isV2 ? oldManifestSize : oldPackSize);
+      // Migración v1→v2: restar pack monolítico antiguo.
+      if (isV2 && oldPackSize > 0) delta -= oldPackSize;
+      for (const b of newBlobs) delta += b.sizeBytes;
+      for (const b of deleteBlobs) delta -= b.sizeBytes;
       const newUsed = Math.max(0, used + delta);
       if (quota > 0 && newUsed + legacyBytes > quota) {
         throw new HttpsError(
@@ -3403,19 +3500,25 @@ export const folioFinalizeDeviceSync = onCall(
         "folioBackup.usedBytes": newUsed,
         "folioBackup.updatedAt": FieldValue.serverTimestamp(),
       });
-      tx.set(
-        syncRef,
-        {
-          rev: newRev,
-          contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
-          packStoragePath: packPath,
-          packSizeBytes: packSize,
-          deviceId,
-          deviceName,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+
+      const patch: Record<string, unknown> = {
+        rev: newRev,
+        contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
+        deviceId,
+        deviceName,
+        syncFormatVersion: isV2 ? 2 : 1,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (isV2) {
+        patch.manifestStoragePath = manifestPath;
+        patch.manifestSizeBytes = manifestSize;
+        patch.packStoragePath = "";
+        patch.packSizeBytes = 0;
+      } else {
+        patch.packStoragePath = packPath;
+        patch.packSizeBytes = packSize;
+      }
+      tx.set(syncRef, patch, { merge: true });
       return { newUsed, quota, newRev };
     });
 
@@ -3423,7 +3526,14 @@ export const folioFinalizeDeviceSync = onCall(
       try {
         await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
       } catch {
-        // No bloquea el finalize si falla el borrado del pack anterior.
+        // ignore
+      }
+    }
+    if (oldManifestPath && oldManifestPath !== manifestPath) {
+      try {
+        await bucket.file(oldManifestPath).delete({ ignoreNotFound: true });
+      } catch {
+        // ignore
       }
     }
 
@@ -3433,6 +3543,7 @@ export const folioFinalizeDeviceSync = onCall(
       usedBytes: newUsed,
       quotaBytes: quota,
       totalUsedBytes: newUsed + legacyBytes,
+      syncFormatVersion: isV2 ? 2 : 1,
     };
   }
 );

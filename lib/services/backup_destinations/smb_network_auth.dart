@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/vault_backup.dart';
+import '../app_logger.dart';
 
 /// Autenticación SMB/UNC para rutas de red en Windows.
 class SmbNetworkAuth {
@@ -106,7 +106,11 @@ class SmbNetworkAuth {
       connected = true;
       await action();
     } on PlatformException catch (e) {
-      debugPrint('SmbNetworkAuth: $e');
+      AppLogger.warn(
+        'SMB network auth failed',
+        tag: 'smb',
+        context: {'code': e.code, 'error': e.message ?? '$e'},
+      );
       throw VaultBackupException(
         e.message ?? 'Error al conectar con el recurso de red.',
       );
@@ -118,7 +122,11 @@ class SmbNetworkAuth {
             <String, Object?>{'shareRoot': shareRoot},
           );
         } catch (e) {
-          debugPrint('SmbNetworkAuth disconnect: $e');
+          AppLogger.warn(
+            'SMB network auth disconnect failed',
+            tag: 'smb',
+            context: {'error': '$e'},
+          );
         }
       }
     }

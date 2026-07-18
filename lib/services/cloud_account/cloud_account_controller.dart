@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_identity_rest_verify.dart';
 import '../folio_firestore_sync.dart';
 
@@ -114,6 +114,11 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
+    AppLogger.info(
+      'signIn start',
+      tag: 'auth',
+      context: {'emailLen': email.trim().length},
+    );
     if (auth.currentUser != null) {
       await FolioFirestoreSync.flush();
     }
@@ -124,14 +129,28 @@ class CloudAccountController extends ChangeNotifier {
             password: password,
           )
           .timeout(_authNetworkTimeout);
+      AppLogger.info(
+        'signIn ok',
+        tag: 'auth',
+        context: {'uid': auth.currentUser?.uid},
+      );
     } on TimeoutException catch (e, st) {
-      log(
-        'FirebaseAuth signIn timeout (possible blocked network).',
-        name: 'FolioCloudAuth',
+      AppLogger.error(
+        'signIn timeout',
+        tag: 'auth',
         error: e,
         stackTrace: st,
       );
       throw FirebaseAuthException(code: 'network-request-failed');
+    } on FirebaseAuthException catch (e, st) {
+      AppLogger.error(
+        'signIn failed',
+        tag: 'auth',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
+      rethrow;
     }
   }
 
@@ -143,6 +162,11 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
+    AppLogger.info(
+      'createUser start',
+      tag: 'auth',
+      context: {'emailLen': email.trim().length},
+    );
     try {
       await auth
           .createUserWithEmailAndPassword(
@@ -150,14 +174,28 @@ class CloudAccountController extends ChangeNotifier {
             password: password,
           )
           .timeout(_authNetworkTimeout);
+      AppLogger.info(
+        'createUser ok',
+        tag: 'auth',
+        context: {'uid': auth.currentUser?.uid},
+      );
     } on TimeoutException catch (e, st) {
-      log(
-        'FirebaseAuth createUser timeout (possible blocked network).',
-        name: 'FolioCloudAuth',
+      AppLogger.error(
+        'createUser timeout',
+        tag: 'auth',
         error: e,
         stackTrace: st,
       );
       throw FirebaseAuthException(code: 'network-request-failed');
+    } on FirebaseAuthException catch (e, st) {
+      AppLogger.error(
+        'createUser failed',
+        tag: 'auth',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
+      rethrow;
     }
   }
 
@@ -170,10 +208,11 @@ class CloudAccountController extends ChangeNotifier {
       await auth
           .sendPasswordResetEmail(email: email.trim())
           .timeout(_authNetworkTimeout);
+      AppLogger.info('passwordReset sent', tag: 'auth');
     } on TimeoutException catch (e, st) {
-      log(
-        'FirebaseAuth resetPassword timeout (possible blocked network).',
-        name: 'FolioCloudAuth',
+      AppLogger.error(
+        'passwordReset timeout',
+        tag: 'auth',
         error: e,
         stackTrace: st,
       );
@@ -186,6 +225,11 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
+    AppLogger.info(
+      'signOut',
+      tag: 'auth',
+      context: {'uid': auth.currentUser?.uid},
+    );
     await FolioFirestoreSync.flush();
     await auth.signOut();
   }

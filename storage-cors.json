@@ -4,7 +4,8 @@
       "https://foliobeta.minealexgames.com",
       "https://folio.minealexgames.com",
       "http://localhost",
-      "http://127.0.0.1"
+      "http://127.0.0.1",
+      "*"
     ],
     "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
     "responseHeader": [

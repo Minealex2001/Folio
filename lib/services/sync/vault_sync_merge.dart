@@ -57,6 +57,7 @@ class VaultSyncMergeEngine {
     final tombKeys = tombs.keys.toList()..sort();
     return jsonEncode({
       'pages': pages.map((p) => p.toJson()).toList(),
+      'displayName': payload.displayName.trim(),
       'pageOrderByParent': payload.pageOrderByParent,
       'pageTombstones': {for (final k in tombKeys) k: tombs[k]},
       'comments': payload.comments.map((c) => c.toJson()).toList(),
@@ -256,6 +257,11 @@ class VaultSyncMergeEngine {
     final merged = VaultPayload(
       version: kVaultPayloadVersion,
       pages: mergedPages,
+      displayName: _mergeDisplayName(
+        local: local.displayName,
+        remote: remote.displayName,
+        baseline: base.displayName,
+      ),
       pageOrderByParent: pageOrder,
       pageRevisions: pageRevisions,
       pageAcl: acl,
@@ -281,6 +287,24 @@ class VaultSyncMergeEngine {
 
   VaultPayload _copyPayload(VaultPayload src) {
     return VaultPayload.decodeUtf8(src.encodeUtf8());
+  }
+
+  /// Merge 3 vías del nombre visible de la libreta.
+  static String _mergeDisplayName({
+    required String local,
+    required String remote,
+    required String baseline,
+  }) {
+    final l = local.trim();
+    final r = remote.trim();
+    final b = baseline.trim();
+    if (l == r) return l;
+    if (b.isNotEmpty && l == b) return r;
+    if (b.isNotEmpty && r == b) return l;
+    if (l.isEmpty) return r;
+    if (r.isEmpty) return l;
+    // Ambos cambiaron respecto al baseline: preferir remoto (llegó por sync).
+    return r;
   }
 
   ({

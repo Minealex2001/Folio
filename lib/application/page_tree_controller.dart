@@ -42,11 +42,13 @@ class PageTreeController extends ChangeNotifier {
 
   void ensureOrderForCurrentPages() {
     final pages = _pagesProvider();
+    _breakParentIdCycles(pages);
     final order = Map<String, List<String>>.from(_orderProvider());
     final byId = <String, FolioPage>{for (final p in pages) p.id: p};
     for (final entry in order.entries.toList()) {
       final next = List<String>.from(entry.value)
-        ..removeWhere((id) => !byId.containsKey(id));
+        ..removeWhere((id) => !byId.containsKey(id) || id == entry.key);
+      // Quitar el propio id de la lista de hijos (auto-ciclo en orden).
       if (next.isEmpty) {
         order.remove(entry.key);
       } else {
@@ -62,12 +64,33 @@ class PageTreeController extends ChangeNotifier {
       final existing = order.putIfAbsent(entry.key, () => <String>[]);
       final present = existing.toSet();
       for (final id in entry.value) {
+        if (id == entry.key) continue;
         if (!present.contains(id)) {
           existing.add(id);
         }
       }
     }
     _orderUpdater(order);
+  }
+
+  /// Rompe ciclos en `parentId` (A→B→A) dejando el nodo en la raíz.
+  void _breakParentIdCycles(List<FolioPage> pages) {
+    final byId = <String, FolioPage>{for (final p in pages) p.id: p};
+    for (final page in pages) {
+      final seen = <String>{};
+      var current = page.parentId;
+      while (current != null) {
+        if (!seen.add(current)) {
+          page.parentId = null;
+          break;
+        }
+        if (current == page.id) {
+          page.parentId = null;
+          break;
+        }
+        current = byId[current]?.parentId;
+      }
+    }
   }
 
   List<String> pageOrderForParent(String? parentId) {
@@ -97,8 +120,10 @@ class PageTreeController extends ChangeNotifier {
 
   bool isDescendant({required String ancestorId, required String nodeId}) {
     final pages = _pagesProvider();
+    final seen = <String>{};
     String? current = nodeId;
     while (current != null) {
+      if (!seen.add(current)) return false; // ciclo parentId
       if (current == ancestorId) return true;
       FolioPage? page;
       for (final p in pages) {

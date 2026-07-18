@@ -262,22 +262,24 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
 
   Future<({SecretKey key, Uint8List? newWrapB64})> _resolvePackKey({
     String password = '',
+    bool reclaimWithLocal = false,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw StateError('Not signed in');
 
-    // Si ya hay clave cacheada para este dispositivo, se usa directamente:
-    // no hace falta preguntar al servidor por el wrap.
-    if (await _crypto.hasCachedLocalKey(uid)) {
-      return _crypto.ensurePackKey(uid: uid, restorePassword: password);
+    // Reclamar cuenta: usar/crear clave local y siempre devolver wrap para
+    // sobrescribir el canónico del servidor (pack y wrap quedan alineados).
+    if (reclaimWithLocal) {
+      final exported = await _crypto.exportLocalKeyWrap(
+        uid: uid,
+        password: password,
+      );
+      return (key: exported.key, newWrapB64: exported.wrapB64);
     }
 
-    // Sin clave local todavía: hay que saber si el servidor ya tiene una
-    // clave canónica de cuenta antes de decidir generar una nueva. Si el
-    // callable falla (red, cold start...), propagamos el error en vez de
-    // asumir "no hay wrap" — hacerlo silenciosamente generaría una clave
-    // propia que fragmentaría el cifrado entre dispositivos para siempre
-    // (la clave local, una vez cacheada, no se vuelve a re-verificar).
+    // Siempre consultar el wrap canónico de la cuenta cuando sea posible.
+    // Preferir la caché local a ciegas generaba packs cifrados con clave
+    // huérfana mientras el wrap remoto seguía siendo otro → MAC al restaurar.
     final wrapRes = await callFolioHttpsCallable(
       'folioGetAppProfileRestoreWrap',
       <String, dynamic>{},
@@ -292,6 +294,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       uid: uid,
       restoreWrapB64: wrapB64,
       restorePassword: password,
+      preferRemoteWrap: wrapB64 != null && wrapB64.isNotEmpty,
     );
   }
 
@@ -302,6 +305,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     required String uid,
     required SecretKey key,
     required Uint8List cipher,
+    String password = '',
   }) async {
     try {
       return await FolioAppProfileCrypto.decryptProfile(
@@ -321,16 +325,33 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
           : await _crypto.adoptCanonicalKey(
               uid: uid,
               restoreWrapB64: wrapB64,
+              restorePassword: password,
             );
-      if (recovered == null) rethrow;
+      if (recovered == null) {
+        AppLogger.warn(
+          'MAC fail: no recoverable wrap',
+          tag: 'settings_sync',
+          context: {'wrapEmpty': wrapB64.isEmpty},
+        );
+        rethrow;
+      }
       AppLogger.warn(
         'app profile local key mismatched canonical key; recovered from server wrap',
         tag: 'settings_sync',
       );
-      return FolioAppProfileCrypto.decryptProfile(
-        blob: cipher,
-        packKey: recovered,
-      );
+      try {
+        return await FolioAppProfileCrypto.decryptProfile(
+          blob: cipher,
+          packKey: recovered,
+        );
+      } on SecretBoxAuthenticationError {
+        // Pack cifrado con clave distinta al wrap canónico (carrera push).
+        AppLogger.warn(
+          'MAC fail after canonical adopt: pack/wrap mismatch',
+          tag: 'settings_sync',
+        );
+        rethrow;
+      }
     }
   }
 
@@ -353,19 +374,24 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       _lastAppFp = remoteFp.isNotEmpty ? remoteFp : '__local_pending__';
     }
     notifyListeners();
-    await pushAppProfileNow(notifyUser: true);
+    await pushAppProfileNow(notifyUser: true, reclaimWithLocal: true);
   }
 
   Future<bool> pushAppProfileNow({
     String password = '',
     bool notifyUser = false,
+    bool reclaimWithLocal = false,
   }) async {
     if (!isEnabled) {
       _lastError = 'sync_disabled';
-      debugPrint(
-        '[settings_sync] push skipped: enabled=${_settings.cloudAppProfileSyncEnabled} '
-        'backup=${_entitlements.snapshot.canUseCloudBackup} '
-        'user=${FirebaseAuth.instance.currentUser?.uid}',
+      AppLogger.info(
+        'push skipped',
+        tag: 'settings_sync',
+        context: {
+          'enabled': _settings.cloudAppProfileSyncEnabled,
+          'backup': _entitlements.snapshot.canUseCloudBackup,
+          'user': FirebaseAuth.instance.currentUser?.uid,
+        },
       );
       if (notifyUser) {
         _onEvent?.call('Folio Cloud: sincronización de ajustes desactivada');
@@ -412,9 +438,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       }
 
       _setStatus('pushing');
-      final resolved = await _resolvePackKey(password: password);
+      final resolved = await _resolvePackKey(
+        password: password,
+        reclaimWithLocal: reclaimWithLocal,
+      );
       final packKey = resolved.key;
-      final wrapToUpload = resolved.newWrapB64;
 
       final cipher = await FolioAppProfileCrypto.encryptProfile(
         plain: plain,
@@ -424,13 +452,15 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         throw StateError('App profile pack too large');
       }
 
-      debugPrint('[settings_sync] push step=icons');
+      AppLogger.debug('push step=icons', tag: 'settings_sync');
       final iconBytes = await _builder.collectIconBytes(_settings);
       final iconIds = <String>[];
       for (final e in iconBytes.entries) {
         if (e.value.length > CustomIconImportService.maxBytes) {
-          debugPrint(
-            '[settings_sync] skip oversized icon ${e.key} bytes=${e.value.length}',
+          AppLogger.debug(
+            'skip oversized icon',
+            tag: 'settings_sync',
+            context: {'iconId': e.key, 'bytes': e.value.length},
           );
           continue;
         }
@@ -441,14 +471,22 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
           await folioStoragePutData(ref, Uint8List.fromList(e.value));
           iconIds.add(e.key);
         } catch (eIcon) {
-          debugPrint('[settings_sync] icon upload failed ${e.key}: $eIcon');
+          AppLogger.warn(
+            'icon upload failed',
+            tag: 'settings_sync',
+            context: {'iconId': e.key, 'error': '$eIcon'},
+          );
         }
       }
 
       final stamp =
           DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
       final path = 'users/$uid/app-profile/packs/pack-$stamp.bin';
-      debugPrint('[settings_sync] push step=upload path=$path bytes=${cipher.length}');
+      AppLogger.debug(
+        'push step=upload',
+        tag: 'settings_sync',
+        context: {'path': path, 'bytes': cipher.length},
+      );
       await folioStoragePutData(
         FirebaseStorage.instance.ref().child(path),
         cipher,
@@ -457,8 +495,20 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final oldPath = '${meta?['packStoragePath'] ?? ''}'.trim();
       final oldSize = _asInt(meta?['packSizeBytes']);
       final hasWrap = meta?['hasRestoreWrap'] == true;
+      // Si el servidor aún no tiene wrap (o reclamamos), hay que subirlo aunque
+      // la clave ya estuviera en caché local (newWrapB64 sería null).
+      var wrapToUpload = resolved.newWrapB64;
+      if ((!hasWrap || reclaimWithLocal) && wrapToUpload == null) {
+        final exported = await _crypto.exportLocalKeyWrap(
+          uid: uid,
+          password: password,
+        );
+        wrapToUpload = exported.wrapB64;
+      }
+      final shouldUploadWrap =
+          wrapToUpload != null && (!hasWrap || reclaimWithLocal);
 
-      debugPrint('[settings_sync] push step=finalize');
+      AppLogger.debug('push step=finalize', tag: 'settings_sync');
       await callFolioHttpsCallable('folioFinalizeAppProfile', <String, dynamic>{
         'packStoragePath': path,
         'packSizeBytes': cipher.length,
@@ -466,8 +516,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         'iconIds': iconIds,
         if (oldPath.isNotEmpty) 'oldPackStoragePath': oldPath,
         if (oldSize > 0) 'oldPackSizeBytes': oldSize,
-        if (wrapToUpload != null && !hasWrap)
-          'restoreWrapB64': base64Encode(wrapToUpload),
+        if (shouldUploadWrap) 'restoreWrapB64': base64Encode(wrapToUpload),
       });
 
       _lastAppFp = fp;
@@ -479,7 +528,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         updatedAtMs: DateTime.now().millisecondsSinceEpoch,
       );
       notifyListeners();
-      debugPrint('[settings_sync] push ok rev fingerprint=$fp');
+      AppLogger.info(
+        'push ok',
+        tag: 'settings_sync',
+        context: {'fingerprint': fp},
+      );
       return true;
     } catch (e, st) {
       _lastError = _formatSyncError(e);
@@ -489,8 +542,6 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         error: e,
         stackTrace: st,
       );
-      debugPrint('[settings_sync] push FAILED: $e');
-      debugPrint('$st');
       _setStatus('error');
       if (notifyUser) {
         _onEvent?.call(_lastError!);
@@ -517,6 +568,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _pullInFlight = true;
     _setStatus('pulling');
     _lastError = null;
+    var remoteRev = 0;
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
@@ -526,9 +578,13 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final meta = await fetchAppProfileMeta();
       final path = '${meta?['packStoragePath'] ?? ''}'.trim();
       final fp = '${meta?['contentFingerprint'] ?? ''}'.trim();
+      remoteRev = _asInt(meta?['rev']);
       if (path.isEmpty) {
         _lastError = 'empty_cloud_profile';
-        debugPrint('[settings_sync] restore skipped: no pack in cloud yet');
+        AppLogger.info(
+          'restore skipped: no pack in cloud yet',
+          tag: 'settings_sync',
+        );
         return false;
       }
 
@@ -544,6 +600,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         uid: uid,
         key: resolved.key,
         cipher: cipher,
+        password: password,
       );
       final profile = FolioSettingsProfile.decodeUtf8(plain);
 
@@ -579,7 +636,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       }
 
       _lastAppFp = fp;
-      _lastAppRev = _asInt(meta?['rev']);
+      _lastAppRev = remoteRev;
       _promptPending = false;
       _lastError = null;
       _setStatus('idle');
@@ -597,7 +654,14 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         error: e,
         stackTrace: st,
       );
-      debugPrint('[settings_sync] restore FAILED: $e');
+      // Evita reintentos infinitos en cada poll/snapshot con la misma rev.
+      if (remoteRev > _lastAppRev) {
+        _lastAppRev = remoteRev;
+      }
+      if (e is SecretBoxAuthenticationError && !_promptPending) {
+        _promptPending = true;
+        notifyListeners();
+      }
       _setStatus('error');
       return false;
     } finally {
@@ -643,10 +707,14 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   }) async {
     if (!isEnabled) {
       _lastError = 'sync_disabled';
-      debugPrint(
-        '[settings_sync] vault push skipped: enabled=${_settings.cloudAppProfileSyncEnabled} '
-        'backup=${_entitlements.snapshot.canUseCloudBackup} '
-        'user=${FirebaseAuth.instance.currentUser?.uid}',
+      AppLogger.info(
+        'vault push skipped',
+        tag: 'settings_sync',
+        context: {
+          'enabled': _settings.cloudAppProfileSyncEnabled,
+          'backup': _entitlements.snapshot.canUseCloudBackup,
+          'user': FirebaseAuth.instance.currentUser?.uid,
+        },
       );
       if (notifyUser) {
         _onEvent?.call('Folio Cloud: sincronización de ajustes desactivada');
@@ -658,7 +726,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         : vaultId.trim();
     if (vid.isEmpty) {
       _lastError = 'empty_vault_id';
-      debugPrint('[settings_sync] vault push skipped: empty vaultId');
+      AppLogger.info('vault push skipped: empty vaultId', tag: 'settings_sync');
       return false;
     }
     _setStatus('pushing_vault');
@@ -667,14 +735,25 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
         _lastError = 'not_signed_in';
-        debugPrint('[settings_sync] vault push skipped: not signed in');
+        AppLogger.info(
+          'vault push skipped: not signed in',
+          tag: 'settings_sync',
+        );
         return false;
       }
 
-      debugPrint('[settings_sync] vault push step=key vaultId=$vid');
+      AppLogger.debug(
+        'vault push step=key',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       final resolved = await _resolvePackKey(password: password);
 
-      debugPrint('[settings_sync] vault push step=build vaultId=$vid');
+      AppLogger.debug(
+        'vault push step=build',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       final profile = await _builder.buildVaultProfile(
         settings: _settings,
         vaultId: vid,
@@ -686,7 +765,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         profile.encodeUtf8(includeExportedAt: false),
       );
 
-      debugPrint('[settings_sync] vault push step=meta vaultId=$vid');
+      AppLogger.debug(
+        'vault push step=meta',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       Map<String, dynamic>? prev;
       try {
         final res = await callFolioHttpsCallable(
@@ -694,25 +777,41 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
           <String, dynamic>{'vaultId': vid},
         );
         if (res is Map) prev = Map<String, dynamic>.from(res);
-        debugPrint(
-          '[settings_sync] vault push prevRev=${prev?['rev']} '
-          'prevPath=${prev?['packStoragePath']}',
+        AppLogger.debug(
+          'vault push previous meta',
+          tag: 'settings_sync',
+          context: {
+            'prevRev': prev?['rev'],
+            'prevPath': prev?['packStoragePath'],
+          },
         );
       } catch (e) {
-        debugPrint('[settings_sync] vault push meta fetch failed (ok if first): $e');
+        AppLogger.debug(
+          'vault push meta fetch failed (ok if first)',
+          tag: 'settings_sync',
+          context: {'error': '$e'},
+        );
       }
 
       final remoteFp = '${prev?['contentFingerprint'] ?? ''}'.trim();
       if (remoteFp.isNotEmpty && remoteFp == fp) {
-        debugPrint('[settings_sync] vault push skipped: no content change vaultId=$vid');
+        AppLogger.info(
+          'vault push skipped: no content change',
+          tag: 'settings_sync',
+          context: {'vaultId': vid},
+        );
         _lastError = null;
         _setStatus('idle');
         return true;
       }
 
-      debugPrint(
-        '[settings_sync] vault push step=encrypt '
-        'plainBytes=${plain.length} secrets=${profile.secrets.length}',
+      AppLogger.debug(
+        'vault push step=encrypt',
+        tag: 'settings_sync',
+        context: {
+          'plainBytes': plain.length,
+          'secretsCount': profile.secrets.length,
+        },
       );
       final cipher = await FolioAppProfileCrypto.encryptProfile(
         plain: plain,
@@ -722,8 +821,10 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final stamp =
           DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
       final path = 'users/$uid/vault-profiles/$vid/packs/pack-$stamp.bin';
-      debugPrint(
-        '[settings_sync] vault push step=upload path=$path bytes=${cipher.length}',
+      AppLogger.debug(
+        'vault push step=upload',
+        tag: 'settings_sync',
+        context: {'path': path, 'bytes': cipher.length},
       );
       await folioStoragePutData(
         FirebaseStorage.instance.ref().child(path),
@@ -733,7 +834,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final oldPath = '${prev?['packStoragePath'] ?? ''}'.trim();
       final oldSize = _asInt(prev?['packSizeBytes']);
 
-      debugPrint('[settings_sync] vault push step=finalize vaultId=$vid');
+      AppLogger.debug(
+        'vault push step=finalize',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       final finalize = await callFolioHttpsCallable(
         'folioFinalizeVaultProfile',
         <String, dynamic>{
@@ -745,7 +850,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
           if (oldSize > 0) 'oldPackSizeBytes': oldSize,
         },
       );
-      debugPrint('[settings_sync] vault push ok vaultId=$vid result=$finalize');
+      AppLogger.info(
+        'vault push ok',
+        tag: 'settings_sync',
+        context: {'vaultId': vid, 'result': '$finalize'},
+      );
       _lastError = null;
       _setStatus('idle');
       notifyListeners();
@@ -759,8 +868,6 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         stackTrace: st,
         context: {'vaultId': vaultId},
       );
-      debugPrint('[settings_sync] vault push FAILED vaultId=$vaultId: $e');
-      debugPrint('$st');
       _setStatus('error');
       if (notifyUser) {
         _onEvent?.call(_lastError!);
@@ -775,13 +882,19 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   }) async {
     if (!isEnabled) {
       _lastError = 'sync_disabled';
-      debugPrint('[settings_sync] vault restore skipped: sync disabled');
+      AppLogger.info(
+        'vault restore skipped: sync disabled',
+        tag: 'settings_sync',
+      );
       return false;
     }
     final vid = vaultId.trim();
     if (vid.isEmpty) {
       _lastError = 'empty_vault_id';
-      debugPrint('[settings_sync] vault restore skipped: empty vaultId');
+      AppLogger.info(
+        'vault restore skipped: empty vaultId',
+        tag: 'settings_sync',
+      );
       return false;
     }
     _setStatus('pulling_vault');
@@ -790,58 +903,84 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
         _lastError = 'not_signed_in';
-        debugPrint('[settings_sync] vault restore skipped: not signed in');
+        AppLogger.info(
+          'vault restore skipped: not signed in',
+          tag: 'settings_sync',
+        );
         return false;
       }
-      debugPrint('[settings_sync] vault restore step=meta vaultId=$vid');
+      AppLogger.debug(
+        'vault restore step=meta',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       final res = await callFolioHttpsCallable(
         'folioGetVaultProfileMeta',
         <String, dynamic>{'vaultId': vid},
       );
       if (res is! Map) {
         _lastError = 'invalid_meta';
-        debugPrint('[settings_sync] vault restore invalid meta: $res');
+        AppLogger.warn(
+          'vault restore invalid meta',
+          tag: 'settings_sync',
+          context: {'response': '$res'},
+        );
         return false;
       }
       final meta = Map<String, dynamic>.from(res);
       final path = '${meta['packStoragePath'] ?? ''}'.trim();
       final rev = _asInt(meta['rev']);
       final fp = '${meta['contentFingerprint'] ?? ''}'.trim();
-      debugPrint(
-        '[settings_sync] vault restore meta rev=$rev path=$path fp=$fp',
+      AppLogger.debug(
+        'vault restore meta',
+        tag: 'settings_sync',
+        context: {'rev': rev, 'path': path, 'fingerprint': fp},
       );
       if (path.isEmpty) {
         _lastError = 'empty_cloud_vault_profile';
-        debugPrint(
-          '[settings_sync] vault restore skipped: no pack in cloud for $vid',
+        AppLogger.info(
+          'vault restore skipped: no pack in cloud',
+          tag: 'settings_sync',
+          context: {'vaultId': vid},
         );
         return false;
       }
 
-      debugPrint('[settings_sync] vault restore step=key');
+      AppLogger.debug('vault restore step=key', tag: 'settings_sync');
       final resolved = await _resolvePackKey(password: password);
-      debugPrint('[settings_sync] vault restore step=download path=$path');
+      AppLogger.debug(
+        'vault restore step=download',
+        tag: 'settings_sync',
+        context: {'path': path},
+      );
       final cipher = await folioStorageGetData(
         FirebaseStorage.instance.ref().child(path),
         _maxPackBytes,
       );
       if (cipher == null || cipher.isEmpty) {
         _lastError = 'empty_pack';
-        debugPrint('[settings_sync] vault restore empty cipher');
+        AppLogger.warn('vault restore empty cipher', tag: 'settings_sync');
         return false;
       }
-      debugPrint(
-        '[settings_sync] vault restore step=decrypt bytes=${cipher.length}',
+      AppLogger.debug(
+        'vault restore step=decrypt',
+        tag: 'settings_sync',
+        context: {'bytes': cipher.length},
       );
       final plain = await _decryptProfileWithRecovery(
         uid: uid,
         key: resolved.key,
         cipher: cipher,
+        password: password,
       );
       final profile = FolioSettingsProfile.decodeUtf8(plain);
-      debugPrint(
-        '[settings_sync] vault restore step=apply '
-        'kind=${profile.kind.name} secrets=${profile.secrets.length}',
+      AppLogger.debug(
+        'vault restore step=apply',
+        tag: 'settings_sync',
+        context: {
+          'kind': profile.kind.name,
+          'secretsCount': profile.secrets.length,
+        },
       );
       _suppressDirty = true;
       try {
@@ -855,7 +994,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       _lastError = null;
       _setStatus('idle');
       notifyListeners();
-      debugPrint('[settings_sync] vault restore ok vaultId=$vid');
+      AppLogger.info(
+        'vault restore ok',
+        tag: 'settings_sync',
+        context: {'vaultId': vid},
+      );
       return true;
     } catch (e, st) {
       _lastError = _formatSyncError(e);
@@ -866,8 +1009,6 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         stackTrace: st,
         context: {'vaultId': vaultId},
       );
-      debugPrint('[settings_sync] vault restore FAILED vaultId=$vaultId: $e');
-      debugPrint('$st');
       _setStatus('error');
       return false;
     }

@@ -10,17 +10,28 @@ Este documento define la convención para publicar releases en GitHub que sean c
 
 ## Convención de nombres de assets
 
-- Asset principal de Windows: `Folio-Setup-MAJOR.MINOR.PATCH.exe`.
-- Ejemplo: `Folio-Setup-1.3.0.exe`.
-- El updater prioriza `.exe` que contenga `setup` o `installer` en el nombre.
+| Asset | Uso |
+|--------|-----|
+| `Folio-Setup-MAJOR.MINOR.PATCH.exe` | Instalador Windows (Inno Setup). **Obligatorio** para el auto-updater en Windows. |
+| `Folio-Windows-GitHub-<ver>.zip` | Build portable Windows (canal GitHub). |
+| `Folio-MicrosoftStore-<ver>.msix` | Paquete para Partner Center / sideload Store. |
+| `Folio-Android-PlayStore-<ver>.apk` | APK Android (updater en Android y sideload). |
+| `Folio-Android-PlayStore-<ver>.aab` | App Bundle para Google Play Console. |
+| `Folio-Linux-GitHub-<ver>.zip` | Bundle Linux (`bundle/`). |
+| `Folio-macOS-GitHub-<ver>.zip` | App macOS (`.app` empaquetada). |
+
+- Ejemplo instalador: `Folio-Setup-1.3.0.exe`.
+- `<ver>` usa la versión de `pubspec.yaml` con `+` sustituido por `-` (p. ej. `1.3.0-12`).
+- El updater en Windows prioriza `.exe` que contenga `setup` o `installer` en el nombre; en Android prioriza `.apk`.
 
 ## Checklist de publicación
 
-1. Incrementar `version` en `pubspec.yaml`.
-2. Generar el instalador de Windows para la versión.
-3. Crear release en GitHub con tag `vMAJOR.MINOR.PATCH`.
-4. Adjuntar el asset `.exe` siguiendo el patrón definido.
-5. Publicar la release.
+1. Incrementar `version` en `pubspec.yaml` (o usar `-BumpVersion` en el script).
+2. Ejecutar release/prerelease con `builld_all.ps1` (compila **todas** las formas posibles en el host actual).
+3. Crear release en GitHub con tag `vMAJOR.MINOR.PATCH` y adjuntar los assets generados.
+4. Publicar la release (o marcar pre-release para el canal Beta).
+
+> **Linux / macOS desde Windows:** Linux se intenta vía **WSL** si Flutter+deps GTK están en la distro; macOS **no** se puede cross-compilar (hace falta un Mac o el job `macos` del workflow `folio-build-all`). Para una release completa multiplataforma, compila con Actions y adjunta los artefactos, o publica desde el script en cada host.
 
 ## Betas (canal Beta en la app)
 
@@ -51,9 +62,9 @@ Además del CI, puedes compilar y publicar desde tu máquina con el menú intera
 .\builld_all.ps1
 ```
 
-- **Opción 1 (RELEASE estable):** compila `Folio-Setup-<semver>.exe` (Inno Setup) y ejecuta `gh release create v<semver> ... --generate-notes`.
-- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta descrito abajo).
-- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar instalador.
+- **Opción 1 (RELEASE estable):** compila **todas** las formas de distribución posibles en el host (instalador `.exe`, ZIP Windows, MSIX, APK/AAB, Linux vía WSL si aplica, macOS solo en Mac) y ejecuta `gh release create v<semver> ... --generate-notes` adjuntando todos los assets.
+- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta).
+- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar artefactos.
 
 Modo directo (sin menú), útil para automatizar:
 
@@ -63,16 +74,19 @@ Modo directo (sin menú), útil para automatizar:
 
 # Pre-release subiendo antes la versión
 .\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes
+
+# Solo plataformas Windows (omitir Android/Linux/macOS)
+.\builld_all.ps1 -Action release -Yes -SkipAndroid -SkipLinux -SkipMacOS
 ```
 
-Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget` (destino de la release; vacío = autodetecta la rama actual si está en el remoto, o la rama por defecto), `-DraftRelease`, `-Clean`.
+Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`.
 
 > El `target_commitish` se resuelve automáticamente: si omites `-ReleaseTarget`, el script usa la rama actual (si existe en `origin`) o la rama por defecto del remoto (`main`). GitHub crea el tag apuntando al **último commit de esa rama en el remoto**, así que empuja tus cambios antes de publicar.
 
 ## Workflow «Folio build all» (GitHub Actions)
 
 - Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual: **Actions → Folio build all → Run workflow**).
-- Tres jobs en paralelo: **Windows** (ejecuta `builld_all.ps1 -SkipAndroid -SkipLinux`), **Android APK** y **Linux** (ZIP del bundle). Artefactos: `folio-output-windows`, `folio-output-android`, `folio-output-linux`.
+- Jobs en paralelo: **Windows** (`builld_all.ps1 -SkipAndroid -SkipLinux -SkipMacOS`), **Android** (APK + AAB), **Linux** (ZIP del bundle) y **macOS** (ZIP del `.app`). Artefactos: `folio-output-windows`, `folio-output-android`, `folio-output-linux`, `folio-output-macos`.
 - Opcional: secret **`FOLIO_MS_STORE_ENV`** (texto multilínea con líneas `MS_STORE_*=…`) para inyectar ids de producto en el build Store del job Windows; sin él, el paso MSIX puede fallar si faltan defines (marca **Omitir MSIX** en el workflow si solo quieres el ZIP GitHub).
 
 ## Notas operativas

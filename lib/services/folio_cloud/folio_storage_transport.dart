@@ -43,6 +43,22 @@ Future<Uint8List?> folioStorageGetData(Reference ref, int maxBytes) async {
   return ref.getData(maxBytes);
 }
 
+/// true si el objeto existe (HEAD/metadata). false si 404 u otro fallo suave.
+Future<bool> folioStorageObjectExists(Reference ref) async {
+  if (folioStorageUseRestTransport) {
+    return folioFirebaseStorageRestObjectExists(ref);
+  }
+  try {
+    await ref.getMetadata();
+    return true;
+  } on FirebaseException catch (e) {
+    if (e.code == 'object-not-found') return false;
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Descarga a archivo local sin `writeToFile` en escritorio.
 Future<void> folioStorageWriteToFile(Reference ref, File destination) async {
   if (folioStorageUseRestTransport) {

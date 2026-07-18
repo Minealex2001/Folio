@@ -75,7 +75,10 @@ Configuración en repo: [`storage-cors.json`](../storage-cors.json). Orígenes c
 
 - `https://foliobeta.minealexgames.com` (beta)
 - `https://folio.minealexgames.com` (producción)
-- `http://localhost` / `http://127.0.0.1` (Flutter web local)
+- `http://localhost` / `http://127.0.0.1` (sin puerto)
+- `*` — necesario para Flutter web local (`http://localhost:<puerto>` cambia en cada `flutter run`; GCS exige coincidencia exacta del `Origin`)
+
+La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); CORS no sustituye las reglas. `*` solo evita el bloqueo del browser.
 
 Aplicar o actualizar (PowerShell, proyecto `folio-minealexgames`):
 
@@ -98,6 +101,13 @@ La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); COR
 - **Copia programada local**: si el usuario activa “Subir también a Folio Cloud” y tiene sesión Firebase + `canUseCloudBackup`, tras un backup programado exitoso se sube el mismo ZIP con `uploadEncryptedBackupFile`.
 - **Publicación web**: desde el workspace, “Publicar en la web” exporta la página actual a HTML (Markdown → HTML simple) y llama a `publishHtmlPage`; en Ajustes hay listado de `publishedPages`, enlace y borrado (Storage + Firestore).
 - **IA en nube**: `folioCloudAiComplete` acepta **suscripción con `cloudAi`** o **solo tinta comprada** (sin suscripción); el cliente elige Folio Cloud cuando `canUseCloudAi` (misma regla en UI). Si **Quill Cloud** devuelve **401/403/429** (clave, cuota o facturación), el error es del **proveedor de inferencia de Quill Cloud**, no de las gotas Folio en Firestore. Mensajes técnicos del upstream pueden aparecer en el detalle del error. En el cliente, valores de `ink` absurdamente altos en Firestore se **acotan solo para mostrar** en la UI; conviene corregir el documento `users/{uid}` si fue un error de datos.
+
+### Device sync (contenido de libreta)
+
+- Storage: `users/{uid}/vaults/{vaultId}/device-sync/` (`packs/` v1 monolítico, `blobs/` + `manifests/` v2 incremental). Reglas: `folioCloudBackupOk`.
+- Firestore señal: `users/{uid}/vaultSync/{vaultId}` con `rev`, `contentFingerprint`, `deviceId`, `syncFormatVersion` (1|2), `packStoragePath` o `manifestStoragePath`.
+- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v2 acepta `newBlobs`/`deleteBlobs`/`manifestStoragePath`; migra desde pack v1 restando `oldPackSizeBytes` de la cuota).
+- Cuota: cuenta en `folioBackup.usedBytes` (misma bolsa que cloud-pack).
 
 ## Gotas y Quill en nube
 

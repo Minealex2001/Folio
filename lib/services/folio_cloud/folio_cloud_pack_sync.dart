@@ -514,55 +514,72 @@ Future<void> downloadCloudPackToDirectoryForRestore({
   FolioCloudSnapshot? entitlementSnapshot,
   AppSettings? telemetrySettings,
 }) async {
+  final backup = await downloadCloudPackToMemoryForRestore(
+    vaultId: vaultId,
+    restorePassword: restorePassword,
+    entitlementSnapshot: entitlementSnapshot,
+    telemetrySettings: telemetrySettings,
+  );
+  await _writeExtractedVaultBackupToDirectory(backup, extractDir);
+}
+
+/// Igual que [downloadCloudPackToDirectoryForRestore] pero sin tocar disco
+/// (apto para web / IndexedDB).
+Future<ExtractedVaultBackup> downloadCloudPackToMemoryForRestore({
+  required String vaultId,
+  required String restorePassword,
+  FolioCloudSnapshot? entitlementSnapshot,
+  AppSettings? telemetrySettings,
+}) async {
   final sw = Stopwatch()..start();
   try {
-  requireFolioCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
+    requireFolioCloudBackupEntitlement(entitlementSnapshot);
+    if (Firebase.apps.isEmpty) {
+      throw StateError('Firebase not initialized');
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw StateError('Not signed in');
 
-  final wrapRaw = await callFolioHttpsCallable(
-    'folioGetCloudPackRestoreWrap',
-    <String, dynamic>{'vaultId': vaultId},
-  );
-  if (wrapRaw is! Map) {
-    throw StateError('Respuesta inválida del envoltorio de recuperación.');
-  }
-  final wrapB64 = wrapRaw['wrapB64']?.toString().trim() ?? '';
-  final kind = wrapRaw['wrapKind']?.toString().trim() ?? '';
-  if (wrapB64.isEmpty || (kind != 'vaultDek' && kind != 'packKey')) {
-    throw StateError('Falta el envoltorio de recuperación para esta libreta.');
-  }
-  final wrapBytes = Uint8List.fromList(base64Decode(wrapB64));
-  final unwrapped = await VaultCrypto.unwrapDek(
-    wrapped: wrapBytes,
-    password: restorePassword,
-  );
-  final SecretKey packKey = kind == 'vaultDek'
-      ? await VaultCrypto.dekFromBytes(unwrapped)
-      : SecretKey(unwrapped);
+    final wrapRaw = await callFolioHttpsCallable(
+      'folioGetCloudPackRestoreWrap',
+      <String, dynamic>{'vaultId': vaultId},
+    );
+    if (wrapRaw is! Map) {
+      throw StateError('Respuesta inválida del envoltorio de recuperación.');
+    }
+    final wrapB64 = wrapRaw['wrapB64']?.toString().trim() ?? '';
+    final kind = wrapRaw['wrapKind']?.toString().trim() ?? '';
+    if (wrapB64.isEmpty || (kind != 'vaultDek' && kind != 'packKey')) {
+      throw StateError('Falta el envoltorio de recuperación para esta libreta.');
+    }
+    final wrapBytes = Uint8List.fromList(base64Decode(wrapB64));
+    final unwrapped = await VaultCrypto.unwrapDek(
+      wrapped: wrapBytes,
+      password: restorePassword,
+    );
+    final SecretKey packKey = kind == 'vaultDek'
+        ? await VaultCrypto.dekFromBytes(unwrapped)
+        : SecretKey(unwrapped);
 
-  final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
-  final path = latest?['snapshotStoragePath']?.toString().trim() ?? '';
-  if (path.isEmpty) {
-    throw StateError('No hay copia incremental en la nube.');
-  }
+    final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
+    final path = latest?['snapshotStoragePath']?.toString().trim() ?? '';
+    if (path.isEmpty) {
+      throw StateError('No hay copia incremental en la nube.');
+    }
 
-  await _downloadCloudPackTreeToDirectory(
-    uid: user.uid,
-    vaultId: vaultId,
-    snapshotStoragePath: path,
-    packKey: packKey,
-    extractDir: extractDir,
-  );
-  _logSyncTelemetry(
-    telemetrySettings,
-    'cloud_pack_pull_restore',
-    true,
-    durationMs: sw.elapsedMilliseconds,
-  );
+    final backup = await _downloadCloudPackTreeToMemory(
+      uid: user.uid,
+      vaultId: vaultId,
+      snapshotStoragePath: path,
+      packKey: packKey,
+    );
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_pull_restore',
+      true,
+      durationMs: sw.elapsedMilliseconds,
+    );
+    return backup;
   } catch (e) {
     _logSyncTelemetry(
       telemetrySettings,
@@ -575,12 +592,11 @@ Future<void> downloadCloudPackToDirectoryForRestore({
   }
 }
 
-Future<void> _downloadCloudPackTreeToDirectory({
+Future<ExtractedVaultBackup> _downloadCloudPackTreeToMemory({
   required String uid,
   required String vaultId,
   required String snapshotStoragePath,
   required SecretKey packKey,
-  required Directory extractDir,
 }) async {
   final manifest = await _downloadDecryptManifest(
     storagePath: snapshotStoragePath,
@@ -590,10 +606,7 @@ Future<void> _downloadCloudPackTreeToDirectory({
     throw StateError('No se pudo leer la copia incremental (clave o datos).');
   }
 
-  if (!extractDir.existsSync()) {
-    await extractDir.create(recursive: true);
-  }
-
+  final backup = ExtractedVaultBackup();
   for (final item in manifest.items) {
     final ref = FirebaseStorage.instance.ref().child(
       'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}',
@@ -607,26 +620,46 @@ Future<void> _downloadCloudPackTreeToDirectory({
 
     switch (item.role) {
       case FolioCloudPackBlobRole.backupManifest:
-        await File(
-          p.join(extractDir.path, kVaultBackupManifestFile),
-        ).writeAsBytes(clear, flush: true);
+        backup.put(kVaultBackupManifestFile, clear);
       case FolioCloudPackBlobRole.vaultKeys:
-        await File(
-          p.join(extractDir.path, VaultPaths.wrappedDekFile),
-        ).writeAsBytes(clear, flush: true);
+        backup.put(VaultPaths.wrappedDekFile, clear);
       case FolioCloudPackBlobRole.vaultBin:
-        await File(
-          p.join(extractDir.path, VaultPaths.cipherPayloadFile),
-        ).writeAsBytes(clear, flush: true);
+        backup.put(VaultPaths.cipherPayloadFile, clear);
       case FolioCloudPackBlobRole.vaultMode:
-        await File(
-          p.join(extractDir.path, VaultPaths.vaultModeFile),
-        ).writeAsBytes(clear, flush: true);
+        backup.put(VaultPaths.vaultModeFile, clear);
       case FolioCloudPackBlobRole.attachment:
-        final rel = item.relativePath!;
-        final out = File(p.join(extractDir.path, rel));
-        await out.parent.create(recursive: true);
-        await out.writeAsBytes(clear, flush: true);
+        backup.put(item.relativePath!, clear);
     }
   }
+  return backup;
+}
+
+Future<void> _writeExtractedVaultBackupToDirectory(
+  ExtractedVaultBackup backup,
+  Directory extractDir,
+) async {
+  if (!extractDir.existsSync()) {
+    await extractDir.create(recursive: true);
+  }
+  for (final e in backup.files.entries) {
+    final out = File(p.join(extractDir.path, e.key));
+    await out.parent.create(recursive: true);
+    await out.writeAsBytes(e.value, flush: true);
+  }
+}
+
+Future<void> _downloadCloudPackTreeToDirectory({
+  required String uid,
+  required String vaultId,
+  required String snapshotStoragePath,
+  required SecretKey packKey,
+  required Directory extractDir,
+}) async {
+  final backup = await _downloadCloudPackTreeToMemory(
+    uid: uid,
+    vaultId: vaultId,
+    snapshotStoragePath: snapshotStoragePath,
+    packKey: packKey,
+  );
+  await _writeExtractedVaultBackupToDirectory(backup, extractDir);
 }

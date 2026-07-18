@@ -48,6 +48,7 @@ import '../../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
+import '../../sync/cloud_device_sync_status_button.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
 import '../../../services/device_sync/device_sync_controller.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -69,7 +70,6 @@ import '../history/page_outline_panel.dart';
 import '../history/backlinks_panel.dart';
 import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
-import 'save_status_chip.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_details_panel.dart';
@@ -177,6 +177,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _collabSheetOpen = false;
   int _collabUnreadCount = 0;
   bool _zenMode = false;
+  final Set<String> _dismissedSyncRemoteBanners = {};
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
@@ -1853,8 +1854,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     try {
       widget.deviceSyncController.refreshSettingsSnapshot();
       widget.deviceSyncController.onLocalSnapshotPersisted();
+      unawaited(widget.cloudDeviceSyncController?.syncNow());
       if (mounted) {
-        _snack('Sincronización forzada iniciada.');
+        final l10n = AppLocalizations.of(context);
+        _snack(l10n.folioCloudDeviceSyncNowOk);
       }
     } catch (e) {
       if (mounted) {
@@ -2373,9 +2376,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ];
 
         widgets.add(
-          ListenableBuilder(
-            listenable: _s.persistence,
-            builder: (context, _) => SaveStatusChip(status: _s.saveStatus),
+          CloudDeviceSyncStatusButton(
+            saveStatus: _s.saveStatus,
+            saveListenable: _s.persistence,
+            controller: widget.cloudDeviceSyncController,
+            pendingConflicts: widget.appSettings.syncPendingConflicts,
+            onOpenConflicts: () => _openSettings(initialSection: 'cloud'),
+            onOpenVault: (entry) async {
+              try {
+                await _s.switchVault(entry.id);
+              } catch (e) {
+                if (mounted) {
+                  _snack('$e', error: true);
+                }
+              }
+            },
           ),
         );
         return widgets;
@@ -2659,7 +2674,28 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ],
       );
     }
-    final editorContent = editorWithPanels;
+    var editorContent = editorWithPanels;
+    if (page != null && !_dismissedSyncRemoteBanners.contains(page.id)) {
+      final remoteRevCount = _s
+          .revisionsForPage(page.id)
+          .where((r) => r.revisionId.startsWith('sync_remote_'))
+          .length;
+      if (remoteRevCount > 0) {
+        editorContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SyncRemoteRevisionBanner(
+              remoteRevisionCount: remoteRevCount,
+              onOpenHistory: _openPageHistoryScreen,
+              onDismiss: () {
+                setState(() => _dismissedSyncRemoteBanners.add(page.id));
+              },
+            ),
+            Expanded(child: editorWithPanels),
+          ],
+        );
+      }
+    }
     final useSplitAi =
         useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
     final Widget shellEditorBody;

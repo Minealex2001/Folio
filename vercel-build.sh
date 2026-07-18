@@ -18,4 +18,6 @@ export PATH="$FLUTTER_SDK_DIR/bin:$PATH"
 
 flutter config --enable-web --no-analytics
 flutter pub get
+# PWA: service worker + manifest (instalable en Chrome/Edge/Safari).
+# No usar --pwa-strategy=none.
 flutter build web --release --base-href /

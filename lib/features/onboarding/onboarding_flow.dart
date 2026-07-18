@@ -12,6 +12,7 @@ import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/web_desktop_only_notice.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
@@ -23,6 +24,7 @@ import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_pack_sync.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_telemetry.dart';
+import '../../services/app_logger.dart';
 import '../settings/folio_cloud_import_all_dialog.dart';
 import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
@@ -179,6 +181,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final steps = _flowSteps;
     if (_page < steps.length - 1) {
       setState(() => _page++);
+      AppLogger.debug(
+        'onboarding next',
+        tag: 'onboarding',
+        context: {
+          'mode': _mode.name,
+          'page': _page,
+          'step': _currentStepId.name,
+        },
+      );
     }
   }
 
@@ -188,6 +199,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _page--;
       _syncDraftsFromAppSettings();
     });
+    AppLogger.debug(
+      'onboarding back',
+      tag: 'onboarding',
+      context: {
+        'mode': _mode.name,
+        'page': _page,
+        'step': _currentStepId.name,
+      },
+    );
   }
 
   ButtonStyle get _onboardingPrimaryButtonStyle => FilledButton.styleFrom(
@@ -250,6 +270,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _chooseCreateNew() {
+    AppLogger.info('choose create new vault', tag: 'onboarding');
     setState(() {
       _error = null;
       _mode = _OnboardingMode.create;
@@ -264,6 +285,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _chooseImportSource() {
+    AppLogger.info('choose import source', tag: 'onboarding');
     setState(() {
       _error = null;
       _mode = _OnboardingMode.importChooser;
@@ -486,21 +508,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _busy = true;
         _error = null;
       });
-      final tmp = await Directory.systemTemp.createTemp('folio_ob_cloud_pack_');
       try {
-        await downloadCloudPackToDirectoryForRestore(
+        final backup = await downloadCloudPackToMemoryForRestore(
           vaultId: vid,
           restorePassword: pwd,
-          extractDir: tmp,
           entitlementSnapshot: _folio.snapshot,
           telemetrySettings: widget.appSettings,
         );
-        final isPlain = await isPlainExtractedBackupDirectory(tmp);
+        final isPlain = await isPlainExtractedBackup(backup);
         final vaultPwd = isPlain ? '' : pwd;
-        await widget.session.completeOnboardingFromExtractedDirectory(
-          tmp,
-          vaultPwd,
-        );
+        await widget.session.completeOnboardingFromMemory(backup, vaultPwd);
       } on VaultCryptoException catch (e) {
         if (mounted) {
           setState(() {
@@ -529,11 +546,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           });
         }
       } finally {
-        try {
-          if (tmp.existsSync()) {
-            await tmp.delete(recursive: true);
-          }
-        } catch (_) {}
         if (mounted) {
           setState(() => _busy = false);
         }
@@ -695,6 +707,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _busy = true;
       _error = null;
     });
+    AppLogger.info(
+      'finishCreate start',
+      tag: 'onboarding',
+      context: {
+        'encrypted': !_createWithoutEncryption,
+        'starterPages': _createStarterPages,
+      },
+    );
     try {
       await widget.session.completeOnboarding(
         password: _createWithoutEncryption ? null : _password.text,
@@ -706,7 +726,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
+      AppLogger.info('finishCreate ok', tag: 'onboarding');
     } catch (e) {
+      AppLogger.error(
+        'finishCreate failed',
+        tag: 'onboarding',
+        error: e,
+      );
       setState(() {
         _busy = false;
         _error = AppLocalizations.of(context).createVaultFailedError('$e');
@@ -1346,24 +1372,40 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.lg),
-        tile(
-          icon: Icons.archive_outlined,
-          title: l10n.importBackupZip,
-          subtitle: l10n.importSourceBackupSubtitle,
-          onTap: _chooseImportBackup,
-        ),
+        if (kIsWeb) ...[
+          WebDesktopOnlyNotice(
+            icon: Icons.archive_outlined,
+            title: l10n.importBackupZip,
+            subtitle: l10n.importSourceBackupSubtitle,
+          ),
+          const SizedBox(height: FolioSpace.sm),
+        ] else
+          tile(
+            icon: Icons.archive_outlined,
+            title: l10n.importBackupZip,
+            subtitle: l10n.importSourceBackupSubtitle,
+            onTap: _chooseImportBackup,
+          ),
         tile(
           icon: Icons.cloud_download_outlined,
           title: l10n.onboardingCloudBackupCta,
           subtitle: l10n.importSourceCloudSubtitle,
           onTap: () => unawaited(_signInAndPickCloudBackup()),
         ),
-        tile(
-          icon: Icons.note_alt_outlined,
-          title: l10n.importNotionTitle,
-          subtitle: l10n.importSourceNotionSubtitle,
-          onTap: _chooseImportNotion,
-        ),
+        if (kIsWeb) ...[
+          const SizedBox(height: FolioSpace.sm),
+          WebDesktopOnlyNotice(
+            icon: Icons.note_alt_outlined,
+            title: l10n.importNotionTitle,
+            subtitle: l10n.importSourceNotionSubtitle,
+          ),
+        ] else
+          tile(
+            icon: Icons.note_alt_outlined,
+            title: l10n.importNotionTitle,
+            subtitle: l10n.importSourceNotionSubtitle,
+            onTap: _chooseImportNotion,
+          ),
         const SizedBox(height: FolioSpace.md),
         _onboardingBottomActions(
           onBack: () {
@@ -1406,6 +1448,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _skipConfigDraftStep() {
+    AppLogger.info(
+      'skip config draft step',
+      tag: 'onboarding',
+      context: {'step': _currentStepId.name},
+    );
     setState(() {
       _syncDraftsFromAppSettings();
       if (_page < _flowSteps.length - 1) {
@@ -1513,6 +1560,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _onFolioCloudStepContinue() {
+    AppLogger.info('folio cloud step continue', tag: 'onboarding');
     _goNext();
   }
 

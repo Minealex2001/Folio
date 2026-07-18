@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
+
 enum AppLogLevel { debug, info, warn, error }
 
 abstract class AppLogSink {
@@ -74,6 +76,13 @@ class AppLogger {
       error: error,
       stackTrace: stackTrace,
     );
+
+    // Visible en `flutter run` / terminal (developer.log a menudo no lo es).
+    final errSuffix = error == null ? '' : ' | error=$error';
+    debugPrint('folio.$tag $line$errSuffix');
+    if (stackTrace != null) {
+      debugPrint('$stackTrace');
+    }
 
     final sink = _sink;
     if (sink != null) {

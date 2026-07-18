@@ -52,6 +52,7 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
   return VaultPayload(
     version: kVaultPayloadVersion,
     pages: pages,
+    displayName: raw.displayName,
     pageOrderByParent: pageOrder,
     pageRevisions: pageRevisions,
     pageAcl: pageAcl,
@@ -62,6 +63,8 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
     pageTemplates: pageTemplates,
     jira: jira,
     youtrack: youtrack,
+    pageTombstones: raw.pageTombstones,
+    syncClock: raw.syncClock,
   );
 }
 
