@@ -172,8 +172,29 @@ Future<void> main() async {
         } catch (_) {}
       }
 
-      FolioFirestoreSync.initialize();
-      final session = VaultSession(titleLocale: appSettings.locale);
+      try {
+        FolioFirestoreSync.initialize();
+      } catch (e, st) {
+        AppLogger.error(
+          'FolioFirestoreSync init failed; continuing without telemetry sync',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+      }
+
+      VaultSession session;
+      try {
+        session = VaultSession(titleLocale: appSettings.locale);
+      } catch (e, st) {
+        AppLogger.error(
+          'VaultSession construction failed; retrying with defaults',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        session = VaultSession();
+      }
       var initialLaunchArgs = const <String>[];
       try {
         initialLaunchArgs = await PlatformLaunchArguments.initialArguments();

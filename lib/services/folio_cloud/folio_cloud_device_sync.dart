@@ -43,7 +43,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   final void Function(String message)? _onEvent;
 
   static const Duration _pushDebounce = Duration(seconds: 3);
-  static const Duration _pollInterval = Duration(seconds: 10);
+  // 10s era el valor original; en plataformas sin Firestore nativo (p. ej.
+  // Windows, ver `folioFirestoreSupported`) este poll es el único mecanismo
+  // de detección de cambios remotos, así que se baja para acercarse más al
+  // "casi instantáneo" prometido. Es un callable HTTPS ligero, no un stream.
+  static const Duration _pollInterval = Duration(seconds: 4);
   static const int _maxPackBytes = 80 * 1024 * 1024;
 
   Timer? _pushDebounceTimer;
@@ -62,6 +66,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   String _status = '';
   /// Evita spamear el mismo error en snacks.
   String _lastNotifiedError = '';
+  /// Metadatos remotos recibidos mientras había un push en curso; se
+  /// reprocesan al terminar ese push (ver `_pushIfNeeded`/`_onRemoteMeta`).
+  Map<String, dynamic>? _pendingRemoteMeta;
+  /// Marca de tiempo (epoch ms) del último push/pull con éxito, para la UI.
+  int _lastSyncSuccessMs = 0;
+
+  int get lastSyncSuccessMs => _lastSyncSuccessMs;
 
   String get statusMessage => _status;
   int get lastRemoteRev => _lastRemoteRev;
@@ -212,9 +223,14 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       return;
     }
     if (fingerprint == _lastAppliedFingerprint) return;
-    if (rev > 0 &&
-        rev <= _lastRemoteRev &&
-        fingerprint == _lastAppliedFingerprint) {
+    // Evento remoto obsoleto/fuera de orden (p. ej. snapshot de Firestore
+    // entregado tardíamente respecto a otro más reciente ya procesado).
+    if (rev > 0 && rev < _lastRemoteRev) return;
+
+    if (_pushInFlight) {
+      // Hay un push local en curso: reintentar este pull cuando termine en
+      // vez de competir por `_session` a la vez (ver `_pushIfNeeded`).
+      _pendingRemoteMeta = data;
       return;
     }
 
@@ -228,6 +244,16 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> _pushIfNeeded() async {
     if (_pushInFlight) {
       _dirty = true;
+      return;
+    }
+    if (_pullInFlight) {
+      // Un pull está fusionando cambios remotos ahora mismo: si subiéramos
+      // ya, podríamos pisar el resultado del merge con una snapshot
+      // pre-merge. Reintentar tras el debounce habitual.
+      _pushDebounceTimer?.cancel();
+      _pushDebounceTimer = Timer(_pushDebounce, () {
+        unawaited(_pushIfNeeded());
+      });
       return;
     }
     if (!_dirty) return;
@@ -305,12 +331,15 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         final rev = _asInt(finalize['rev']);
         if (rev > _lastRemoteRev) _lastRemoteRev = rev;
       }
-      await _settings.setSyncLastSuccessMs(
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      _lastSyncSuccessMs = DateTime.now().millisecondsSinceEpoch;
+      await _settings.setSyncLastSuccessMs(_lastSyncSuccessMs);
       debugPrint('[cloud_sync] push ok fp=$fp bytes=${cipher.length}');
       _setStatus('idle');
       notifyListeners();
+      // En modo poll (sin listener de Firestore en tiempo real), el propio
+      // eco del push tarda hasta `_pollInterval` en notarse; forzar unas
+      // pocas comprobaciones rápidas para acortar esa espera.
+      if (!folioFirestoreSupported) _burstPoll();
     } catch (e, st) {
       AppLogger.error(
         'cloud device sync push failed',
@@ -330,6 +359,26 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           unawaited(_pushIfNeeded());
         });
       }
+      final pending = _pendingRemoteMeta;
+      if (pending != null) {
+        _pendingRemoteMeta = null;
+        unawaited(_onRemoteMeta(pending));
+      }
+    }
+  }
+
+  /// Lanza unas pocas relecturas rápidas del meta remoto tras un push propio,
+  /// para acortar la latencia de detección en plataformas sin Firestore
+  /// nativo (ver `folioFirestoreSupported`), sin mantener un timer permanente
+  /// de alta frecuencia.
+  void _burstPoll() {
+    const delays = [
+      Duration(seconds: 2),
+      Duration(seconds: 4),
+      Duration(seconds: 7),
+    ];
+    for (final delay in delays) {
+      Timer(delay, () => unawaited(_refreshRemoteMetaOnce()));
     }
   }
 
@@ -374,9 +423,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       if (rev > _lastRemoteRev) _lastRemoteRev = rev;
       _cachedPackPath = packStoragePath;
       _lastNotifiedError = '';
-      await _settings.setSyncLastSuccessMs(
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      _lastSyncSuccessMs = DateTime.now().millisecondsSinceEpoch;
+      await _settings.setSyncLastSuccessMs(_lastSyncSuccessMs);
 
       // Solo re-subir si el merge cambió el contenido local.
       if (applied.changed) {

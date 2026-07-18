@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/vault_paths.dart';
 import '../data/storage/vault_storage.dart';
+import 'platform/current_web_host.dart';
 
 /// Relying party **local** para passkeys (mismo enfoque que el ejemplo oficial de `passkeys`).
 /// Solo metadatos de credencial; no contiene el contenido de la libreta.
@@ -43,10 +44,11 @@ class FolioRpUser {
   }
 }
 
-/// ID de relying party. En web sería el host; en escritorio/móvil debe ser coherente con la plataforma.
+/// ID de relying party. En web debe coincidir con el host real servido
+/// (WebAuthn lo exige); en escritorio/móvil debe ser coherente con la plataforma.
 String get folioRpId {
   if (kIsWeb) {
-    return 'localhost';
+    return currentWebHost();
   }
   return 'folio.app';
 }

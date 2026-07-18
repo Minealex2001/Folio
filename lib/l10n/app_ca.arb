@@ -1110,6 +1110,17 @@
   "folioCloudFeatureBackup": "Còpia al núvol",
   "folioCloudDeviceSyncTitle": "Sincronització entre dispositius",
   "folioCloudDeviceSyncSubtitle": "Propaga canvis gairebé a l'instant als altres dispositius (fusió per pàgina/bloc; no substitueix una restauració manual).",
+  "folioCloudDeviceSyncStatusSyncing": "Sincronitzant…",
+  "folioCloudDeviceSyncStatusError": "Error de sincronització — reintentant…",
+  "folioCloudDeviceSyncStatusPending": "Esperant la primera sincronització…",
+  "folioCloudDeviceSyncStatusSynced": "Sincronitzat {time}",
+  "@folioCloudDeviceSyncStatusSynced": {"placeholders": {"time": {}}},
+  "folioCloudDeviceSyncAgoSeconds": "fa {seconds} s",
+  "@folioCloudDeviceSyncAgoSeconds": {"placeholders": {"seconds": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoMinutes": "fa {minutes} min",
+  "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoHours": "fa {hours} h",
+  "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
   "folioCloudSubsectionAccountProfile": "Perfil del compte",
   "folioCloudAppProfileSyncTitle": "Sincronitzar ajustos de l'app",
   "folioCloudAppProfileSyncSubtitle": "Desa el tema, la IA, les dreceres, les icones personalitzades i altres preferències al teu compte Folio Cloud (xifrat).",
@@ -1484,7 +1495,7 @@
   "settingsAiChatSplitViewTitle": "Xat Quill en vista dividida",
   "settingsAiChatSplitViewSubtitle": "Mostra el xat al costat de l’editor a escriptori.",
   "settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)",
-  "settingsAiQuillCopilotExperimentalSubtitle": "Reservat per a suggeriments en temps real (sense inferència automàtica encara).",
+  "settingsAiQuillCopilotExperimentalSubtitle": "Mostra suggeriments d'IA en línia mentre escrius; prem Tab per acceptar-los. Requereix un proveïdor d'IA configurat.",
   "aiChatApplyInsertEnd": "Inserir blocs al final",
   "aiChatApplyReplacePage": "Substituir la pàgina",
   "aiChatApplyOperations": "Aplicar operacions",
@@ -2331,6 +2342,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no conté text extrectable"
   ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
+  ,"webDesktopOnlyNotice": "Només disponible a l'aplicació d'escriptori"
   ,"appStoreTooltipRefresh": "Actualitzar"
   ,"releaseNotesTitle": "Notes de la versió"
   ,"releaseNotesContinue": "Continuar"

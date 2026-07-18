@@ -559,7 +559,13 @@ extension _SettingsPageAiSection on _SettingsPageState {
                 ),
               ),
               children: [
-                if (mcpServerSupported) _buildMcpServerToggle(context),
+                if (mcpServerSupported)
+                  _buildMcpServerToggle(context)
+                else if (kIsWeb)
+                  WebDesktopOnlyNotice(
+                    icon: Icons.memory_outlined,
+                    title: l10n.settingsMcpServerTitle,
+                  ),
                 if (aiLocalProvidersSupported &&
                     _app.aiProvider != AiProvider.quillCloud) ...[
                   const Divider(height: 1),

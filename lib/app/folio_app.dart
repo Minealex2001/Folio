@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
@@ -97,6 +98,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   late final DeviceSyncController _deviceSyncController;
   FolioCloudDeviceSyncController? _cloudDeviceSyncController;
   FolioCloudSettingsSyncController? _cloudSettingsSyncController;
+  bool? _lastCloudDeviceSyncShouldRun;
   bool _appProfileRestoreDialogShown = false;
   String? _installedVersionLabel;
   var _openingByHotkey = false;
@@ -299,6 +301,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _lastVaultFlowForTelemetry = nextVault;
     }
     if (widget.session.state == VaultFlowState.locked) {
+      _lastCloudDeviceSyncShouldRun = false;
       unawaited(_cloudDeviceSyncController?.stopWatching());
       unawaited(_cloudSettingsSyncController?.stopWatching());
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -309,6 +312,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         }
       });
     } else if (widget.session.state == VaultFlowState.unlocked) {
+      _lastCloudDeviceSyncShouldRun =
+          _cloudDeviceSyncController?.isEnabled ?? false;
       unawaited(_cloudDeviceSyncController?.start());
       unawaited(_syncCloudSettingsSyncLifecycle());
     }
@@ -835,10 +840,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_syncCloudSettingsSyncLifecycle());
   }
 
-  Future<void> _syncCloudDeviceSyncLifecycle() async {
+  /// Solo relanza/para el controlador cuando el estado efectivo
+  /// (habilitado + libreta desbloqueada) realmente cambia, para no reiniciar
+  /// el listener de Firestore en cada `AppSettings.notifyListeners()` ajeno
+  /// (tema, preferencias, etc.). `force` ignora la cache (p. ej. al reanudar
+  /// la app, donde queremos forzar un refresco aunque el estado no cambiara).
+  Future<void> _syncCloudDeviceSyncLifecycle({bool force = false}) async {
     final ctrl = _cloudDeviceSyncController;
     if (ctrl == null) return;
-    if (ctrl.isEnabled && widget.session.state == VaultFlowState.unlocked) {
+    final shouldRun =
+        ctrl.isEnabled && widget.session.state == VaultFlowState.unlocked;
+    if (!force && shouldRun == _lastCloudDeviceSyncShouldRun) return;
+    _lastCloudDeviceSyncShouldRun = shouldRun;
+    if (shouldRun) {
       await ctrl.start();
     } else {
       await ctrl.stopWatching();
@@ -1481,6 +1495,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_maybeRunScheduledVaultBackup());
       unawaited(_folioCloudEntitlements.handleAppResumed());
+      // El listener de Firestore (o el poll) puede haber muerto/pausado en
+      // background; forzar relanzarlo + un refresco inmediato al volver.
+      unawaited(_syncCloudDeviceSyncLifecycle(force: true));
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
@@ -1495,7 +1512,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final seed = widget.appSettings.resolveAccentSeedColor();
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) => _buildApp(context, lightDynamic),
+    );
+  }
+
+  Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
+    final seed = widget.appSettings.resolveAccentSeedColor(
+      androidDynamicAccent: androidLightDynamic?.primary,
+    );
     return MaterialApp(
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
@@ -1596,6 +1621,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         appSettings: widget.appSettings,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
+        cloudDeviceSyncController: _cloudDeviceSyncController,
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
@@ -2255,6 +2281,7 @@ class _HomeByState extends StatelessWidget {
     required this.appSettings,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
+    this.cloudDeviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -2265,6 +2292,7 @@ class _HomeByState extends StatelessWidget {
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -2306,6 +2334,7 @@ class _HomeByState extends StatelessWidget {
           appSettings: appSettings,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
+          cloudDeviceSyncController: cloudDeviceSyncController,
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,

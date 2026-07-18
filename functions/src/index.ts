@@ -3291,19 +3291,7 @@ export const folioFinalizeDeviceSync = onCall(
     }
 
     const userRef = db.collection("users").doc(uid);
-    const userSnap = await userRef.get();
-    const udata = (userSnap.data() ?? {}) as Record<string, unknown>;
-    let used = folioBackupUsedField(udata);
-    const quota = effectiveBackupQuotaBytes(udata);
-    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
-    const delta = packSize - oldPackSize;
-    const newUsed = Math.max(0, used + delta);
-    if (quota > 0 && newUsed + legacyBytes > quota) {
-      throw new HttpsError(
-        "resource-exhausted",
-        "Se superó la cuota de almacenamiento de copias en la nube."
-      );
-    }
+    const syncRef = userRef.collection("vaultSync").doc(vaultId);
 
     const bucket = admin.storage().bucket();
     const [fileMeta] = await bucket.file(packPath).getMetadata();
@@ -3321,30 +3309,52 @@ export const folioFinalizeDeviceSync = onCall(
       );
     }
 
-    const syncRef = userRef.collection("vaultSync").doc(vaultId);
-    const prevSync = await syncRef.get();
-    const prevRev =
-      typeof prevSync.data()?.rev === "number"
-        ? Math.trunc(prevSync.data()!.rev as number)
-        : 0;
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
 
-    await userRef.update({
-      "folioBackup.usedBytes": newUsed,
-      "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    // Lectura+escritura de `rev` y de la cuota en una única transacción:
+    // dos dispositivos finalizando sync casi a la vez no deben poder leer el
+    // mismo `prevRev`/`usedBytes` y pisarse mutuamente la escritura.
+    const { newUsed, quota, newRev } = await db.runTransaction(async (tx) => {
+      const [userSnap, prevSync] = await Promise.all([
+        tx.get(userRef),
+        tx.get(syncRef),
+      ]);
+      const udata = (userSnap.data() ?? {}) as Record<string, unknown>;
+      const used = folioBackupUsedField(udata);
+      const quota = effectiveBackupQuotaBytes(udata);
+      const delta = packSize - oldPackSize;
+      const newUsed = Math.max(0, used + delta);
+      if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "Se superó la cuota de almacenamiento de copias en la nube."
+        );
+      }
+      const prevRev =
+        typeof prevSync.data()?.rev === "number"
+          ? Math.trunc(prevSync.data()!.rev as number)
+          : 0;
+      const newRev = prevRev + 1;
+
+      tx.update(userRef, {
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        syncRef,
+        {
+          rev: newRev,
+          contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
+          packStoragePath: packPath,
+          packSizeBytes: packSize,
+          deviceId,
+          deviceName,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return { newUsed, quota, newRev };
     });
-
-    await syncRef.set(
-      {
-        rev: prevRev + 1,
-        contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
-        packStoragePath: packPath,
-        packSizeBytes: packSize,
-        deviceId,
-        deviceName,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
 
     if (oldPackPath && oldPackPath !== packPath) {
       try {
@@ -3356,7 +3366,7 @@ export const folioFinalizeDeviceSync = onCall(
 
     return {
       ok: true as const,
-      rev: prevRev + 1,
+      rev: newRev,
       usedBytes: newUsed,
       quotaBytes: quota,
       totalUsedBytes: newUsed + legacyBytes,

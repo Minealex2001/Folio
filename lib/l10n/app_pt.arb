@@ -1110,6 +1110,17 @@
   "folioCloudFeatureBackup": "Backup na nuvem",
   "folioCloudDeviceSyncTitle": "Sincronização entre dispositivos",
   "folioCloudDeviceSyncSubtitle": "Propaga alterações quase instantaneamente aos outros dispositivos (merge por página/bloco; não substitui uma restauração manual).",
+  "folioCloudDeviceSyncStatusSyncing": "A sincronizar…",
+  "folioCloudDeviceSyncStatusError": "Erro de sincronização — a tentar novamente…",
+  "folioCloudDeviceSyncStatusPending": "A aguardar a primeira sincronização…",
+  "folioCloudDeviceSyncStatusSynced": "Sincronizado {time}",
+  "@folioCloudDeviceSyncStatusSynced": {"placeholders": {"time": {}}},
+  "folioCloudDeviceSyncAgoSeconds": "há {seconds} s",
+  "@folioCloudDeviceSyncAgoSeconds": {"placeholders": {"seconds": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoMinutes": "há {minutes} min",
+  "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoHours": "há {hours} h",
+  "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
   "folioCloudSubsectionAccountProfile": "Perfil da conta",
   "folioCloudAppProfileSyncTitle": "Sincronizar definições da app",
   "folioCloudAppProfileSyncSubtitle": "Guarda o tema, IA, atalhos, ícones personalizados e outras preferências na sua conta Folio Cloud (encriptado).",
@@ -1484,7 +1495,7 @@
   "settingsAiChatSplitViewTitle": "Chat Quill em vista dividida",
   "settingsAiChatSplitViewSubtitle": "Mostra o painel de chat ao lado do editor no desktop.",
   "settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)",
-  "settingsAiQuillCopilotExperimentalSubtitle": "Reservado para sugestões em tempo real (sem inferência automática ainda).",
+  "settingsAiQuillCopilotExperimentalSubtitle": "Mostra sugestões de IA em linha enquanto escreves; pressiona Tab para aceitá-las. Requer um provedor de IA configurado.",
   "aiChatApplyInsertEnd": "Inserir blocos no fim",
   "aiChatApplyReplacePage": "Substituir blocos da página",
   "aiChatApplyOperations": "Aplicar operações",
@@ -2331,6 +2342,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "O PDF não contém texto extraível"
   ,"downloadDesktopApp": "Baixar aplicativo para desktop"
+  ,"webDesktopOnlyNotice": "Disponível apenas no aplicativo de desktop"
   ,"appStoreTooltipRefresh": "Atualizar"
   ,"releaseNotesTitle": "Notas da versão"
   ,"releaseNotesContinue": "Continuar"

@@ -61,6 +61,39 @@ class FolioAppProfileCrypto {
     }
   }
 
+  /// `true` si ya hay una clave cacheada para este dispositivo/cuenta —
+  /// permite evitar llamar al callable de restore-wrap quando no hace falta.
+  Future<bool> hasCachedLocalKey(String uid) async {
+    final local = await _readLocalRaw(uid);
+    return local != null && local.isNotEmpty;
+  }
+
+  /// Fuerza adoptar la clave canónica de la cuenta (ignora la clave local ya
+  /// cacheada) y la persiste, sobrescribiendo cualquier clave previa.
+  ///
+  /// Se usa cuando descifrar con la clave local falla con un error de MAC:
+  /// indica que este dispositivo minó su propia clave en una carrera del
+  /// primer push/pull (dos dispositivos "primeros" a la vez) y quedó
+  /// huérfano respecto al resto de la cuenta. Solo funciona con wraps sin
+  /// contraseña (marcador plano); si el wrap remoto está protegido con
+  /// contraseña no hay forma de recuperar automáticamente.
+  Future<SecretKey?> adoptCanonicalKey({
+    required String uid,
+    required String restoreWrapB64,
+  }) async {
+    final wrap = restoreWrapB64.trim();
+    if (wrap.isEmpty) return null;
+    try {
+      final wrapped = base64Decode(wrap);
+      final dek = _tryUnwrapAccountMarker(wrapped);
+      if (dek == null) return null;
+      await _writeLocalRaw(uid, base64Encode(dek));
+      return VaultCrypto.dekFromBytes(dek);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Obtiene o crea la clave local. Si hay [restoreWrapB64] + [password], restaura.
   Future<({SecretKey key, Uint8List? newWrapB64})> ensurePackKey({
     required String uid,

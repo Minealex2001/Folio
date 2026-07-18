@@ -116,6 +116,8 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               padding: EdgeInsets.zero,
               scrollable: false,
               autoFocus: false,
+              onKeyPressed: (event, node) =>
+                  st._handleQuillCopilotTabKey(block.id, event),
             ),
           );
 

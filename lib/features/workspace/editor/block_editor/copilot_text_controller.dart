@@ -20,22 +20,29 @@ class CopilotTextEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    final originalSpan = super.buildTextSpan(
-      context: context,
-      style: style,
-      withComposing: withComposing,
-    );
     if (_suggestion.isEmpty) {
-      return originalSpan;
+      return super.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: withComposing,
+      );
     }
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    // El texto del bloque puede traer un salto de línea final (p. ej. al
+    // reflejar un documento Quill). Si lo dejamos, el span de la sugerencia
+    // queda empujado a una línea nueva y no se ve.
+    var displayText = text;
+    if (displayText.endsWith('\n')) {
+      displayText = displayText.substring(0, displayText.length - 1);
+    }
+
     return TextSpan(
       style: style,
       children: [
-        originalSpan,
+        TextSpan(text: displayText, style: style),
         TextSpan(
           text: _suggestion,
           style: style?.copyWith(

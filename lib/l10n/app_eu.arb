@@ -1111,6 +1111,17 @@
   "folioCloudFeatureBackup": "Hodeiko babeskopia",
   "folioCloudDeviceSyncTitle": "Gailuen arteko sinkronizazioa",
   "folioCloudDeviceSyncSubtitle": "Aldaketak ia berehala hedatzen ditu zure beste gailuetara (orri/bloke merge; ez du eskuzko leheneratzea ordezkatzen).",
+  "folioCloudDeviceSyncStatusSyncing": "Sinkronizatzen…",
+  "folioCloudDeviceSyncStatusError": "Sinkronizazio errorea — berriz saiatzen…",
+  "folioCloudDeviceSyncStatusPending": "Lehen sinkronizazioaren zain…",
+  "folioCloudDeviceSyncStatusSynced": "Sinkronizatuta {time}",
+  "@folioCloudDeviceSyncStatusSynced": {"placeholders": {"time": {}}},
+  "folioCloudDeviceSyncAgoSeconds": "duela {seconds} s",
+  "@folioCloudDeviceSyncAgoSeconds": {"placeholders": {"seconds": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoMinutes": "duela {minutes} min",
+  "@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "folioCloudDeviceSyncAgoHours": "duela {hours} h",
+  "@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}},
   "folioCloudSubsectionAccountProfile": "Kontuaren profila",
   "folioCloudAppProfileSyncTitle": "Aplikazioaren ezarpenak sinkronizatu",
   "folioCloudAppProfileSyncSubtitle": "Gaia, AA, lasterbideak, ikono pertsonalizatuak eta beste hobespenak zure Folio Cloud kontuan gordetzen ditu (zifratuta).",
@@ -1485,7 +1496,7 @@
   "settingsAiChatSplitViewTitle": "Quill txat ikuspegi banatuan",
   "settingsAiChatSplitViewSubtitle": "Mahaigainean txat-panela editorearen ondoan erakusten du.",
   "settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (esperimentala)",
-  "settingsAiQuillCopilotExperimentalSubtitle": "Denbora errealeko iradokizunetarako erreserbatuta (inferentzia automatikorik gabe oraindik).",
+  "settingsAiQuillCopilotExperimentalSubtitle": "IAren lerroko iradokizunak erakusten ditu idatzi ahala; sakatu Tab onartzeko. IA hornitzaile bat konfiguratuta izan behar da.",
   "aiChatApplyInsertEnd": "Txertatu blokeak amaieran",
   "aiChatApplyReplacePage": "Ordezkatu orrialdea",
   "aiChatApplyOperations": "Ezarri eragiketak",
@@ -2332,6 +2343,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
   ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
+  ,"webDesktopOnlyNotice": "Mahaigaineko aplikazioan bakarrik erabilgarri"
   ,"appStoreTooltipRefresh": "Freskatu"
   ,"releaseNotesTitle": "Bertsio oharrak"
   ,"releaseNotesContinue": "Jarraitu"

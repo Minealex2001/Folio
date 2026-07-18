@@ -2719,7 +2719,7 @@ function assertDeviceSyncPackStoragePath(uid, vaultId, raw) {
     return path;
 }
 exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
@@ -2758,16 +2758,7 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
                 : 0;
     }
     const userRef = db.collection("users").doc(uid);
-    const userSnap = await userRef.get();
-    const udata = ((_k = userSnap.data()) !== null && _k !== void 0 ? _k : {});
-    let used = folioBackupUsedField(udata);
-    const quota = effectiveBackupQuotaBytes(udata);
-    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
-    const delta = packSize - oldPackSize;
-    const newUsed = Math.max(0, used + delta);
-    if (quota > 0 && newUsed + legacyBytes > quota) {
-        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
-    }
+    const syncRef = userRef.collection("vaultSync").doc(vaultId);
     const bucket = admin.storage().bucket();
     const [fileMeta] = await bucket.file(packPath).getMetadata();
     const rawSz = fileMeta.size;
@@ -2779,24 +2770,43 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
     if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
         throw new https_1.HttpsError("failed-precondition", "Sync pack not found in storage or size mismatch.");
     }
-    const syncRef = userRef.collection("vaultSync").doc(vaultId);
-    const prevSync = await syncRef.get();
-    const prevRev = typeof ((_l = prevSync.data()) === null || _l === void 0 ? void 0 : _l.rev) === "number"
-        ? Math.trunc(prevSync.data().rev)
-        : 0;
-    await userRef.update({
-        "folioBackup.usedBytes": newUsed,
-        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    // Lectura+escritura de `rev` y de la cuota en una única transacción:
+    // dos dispositivos finalizando sync casi a la vez no deben poder leer el
+    // mismo `prevRev`/`usedBytes` y pisarse mutuamente la escritura.
+    const { newUsed, quota, newRev } = await db.runTransaction(async (tx) => {
+        var _a, _b;
+        const [userSnap, prevSync] = await Promise.all([
+            tx.get(userRef),
+            tx.get(syncRef),
+        ]);
+        const udata = ((_a = userSnap.data()) !== null && _a !== void 0 ? _a : {});
+        const used = folioBackupUsedField(udata);
+        const quota = effectiveBackupQuotaBytes(udata);
+        const delta = packSize - oldPackSize;
+        const newUsed = Math.max(0, used + delta);
+        if (quota > 0 && newUsed + legacyBytes > quota) {
+            throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+        }
+        const prevRev = typeof ((_b = prevSync.data()) === null || _b === void 0 ? void 0 : _b.rev) === "number"
+            ? Math.trunc(prevSync.data().rev)
+            : 0;
+        const newRev = prevRev + 1;
+        tx.update(userRef, {
+            "folioBackup.usedBytes": newUsed,
+            "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        });
+        tx.set(syncRef, {
+            rev: newRev,
+            contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
+            packStoragePath: packPath,
+            packSizeBytes: packSize,
+            deviceId,
+            deviceName,
+            updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        return { newUsed, quota, newRev };
     });
-    await syncRef.set({
-        rev: prevRev + 1,
-        contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
-        packStoragePath: packPath,
-        packSizeBytes: packSize,
-        deviceId,
-        deviceName,
-        updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
     if (oldPackPath && oldPackPath !== packPath) {
         try {
             await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
@@ -2807,7 +2817,7 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
     }
     return {
         ok: true,
-        rev: prevRev + 1,
+        rev: newRev,
         usedBytes: newUsed,
         quotaBytes: quota,
         totalUsedBytes: newUsed + legacyBytes,

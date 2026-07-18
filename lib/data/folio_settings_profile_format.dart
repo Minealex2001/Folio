@@ -82,7 +82,13 @@ class FolioSettingsProfile {
   final String? vaultId;
   final int exportedAtMs;
 
-  Map<String, Object?> toJson() => <String, Object?>{
+  /// `includeExportedAt: false` produce una vista estable del contenido, sin
+  /// la marca de tiempo de exportación — usada para calcular el fingerprint
+  /// de "¿cambió algo de verdad?" (si se incluyera `exportedAtMs`, que es
+  /// `DateTime.now()` en cada build, el fingerprint cambiaría en cada
+  /// intento aunque los ajustes fueran idénticos, forzando una resubida).
+  Map<String, Object?> toJson({bool includeExportedAt = true}) =>
+      <String, Object?>{
         'formatVersion': formatVersion,
         'kind': folioSettingsProfileKindWire(kind),
         'settings': settings,
@@ -95,10 +101,12 @@ class FolioSettingsProfile {
               e.key: e.value.map((i) => i.toJson()).toList(growable: false),
           },
         if (vaultId != null && vaultId!.isNotEmpty) 'vaultId': vaultId,
-        if (exportedAtMs > 0) 'exportedAtMs': exportedAtMs,
+        if (includeExportedAt && exportedAtMs > 0)
+          'exportedAtMs': exportedAtMs,
       };
 
-  List<int> encodeUtf8() => utf8.encode(jsonEncode(toJson()));
+  List<int> encodeUtf8({bool includeExportedAt = true}) =>
+      utf8.encode(jsonEncode(toJson(includeExportedAt: includeExportedAt)));
 
   factory FolioSettingsProfile.fromJson(Map<String, dynamic> j) {
     final kind = folioSettingsProfileKindParse(j['kind']?.toString()) ??

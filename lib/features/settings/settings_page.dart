@@ -29,6 +29,7 @@ import '../../app/widgets/vault_backup_progress_dialog.dart';
 import '../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/folio_error_card.dart';
+import '../../app/widgets/web_desktop_only_notice.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -54,6 +55,7 @@ import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
@@ -136,6 +138,7 @@ class SettingsPage extends StatefulWidget {
     required this.appSettings,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
+    this.cloudDeviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     this.initialSection,
@@ -145,6 +148,7 @@ class SettingsPage extends StatefulWidget {
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final String? initialSection;
@@ -1561,6 +1565,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         _cloud,
                                         _folio,
                                         _app,
+                                        if (widget.cloudDeviceSyncController !=
+                                            null)
+                                          widget.cloudDeviceSyncController!,
                                       ]),
                                       builder: (context, _) {
                                         if (!_folio.isAvailable) {
@@ -1623,6 +1630,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _openPublishedPagesDialog,
                                           cloudDeviceSyncEnabled:
                                               _app.cloudDeviceSyncEnabled,
+                                          cloudDeviceSyncController:
+                                              widget.cloudDeviceSyncController,
                                           onCloudDeviceSyncChanged: (v) {
                                             unawaited(
                                               _app.setCloudDeviceSyncEnabled(v),
@@ -1708,43 +1717,52 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const Divider(height: 1),
                                     if (_s.vaultUsesEncryption) ...[
-                                      ListTile(
-                                        leading: const Icon(Icons.fingerprint),
-                                        title: Text(l10n.quickUnlockTitle),
-                                        subtitle: Text(
-                                          _quickEnabled
-                                              ? l10n.active
-                                              : l10n.inactive,
-                                        ),
-                                        trailing: _quickEnabled
-                                            ? TextButton(
-                                                onPressed: () async {
-                                                  await _s.disableQuickUnlock();
-                                                  await _refreshSecurityFlags();
-                                                  _snack(
-                                                    l10n.quickUnlockDisabledSnack,
-                                                  );
-                                                },
-                                                child: Text(l10n.remove),
-                                              )
-                                            : FilledButton.tonal(
-                                                onPressed: () async {
-                                                  try {
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.fingerprint,
+                                          title: l10n.quickUnlockTitle,
+                                        )
+                                      else
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.fingerprint,
+                                          ),
+                                          title: Text(l10n.quickUnlockTitle),
+                                          subtitle: Text(
+                                            _quickEnabled
+                                                ? l10n.active
+                                                : l10n.inactive,
+                                          ),
+                                          trailing: _quickEnabled
+                                              ? TextButton(
+                                                  onPressed: () async {
                                                     await _s
-                                                        .enableDeviceQuickUnlock();
+                                                        .disableQuickUnlock();
                                                     await _refreshSecurityFlags();
                                                     _snack(
-                                                      l10n.quickUnlockEnabledSnack,
+                                                      l10n.quickUnlockDisabledSnack,
                                                     );
-                                                  } catch (e) {
-                                                    _snack(
-                                                      '${l10n.quickUnlockEnableFailed} $e',
-                                                    );
-                                                  }
-                                                },
-                                                child: Text(l10n.enable),
-                                              ),
-                                      ),
+                                                  },
+                                                  child: Text(l10n.remove),
+                                                )
+                                              : FilledButton.tonal(
+                                                  onPressed: () async {
+                                                    try {
+                                                      await _s
+                                                          .enableDeviceQuickUnlock();
+                                                      await _refreshSecurityFlags();
+                                                      _snack(
+                                                        l10n.quickUnlockEnabledSnack,
+                                                      );
+                                                    } catch (e) {
+                                                      _snack(
+                                                        '${l10n.quickUnlockEnableFailed} $e',
+                                                      );
+                                                    }
+                                                  },
+                                                  child: Text(l10n.enable),
+                                                ),
+                                        ),
                                       const Divider(height: 1),
                                       ListTile(
                                         leading: const Icon(Icons.key_rounded),
@@ -2943,33 +2961,33 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                       onTap: _reportBugFlow,
                                     ),
-                                    const Divider(height: 1),
-                                    SwitchListTile(
-                                      secondary: const Icon(
-                                        Icons.desktop_windows,
+                                    if (!kIsWeb &&
+                                        defaultTargetPlatform ==
+                                            TargetPlatform.windows) ...[
+                                      const Divider(height: 1),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.desktop_windows,
+                                        ),
+                                        title: Text(
+                                          l10n.settingsWindowsScaleFollowTitle,
+                                        ),
+                                        subtitle: Text(
+                                          l10n
+                                              .settingsWindowsScaleFollowSubtitle,
+                                        ),
+                                        value:
+                                            _app.uiScaleMode ==
+                                            UiScaleMode.followWindows,
+                                        onChanged: (value) {
+                                          _app.setUiScaleMode(
+                                            value
+                                                ? UiScaleMode.followWindows
+                                                : UiScaleMode.manual,
+                                          );
+                                        },
                                       ),
-                                      title: Text(
-                                        l10n.settingsWindowsScaleFollowTitle,
-                                      ),
-                                      subtitle: Text(
-                                        l10n.settingsWindowsScaleFollowSubtitle,
-                                      ),
-                                      value:
-                                          _app.uiScaleMode ==
-                                          UiScaleMode.followWindows,
-                                      onChanged:
-                                          !kIsWeb &&
-                                              defaultTargetPlatform ==
-                                                  TargetPlatform.windows
-                                          ? (value) {
-                                              _app.setUiScaleMode(
-                                                value
-                                                    ? UiScaleMode.followWindows
-                                                    : UiScaleMode.manual,
-                                              );
-                                            }
-                                          : null,
-                                    ),
+                                    ],
                                     const Divider(height: 1),
                                     ListTile(
                                       leading: const Icon(
@@ -3704,168 +3722,186 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ],
                                       ),
                                       const Divider(height: 1),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          12,
-                                          16,
-                                          12,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Icon(
-                                                  Icons.keyboard_rounded,
-                                                  color:
-                                                      scheme.onSurfaceVariant,
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        l10n.globalSearchHotkey,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleMedium
-                                                            ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.keyboard_rounded,
+                                          title: l10n.globalSearchHotkey,
+                                        )
+                                      else
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            12,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Icon(
+                                                    Icons.keyboard_rounded,
+                                                    color:
+                                                        scheme.onSurfaceVariant,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          l10n.globalSearchHotkey,
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .titleMedium
+                                                              ?.copyWith(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          _app.enableGlobalSearchHotkey
+                                                              ? l10n.hotkeyCombination
+                                                              : l10n.inactive,
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                color: scheme
+                                                                    .onSurfaceVariant,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Switch(
+                                                    value: _app
+                                                        .enableGlobalSearchHotkey,
+                                                    onChanged: _app
+                                                        .setEnableGlobalSearchHotkey,
+                                                  ),
+                                                ],
+                                              ),
+                                              if (_app
+                                                  .enableGlobalSearchHotkey) ...[
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  l10n.hotkeyCombination,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .labelLarge
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        _app.enableGlobalSearchHotkey
-                                                            ? l10n.hotkeyCombination
-                                                            : l10n.inactive,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: scheme
-                                                                  .onSurfaceVariant,
-                                                            ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                      color:
+                                                          scheme.outlineVariant,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: DropdownButton<String>(
+                                                    isExpanded: true,
+                                                    value:
+                                                        _app.globalSearchHotkey,
+                                                    underline:
+                                                        const SizedBox.shrink(),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    items: [
+                                                      DropdownMenuItem(
+                                                        value: 'Alt+Space',
+                                                        child: Text(
+                                                          l10n.hotkeyAltSpace,
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+Space',
+                                                        child: Text(
+                                                          l10n.hotkeyCtrlShiftSpace,
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+K',
+                                                        child: Text(
+                                                          l10n.hotkeyCtrlShiftK,
+                                                        ),
+                                                      ),
+                                                      const DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+F',
+                                                        child: Text(
+                                                          'Ctrl + Shift + F',
+                                                        ),
+                                                      ),
+                                                      const DropdownMenuItem(
+                                                        value: 'Ctrl+Alt+Space',
+                                                        child: Text(
+                                                          'Ctrl + Alt + Space',
+                                                        ),
                                                       ),
                                                     ],
+                                                    onChanged: (value) {
+                                                      if (value != null) {
+                                                        _app.setGlobalSearchHotkey(
+                                                          value,
+                                                        );
+                                                      }
+                                                    },
                                                   ),
-                                                ),
-                                                Switch(
-                                                  value: _app
-                                                      .enableGlobalSearchHotkey,
-                                                  onChanged: _app
-                                                      .setEnableGlobalSearchHotkey,
                                                 ),
                                               ],
-                                            ),
-                                            if (_app
-                                                .enableGlobalSearchHotkey) ...[
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                l10n.hotkeyCombination,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .labelLarge
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color:
-                                                        scheme.outlineVariant,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: DropdownButton<String>(
-                                                  isExpanded: true,
-                                                  value:
-                                                      _app.globalSearchHotkey,
-                                                  underline:
-                                                      const SizedBox.shrink(),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  items: [
-                                                    DropdownMenuItem(
-                                                      value: 'Alt+Space',
-                                                      child: Text(
-                                                        l10n.hotkeyAltSpace,
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+Space',
-                                                      child: Text(
-                                                        l10n.hotkeyCtrlShiftSpace,
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+K',
-                                                      child: Text(
-                                                        l10n.hotkeyCtrlShiftK,
-                                                      ),
-                                                    ),
-                                                    const DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+F',
-                                                      child: Text(
-                                                        'Ctrl + Shift + F',
-                                                      ),
-                                                    ),
-                                                    const DropdownMenuItem(
-                                                      value: 'Ctrl+Alt+Space',
-                                                      child: Text(
-                                                        'Ctrl + Alt + Space',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  onChanged: (value) {
-                                                    if (value != null) {
-                                                      _app.setGlobalSearchHotkey(
-                                                        value,
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              ),
                                             ],
-                                          ],
+                                          ),
                                         ),
-                                      ),
                                       const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.minimize_outlined,
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.minimize_outlined,
+                                          title: l10n.minimizeToTray,
+                                        )
+                                      else
+                                        SwitchListTile(
+                                          secondary: const Icon(
+                                            Icons.minimize_outlined,
+                                          ),
+                                          title: Text(l10n.minimizeToTray),
+                                          value: _app.minimizeToTray,
+                                          onChanged: _app.setMinimizeToTray,
                                         ),
-                                        title: Text(l10n.minimizeToTray),
-                                        value: _app.minimizeToTray,
-                                        onChanged: _app.setMinimizeToTray,
-                                      ),
                                       const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.close_rounded,
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.close_rounded,
+                                          title: l10n.closeToTray,
+                                        )
+                                      else
+                                        SwitchListTile(
+                                          secondary: const Icon(
+                                            Icons.close_rounded,
+                                          ),
+                                          title: Text(l10n.closeToTray),
+                                          value: _app.closeToTray,
+                                          onChanged: _app.setCloseToTray,
                                         ),
-                                        title: Text(l10n.closeToTray),
-                                        value: _app.closeToTray,
-                                        onChanged: _app.setCloseToTray,
-                                      ),
                                       if (!kIsWeb &&
                                           defaultTargetPlatform ==
                                               TargetPlatform.windows) ...[
@@ -3899,6 +3935,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                           value: _app.launchAtStartupEnabled,
                                           onChanged:
                                               _app.setLaunchAtStartupEnabled,
+                                        ),
+                                      ] else if (kIsWeb) ...[
+                                        const Divider(height: 1),
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.rocket_launch_outlined,
+                                          title: l10n.settingsLaunchAtStartup,
                                         ),
                                       ],
                                       const Divider(height: 1),

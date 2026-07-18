@@ -784,9 +784,20 @@ class AppSettings extends ChangeNotifier {
   bool get oledThemeEnabled => _oledThemeEnabled;
 
   /// Semilla de color para temas claro/oscuro (Material 3).
-  Color resolveAccentSeedColor() {
+  ///
+  /// [androidDynamicAccent] es el color de acento de Material You obtenido en
+  /// tiempo de ejecución (vía `dynamic_color`) en Android 12+. `system_theme`
+  /// solo puede leer el acento estático heredado en Android, no el color
+  /// dinámico basado en el fondo de pantalla, así que se prioriza este valor
+  /// cuando está disponible.
+  Color resolveAccentSeedColor({Color? androidDynamicAccent}) {
     switch (_accentColorMode) {
       case FolioAccentColorMode.followSystem:
+        if (!kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            androidDynamicAccent != null) {
+          return androidDynamicAccent;
+        }
         return SystemTheme.accentColor.accent;
       case FolioAccentColorMode.folioDefault:
         return const Color(0xFF455A64);

@@ -79,3 +79,5 @@ analyze_out.txt
 flutter_run.txt
 flutter_test_output*.txt
 flutter_*.png
+.vercel
+.env*

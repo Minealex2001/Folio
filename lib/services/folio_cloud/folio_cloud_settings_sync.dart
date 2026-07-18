@@ -266,23 +266,72 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw StateError('Not signed in');
 
+    // Si ya hay clave cacheada para este dispositivo, se usa directamente:
+    // no hace falta preguntar al servidor por el wrap.
+    if (await _crypto.hasCachedLocalKey(uid)) {
+      return _crypto.ensurePackKey(uid: uid, restorePassword: password);
+    }
+
+    // Sin clave local todavía: hay que saber si el servidor ya tiene una
+    // clave canónica de cuenta antes de decidir generar una nueva. Si el
+    // callable falla (red, cold start...), propagamos el error en vez de
+    // asumir "no hay wrap" — hacerlo silenciosamente generaría una clave
+    // propia que fragmentaría el cifrado entre dispositivos para siempre
+    // (la clave local, una vez cacheada, no se vuelve a re-verificar).
+    final wrapRes = await callFolioHttpsCallable(
+      'folioGetAppProfileRestoreWrap',
+      <String, dynamic>{},
+    );
     String? wrapB64;
-    try {
-      final wrapRes = await callFolioHttpsCallable(
-        'folioGetAppProfileRestoreWrap',
-        <String, dynamic>{},
-      );
-      if (wrapRes is Map) {
-        final w = '${wrapRes['restoreWrapB64'] ?? ''}'.trim();
-        if (w.isNotEmpty) wrapB64 = w;
-      }
-    } catch (_) {}
+    if (wrapRes is Map) {
+      final w = '${wrapRes['restoreWrapB64'] ?? ''}'.trim();
+      if (w.isNotEmpty) wrapB64 = w;
+    }
 
     return _crypto.ensurePackKey(
       uid: uid,
       restoreWrapB64: wrapB64,
       restorePassword: password,
     );
+  }
+
+  /// Descifra un pack de perfil con recuperación de un solo intento: si la
+  /// clave local no coincide (MAC inválida), reintenta adoptando la clave
+  /// canónica de la cuenta desde el servidor (ver `adoptCanonicalKey`).
+  Future<Uint8List> _decryptProfileWithRecovery({
+    required String uid,
+    required SecretKey key,
+    required Uint8List cipher,
+  }) async {
+    try {
+      return await FolioAppProfileCrypto.decryptProfile(
+        blob: cipher,
+        packKey: key,
+      );
+    } on SecretBoxAuthenticationError {
+      final wrapRes = await callFolioHttpsCallable(
+        'folioGetAppProfileRestoreWrap',
+        <String, dynamic>{},
+      );
+      final wrapB64 = wrapRes is Map
+          ? '${wrapRes['restoreWrapB64'] ?? ''}'.trim()
+          : '';
+      final recovered = wrapB64.isEmpty
+          ? null
+          : await _crypto.adoptCanonicalKey(
+              uid: uid,
+              restoreWrapB64: wrapB64,
+            );
+      if (recovered == null) rethrow;
+      AppLogger.warn(
+        'app profile local key mismatched canonical key; recovered from server wrap',
+        tag: 'settings_sync',
+      );
+      return FolioAppProfileCrypto.decryptProfile(
+        blob: cipher,
+        packKey: recovered,
+      );
+    }
   }
 
   /// Usuario elige «empezar de nuevo»: no importa el remoto; sube el local.
@@ -337,9 +386,13 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       }
 
       // Fingerprint local ANTES de red: evita callables si no hay cambio real.
+      // Se calcula sobre la vista estable (sin `exportedAtMs`, que cambia en
+      // cada build) para no forzar una resubida cuando nada cambió de verdad.
       final profile = _builder.buildAppProfile(_settings);
       final plain = profile.encodeUtf8();
-      final fp = await FolioAppProfileCrypto.fingerprint(plain);
+      final fp = await FolioAppProfileCrypto.fingerprint(
+        profile.encodeUtf8(includeExportedAt: false),
+      );
       if (fp == _lastAppFp) {
         _appDirty = false;
         return true;
@@ -487,9 +540,10 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       if (cipher == null || cipher.isEmpty) {
         throw StateError('Empty app profile pack');
       }
-      final plain = await FolioAppProfileCrypto.decryptProfile(
-        blob: cipher,
-        packKey: resolved.key,
+      final plain = await _decryptProfileWithRecovery(
+        uid: uid,
+        key: resolved.key,
+        cipher: cipher,
       );
       final profile = FolioSettingsProfile.decodeUtf8(plain);
 
@@ -626,14 +680,10 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         vaultId: vid,
       );
       final plain = profile.encodeUtf8();
-      final fp = await FolioAppProfileCrypto.fingerprint(plain);
-      debugPrint(
-        '[settings_sync] vault push step=encrypt '
-        'plainBytes=${plain.length} secrets=${profile.secrets.length}',
-      );
-      final cipher = await FolioAppProfileCrypto.encryptProfile(
-        plain: plain,
-        packKey: resolved.key,
+      // Fingerprint estable (sin `exportedAtMs`): evita resubir si el
+      // contenido real no cambió desde el último push/pull conocido.
+      final fp = await FolioAppProfileCrypto.fingerprint(
+        profile.encodeUtf8(includeExportedAt: false),
       );
 
       debugPrint('[settings_sync] vault push step=meta vaultId=$vid');
@@ -651,6 +701,23 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       } catch (e) {
         debugPrint('[settings_sync] vault push meta fetch failed (ok if first): $e');
       }
+
+      final remoteFp = '${prev?['contentFingerprint'] ?? ''}'.trim();
+      if (remoteFp.isNotEmpty && remoteFp == fp) {
+        debugPrint('[settings_sync] vault push skipped: no content change vaultId=$vid');
+        _lastError = null;
+        _setStatus('idle');
+        return true;
+      }
+
+      debugPrint(
+        '[settings_sync] vault push step=encrypt '
+        'plainBytes=${plain.length} secrets=${profile.secrets.length}',
+      );
+      final cipher = await FolioAppProfileCrypto.encryptProfile(
+        plain: plain,
+        packKey: resolved.key,
+      );
 
       final stamp =
           DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
@@ -720,6 +787,12 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _setStatus('pulling_vault');
     _lastError = null;
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        _lastError = 'not_signed_in';
+        debugPrint('[settings_sync] vault restore skipped: not signed in');
+        return false;
+      }
       debugPrint('[settings_sync] vault restore step=meta vaultId=$vid');
       final res = await callFolioHttpsCallable(
         'folioGetVaultProfileMeta',
@@ -760,9 +833,10 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       debugPrint(
         '[settings_sync] vault restore step=decrypt bytes=${cipher.length}',
       );
-      final plain = await FolioAppProfileCrypto.decryptProfile(
-        blob: cipher,
-        packKey: resolved.key,
+      final plain = await _decryptProfileWithRecovery(
+        uid: uid,
+        key: resolved.key,
+        cipher: cipher,
       );
       final profile = FolioSettingsProfile.decodeUtf8(plain);
       debugPrint(

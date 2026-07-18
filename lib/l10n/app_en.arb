@@ -1109,6 +1109,17 @@
   ,"folioCloudFeatureBackup": "Cloud backup"
   ,"folioCloudDeviceSyncTitle": "Sync across devices"
   ,"folioCloudDeviceSyncSubtitle": "Propagates changes almost instantly to your other devices (page/block merge; does not replace a manual restore)."
+  ,"folioCloudDeviceSyncStatusSyncing": "Syncing…"
+  ,"folioCloudDeviceSyncStatusError": "Sync error — retrying…"
+  ,"folioCloudDeviceSyncStatusPending": "Waiting for first sync…"
+  ,"folioCloudDeviceSyncStatusSynced": "Synced {time}"
+  ,"@folioCloudDeviceSyncStatusSynced": {"placeholders": {"time": {}}}
+  ,"folioCloudDeviceSyncAgoSeconds": "{seconds}s ago"
+  ,"@folioCloudDeviceSyncAgoSeconds": {"placeholders": {"seconds": {"type": "int"}}}
+  ,"folioCloudDeviceSyncAgoMinutes": "{minutes}m ago"
+  ,"@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}}
+  ,"folioCloudDeviceSyncAgoHours": "{hours}h ago"
+  ,"@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}}
   ,"folioCloudSubsectionAccountProfile": "Account profile"
   ,"folioCloudAppProfileSyncTitle": "Sync app settings"
   ,"folioCloudAppProfileSyncSubtitle": "Backs up theme, AI, shortcuts, custom icons and other preferences to your Folio Cloud account (encrypted)."
@@ -1483,7 +1494,7 @@
   ,"settingsAiChatSplitViewTitle": "Quill chat split view"
   ,"settingsAiChatSplitViewSubtitle": "Shows the chat panel beside the editor on desktop."
   ,"settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (experimental)"
-  ,"settingsAiQuillCopilotExperimentalSubtitle": "Reserved for live writing suggestions (no auto inference yet)."
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Shows inline AI suggestions as you type; press Tab to accept. Requires a configured AI provider."
   ,"aiChatApplyInsertEnd": "Insert blocks at end"
   ,"aiChatApplyReplacePage": "Replace page blocks"
   ,"aiChatApplyOperations": "Apply edit operations"
@@ -2332,6 +2343,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "The PDF contains no extractable text"
   ,"downloadDesktopApp": "Download desktop app"
+  ,"webDesktopOnlyNotice": "Only available in the desktop app"
   ,"appStoreTooltipRefresh": "Refresh"
   ,"releaseNotesTitle": "Release notes"
   ,"releaseNotesContinue": "Continue"

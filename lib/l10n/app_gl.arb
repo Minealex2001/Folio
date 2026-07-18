@@ -1112,6 +1112,17 @@
   ,"folioCloudFeatureBackup": "Copia na nube"
   ,"folioCloudDeviceSyncTitle": "Sincronización entre dispositivos"
   ,"folioCloudDeviceSyncSubtitle": "Propaga cambios case ao instante aos outros dispositivos (merge por páxina/bloque; non substitúe unha restauración manual)."
+  ,"folioCloudDeviceSyncStatusSyncing": "Sincronizando…"
+  ,"folioCloudDeviceSyncStatusError": "Erro de sincronización — reintentando…"
+  ,"folioCloudDeviceSyncStatusPending": "Agardando a primeira sincronización…"
+  ,"folioCloudDeviceSyncStatusSynced": "Sincronizado {time}"
+  ,"@folioCloudDeviceSyncStatusSynced": {"placeholders": {"time": {}}}
+  ,"folioCloudDeviceSyncAgoSeconds": "hai {seconds} s"
+  ,"@folioCloudDeviceSyncAgoSeconds": {"placeholders": {"seconds": {"type": "int"}}}
+  ,"folioCloudDeviceSyncAgoMinutes": "hai {minutes} min"
+  ,"@folioCloudDeviceSyncAgoMinutes": {"placeholders": {"minutes": {"type": "int"}}}
+  ,"folioCloudDeviceSyncAgoHours": "hai {hours} h"
+  ,"@folioCloudDeviceSyncAgoHours": {"placeholders": {"hours": {"type": "int"}}}
   ,"folioCloudSubsectionAccountProfile": "Perfil da conta"
   ,"folioCloudAppProfileSyncTitle": "Sincronizar axustes da app"
   ,"folioCloudAppProfileSyncSubtitle": "Garda o tema, a IA, os atallos, as iconas personalizadas e outras preferencias na túa conta Folio Cloud (cifrado)."
@@ -1486,7 +1497,7 @@
   ,"settingsAiChatSplitViewTitle": "Chat Quill en vista dividida"
   ,"settingsAiChatSplitViewSubtitle": "Mostra o panel de chat xunto ao editor no escritorio."
   ,"settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)"
-  ,"settingsAiQuillCopilotExperimentalSubtitle": "Reservado para suxestións en tempo real (sen inferencia automática aínda)."
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Mostra suxestións de IA en liña mentres escribes; preme Tab para aceptalas. Require un provedor de IA configurado."
   ,"aiChatApplyInsertEnd": "Inserir bloques ao final"
   ,"aiChatApplyReplacePage": "Substituír a páxina"
   ,"aiChatApplyOperations": "Aplicar operacións"
@@ -2333,6 +2344,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "O PDF non conteñ texto extraíble"
   ,"downloadDesktopApp": "Descargar a aplicación de escritorio"
+  ,"webDesktopOnlyNotice": "Só dispoñible na aplicación de escritorio"
   ,"appStoreTooltipRefresh": "Actualizar"
   ,"releaseNotesTitle": "Notas de versión"
   ,"releaseNotesContinue": "Continuar"

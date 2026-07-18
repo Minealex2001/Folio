@@ -120,6 +120,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.onOpenBackups,
     required this.onPublishedPages,
     required this.cloudDeviceSyncEnabled,
+    this.cloudDeviceSyncController,
     required this.onCloudDeviceSyncChanged,
     required this.cloudAppProfileSyncEnabled,
     required this.onCloudAppProfileSyncChanged,
@@ -150,11 +151,66 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
   final bool cloudDeviceSyncEnabled;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final ValueChanged<bool> onCloudDeviceSyncChanged;
   final bool cloudAppProfileSyncEnabled;
   final ValueChanged<bool> onCloudAppProfileSyncChanged;
   final VoidCallback? onUploadAppProfile;
   final VoidCallback? onRestoreAppProfile;
+
+  Widget _buildDeviceSyncStatus(
+    BuildContext context,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+  ) {
+    final ctrl = cloudDeviceSyncController;
+    if (ctrl == null) return const SizedBox.shrink();
+    final status = ctrl.statusMessage;
+    late final String text;
+    late final IconData icon;
+    Color? color;
+    if (status == 'pushing' || status == 'pulling') {
+      text = l10n.folioCloudDeviceSyncStatusSyncing;
+      icon = Icons.sync;
+    } else if (status == 'error') {
+      text = l10n.folioCloudDeviceSyncStatusError;
+      icon = Icons.error_outline;
+      color = scheme.error;
+    } else if (ctrl.lastSyncSuccessMs > 0) {
+      final ago = DateTime.now().millisecondsSinceEpoch - ctrl.lastSyncSuccessMs;
+      text = l10n.folioCloudDeviceSyncStatusSynced(_formatSyncAgo(ago, l10n));
+      icon = Icons.check_circle_outline;
+    } else {
+      text = l10n.folioCloudDeviceSyncStatusPending;
+      icon = Icons.hourglass_empty;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color ?? scheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color ?? scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatSyncAgo(int millisAgo, AppLocalizations l10n) {
+    final seconds = (millisAgo / 1000).floor();
+    if (seconds < 60) return l10n.folioCloudDeviceSyncAgoSeconds(seconds);
+    final minutes = (seconds / 60).floor();
+    if (minutes < 60) return l10n.folioCloudDeviceSyncAgoMinutes(minutes);
+    final hours = (minutes / 60).floor();
+    return l10n.folioCloudDeviceSyncAgoHours(hours);
+  }
 
   Future<void> _showInkPricingTable(BuildContext context) {
     const preferredOrder = <String>[
@@ -1076,6 +1132,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             value: cloudDeviceSyncEnabled,
             onChanged: busy ? null : onCloudDeviceSyncChanged,
           ),
+        if (snap.canUseCloudBackup && cloudDeviceSyncEnabled)
+          _buildDeviceSyncStatus(context, scheme, l10n),
         if (snap.canUseCloudBackup) ...[
           _SettingsSubsectionTitle(
             title: l10n.folioCloudSubsectionAccountProfile,

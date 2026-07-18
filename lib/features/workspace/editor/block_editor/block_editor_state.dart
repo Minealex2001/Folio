@@ -30,6 +30,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final Map<String, void Function()> _quillPersistByBlockId = {};
   final Map<String, void Function()> _quillFlushNowByBlockId = {};
   Timer? _quillCopilotProbeTimer;
+  String? _quillCopilotSuggestionBlockId;
+  String? _quillCopilotSuggestionText;
+  OverlayEntry? _quillCopilotOverlayEntry;
+  bool _quillCopilotOverlayPostFrameScheduled = false;
   final Map<String, String> _quillLastMdByBlockId = {};
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
@@ -384,6 +388,146 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     overlayState.insert(_formatToolbarOverlayEntry!);
   }
 
+  void _removeQuillCopilotOverlay() {
+    _quillCopilotOverlayEntry?.remove();
+    _quillCopilotOverlayEntry = null;
+  }
+
+  void _scheduleQuillCopilotOverlayUpdate() {
+    if (_quillCopilotOverlayPostFrameScheduled) return;
+    _quillCopilotOverlayPostFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quillCopilotOverlayPostFrameScheduled = false;
+      if (!mounted) return;
+      _updateQuillCopilotOverlay();
+    });
+  }
+
+  void _updateQuillCopilotOverlay() {
+    if (!mounted || widget.readOnlyMode) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    final bid = _quillCopilotSuggestionBlockId;
+    final suggestion = _quillCopilotSuggestionText;
+    if (bid == null || suggestion == null || suggestion.isEmpty) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final page = _s.selectedPage;
+    if (page == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == bid) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || !_stylableBlockTypes.contains(block.type)) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    if (_slashBlockId == bid || _mentionBlockId == bid) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final idx = _controllerBlockIds.indexOf(bid);
+    if (idx < 0 || idx >= _focusNodes.length) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    if (!_focusNodes[idx].hasFocus) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final qc = _quillByBlockId[bid];
+    if (qc == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final hostKey = _formatToolbarHostKeys[bid];
+    final hostCtx = hostKey?.currentContext;
+    if (hostCtx == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    final raw = _findQuillRawEditorState(hostCtx);
+    if (raw == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final renderEditor = raw.renderEditor;
+    final localRect = renderEditor.getLocalRectForCaret(qc.selection.extent);
+    final globalPoint = renderEditor.localToGlobal(localRect.topRight);
+
+    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlayState == null) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    final baseStyle = _styleFor(block.type, Theme.of(context).textTheme);
+    final media = MediaQuery.sizeOf(context);
+    final maxW = math.max(40.0, media.width - globalPoint.dx - 8.0);
+
+    _quillCopilotOverlayEntry?.remove();
+    _quillCopilotOverlayEntry = OverlayEntry(
+      builder: (overlayCtx) {
+        return Stack(
+          children: [
+            Positioned(
+              left: globalPoint.dx,
+              top: globalPoint.dy,
+              width: maxW,
+              child: IgnorePointer(
+                child: Text(
+                  suggestion,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: baseStyle.copyWith(
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    overlayState.insert(_quillCopilotOverlayEntry!);
+  }
+
+  KeyEventResult? _handleQuillCopilotTabKey(String blockId, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.tab) return null;
+    if (event is! KeyDownEvent) return null;
+    if (_quillCopilotSuggestionBlockId != blockId) return null;
+    final suggestion = _quillCopilotSuggestionText;
+    if (suggestion == null || suggestion.isEmpty) return null;
+    final qc = _quillByBlockId[blockId];
+    if (qc == null) return null;
+
+    final offset = qc.selection.baseOffset;
+    _quillCopilotSuggestionBlockId = null;
+    _quillCopilotSuggestionText = null;
+    _removeQuillCopilotOverlay();
+
+    qc.replaceText(offset, 0, suggestion, null);
+    qc.updateSelection(
+      TextSelection.collapsed(offset: offset + suggestion.length),
+      quill.ChangeSource.local,
+    );
+    _quillFlushNowByBlockId[blockId]?.call();
+    _scheduleQuillCopilotProbe(blockId);
+    return KeyEventResult.handled;
+  }
+
   quill.QuillController _ensureQuillController({
     required String pageId,
     required FolioBlock block,
@@ -475,6 +619,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           flushNow();
         },
       );
+      if (_quillCopilotSuggestionBlockId != null) {
+        _quillCopilotSuggestionBlockId = null;
+        _quillCopilotSuggestionText = null;
+        _scheduleQuillCopilotOverlayUpdate();
+      }
       _scheduleQuillCopilotProbe(block.id);
     }
 
@@ -839,14 +988,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final p = _s.selectedPage;
       if (p == null) return;
       final idx = p.blocks.indexWhere((x) => x.id == blockId);
-      if (idx < 0 || idx >= _controllers.length) return;
+      if (idx < 0) return;
+      final block = p.blocks[idx];
+      final isStylable = _stylableBlockTypes.contains(block.type);
 
-      final ctrl = _controllers[idx];
-      if (ctrl is! CopilotTextEditingController) return;
+      final quill.QuillController? qc = isStylable ? _quillByBlockId[blockId] : null;
+      final CopilotTextEditingController? ctrl =
+          !isStylable && idx < _controllers.length
+              ? (_controllers[idx] is CopilotTextEditingController
+                  ? _controllers[idx] as CopilotTextEditingController
+                  : null)
+              : null;
+      if (isStylable ? qc == null : ctrl == null) return;
 
-      final text = ctrl.text;
-      final selection = ctrl.selection;
-      if (!selection.isValid || !selection.isCollapsed || selection.end != text.length) return;
+      final text = isStylable ? qc!.document.toPlainText() : ctrl!.text;
+      final selection = isStylable ? qc!.selection : ctrl!.selection;
+      // El texto del bloque (o `Document.toPlainText()`) puede traer un
+      // salto de línea final; el cursor "al final" se sitúa antes de ese
+      // carácter, no después.
+      final effectiveLength = text.endsWith('\n') ? text.length - 1 : text.length;
+      if (!selection.isValid || !selection.isCollapsed || selection.end != effectiveLength) return;
       if (text.trim().isEmpty) return;
 
       try {
@@ -865,8 +1026,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           ),
         );
         final suggestionText = response.text.trim();
-        if (suggestionText.isNotEmpty && mounted) {
-          if (ctrl.text == text && ctrl.selection == selection) {
+        if (suggestionText.isEmpty || !mounted) return;
+
+        if (isStylable) {
+          final currentText = qc!.document.toPlainText();
+          if (currentText == text && qc.selection == selection) {
+            setState(() {
+              _quillCopilotSuggestionBlockId = blockId;
+              _quillCopilotSuggestionText = suggestionText;
+            });
+            _scheduleQuillCopilotOverlayUpdate();
+          }
+        } else {
+          if (ctrl!.text == text && ctrl.selection == selection) {
             setState(() {
               ctrl.suggestion = suggestionText;
             });
@@ -3286,6 +3458,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _quillCopilotProbeTimer?.cancel();
     _blockListScrollController.removeListener(_scheduleFormatToolbarOverlayUpdate);
     _removeFormatToolbarOverlay();
+    _removeQuillCopilotOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -3734,6 +3907,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           if (_selectionActiveBlockId == bid) {
             _selectionActiveBlockId = null;
             _scheduleFormatToolbarOverlayUpdate();
+          }
+          // Ocultar la sugerencia de Quill Copilot al perder foco (si era
+          // este bloque el que la tenía pendiente).
+          if (_quillCopilotSuggestionBlockId == bid) {
+            _quillCopilotSuggestionBlockId = null;
+            _quillCopilotSuggestionText = null;
+            _scheduleQuillCopilotOverlayUpdate();
           }
           // Flush inmediato de WYSIWYG al perder foco.
           if (_stylableBlockTypes.contains(b.type)) {
