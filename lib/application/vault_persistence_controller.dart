@@ -61,11 +61,13 @@ class VaultPersistenceController extends ChangeNotifier {
     }
   }
 
-  void scheduleSave() {
+  /// [notify]: si `false`, el llamador ya se encarga de notificar (p. ej. vía
+  /// un coalescing propio); se omite este `notifyListeners` para no duplicar.
+  void scheduleSave({bool notify = true}) {
     if (!_canPersist()) return;
     _saveDebounce?.cancel();
     _status = SaveStatus.pending;
-    notifyListeners();
+    if (notify) notifyListeners();
     _saveDebounce = Timer(_debounce, () {
       _saveDebounce = null;
       unawaited(persistNow());

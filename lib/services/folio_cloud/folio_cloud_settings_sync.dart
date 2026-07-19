@@ -45,7 +45,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   final CustomIconImportService _iconImport = CustomIconImportService();
 
   static const Duration _pushDebounce = Duration(seconds: 5);
-  static const Duration _pollInterval = Duration(seconds: 8);
+  /// No es un poll continuo: solo respalda la comprobación de arranque
+  /// (`start()`) cuando no hay listener de Firestore (p. ej. Windows) o si
+  /// falla. Cambios remotos se recogen como mucho 1 vez al día o al
+  /// reiniciar la app, no en un poll de segundos.
+  static const Duration _dailyCheckInterval = Duration(days: 1);
   static const int _maxPackBytes = 16 * 1024 * 1024;
 
   Timer? _appPushTimer;
@@ -114,21 +118,25 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
             (snap) => unawaited(_onRemoteAppMeta(snap.data())),
             onError: (Object e) {
               AppLogger.warn(
-                'appProfile snapshots failed; polling',
+                'appProfile snapshots failed; falling back to daily check',
                 tag: 'settings_sync',
                 context: {'error': '$e'},
               );
-              _startPolling();
+              _startDailyCheck();
             },
           );
     } else {
-      _startPolling();
+      _startDailyCheck();
     }
   }
 
-  void _startPolling() {
+  /// Fallback cuando no hay listener de Firestore en tiempo real: comprueba
+  /// cambios remotos como mucho 1 vez al día. El arranque (`start()`) ya hizo
+  /// una comprobación inmediata vía `_refreshMetaOnce`; esto no es un poll
+  /// de segundos, es solo para sesiones muy largas sin reiniciar la app.
+  void _startDailyCheck() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(_pollInterval, (_) {
+    _pollTimer = Timer.periodic(_dailyCheckInterval, (_) {
       unawaited(_refreshMetaOnce(promptIfNewer: false));
     });
   }

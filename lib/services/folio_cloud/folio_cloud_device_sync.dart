@@ -53,11 +53,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   final void Function(String message)? _onEvent;
   bool _disposed = false;
 
-  static const Duration _pushDebounce = Duration(seconds: 3);
-  static const Duration _pollIntervalForeground = Duration(seconds: 2);
-  static const Duration _pollIntervalIdle = Duration(seconds: 4);
-  /// Poll de todas las libretas (incl. bloqueadas / no activas).
-  static const Duration _allVaultsPollInterval = Duration(seconds: 20);
+  static const Duration _pushDebounce = Duration(seconds: 10);
+  /// Poll de meta remota de la libreta activa, solo en primer plano.
+  static const Duration _pollIntervalForeground = Duration(seconds: 30);
+  /// Poll de todas las libretas (incl. bloqueadas / no activas), solo en primer plano.
+  static const Duration _allVaultsPollInterval = Duration(minutes: 15);
   static const int _maxPackBytes = 80 * 1024 * 1024;
 
   Timer? _pushDebounceTimer;
@@ -131,12 +131,44 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       Firebase.apps.isNotEmpty &&
       FirebaseAuth.instance.currentUser != null;
 
-  /// Actualiza el ritmo de polling (solo plataformas sin Firestore nativo).
+  /// Pausa o reanuda solo el **pull** (poll + listener). El push no cambia.
   void setAppInForeground(bool foreground) {
     if (_appInForeground == foreground) return;
     _appInForeground = foreground;
-    if (!folioFirestoreSupported && _pollTimer != null) {
-      _startPolling();
+    if (!isEnabled) return;
+    if (foreground) {
+      unawaited(_resumePullWatching());
+    } else {
+      unawaited(_stopPullWatching());
+    }
+  }
+
+  /// Si la libreta activa cambió, rebind del pull + actualización inmediata.
+  /// No toca el push ni reinicia el timer de todas las libretas.
+  Future<void> onActiveVaultMaybeChanged() async {
+    if (!isEnabled) return;
+    final vaultId = VaultPaths.activeVaultId;
+    final next = (vaultId != null && vaultId.isNotEmpty) ? vaultId : null;
+    if (next == _boundVaultId) return;
+    AppLogger.debug(
+      'active vault changed for pull',
+      tag: 'cloud_sync',
+      context: {
+        'from': _boundVaultId ?? '(none)',
+        'to': next ?? '(none)',
+      },
+    );
+    _boundVaultId = next;
+    _resetBoundVaultCaches();
+    await _metaSub?.cancel();
+    _metaSub = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    if (next != null) {
+      await _refreshRemoteMetaOnce();
+    }
+    if (_appInForeground) {
+      _startActiveVaultPullWatching();
     }
   }
 
@@ -144,11 +176,33 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     if (!isEnabled) return;
     // Solo la libreta activa desbloqueada puede empujar cambios en memoria.
     if (_session.state != VaultFlowState.unlocked) return;
+    // Idle: solo push tras ~10 s sin nuevos guardados (= usuario dejó de editar).
     _dirty = true;
     _pushDebounceTimer?.cancel();
     _pushDebounceTimer = Timer(_pushDebounce, () {
       unawaited(_pushIfNeeded());
     });
+  }
+
+  /// Push inmediato de la libreta activa (cambiar de vault/página o sync manual).
+  /// Cancela el debounce y espera a que termine la subida.
+  Future<void> flushPushNow() async {
+    if (!isEnabled) return;
+    if (_session.state != VaultFlowState.unlocked) return;
+    _pushDebounceTimer?.cancel();
+    _dirty = true;
+    await _pushIfNeeded(force: true);
+  }
+
+  /// Si hay push pendiente (idle timer o dirty), lo ejecuta ya.
+  Future<void> flushPushIfPending() async {
+    if (!isEnabled) return;
+    if (_session.state != VaultFlowState.unlocked) return;
+    if (!_dirty && _pushDebounceTimer == null) return;
+    _pushDebounceTimer?.cancel();
+    _pushDebounceTimer = null;
+    if (!_dirty) return;
+    await _pushIfNeeded(force: true);
   }
 
   /// Fuerza sync de todas las libretas locales (también bloqueadas).
@@ -160,6 +214,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   /// Tras desbloquear, cachea la DEK/clave de sync y sube bootstrap de inmediato.
   Future<void> cacheKeyForActiveVault() async {
+    // Faltaba este guard: sin él, un llamador que no comprobara `isEnabled`
+    // (como ocurría en `_onSession` de folio_app.dart) subía el bootstrap a
+    // Firebase Storage aunque el usuario tuviera Cloud Device Sync desactivado.
+    if (!isEnabled) return;
     final vaultId = VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) return;
     if (_session.state != VaultFlowState.unlocked) return;
@@ -215,10 +273,49 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       await _refreshRemoteMetaOnce();
     }
     unawaited(syncAllVaults());
+    if (_appInForeground) {
+      _startPullWatching();
+    }
+    if (_session.isUnlocked &&
+        _lastPushedFingerprint.isEmpty &&
+        _lastAppliedFingerprint.isEmpty) {
+      _dirty = true;
+      unawaited(_pushIfNeeded());
+    }
+  }
+
+  /// Cancela poll + listener de pull sin tocar push ni caches de vault.
+  Future<void> _stopPullWatching() async {
+    await _metaSub?.cancel();
+    _metaSub = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _allVaultsPollTimer?.cancel();
+    _allVaultsPollTimer = null;
+  }
+
+  /// Reanuda watchers de pull y fuerza un pull inmediato de la libreta activa.
+  Future<void> _resumePullWatching() async {
+    if (!_appInForeground || !isEnabled) return;
+    await _stopPullWatching();
+    if (_boundVaultId != null) {
+      await _refreshRemoteMetaOnce();
+    }
+    _startPullWatching();
+  }
+
+  void _startPullWatching() {
+    if (!_appInForeground || !isEnabled) return;
     _startAllVaultsPolling();
+    _startActiveVaultPullWatching();
+  }
+
+  void _startActiveVaultPullWatching() {
+    if (!_appInForeground || !isEnabled) return;
     if (_boundVaultId != null && folioFirestoreSupported) {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
+      unawaited(_metaSub?.cancel());
       _metaSub = FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -239,37 +336,26 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     } else {
       _startPolling();
     }
-    if (_session.isUnlocked &&
-        _lastPushedFingerprint.isEmpty &&
-        _lastAppliedFingerprint.isEmpty) {
-      _dirty = true;
-      unawaited(_pushIfNeeded());
-    }
   }
 
   void _startPolling() {
     _pollTimer?.cancel();
-    final interval =
-        _appInForeground ? _pollIntervalForeground : _pollIntervalIdle;
-    _pollTimer = Timer.periodic(interval, (_) {
+    if (!_appInForeground) return;
+    _pollTimer = Timer.periodic(_pollIntervalForeground, (_) {
       unawaited(_refreshRemoteMetaOnce());
     });
   }
 
   void _startAllVaultsPolling() {
     _allVaultsPollTimer?.cancel();
+    if (!_appInForeground) return;
     _allVaultsPollTimer = Timer.periodic(_allVaultsPollInterval, (_) {
       unawaited(syncAllVaults());
     });
   }
 
   Future<void> stopWatching() async {
-    await _metaSub?.cancel();
-    _metaSub = null;
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _allVaultsPollTimer?.cancel();
-    _allVaultsPollTimer = null;
+    await _stopPullWatching();
     if (_boundVaultId != null) {
       AppLogger.debug(
         'stop',

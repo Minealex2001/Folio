@@ -249,6 +249,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
     widget.session.onPersisted = _onVaultPersisted;
+    widget.session.onBeforeLeaveVault = () async {
+      await _cloudDeviceSyncController?.flushPushNow();
+    };
+    widget.session.onBeforeLeavePage = () async {
+      await _cloudDeviceSyncController?.flushPushIfPending();
+    };
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
@@ -270,6 +276,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_integrationsBridge.dispose());
     widget.session.onSyncConflictCountChanged = null;
     widget.session.onPersisted = null;
+    widget.session.onBeforeLeaveVault = null;
+    widget.session.onBeforeLeavePage = null;
     _deviceSyncController.dispose();
     unawaited(_cloudDeviceSyncController?.disposeController());
     _cloudDeviceSyncController?.dispose();
@@ -290,7 +298,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onSession() {
     final nextVault = widget.session.state;
-    if (_lastVaultFlowForTelemetry != nextVault) {
+    final vaultFlowChanged = _lastVaultFlowForTelemetry != nextVault;
+    if (vaultFlowChanged) {
       if (_lastVaultFlowForTelemetry != null) {
         unawaited(
           FolioTelemetry.logNavigation(
@@ -313,14 +322,27 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           nav.pop();
         }
       });
-      // Relanzar sync headless si estaba parado.
-      unawaited(_syncCloudDeviceSyncLifecycle(force: true));
+      // Relanzar sync headless si estaba parado; luego rebind si cambió la activa.
+      unawaited(() async {
+        await _syncCloudDeviceSyncLifecycle(force: true);
+        await _cloudDeviceSyncController?.onActiveVaultMaybeChanged();
+      }());
     } else if (widget.session.state == VaultFlowState.unlocked) {
-      _lastCloudDeviceSyncShouldRun =
-          _cloudDeviceSyncController?.isEnabled ?? false;
-      unawaited(_cloudDeviceSyncController?.start());
+      // `_onSession` se dispara en CADA notificación de la sesión (cada
+      // edición, no solo al desbloquear). `_syncCloudDeviceSyncLifecycle` ya
+      // cachea el último `isEnabled` aplicado y no hace nada si no cambió;
+      // llamar a `ctrl.start()` a pelo aquí (como antes) reiniciaba todo el
+      // pipeline de cloud sync — incl. una subida/descarga completa — en
+      // cada tecla. `cacheKeyForActiveVault` solo debe correr una vez por
+      // desbloqueo real, no en cada notificación.
+      unawaited(() async {
+        await _syncCloudDeviceSyncLifecycle();
+        await _cloudDeviceSyncController?.onActiveVaultMaybeChanged();
+      }());
       unawaited(_syncCloudSettingsSyncLifecycle());
-      unawaited(_cloudDeviceSyncController?.cacheKeyForActiveVault());
+      if (vaultFlowChanged) {
+        unawaited(_cloudDeviceSyncController?.cacheKeyForActiveVault());
+      }
     }
     unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
@@ -864,10 +886,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   /// Solo relanza/para el controlador cuando el estado efectivo
-  /// (habilitado + libreta desbloqueada) realmente cambia, para no reiniciar
-  /// el listener de Firestore en cada `AppSettings.notifyListeners()` ajeno
-  /// (tema, preferencias, etc.). `force` ignora la cache (p. ej. al reanudar
-  /// la app, donde queremos forzar un refresco aunque el estado no cambiara).
+  /// (habilitado) realmente cambia, para no reiniciar el listener de
+  /// Firestore en cada `AppSettings.notifyListeners()` ajeno (tema,
+  /// preferencias, etc.). `force` ignora la cache. El pull al volver a
+  /// primer plano lo gestiona `setAppInForeground(true)`, no este método.
   Future<void> _syncCloudDeviceSyncLifecycle({bool force = false}) async {
     final ctrl = _cloudDeviceSyncController;
     if (ctrl == null) return;
@@ -1556,10 +1578,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_maybeRunScheduledVaultBackup());
       unawaited(_folioCloudEntitlements.handleAppResumed());
-      // El listener de Firestore (o el poll) puede haber muerto/pausado en
-      // background; forzar relanzarlo + un refresco inmediato al volver.
-      unawaited(_syncCloudDeviceSyncLifecycle(force: true));
+      // Primero foreground: el controller reanuda pull + pull inmediato.
+      // Luego lifecycle sin force (no reinicia push/bootstrap si ya corría).
       _cloudDeviceSyncController?.setAppInForeground(true);
+      unawaited(_syncCloudDeviceSyncLifecycle());
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||

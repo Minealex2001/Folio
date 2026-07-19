@@ -840,7 +840,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     unawaited(_maybeSyncStripeAfterServerRead(uid, serverData));
 
     if (_folioFirestoreUseGetPolling) {
-      _userDocPollTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      _userDocPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
         if (FirebaseAuth.instance.currentUser?.uid != uid) return;
         unawaited(refreshUserDocFromServer());
       });

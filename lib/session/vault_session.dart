@@ -337,6 +337,10 @@ class VaultSession extends ChangeNotifier {
   final LocalAuthentication _localAuth;
   void Function()? onPersisted;
   void Function(int pendingConflicts)? onSyncConflictCountChanged;
+  /// Antes de abandonar la libreta activa (p. ej. `switchVault`), aún desbloqueada.
+  Future<void> Function()? onBeforeLeaveVault;
+  /// Antes de cambiar de página seleccionada (había otra página abierta).
+  Future<void> Function()? onBeforeLeavePage;
   AiService? _aiService;
 
   static const _uuid = Uuid();
@@ -1333,6 +1337,21 @@ class VaultSession extends ChangeNotifier {
       tag: 'vault',
       context: {'vaultId': vaultId, 'from': _vaultId},
     );
+    final leavingId = _vaultId;
+    if (leavingId != null &&
+        leavingId.isNotEmpty &&
+        leavingId != vaultId &&
+        _state == VaultFlowState.unlocked) {
+      try {
+        await onBeforeLeaveVault?.call();
+      } catch (e, st) {
+        AppLogger.warn(
+          'onBeforeLeaveVault failed; continuing switch',
+          tag: 'vault',
+          context: {'vaultId': leavingId, 'error': '$e', 'stack': '$st'},
+        );
+      }
+    }
     await lock();
     VaultPaths.setActiveVaultId(vaultId);
     await _registry.setActiveVaultId(vaultId);
@@ -2339,6 +2358,20 @@ class VaultSession extends ChangeNotifier {
   void selectPage(String id) {
     final page = _pageById(id);
     if (page == null || page.isTrashed) return;
+    final previousId = _selectedPageId;
+    if (previousId != null && previousId != id) {
+      unawaited(() async {
+        try {
+          await onBeforeLeavePage?.call();
+        } catch (e, st) {
+          AppLogger.warn(
+            'onBeforeLeavePage failed',
+            tag: 'workspace',
+            context: {'from': previousId, 'to': id, 'error': '$e', 'stack': '$st'},
+          );
+        }
+      }());
+    }
     touchActivity();
     _selectedPageId = id;
     if (!_applyingHistoryNavigation) {
@@ -4218,7 +4251,7 @@ class VaultSession extends ChangeNotifier {
     }
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId);
+    scheduleSave(trackRevisionForPageId: pageId, notify: false);
   }
 
   /// Actualiza texto y Delta de un bloque de forma atómica.
@@ -4254,7 +4287,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId);
+    scheduleSave(trackRevisionForPageId: pageId, notify: false);
   }
 
   void _propagateSyncedBlockContent(
@@ -5252,7 +5285,9 @@ class VaultSession extends ChangeNotifier {
 
   /// [trackRevisionForPageId]: tras [_revisionIdleDelay] sin más cambios en esa página,
   /// se añade una entrada al historial (si el contenido difiere de la última revisión).
-  void scheduleSave({String? trackRevisionForPageId}) {
+  /// [notify]: si `false`, el llamador ya programó su propio aviso coalescido
+  /// (ver [_scheduleCoalescedTypingNotify]) y este método no debe duplicarlo.
+  void scheduleSave({String? trackRevisionForPageId, bool notify = true}) {
     if (vaultUsesEncryption && _dek == null) return;
     touchActivity();
     if (trackRevisionForPageId != null) {
@@ -5262,8 +5297,8 @@ class VaultSession extends ChangeNotifier {
         unawaited(_capturePendingRevisionsAndPersist());
       });
     }
-    _persistence.scheduleSave();
-    notifyListeners();
+    _persistence.scheduleSave(notify: notify);
+    if (notify) notifyListeners();
   }
 
   Future<void> _capturePendingRevisionsAndPersist() async {

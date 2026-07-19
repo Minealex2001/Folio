@@ -59,6 +59,9 @@ class DeviceSyncController extends ChangeNotifier {
   static const Duration _pairAcceptBurstGap = Duration(milliseconds: 120);
   static const Duration _snapshotPullMinInterval = Duration(seconds: 20);
   static const Duration _reconcileInterval = Duration(seconds: 10);
+  /// Debounce del push TCP tras un autoguardado; el ping UDP (barato) sigue
+  /// siendo inmediato en el primer disparo de cada ráfaga.
+  static const Duration _snapshotPushDebounce = Duration(milliseconds: 1500);
   static final InternetAddress _multicastGroup = InternetAddress(
     '239.255.42.99',
   );
@@ -83,6 +86,7 @@ class DeviceSyncController extends ChangeNotifier {
   };
   Timer? _discoveryPulse;
   Timer? _pendingPushRetryPulse;
+  Timer? _snapshotPushDebounceTimer;
   Timer? _reconcilePulse;
   Timer? _helloTimer;
   RawDatagramSocket? _udp;
@@ -163,6 +167,8 @@ class DeviceSyncController extends ChangeNotifier {
     _discoveryPulse = null;
     _pendingPushRetryPulse?.cancel();
     _pendingPushRetryPulse = null;
+    _snapshotPushDebounceTimer?.cancel();
+    _snapshotPushDebounceTimer = null;
     _reconcilePulse?.cancel();
     _reconcilePulse = null;
     _helloTimer?.cancel();
@@ -1410,28 +1416,46 @@ class DeviceSyncController extends ChangeNotifier {
     _emitSnapshotPing(toDeviceId: peerId, alsoToHost: _peerLastUdpHost[peerId]);
   }
 
+  /// Se llama tras cada autoguardado local. El ping UDP (un solo datagrama,
+  /// barato) se emite de inmediato solo en el primer disparo de una ráfaga de
+  /// autoguardados consecutivos, para que el peer pueda tirar del snapshot ya
+  /// mismo; el push TCP (la parte cara: abre socket, cifra y envía el
+  /// snapshot completo) se debounça para no repetirlo en cada ciclo de
+  /// tecleo, manteniendo la sincronización dentro de ~1-3s tras la pausa.
   void onLocalSnapshotPersisted() {
     if (_state == SyncControllerState.stopped) return;
     if (_peers.isEmpty) return;
+    final isBurstStart =
+        _snapshotPushDebounceTimer == null ||
+        !_snapshotPushDebounceTimer!.isActive;
     for (final peer in _peers) {
       if (!peer.paired) continue;
       _pendingSnapshotPushPeers.add(peer.peerId);
-      _emitSnapshotPing(
-        toDeviceId: peer.peerId,
-        alsoToHost: _peerLastUdpHost[peer.peerId],
-      );
-      unawaited(_flushPendingSnapshotForPeer(peer.peerId));
-      unawaited(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 900));
-        if (_state == SyncControllerState.stopped) return;
-        if (!_pendingSnapshotPushPeers.contains(peer.peerId)) return;
+      if (isBurstStart) {
         _emitSnapshotPing(
           toDeviceId: peer.peerId,
           alsoToHost: _peerLastUdpHost[peer.peerId],
         );
-        await _flushPendingSnapshotForPeer(peer.peerId);
-      }());
+      }
     }
+    _snapshotPushDebounceTimer?.cancel();
+    _snapshotPushDebounceTimer = Timer(_snapshotPushDebounce, () {
+      for (final peer in _peers) {
+        if (!peer.paired) continue;
+        if (!_pendingSnapshotPushPeers.contains(peer.peerId)) continue;
+        unawaited(_flushPendingSnapshotForPeer(peer.peerId));
+        unawaited(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 900));
+          if (_state == SyncControllerState.stopped) return;
+          if (!_pendingSnapshotPushPeers.contains(peer.peerId)) return;
+          _emitSnapshotPing(
+            toDeviceId: peer.peerId,
+            alsoToHost: _peerLastUdpHost[peer.peerId],
+          );
+          await _flushPendingSnapshotForPeer(peer.peerId);
+        }());
+      }
+    });
   }
 
   /// Clave pública anclada del peer emparejado, o `null` si no hay.

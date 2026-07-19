@@ -297,6 +297,14 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   List<_ChildTaskRow> _childTasks = const [];
   var _deleteBusy = false;
 
+  /// Debounce de campos de texto libre: evita un `updateBlockText` (y su
+  /// cascada de notificaciones de sesión) por cada tecla pulsada.
+  Timer? _emitDebounceTimer;
+  FolioTaskData? _pendingEmitData;
+  String? _pendingEmitPageId;
+  String? _pendingEmitBlockId;
+  static const Duration _emitDebounceDuration = Duration(milliseconds: 400);
+
    var _jiraBusy = false;
    String? _jiraError;
    JiraIssueExpanded? _jiraIssue;
@@ -324,12 +332,17 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.taskRef.pageId != widget.taskRef.pageId ||
         oldWidget.taskRef.blockId != widget.taskRef.blockId) {
+      // Vacía cambios pendientes de la tarea ANTERIOR antes de recargar la
+      // nueva (usa los ids capturados en el flush, no widget.taskRef, que ya
+      // apunta a la tarea nueva).
+      _flushPendingEmit();
       _reloadFromSession();
     }
   }
 
   @override
   void dispose() {
+    _flushPendingEmit();
     widget.session.removeListener(_onSession);
     _titleCtrl.dispose();
     _descCtrl.dispose();
@@ -374,32 +387,44 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     _taskBlock = b;
     final parsed = FolioTaskData.tryParse(b.text);
     if (parsed == null) return;
-    _data = parsed;
-    if (!keepUserTextIfSame || _titleCtrl.text != parsed.title) {
-      _titleCtrl.text = parsed.title;
-    }
-    if (!keepUserTextIfSame || _descCtrl.text != parsed.description) {
-      _descCtrl.text = parsed.description;
-    }
-    final timeText = parsed.timeSpentMinutes?.toString() ?? '';
-    if (!keepUserTextIfSame || _timeCtrl.text != timeText) {
-      _timeCtrl.text = timeText;
-    }
-    if (!keepUserTextIfSame ||
-        _blockedReasonCtrl.text != parsed.blockedReason) {
-      _blockedReasonCtrl.text = parsed.blockedReason;
-    }
-    // YouTrack snapshot fields
-    final yt = parsed.youtrack;
-    if (yt != null) {
-      if (!keepUserTextIfSame || _ytSubsystemCtrl.text != (yt.subsystem ?? '')) _ytSubsystemCtrl.text = yt.subsystem ?? '';
-      if (!keepUserTextIfSame || _ytTypeCtrl.text != (yt.type ?? '')) _ytTypeCtrl.text = yt.type ?? '';
-      if (!keepUserTextIfSame || _ytAssigneeCtrl.text != (yt.assigneeName ?? '')) _ytAssigneeCtrl.text = yt.assigneeName ?? '';
-      if (!keepUserTextIfSame || _ytFixVersionsCtrl.text != (yt.fixVersions ?? '')) _ytFixVersionsCtrl.text = yt.fixVersions ?? '';
-      if (!keepUserTextIfSame || _ytAffectedVersionsCtrl.text != (yt.affectedVersions ?? '')) _ytAffectedVersionsCtrl.text = yt.affectedVersions ?? '';
-      if (!keepUserTextIfSame || _ytFixedInBuildCtrl.text != (yt.fixedInBuild ?? '')) _ytFixedInBuildCtrl.text = yt.fixedInBuild ?? '';
-      if (!keepUserTextIfSame || _ytEstimationCtrl.text != (yt.estimation ?? '')) _ytEstimationCtrl.text = yt.estimation ?? '';
-      if (!keepUserTextIfSame || _ytSpentTimeCtrl.text != (yt.spentTime ?? '')) _ytSpentTimeCtrl.text = yt.spentTime ?? '';
+    // Si hay un flush de tecleo pendiente para ESTA tarea, `b.text` todavía
+    // no refleja lo último escrito (va detrás del debounce). Recargar ahora
+    // pisaría los controllers con datos obsoletos y borraría lo que el
+    // usuario acaba de teclear. Se salta solo la sincronización de datos /
+    // controllers; el resto de `_reloadFromSession` (subtareas, auto-pull)
+    // sigue ejecutándose siempre.
+    final hasPendingEditForThisTask =
+        _emitDebounceTimer != null &&
+        _pendingEmitPageId == widget.taskRef.pageId &&
+        _pendingEmitBlockId == widget.taskRef.blockId;
+    if (!hasPendingEditForThisTask) {
+      _data = parsed;
+      if (!keepUserTextIfSame || _titleCtrl.text != parsed.title) {
+        _titleCtrl.text = parsed.title;
+      }
+      if (!keepUserTextIfSame || _descCtrl.text != parsed.description) {
+        _descCtrl.text = parsed.description;
+      }
+      final timeText = parsed.timeSpentMinutes?.toString() ?? '';
+      if (!keepUserTextIfSame || _timeCtrl.text != timeText) {
+        _timeCtrl.text = timeText;
+      }
+      if (!keepUserTextIfSame ||
+          _blockedReasonCtrl.text != parsed.blockedReason) {
+        _blockedReasonCtrl.text = parsed.blockedReason;
+      }
+      // YouTrack snapshot fields
+      final yt = parsed.youtrack;
+      if (yt != null) {
+        if (!keepUserTextIfSame || _ytSubsystemCtrl.text != (yt.subsystem ?? '')) _ytSubsystemCtrl.text = yt.subsystem ?? '';
+        if (!keepUserTextIfSame || _ytTypeCtrl.text != (yt.type ?? '')) _ytTypeCtrl.text = yt.type ?? '';
+        if (!keepUserTextIfSame || _ytAssigneeCtrl.text != (yt.assigneeName ?? '')) _ytAssigneeCtrl.text = yt.assigneeName ?? '';
+        if (!keepUserTextIfSame || _ytFixVersionsCtrl.text != (yt.fixVersions ?? '')) _ytFixVersionsCtrl.text = yt.fixVersions ?? '';
+        if (!keepUserTextIfSame || _ytAffectedVersionsCtrl.text != (yt.affectedVersions ?? '')) _ytAffectedVersionsCtrl.text = yt.affectedVersions ?? '';
+        if (!keepUserTextIfSame || _ytFixedInBuildCtrl.text != (yt.fixedInBuild ?? '')) _ytFixedInBuildCtrl.text = yt.fixedInBuild ?? '';
+        if (!keepUserTextIfSame || _ytEstimationCtrl.text != (yt.estimation ?? '')) _ytEstimationCtrl.text = yt.estimation ?? '';
+        if (!keepUserTextIfSame || _ytSpentTimeCtrl.text != (yt.spentTime ?? '')) _ytSpentTimeCtrl.text = yt.spentTime ?? '';
+      }
     }
 
     // Resolver subtareas como tareas hijas (bloques `task` con parentTaskId).
@@ -436,7 +461,19 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     }
   }
 
-  void _emit(FolioTaskData next) {
+  void _emit(FolioTaskData next) =>
+      _emitNow(widget.taskRef.pageId, widget.taskRef.blockId, next);
+
+  void _emitNow(String pageId, String blockId, FolioTaskData next) {
+    // Una escritura inmediata ya incorpora el `_data` más reciente (ver el
+    // `setState` en `_emitDebounced`), así que descarta cualquier debounce en
+    // curso: si no, su flush tardío sobrescribiría este cambio con una copia
+    // vieja de antes de la última tecla debounced.
+    _emitDebounceTimer?.cancel();
+    _emitDebounceTimer = null;
+    _pendingEmitData = null;
+    _pendingEmitPageId = null;
+    _pendingEmitBlockId = null;
     // If this task is linked to Jira or YouTrack, mark it dirty for incremental push.
     final ext = next.external;
     if (ext != null && (ext.provider == 'jira' || ext.provider == 'youtrack')) {
@@ -445,15 +482,45 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
         next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
       }
     }
-    widget.session.updateBlockText(
-      widget.taskRef.pageId,
-      widget.taskRef.blockId,
-      next.encode(),
-    );
+    widget.session.updateBlockText(pageId, blockId, next.encode());
+  }
+
+  /// Para campos de texto libre: coalesce las teclas en una sola escritura a
+  /// la sesión ~[_emitDebounceDuration] después de la última, en vez de una
+  /// por tecla (evita disparar la cascada de guardado/notificación en cada
+  /// pulsación). Actualiza `_data` y hace `setState` de inmediato para que el
+  /// resto de la UI (y cualquier `_emit` inmediato posterior, p. ej. un
+  /// dropdown) vea siempre el texto ya escrito.
+  void _emitDebounced(FolioTaskData next) {
+    _data = next;
+    if (mounted) setState(() {});
+    _pendingEmitData = next;
+    _pendingEmitPageId = widget.taskRef.pageId;
+    _pendingEmitBlockId = widget.taskRef.blockId;
+    _emitDebounceTimer?.cancel();
+    _emitDebounceTimer = Timer(_emitDebounceDuration, _flushPendingEmit);
+  }
+
+  /// Vuelca de inmediato (sin esperar el debounce) el último cambio de texto
+  /// pendiente, si lo hay. Debe llamarse antes de cualquier acción que lea o
+  /// dependa del estado persistido de la tarea (cerrar el panel, cambiar de
+  /// tarea, borrar, sync manual, etc.), para no perder texto tecleado.
+  void _flushPendingEmit() {
+    _emitDebounceTimer?.cancel();
+    _emitDebounceTimer = null;
+    final pending = _pendingEmitData;
+    final pageId = _pendingEmitPageId;
+    final blockId = _pendingEmitBlockId;
+    _pendingEmitData = null;
+    _pendingEmitPageId = null;
+    _pendingEmitBlockId = null;
+    if (pending == null || pageId == null || blockId == null) return;
+    _emitNow(pageId, blockId, pending);
   }
 
   Future<void> _deleteTaskWithJiraIfLinked() async {
     if (_deleteBusy) return;
+    _flushPendingEmit();
     final data = _data;
     if (data == null) return;
 
@@ -597,6 +664,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   }
 
   Future<void> _youtrackRefresh() async {
+    _flushPendingEmit();
     final data = _data;
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'youtrack') return;
@@ -703,6 +771,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   }
 
   Future<void> _youtrackResolveKeepLocalForcePush() async {
+    _flushPendingEmit();
     final data = _data;
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'youtrack') return;
@@ -832,6 +901,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   }
 
   Future<void> _jiraRefresh() async {
+    _flushPendingEmit();
     final data = _data;
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'jira') return;
@@ -1013,6 +1083,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   }
 
   Future<void> _jiraResolveKeepLocalForcePush() async {
+    _flushPendingEmit();
     final data = _data;
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'jira') return;
@@ -1362,7 +1433,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                   decorationColor: data.blocked ? scheme.error : null,
                 ),
                 decoration: InputDecoration(labelText: l10n.title, border: const OutlineInputBorder()),
-                onChanged: (v) => _emit(data.copyWith(title: v.trim())),
+                onChanged: (v) => _emitDebounced(data.copyWith(title: v.trim())),
               );
 
               // Description field
@@ -1371,7 +1442,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                 minLines: 2,
                 maxLines: 8,
                 decoration: InputDecoration(labelText: l10n.description, border: const OutlineInputBorder()),
-                onChanged: (v) => _emit(data.copyWith(description: v)),
+                onChanged: (v) => _emitDebounced(data.copyWith(description: v)),
               );
 
               // Priority + Status row
@@ -1472,7 +1543,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                       controller: _blockedReasonCtrl,
                       maxLines: 3,
                       decoration: InputDecoration(labelText: l10n.taskBlockedReason, border: const OutlineInputBorder()),
-                      onChanged: (v) => _emit(data.copyWith(blockedReason: v)),
+                      onChanged: (v) => _emitDebounced(data.copyWith(blockedReason: v)),
                     ),
                   ],
                 ],
@@ -1542,7 +1613,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                 controller: _timeCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(labelText: l10n.timeSpentMinutes, border: const OutlineInputBorder()),
-                onChanged: (v) => _emit(data.copyWith(timeSpentMinutes: int.tryParse(v.trim()))),
+                onChanged: (v) => _emitDebounced(data.copyWith(timeSpentMinutes: int.tryParse(v.trim()))),
               );
 
               // YouTrack custom fields editor
@@ -1564,7 +1635,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.category_outlined, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(type: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(type: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1576,7 +1647,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                           ),
                           onChanged: (v) {
                             final trimmed = v.trim();
-                            _emit(data.copyWith(
+                            _emitDebounced(data.copyWith(
                               assignee: trimmed.isEmpty ? null : trimmed,
                               youtrack: data.youtrack?.copyWith(assigneeName: trimmed),
                             ));
@@ -1590,7 +1661,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.account_tree_outlined, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(subsystem: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(subsystem: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1601,7 +1672,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.check_circle_outline_rounded, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(fixVersions: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(fixVersions: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1612,7 +1683,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.bug_report_outlined, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(affectedVersions: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(affectedVersions: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1622,7 +1693,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.build_outlined, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(fixedInBuild: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(fixedInBuild: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1633,7 +1704,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.timer_outlined, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(estimation: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(estimation: v.trim()))),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -1644,7 +1715,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.hourglass_bottom_rounded, size: 18),
                           ),
-                          onChanged: (v) => _emit(data.copyWith(youtrack: data.youtrack?.copyWith(spentTime: v.trim()))),
+                          onChanged: (v) => _emitDebounced(data.copyWith(youtrack: data.youtrack?.copyWith(spentTime: v.trim()))),
                         ),
                       ],
                     )
