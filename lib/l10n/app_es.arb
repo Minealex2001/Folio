@@ -603,6 +603,15 @@
       "token": {"type": "String"}
     }
   }
+  ,"settingsMcpServerFailedDetails": "No se pudo iniciar en {endpoint}\nToken: {token}\nError: {error}"
+  ,"@settingsMcpServerFailedDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"},
+      "error": {"type": "String"}
+    }
+  }
+  ,"settingsMcpServerFailedUnknown": "el puerto no está escuchando"
   ,"settingsMcpCopyCursorConfig": "Copiar config de Cursor"
   ,"settingsMcpCopyClaudeConfig": "Copiar JSON de Claude Desktop"
   ,"settingsMcpCopyCursorConfigDone": "Config MCP de Cursor copiada. Pégala en ~/.cursor/mcp.json (fusiona con tus servidores existentes)."

@@ -20,9 +20,9 @@ class Run2DocClientIdentity {
 }
 
 class Run2DocLaunchSession {
-  /// Puerto propio del bridge Run2Doc. Debe ser distinto del puerto del
-  /// bridge de integraciones (45831) para que ambos puedan convivir sin que
-  /// el segundo `bind` falle o intercepte tráfico ajeno.
+  /// Puerto propio del bridge Run2Doc. Distinto de Integraciones (45831) y
+  /// del servidor MCP local (45833) para que los tres puedan convivir sin
+  /// que el segundo `bind` falle o intercepte tráfico ajeno.
   static const int fixedPort = 45832;
 
   const Run2DocLaunchSession({

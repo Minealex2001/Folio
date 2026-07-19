@@ -60,9 +60,10 @@ class FolioMcpServer {
   String? _authToken;
   final Map<String, McpClientIdentity> _sessions = {};
 
-  /// Puerto fijo del servidor MCP local (junto al bridge de Integraciones en
-  /// 45831). Así el `mcp.json` de Cursor no cambia en cada arranque.
-  static const int defaultPort = 45832;
+  /// Puerto fijo del servidor MCP local.
+  /// Distinto de Integraciones (45831) y Run2Doc (45832) para que los tres
+  /// puedan convivir. Así el `mcp.json` de Cursor no cambia en cada arranque.
+  static const int defaultPort = 45833;
 
   /// Path canónico del endpoint MCP (también se acepta `/`).
   static const String endpointPath = '/mcp';

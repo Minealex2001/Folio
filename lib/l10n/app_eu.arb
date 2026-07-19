@@ -605,6 +605,15 @@
       "token": {"type": "String"}
     }
   },
+  "settingsMcpServerFailedDetails": "Ezin izan da abiarazi hemen: {endpoint}\nTokena: {token}\nErrorea: {error}",
+  "@settingsMcpServerFailedDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"},
+      "error": {"type": "String"}
+    }
+  },
+  "settingsMcpServerFailedUnknown": "ataka ez dago entzuten",
   "settingsMcpCopyCursorConfig": "Kopiatu Cursor konfigurazioa",
   "settingsMcpCopyClaudeConfig": "Kopiatu Claude Desktop JSONa",
   "settingsMcpCopyCursorConfigDone": "Cursor MCP konfigurazioa kopiatuta. Itsatsi ~/.cursor/mcp.json fitxategian (beste zerbitzariekin bateratu).",

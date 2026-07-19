@@ -1214,8 +1214,8 @@ Es una capacidad **desactivada por defecto y solo disponible en desktop** (Windo
 ### Cómo activarlo
 
 1. Ajustes → sección de IA → interruptor **«Servidor MCP local (beta)»**.
-2. Al activarlo, Folio arranca un servidor HTTP en `127.0.0.1:45832` (puerto **fijo**) y usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
-3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45832/mcp`), necesarios para configurar el cliente MCP externo.
+2. Al activarlo, Folio arranca un servidor HTTP en `127.0.0.1:45833` (puerto **fijo**, distinto de Integraciones `45831` y Run2Doc `45832`) y usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
+3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45833/mcp`), necesarios para configurar el cliente MCP externo. Solo se muestra «Activo» si el `bind` del puerto tuvo éxito.
 4. Al desactivarlo (o cerrar Folio), el servidor se detiene — el token guardado sigue válido la próxima vez que se active.
 
 ### Configuración en Cursor (`mcp.json`)
@@ -1235,7 +1235,7 @@ Ejemplo Cursor:
 {
   "mcpServers": {
     "folio": {
-      "url": "http://127.0.0.1:45832/mcp",
+      "url": "http://127.0.0.1:45833/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
       }
@@ -1254,7 +1254,7 @@ Ejemplo Claude Desktop (puente HTTP→stdio):
       "args": [
         "-y",
         "mcp-remote@latest",
-        "http://127.0.0.1:45832/mcp",
+        "http://127.0.0.1:45833/mcp",
         "--allow-http",
         "--header",
         "Authorization:${AUTH_HEADER}"
@@ -1298,7 +1298,7 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 
 - Apagado por defecto (opt-in explícito).
 - Solo loopback, nunca red.
-- Puerto fijo `45832`; token Bearer persistente (no rota en cada arranque).
+- Puerto fijo `45833` (Integraciones `45831`, Run2Doc `45832`); token Bearer persistente (no rota en cada arranque).
 - Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
 - No hay límite de "cuánto" puede hacer un cliente aprobado dentro del catálogo de tools — la aprobación es a nivel de cliente, no de acción; revocar es la forma de cortar el acceso.
 
@@ -1499,5 +1499,5 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 - `database_block_editor.dart` y partes de `settings_page.dart` / `kanban_board_page.dart` aún usan `_t(es,en)` o ternarios manuales; migración gradual a `.arb`.
 - División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
-- Unificación de bridges `integrations_bridge` / `run2doc_bridge` (puertos ya separados: 45831 / 45832).
+- Unificación de bridges `integrations_bridge` / `run2doc_bridge` / MCP (puertos ya separados: 45831 / 45832 / 45833).
 - Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.

@@ -183,6 +183,8 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         final token = (info?.authToken ?? _app.mcpServerAuthToken).trim();
         final showDetails = enabled && token.isNotEmpty;
+        final isRunning = info?.isRunning == true;
+        final startError = info?.errorMessage?.trim();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -200,8 +202,20 @@ class _SettingsPageState extends State<SettingsPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: SelectableText(
-                  l10n.settingsMcpServerRunningDetails(endpoint, token),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  isRunning
+                      ? l10n.settingsMcpServerRunningDetails(endpoint, token)
+                      : l10n.settingsMcpServerFailedDetails(
+                          endpoint,
+                          token,
+                          (startError == null || startError.isEmpty)
+                              ? l10n.settingsMcpServerFailedUnknown
+                              : startError,
+                        ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isRunning
+                        ? null
+                        : Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
               Padding(

@@ -131,28 +131,28 @@ void main() {
     expect(server.authToken, 'test-token-fixed');
   });
 
-  test('defaultPort es estático (45832) y endpointUrl apunta a /mcp', () {
-    expect(FolioMcpServer.defaultPort, 45832);
+  test('defaultPort es estático (45833) y endpointUrl apunta a /mcp', () {
+    expect(FolioMcpServer.defaultPort, 45833);
     expect(
       FolioMcpServer.endpointUrl(),
-      'http://127.0.0.1:45832/mcp',
+      'http://127.0.0.1:45833/mcp',
     );
   });
 
   test('cursorClientConfigJson incluye url y Bearer listos para mcp.json', () {
     final json = FolioMcpServer.cursorClientConfigJson(
-      endpoint: 'http://127.0.0.1:45832/mcp',
+      endpoint: 'http://127.0.0.1:45833/mcp',
       authToken: 'tok"en',
     );
     final decoded = jsonDecode(json) as Map<String, dynamic>;
     final folio = decoded['mcpServers']['folio'] as Map<String, dynamic>;
-    expect(folio['url'], 'http://127.0.0.1:45832/mcp');
+    expect(folio['url'], 'http://127.0.0.1:45833/mcp');
     expect(folio['headers']['Authorization'], 'Bearer tok"en');
   });
 
   test('claudeDesktopClientConfigJson usa mcp-remote con --allow-http', () {
     final json = FolioMcpServer.claudeDesktopClientConfigJson(
-      endpoint: 'http://127.0.0.1:45832/mcp',
+      endpoint: 'http://127.0.0.1:45833/mcp',
       authToken: 'secret',
     );
     final decoded = jsonDecode(json) as Map<String, dynamic>;
@@ -161,7 +161,7 @@ void main() {
     final args = (folio['args'] as List).cast<String>();
     expect(args, contains('mcp-remote@latest'));
     expect(args, contains('--allow-http'));
-    expect(args, contains('http://127.0.0.1:45832/mcp'));
+    expect(args, contains('http://127.0.0.1:45833/mcp'));
     expect(args, contains(r'Authorization:${AUTH_HEADER}'));
     expect(folio['env']['AUTH_HEADER'], 'Bearer secret');
   });
