@@ -229,6 +229,24 @@ void main() {
       expect(approvals.observed, hasLength(1));
     });
 
+    test('tras re-initialize, tools/call funciona sin Mcp-Session-Id', () async {
+      await initializeAsClient(name: 'Cursor');
+      final staleSessionId = lastSessionId;
+      await initializeAsClient(name: 'Cursor');
+      // Simula cliente que reutiliza sesión antigua o no manda cabecera.
+      final withStale = await _rpc(
+        server,
+        method: 'tools/list',
+        sessionId: staleSessionId,
+      );
+      expect(withStale['error'], isNull, reason: '$withStale');
+      expect(withStale['result']['tools'], isA<List>());
+
+      final withoutHeader = await _rpc(server, method: 'tools/list');
+      expect(withoutHeader['error'], isNull, reason: '$withoutHeader');
+      expect(withoutHeader['result']['tools'], isA<List>());
+    });
+
     test('sin clientInfo, se usa una identidad genérica "unknown-client"', () async {
       final res = await _rpc(server, method: 'initialize');
       expect(res['_statusCode'], 200);

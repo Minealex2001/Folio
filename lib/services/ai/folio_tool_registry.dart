@@ -6,13 +6,29 @@ import '../../session/vault_session.dart';
 import 'ai_tool.dart';
 import 'quill_tools.dart';
 
+/// Resultado del diálogo de permiso de lectura MCP.
+enum McpReadAccessDecision {
+  /// El usuario deniega; no se filtra contenido.
+  deny,
+
+  /// Lectura permitida solo esta vez; no se guarda en la allowlist.
+  allowOnce,
+
+  /// Lectura permitida y la página se añade a la allowlist.
+  allowAndRemember,
+}
+
 /// Puente entre el bucle de tool-calling genérico ([ai_tool_loop.dart]) y las
 /// mutaciones reales del vault. Cada tool envuelve un método ya existente de
 /// [VaultSession]/[QuillToolExecutor] — esta clase no reimplementa lógica de
 /// dominio, solo traduce `AiToolCall.arguments` a esas llamadas y su
 /// resultado a un [AiToolResult] serializable que el modelo pueda leer.
 class FolioToolRegistry {
-  FolioToolRegistry(this._session, {this.scopePageId});
+  FolioToolRegistry(
+    this._session, {
+    this.scopePageId,
+    this.onRequestMcpReadAccess,
+  });
 
   final VaultSession _session;
 
@@ -20,7 +36,17 @@ class FolioToolRegistry {
   /// o no se especifica `pageId` y la operación lo requiere.
   final String? scopePageId;
 
+  /// Si no es null, se aplica la allowlist MCP: lectura solo de páginas
+  /// autorizadas; si falta permiso, se pide confirmación vía este callback.
+  /// Quill interno deja este campo null (lectura libre).
+  final Future<McpReadAccessDecision> Function(String pageId, String pageTitle)?
+      onRequestMcpReadAccess;
+
   static const _uuid = Uuid();
+
+  static const _localMediaBlockTypes = {'image', 'file', 'video', 'audio'};
+
+  bool get _enforceMcpReadGate => onRequestMcpReadAccess != null;
 
   List<AiToolDefinition> get definitions => [
     // --- Fase 1: contenido (envuelven el comportamiento ya existente) ---
@@ -31,6 +57,7 @@ class FolioToolRegistry {
     _insertTodosDef,
     _insertTasksDef,
     _translateBilingualDef,
+    _getPageContentDef,
     // --- Fase 2: gestión de libretas/páginas ---
     _createFolderDef,
     _renamePageDef,
@@ -67,6 +94,8 @@ class FolioToolRegistry {
           return _insertTasks(call);
         case 'translate_page_bilingual':
           return _translateBilingual(call);
+        case 'get_page_content':
+          return _getPageContent(call);
         case 'create_folder':
           return _createFolder(call);
         case 'rename_page':
@@ -473,6 +502,105 @@ class FolioToolRegistry {
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","insertedCount":$inserted}');
   }
 
+  static const _getPageContentDef = AiToolDefinition(
+    name: 'get_page_content',
+    description:
+        'Lee el contenido completo de una página (metadatos + bloques con id). '
+        'Vía MCP solo páginas en la allowlist; si no está autorizada, Folio '
+        'pedirá permiso al usuario una vez.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current" para la página abierta.',
+        required: true,
+      ),
+    ],
+  );
+
+  Future<AiToolResult> _getPageContent(AiToolCall call) async {
+    final pageId = _resolvePageId(call.arguments);
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    final allowed = await _ensureMcpReadAccess(page);
+    if (!allowed) {
+      return AiToolResult.error(
+        call.id,
+        'Lectura denegada: la página no está en la allowlist MCP.',
+      );
+    }
+    final blocksJson = page.blocks.map(_blockForMcpRead).map(_jsonMap).join(',');
+    final propsJson = page.properties
+        .map(
+          (p) => _jsonMap({
+            'name': p.name,
+            'type': p.type.name,
+            'value': p.value?.toString() ?? '',
+          }),
+        )
+        .join(',');
+    return AiToolResult.ok(
+      call.id,
+      '{'
+      '"pageId":${_jsonStr(page.id)},'
+      '"title":${_jsonStr(page.title)},'
+      '"emoji":${_jsonStrOrNull(page.emoji)},'
+      '"parentId":${_jsonStrOrNull(page.parentId)},'
+      '"isFolder":${page.isFolder},'
+      '"tags":[${page.tags.map(_jsonStr).join(',')}],'
+      '"properties":[$propsJson],'
+      '"blocks":[$blocksJson]'
+      '}',
+    );
+  }
+
+  Future<bool> _ensureMcpReadAccess(FolioPage page) async {
+    if (!_enforceMcpReadGate) return true;
+    if (_session.isMcpPageReadable(page.id)) return true;
+    final gate = onRequestMcpReadAccess;
+    if (gate == null) return false;
+    final decision = await gate(page.id, page.title);
+    switch (decision) {
+      case McpReadAccessDecision.deny:
+        return false;
+      case McpReadAccessDecision.allowOnce:
+        return true;
+      case McpReadAccessDecision.allowAndRemember:
+        _session.grantMcpPageReadable(page.id);
+        return true;
+    }
+  }
+
+  Map<String, dynamic> _blockForMcpRead(FolioBlock b) {
+    final map = <String, dynamic>{
+      'id': b.id,
+      'type': b.type,
+      'text': b.text,
+      'depth': b.depth,
+    };
+    if (b.checked != null) map['checked'] = b.checked;
+    if (b.codeLanguage != null && b.codeLanguage!.trim().isNotEmpty) {
+      map['codeLanguage'] = b.codeLanguage!.trim();
+    }
+    if (b.icon != null && b.icon!.trim().isNotEmpty) {
+      map['icon'] = b.icon!.trim();
+    }
+    final url = b.url?.trim() ?? '';
+    if (url.isNotEmpty) {
+      if (_localMediaBlockTypes.contains(b.type) && !_isRemoteUrl(url)) {
+        map['url'] = '[local-attachment]';
+      } else {
+        map['url'] = url;
+      }
+    }
+    return map;
+  }
+
+  bool _isRemoteUrl(String url) =>
+      url.startsWith('http://') || url.startsWith('https://');
+
   // ---------------------------------------------------------------------
   // Fase 2 — gestión de libretas/páginas
   // ---------------------------------------------------------------------
@@ -747,11 +875,17 @@ class FolioToolRegistry {
     final limit = (call.arguments['limit'] as num?)?.toInt() ?? 10;
     final results = _session.searchIndex.search(query, limit: limit);
     final encoded = results
-        .map(
-          (r) =>
-              '{"pageId":${_jsonStr(r.pageId)},"pageTitle":${_jsonStr(r.pageTitle)},'
-              '"snippet":${_jsonStr(r.snippet)},"matchKind":${_jsonStr(r.matchKind.name)}}',
-        )
+        .map((r) {
+          final readable =
+              !_enforceMcpReadGate || _session.isMcpPageReadable(r.pageId);
+          final snippet = readable ? r.snippet : '';
+          final blockIdPart = r.blockId == null || r.blockId!.isEmpty
+              ? '"blockId":null'
+              : '"blockId":${_jsonStr(r.blockId!)}';
+          return '{"pageId":${_jsonStr(r.pageId)},"pageTitle":${_jsonStr(r.pageTitle)},'
+              '"snippet":${_jsonStr(snippet)},"matchKind":${_jsonStr(r.matchKind.name)},'
+              '$blockIdPart,"contentReadable":$readable}';
+        })
         .join(',');
     return AiToolResult.ok(call.id, '{"results":[$encoded]}');
   }

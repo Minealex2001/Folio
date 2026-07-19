@@ -17,6 +17,7 @@ import '../../app/app_settings.dart';
 import '../../services/mcp/folio_mcp_server.dart';
 import '../../services/mcp/folio_mcp_server_status.dart';
 import '../../models/quill_system_prompt.dart';
+import '../../models/folio_page.dart';
 import '../../app/folio_build_flags.dart';
 import '../../app/folio_distribution.dart';
 import '../../app/folio_store_listing.dart';
@@ -260,11 +261,185 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
+              _buildMcpAllowlistSection(context, l10n),
             ],
           ],
         );
       },
     );
+  }
+
+  Widget _buildMcpAllowlistSection(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    final ids = _s.mcpReadablePageIds.toList()..sort();
+    final scheme = Theme.of(context).colorScheme;
+    final candidates = _s.pages
+        .where((p) => !p.isTrashed && !_s.mcpReadablePageIds.contains(p.id))
+        .toList()
+      ..sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.settingsMcpAllowlistTitle,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (ids.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    _s.clearMcpReadablePages();
+                    setState(() {});
+                  },
+                  child: Text(l10n.settingsMcpAllowlistClear),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: candidates.isEmpty
+                  ? null
+                  : () => unawaited(_showMcpAllowlistAddDialog(context, l10n)),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(l10n.settingsMcpAllowlistAdd),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (ids.isEmpty)
+            Text(
+              l10n.settingsMcpAllowlistEmpty,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...ids.map((id) {
+              FolioPage? page;
+              for (final p in _s.pages) {
+                if (p.id == id) {
+                  page = p;
+                  break;
+                }
+              }
+              final title = page == null
+                  ? id
+                  : (page.title.trim().isEmpty ? id : page.title);
+              final isFolder = page?.isFolder == true;
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  isFolder ? Icons.folder_outlined : Icons.description_outlined,
+                  size: 20,
+                ),
+                title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: isFolder
+                    ? Text(l10n.settingsMcpAllowlistFolderBadge)
+                    : Text(id, maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: TextButton(
+                  onPressed: () {
+                    _s.revokeMcpPageReadable(id);
+                    setState(() {});
+                  },
+                  child: Text(l10n.settingsMcpAllowlistRemove),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showMcpAllowlistAddDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
+    final candidates = _s.pages
+        .where((p) => !p.isTrashed && !_s.mcpReadablePageIds.contains(p.id))
+        .toList()
+      ..sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
+    if (candidates.isEmpty) {
+      _snack(l10n.settingsMcpAllowlistNoneToAdd);
+      return;
+    }
+    final selectedId = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return FolioDialog(
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.settingsMcpAllowlistAddTitle,
+                  style: Theme.of(dialogContext).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: candidates.length,
+                    itemBuilder: (ctx, i) {
+                      final page = candidates[i];
+                      final title = page.title.trim().isEmpty
+                          ? page.id
+                          : page.title.trim();
+                      return ListTile(
+                        leading: Icon(
+                          page.isFolder
+                              ? Icons.folder_outlined
+                              : Icons.description_outlined,
+                          size: 20,
+                        ),
+                        title: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: page.isFolder
+                            ? Text(l10n.settingsMcpAllowlistFolderBadge)
+                            : null,
+                        onTap: () => Navigator.pop(dialogContext, page.id),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancel),
+            ),
+          ],
+        );
+      },
+    );
+    if (selectedId == null || selectedId.isEmpty) return;
+    _s.grantMcpPageReadable(selectedId);
+    if (!mounted) return;
+    setState(() {});
+    _snack(l10n.mcpSharePageEnabledSnack);
   }
 
   Future<void> _copyMcpClientConfig(

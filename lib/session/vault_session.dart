@@ -380,6 +380,7 @@ class VaultSession extends ChangeNotifier {
   final List<SyncConflictEntry> _syncConflicts = [];
   final SyncConflictStore _conflictStore = SyncConflictStore();
   final Map<String, int> _pageTombstones = {};
+  final Set<String> _mcpReadablePageIds = {};
   int _syncClock = 0;
   static const VaultSyncMergeEngine _syncMerge = VaultSyncMergeEngine();
   Duration _idleLockDuration = const Duration(minutes: 15);
@@ -976,6 +977,9 @@ class VaultSession extends ChangeNotifier {
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
+    _mcpReadablePageIds
+      ..clear()
+      ..addAll(payload.mcpReadablePageIds);
     _syncClock = payload.syncClock;
     _resetUndoRedoState();
   }
@@ -2844,8 +2848,54 @@ class VaultSession extends ChangeNotifier {
     _pageOrderByParent
         .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
         .add(id);
+    _mcpReadablePageIds.add(id);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
+  }
+
+  /// Páginas/carpetas explícitamente autorizadas para lectura MCP.
+  Set<String> get mcpReadablePageIds => Set<String>.unmodifiable(_mcpReadablePageIds);
+
+  /// True si [pageId] está en la allowlist o algún ancestro carpeta lo está.
+  bool isMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty) return false;
+    if (_mcpReadablePageIds.contains(id)) return true;
+    var cur = _pageById(id);
+    final seen = <String>{};
+    while (cur?.parentId != null) {
+      final parentId = cur!.parentId!;
+      if (!seen.add(parentId)) break;
+      if (_mcpReadablePageIds.contains(parentId)) {
+        final parent = _pageById(parentId);
+        if (parent != null && parent.isFolder) return true;
+      }
+      cur = _pageById(parentId);
+    }
+    return false;
+  }
+
+  void grantMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty || _pageById(id) == null) return;
+    if (_mcpReadablePageIds.contains(id)) return;
+    _mcpReadablePageIds.add(id);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void revokeMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty || !_mcpReadablePageIds.remove(id)) return;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void clearMcpReadablePages() {
+    if (_mcpReadablePageIds.isEmpty) return;
+    _mcpReadablePageIds.clear();
+    notifyListeners();
+    scheduleSave();
   }
 
   FolioMarkdownImportResult importMarkdownDocument(
@@ -3861,6 +3911,7 @@ class VaultSession extends ChangeNotifier {
     _pageAcl.remove(id);
     _comments.removeWhere((c) => c.pageId == id);
     _pageIdsPendingRevision.remove(id);
+    _mcpReadablePageIds.remove(id);
     _pageTombstones[id] = DateTime.now().toUtc().millisecondsSinceEpoch;
     if (wasSelected) {
       _pickInitialSelection();
@@ -5413,6 +5464,7 @@ class VaultSession extends ChangeNotifier {
       trello: _trello,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
+      mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
     );
   }
 
@@ -5923,6 +5975,7 @@ class VaultSession extends ChangeNotifier {
       aiActiveChatIndex: _aiActiveChatIndex,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
+      mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
     );
 
     final dekBytes = await _repo.encryptPlainVaultWithPassword(
@@ -6107,6 +6160,7 @@ class VaultSession extends ChangeNotifier {
         blocks: copiedBlocks,
       ),
     );
+    _mcpReadablePageIds.add(id);
     selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
     return id;

@@ -107,6 +107,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   String _desktopSettingsSignature = '';
   bool _updateDialogShown = false;
   bool _releaseNotesCheckInProgress = false;
+  /// Lifecycle Flutter: resumed vs paused/hidden/…
+  bool _lifecycleActive = true;
+  /// Foco de ventana OS (desktop). En móvil/web se mantiene true.
+  bool _windowFocused = true;
   bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
@@ -844,7 +848,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _mcpServer = null;
     }
     final active = FolioMcpServer(
-      FolioToolRegistry(widget.session),
+      FolioToolRegistry(
+        widget.session,
+        onRequestMcpReadAccess: _requestMcpReadAccess,
+      ),
       onApproveClient: _approveMcpClient,
       isClientApproved: _isMcpClientApproved,
       onClientObserved: _syncObservedMcpClient,
@@ -1155,10 +1162,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       onLockRequested: _handleLockRequested,
       onExitRequested: _handleExitRequested,
       labelsBuilder: _desktopLabels,
+      onWindowFocusChanged: _onDesktopWindowFocusChanged,
     );
     _desktop = desktop;
     try {
       await desktop.initialize();
+      _windowFocused = await desktop.isWindowFocused();
+      _syncCloudDeviceSyncForeground();
     } catch (e, st) {
       AppLogger.error(
         'Desktop integration init failed',
@@ -1168,6 +1178,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       );
     }
     _desktopSettingsSignature = _buildDesktopSettingsSignature();
+  }
+
+  void _onDesktopWindowFocusChanged(bool focused) {
+    if (_windowFocused == focused) return;
+    _windowFocused = focused;
+    _syncCloudDeviceSyncForeground();
+  }
+
+  /// Pull activo solo con lifecycle resumed y ventana con foco (en desktop).
+  void _syncCloudDeviceSyncForeground() {
+    final foreground = _lifecycleActive && _windowFocused;
+    _cloudDeviceSyncController?.setAppInForeground(foreground);
   }
 
   Future<void> _handleOpenRequested() async {
@@ -1368,32 +1390,62 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   Future<bool> _approveMcpClient(McpClientIdentity client) async {
     if (widget.appSettings.isIntegrationAppApproved(
       client.appId,
-      integrationVersion: FolioMcpServer.protocolVersion,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
     )) {
       return true;
     }
     final ctx = _navKey.currentContext ?? context;
+    final previousApproval = widget.appSettings.integrationAppApproval(
+      client.appId,
+    );
     final approved = await showDialog<bool>(
       context: ctx,
       barrierDismissible: false,
-      builder: (dialogContext) => _McpApprovalDialog(client: client),
+      builder: (dialogContext) => _McpApprovalDialog(
+        client: client,
+        previousApproval: previousApproval,
+      ),
     );
     if (approved == true) {
       await widget.appSettings.approveIntegrationApp(
         appId: client.appId,
         appName: client.appName,
         appVersion: client.appVersion,
-        integrationVersion: FolioMcpServer.protocolVersion,
+        integrationVersion: FolioMcpServer.capabilitiesVersion,
       );
       return true;
     }
     return false;
   }
 
+  /// Lectura MCP de una página fuera de la allowlist: el usuario puede denegar,
+  /// permitir solo esta vez, o permitir y añadir a la allowlist.
+  Future<McpReadAccessDecision> _requestMcpReadAccess(
+    String pageId,
+    String pageTitle,
+  ) async {
+    final ctx = _navKey.currentContext ?? context;
+    if (!ctx.mounted) return McpReadAccessDecision.deny;
+    final clientName =
+        _mcpServer?.connectedClient?.appName.trim().isNotEmpty == true
+        ? _mcpServer!.connectedClient!.appName.trim()
+        : 'MCP';
+    final title = pageTitle.trim().isEmpty ? pageId : pageTitle.trim();
+    final decision = await showDialog<McpReadAccessDecision>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpReadAccessDialog(
+        pageTitle: title,
+        clientName: clientName,
+      ),
+    );
+    return decision ?? McpReadAccessDecision.deny;
+  }
+
   bool _isMcpClientApproved(McpClientIdentity client) {
     return widget.appSettings.isIntegrationAppApproved(
       client.appId,
-      integrationVersion: FolioMcpServer.protocolVersion,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
     );
   }
 
@@ -1402,7 +1454,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       appId: client.appId,
       appName: client.appName,
       appVersion: client.appVersion,
-      integrationVersion: FolioMcpServer.protocolVersion,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
     );
   }
 
@@ -1578,16 +1630,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_maybeRunScheduledVaultBackup());
       unawaited(_folioCloudEntitlements.handleAppResumed());
-      // Primero foreground: el controller reanuda pull + pull inmediato.
-      // Luego lifecycle sin force (no reinicia push/bootstrap si ya corría).
-      _cloudDeviceSyncController?.setAppInForeground(true);
+      _lifecycleActive = true;
+      // Primero foreground efectivo (lifecycle + foco ventana); luego lifecycle
+      // sin force (no reinicia push/bootstrap si ya corría).
+      _syncCloudDeviceSyncForeground();
       unawaited(_syncCloudDeviceSyncLifecycle());
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
-      _cloudDeviceSyncController?.setAppInForeground(false);
+      _lifecycleActive = false;
+      _syncCloudDeviceSyncForeground();
       widget.session.onAppBackgrounded();
       if (widget.appSettings.minimizeToTray) {
         unawaited(_desktop?.hideToTray());
@@ -2102,32 +2156,50 @@ class _IntegrationApprovalDialog extends StatelessWidget {
 }
 
 /// Diálogo de permiso para un cliente MCP conectando por primera vez (Fase 5)
-/// — mismo propósito que `_IntegrationApprovalDialog` para los bridges de
-/// Integraciones/Run2Doc, pero describiendo el catálogo de tools de Quill en
-/// vez de la importación de markdown.
+/// Diálogo de aprobación del cliente MCP (misma idea que el bridge de
+/// Integraciones/Run2Doc), describiendo el catálogo de tools — incluida la
+/// lectura restringida a la allowlist.
 class _McpApprovalDialog extends StatelessWidget {
-  const _McpApprovalDialog({required this.client});
+  const _McpApprovalDialog({
+    required this.client,
+    this.previousApproval,
+  });
 
   final McpClientIdentity client;
+  final IntegrationAppApproval? previousApproval;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final l10n = AppLocalizations.of(context);
+    final isUpdate = previousApproval != null &&
+        !previousApproval!.matches(
+          integrationVersion: FolioMcpServer.capabilitiesVersion,
+        );
     final appVersion = client.appVersion.trim().isEmpty
-        ? (isEs ? 'desconocida' : 'unknown')
+        ? l10n.integrationApprovalUnknownVersion
         : client.appVersion.trim();
 
-    Widget capabilityRow(IconData icon, String title, String description, {required Color accent, bool danger = false}) {
+    Widget capabilityRow(
+      IconData icon,
+      String title,
+      String description, {
+      required Color accent,
+      bool danger = false,
+    }) {
       return Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: danger ? scheme.errorContainer.withValues(alpha: 0.24) : scheme.surfaceContainerLow,
+          color: danger
+              ? scheme.errorContainer.withValues(alpha: 0.24)
+              : scheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(FolioRadius.lg),
           border: Border.all(
-            color: danger ? scheme.error.withValues(alpha: 0.18) : scheme.outlineVariant.withValues(alpha: 0.45),
+            color: danger
+                ? scheme.error.withValues(alpha: 0.18)
+                : scheme.outlineVariant.withValues(alpha: 0.45),
           ),
         ),
         child: Row(
@@ -2147,11 +2219,19 @@ class _McpApprovalDialog extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -2177,10 +2257,15 @@ class _McpApprovalDialog extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [scheme.secondaryContainer.withValues(alpha: 0.7), scheme.surfaceContainerHigh],
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: 0.7),
+                      scheme.surfaceContainerHigh,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(FolioRadius.xl),
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2188,8 +2273,16 @@ class _McpApprovalDialog extends StatelessWidget {
                     Container(
                       width: 46,
                       height: 46,
-                      decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(FolioRadius.lg)),
-                      child: Icon(Icons.dns_rounded, color: scheme.primary),
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        isUpdate
+                            ? Icons.system_update_alt_rounded
+                            : Icons.dns_rounded,
+                        color: scheme.primary,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2197,17 +2290,299 @@ class _McpApprovalDialog extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isEs
-                                ? '¿Permitir que "${client.appName}" gestione tu libreta?'
-                                : 'Allow "${client.appName}" to manage your notebook?',
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                            isUpdate
+                                ? l10n.mcpApprovalUpdateTitle(client.appName)
+                                : l10n.mcpApprovalTitle(client.appName),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            isEs
-                                ? 'Este cliente MCP quiere conectarse al servidor local de Folio. Versión: $appVersion.'
-                                : 'This MCP client wants to connect to Folio\'s local server. Version: $appVersion.',
-                            style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                            isUpdate
+                                ? l10n.mcpApprovalUpdateBody
+                                : l10n.mcpApprovalBody(appVersion),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isUpdate) ...[
+                const SizedBox(height: 12),
+                capabilityRow(
+                  Icons.menu_book_outlined,
+                  l10n.mcpApprovalUpdateHighlightTitle,
+                  l10n.mcpApprovalUpdateHighlightDesc,
+                  accent: scheme.tertiary,
+                ),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _IntegrationApprovalChip(
+                    icon: Icons.laptop_windows_rounded,
+                    label: l10n.mcpApprovalChipLocalOnly,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.verified_user_outlined,
+                    label: l10n.mcpApprovalChipRevocable,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.key_outlined,
+                    label: l10n.mcpApprovalChipToken,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.mcpApprovalCanDoTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.edit_note_rounded,
+                l10n.mcpApprovalCanDoEdit,
+                l10n.mcpApprovalCanDoEditDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.account_tree_outlined,
+                l10n.mcpApprovalCanDoManage,
+                l10n.mcpApprovalCanDoManageDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.search_rounded,
+                l10n.mcpApprovalCanDoSearch,
+                l10n.mcpApprovalCanDoSearchDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.menu_book_outlined,
+                l10n.mcpApprovalCanDoRead,
+                l10n.mcpApprovalCanDoReadDesc,
+                accent: scheme.primary,
+              ),
+              const SizedBox(height: 8),
+              capabilityRow(
+                Icons.public_off_outlined,
+                l10n.mcpApprovalCannotLeaveMachine,
+                l10n.mcpApprovalCannotLeaveMachineDesc,
+                accent: scheme.error,
+                danger: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.mcpApprovalDeny),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(
+            isUpdate ? l10n.mcpApprovalApproveUpdate : l10n.mcpApprovalAllow,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpReadAccessDialog extends StatelessWidget {
+  const _McpReadAccessDialog({
+    required this.pageTitle,
+    required this.clientName,
+  });
+
+  final String pageTitle;
+  final String clientName;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final displayTitle = pageTitle.trim().isEmpty ? '—' : pageTitle.trim();
+
+    Widget capabilityRow(
+      IconData icon,
+      String title,
+      String description, {
+      required Color accent,
+      bool danger = false,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: danger
+              ? scheme.errorContainer.withValues(alpha: 0.24)
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: danger
+                ? scheme.error.withValues(alpha: 0.18)
+                : scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 620,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: 0.7),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpReadAccessTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.mcpReadAccessBody(clientName),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpReadAccessPageLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            displayTitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
@@ -2222,53 +2597,56 @@ class _McpApprovalDialog extends StatelessWidget {
                 children: [
                   _IntegrationApprovalChip(
                     icon: Icons.laptop_windows_rounded,
-                    label: isEs ? 'Solo este equipo' : 'This machine only',
+                    label: l10n.mcpApprovalChipLocalOnly,
                   ),
                   _IntegrationApprovalChip(
-                    icon: Icons.verified_user_outlined,
-                    label: isEs ? 'Aprobación revocable' : 'Revocable approval',
+                    icon: Icons.playlist_add_check_rounded,
+                    label: l10n.mcpReadAccessChipAllowlist,
                   ),
                   _IntegrationApprovalChip(
-                    icon: Icons.key_outlined,
-                    label: isEs ? 'Requiere token' : 'Token required',
+                    icon: Icons.visibility_off_outlined,
+                    label: l10n.mcpReadAccessChipNoPreview,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               Text(
-                isEs ? 'Qué podrá hacer' : 'What it will be able to do',
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                l10n.mcpReadAccessCanDoTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 10),
               capabilityRow(
-                Icons.edit_note_rounded,
-                isEs ? 'Crear y editar páginas' : 'Create and edit pages',
-                isEs
-                    ? 'Puede crear, resumir, traducir y editar el contenido de tus páginas.'
-                    : 'Can create, summarize, translate, and edit your page content.',
+                Icons.menu_book_outlined,
+                l10n.mcpReadAccessCanDoRead,
+                l10n.mcpReadAccessCanDoReadDesc,
                 accent: scheme.primary,
               ),
               capabilityRow(
-                Icons.account_tree_outlined,
-                isEs ? 'Gestionar libretas y carpetas' : 'Manage notebooks and folders',
-                isEs
-                    ? 'Puede mover, renombrar, duplicar, etiquetar y enviar páginas a la papelera.'
-                    : 'Can move, rename, duplicate, tag, and trash pages.',
+                Icons.playlist_add_outlined,
+                l10n.mcpReadAccessCanDoAllowlist,
+                l10n.mcpReadAccessCanDoAllowlistDesc,
                 accent: scheme.primary,
               ),
               capabilityRow(
-                Icons.search_rounded,
-                isEs ? 'Buscar en tu libreta' : 'Search your notebook',
-                isEs ? 'Puede buscar páginas por título o contenido.' : 'Can search pages by title or content.',
+                Icons.looks_one_outlined,
+                l10n.mcpReadAccessCanDoOnce,
+                l10n.mcpReadAccessCanDoOnceDesc,
                 accent: scheme.primary,
               ),
               const SizedBox(height: 8),
               capabilityRow(
                 Icons.public_off_outlined,
-                isEs ? 'No sale de este equipo' : 'Never leaves this machine',
-                isEs
-                    ? 'El servidor solo escucha en 127.0.0.1: ningún dispositivo de red externo puede conectarse.'
-                    : 'The server only listens on 127.0.0.1: no external network device can connect.',
+                l10n.mcpApprovalCannotLeaveMachine,
+                l10n.mcpApprovalCannotLeaveMachineDesc,
+                accent: scheme.error,
+                danger: true,
+              ),
+              capabilityRow(
+                Icons.hide_source_outlined,
+                l10n.mcpReadAccessCannotPreview,
+                l10n.mcpReadAccessCannotPreviewDesc,
                 accent: scheme.error,
                 danger: true,
               ),
@@ -2278,12 +2656,18 @@ class _McpApprovalDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: Text(isEs ? 'Denegar' : 'Deny'),
+          onPressed: () => Navigator.pop(context, McpReadAccessDecision.deny),
+          child: Text(l10n.mcpReadAccessDeny),
+        ),
+        OutlinedButton(
+          onPressed: () =>
+              Navigator.pop(context, McpReadAccessDecision.allowOnce),
+          child: Text(l10n.mcpReadAccessAllowOnce),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: Text(isEs ? 'Permitir' : 'Allow'),
+          onPressed: () =>
+              Navigator.pop(context, McpReadAccessDecision.allowAndRemember),
+          child: Text(l10n.mcpReadAccessAllow),
         ),
       ],
     );

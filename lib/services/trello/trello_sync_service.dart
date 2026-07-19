@@ -51,6 +51,17 @@ class TrelloSyncService {
     final cards = await client.getCards(source.boardId);
     final limited = cards.length > maxCards ? cards.sublist(0, maxCards) : cards;
 
+    final includeChecklists = source.importOptions.includeChecklists;
+    final checklistsByCardId = <String, List<TrelloChecklist>>{};
+    if (includeChecklists) {
+      final boardChecklists = await client.getBoardChecklists(source.boardId);
+      for (final cl in boardChecklists) {
+        final cardId = cl.idCard.trim();
+        if (cardId.isEmpty) continue;
+        (checklistsByCardId[cardId] ??= <TrelloChecklist>[]).add(cl);
+      }
+    }
+
     final existingByCardId = <String, ({FolioBlock block, FolioTaskData task})>{};
     for (final b in page.blocks) {
       if (b.type != 'task') continue;
@@ -74,6 +85,15 @@ class TrelloSyncService {
       final folioPriority = _mapPriorityFromTrello(card.labels, source.priorityLabelMappings);
       final folioStatus = _mapColumnFromTrello(card.idList, source.columnMappings);
       final mapping = source.columnMappings.firstWhereOrNull((m) => m.listId == card.idList);
+      final tags = _tagsFromTrelloLabels(card.labels);
+      final existing = existingByCardId[card.id];
+      final List<FolioTaskSubtask> subtasks;
+      if (includeChecklists) {
+        subtasks = _subtasksFromChecklists(checklistsByCardId[card.id] ?? const []);
+      } else {
+        // No importar checklists: conservar subtareas locales si ya existían.
+        subtasks = existing?.task.subtasks ?? const <FolioTaskSubtask>[];
+      }
 
       final nextSnapshot = FolioTrelloCardSnapshot(
         boardId: card.idBoard,
@@ -89,6 +109,7 @@ class TrelloSyncService {
         commentCount: card.commentCount,
         attachmentCount: card.attachmentCount,
         due: card.due,
+        shortUrl: card.browseUrl,
       );
 
       final nextExternal = FolioExternalTaskLink(
@@ -109,12 +130,15 @@ class TrelloSyncService {
         priority: folioPriority,
         status: folioStatus,
         columnId: folioStatus,
+        dueDate: _normalizeDueDate(card.due),
         assignee: card.memberNames,
+        tags: tags,
+        subtasks: subtasks,
         external: nextExternal,
         trello: nextSnapshot,
       );
 
-      final match = existingByCardId[card.id];
+      final match = existing;
       if (match != null) {
         final merged = _mergePull(
           current: match.task,
@@ -194,8 +218,22 @@ class TrelloSyncService {
         continue;
       }
 
-      final connection = session.trelloConnections.firstWhereOrNull((c) => c.id == ext.cloudId);
+      final connectionId = (ext.cloudId ?? '').trim().isNotEmpty
+          ? ext.cloudId!.trim()
+          : (source?.connectionId ?? '').trim();
+      final connection = connectionId.isEmpty
+          ? null
+          : session.trelloConnections.firstWhereOrNull((c) => c.id == connectionId);
       if (connection == null) {
+        AppLogger.warn(
+          'Trello push skipped: connection not found',
+          tag: 'trello',
+          context: {
+            'cardId': cardId,
+            'cloudId': ext.cloudId,
+            'sourceConnectionId': source?.connectionId,
+          },
+        );
         skipped++;
         continue;
       }
@@ -249,6 +287,15 @@ class TrelloSyncService {
           await client.updateCardLabels(cardId: cardId, idLabels: nextLabelIds);
         }
 
+        // Push checklist item completion (Folio subtasks → Trello check items).
+        if (t.subtasks.isNotEmpty) {
+          await _pushSubtasksAsCheckItems(
+            client: client,
+            cardId: cardId,
+            subtasks: t.subtasks,
+          );
+        }
+
         final updatedRemote = await client.getCard(cardId);
 
         final nextSnapshot = FolioTrelloCardSnapshot(
@@ -269,6 +316,7 @@ class TrelloSyncService {
           commentCount: updatedRemote.commentCount,
           attachmentCount: updatedRemote.attachmentCount,
           due: updatedRemote.due,
+          shortUrl: updatedRemote.browseUrl,
         );
 
         final nextExternal = ext.copyWith(
@@ -321,10 +369,108 @@ class TrelloSyncService {
     return mappings.firstWhereOrNull((m) => m.priority.toLowerCase() == p)?.labelId;
   }
 
+  Future<void> _pushSubtasksAsCheckItems({
+    required TrelloApiClient client,
+    required String cardId,
+    required List<FolioTaskSubtask> subtasks,
+  }) async {
+    final checklists = await client.getCardChecklists(cardId);
+    final remoteById = <String, TrelloCheckItem>{};
+    for (final cl in checklists) {
+      for (final item in cl.checkItems) {
+        final id = item.id.trim();
+        if (id.isEmpty) continue;
+        remoteById[id] = item;
+      }
+    }
+    for (final sub in subtasks) {
+      final id = sub.id.trim();
+      if (id.isEmpty) continue;
+      // Solo ítems importados desde Trello (id = checkItem id).
+      final remote = remoteById[id];
+      if (remote == null) continue;
+      final wantComplete = sub.status.trim() == 'done';
+      if (wantComplete == remote.isComplete) continue;
+      await client.updateCheckItemState(
+        cardId: cardId,
+        checkItemId: id,
+        complete: wantComplete,
+      );
+    }
+  }
+
   String _mapColumnFromTrello(String listId, List<TrelloColumnMapping> mappings) {
     final mapped = mappings.firstWhereOrNull((m) => m.listId == listId);
     if (mapped != null) return mapped.columnId;
     return 'todo';
+  }
+
+  String? _normalizeDueDate(String? due) {
+    final raw = (due ?? '').trim();
+    if (raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return parsed.toUtc().toIso8601String();
+  }
+
+  List<String> _tagsFromTrelloLabels(List<TrelloLabel> labels) {
+    final tags = <String>[];
+    final seen = <String>{};
+    for (final label in labels) {
+      final name = label.name.trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      if (!seen.add(key)) continue;
+      tags.add(name);
+    }
+    return tags;
+  }
+
+  List<FolioTaskSubtask> _subtasksFromChecklists(List<TrelloChecklist> checklists) {
+    if (checklists.isEmpty) return const [];
+    final sorted = List<TrelloChecklist>.from(checklists)
+      ..sort((a, b) => a.pos.compareTo(b.pos));
+    final prefixChecklistName = sorted.length > 1;
+    final subtasks = <FolioTaskSubtask>[];
+    for (final checklist in sorted) {
+      final checklistName = checklist.name.trim();
+      for (final item in checklist.checkItems) {
+        final itemId = item.id.trim();
+        final itemTitle = item.name.trim();
+        if (itemId.isEmpty && itemTitle.isEmpty) continue;
+        final title = prefixChecklistName && checklistName.isNotEmpty
+            ? '$checklistName: $itemTitle'
+            : itemTitle;
+        subtasks.add(
+          FolioTaskSubtask(
+            id: itemId.isEmpty ? title.hashCode.toString() : itemId,
+            title: title,
+            status: item.isComplete ? 'done' : 'todo',
+          ),
+        );
+      }
+    }
+    return subtasks;
+  }
+
+  bool _subtasksEqual(List<FolioTaskSubtask> a, List<FolioTaskSubtask> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+      if (a[i].title.trim() != b[i].title.trim()) return false;
+      if (a[i].status.trim() != b[i].status.trim()) return false;
+    }
+    return true;
+  }
+
+  bool _tagsEqual(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   bool _shouldUpdateLocal(FolioTaskData current, FolioTaskData next) {
@@ -333,6 +479,9 @@ class TrelloSyncService {
     if (current.status.trim() != next.status.trim()) return true;
     if (current.priority != next.priority) return true;
     if (current.assignee != next.assignee) return true;
+    if ((current.dueDate ?? '').trim() != (next.dueDate ?? '').trim()) return true;
+    if (!_tagsEqual(current.tags, next.tags)) return true;
+    if (!_subtasksEqual(current.subtasks, next.subtasks)) return true;
 
     final curTr = current.trello;
     final nxtTr = next.trello;
@@ -359,14 +508,23 @@ class TrelloSyncService {
 
     final localNeedsPush = (ext.syncState ?? '').trim() == 'needsPush';
     if (localNeedsPush) {
-      final nextExt = ext.copyWith(
-        remoteUpdatedAtMs: remoteUpdatedAtMs,
-        syncState: 'conflict',
-      );
-      return current.copyWith(
-        external: nextExt,
-        trello: pulled.trello ?? current.trello,
-      );
+      final prevRemote = ext.remoteUpdatedAtMs;
+      final remoteChanged =
+          prevRemote != null && remoteUpdatedAtMs > prevRemote;
+      if (remoteChanged) {
+        // Conflicto real: remoto cambió mientras Folio tenía cambios pendientes.
+        final nextExt = ext.copyWith(
+          remoteUpdatedAtMs: remoteUpdatedAtMs,
+          syncState: 'conflict',
+        );
+        return current.copyWith(
+          external: nextExt,
+          trello: pulled.trello ?? current.trello,
+        );
+      }
+      // Sin cambios remotos: conservar needsPush para que el push del mismo
+      // ciclo de sync pueda aplicar los cambios locales.
+      return current;
     }
 
     final nextExt = ext.copyWith(

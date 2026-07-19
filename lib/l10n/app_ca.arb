@@ -618,6 +618,78 @@
   "settingsMcpCopyCursorConfigDone": "Config MCP de Cursor copiada. Enganxa-la a ~/.cursor/mcp.json (fusiona amb els servidors existents).",
   "settingsMcpCopyClaudeConfigDone": "JSON de Claude Desktop copiat (mcp-remote). Enganxa’l a %APPDATA%\\Claude\\claude_desktop_config.json. Cal Node.js/npx. No facis servir el formulari «Connector personalitzat» amb localhost.",
   "settingsMcpClaudeCustomConnectorHint": "El diàleg «Afegeix un connector personalitzat» de Claude exigeix una URL HTTPS pública accessible des dels servidors d’Anthropic. L’MCP de Folio és només local (127.0.0.1), així que aquest formulari no el pot fer servir. En aquest PC, usa «Copia el JSON de Claude Desktop» i enganxa’l a claude_desktop_config.json.",
+  "settingsMcpAllowlistTitle": "Pàgines llegibles per MCP",
+  "settingsMcpAllowlistEmpty": "Cap pàgina autoritzada. Un client MCP demanarà permís la primera vegada que intenti llegir una pàgina.",
+  "settingsMcpAllowlistClear": "Buidar allowlist",
+  "settingsMcpAllowlistRemove": "Treure",
+  "settingsMcpAllowlistFolderBadge": "Carpeta",
+  "settingsMcpAllowlistAdd": "Permetre lectura…",
+  "settingsMcpAllowlistAddTitle": "Permetre lectura MCP",
+  "settingsMcpAllowlistNoneToAdd": "Totes les pàgines ja són a l’allowlist.",
+  "mcpReadAccessTitle": "Permetre la lectura MCP d’aquesta pàgina?",
+  "mcpReadAccessBody": "El client «{clientName}» vol llegir la pàgina indicada a sota. Aquest diàleg només mostra el títol, mai el text de la pàgina.",
+  "@mcpReadAccessBody": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpReadAccessPageLabel": "Pàgina",
+  "mcpReadAccessChipAllowlist": "Pots recordar o no",
+  "mcpReadAccessChipNoPreview": "Sense vista prèvia del contingut",
+  "mcpReadAccessCanDoTitle": "Què implica aquest permís",
+  "mcpReadAccessCanDoRead": "Llegir el contingut complet",
+  "mcpReadAccessCanDoReadDesc": "El client podrà obtenir els blocs d’aquesta pàgina (títols, text, llistes, codi, etc.) per ajudar-te fora de Folio.",
+  "mcpReadAccessCanDoAllowlist": "Recordar a l’allowlist (opcional)",
+  "mcpReadAccessCanDoAllowlistDesc": "Si tries «Permetre i recordar», no tornarà a demanar permís per a aquesta pàgina. La pots treure a Ajustos → Servidor MCP.",
+  "mcpReadAccessCanDoOnce": "Permetre només aquesta vegada",
+  "mcpReadAccessCanDoOnceDesc": "La lectura es concedeix un cop i la pàgina no s’afegeix a l’allowlist; la propera vegada tornarà a preguntar.",
+  "mcpReadAccessCannotPreview": "Aquest diàleg no mostra el contingut",
+  "mcpReadAccessCannotPreviewDesc": "Només veus el títol per identificar la pàgina. El text no es previsualitza aquí.",
+  "mcpReadAccessAllow": "Permetre i recordar",
+  "mcpReadAccessAllowOnce": "Permetre només aquesta vegada",
+  "mcpReadAccessDeny": "Denegar",
+  "mcpApprovalTitle": "Permetre que «{clientName}» gestioni la teva llibreta?",
+  "@mcpApprovalTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateTitle": "Tornar a autoritzar «{clientName}»?",
+  "@mcpApprovalUpdateTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalBody": "Aquest client MCP vol connectar-se al servidor local de Folio. Versió: {appVersion}.",
+  "@mcpApprovalBody": {
+    "placeholders": {
+      "appVersion": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateBody": "Aquest client MCP ja estava autoritzat, però Folio ha ampliat les seves capacitats. Has de tornar a donar permís per continuar.",
+  "mcpApprovalUpdateHighlightTitle": "Novetat: lectura de pàgines",
+  "mcpApprovalUpdateHighlightDesc": "Ara pot llegir el contingut complet de pàgines que autoritzis (allowlist). La primera lectura d’una pàgina nova demanarà el teu permís; no s’envien adjunts locals ni dades fora d’aquest equip.",
+  "mcpApprovalApproveUpdate": "Autoritzar de nou",
+  "mcpApprovalChipLocalOnly": "Només aquest equip",
+  "mcpApprovalChipRevocable": "Aprovació revocable",
+  "mcpApprovalChipToken": "Requereix token",
+  "mcpApprovalCanDoTitle": "Què podrà fer",
+  "mcpApprovalCanDoEdit": "Crear i editar pàgines",
+  "mcpApprovalCanDoEditDesc": "Pot crear, resumir, traduir i editar el contingut de les teves pàgines.",
+  "mcpApprovalCanDoManage": "Gestionar llibretes i carpetes",
+  "mcpApprovalCanDoManageDesc": "Pot moure, canviar el nom, duplicar, etiquetar i enviar pàgines a la paperera.",
+  "mcpApprovalCanDoSearch": "Cercar a la llibreta",
+  "mcpApprovalCanDoSearchDesc": "Pot cercar pàgines per títol o contingut (els fragments només es mostren a pàgines autoritzades).",
+  "mcpApprovalCanDoRead": "Llegir pàgines autoritzades",
+  "mcpApprovalCanDoReadDesc": "Pot llegir el contingut complet només de pàgines (o carpetes) a l’allowlist MCP. La primera lectura d’una pàgina nova demanarà el teu permís.",
+  "mcpApprovalCannotLeaveMachine": "No surt d’aquest equip",
+  "mcpApprovalCannotLeaveMachineDesc": "El servidor només escolta a 127.0.0.1: cap dispositiu de xarxa extern es pot connectar.",
+  "mcpApprovalDeny": "Denegar",
+  "mcpApprovalAllow": "Permetre",
+  "mcpSharePageEnable": "Permetre lectura MCP",
+  "mcpSharePageDisable": "Treure lectura MCP",
+  "mcpSharePageEnabledSnack": "Pàgina afegida a l’allowlist MCP",
+  "mcpSharePageDisabledSnack": "Pàgina treta de l’allowlist MCP",
   "aiContextWindowTokens": "Finestra de context del model (tokens)",
   "aiContextWindowTokensHint": "S'utilitza per a la barra de context al nota d'Quill. Ha de coincidir amb el teu model (p. ex. 8192, 131072).",
   "aiContextUsageUnavailable": "No s'ha informat de l'ús de tokens en l'última resposta.",
@@ -3005,4 +3077,35 @@
   ,"trelloColumnTodo": "Per fer"
   ,"trelloColumnInProgress": "En curs"
   ,"trelloColumnDone": "Fet"
+  ,"trelloDetailsTitle": "Trello"
+  ,"trelloRefresh": "Actualitzar"
+  ,"trelloConflictMessage": "Conflicte: hi ha hagut canvis a Trello i a Folio."
+  ,"trelloConflictLoadHint": "Prem Actualitzar per carregar l'estat remot i veure les diferències."
+  ,"trelloKeepRemote": "Mantenir Trello"
+  ,"trelloForceFolio": "Forçar Folio"
+  ,"trelloCommentsTitle": "Comentaris Trello"
+  ,"trelloNoComments": "Sense comentaris o no carregats."
+  ,"trelloAddCommentHint": "Afegir comentari..."
+  ,"trelloDeleteRemoteConfirm": "Aquesta acció esborrarà la tasca a Folio i arxivarà la targeta a Trello. Continuar?"
+  ,"trelloConnectionMissing": "No s'ha trobat la connexió Trello per a aquesta tasca. Torna a connectar Trello a Configuració → Integracions."
+  ,"trelloConnectionMissingDelete": "No s'ha trobat la connexió Trello per arxivar la targeta."
+  ,"trelloBannerLabel": "Trello · {label}"
+  ,"@trelloBannerLabel": {"placeholders": {"label": {"type": "String"}}}
+  ,"kanbanIntegrationExclusive": "Aquest tauler ja està vinculat a {provider}. Treu aquesta font per associar-ne una altra."
+  ,"@kanbanIntegrationExclusive": {"placeholders": {"provider": {"type": "String"}}}
+  ,"kanbanTrelloSyncingPush": "Trello: sincronitzant (push)…"
+  ,"kanbanTrelloPushOkPull": "Trello: push OK · ara pull…"
+  ,"kanbanTrelloSyncResult": "Trello: push {pushed} (omèsos {skipped}) · pull {pulled} · +{created} · ~{updated}"
+  ,"@kanbanTrelloSyncResult": {
+    "placeholders": {
+      "pushed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "pulled": {"type": "int"},
+      "created": {"type": "int"},
+      "updated": {"type": "int"}
+    }
+  }
+  ,"kanbanTrelloSyncTooltip": "Sincronitzar Trello (push + pull)"
+  ,"kanbanTrelloError": "Error Trello: {error}"
+  ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
 }

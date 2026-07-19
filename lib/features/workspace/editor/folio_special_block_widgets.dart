@@ -1195,10 +1195,22 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   }
 
   void _emit(FolioTaskData updated) {
+    var next = updated;
+    final ext = next.external;
+    if (ext != null &&
+        (ext.provider == 'jira' ||
+            ext.provider == 'youtrack' ||
+            ext.provider == 'trello')) {
+      final cur = (ext.syncState ?? '').trim();
+      if (cur != 'conflict') {
+        next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
+      }
+    }
+    setState(() => _data = next);
     widget.session.updateBlockText(
       widget.pageId,
       widget.block.id,
-      updated.encode(),
+      next.encode(),
     );
   }
 

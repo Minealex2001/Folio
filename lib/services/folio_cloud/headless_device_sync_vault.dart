@@ -145,8 +145,10 @@ class HeadlessDeviceSyncVault {
       pageTemplates: payload.pageTemplates,
       jira: payload.jira,
       youtrack: payload.youtrack,
+      trello: payload.trello,
       pageTombstones: payload.pageTombstones,
       syncClock: payload.syncClock,
+      mcpReadablePageIds: payload.mcpReadablePageIds,
     );
   }
 

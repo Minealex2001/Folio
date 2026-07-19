@@ -70,6 +70,12 @@ class FolioMcpServer {
 
   static const protocolVersion = '2025-03-26';
 
+  /// Versión de capacidades Folio expuestas por MCP (independiente del
+  /// `protocolVersion` del wire protocol). Al subirla, las aprobaciones
+  /// guardadas con una versión anterior dejan de valer y el usuario debe
+  /// volver a autorizar el cliente (p. ej. al añadir lectura de páginas).
+  static const capabilitiesVersion = '2';
+
   static const supportedProtocolVersions = {
     '2024-11-05',
     '2025-03-26',
@@ -418,6 +424,11 @@ class FolioMcpServer {
         ? requested
         : protocolVersion;
 
+    // Un solo slot por cliente: re-initialize (Cursor/mcp-remote, diálogo de
+    // re-aprobación, reintentos) no debe acumular sesiones huérfanas que
+    // rompan tools/call cuando falta o caduca Mcp-Session-Id.
+    _sessions.removeWhere((_, existing) => existing.appId == identity.appId);
+
     final sessionId = _generateToken();
     _sessions[sessionId] = identity;
 
@@ -432,13 +443,16 @@ class FolioMcpServer {
   }
 
   McpClientIdentity _requireSession(String? sessionId) {
-    if (sessionId != null && _sessions.containsKey(sessionId)) {
-      return _sessions[sessionId]!;
+    if (sessionId != null) {
+      final existing = _sessions[sessionId];
+      if (existing != null) return existing;
     }
-    // Clientes que no reenvían Mcp-Session-Id (o arranques previos): si solo
-    // hay una sesión activa, la reutilizamos.
-    if (_sessions.length == 1) return _sessions.values.single;
-    throw const McpError(-32002, 'Llama a "initialize" antes de usar tools.');
+    if (_sessions.isEmpty) {
+      throw const McpError(-32002, 'Llama a "initialize" antes de usar tools.');
+    }
+    // Sin cabecera, o con sesión antigua tras un re-initialize: usar la más
+    // reciente (el Map de Dart preserva orden de inserción).
+    return _sessions.values.last;
   }
 
   Future<void> _requireApprovedClient(String? sessionId) async {

@@ -15,7 +15,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 8: papelera de páginas (`FolioPage.trashedAt`).
 /// Esquema 9: tombstones de sync multi-dispositivo + `syncClock`.
 /// Esquema 10: `displayName` de la libreta (sync multi-dispositivo).
-const int kVaultPayloadVersion = 10;
+/// Esquema 11: allowlist MCP de páginas legibles (`mcpReadablePageIds`).
+const int kVaultPayloadVersion = 11;
 
 class VaultPayload {
   VaultPayload({
@@ -35,6 +36,7 @@ class VaultPayload {
     TrelloIntegrationState? trello,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
+    Set<String>? mcpReadablePageIds,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        pageOrderByParent = pageOrderByParent ?? {},
@@ -46,7 +48,8 @@ class VaultPayload {
        jira = jira ?? JiraIntegrationState.empty,
        youtrack = youtrack ?? YouTrackIntegrationState.empty,
        trello = trello ?? TrelloIntegrationState.empty,
-       pageTombstones = pageTombstones ?? const {};
+       pageTombstones = pageTombstones ?? const {},
+       mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
   final int version;
   final List<FolioPage> pages;
@@ -71,6 +74,10 @@ class VaultPayload {
   /// Reloj monótono de sync (Lamport ligero) para ordenar revisiones de pack.
   final int syncClock;
 
+  /// Ids de páginas/carpetas que el servidor MCP puede leer (allowlist).
+  /// Si una carpeta está en el set, sus descendientes también son legibles.
+  final Set<String> mcpReadablePageIds;
+
   Map<String, dynamic> toJson() => {
     'version': version,
     'pages': pages.map((p) => p.toJson()).toList(),
@@ -93,6 +100,8 @@ class VaultPayload {
       'trello': trello.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
+    if (mcpReadablePageIds.isNotEmpty)
+      'mcpReadablePageIds': mcpReadablePageIds.toList(growable: false),
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -173,6 +182,14 @@ class VaultPayload {
     }
     final syncClock = (j['syncClock'] as num?)?.toInt() ?? 0;
     final displayName = '${j['displayName'] ?? ''}'.trim();
+    final mcpReadablePageIds = <String>{};
+    final rawMcpReadable = j['mcpReadablePageIds'];
+    if (rawMcpReadable is List) {
+      for (final e in rawMcpReadable) {
+        final id = '$e'.trim();
+        if (id.isNotEmpty) mcpReadablePageIds.add(id);
+      }
+    }
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
@@ -190,6 +207,7 @@ class VaultPayload {
       trello: trello,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
+      mcpReadablePageIds: mcpReadablePageIds,
     );
   }
 

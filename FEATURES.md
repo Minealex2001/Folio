@@ -58,6 +58,7 @@ Ejemplos de UI: `Crear folio`, `Nuevo Folio`, `Libreta activa` / `Active noteboo
 27. [Importación de contenido](#27-importación-de-contenido)
 28. [Exportación de contenido](#28-exportación-de-contenido)
 29. [Integración con Jira](#29-integración-con-jira)
+29a. [Integración con Trello](#29a-integración-con-trello)
 30. [Búsqueda global](#30-búsqueda-global)
 31. [Captura rápida de tarea](#31-captura-rápida-de-tarea)
 32. [Temas y apariencia](#32-temas-y-apariencia)
@@ -742,7 +743,7 @@ Distinta de la **copia/restauración** (reemplazo consciente): la sync automáti
 - Tras persistir y **~10 s sin nuevos guardados** (idle de edición), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
 - Indicador global en el workspace (chip/icono) con sheet: estado de **todas las libretas locales**, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y acceso a conflictos pendientes. El chip muestra “Todas las libretas están sincronizadas” cuando cada libreta está al día (o sin pack en la nube); si otra libreta tiene cambios remotos más nuevos, avisa y permite abrirla.
 - Cifrado con la **DEK en memoria** (libreta ya desbloqueada) o clave derivada del vault en claro; **no pide contraseña** ni depende del restore-wrap del cloud-pack.
-- Otros dispositivos hacen **pull** en primer plano: libreta activa cada **~30 s** (`snapshots` o poll REST en Windows); todas las libretas cada **~15 min**. En segundo plano el pull se pausa; al volver, pull inmediato de la activa. Al cambiar de libreta: **push inmediato** de la anterior y pull inmediato de la nueva. **Push** normal tras **~10 s sin editar** (o flush al cambiar de página). Tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
+- Otros dispositivos hacen **pull** en primer plano: libreta activa cada **~30 s** (`snapshots` o poll REST en Windows); todas las libretas cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) el pull se pausa; al recuperar foco/resumed, pull inmediato de la activa. Al cambiar de libreta: **push inmediato** de la anterior y pull inmediato de la nueva. **Push** normal tras **~10 s sin editar** (o flush al cambiar de página). Tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
 - Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución en **Ajustes → Folio Cloud** y en Ajustes → Sincronización (P2P); mismo contador `syncPendingConflicts`.
 - Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
 - Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v1 pack o v2 manifiesto + `newBlobs`/`deleteBlobs`).
@@ -895,6 +896,52 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 - Obtención de issues/tareas desde Jira Cloud (`jira_api_client.dart`).
 - Sincronización bidireccional de tareas (`jira_sync_service.dart`).
 - Estado persistido en `JiraIntegrationState` (`lib/models/jira_integration_state.dart`).
+
+---
+
+## 29a. Integración con Trello
+
+Implementada en `lib/services/trello/` (`trello_api_client.dart`, `trello_sync_service.dart`, `trello_auth_config.dart`). Ajustes en `lib/features/settings/trello_integration_settings.dart`.
+
+### Conexión y fuentes
+
+- API key + token de Trello (conexión verificada con `/members/me`).
+- Fuentes por tablero: mappings lista→columna Kanban y labels→prioridad.
+- El bloque Kanban enlaza una `trelloSourceId` y dispara sync manual (**push** de tareas con `needsPush`, luego **pull**).
+
+### Pull (Trello → Folio)
+
+| Campo Trello | Campo Folio |
+|---|---|
+| `name` | `title` |
+| `desc` | `description` |
+| Lista (`idList`) | `status` / `columnId` (vía `columnMappings`) |
+| Labels mapeados | `priority` |
+| Labels con nombre | `tags` |
+| Miembros | `assignee` |
+| `due` | `dueDate` (+ snapshot `trello.due`) |
+| Checklists / check items | `subtasks` (`FolioTaskSubtask`; `complete` → `done`) |
+
+- Opción `importOptions.includeChecklists` (default activo): si está desactivada no se rellenan subtareas nuevas y se conservan las ya locales.
+- El detalle de tarea (`task_details_panel`) muestra las subtareas inline (`FolioTaskData.subtasks`) además de las tareas hijas por `parentTaskId` (Jira).
+- Comentarios y adjuntos: solo contadores en el snapshot `FolioTrelloCardSnapshot` (mismo patrón que Jira/YouTrack para el modelo local).
+- Cards archivadas no se importan (`filter: open`).
+
+### Push (Folio → Trello)
+
+- Título, descripción, lista (si hay mapping) y labels de prioridad.
+- Estado de check items: las subtareas Folio cuyo `id` es un check item de Trello empujan `complete` / `incomplete`.
+- Crear/borrar check items nuevos desde Folio **no** se empuja aún.
+
+### Detalle de tarea (paridad YouTrack)
+
+- Banner «Abrir» en Trello (`shortUrl` o `https://trello.com/c/{cardId}`).
+- Sección Trello: refresh, pill `syncState`, resolución de conflictos, comentarios (listar/añadir).
+- Al editar en el panel se marca `needsPush`; al borrar se archiva la card remota.
+
+### Kanban: una sola integración
+
+Un bloque Kanban solo puede tener asociada **una** fuente: Jira **o** YouTrack **o** Trello. Al elegir una se limpian las demás; si hay datos legacy con varias, se normaliza (prioridad Jira → YouTrack → Trello).
 
 ---
 
@@ -1300,18 +1347,32 @@ Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga 
 
 ### Catálogo de acciones expuestas
 
-El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
+El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`, **`get_page_content`**) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
 
 A diferencia del chat interno de Quill, un cliente MCP no tiene "página actual": debe pasar siempre un `pageId` explícito en los argumentos de cada tool que lo requiera.
+
+### Lectura de páginas (`get_page_content`) y allowlist
+
+Los clientes MCP pueden leer el contenido completo de una página con `get_page_content` (metadatos + bloques con `id`, necesarios para `edit_page_blocks`). Quill interno usa el mismo tool **sin** restricciones de allowlist.
+
+**Privacidad (allowlist por libreta, vault schema v11 `mcpReadablePageIds`):**
+
+- Solo se devuelve el contenido de páginas en la allowlist (o descendientes de una **carpeta** allowlisteada).
+- Si un cliente MCP pide una página fuera de la allowlist, Folio muestra un diálogo: **Denegar**, **Permitir solo esta vez** (sin guardar) o **Permitir y recordar** (añade a la allowlist).
+- Las páginas creadas/duplicadas vía tools se añaden automáticamente a la allowlist (el agente puede releer lo que escribió).
+- `search_pages` vía MCP sigue pudiendo listar coincidencias por título, pero **omite el snippet** si la página no es legible (`contentReadable: false`); también incluye `blockId` cuando hay coincidencia de contenido.
+- Minimización: no se envía `richTextDeltaJson` ni apariencia; en bloques `image`/`file`/`audio`/`video` las rutas locales se sustituyen por `[local-attachment]`.
+- Gestión manual: en Ajustes → IA → Servidor MCP puedes **añadir** páginas/carpetas a la allowlist, quitarlas o vaciarla. La primera lectura vía MCP también puede añadir una página al aprobar el diálogo.
 
 ### Permisos: aprobación como con cualquier otra integración
 
 El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuario lo aprueba explícitamente** — mismo mecanismo de permisos que ya usan los demás puentes locales de Folio (el bridge de Integraciones y Run2Doc):
 
-1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar) y qué no (el servidor nunca escucha fuera de este equipo).
+1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar, **leer páginas autorizadas**) y qué no (el servidor nunca escucha fuera de este equipo).
 2. Si el usuario deniega, la conexión falla con un error MCP (`-32001`) y no se guarda nada.
-3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar.
+3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>` y `integrationVersion` = **`FolioMcpServer.capabilitiesVersion`**, hoy `"2"`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar **mientras la versión de capacidades coincida**.
 4. Si se llama a cualquier tool antes de `initialize`, o el cliente identificado no está aprobado, el servidor responde con un error MCP (`-32002` sin `initialize`, `-32001` sin aprobar) en vez de ejecutar la acción.
+5. **Re-aprobación por cambio de capacidades:** al subir `capabilitiesVersion` (p. ej. al añadir lectura de páginas), las aprobaciones antiguas dejan de valer. Al reconectar, Folio muestra el diálogo de actualización explicando la novedad (lectura con allowlist) y pide autorizar de nuevo.
 
 **Revocar el acceso:** como cualquier otra integración aprobada, los clientes MCP aprobados aparecen en **Ajustes → Integraciones**, junto a Run2Doc y el resto de apps aprobadas, con un botón para revocar el acceso en cualquier momento. Revocar borra la aprobación guardada; la próxima vez que ese cliente se conecte, tendrá que pedir permiso de nuevo.
 
@@ -1321,8 +1382,8 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 - Solo loopback, nunca red.
 - Puerto fijo `45833` (Integraciones `45831`, Run2Doc `45832`); token Bearer persistente (no rota en cada arranque).
 - Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
-- No hay límite de "cuánto" puede hacer un cliente aprobado dentro del catálogo de tools — la aprobación es a nivel de cliente, no de acción; revocar es la forma de cortar el acceso.
-
+- Lectura de contenido acotada a la allowlist MCP de la libreta (más confirmación la primera vez); escritura/gestión siguen el catálogo completo una vez el cliente está aprobado.
+- Revocar el cliente o vaciar la allowlist corta el acceso a contenido ya autorizado.
 ---
 
 ## Apéndice: configuración persistida (`AppSettings`)

@@ -719,7 +719,7 @@ Distinta de la **copia/restauración** (reemplazo consciente): la sync automáti
 - Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`) + transporte incremental `folio_cloud_device_sync_incremental.dart`.
 - Tras persistir y **~10 s sin nuevos guardados** (idle de edición), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
 - Indicador unificado en el workspace (una sola nube): **guardado local** + **sync Folio Cloud**. Al pulsarlo, sheet con estado en este dispositivo, todas las libretas, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y conflictos pendientes. El nombre visible de cada libreta viaja en el pack (`VaultPayload.displayName`) y se aplica al registro local tras el merge.
-- **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro usan clave determinista por cuenta+vaultId. **Pull** de la libreta activa cada **~30 s** en primer plano (listener Firestore o poll); **todas las libretas** cada **~15 min**. En segundo plano se pausa el poll y el listener; al volver a primer plano, pull inmediato de la activa. Al cambiar de libreta activa, **push inmediato** de la que se abandona (aún desbloqueada) y **pull inmediato** de la nueva. El **push** normal espera **~10 s de inactividad** tras el último guardado local (el usuario dejó de editar); al cambiar de página, si había push pendiente, se hace flush.
+- **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro usan clave determinista por cuenta+vaultId. **Pull** de la libreta activa cada **~30 s** en primer plano (listener Firestore o poll); **todas las libretas** cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) se pausa el poll y el listener; al volver a ser la ventana activa / resumed, pull inmediato de la activa. Al cambiar de libreta activa, **push inmediato** de la que se abandona (aún desbloqueada) y **pull inmediato** de la nueva. El **push** normal espera **~10 s de inactividad** tras el último guardado local (el usuario dejó de editar); al cambiar de página, si había push pendiente, se hace flush.
 - Cifrado del **pack en la nube** con la clave de perfil de cuenta Folio Cloud (todos los dispositivos firmados pueden bajarlo). La DEK de cada libreta viaja en `dekAccountWrapB64` / `dek.accountwrap` para materializar sin desbloquear. Compat: packs antiguos cifrados con DEK de libreta se siguen pudiendo leer si hay clave local o wrap.
 - Al desbloquear/cachear DEK se sube el bootstrap de inmediato (no espera al debounce del push).
 - Otros dispositivos escuchan el doc (`snapshots`) en primer plano o, en **Windows** (sin Firestore nativo), hacen **polling REST ~30 s** de la activa solo en primer plano; tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
@@ -1279,18 +1279,32 @@ Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga 
 
 ### Catálogo de acciones expuestas
 
-El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
+El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`, **`get_page_content`**) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
 
 A diferencia del chat interno de Quill, un cliente MCP no tiene "página actual": debe pasar siempre un `pageId` explícito en los argumentos de cada tool que lo requiera.
+
+### Lectura de páginas (`get_page_content`) y allowlist
+
+Los clientes MCP pueden leer el contenido completo de una página con `get_page_content` (metadatos + bloques con `id`, necesarios para `edit_page_blocks`). Quill interno usa el mismo tool **sin** restricciones de allowlist.
+
+**Privacidad (allowlist por libreta, vault schema v11 `mcpReadablePageIds`):**
+
+- Solo se devuelve el contenido de páginas en la allowlist (o descendientes de una **carpeta** allowlisteada).
+- Si un cliente MCP pide una página fuera de la allowlist, Folio muestra un diálogo: **Denegar**, **Permitir solo esta vez** (sin guardar) o **Permitir y recordar** (añade a la allowlist).
+- Las páginas creadas/duplicadas vía tools se añaden automáticamente a la allowlist (el agente puede releer lo que escribió).
+- `search_pages` vía MCP sigue pudiendo listar coincidencias por título, pero **omite el snippet** si la página no es legible (`contentReadable: false`); también incluye `blockId` cuando hay coincidencia de contenido.
+- Minimización: no se envía `richTextDeltaJson` ni apariencia; en bloques `image`/`file`/`audio`/`video` las rutas locales se sustituyen por `[local-attachment]`.
+- Gestión manual: en Ajustes → IA → Servidor MCP puedes **añadir** páginas/carpetas a la allowlist, quitarlas o vaciarla. La primera lectura vía MCP también puede añadir una página al aprobar el diálogo.
 
 ### Permisos: aprobación como con cualquier otra integración
 
 El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuario lo aprueba explícitamente** — mismo mecanismo de permisos que ya usan los demás puentes locales de Folio (el bridge de Integraciones y Run2Doc):
 
-1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar) y qué no (el servidor nunca escucha fuera de este equipo).
+1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar, **leer páginas autorizadas**) y qué no (el servidor nunca escucha fuera de este equipo).
 2. Si el usuario deniega, la conexión falla con un error MCP (`-32001`) y no se guarda nada.
-3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar.
+3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>` y `integrationVersion` = **`FolioMcpServer.capabilitiesVersion`**, hoy `"2"`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar **mientras la versión de capacidades coincida**.
 4. Si se llama a cualquier tool antes de `initialize`, o el cliente identificado no está aprobado, el servidor responde con un error MCP (`-32002` sin `initialize`, `-32001` sin aprobar) en vez de ejecutar la acción.
+5. **Re-aprobación por cambio de capacidades:** al subir `capabilitiesVersion` (p. ej. al añadir lectura de páginas), las aprobaciones antiguas dejan de valer. Al reconectar, Folio muestra el diálogo de actualización explicando la novedad (lectura con allowlist) y pide autorizar de nuevo.
 
 **Revocar el acceso:** como cualquier otra integración aprobada, los clientes MCP aprobados aparecen en **Ajustes → Integraciones**, junto a Run2Doc y el resto de apps aprobadas, con un botón para revocar el acceso en cualquier momento. Revocar borra la aprobación guardada; la próxima vez que ese cliente se conecte, tendrá que pedir permiso de nuevo.
 
@@ -1300,8 +1314,8 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 - Solo loopback, nunca red.
 - Puerto fijo `45833` (Integraciones `45831`, Run2Doc `45832`); token Bearer persistente (no rota en cada arranque).
 - Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
-- No hay límite de "cuánto" puede hacer un cliente aprobado dentro del catálogo de tools — la aprobación es a nivel de cliente, no de acción; revocar es la forma de cortar el acceso.
-
+- Lectura de contenido acotada a la allowlist MCP de la libreta (más confirmación la primera vez); escritura/gestión siguen el catálogo completo una vez el cliente está aprobado.
+- Revocar el cliente o vaciar la allowlist corta el acceso a contenido ya autorizado.
 ---
 
 ## Apéndice: configuración persistida (`AppSettings`)

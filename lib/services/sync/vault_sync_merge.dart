@@ -254,6 +254,13 @@ class VaultSyncMergeEngine {
     if (base.syncClock > syncClock) syncClock = base.syncClock;
     syncClock += 1;
 
+    final mcpReadable = <String>{
+      ...base.mcpReadablePageIds,
+      ...remote.mcpReadablePageIds,
+      ...local.mcpReadablePageIds,
+    };
+    mcpReadable.removeWhere(tombstones.containsKey);
+
     final merged = VaultPayload(
       version: kVaultPayloadVersion,
       pages: mergedPages,
@@ -272,8 +279,12 @@ class VaultSyncMergeEngine {
       pageTemplates: templates,
       jira: _pickJira(local.jira, remote.jira, base.jira),
       youtrack: _pickYoutrack(local.youtrack, remote.youtrack, base.youtrack),
+      trello: local.trello.connections.isNotEmpty || local.trello.sources.isNotEmpty
+          ? local.trello
+          : remote.trello,
       pageTombstones: tombstones,
       syncClock: syncClock,
+      mcpReadablePageIds: mcpReadable,
     );
 
     final changed = payloadFingerprint(merged) != localFp;

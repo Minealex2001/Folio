@@ -35,6 +35,7 @@ class DesktopIntegration with TrayListener, WindowListener {
     required this.onLockRequested,
     required this.onExitRequested,
     required this.labelsBuilder,
+    this.onWindowFocusChanged,
   });
 
   final AppSettings settings;
@@ -43,6 +44,8 @@ class DesktopIntegration with TrayListener, WindowListener {
   final VoidAsyncCallback onLockRequested;
   final VoidAsyncCallback onExitRequested;
   final DesktopTrayLabels Function() labelsBuilder;
+  /// true = ventana activa (foco OS); false = otra app/ventana tiene el foco.
+  final void Function(bool focused)? onWindowFocusChanged;
 
   HotKey? _searchHotKey;
   var _initialized = false;
@@ -224,5 +227,25 @@ class DesktopIntegration with TrayListener, WindowListener {
     _quitting = true;
     await onExitRequested();
     await windowManager.destroy();
+  }
+
+  @override
+  void onWindowFocus() {
+    onWindowFocusChanged?.call(true);
+  }
+
+  @override
+  void onWindowBlur() {
+    onWindowFocusChanged?.call(false);
+  }
+
+  /// Foco actual de la ventana (desktop). En fallo asume enfocada.
+  Future<bool> isWindowFocused() async {
+    if (!_isDesktop || !_initialized) return true;
+    try {
+      return await windowManager.isFocused();
+    } catch (_) {
+      return true;
+    }
   }
 }

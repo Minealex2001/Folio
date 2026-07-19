@@ -1085,6 +1085,7 @@ class FolioTrelloCardSnapshot {
     this.commentCount,
     this.attachmentCount,
     this.due,
+    this.shortUrl,
   });
 
   final String? boardId;
@@ -1098,6 +1099,7 @@ class FolioTrelloCardSnapshot {
   final int? commentCount;
   final int? attachmentCount;
   final String? due;
+  final String? shortUrl;
 
   FolioTrelloCardSnapshot copyWith({
     String? boardId,
@@ -1111,6 +1113,7 @@ class FolioTrelloCardSnapshot {
     int? commentCount,
     int? attachmentCount,
     String? due,
+    String? shortUrl,
   }) {
     return FolioTrelloCardSnapshot(
       boardId: boardId ?? this.boardId,
@@ -1124,6 +1127,7 @@ class FolioTrelloCardSnapshot {
       commentCount: commentCount ?? this.commentCount,
       attachmentCount: attachmentCount ?? this.attachmentCount,
       due: due ?? this.due,
+      shortUrl: shortUrl ?? this.shortUrl,
     );
   }
 
@@ -1139,6 +1143,7 @@ class FolioTrelloCardSnapshot {
         if (commentCount != null) 'commentCount': commentCount,
         if (attachmentCount != null) 'attachmentCount': attachmentCount,
         if ((due ?? '').trim().isNotEmpty) 'due': due,
+        if ((shortUrl ?? '').trim().isNotEmpty) 'shortUrl': shortUrl,
       };
 
   static FolioTrelloCardSnapshot? tryParse(Map<String, dynamic> map) {
@@ -1149,6 +1154,7 @@ class FolioTrelloCardSnapshot {
     final labels = (map['labels'] as String?)?.trim();
     final memberNames = (map['memberNames'] as String?)?.trim();
     final due = (map['due'] as String?)?.trim();
+    final shortUrl = (map['shortUrl'] as String?)?.trim();
     int? asInt(Object? v) => v is num ? v.toInt() : null;
 
     return FolioTrelloCardSnapshot(
@@ -1163,6 +1169,7 @@ class FolioTrelloCardSnapshot {
       commentCount: asInt(map['commentCount']),
       attachmentCount: asInt(map['attachmentCount']),
       due: (due?.isEmpty ?? true) ? null : due,
+      shortUrl: (shortUrl?.isEmpty ?? true) ? null : shortUrl,
     );
   }
 }

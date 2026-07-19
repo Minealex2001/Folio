@@ -124,13 +124,20 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   Future<void> _syncTrello({required String trelloSourceId}) async {
     if (_trelloSyncBusy) return;
     setState(() => _trelloSyncBusy = true);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
+      // Push primero: subir cambios locales (p. ej. subtareas) antes de que el
+      // pull pueda sobrescribirlos o marcar conflicto.
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(isEs ? 'Trello: sincronizando (pull).' : 'Trello: syncing (pull).'),
-        ),
+        SnackBar(content: Text(l10n.kanbanTrelloSyncingPush)),
+      );
+      final push = await const TrelloSyncService().pushLinkedTasksFromPage(
+        session: widget.session,
+        pageId: widget.pageId,
+      );
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.kanbanTrelloPushOkPull)),
       );
       final pull = await const TrelloSyncService().pullCardsIntoPage(
         session: widget.session,
@@ -139,25 +146,22 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEs ? 'Trello: pull OK - ahora push.' : 'Trello: pull OK - now push.'),
-        ),
-      );
-      final push = await const TrelloSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
           content: Text(
-            isEs
-                ? 'Trello: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
-                : 'Trello: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+            l10n.kanbanTrelloSyncResult(
+              push.pushed,
+              push.skipped,
+              pull.pulled,
+              pull.created,
+              pull.updated,
+            ),
           ),
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Error Trello: $e')),
+        SnackBar(
+          content: Text(l10n.kanbanTrelloError('$e')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _trelloSyncBusy = false);
@@ -397,6 +401,96 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     widget.session.updateBlockText(pageId, blockId, data.encode());
   }
 
+  /// Un Kanban solo puede tener una integración (Jira XOR YouTrack XOR Trello).
+  FolioKanbanData _normalizeExclusiveKanbanIntegration(FolioKanbanData data) {
+    final hasJira = (data.jiraSourceId ?? '').trim().isNotEmpty;
+    final hasYt = (data.youtrackSourceId ?? '').trim().isNotEmpty;
+    final hasTr = (data.trelloSourceId ?? '').trim().isNotEmpty;
+    final count = (hasJira ? 1 : 0) + (hasYt ? 1 : 0) + (hasTr ? 1 : 0);
+    if (count <= 1) return data;
+    if (hasJira) {
+      return data.copyWith(
+        youtrackSourceId: null,
+        youtrackAutoImport: false,
+        youtrackCreateIssuesOnQuickAdd: false,
+        trelloSourceId: null,
+        trelloAutoImport: false,
+        trelloCreateCardsOnQuickAdd: false,
+      );
+    }
+    if (hasYt) {
+      return data.copyWith(
+        trelloSourceId: null,
+        trelloAutoImport: false,
+        trelloCreateCardsOnQuickAdd: false,
+      );
+    }
+    return data;
+  }
+
+  FolioKanbanData _selectKanbanIntegration({
+    required FolioKanbanData data,
+    required String provider,
+    required String? sourceId,
+  }) {
+    final clear = sourceId == null || sourceId.trim().isEmpty;
+    switch (provider) {
+      case 'jira':
+        if (clear) {
+          return data.copyWith(
+            jiraSourceId: null,
+            jiraAutoImport: false,
+            jiraCreateIssuesOnQuickAdd: false,
+          );
+        }
+        return data.copyWith(
+          jiraSourceId: sourceId,
+          youtrackSourceId: null,
+          youtrackAutoImport: false,
+          youtrackCreateIssuesOnQuickAdd: false,
+          trelloSourceId: null,
+          trelloAutoImport: false,
+          trelloCreateCardsOnQuickAdd: false,
+        );
+      case 'youtrack':
+        if (clear) {
+          return data.copyWith(
+            youtrackSourceId: null,
+            youtrackAutoImport: false,
+            youtrackCreateIssuesOnQuickAdd: false,
+          );
+        }
+        return data.copyWith(
+          youtrackSourceId: sourceId,
+          jiraSourceId: null,
+          jiraAutoImport: false,
+          jiraCreateIssuesOnQuickAdd: false,
+          trelloSourceId: null,
+          trelloAutoImport: false,
+          trelloCreateCardsOnQuickAdd: false,
+        );
+      case 'trello':
+        if (clear) {
+          return data.copyWith(
+            trelloSourceId: null,
+            trelloAutoImport: false,
+            trelloCreateCardsOnQuickAdd: false,
+          );
+        }
+        return data.copyWith(
+          trelloSourceId: sourceId,
+          jiraSourceId: null,
+          jiraAutoImport: false,
+          jiraCreateIssuesOnQuickAdd: false,
+          youtrackSourceId: null,
+          youtrackAutoImport: false,
+          youtrackCreateIssuesOnQuickAdd: false,
+        );
+      default:
+        return data;
+    }
+  }
+
   Future<void> _renameColumn({
     required String pageId,
     required String kanbanBlockId,
@@ -578,6 +672,13 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     required _KanbanBlockConfig cfg,
   }) async {
     final l10n = AppLocalizations.of(context);
+    // Legacy: si hay más de una integración, dejar solo una.
+    final normalized = _normalizeExclusiveKanbanIntegration(cfg.data);
+    if ((normalized.jiraSourceId ?? '') != (cfg.data.jiraSourceId ?? '') ||
+        (normalized.youtrackSourceId ?? '') != (cfg.data.youtrackSourceId ?? '') ||
+        (normalized.trelloSourceId ?? '') != (cfg.data.trelloSourceId ?? '')) {
+      _persistKanbanData(page.id, cfg.blockId, normalized);
+    }
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -673,312 +774,373 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                           const SizedBox(height: FolioSpace.md),
                           Builder(
                             builder: (ctx) {
-                              final isEs = Localizations.localeOf(ctx).languageCode == 'es';
+                              final l10nSheet = AppLocalizations.of(ctx);
+                              final hasJira =
+                                  (data.jiraSourceId ?? '').trim().isNotEmpty;
+                              final hasYt =
+                                  (data.youtrackSourceId ?? '').trim().isNotEmpty;
+                              final hasTr =
+                                  (data.trelloSourceId ?? '').trim().isNotEmpty;
+                              final activeProvider = hasJira
+                                  ? 'Jira'
+                                  : hasYt
+                                      ? 'YouTrack'
+                                      : hasTr
+                                          ? 'Trello'
+                                          : null;
+                              final jiraEnabled =
+                                  activeProvider == null || hasJira;
+                              final ytEnabled =
+                                  activeProvider == null || hasYt;
+                              final trelloEnabled =
+                                  activeProvider == null || hasTr;
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
+                                  if (activeProvider != null) ...[
                                     Text(
-                                      'Jira',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w700,
+                                      l10nSheet.kanbanIntegrationExclusive(
+                                        activeProvider,
+                                      ),
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: scheme.onSurfaceVariant,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
-                                    Builder(
-                                      builder: (ctx) {
-                                        // Defensive: avoid DropdownButton crashes if sources contain duplicates
-                                        // (e.g. corrupted state) or if a previously-selected source was deleted.
-                                        final sourcesById = <String, JiraSource>{};
-                                        for (final s in widget.session.jiraSources) {
-                                          sourcesById[s.id] = s;
-                                        }
-                                        final sources = sourcesById.values.toList(
-                                          growable: false,
-                                        );
-                                        final selected = (data.jiraSourceId ?? '').trim();
-                                        final selectedValue =
-                                            selected.isEmpty ||
-                                                !sourcesById.containsKey(selected)
-                                            ? null
-                                            : selected;
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            DropdownButtonFormField<String?>(
-                                              initialValue: selectedValue,
-                                              decoration: InputDecoration(
-                                                labelText: isEs
-                                                    ? 'Fuente Jira (opcional)'
-                                                    : 'Jira source (optional)',
-                                                border: const OutlineInputBorder(),
+                                    const SizedBox(height: FolioSpace.sm),
+                                  ],
+                                  Text(
+                                    'Jira',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Builder(
+                                    builder: (ctx) {
+                                      final sourcesById = <String, JiraSource>{};
+                                      for (final s in widget.session.jiraSources) {
+                                        sourcesById[s.id] = s;
+                                      }
+                                      final sources = sourcesById.values.toList(
+                                        growable: false,
+                                      );
+                                      final selected =
+                                          (data.jiraSourceId ?? '').trim();
+                                      final selectedValue = selected.isEmpty ||
+                                              !sourcesById.containsKey(selected)
+                                          ? null
+                                          : selected;
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          DropdownButtonFormField<String?>(
+                                            initialValue: selectedValue,
+                                            decoration: InputDecoration(
+                                              labelText:
+                                                  l10nSheet.jiraSourcesTab,
+                                              border:
+                                                  const OutlineInputBorder(),
+                                            ),
+                                            items: [
+                                              DropdownMenuItem<String?>(
+                                                value: null,
+                                                child: Text(l10nSheet.kanbanNone),
                                               ),
-                                              items: [
+                                              for (final s in sources)
                                                 DropdownMenuItem<String?>(
-                                                  value: null,
-                                                  child: Text(isEs ? 'Ninguna' : 'None'),
+                                                  value: s.id,
+                                                  child: Text(s.name),
                                                 ),
-                                                for (final s in sources)
-                                                  DropdownMenuItem<String?>(
-                                                    value: s.id,
-                                                    child: Text(s.name),
-                                                  ),
-                                              ],
+                                            ],
+                                            onChanged: jiraEnabled
+                                                ? (v) {
+                                                    _persistKanbanData(
+                                                      latestPage.id,
+                                                      latestCfg.blockId,
+                                                      _selectKanbanIntegration(
+                                                        data: data,
+                                                        provider: 'jira',
+                                                        sourceId: v,
+                                                      ),
+                                                    );
+                                                  }
+                                                : null,
+                                          ),
+                                          if (selectedValue != null) ...[
+                                            const SizedBox(height: 8),
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Auto-importar desde Jira'
+                                                    : 'Auto-import from Jira',
+                                              ),
+                                              value: data.jiraAutoImport,
                                               onChanged: (v) {
                                                 _persistKanbanData(
                                                   latestPage.id,
                                                   latestCfg.blockId,
                                                   data.copyWith(
-                                                    jiraSourceId:
-                                                        v?.trim().isEmpty == true
-                                                        ? null
-                                                        : v,
+                                                    jiraAutoImport: v,
                                                   ),
                                                 );
                                               },
                                             ),
-                                            if (selectedValue != null) ...[
-                                              const SizedBox(height: 8),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Auto-importar desde Jira'
-                                                      : 'Auto-import from Jira',
-                                                ),
-                                                value: data.jiraAutoImport,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(jiraAutoImport: v),
-                                                  );
-                                                },
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Crear issues al añadir tarea'
+                                                    : 'Create issues when adding tasks',
                                               ),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Crear issues al añadir tarea'
-                                                      : 'Create issues when adding tasks',
-                                                ),
-                                                value: data.jiraCreateIssuesOnQuickAdd,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(
-                                                      jiraCreateIssuesOnQuickAdd: v,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: FolioSpace.md),
-                                    Text(
-                                      'YouTrack',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Builder(
-                                      builder: (ctx) {
-                                        final sourcesById = <String, YouTrackSource>{};
-                                        for (final s in widget.session.youtrackSources) {
-                                          sourcesById[s.id] = s;
-                                        }
-                                        final sources = sourcesById.values.toList(
-                                          growable: false,
-                                        );
-                                        final selected = (data.youtrackSourceId ?? '').trim();
-                                        final selectedValue =
-                                            selected.isEmpty ||
-                                                !sourcesById.containsKey(selected)
-                                            ? null
-                                            : selected;
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            DropdownButtonFormField<String?>(
-                                              initialValue: selectedValue,
-                                              decoration: InputDecoration(
-                                                labelText: isEs
-                                                    ? 'Fuente YouTrack (opcional)'
-                                                    : 'YouTrack source (optional)',
-                                                border: const OutlineInputBorder(),
-                                              ),
-                                              items: [
-                                                DropdownMenuItem<String?>(
-                                                  value: null,
-                                                  child: Text(isEs ? 'Ninguna' : 'None'),
-                                                ),
-                                                for (final s in sources)
-                                                  DropdownMenuItem<String?>(
-                                                    value: s.id,
-                                                    child: Text(s.name),
-                                                  ),
-                                              ],
+                                              value:
+                                                  data.jiraCreateIssuesOnQuickAdd,
                                               onChanged: (v) {
                                                 _persistKanbanData(
                                                   latestPage.id,
                                                   latestCfg.blockId,
                                                   data.copyWith(
-                                                    youtrackSourceId:
-                                                        v?.trim().isEmpty == true
-                                                        ? null
-                                                        : v,
+                                                    jiraCreateIssuesOnQuickAdd:
+                                                        v,
                                                   ),
                                                 );
                                               },
                                             ),
-                                            if (selectedValue != null) ...[
-                                              const SizedBox(height: 8),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Auto-importar desde YouTrack'
-                                                      : 'Auto-import from YouTrack',
-                                                ),
-                                                value: data.youtrackAutoImport,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(youtrackAutoImport: v),
-                                                  );
-                                                },
-                                              ),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Crear issues al añadir tarea'
-                                                      : 'Create issues when adding tasks',
-                                                ),
-                                                value: data.youtrackCreateIssuesOnQuickAdd,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(
-                                                      youtrackCreateIssuesOnQuickAdd: v,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
+                                            const SizedBox(height: 6),
                                           ],
-                                        );
-                                      },
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: FolioSpace.md),
+                                  Text(
+                                    'YouTrack',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                    const SizedBox(height: FolioSpace.md),
-                                    Text(
-                                      'Trello',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Builder(
-                                      builder: (ctx) {
-                                        final sourcesById = <String, TrelloSource>{};
-                                        for (final s in widget.session.trelloSources) {
-                                          sourcesById[s.id] = s;
-                                        }
-                                        final sources = sourcesById.values.toList(
-                                          growable: false,
-                                        );
-                                        final selected = (data.trelloSourceId ?? '').trim();
-                                        final selectedValue =
-                                            selected.isEmpty ||
-                                                !sourcesById.containsKey(selected)
-                                            ? null
-                                            : selected;
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            DropdownButtonFormField<String?>(
-                                              initialValue: selectedValue,
-                                              decoration: InputDecoration(
-                                                labelText: isEs
-                                                    ? 'Tablero Trello (opcional)'
-                                                    : 'Trello board (optional)',
-                                                border: const OutlineInputBorder(),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Builder(
+                                    builder: (ctx) {
+                                      final sourcesById =
+                                          <String, YouTrackSource>{};
+                                      for (final s
+                                          in widget.session.youtrackSources) {
+                                        sourcesById[s.id] = s;
+                                      }
+                                      final sources = sourcesById.values.toList(
+                                        growable: false,
+                                      );
+                                      final selected =
+                                          (data.youtrackSourceId ?? '').trim();
+                                      final selectedValue = selected.isEmpty ||
+                                              !sourcesById.containsKey(selected)
+                                          ? null
+                                          : selected;
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          DropdownButtonFormField<String?>(
+                                            initialValue: selectedValue,
+                                            decoration: InputDecoration(
+                                              labelText: 'YouTrack',
+                                              border:
+                                                  const OutlineInputBorder(),
+                                            ),
+                                            items: [
+                                              DropdownMenuItem<String?>(
+                                                value: null,
+                                                child: Text(l10nSheet.kanbanNone),
                                               ),
-                                              items: [
+                                              for (final s in sources)
                                                 DropdownMenuItem<String?>(
-                                                  value: null,
-                                                  child: Text(isEs ? 'Ninguna' : 'None'),
+                                                  value: s.id,
+                                                  child: Text(s.name),
                                                 ),
-                                                for (final s in sources)
-                                                  DropdownMenuItem<String?>(
-                                                    value: s.id,
-                                                    child: Text(s.name),
-                                                  ),
-                                              ],
+                                            ],
+                                            onChanged: ytEnabled
+                                                ? (v) {
+                                                    _persistKanbanData(
+                                                      latestPage.id,
+                                                      latestCfg.blockId,
+                                                      _selectKanbanIntegration(
+                                                        data: data,
+                                                        provider: 'youtrack',
+                                                        sourceId: v,
+                                                      ),
+                                                    );
+                                                  }
+                                                : null,
+                                          ),
+                                          if (selectedValue != null) ...[
+                                            const SizedBox(height: 8),
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Auto-importar desde YouTrack'
+                                                    : 'Auto-import from YouTrack',
+                                              ),
+                                              value: data.youtrackAutoImport,
                                               onChanged: (v) {
                                                 _persistKanbanData(
                                                   latestPage.id,
                                                   latestCfg.blockId,
                                                   data.copyWith(
-                                                    trelloSourceId:
-                                                        v?.trim().isEmpty == true
-                                                        ? null
-                                                        : v,
+                                                    youtrackAutoImport: v,
                                                   ),
                                                 );
                                               },
                                             ),
-                                            if (selectedValue != null) ...[
-                                              const SizedBox(height: 8),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Auto-importar desde Trello'
-                                                      : 'Auto-import from Trello',
-                                                ),
-                                                value: data.trelloAutoImport,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(trelloAutoImport: v),
-                                                  );
-                                                },
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Crear issues al añadir tarea'
+                                                    : 'Create issues when adding tasks',
                                               ),
-                                              SwitchListTile.adaptive(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text(
-                                                  isEs
-                                                      ? 'Crear tarjetas al añadir tarea'
-                                                      : 'Create cards when adding tasks',
-                                                ),
-                                                value: data.trelloCreateCardsOnQuickAdd,
-                                                onChanged: (v) {
-                                                  _persistKanbanData(
-                                                    latestPage.id,
-                                                    latestCfg.blockId,
-                                                    data.copyWith(
-                                                      trelloCreateCardsOnQuickAdd: v,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              const SizedBox(height: 6),
-                                            ],
+                                              value: data
+                                                  .youtrackCreateIssuesOnQuickAdd,
+                                              onChanged: (v) {
+                                                _persistKanbanData(
+                                                  latestPage.id,
+                                                  latestCfg.blockId,
+                                                  data.copyWith(
+                                                    youtrackCreateIssuesOnQuickAdd:
+                                                        v,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 6),
                                           ],
-                                        );
-                                      },
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: FolioSpace.md),
+                                  Text(
+                                    l10nSheet.trelloDetailsTitle,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
                                     ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Builder(
+                                    builder: (ctx) {
+                                      final sourcesById =
+                                          <String, TrelloSource>{};
+                                      for (final s
+                                          in widget.session.trelloSources) {
+                                        sourcesById[s.id] = s;
+                                      }
+                                      final sources = sourcesById.values.toList(
+                                        growable: false,
+                                      );
+                                      final selected =
+                                          (data.trelloSourceId ?? '').trim();
+                                      final selectedValue = selected.isEmpty ||
+                                              !sourcesById.containsKey(selected)
+                                          ? null
+                                          : selected;
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          DropdownButtonFormField<String?>(
+                                            initialValue: selectedValue,
+                                            decoration: InputDecoration(
+                                              labelText:
+                                                  l10nSheet.trelloSelectBoard,
+                                              border:
+                                                  const OutlineInputBorder(),
+                                            ),
+                                            items: [
+                                              DropdownMenuItem<String?>(
+                                                value: null,
+                                                child: Text(l10nSheet.kanbanNone),
+                                              ),
+                                              for (final s in sources)
+                                                DropdownMenuItem<String?>(
+                                                  value: s.id,
+                                                  child: Text(s.name),
+                                                ),
+                                            ],
+                                            onChanged: trelloEnabled
+                                                ? (v) {
+                                                    _persistKanbanData(
+                                                      latestPage.id,
+                                                      latestCfg.blockId,
+                                                      _selectKanbanIntegration(
+                                                        data: data,
+                                                        provider: 'trello',
+                                                        sourceId: v,
+                                                      ),
+                                                    );
+                                                  }
+                                                : null,
+                                          ),
+                                          if (selectedValue != null) ...[
+                                            const SizedBox(height: 8),
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Auto-importar desde Trello'
+                                                    : 'Auto-import from Trello',
+                                              ),
+                                              value: data.trelloAutoImport,
+                                              onChanged: (v) {
+                                                _persistKanbanData(
+                                                  latestPage.id,
+                                                  latestCfg.blockId,
+                                                  data.copyWith(
+                                                    trelloAutoImport: v,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            SwitchListTile.adaptive(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                Localizations.localeOf(ctx)
+                                                            .languageCode ==
+                                                        'es'
+                                                    ? 'Crear tarjetas al añadir tarea'
+                                                    : 'Create cards when adding tasks',
+                                              ),
+                                              value: data
+                                                  .trelloCreateCardsOnQuickAdd,
+                                              onChanged: (v) {
+                                                _persistKanbanData(
+                                                  latestPage.id,
+                                                  latestCfg.blockId,
+                                                  data.copyWith(
+                                                    trelloCreateCardsOnQuickAdd:
+                                                        v,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 6),
+                                          ],
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ],
                               );
                             },
@@ -1199,15 +1361,20 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
               const SizedBox(width: FolioSpace.xs),
             if ((data.trelloSourceId ?? '').trim().isNotEmpty)
               IconButton(
-                tooltip: isEs
-                    ? 'Sincronizar Trello (pull + push)'
-                    : 'Sync Trello (pull + push)',
+                tooltip: l10n.kanbanTrelloSyncTooltip,
                 onPressed: _trelloSyncBusy
                     ? null
                     : () => _syncTrello(trelloSourceId: data.trelloSourceId!.trim()),
                 icon: _trelloSyncBusy
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
-                    : const Icon(Icons.sync_rounded, color: Colors.blue),
+                    : const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Image(
+                          image: AssetImage('appLogos/trello.png'),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
               ),
             if ((data.trelloSourceId ?? '').trim().isNotEmpty)
               const SizedBox(width: FolioSpace.xs),
@@ -1584,7 +1751,10 @@ class _KanbanColumnState extends State<_KanbanColumn> {
             const SizedBox(
               width: 14,
               height: 14,
-              child: Icon(Icons.dashboard_outlined, size: 12, color: Colors.blue),
+              child: Image(
+                image: AssetImage('appLogos/trello.png'),
+                fit: BoxFit.contain,
+              ),
             ),
             const SizedBox(width: 6),
             Text(

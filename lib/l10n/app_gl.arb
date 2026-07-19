@@ -620,6 +620,78 @@
   "settingsMcpCopyCursorConfigDone": "Config MCP de Cursor copiada. Pégaa en ~/.cursor/mcp.json (fusiona cos servidores existentes).",
   "settingsMcpCopyClaudeConfigDone": "JSON de Claude Desktop copiado (mcp-remote). Pégao en %APPDATA%\\Claude\\claude_desktop_config.json. Require Node.js/npx. Non uses o formulario «Conector personalizado» con localhost.",
   "settingsMcpClaudeCustomConnectorHint": "O diálogo «Engadir conector personalizado» de Claude esixe unha URL HTTPS pública alcanzable desde os servidores de Anthropic. O MCP de Folio é só local (127.0.0.1), así que ese formulario non o pode usar. Neste PC, usa «Copiar JSON de Claude Desktop» e pégao en claude_desktop_config.json.",
+  "settingsMcpAllowlistTitle": "Páxinas lexibles por MCP",
+  "settingsMcpAllowlistEmpty": "Ningunha páxina autorizada. Un cliente MCP pedirá permiso a primeira vez que intente ler unha páxina.",
+  "settingsMcpAllowlistClear": "Baleirar allowlist",
+  "settingsMcpAllowlistRemove": "Quitar",
+  "settingsMcpAllowlistFolderBadge": "Carpeta",
+  "settingsMcpAllowlistAdd": "Permitir lectura…",
+  "settingsMcpAllowlistAddTitle": "Permitir lectura MCP",
+  "settingsMcpAllowlistNoneToAdd": "Todas as páxinas xa están na allowlist.",
+  "mcpReadAccessTitle": "Permitir lectura MCP desta páxina?",
+  "mcpReadAccessBody": "O cliente «{clientName}» quere ler a páxina indicada abaixo. Este diálogo só mostra o título, nunca o texto da páxina.",
+  "@mcpReadAccessBody": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpReadAccessPageLabel": "Páxina",
+  "mcpReadAccessChipAllowlist": "Podes lembrar ou non",
+  "mcpReadAccessChipNoPreview": "Sen vista previa do contido",
+  "mcpReadAccessCanDoTitle": "Que implica este permiso",
+  "mcpReadAccessCanDoRead": "Ler o contido completo",
+  "mcpReadAccessCanDoReadDesc": "O cliente poderá obter os bloques desta páxina (títulos, texto, listas, código, etc.) para axudarche fóra de Folio.",
+  "mcpReadAccessCanDoAllowlist": "Lembrar na allowlist (opcional)",
+  "mcpReadAccessCanDoAllowlistDesc": "Se escolles «Permitir e lembrar», non volverá pedir permiso para esta páxina. Podes quitala en Axustes → Servidor MCP.",
+  "mcpReadAccessCanDoOnce": "Permitir só esta vez",
+  "mcpReadAccessCanDoOnceDesc": "A lectura concédese unha vez e a páxina non se engade á allowlist; a próxima vez volverá preguntar.",
+  "mcpReadAccessCannotPreview": "Este diálogo non mostra o contido",
+  "mcpReadAccessCannotPreviewDesc": "Só ves o título para identificar a páxina. O texto non se previsualiza aquí.",
+  "mcpReadAccessAllow": "Permitir e lembrar",
+  "mcpReadAccessAllowOnce": "Permitir só esta vez",
+  "mcpReadAccessDeny": "Denegar",
+  "mcpApprovalTitle": "Permitir que «{clientName}» xestione o teu caderno?",
+  "@mcpApprovalTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateTitle": "Volver autorizar «{clientName}»?",
+  "@mcpApprovalUpdateTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalBody": "Este cliente MCP quere conectarse ao servidor local de Folio. Versión: {appVersion}.",
+  "@mcpApprovalBody": {
+    "placeholders": {
+      "appVersion": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateBody": "Este cliente MCP xa estaba autorizado, pero Folio ampliou as súas capacidades. Debes volver dar permiso para continuar.",
+  "mcpApprovalUpdateHighlightTitle": "Novidade: lectura de páxinas",
+  "mcpApprovalUpdateHighlightDesc": "Agora pode ler o contido completo de páxinas que autorices (allowlist). A primeira lectura dunha páxina nova pedirá o teu permiso; non se envían anexos locais nin datos fóra deste equipo.",
+  "mcpApprovalApproveUpdate": "Autorizar de novo",
+  "mcpApprovalChipLocalOnly": "Só este equipo",
+  "mcpApprovalChipRevocable": "Aprobación revogable",
+  "mcpApprovalChipToken": "Require token",
+  "mcpApprovalCanDoTitle": "Que poderá facer",
+  "mcpApprovalCanDoEdit": "Crear e editar páxinas",
+  "mcpApprovalCanDoEditDesc": "Pode crear, resumir, traducir e editar o contido das túas páxinas.",
+  "mcpApprovalCanDoManage": "Xestionar cadernos e carpetas",
+  "mcpApprovalCanDoManageDesc": "Pode mover, renomear, duplicar, etiquetar e enviar páxinas ao lixo.",
+  "mcpApprovalCanDoSearch": "Buscar no caderno",
+  "mcpApprovalCanDoSearchDesc": "Pode buscar páxinas por título ou contido (os snippets só se mostran en páxinas autorizadas).",
+  "mcpApprovalCanDoRead": "Ler páxinas autorizadas",
+  "mcpApprovalCanDoReadDesc": "Pode ler o contido completo só de páxinas (ou carpetas) na allowlist MCP. A primeira lectura dunha páxina nova pedirá o teu permiso.",
+  "mcpApprovalCannotLeaveMachine": "Non sae deste equipo",
+  "mcpApprovalCannotLeaveMachineDesc": "O servidor só escoita en 127.0.0.1: ningún dispositivo de rede externo se pode conectar.",
+  "mcpApprovalDeny": "Denegar",
+  "mcpApprovalAllow": "Permitir",
+  "mcpSharePageEnable": "Permitir lectura MCP",
+  "mcpSharePageDisable": "Quitar lectura MCP",
+  "mcpSharePageEnabledSnack": "Páxina engadida á allowlist MCP",
+  "mcpSharePageDisabledSnack": "Páxina quitada da allowlist MCP",
   "aiContextWindowTokens": "Xanela de contexto do modelo (tokens)",
   "aiContextWindowTokensHint": "Usado para a barra de contexto no nota de Quill. [cite: 48] Debe coincidir co teu modelo (ex: 8192, 131072).",
   "aiContextUsageUnavailable": "Non se informou do uso de tokens na última resposta.",
@@ -3007,4 +3079,35 @@
   ,"trelloColumnTodo": "Por facer"
   ,"trelloColumnInProgress": "En curso"
   ,"trelloColumnDone": "Feito"
+  ,"trelloDetailsTitle": "Trello"
+  ,"trelloRefresh": "Actualizar"
+  ,"trelloConflictMessage": "Conflito: houbo cambios en Trello e en Folio."
+  ,"trelloConflictLoadHint": "Preme Actualizar para cargar o estado remoto e ver as diferenzas."
+  ,"trelloKeepRemote": "Manter Trello"
+  ,"trelloForceFolio": "Forzar Folio"
+  ,"trelloCommentsTitle": "Comentarios Trello"
+  ,"trelloNoComments": "Sen comentarios ou non cargados."
+  ,"trelloAddCommentHint": "Engadir comentario..."
+  ,"trelloDeleteRemoteConfirm": "Esta acción borrará a tarefa en Folio e arquivará a tarxeta en Trello. Continuar?"
+  ,"trelloConnectionMissing": "Non se atopou a conexión Trello para esta tarefa. Volve conectar Trello en Axustes → Integracións."
+  ,"trelloConnectionMissingDelete": "Non se atopou a conexión Trello para arquivar a tarxeta."
+  ,"trelloBannerLabel": "Trello · {label}"
+  ,"@trelloBannerLabel": {"placeholders": {"label": {"type": "String"}}}
+  ,"kanbanIntegrationExclusive": "Este taboleiro xa está vinculado a {provider}. Quita esa fonte para asociar outra."
+  ,"@kanbanIntegrationExclusive": {"placeholders": {"provider": {"type": "String"}}}
+  ,"kanbanTrelloSyncingPush": "Trello: sincronizando (push)…"
+  ,"kanbanTrelloPushOkPull": "Trello: push OK · agora pull…"
+  ,"kanbanTrelloSyncResult": "Trello: push {pushed} (omitidos {skipped}) · pull {pulled} · +{created} · ~{updated}"
+  ,"@kanbanTrelloSyncResult": {
+    "placeholders": {
+      "pushed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "pulled": {"type": "int"},
+      "created": {"type": "int"},
+      "updated": {"type": "int"}
+    }
+  }
+  ,"kanbanTrelloSyncTooltip": "Sincronizar Trello (push + pull)"
+  ,"kanbanTrelloError": "Erro Trello: {error}"
+  ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
@@ -16,8 +17,10 @@ import '../../../models/jira_integration_state.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/jira/jira_api_client.dart';
 import '../../../services/jira/jira_sync_service.dart';
+import '../../../services/trello/trello_api_client.dart';
 import '../../../services/youtrack/youtrack_api_client.dart';
 import '../kanban/kanban_ui_helpers.dart';
+import '../../../models/trello_integration_state.dart';
 
 /// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
 String folioFmtTaskDue(String due) => due.replaceFirst('T', ' ');
@@ -280,6 +283,8 @@ class TaskDetailsContent extends StatefulWidget {
 }
 
 class TaskDetailsContentState extends State<TaskDetailsContent> {
+  static const _uuid = Uuid();
+
   FolioTaskData? _data;
   late final TextEditingController _titleCtrl = TextEditingController();
   late final TextEditingController _descCtrl = TextEditingController();
@@ -293,7 +298,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
   late final TextEditingController _ytFixedInBuildCtrl = TextEditingController();
   late final TextEditingController _ytEstimationCtrl = TextEditingController();
   late final TextEditingController _ytSpentTimeCtrl = TextEditingController();
-  FolioBlock? _taskBlock;
   List<_ChildTaskRow> _childTasks = const [];
   var _deleteBusy = false;
 
@@ -319,6 +323,13 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
    YouTrackIssue? _youtrackIssue;
    final _youtrackNewCommentCtrl = TextEditingController();
    bool _youtrackAutoPulledOnce = false;
+
+   var _trelloBusy = false;
+   String? _trelloError;
+   TrelloCard? _trelloCard;
+   List<TrelloComment> _trelloComments = const [];
+   final _trelloNewCommentCtrl = TextEditingController();
+   bool _trelloAutoPulledOnce = false;
 
   @override
   void initState() {
@@ -359,6 +370,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     _jiraNewCommentCtrl.dispose();
     _jiraWorklogMinutesCtrl.dispose();
     _youtrackNewCommentCtrl.dispose();
+    _trelloNewCommentCtrl.dispose();
     super.dispose();
   }
 
@@ -384,7 +396,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
       }
     }
     if (b == null || b.type != 'task') return;
-    _taskBlock = b;
     final parsed = FolioTaskData.tryParse(b.text);
     if (parsed == null) return;
     // Si hay un flush de tecleo pendiente para ESTA tarea, `b.text` todavía
@@ -459,6 +470,14 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
       _youtrackAutoPulledOnce = true;
       unawaited(_youtrackRefresh());
     }
+    // Best-effort: auto pull Trello details once per task open.
+    if (!_trelloAutoPulledOnce &&
+        ext != null &&
+        ext.provider == 'trello' &&
+        ext.issueId.trim().isNotEmpty) {
+      _trelloAutoPulledOnce = true;
+      unawaited(_trelloRefresh());
+    }
   }
 
   void _emit(FolioTaskData next) =>
@@ -474,9 +493,12 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     _pendingEmitData = null;
     _pendingEmitPageId = null;
     _pendingEmitBlockId = null;
-    // If this task is linked to Jira or YouTrack, mark it dirty for incremental push.
+    // If this task is linked to Jira, YouTrack or Trello, mark it dirty for incremental push.
     final ext = next.external;
-    if (ext != null && (ext.provider == 'jira' || ext.provider == 'youtrack')) {
+    if (ext != null &&
+        (ext.provider == 'jira' ||
+            ext.provider == 'youtrack' ||
+            ext.provider == 'trello')) {
       final cur = (ext.syncState ?? '').trim();
       if (cur != 'conflict') {
         next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
@@ -524,15 +546,20 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final data = _data;
     if (data == null) return;
 
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final l10n = AppLocalizations.of(context);
-    final confirmText = data.external?.provider == 'jira' || data.external?.provider == 'youtrack'
-        ? (isEs
-              ? 'Esta acción borrará la tarea en Folio y también el issue en ${data.external?.provider == 'jira' ? 'Jira' : 'YouTrack'} (incluyendo subtareas vinculadas). ¿Continuar?'
-              : 'This will delete the task in Folio and also the issue in ${data.external?.provider == 'jira' ? 'Jira' : 'YouTrack'} (including linked subtasks). Continue?')
-        : (isEs
-              ? '¿Borrar la tarea en Folio?'
-              : 'Delete this task in Folio?');
+    final provider = data.external?.provider;
+    final String confirmText;
+    if (provider == 'jira' || provider == 'youtrack') {
+      confirmText = Localizations.localeOf(context).languageCode == 'es'
+          ? 'Esta acción borrará la tarea en Folio y también el issue en ${provider == 'jira' ? 'Jira' : 'YouTrack'} (incluyendo subtareas vinculadas). ¿Continuar?'
+          : 'This will delete the task in Folio and also the issue in ${provider == 'jira' ? 'Jira' : 'YouTrack'} (including linked subtasks). Continue?';
+    } else if (provider == 'trello') {
+      confirmText = l10n.trelloDeleteRemoteConfirm;
+    } else {
+      confirmText = Localizations.localeOf(context).languageCode == 'es'
+          ? '¿Borrar la tarea en Folio?'
+          : 'Delete this task in Folio?';
+    }
 
     final confirm = await FolioDialog.confirm(
       context,
@@ -545,6 +572,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
 
     setState(() => _deleteBusy = true);
     final messenger = ScaffoldMessenger.of(context);
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
 
     try {
       // Collect children (task blocks) by parentTaskId.
@@ -600,6 +628,15 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
               ? ext.issueKey!.trim()
               : ext.issueId;
           await client.deleteIssue(issueIdOrKey);
+        } else if (ext.provider == 'trello') {
+          final client = _trelloClientFor(ext);
+          if (client == null) {
+            throw StateError(l10n.trelloConnectionMissingDelete);
+          }
+          final cardId = ext.issueId.trim();
+          if (cardId.isNotEmpty) {
+            await client.archiveCard(cardId);
+          }
         }
       }
 
@@ -650,6 +687,334 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     );
     if (conn == null) return null;
     return YouTrackApiClient(connection: conn);
+  }
+
+  TrelloApiClient? _trelloClientFor(FolioExternalTaskLink ext) {
+    final connectionId = (ext.cloudId ?? '').trim();
+    if (connectionId.isEmpty) return null;
+    final conn = widget.session.trelloConnections.firstWhereOrNull(
+      (c) => c.id == connectionId,
+    );
+    if (conn == null) return null;
+    return TrelloApiClient(connection: conn);
+  }
+
+  TrelloApiClient? _trelloClientOrSetError(FolioExternalTaskLink ext) {
+    final client = _trelloClientFor(ext);
+    if (client != null) return client;
+    setState(() {
+      _trelloError = AppLocalizations.of(context).trelloConnectionMissing;
+    });
+    return null;
+  }
+
+  TrelloSource? _trelloSourceForPage() {
+    final page = widget.session.pages.firstWhereOrNull(
+      (p) => p.id == widget.taskRef.pageId,
+    );
+    if (page == null) return null;
+    for (final b in page.blocks) {
+      if (b.type != 'kanban') continue;
+      final kd = FolioKanbanData.tryParse(b.text);
+      final sid = (kd?.trelloSourceId ?? '').trim();
+      if (sid.isEmpty) continue;
+      return widget.session.trelloSources.firstWhereOrNull((s) => s.id == sid);
+    }
+    return null;
+  }
+
+  FolioTrelloCardSnapshot _trelloSnapshotFromCard(
+    TrelloCard card, {
+    TrelloSource? source,
+  }) {
+    final mapping = source?.columnMappings.firstWhereOrNull(
+      (m) => m.listId == card.idList,
+    );
+    return FolioTrelloCardSnapshot(
+      boardId: card.idBoard,
+      boardName: source?.boardName,
+      listId: card.idList,
+      listName: mapping?.listName,
+      labels: card.labels.isEmpty
+          ? null
+          : card.labels
+              .map((l) => l.name.isNotEmpty ? l.name : (l.color ?? ''))
+              .join(', '),
+      memberNames: card.memberNames,
+      checklistItemCount: card.checklistItemCount,
+      checklistCheckedCount: card.checklistCheckedCount,
+      commentCount: card.commentCount,
+      attachmentCount: card.attachmentCount,
+      due: card.due,
+      shortUrl: card.browseUrl,
+    );
+  }
+
+  String? _mapTrelloPriorityFromLabels(
+    List<TrelloLabel> labels,
+    List<TrelloPriorityLabelMapping> mappings,
+  ) {
+    if (labels.isEmpty || mappings.isEmpty) return null;
+    for (final label in labels) {
+      final mapping = mappings.firstWhereOrNull((m) => m.labelId == label.id);
+      if (mapping != null) return mapping.priority;
+    }
+    return null;
+  }
+
+  String _mapTrelloColumnFromList(
+    String listId,
+    List<TrelloColumnMapping> mappings,
+  ) {
+    final mapped = mappings.firstWhereOrNull((m) => m.listId == listId);
+    if (mapped != null) return mapped.columnId;
+    return 'todo';
+  }
+
+  String? _mapPriorityToTrelloLabelId(
+    String? folioPriority,
+    List<TrelloPriorityLabelMapping> mappings,
+  ) {
+    final p = (folioPriority ?? '').trim().toLowerCase();
+    if (p.isEmpty) return null;
+    return mappings.firstWhereOrNull((m) => m.priority.toLowerCase() == p)?.labelId;
+  }
+
+  Future<void> _trelloRefresh() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'trello') return;
+    final client = _trelloClientOrSetError(ext);
+    if (client == null) return;
+    setState(() {
+      _trelloBusy = true;
+      _trelloError = null;
+    });
+    try {
+      final cardId = ext.issueId.trim();
+      final card = await client.getCard(cardId);
+      final comments = await client.getCardComments(cardId);
+      setState(() {
+        _trelloCard = card;
+        _trelloComments = comments;
+      });
+    } catch (e) {
+      setState(() => _trelloError = '$e');
+    } finally {
+      if (mounted) setState(() => _trelloBusy = false);
+    }
+  }
+
+  Future<void> _trelloAddComment() async {
+    final text = _trelloNewCommentCtrl.text.trim();
+    if (text.isEmpty) return;
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'trello') return;
+    final client = _trelloClientOrSetError(ext);
+    if (client == null) return;
+    setState(() {
+      _trelloBusy = true;
+      _trelloError = null;
+    });
+    try {
+      await client.addComment(cardId: ext.issueId.trim(), text: text);
+      _trelloNewCommentCtrl.clear();
+      await _trelloRefresh();
+    } catch (e) {
+      setState(() => _trelloError = '$e');
+    } finally {
+      if (mounted) setState(() => _trelloBusy = false);
+    }
+  }
+
+  Future<void> _trelloResolveKeepRemote() async {
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'trello') return;
+    final client = _trelloClientOrSetError(ext);
+    if (client == null) return;
+    setState(() {
+      _trelloBusy = true;
+      _trelloError = null;
+    });
+    try {
+      final source = _trelloSourceForPage();
+      final card = await client.getCard(ext.issueId.trim());
+      final folioPriority = _mapTrelloPriorityFromLabels(
+        card.labels,
+        source?.priorityLabelMappings ?? const [],
+      );
+      final folioStatus = _mapTrelloColumnFromList(
+        card.idList,
+        source?.columnMappings ?? const [],
+      );
+      final tags = <String>[];
+      final seen = <String>{};
+      for (final l in card.labels) {
+        final name = l.name.trim();
+        if (name.isEmpty) continue;
+        if (seen.add(name.toLowerCase())) tags.add(name);
+      }
+
+      List<FolioTaskSubtask> subtasks = data.subtasks;
+      if (source?.importOptions.includeChecklists != false) {
+        final checklists = await client.getCardChecklists(card.id);
+        final prefix = checklists.length > 1;
+        final nextSub = <FolioTaskSubtask>[];
+        for (final cl in checklists) {
+          final clName = cl.name.trim();
+          for (final item in cl.checkItems) {
+            final itemId = item.id.trim();
+            final itemTitle = item.name.trim();
+            if (itemId.isEmpty && itemTitle.isEmpty) continue;
+            final title = prefix && clName.isNotEmpty
+                ? '$clName: $itemTitle'
+                : itemTitle;
+            nextSub.add(
+              FolioTaskSubtask(
+                id: itemId.isEmpty ? title.hashCode.toString() : itemId,
+                title: title,
+                status: item.isComplete ? 'done' : 'todo',
+              ),
+            );
+          }
+        }
+        subtasks = nextSub;
+      }
+
+      final dueRaw = (card.due ?? '').trim();
+      String? dueDate;
+      if (dueRaw.isNotEmpty) {
+        dueDate = DateTime.tryParse(dueRaw)?.toUtc().toIso8601String() ?? dueRaw;
+      }
+
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: card.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      final next = data.copyWith(
+        title: card.name.trim(),
+        description: card.desc,
+        priority: folioPriority,
+        status: folioStatus,
+        columnId: folioStatus,
+        dueDate: dueDate,
+        assignee: card.memberNames,
+        tags: tags,
+        subtasks: subtasks,
+        external: nextExternal,
+        trello: _trelloSnapshotFromCard(card, source: source),
+      );
+
+      _emit(next);
+      final comments = await client.getCardComments(card.id);
+      setState(() {
+        _trelloCard = card;
+        _trelloComments = comments;
+      });
+    } catch (e) {
+      setState(() => _trelloError = '$e');
+    } finally {
+      if (mounted) setState(() => _trelloBusy = false);
+    }
+  }
+
+  Future<void> _trelloResolveKeepLocalForcePush() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'trello') return;
+    final client = _trelloClientOrSetError(ext);
+    if (client == null) return;
+    setState(() {
+      _trelloBusy = true;
+      _trelloError = null;
+    });
+    try {
+      final source = _trelloSourceForPage();
+      final cardId = ext.issueId.trim();
+      final effectiveColumn = (data.columnId ?? '').trim().isNotEmpty
+          ? data.columnId!.trim()
+          : data.status.trim();
+      final mapping = source?.columnMappings.firstWhereOrNull(
+        (m) => m.columnId.trim() == effectiveColumn,
+      );
+
+      await client.updateCard(
+        cardId: cardId,
+        name: data.title.trim(),
+        desc: data.description,
+        idList: mapping?.listId,
+      );
+
+      if (source != null && source.priorityLabelMappings.isNotEmpty) {
+        final remote = await client.getCard(cardId);
+        final desiredLabelId = _mapPriorityToTrelloLabelId(
+          data.priority,
+          source.priorityLabelMappings,
+        );
+        final priorityLabelIds =
+            source.priorityLabelMappings.map((m) => m.labelId).toSet();
+        final nextLabelIds = remote.labels
+            .map((l) => l.id)
+            .where((id) => !priorityLabelIds.contains(id))
+            .toList();
+        if (desiredLabelId != null) nextLabelIds.add(desiredLabelId);
+        await client.updateCardLabels(cardId: cardId, idLabels: nextLabelIds);
+      }
+
+      if (data.subtasks.isNotEmpty) {
+        final checklists = await client.getCardChecklists(cardId);
+        final remoteById = <String, TrelloCheckItem>{};
+        for (final cl in checklists) {
+          for (final item in cl.checkItems) {
+            final id = item.id.trim();
+            if (id.isEmpty) continue;
+            remoteById[id] = item;
+          }
+        }
+        for (final sub in data.subtasks) {
+          final id = sub.id.trim();
+          if (id.isEmpty) continue;
+          final remoteItem = remoteById[id];
+          if (remoteItem == null) continue;
+          final wantComplete = sub.status.trim() == 'done';
+          if (wantComplete == remoteItem.isComplete) continue;
+          await client.updateCheckItemState(
+            cardId: cardId,
+            checkItemId: id,
+            complete: wantComplete,
+          );
+        }
+      }
+
+      final updatedRemote = await client.getCard(cardId);
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: updatedRemote.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      _emit(
+        data.copyWith(
+          external: nextExternal,
+          trello: _trelloSnapshotFromCard(updatedRemote, source: source),
+        ),
+      );
+      final comments = await client.getCardComments(cardId);
+      setState(() {
+        _trelloCard = updatedRemote;
+        _trelloComments = comments;
+      });
+    } catch (e) {
+      setState(() => _trelloError = '$e');
+    } finally {
+      if (mounted) setState(() => _trelloBusy = false);
+    }
   }
 
   YouTrackApiClient? _youtrackClientOrSetError(FolioExternalTaskLink ext) {
@@ -1190,6 +1555,18 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     return siteUri.replace(path: '${siteUri.path}/browse/$target');
   }
 
+  Uri? _trelloBrowseUri(FolioTaskData data) {
+    final ext = data.external;
+    if (ext == null || ext.provider != 'trello') return null;
+    final fromSnap = (data.trello?.shortUrl ?? '').trim();
+    if (fromSnap.isNotEmpty) return Uri.tryParse(fromSnap);
+    final fromLive = (_trelloCard?.browseUrl ?? '').trim();
+    if (fromLive.isNotEmpty) return Uri.tryParse(fromLive);
+    final cardId = ext.issueId.trim();
+    if (cardId.isEmpty) return null;
+    return Uri.tryParse('https://trello.com/c/$cardId');
+  }
+
   DateTime? _parseIso(String? iso) {
     if (iso == null || iso.trim().isEmpty) return null;
     return DateTime.tryParse(iso.trim());
@@ -1244,27 +1621,42 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
 
   void _addSubtask() {
     final cur = _data;
-    final parentBlock = _taskBlock;
-    if (cur == null || parentBlock == null) return;
-    final pageId = widget.taskRef.pageId;
-    final afterId = widget.taskRef.blockId;
-    final depth = parentBlock.depth + 1;
-    final child = FolioTaskData.defaults().copyWith(
-      parentTaskId: afterId,
-      columnId: cur.effectiveColumnId(),
-      status: cur.status,
-    );
-    final newBlockId = '${pageId}_${DateTime.now().microsecondsSinceEpoch}';
-    widget.session.insertBlockAfter(
-      pageId: pageId,
-      afterBlockId: afterId,
-      block: FolioBlock(
-        id: newBlockId,
-        type: 'task',
-        text: child.encode(),
-        depth: depth,
-      ),
-    );
+    if (cur == null) return;
+    final next = [
+      ...cur.subtasks,
+      FolioTaskSubtask(id: 'st_${_uuid.v4()}', title: '', status: 'todo'),
+    ];
+    _emit(cur.copyWith(subtasks: next));
+  }
+
+  void _setInlineSubtaskDone(String subtaskId, bool done) {
+    final cur = _data;
+    if (cur == null) return;
+    final next = cur.subtasks
+        .map(
+          (s) => s.id == subtaskId
+              ? s.copyWith(status: done ? 'done' : 'todo')
+              : s,
+        )
+        .toList(growable: false);
+    _emit(cur.copyWith(subtasks: next));
+  }
+
+  void _setInlineSubtaskTitle(String subtaskId, String title) {
+    final cur = _data;
+    if (cur == null) return;
+    final next = cur.subtasks
+        .map((s) => s.id == subtaskId ? s.copyWith(title: title) : s)
+        .toList(growable: false);
+    _emit(cur.copyWith(subtasks: next));
+  }
+
+  void _removeInlineSubtask(String subtaskId) {
+    final cur = _data;
+    if (cur == null) return;
+    final next =
+        cur.subtasks.where((s) => s.id != subtaskId).toList(growable: false);
+    _emit(cur.copyWith(subtasks: next));
   }
 
   @override
@@ -1370,6 +1762,60 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                     : () async { await launchUrl(uri, mode: LaunchMode.externalApplication); },
                                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
                                 label: Text(isEs2 ? 'Abrir' : l10n.taskHubOpen),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : null;
+
+              // Trello link banner
+              final trelloBanner = data.external?.provider == 'trello'
+                  ? Builder(
+                      builder: (ctx) {
+                        final ext = data.external!;
+                        final uri = _trelloBrowseUri(data);
+                        final label = ext.issueId.trim();
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(FolioRadius.md),
+                            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Image(
+                                  image: AssetImage('appLogos/trello.png'),
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  l10n.trelloBannerLabel(label),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: uri == null
+                                    ? null
+                                    : () async {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                label: Text(l10n.taskHubOpen),
                               ),
                             ],
                           ),
@@ -1759,7 +2205,28 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                     )
                   : null;
 
-              // Subtasks section
+              // Trello sync/comments section
+              final trelloDetailsSection = data.external?.provider == 'trello'
+                  ? _TrelloDetailsSection(
+                      scheme: scheme,
+                      data: data,
+                      busy: _trelloBusy,
+                      error: _trelloError,
+                      card: _trelloCard,
+                      comments: _trelloComments,
+                      newCommentCtrl: _trelloNewCommentCtrl,
+                      onRefresh: _trelloRefresh,
+                      onResolveKeepRemote: _trelloResolveKeepRemote,
+                      onResolveKeepLocalForcePush: _trelloResolveKeepLocalForcePush,
+                      onAddComment: _trelloAddComment,
+                    )
+                  : null;
+
+              // Subtasks section: inline FolioTaskSubtask (Trello/kanban) +
+              // child task blocks (Jira parentTaskId).
+              final inlineSubtasks = data.subtasks;
+              final hasAnySubtasks =
+                  inlineSubtasks.isNotEmpty || _childTasks.isNotEmpty;
               final subtasksSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -1779,75 +2246,127 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  _childTasks.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            l10n.kanbanEmptyColumn,
-                            style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _childTasks.length,
-                          separatorBuilder: (context, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, i) {
-                            final child = _childTasks[i];
-                            final s = child.data;
-                            return Card(
-                              elevation: 0,
-                              color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () => widget.onOpenTaskRef(
-                                  TaskRef(pageId: widget.taskRef.pageId, blockId: child.blockId),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Row(
-                                    children: [
-                                      Checkbox(
-                                        value: s.status == 'done',
-                                        visualDensity: VisualDensity.compact,
+                  if (!hasAnySubtasks)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        l10n.kanbanEmptyColumn,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    )
+                  else ...[
+                    if (inlineSubtasks.isNotEmpty)
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: inlineSubtasks.length,
+                        separatorBuilder: (context, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final s = inlineSubtasks[i];
+                          return Card(
+                            elevation: 0,
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                            clipBehavior: Clip.antiAlias,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: s.status == 'done',
+                                    visualDensity: VisualDensity.compact,
+                                    onChanged: (v) =>
+                                        _setInlineSubtaskDone(s.id, v == true),
+                                  ),
+                                  Expanded(
+                                    child: TextFormField(
+                                      key: ValueKey('detail_inline_subtask_${s.id}'),
+                                      initialValue: s.title,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.title,
+                                        border: const OutlineInputBorder(),
+                                        hintText: l10n.taskSubtaskHint,
+                                      ),
+                                      onChanged: (v) =>
+                                          _setInlineSubtaskTitle(s.id, v),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    tooltip: l10n.delete,
+                                    onPressed: () => _removeInlineSubtask(s.id),
+                                    icon: const Icon(Icons.delete_outline_rounded),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    if (inlineSubtasks.isNotEmpty && _childTasks.isNotEmpty)
+                      const SizedBox(height: 8),
+                    if (_childTasks.isNotEmpty)
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _childTasks.length,
+                        separatorBuilder: (context, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final child = _childTasks[i];
+                          final s = child.data;
+                          return Card(
+                            elevation: 0,
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () => widget.onOpenTaskRef(
+                                TaskRef(pageId: widget.taskRef.pageId, blockId: child.blockId),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      value: s.status == 'done',
+                                      visualDensity: VisualDensity.compact,
+                                      onChanged: (v) {
+                                        final next = s.copyWith(status: v == true ? 'done' : 'todo');
+                                        widget.session.updateBlockText(widget.taskRef.pageId, child.blockId, next.encode());
+                                      },
+                                    ),
+                                    Expanded(
+                                      child: TextFormField(
+                                        key: ValueKey('detail_subtask_${child.blockId}'),
+                                        initialValue: s.title,
+                                        decoration: InputDecoration(labelText: l10n.title, border: const OutlineInputBorder()),
                                         onChanged: (v) {
-                                          final next = s.copyWith(status: v == true ? 'done' : 'todo');
+                                          final next = s.copyWith(title: v);
                                           widget.session.updateBlockText(widget.taskRef.pageId, child.blockId, next.encode());
                                         },
                                       ),
-                                      Expanded(
-                                        child: TextFormField(
-                                          key: ValueKey('detail_subtask_${child.blockId}'),
-                                          initialValue: s.title,
-                                          decoration: InputDecoration(labelText: l10n.title, border: const OutlineInputBorder()),
-                                          onChanged: (v) {
-                                            final next = s.copyWith(title: v);
-                                            widget.session.updateBlockText(widget.taskRef.pageId, child.blockId, next.encode());
-                                          },
-                                        ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      tooltip: l10n.taskHubOpen,
+                                      onPressed: () => widget.onOpenTaskRef(
+                                        TaskRef(pageId: widget.taskRef.pageId, blockId: child.blockId),
                                       ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        tooltip: l10n.taskHubOpen,
-                                        onPressed: () => widget.onOpenTaskRef(
-                                          TaskRef(pageId: widget.taskRef.pageId, blockId: child.blockId),
-                                        ),
-                                        icon: const Icon(Icons.open_in_new_rounded),
-                                      ),
-                                      IconButton(
-                                        tooltip: l10n.delete,
-                                        onPressed: () {
-                                          widget.session.removeBlockIfMultiple(widget.taskRef.pageId, child.blockId);
-                                        },
-                                        icon: const Icon(Icons.delete_outline_rounded),
-                                      ),
-                                    ],
-                                  ),
+                                      icon: const Icon(Icons.open_in_new_rounded),
+                                    ),
+                                    IconButton(
+                                      tooltip: l10n.delete,
+                                      onPressed: () {
+                                        widget.session.removeBlockIfMultiple(widget.taskRef.pageId, child.blockId);
+                                      },
+                                      icon: const Icon(Icons.delete_outline_rounded),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                 ],
               );
 
@@ -1872,6 +2391,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                               children: [
                                 if (ytBanner != null) ytBanner,
                                 if (jiraBanner != null) jiraBanner,
+                                if (trelloBanner != null) trelloBanner,
                                 titleField,
                                 const SizedBox(height: 10),
                                 descField,
@@ -1884,6 +2404,10 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                 if (jiraDetailsSection != null) ...[
                                   const SizedBox(height: 10),
                                   jiraDetailsSection,
+                                ],
+                                if (trelloDetailsSection != null) ...[
+                                  const SizedBox(height: 10),
+                                  trelloDetailsSection,
                                 ],
                                 const SizedBox(height: FolioSpace.md),
                               ],
@@ -1946,6 +2470,11 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                     if (jiraBanner != null) jiraBanner,
                     if (jiraDetailsSection != null) ...[
                       jiraDetailsSection,
+                      const SizedBox(height: 10),
+                    ],
+                    if (trelloBanner != null) trelloBanner,
+                    if (trelloDetailsSection != null) ...[
+                      trelloDetailsSection,
                       const SizedBox(height: 10),
                     ],
                     titleField,
@@ -2878,6 +3407,358 @@ class _Tag extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+      ),
+    );
+  }
+}
+
+class _TrelloDetailsSection extends StatelessWidget {
+  const _TrelloDetailsSection({
+    required this.scheme,
+    required this.data,
+    required this.busy,
+    required this.error,
+    required this.card,
+    required this.comments,
+    required this.newCommentCtrl,
+    required this.onRefresh,
+    required this.onResolveKeepRemote,
+    required this.onResolveKeepLocalForcePush,
+    required this.onAddComment,
+  });
+
+  final ColorScheme scheme;
+  final FolioTaskData data;
+  final bool busy;
+  final String? error;
+  final TrelloCard? card;
+  final List<TrelloComment> comments;
+  final TextEditingController newCommentCtrl;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onResolveKeepRemote;
+  final Future<void> Function() onResolveKeepLocalForcePush;
+  final Future<void> Function() onAddComment;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final ext = data.external!;
+    final snap = data.trello;
+    final state = (ext.syncState ?? 'ok').trim().isEmpty
+        ? 'ok'
+        : ext.syncState!.trim();
+    Color stateColor() => switch (state) {
+      'conflict' => scheme.error,
+      'needsPush' => scheme.tertiary,
+      'needsPull' => scheme.secondary,
+      _ => scheme.primary,
+    };
+
+    Widget pill(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: stateColor().withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: stateColor().withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: stateColor(),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: Image(
+                  image: AssetImage('appLogos/trello.png'),
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.trelloDetailsTitle,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              pill(state),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onRefresh,
+                icon: busy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(l10n.trelloRefresh),
+              ),
+            ],
+          ),
+          if (state == 'conflict') ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.trelloConflictMessage,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (ctx) {
+                      String norm(String? s) => (s ?? '').trim();
+                      String cut(String s, {int max = 120}) {
+                        final t = s.trim();
+                        if (t.isEmpty) return '—';
+                        if (t.length <= max) return t;
+                        return '${t.substring(0, max)}…';
+                      }
+
+                      Widget diffRow(String label, String folio, String remote) {
+                        final same = folio.trim() == remote.trim();
+                        final folioText =
+                            folio.trim().isEmpty ? '—' : folio.trim();
+                        final remoteText =
+                            remote.trim().isEmpty ? '—' : remote.trim();
+                        final baseStyle =
+                            Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                  color: scheme.onErrorContainer
+                                      .withValues(alpha: 0.92),
+                                );
+                        final hi = Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: scheme.onErrorContainer,
+                              fontWeight: FontWeight.w800,
+                            );
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: scheme.surface.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: same
+                                  ? scheme.outlineVariant
+                                      .withValues(alpha: 0.35)
+                                  : scheme.error.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                label,
+                                style: Theme.of(ctx)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: scheme.onErrorContainer,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Folio: $folioText',
+                                style: same ? baseStyle : hi,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Trello: $remoteText',
+                                style: baseStyle,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final remote = card;
+                      if (remote == null) {
+                        return Text(
+                          l10n.trelloConflictLoadHint,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer
+                                    .withValues(alpha: 0.9),
+                              ),
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          diffRow(
+                            l10n.title,
+                            norm(data.title),
+                            norm(remote.name),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.description,
+                            cut(norm(data.description), max: 140),
+                            cut(norm(remote.desc), max: 140),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.kanbanStatusColumn,
+                            norm(data.columnId ?? data.status),
+                            norm(snap?.listName ?? remote.idList),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: onResolveKeepRemote,
+                                  child: Text(l10n.trelloKeepRemote),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: onResolveKeepLocalForcePush,
+                                  child: Text(l10n.trelloForceFolio),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: TextStyle(color: scheme.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if ((snap?.listName ?? '').trim().isNotEmpty)
+                _Tag(label: '${l10n.trelloListHint}: ${snap!.listName}'),
+              if ((snap?.labels ?? '').trim().isNotEmpty)
+                _Tag(label: '${l10n.trelloLabelHint}: ${snap!.labels}'),
+              if ((snap?.memberNames ?? '').trim().isNotEmpty)
+                _Tag(label: snap!.memberNames!),
+              if ((snap?.due ?? '').trim().isNotEmpty)
+                _Tag(label: '${l10n.kanbanDueDate}: ${snap!.due}'),
+              if (snap?.commentCount != null)
+                _Tag(label: '${l10n.trelloComments}: ${snap!.commentCount}'),
+              if (snap?.attachmentCount != null)
+                _Tag(
+                  label: '${l10n.trelloAttachments}: ${snap!.attachmentCount}',
+                ),
+            ],
+          ),
+          const Divider(height: 24),
+          Text(
+            l10n.trelloCommentsTitle,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (comments.isNotEmpty) ...[
+            for (final c in comments)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          c.authorName.isEmpty
+                              ? l10n.trelloDetailsTitle
+                              : c.authorName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (c.createdMs > 0)
+                          Text(
+                            DateTime.fromMillisecondsSinceEpoch(c.createdMs)
+                                .toString()
+                                .substring(0, 16),
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(c.text, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+          ] else
+            Text(
+              l10n.trelloNoComments,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: newCommentCtrl,
+                  decoration: InputDecoration(
+                    hintText: l10n.trelloAddCommentHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: busy ? null : onAddComment,
+                icon: const Icon(Icons.send_rounded),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

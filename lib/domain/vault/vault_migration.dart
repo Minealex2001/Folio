@@ -63,8 +63,10 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
     pageTemplates: pageTemplates,
     jira: jira,
     youtrack: youtrack,
+    trello: raw.trello,
     pageTombstones: raw.pageTombstones,
     syncClock: raw.syncClock,
+    mcpReadablePageIds: raw.mcpReadablePageIds,
   );
 }
 

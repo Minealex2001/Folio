@@ -617,6 +617,78 @@
   "settingsMcpCopyCursorConfigDone": "Cursor MCP config copied. Paste it into ~/.cursor/mcp.json (merge with existing servers).",
   "settingsMcpCopyClaudeConfigDone": "Claude Desktop JSON copied (mcp-remote). Paste into %APPDATA%\\Claude\\claude_desktop_config.json. Requires Node.js/npx. Do not use Claude’s “Custom connector” form with localhost.",
   "settingsMcpClaudeCustomConnectorHint": "Claude’s “Add custom connector” dialog needs a public HTTPS URL that Anthropic’s servers can reach. Folio’s MCP is local-only (127.0.0.1), so that form cannot use it. For Claude Desktop on this PC, use “Copy Claude Desktop JSON” and paste it into claude_desktop_config.json.",
+  "settingsMcpAllowlistTitle": "Pages readable by MCP",
+  "settingsMcpAllowlistEmpty": "No pages authorized. An MCP client will ask once the first time it tries to read a page.",
+  "settingsMcpAllowlistClear": "Clear allowlist",
+  "settingsMcpAllowlistRemove": "Remove",
+  "settingsMcpAllowlistFolderBadge": "Folder",
+  "settingsMcpAllowlistAdd": "Allow reading…",
+  "settingsMcpAllowlistAddTitle": "Allow MCP reading",
+  "settingsMcpAllowlistNoneToAdd": "All pages are already on the allowlist.",
+  "mcpReadAccessTitle": "Allow MCP to read this page?",
+  "mcpReadAccessBody": "Client “{clientName}” wants to read the page shown below. This dialog only shows the title, never the page body.",
+  "@mcpReadAccessBody": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpReadAccessPageLabel": "Page",
+  "mcpReadAccessChipAllowlist": "Remember optional",
+  "mcpReadAccessChipNoPreview": "No content preview",
+  "mcpReadAccessCanDoTitle": "What this permission means",
+  "mcpReadAccessCanDoRead": "Read the full content",
+  "mcpReadAccessCanDoReadDesc": "The client can fetch this page’s blocks (headings, text, lists, code, and more) to help you outside Folio.",
+  "mcpReadAccessCanDoAllowlist": "Remember on the allowlist (optional)",
+  "mcpReadAccessCanDoAllowlistDesc": "If you choose “Allow and remember”, it won’t ask again for this page. You can remove it in Settings → MCP server.",
+  "mcpReadAccessCanDoOnce": "Allow just this once",
+  "mcpReadAccessCanDoOnceDesc": "Reading is allowed once and the page is not added to the allowlist; next time it will ask again.",
+  "mcpReadAccessCannotPreview": "This dialog does not show the content",
+  "mcpReadAccessCannotPreviewDesc": "You only see the title to identify the page. The body is not previewed here.",
+  "mcpReadAccessAllow": "Allow and remember",
+  "mcpReadAccessAllowOnce": "Allow just this once",
+  "mcpReadAccessDeny": "Deny",
+  "mcpApprovalTitle": "Allow “{clientName}” to manage your notebook?",
+  "@mcpApprovalTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateTitle": "Re-authorize “{clientName}”?",
+  "@mcpApprovalUpdateTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalBody": "This MCP client wants to connect to Folio’s local server. Version: {appVersion}.",
+  "@mcpApprovalBody": {
+    "placeholders": {
+      "appVersion": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateBody": "This MCP client was already authorized, but Folio has expanded its capabilities. You must grant permission again to continue.",
+  "mcpApprovalUpdateHighlightTitle": "New: page reading",
+  "mcpApprovalUpdateHighlightDesc": "It can now read the full content of pages you authorize (allowlist). The first read of a new page will ask for your permission; local attachments are not sent, and nothing leaves this machine.",
+  "mcpApprovalApproveUpdate": "Authorize again",
+  "mcpApprovalChipLocalOnly": "This machine only",
+  "mcpApprovalChipRevocable": "Revocable approval",
+  "mcpApprovalChipToken": "Token required",
+  "mcpApprovalCanDoTitle": "What it will be able to do",
+  "mcpApprovalCanDoEdit": "Create and edit pages",
+  "mcpApprovalCanDoEditDesc": "Can create, summarize, translate, and edit your page content.",
+  "mcpApprovalCanDoManage": "Manage notebooks and folders",
+  "mcpApprovalCanDoManageDesc": "Can move, rename, duplicate, tag, and trash pages.",
+  "mcpApprovalCanDoSearch": "Search your notebook",
+  "mcpApprovalCanDoSearchDesc": "Can search pages by title or content (snippets only for authorized pages).",
+  "mcpApprovalCanDoRead": "Read authorized pages",
+  "mcpApprovalCanDoReadDesc": "Can read full content only for pages (or folders) on the MCP allowlist. The first read of a new page will ask for your permission.",
+  "mcpApprovalCannotLeaveMachine": "Never leaves this machine",
+  "mcpApprovalCannotLeaveMachineDesc": "The server only listens on 127.0.0.1: no external network device can connect.",
+  "mcpApprovalDeny": "Deny",
+  "mcpApprovalAllow": "Allow",
+  "mcpSharePageEnable": "Allow MCP read",
+  "mcpSharePageDisable": "Remove MCP read",
+  "mcpSharePageEnabledSnack": "Page added to MCP allowlist",
+  "mcpSharePageDisabledSnack": "Page removed from MCP allowlist",
   "aiContextWindowTokens": "Model context window (tokens)",
   "aiContextWindowTokensHint": "Used for the context bar in Quill notes. Match your model (e.g. 8192, 131072).",
   "aiContextUsageUnavailable": "Token usage was not reported for the last reply.",
@@ -3004,4 +3076,35 @@
   ,"trelloColumnTodo": "To Do"
   ,"trelloColumnInProgress": "In Progress"
   ,"trelloColumnDone": "Done"
+  ,"trelloDetailsTitle": "Trello"
+  ,"trelloRefresh": "Refresh"
+  ,"trelloConflictMessage": "Conflict: there were changes in Trello and Folio."
+  ,"trelloConflictLoadHint": "Press Refresh to load remote state and see differences."
+  ,"trelloKeepRemote": "Keep Trello"
+  ,"trelloForceFolio": "Force Folio"
+  ,"trelloCommentsTitle": "Trello Comments"
+  ,"trelloNoComments": "No comments or not loaded."
+  ,"trelloAddCommentHint": "Add a comment..."
+  ,"trelloDeleteRemoteConfirm": "This will delete the task in Folio and archive the card in Trello. Continue?"
+  ,"trelloConnectionMissing": "Trello connection not found for this task. Reconnect Trello in Settings → Integrations."
+  ,"trelloConnectionMissingDelete": "Trello connection not found to archive the card."
+  ,"trelloBannerLabel": "Trello · {label}"
+  ,"@trelloBannerLabel": {"placeholders": {"label": {"type": "String"}}}
+  ,"kanbanIntegrationExclusive": "This board is already linked to {provider}. Remove that source to associate another."
+  ,"@kanbanIntegrationExclusive": {"placeholders": {"provider": {"type": "String"}}}
+  ,"kanbanTrelloSyncingPush": "Trello: syncing (push)…"
+  ,"kanbanTrelloPushOkPull": "Trello: push OK · now pull…"
+  ,"kanbanTrelloSyncResult": "Trello: push {pushed} (skipped {skipped}) · pull {pulled} · +{created} · ~{updated}"
+  ,"@kanbanTrelloSyncResult": {
+    "placeholders": {
+      "pushed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "pulled": {"type": "int"},
+      "created": {"type": "int"},
+      "updated": {"type": "int"}
+    }
+  }
+  ,"kanbanTrelloSyncTooltip": "Sync Trello (push + pull)"
+  ,"kanbanTrelloError": "Trello error: {error}"
+  ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
 }

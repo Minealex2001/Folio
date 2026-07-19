@@ -619,6 +619,78 @@
   "settingsMcpCopyCursorConfigDone": "Cursor MCP konfigurazioa kopiatuta. Itsatsi ~/.cursor/mcp.json fitxategian (beste zerbitzariekin bateratu).",
   "settingsMcpCopyClaudeConfigDone": "Claude Desktop JSONa kopiatuta (mcp-remote). Itsatsi %APPDATA%\\Claude\\claude_desktop_config.json fitxategian. Node.js/npx behar da. Ez erabili «Konektore pertsonalizatua» formularioa localhost-ekin.",
   "settingsMcpClaudeCustomConnectorHint": "Claude-ren «Gehitu konektore pertsonalizatua» elkarrizketak Anthropic-en zerbitzariek irisgarri duten HTTPS URL publikoa behar du. Folio-ren MCP tokikoa da soilik (127.0.0.1), beraz formulario horrek ezin du erabili. PC honetan, erabili «Kopiatu Claude Desktop JSONa» eta itsatsi claude_desktop_config.json fitxategian.",
+  "settingsMcpAllowlistTitle": "MCP-k irakur ditzakeen orriak",
+  "settingsMcpAllowlistEmpty": "Ez dago orri baimendurik. MCP bezero batek baimena eskatuko du orri bat irakurtzen saiatzen den lehen aldian.",
+  "settingsMcpAllowlistClear": "Allowlist hustu",
+  "settingsMcpAllowlistRemove": "Kendu",
+  "settingsMcpAllowlistFolderBadge": "Karpeta",
+  "settingsMcpAllowlistAdd": "Irakurtzea baimendu…",
+  "settingsMcpAllowlistAddTitle": "MCP irakurketa baimendu",
+  "settingsMcpAllowlistNoneToAdd": "Orri guztiak dagoeneko allowlist-ean daude.",
+  "mcpReadAccessTitle": "Orri honen MCP irakurketa baimendu?",
+  "mcpReadAccessBody": "«{clientName}» bezeroak behean adierazitako orria irakurri nahi du. Elkarrizketa honek izenburua soilik erakusten du, inoiz ez orriaren testua.",
+  "@mcpReadAccessBody": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpReadAccessPageLabel": "Orria",
+  "mcpReadAccessChipAllowlist": "Gogoratu edo ez aukera dezakezu",
+  "mcpReadAccessChipNoPreview": "Edukiaren aurrebistarrik gabe",
+  "mcpReadAccessCanDoTitle": "Zer dakar baimen honek",
+  "mcpReadAccessCanDoRead": "Eduki osoa irakurri",
+  "mcpReadAccessCanDoReadDesc": "Bezeroak orri honen blokeak lortu ahal izango ditu (izenburuak, testua, zerrendak, kodea, etab.) Folio-tik kanpo laguntzeko.",
+  "mcpReadAccessCanDoAllowlist": "Allowlist-ean gogoratu (aukerakoa)",
+  "mcpReadAccessCanDoAllowlistDesc": "«Baimendu eta gogoratu» aukeratzen baduzu, ez du berriz baimenik eskatuko orri honetarako. Ezarpenak → MCP zerbitzaria atalean kendu dezakezu.",
+  "mcpReadAccessCanDoOnce": "Oraingoan soilik baimendu",
+  "mcpReadAccessCanDoOnceDesc": "Irakurketa behin ematen da eta orria ez da allowlist-ean gehitzen; hurrengoan berriro galdetuko du.",
+  "mcpReadAccessCannotPreview": "Elkarrizketa honek ez du edukia erakusten",
+  "mcpReadAccessCannotPreviewDesc": "Izenburua soilik ikusten duzu orria identifikatzeko. Testua ez da hemen aurreikusten.",
+  "mcpReadAccessAllow": "Baimendu eta gogoratu",
+  "mcpReadAccessAllowOnce": "Oraingoan soilik baimendu",
+  "mcpReadAccessDeny": "Ukatu",
+  "mcpApprovalTitle": "«{clientName}»-ri zure koadernoa kudeatzen utzi?",
+  "@mcpApprovalTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateTitle": "«{clientName}» berriro baimendu?",
+  "@mcpApprovalUpdateTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  },
+  "mcpApprovalBody": "MCP bezero honek Folio-ren tokiko zerbitzarira konektatu nahi du. Bertsioa: {appVersion}.",
+  "@mcpApprovalBody": {
+    "placeholders": {
+      "appVersion": {"type": "String"}
+    }
+  },
+  "mcpApprovalUpdateBody": "MCP bezero hau dagoeneko baimenduta zegoen, baina Folio-k bere gaitasunak zabaldu ditu. Jarraitzeko baimena berriro eman behar duzu.",
+  "mcpApprovalUpdateHighlightTitle": "Berria: orrien irakurketa",
+  "mcpApprovalUpdateHighlightDesc": "Orain baimendu dituzun orrien eduki osoa irakur dezake (allowlist). Orri berri baten lehen irakurketak zure baimena eskatuko du; eranskin lokalak ez dira bidaltzen eta ezer ez da ordenagailu honetatik irteten.",
+  "mcpApprovalApproveUpdate": "Berriro baimendu",
+  "mcpApprovalChipLocalOnly": "Ordenagailu honetan soilik",
+  "mcpApprovalChipRevocable": "Onarpena baliogabetzeko modukoa",
+  "mcpApprovalChipToken": "Token beharrezkoa",
+  "mcpApprovalCanDoTitle": "Zer egin ahal izango duen",
+  "mcpApprovalCanDoEdit": "Orriak sortu eta editatu",
+  "mcpApprovalCanDoEditDesc": "Zure orrien edukia sortu, laburtu, itzuli eta edita dezake.",
+  "mcpApprovalCanDoManage": "Koadernoak eta karpetak kudeatu",
+  "mcpApprovalCanDoManageDesc": "Orriak mugitu, berrizendatu, bikoiztu, etiketatu eta zakarrontzira bidal ditzake.",
+  "mcpApprovalCanDoSearch": "Koadernoan bilatu",
+  "mcpApprovalCanDoSearchDesc": "Orriak izenburu edo edukiaren arabera bila ditzake (snippet-ak soilik orri baimenduetan).",
+  "mcpApprovalCanDoRead": "Orri baimenduak irakurri",
+  "mcpApprovalCanDoReadDesc": "Eduki osoa soilik MCP allowlist-eko orrietan (edo karpetetan) irakur dezake. Orri berri baten lehen irakurketak zure baimena eskatuko du.",
+  "mcpApprovalCannotLeaveMachine": "Ez da ordenagailu honetatik irteten",
+  "mcpApprovalCannotLeaveMachineDesc": "Zerbitzariak 127.0.0.1-ean soilik entzuten du: kanpoko sareko gailurik ezin da konektatu.",
+  "mcpApprovalDeny": "Ukatu",
+  "mcpApprovalAllow": "Baimendu",
+  "mcpSharePageEnable": "MCP irakurketa baimendu",
+  "mcpSharePageDisable": "MCP irakurketa kendu",
+  "mcpSharePageEnabledSnack": "Orria MCP allowlist-ean gehituta",
+  "mcpSharePageDisabledSnack": "Orria MCP allowlist-etik kenduta",
   "aiContextWindowTokens": "Ereduaren testuinguru-leihoa (tokenak)",
   "aiContextWindowTokensHint": "AA txataren testuinguru-barrarako erabiltzen da. Zure ereduarekin bat etorri behar du (adib: 8192, 131072).",
   "aiContextUsageUnavailable": "Ez da token erabileraren berri eman azken erantzunean.",
@@ -3006,4 +3078,35 @@
   ,"trelloColumnTodo": "Egiteko"
   ,"trelloColumnInProgress": "Egiten"
   ,"trelloColumnDone": "Eginda"
+  ,"trelloDetailsTitle": "Trello"
+  ,"trelloRefresh": "Eguneratu"
+  ,"trelloConflictMessage": "Gatazka: aldaketak izan dira Trellon eta Folion."
+  ,"trelloConflictLoadHint": "Sakatu Eguneratu urruneko egoera kargatzeko eta diferentziak ikusteko."
+  ,"trelloKeepRemote": "Mantendu Trello"
+  ,"trelloForceFolio": "Behartu Folio"
+  ,"trelloCommentsTitle": "Trello iruzkinak"
+  ,"trelloNoComments": "Iruzkinik ez edo ez kargatuta."
+  ,"trelloAddCommentHint": "Iruzkina gehitu..."
+  ,"trelloDeleteRemoteConfirm": "Honek Folion zeregina ezabatuko du eta Trellon txartela artxibatuko du. Jarraitu?"
+  ,"trelloConnectionMissing": "Ez da Trello konexiorik aurkitu zeregin honetarako. Konektatu berriro Trello Ezarpenak → Integrazioak atalean."
+  ,"trelloConnectionMissingDelete": "Ez da Trello konexiorik aurkitu txartela artxibatzeko."
+  ,"trelloBannerLabel": "Trello · {label}"
+  ,"@trelloBannerLabel": {"placeholders": {"label": {"type": "String"}}}
+  ,"kanbanIntegrationExclusive": "Taula hau jada {provider}-ra lotuta dago. Kendu iturri hori beste bat lotzeko."
+  ,"@kanbanIntegrationExclusive": {"placeholders": {"provider": {"type": "String"}}}
+  ,"kanbanTrelloSyncingPush": "Trello: sinkronizatzen (push)…"
+  ,"kanbanTrelloPushOkPull": "Trello: push OK · orain pull…"
+  ,"kanbanTrelloSyncResult": "Trello: push {pushed} (saltatutakoak {skipped}) · pull {pulled} · +{created} · ~{updated}"
+  ,"@kanbanTrelloSyncResult": {
+    "placeholders": {
+      "pushed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "pulled": {"type": "int"},
+      "created": {"type": "int"},
+      "updated": {"type": "int"}
+    }
+  }
+  ,"kanbanTrelloSyncTooltip": "Trello sinkronizatu (push + pull)"
+  ,"kanbanTrelloError": "Trello errorea: {error}"
+  ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
 }

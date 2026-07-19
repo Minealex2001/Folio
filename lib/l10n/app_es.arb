@@ -617,6 +617,78 @@
   ,"settingsMcpCopyCursorConfigDone": "Config MCP de Cursor copiada. Pégala en ~/.cursor/mcp.json (fusiona con tus servidores existentes)."
   ,"settingsMcpCopyClaudeConfigDone": "JSON de Claude Desktop copiado (mcp-remote). Pégalo en %APPDATA%\\Claude\\claude_desktop_config.json. Requiere Node.js/npx. No uses el formulario «Conector personalizado» con localhost."
   ,"settingsMcpClaudeCustomConnectorHint": "El diálogo «Añadir conector personalizado» de Claude exige una URL HTTPS pública alcanzable desde los servidores de Anthropic. El MCP de Folio es solo local (127.0.0.1), así que ese formulario no puede usarlo. En este PC, usa «Copiar JSON de Claude Desktop» y pégalo en claude_desktop_config.json."
+  ,"settingsMcpAllowlistTitle": "Páginas legibles por MCP"
+  ,"settingsMcpAllowlistEmpty": "Ninguna página autorizada. Un cliente MCP pedirá permiso la primera vez que intente leer una página."
+  ,"settingsMcpAllowlistClear": "Vaciar allowlist"
+  ,"settingsMcpAllowlistRemove": "Quitar"
+  ,"settingsMcpAllowlistFolderBadge": "Carpeta"
+  ,"settingsMcpAllowlistAdd": "Permitir lectura…"
+  ,"settingsMcpAllowlistAddTitle": "Permitir lectura MCP"
+  ,"settingsMcpAllowlistNoneToAdd": "Todas las páginas ya están en la allowlist."
+  ,"mcpReadAccessTitle": "¿Permitir lectura MCP de esta página?"
+  ,"mcpReadAccessBody": "El cliente «{clientName}» quiere leer el contenido de la página indicada abajo. Este diálogo solo muestra el título, nunca el texto de la página."
+  ,"@mcpReadAccessBody": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  }
+  ,"mcpReadAccessPageLabel": "Página"
+  ,"mcpReadAccessChipAllowlist": "Puedes recordar o no"
+  ,"mcpReadAccessChipNoPreview": "Sin vista previa del contenido"
+  ,"mcpReadAccessCanDoTitle": "Qué implica este permiso"
+  ,"mcpReadAccessCanDoRead": "Leer el contenido completo"
+  ,"mcpReadAccessCanDoReadDesc": "El cliente podrá obtener los bloques de esta página (títulos, texto, listas, código, etc.) para ayudarte desde fuera de Folio."
+  ,"mcpReadAccessCanDoAllowlist": "Recordar en la allowlist (opcional)"
+  ,"mcpReadAccessCanDoAllowlistDesc": "Si eliges «Permitir y recordar», no volverá a pedir permiso para esta página. Puedes quitarla en Ajustes → Servidor MCP."
+  ,"mcpReadAccessCanDoOnce": "Permitir solo esta vez"
+  ,"mcpReadAccessCanDoOnceDesc": "La lectura se concede una vez y la página no se añade a la allowlist; la próxima vez volverá a preguntar."
+  ,"mcpReadAccessCannotPreview": "Este diálogo no muestra el contenido"
+  ,"mcpReadAccessCannotPreviewDesc": "Solo ves el título para identificar la página. El texto no se previsualiza aquí."
+  ,"mcpReadAccessAllow": "Permitir y recordar"
+  ,"mcpReadAccessAllowOnce": "Permitir solo esta vez"
+  ,"mcpReadAccessDeny": "Denegar"
+  ,"mcpApprovalTitle": "¿Permitir que «{clientName}» gestione tu libreta?"
+  ,"@mcpApprovalTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  }
+  ,"mcpApprovalUpdateTitle": "¿Volver a autorizar «{clientName}»?"
+  ,"@mcpApprovalUpdateTitle": {
+    "placeholders": {
+      "clientName": {"type": "String"}
+    }
+  }
+  ,"mcpApprovalBody": "Este cliente MCP quiere conectarse al servidor local de Folio. Versión: {appVersion}."
+  ,"@mcpApprovalBody": {
+    "placeholders": {
+      "appVersion": {"type": "String"}
+    }
+  }
+  ,"mcpApprovalUpdateBody": "Este cliente MCP ya estaba autorizado, pero Folio ha ampliado sus capacidades. Debes volver a dar permiso para continuar."
+  ,"mcpApprovalUpdateHighlightTitle": "Novedad: lectura de páginas"
+  ,"mcpApprovalUpdateHighlightDesc": "Ahora puede leer el contenido completo de páginas que autorices (allowlist). La primera lectura de una página nueva pedirá tu permiso; no se envían adjuntos locales ni datos fuera de este equipo."
+  ,"mcpApprovalApproveUpdate": "Autorizar de nuevo"
+  ,"mcpApprovalChipLocalOnly": "Solo este equipo"
+  ,"mcpApprovalChipRevocable": "Aprobación revocable"
+  ,"mcpApprovalChipToken": "Requiere token"
+  ,"mcpApprovalCanDoTitle": "Qué podrá hacer"
+  ,"mcpApprovalCanDoEdit": "Crear y editar páginas"
+  ,"mcpApprovalCanDoEditDesc": "Puede crear, resumir, traducir y editar el contenido de tus páginas."
+  ,"mcpApprovalCanDoManage": "Gestionar libretas y carpetas"
+  ,"mcpApprovalCanDoManageDesc": "Puede mover, renombrar, duplicar, etiquetar y enviar páginas a la papelera."
+  ,"mcpApprovalCanDoSearch": "Buscar en tu libreta"
+  ,"mcpApprovalCanDoSearchDesc": "Puede buscar páginas por título o contenido (los snippets solo se muestran en páginas autorizadas)."
+  ,"mcpApprovalCanDoRead": "Leer páginas autorizadas"
+  ,"mcpApprovalCanDoReadDesc": "Puede leer el contenido completo solo de páginas (o carpetas) en la allowlist MCP. La primera lectura de una página nueva pedirá tu permiso."
+  ,"mcpApprovalCannotLeaveMachine": "No sale de este equipo"
+  ,"mcpApprovalCannotLeaveMachineDesc": "El servidor solo escucha en 127.0.0.1: ningún dispositivo de red externo puede conectarse."
+  ,"mcpApprovalDeny": "Denegar"
+  ,"mcpApprovalAllow": "Permitir"
+  ,"mcpSharePageEnable": "Permitir lectura MCP"
+  ,"mcpSharePageDisable": "Quitar lectura MCP"
+  ,"mcpSharePageEnabledSnack": "Página añadida a la allowlist MCP"
+  ,"mcpSharePageDisabledSnack": "Página quitada de la allowlist MCP"
   ,"aiContextWindowTokens": "Ventana de contexto del modelo (tokens)"
   ,"aiContextWindowTokensHint": "Sirve para la barra de contexto de la nota. Ajústala a tu modelo (p. ej. 8192, 131072)."
   ,"aiContextUsageUnavailable": "El servidor no informó del uso de tokens en la última respuesta."
@@ -3001,4 +3073,35 @@
   ,"trelloColumnTodo": "Por hacer"
   ,"trelloColumnInProgress": "En curso"
   ,"trelloColumnDone": "Hecho"
+  ,"trelloDetailsTitle": "Trello"
+  ,"trelloRefresh": "Actualizar"
+  ,"trelloConflictMessage": "Conflicto: hubo cambios en Trello y en Folio."
+  ,"trelloConflictLoadHint": "Pulsa Actualizar para cargar el estado remoto y ver las diferencias."
+  ,"trelloKeepRemote": "Mantener Trello"
+  ,"trelloForceFolio": "Forzar Folio"
+  ,"trelloCommentsTitle": "Comentarios Trello"
+  ,"trelloNoComments": "Sin comentarios o no cargados."
+  ,"trelloAddCommentHint": "Añadir comentario..."
+  ,"trelloDeleteRemoteConfirm": "Esta acción borrará la tarea en Folio y archivará la card en Trello. ¿Continuar?"
+  ,"trelloConnectionMissing": "No se encontró la conexión Trello para esta tarea. Re-conecta Trello en Ajustes → Integraciones."
+  ,"trelloConnectionMissingDelete": "No se encontró la conexión Trello para archivar la card."
+  ,"trelloBannerLabel": "Trello · {label}"
+  ,"@trelloBannerLabel": {"placeholders": {"label": {"type": "String"}}}
+  ,"kanbanIntegrationExclusive": "Este tablero ya está vinculado a {provider}. Quita esa fuente para asociar otra."
+  ,"@kanbanIntegrationExclusive": {"placeholders": {"provider": {"type": "String"}}}
+  ,"kanbanTrelloSyncingPush": "Trello: sincronizando (push)…"
+  ,"kanbanTrelloPushOkPull": "Trello: push OK · ahora pull…"
+  ,"kanbanTrelloSyncResult": "Trello: push {pushed} (omitidos {skipped}) · pull {pulled} · +{created} · ~{updated}"
+  ,"@kanbanTrelloSyncResult": {
+    "placeholders": {
+      "pushed": {"type": "int"},
+      "skipped": {"type": "int"},
+      "pulled": {"type": "int"},
+      "created": {"type": "int"},
+      "updated": {"type": "int"}
+    }
+  }
+  ,"kanbanTrelloSyncTooltip": "Sincronizar Trello (push + pull)"
+  ,"kanbanTrelloError": "Error Trello: {error}"
+  ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
 }

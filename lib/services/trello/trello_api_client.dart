@@ -72,6 +72,72 @@ class TrelloLabel {
   }
 }
 
+class TrelloCheckItem {
+  TrelloCheckItem({
+    required this.id,
+    required this.name,
+    required this.state,
+    this.pos = 0,
+  });
+
+  final String id;
+  final String name;
+  /// `complete` | `incomplete` (API Trello).
+  final String state;
+  final double pos;
+
+  bool get isComplete => state.trim().toLowerCase() == 'complete';
+
+  static TrelloCheckItem fromJson(Map<String, dynamic> json) {
+    final rawPos = json['pos'];
+    final pos = rawPos is num ? rawPos.toDouble() : 0.0;
+    return TrelloCheckItem(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      state: json['state'] as String? ?? 'incomplete',
+      pos: pos,
+    );
+  }
+}
+
+class TrelloChecklist {
+  TrelloChecklist({
+    required this.id,
+    required this.idCard,
+    required this.name,
+    this.pos = 0,
+    this.checkItems = const [],
+  });
+
+  final String id;
+  final String idCard;
+  final String name;
+  final double pos;
+  final List<TrelloCheckItem> checkItems;
+
+  static TrelloChecklist fromJson(Map<String, dynamic> json) {
+    final rawPos = json['pos'];
+    final pos = rawPos is num ? rawPos.toDouble() : 0.0;
+    final rawItems = json['checkItems'] as List?;
+    final items = <TrelloCheckItem>[];
+    if (rawItems != null) {
+      for (final item in rawItems) {
+        if (item is Map) {
+          items.add(TrelloCheckItem.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+    items.sort((a, b) => a.pos.compareTo(b.pos));
+    return TrelloChecklist(
+      id: json['id'] as String? ?? '',
+      idCard: json['idCard'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      pos: pos,
+      checkItems: items,
+    );
+  }
+}
+
 class TrelloCard {
   TrelloCard({
     required this.id,
@@ -88,6 +154,8 @@ class TrelloCard {
     this.checklistCheckedCount = 0,
     this.commentCount = 0,
     this.attachmentCount = 0,
+    this.shortUrl,
+    this.shortLink,
   });
 
   final String id;
@@ -104,6 +172,19 @@ class TrelloCard {
   final int checklistCheckedCount;
   final int commentCount;
   final int attachmentCount;
+  final String? shortUrl;
+  final String? shortLink;
+
+  /// Prefer API shortUrl; otherwise build from shortLink or card id.
+  String? get browseUrl {
+    final u = (shortUrl ?? '').trim();
+    if (u.isNotEmpty) return u;
+    final link = (shortLink ?? '').trim();
+    if (link.isNotEmpty) return 'https://trello.com/c/$link';
+    final idTrim = id.trim();
+    if (idTrim.isNotEmpty) return 'https://trello.com/c/$idTrim';
+    return null;
+  }
 
   static TrelloCard fromJson(Map<String, dynamic> json) {
     final rawLabels = json['labels'] as List?;
@@ -141,6 +222,9 @@ class TrelloCard {
       updatedAtMs = DateTime.tryParse(dateLastActivity)?.millisecondsSinceEpoch ?? 0;
     }
 
+    final shortUrl = (json['shortUrl'] as String?)?.trim();
+    final shortLink = (json['shortLink'] as String?)?.trim();
+
     return TrelloCard(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
@@ -156,6 +240,43 @@ class TrelloCard {
       checklistCheckedCount: checkItemsChecked,
       commentCount: comments,
       attachmentCount: attachments,
+      shortUrl: (shortUrl?.isEmpty ?? true) ? null : shortUrl,
+      shortLink: (shortLink?.isEmpty ?? true) ? null : shortLink,
+    );
+  }
+}
+
+class TrelloComment {
+  TrelloComment({
+    required this.id,
+    required this.text,
+    required this.authorName,
+    required this.createdMs,
+  });
+
+  final String id;
+  final String text;
+  final String authorName;
+  final int createdMs;
+
+  static TrelloComment fromActionJson(Map<String, dynamic> json) {
+    final data = json['data'];
+    final text = data is Map ? (data['text'] as String? ?? '') : '';
+    final member = json['memberCreator'];
+    var author = '';
+    if (member is Map) {
+      author = (member['fullName'] as String? ?? member['username'] as String? ?? '').trim();
+    }
+    final date = json['date'] as String?;
+    var createdMs = 0;
+    if (date != null && date.isNotEmpty) {
+      createdMs = DateTime.tryParse(date)?.millisecondsSinceEpoch ?? 0;
+    }
+    return TrelloComment(
+      id: json['id'] as String? ?? '',
+      text: text,
+      authorName: author,
+      createdMs: createdMs,
     );
   }
 }
@@ -171,7 +292,7 @@ class TrelloApiClient {
   static const String _base = 'https://api.trello.com/1';
 
   static const String _cardFields =
-      'id,name,desc,idList,idBoard,dateLastActivity,due,closed,idLabels';
+      'id,name,desc,idList,idBoard,dateLastActivity,due,closed,idLabels,shortUrl,shortLink';
 
   final http.Client _http;
   final TrelloConnection _connection;
@@ -298,6 +419,33 @@ class TrelloApiClient {
     return list.map((e) => TrelloCard.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
+  /// All checklists on a board (includes check items). Group by [TrelloChecklist.idCard].
+  Future<List<TrelloChecklist>> getBoardChecklists(String boardId) async {
+    final list = await _getList(_uri('/boards/$boardId/checklists', {
+      'fields': 'id,idCard,name,pos',
+      'checkItems': 'all',
+      'checkItem_fields': 'id,name,state,pos',
+    }));
+    final checklists = list
+        .map((e) => TrelloChecklist.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    checklists.sort((a, b) => a.pos.compareTo(b.pos));
+    return checklists;
+  }
+
+  Future<List<TrelloChecklist>> getCardChecklists(String cardId) async {
+    final list = await _getList(_uri('/cards/$cardId/checklists', {
+      'fields': 'id,idCard,name,pos',
+      'checkItems': 'all',
+      'checkItem_fields': 'id,name,state,pos',
+    }));
+    final checklists = list
+        .map((e) => TrelloChecklist.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    checklists.sort((a, b) => a.pos.compareTo(b.pos));
+    return checklists;
+  }
+
   Future<TrelloCard> getCard(String cardId) async {
     final json = await _getJson(_uri('/cards/$cardId', {
       'fields': _cardFields,
@@ -346,11 +494,41 @@ class TrelloApiClient {
     }));
   }
 
+  /// Updates a check item state on a card (`complete` / `incomplete`).
+  Future<void> updateCheckItemState({
+    required String cardId,
+    required String checkItemId,
+    required bool complete,
+  }) async {
+    final id = checkItemId.trim();
+    if (id.isEmpty) return;
+    await _put(_uri('/cards/$cardId/checkItem/$id', {
+      'state': complete ? 'complete' : 'incomplete',
+    }));
+  }
+
   Future<void> addComment({
     required String cardId,
     required String text,
   }) async {
     await _post(_uri('/cards/$cardId/actions/comments', {'text': text}));
+  }
+
+  Future<List<TrelloComment>> getCardComments(String cardId) async {
+    final list = await _getList(_uri('/cards/$cardId/actions', {
+      'filter': 'commentCard',
+      'fields': 'id,data,date,idMemberCreator',
+      'memberCreator': 'true',
+      'memberCreator_fields': 'fullName,username',
+    }));
+    final comments = <TrelloComment>[];
+    for (final e in list) {
+      if (e is Map) {
+        comments.add(TrelloComment.fromActionJson(Map<String, dynamic>.from(e)));
+      }
+    }
+    comments.sort((a, b) => a.createdMs.compareTo(b.createdMs));
+    return comments;
   }
 
   Future<void> archiveCard(String cardId) async {

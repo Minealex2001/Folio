@@ -336,4 +336,151 @@ void main() {
       expect(session.pages.firstWhere((p) => p.id == pageId).blocks.first.type, 'h1');
     });
   });
+
+  group('FolioToolRegistry — get_page_content y allowlist MCP', () {
+    test('sin gate lee cualquier página e incluye block id', () async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final page = session.selectedPage!;
+      session.renamePage(page.id, 'Nota secreta');
+      session.updateBlockText(page.id, page.blocks.first.id, 'contenido privado');
+      final registry = FolioToolRegistry(session);
+
+      final result = await registry.execute(
+        _call('get_page_content', {'pageId': page.id}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(result.content, contains('"title":"Nota secreta"'));
+      expect(result.content, contains('"id":"${page.blocks.first.id}"'));
+      expect(result.content, contains('contenido privado'));
+      expect(result.content, isNot(contains('richTextDeltaJson')));
+    });
+
+    test('con gate denegado no filtra contenido ni añade a allowlist', () async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final pageId = session.selectedPage!.id;
+      session.updateBlockText(pageId, session.pages.first.blocks.first.id, 'no filtrar');
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async => McpReadAccessDecision.deny,
+      );
+
+      final result = await registry.execute(
+        _call('get_page_content', {'pageId': pageId}),
+      );
+
+      expect(result.isError, isTrue);
+      expect(result.content, isNot(contains('no filtrar')));
+      expect(session.mcpReadablePageIds.contains(pageId), isFalse);
+    });
+
+    test('con gate allowAndRemember añade a allowlist y devuelve bloques', () async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final pageId = session.selectedPage!.id;
+      session.updateBlockText(pageId, session.pages.first.blocks.first.id, 'ok');
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async =>
+            McpReadAccessDecision.allowAndRemember,
+      );
+
+      final result = await registry.execute(
+        _call('get_page_content', {'pageId': pageId}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(session.mcpReadablePageIds.contains(pageId), isTrue);
+      expect(result.content, contains('"text":"ok"'));
+    });
+
+    test('con gate allowOnce lee sin añadir a allowlist', () async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final pageId = session.selectedPage!.id;
+      session.updateBlockText(pageId, session.pages.first.blocks.first.id, 'una vez');
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async => McpReadAccessDecision.allowOnce,
+      );
+
+      final result = await registry.execute(
+        _call('get_page_content', {'pageId': pageId}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(result.content, contains('una vez'));
+      expect(session.mcpReadablePageIds.contains(pageId), isFalse);
+    });
+
+    test('herencia: carpeta allowlisteada hace legible al hijo', () async {
+      final session = VaultSession();
+      final folderId = session.addFolder(parentId: null);
+      session.addPage(parentId: folderId);
+      final childId = session.selectedPage!.id;
+      session.grantMcpPageReadable(folderId);
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async => McpReadAccessDecision.deny,
+      );
+
+      final result = await registry.execute(
+        _call('get_page_content', {'pageId': childId}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(session.isMcpPageReadable(childId), isTrue);
+    });
+
+    test('create_page auto-grant en allowlist', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async => McpReadAccessDecision.deny,
+      );
+
+      final create = await registry.execute(
+        _call('create_page', {
+          'title': 'Creada por agente',
+          'blocks': [
+            {'type': 'paragraph', 'text': 'hola'},
+          ],
+        }),
+      );
+      expect(create.isError, isFalse);
+      final pageId = RegExp(r'"pageId":"([^"]+)"').firstMatch(create.content)!.group(1)!;
+      expect(session.mcpReadablePageIds.contains(pageId), isTrue);
+
+      final read = await registry.execute(
+        _call('get_page_content', {'pageId': pageId}),
+      );
+      expect(read.isError, isFalse);
+      expect(read.content, contains('hola'));
+    });
+
+    test('search_pages vía MCP omite snippet si no es legible', () async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final pageId = session.selectedPage!.id;
+      final blockId = session.pages.first.blocks.first.id;
+      session.updateBlockText(pageId, blockId, 'palabra clave única mcp');
+      session.searchIndex.rebuildFromPages(session.pages);
+      final registry = FolioToolRegistry(
+        session,
+        onRequestMcpReadAccess: (_, __) async => McpReadAccessDecision.deny,
+      );
+
+      final result = await registry.execute(
+        _call('search_pages', {'query': 'única'}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(result.content, contains(pageId));
+      expect(result.content, contains('"contentReadable":false'));
+      expect(result.content, contains('"snippet":""'));
+      expect(result.content, isNot(contains('palabra clave única mcp')));
+    });
+  });
 }
