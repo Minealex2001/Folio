@@ -48,6 +48,9 @@ class FolioKanbanData {
     this.youtrackSourceId,
     this.youtrackAutoImport = false,
     this.youtrackCreateIssuesOnQuickAdd = false,
+    this.trelloSourceId,
+    this.trelloAutoImport = false,
+    this.trelloCreateCardsOnQuickAdd = false,
     List<FolioKanbanColumnSpec>? columns,
   }) : columns = List.unmodifiable(columns ?? defaultColumns);
 
@@ -84,6 +87,16 @@ class FolioKanbanData {
   /// el tablero tiene [youtrackSourceId] configurado.
   final bool youtrackCreateIssuesOnQuickAdd;
 
+  /// Referencia a una “fuente” Trello preconfigurada en Ajustes → Integraciones.
+  final String? trelloSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar tarjetas desde Trello.
+  final bool trelloAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea una tarjeta en Trello cuando
+  /// el tablero tiene [trelloSourceId] configurado.
+  final bool trelloCreateCardsOnQuickAdd;
+
   static FolioKanbanData defaults() => FolioKanbanData();
 
   FolioKanbanData copyWith({
@@ -96,6 +109,9 @@ class FolioKanbanData {
     Object? youtrackSourceId = _sentinel,
     bool? youtrackAutoImport,
     bool? youtrackCreateIssuesOnQuickAdd,
+    Object? trelloSourceId = _sentinel,
+    bool? trelloAutoImport,
+    bool? trelloCreateCardsOnQuickAdd,
     List<FolioKanbanColumnSpec>? columns,
   }) {
     return FolioKanbanData(
@@ -112,6 +128,11 @@ class FolioKanbanData {
       youtrackAutoImport: youtrackAutoImport ?? this.youtrackAutoImport,
       youtrackCreateIssuesOnQuickAdd:
           youtrackCreateIssuesOnQuickAdd ?? this.youtrackCreateIssuesOnQuickAdd,
+      trelloSourceId:
+          trelloSourceId == _sentinel ? this.trelloSourceId : trelloSourceId as String?,
+      trelloAutoImport: trelloAutoImport ?? this.trelloAutoImport,
+      trelloCreateCardsOnQuickAdd:
+          trelloCreateCardsOnQuickAdd ?? this.trelloCreateCardsOnQuickAdd,
       columns: columns ?? this.columns,
     );
   }
@@ -128,6 +149,9 @@ class FolioKanbanData {
         if ((youtrackSourceId ?? '').trim().isNotEmpty) 'youtrackSourceId': youtrackSourceId,
         if (youtrackAutoImport) 'youtrackAutoImport': true,
         if (youtrackCreateIssuesOnQuickAdd) 'youtrackCreateIssuesOnQuickAdd': true,
+        if ((trelloSourceId ?? '').trim().isNotEmpty) 'trelloSourceId': trelloSourceId,
+        if (trelloAutoImport) 'trelloAutoImport': true,
+        if (trelloCreateCardsOnQuickAdd) 'trelloCreateCardsOnQuickAdd': true,
         'columns': columns.map((c) => c.toJson()).toList(),
       });
 
@@ -155,6 +179,7 @@ class FolioKanbanData {
       );
       final sourceId = (m['jiraSourceId'] as String?)?.trim();
       final ytSourceId = (m['youtrackSourceId'] as String?)?.trim();
+      final trSourceId = (m['trelloSourceId'] as String?)?.trim();
       return FolioKanbanData(
         v: (m['v'] as num?)?.toInt() ?? 2,
         includeSimpleTodos: m['includeSimpleTodos'] as bool? ?? true,
@@ -167,6 +192,10 @@ class FolioKanbanData {
         youtrackAutoImport: m['youtrackAutoImport'] as bool? ?? false,
         youtrackCreateIssuesOnQuickAdd:
             m['youtrackCreateIssuesOnQuickAdd'] as bool? ?? false,
+        trelloSourceId: (trSourceId?.isEmpty ?? true) ? null : trSourceId,
+        trelloAutoImport: m['trelloAutoImport'] as bool? ?? false,
+        trelloCreateCardsOnQuickAdd:
+            m['trelloCreateCardsOnQuickAdd'] as bool? ?? false,
         columns: useDefaults ? defaultColumns : cols,
       );
     } catch (_) {

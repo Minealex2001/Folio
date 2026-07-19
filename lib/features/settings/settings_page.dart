@@ -72,6 +72,7 @@ import '../release_notes/release_notes_page.dart';
 import '../sync/sync_conflict_merge_sheet.dart';
 import 'jira_integration_settings.dart';
 import 'youtrack_integration_settings.dart';
+import 'trello_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
@@ -4982,6 +4983,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     ),
                                                     const SizedBox(height: 10),
                                                     YouTrackIntegrationCard(
+                                                      session: _s,
+                                                      appSettings: _app,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    TrelloIntegrationCard(
                                                       session: _s,
                                                       appSettings: _app,
                                                     ),

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/integration_settings_widgets.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/jira_integration_state.dart';
 import '../../services/jira/jira_auth_service.dart';
@@ -21,7 +22,6 @@ class JiraIntegrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
@@ -29,125 +29,36 @@ class JiraIntegrationCard extends StatelessWidget {
       builder: (context, _) {
         final connections = session.jiraConnections;
         final sources = session.jiraSources;
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Image.asset('appLogos/jira.png'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Jira',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+        return IntegrationCard(
+          logoAsset: 'appLogos/jira.png',
+          title: 'Jira',
+          subtitle: isEs
+              ? 'Conecta Jira Cloud o Server/DC para sincronizar issues con Kanban.'
+              : 'Connect Jira Cloud or Server/DC to sync issues with Kanban.',
+          configureLabel: l10n.jiraConfigure,
+          onConfigure: session.state == VaultFlowState.unlocked
+              ? () => showIntegrationConfigSheet(
+                    context: context,
+                    builder: (ctx) => JiraIntegrationConfigDialog(
+                      session: session,
+                      appSettings: appSettings,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isEs
-                          ? 'Conecta Jira Cloud o Server/DC para sincronizar issues con Kanban.'
-                          : 'Connect Jira Cloud or Server/DC to sync issues with Kanban.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.35,
-                          ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _Pill(
-                          icon: Icons.link_rounded,
-                          label: isEs
-                              ? '${connections.length} conexiones'
-                              : '${connections.length} connections',
-                        ),
-                        _Pill(
-                          icon: Icons.filter_alt_outlined,
-                          label: isEs
-                              ? '${sources.length} fuentes'
-                              : '${sources.length} sources',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  FilledButton.icon(
-                    onPressed: session.state == VaultFlowState.unlocked
-                        ? () => showDialog<void>(
-                              context: context,
-                              builder: (ctx) =>
-                                  JiraIntegrationConfigDialog(
-                                    session: session,
-                                    appSettings: appSettings,
-                                  ),
-                            )
-                        : null,
-                    icon: const Icon(Icons.tune_rounded, size: 18),
-                    label: Text(l10n.jiraConfigure),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  )
+              : null,
+          chips: [
+            IntegrationStatChip(
+              icon: Icons.link_rounded,
+              label: isEs
+                  ? '${connections.length} conexiones'
+                  : '${connections.length} connections',
+            ),
+            IntegrationStatChip(
+              icon: Icons.filter_alt_outlined,
+              label: isEs ? '${sources.length} fuentes' : '${sources.length} sources',
+            ),
+          ],
         );
       },
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -371,217 +282,369 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
     }
   }
 
-  Future<void> _connectServer() async {
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    return IntegrationConfigDialogShell(
+      logoAsset: 'appLogos/jira.png',
+      title: l10n.jiraIntegrationTitle,
+      tabController: _tabs,
+      connectionsTabLabel: l10n.jiraConnectionsTab,
+      sourcesTabLabel: l10n.jiraSourcesTab,
+      errorText: _error,
+      connectionsTab: _busy
+          ? const FolioLoadingIndicator(centered: true)
+          : _ConnectionsTab(
+              session: widget.session,
+              onConnectCloud: _connectCloud,
+            ),
+      sourcesTab: _busy
+          ? const FolioLoadingIndicator(centered: true)
+          : _SourcesTab(session: widget.session),
+    );
+  }
+}
+
+class _ConnectionsTab extends StatefulWidget {
+  const _ConnectionsTab({required this.session, required this.onConnectCloud});
+  final VaultSession session;
+  final VoidCallback onConnectCloud;
+
+  @override
+  State<_ConnectionsTab> createState() => _ConnectionsTabState();
+}
+
+class _ConnectionsTabState extends State<_ConnectionsTab> {
+  bool _addingServer = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_addingServer) {
+      return _AddServerConnectionForm(
+        session: widget.session,
+        onCancel: () => setState(() => _addingServer = false),
+        onDone: () => setState(() => _addingServer = false),
+      );
+    }
+
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final labelCtrl = TextEditingController(text: 'Jira Server');
-    final baseCtrl = TextEditingController();
-    final tokenCtrl = TextEditingController();
-    final result = await showDialog<({String label, String baseUrl, String pat})?>(
-      context: context,
-      builder: (ctx) => FolioDialog(
-        title: Text(l10n.jiraNewServerConnection),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    final scheme = Theme.of(context).colorScheme;
+    final connections = widget.session.jiraConnections;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            FilledButton.icon(
+              onPressed: widget.onConnectCloud,
+              icon: const Icon(Icons.cloud_outlined, size: 18),
+              label: Text(isEs ? 'Conectar Cloud' : 'Connect Cloud'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _addingServer = true),
+              icon: const Icon(Icons.dns_outlined, size: 18),
+              label: Text(isEs ? 'Añadir Server/DC' : 'Add Server/DC'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: connections.isEmpty
+              ? IntegrationEmptyState(
+                  text: isEs
+                      ? 'No hay conexiones configuradas.'
+                      : 'No connections configured.',
+                )
+              : ListView.separated(
+                  itemCount: connections.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) {
+                    final c = connections[i];
+                    final subtitle = c.deployment == JiraDeployment.cloud
+                        ? (c.siteUrl ?? c.cloudId ?? '—')
+                        : (c.baseUrl ?? '—');
+                    return IntegrationEntryRow(
+                      icon: c.deployment == JiraDeployment.cloud
+                          ? Icons.cloud_outlined
+                          : Icons.dns_outlined,
+                      title: c.label,
+                      subtitle: subtitle,
+                      trailing: [
+                        IconButton(
+                          tooltip: isEs ? 'Eliminar' : 'Delete',
+                          onPressed: () => widget.session.removeJiraConnection(c.id),
+                          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddServerConnectionForm extends StatefulWidget {
+  const _AddServerConnectionForm({
+    required this.session,
+    required this.onCancel,
+    required this.onDone,
+  });
+  final VaultSession session;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
+
+  @override
+  State<_AddServerConnectionForm> createState() => _AddServerConnectionFormState();
+}
+
+class _AddServerConnectionFormState extends State<_AddServerConnectionForm> {
+  final _labelCtrl = TextEditingController(text: 'Jira Server');
+  final _baseCtrl = TextEditingController();
+  final _tokenCtrl = TextEditingController();
+  final _auth = JiraAuthService();
+
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _labelCtrl.dispose();
+    _baseCtrl.dispose();
+    _tokenCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IntegrationInlineFormHeader(
+            title: l10n.jiraNewServerConnection,
+            onBack: _busy ? () {} : widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _labelCtrl,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Nombre' : 'Name',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _baseCtrl,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Base URL' : 'Base URL',
+              hintText: 'https://jira.example.com',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _tokenCtrl,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Token / PAT' : 'Token / PAT',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: TextStyle(color: scheme.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextField(
-                controller: labelCtrl,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Nombre' : 'Name',
-                  border: const OutlineInputBorder(),
-                ),
+              TextButton(
+                onPressed: _busy ? null : widget.onCancel,
+                child: Text(isEs ? 'Cancelar' : 'Cancel'),
               ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: baseCtrl,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Base URL' : 'Base URL',
-                  hintText: 'https://jira.example.com',
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: tokenCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Token / PAT' : 'Token / PAT',
-                  border: const OutlineInputBorder(),
-                ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _busy ? null : _submit,
+                child: _busy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : Text(isEs ? 'Guardar' : 'Save'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: Text(isEs ? 'Cancelar' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              ctx,
-              (label: labelCtrl.text, baseUrl: baseCtrl.text, pat: tokenCtrl.text),
-            ),
-            child: Text(isEs ? 'Guardar' : 'Save'),
           ),
         ],
       ),
     );
-    labelCtrl.dispose();
-    baseCtrl.dispose();
-    tokenCtrl.dispose();
-    if (!mounted || result == null) return;
+  }
 
+  void _submit() {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       final conn = _auth.connectServer(
-        label: result.label,
-        baseUrl: result.baseUrl,
-        pat: result.pat,
+        label: _labelCtrl.text,
+        baseUrl: _baseCtrl.text,
+        pat: _tokenCtrl.text,
       );
       widget.session.upsertJiraConnection(conn);
+      widget.onDone();
     } catch (e) {
-      _setError(e);
+      setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+}
 
-  Future<void> _createSource() async {
-    final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final connections = widget.session.jiraConnections;
-    if (connections.isEmpty) {
-      _setError(l10n.jiraCreateConnectionFirst);
-      return;
+class _SourcesTab extends StatefulWidget {
+  const _SourcesTab({required this.session});
+  final VaultSession session;
+
+  @override
+  State<_SourcesTab> createState() => _SourcesTabState();
+}
+
+class _SourcesTabState extends State<_SourcesTab> {
+  bool _adding = false;
+  JiraSource? _editingMappingsFor;
+
+  String _connLabel(List<JiraConnection> connections, String id) {
+    for (final c in connections) {
+      if (c.id == id) return c.label;
     }
-    final created = await showDialog<JiraSource?>(
-      context: context,
-      builder: (ctx) => _CreateOrEditSourceDialog(
-        isEs: isEs,
-        connections: connections,
-      ),
-    );
-    if (!mounted || created == null) return;
-    widget.session.upsertJiraSource(created);
+    return '—';
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context);
+    if (_adding) {
+      return _CreateOrEditSourceForm(
+        session: widget.session,
+        onCancel: () => setState(() => _adding = false),
+        onDone: () => setState(() => _adding = false),
+      );
+    }
+    if (_editingMappingsFor != null) {
+      return _EditSourceMappingForm(
+        session: widget.session,
+        source: _editingMappingsFor!,
+        onCancel: () => setState(() => _editingMappingsFor = null),
+        onDone: () => setState(() => _editingMappingsFor = null),
+      );
+    }
+
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final connections = widget.session.jiraConnections;
+    final scheme = Theme.of(context).colorScheme;
     final sources = widget.session.jiraSources;
-    return FolioDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      content: SizedBox(
-        width: 760,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    final connections = widget.session.jiraConnections;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Image.asset('appLogos/jira.png'),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    l10n.jiraIntegrationTitle,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: isEs ? 'Cerrar' : 'Close',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TabBar(
-              controller: _tabs,
-              tabs: [
-                Tab(text: l10n.jiraConnectionsTab),
-                Tab(text: l10n.jiraSourcesTab),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.errorContainer.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
-                ),
-                child: Text(
-                  _error!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onErrorContainer,
-                      ),
-                ),
+            Expanded(
+              child: Text(
+                isEs ? 'Fuentes (para tableros Kanban)' : 'Sources (for Kanban)',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
-            if (_error != null) const SizedBox(height: 10),
-            SizedBox(
-              height: 420,
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _busy
-                      ? const FolioLoadingIndicator(centered: true)
-                      : _ConnectionsTab(
-                          connections: connections,
-                          onConnectCloud: _connectCloud,
-                          onConnectServer: _connectServer,
-                          onDelete: widget.session.removeJiraConnection,
-                        ),
-                  _busy
-                      ? const FolioLoadingIndicator(centered: true)
-                      : _SourcesTab(
-                          sources: sources,
-                          connections: connections,
-                          onCreate: _createSource,
-                          onUpsert: widget.session.upsertJiraSource,
-                          onDelete: widget.session.removeJiraSource,
-                        ),
-                ],
-              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: connections.isEmpty ? null : () => setState(() => _adding = true),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(isEs ? 'Nueva' : 'New'),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: sources.isEmpty
+              ? IntegrationEmptyState(
+                  text: isEs ? 'No hay fuentes.' : 'No sources yet.',
+                )
+              : ListView.separated(
+                  itemCount: sources.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) {
+                    final s = sources[i];
+                    final subtitle = switch (s.type) {
+                      JiraSourceType.jql => s.jql ?? '—',
+                      JiraSourceType.project => 'project=${s.projectKey ?? '—'}',
+                      JiraSourceType.board => 'board=${s.boardId ?? '—'}',
+                    };
+                    return IntegrationEntryRow(
+                      icon: Icons.filter_alt_outlined,
+                      title: s.name,
+                      subtitle: '${_connLabel(connections, s.connectionId)} · ${s.type.name} · $subtitle',
+                      subtitleMaxLines: 2,
+                      extra: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          IntegrationStatChip(
+                            icon: Icons.swap_horiz_rounded,
+                            label: '${s.columnMappings.length} mappings',
+                          ),
+                          IntegrationStatChip(
+                            icon: Icons.tune_rounded,
+                            label: isEs
+                                ? 'Comentarios ${s.importOptions.includeComments ? '✓' : '—'} · Adjuntos ${s.importOptions.includeAttachments ? '✓' : '—'} · Worklog ${s.importOptions.includeWorklog ? '✓' : '—'}'
+                                : 'Comments ${s.importOptions.includeComments ? '✓' : '—'} · Attachments ${s.importOptions.includeAttachments ? '✓' : '—'} · Worklog ${s.importOptions.includeWorklog ? '✓' : '—'}',
+                          ),
+                        ],
+                      ),
+                      trailing: [
+                        IconButton(
+                          tooltip: isEs ? 'Editar mapping' : 'Edit mapping',
+                          onPressed: () => setState(() => _editingMappingsFor = s),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          tooltip: isEs ? 'Eliminar' : 'Delete',
+                          onPressed: () => widget.session.removeJiraSource(s.id),
+                          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
 
-class _CreateOrEditSourceDialog extends StatefulWidget {
-  const _CreateOrEditSourceDialog({
-    required this.isEs,
-    required this.connections,
+class _CreateOrEditSourceForm extends StatefulWidget {
+  const _CreateOrEditSourceForm({
+    required this.session,
+    required this.onCancel,
+    required this.onDone,
   });
 
-  final bool isEs;
-  final List<JiraConnection> connections;
+  final VaultSession session;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
 
   @override
-  State<_CreateOrEditSourceDialog> createState() =>
-      _CreateOrEditSourceDialogState();
+  State<_CreateOrEditSourceForm> createState() =>
+      _CreateOrEditSourceFormState();
 }
 
-class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
-  late JiraConnection _selected = widget.connections.first;
+class _CreateOrEditSourceFormState extends State<_CreateOrEditSourceForm> {
+  late JiraConnection _selected = widget.session.jiraConnections.first;
 
   late JiraSourceType _type = JiraSourceType.project;
 
@@ -646,7 +709,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
   void _submit() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      Navigator.pop(context, null);
+      widget.onCancel();
       return;
     }
     final id = 'jira_source_${const Uuid().v4()}';
@@ -660,14 +723,16 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
           _projectCtrl.text.trim().isEmpty ? null : _projectCtrl.text.trim(),
       boardId: _boardCtrl.text.trim().isEmpty ? null : _boardCtrl.text.trim(),
     );
-    Navigator.pop(context, src);
+    widget.session.upsertJiraSource(src);
+    widget.onDone();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEs = widget.isEs;
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final connections = widget.session.jiraConnections;
 
     final projectHint = isEs
         ? 'Escribe para buscar (KEY o nombre)…'
@@ -831,401 +896,111 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
       );
     }
 
-    return FolioDialog(
-      title: Text(l10n.jiraNewSource),
-      content: SizedBox(
-        width: 560,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<JiraConnection>(
-                    initialValue: _selected,
-                    decoration: InputDecoration(
-                      labelText: isEs ? 'Conexión' : 'Connection',
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      for (final c in widget.connections)
-                        DropdownMenuItem(value: c, child: Text(c.label)),
-                    ],
-                    onChanged: (v) async {
-                      final next = v ?? _selected;
-                      if (next.id == _selected.id) return;
-                      setState(() => _selected = next);
-                      await _reloadLists();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                IconButton(
-                  tooltip: l10n.jiraReload,
-                  onPressed: _loading ? null : _reloadLists,
-                  icon: _loading
-                      ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
-                      : const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            if (_loadError != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                isEs
-                    ? 'No se pudieron cargar proyectos/tableros. Puedes escribir los IDs manualmente.\n$_loadError'
-                    : 'Could not load projects/boards. You can type IDs manually.\n$_loadError',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.error,
-                    ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            DropdownButtonFormField<JiraSourceType>(
-              initialValue: _type,
-              decoration: InputDecoration(
-                labelText: isEs ? 'Tipo' : 'Type',
-                border: const OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: JiraSourceType.project, child: Text('Project')),
-                DropdownMenuItem(value: JiraSourceType.board, child: Text('Board')),
-                DropdownMenuItem(value: JiraSourceType.jql, child: Text('JQL')),
-              ],
-              onChanged: (v) => setState(() => _type = v ?? _type),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _nameCtrl,
-              decoration: InputDecoration(
-                labelText: isEs ? 'Nombre' : 'Name',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (_type == JiraSourceType.jql)
-              TextField(
-                controller: _jqlCtrl,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: 'JQL',
-                  hintText: 'project=ABC ORDER BY updated DESC',
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            if (_type == JiraSourceType.project) projectPicker(),
-            if (_type == JiraSourceType.board) ...[
-              boardPicker(),
-              const SizedBox(height: 10),
-              projectPicker(),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: Text(isEs ? 'Cancelar' : 'Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(isEs ? 'Crear' : 'Create'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ConnectionsTab extends StatelessWidget {
-  const _ConnectionsTab({
-    required this.connections,
-    required this.onConnectCloud,
-    required this.onConnectServer,
-    required this.onDelete,
-  });
-  final List<JiraConnection> connections;
-  final VoidCallback onConnectCloud;
-  final VoidCallback onConnectServer;
-  final void Function(String id) onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            FilledButton.icon(
-              onPressed: onConnectCloud,
-              icon: const Icon(Icons.cloud_outlined, size: 18),
-              label: Text(isEs ? 'Conectar Cloud' : 'Connect Cloud'),
-            ),
-            OutlinedButton.icon(
-              onPressed: onConnectServer,
-              icon: const Icon(Icons.dns_outlined, size: 18),
-              label: Text(isEs ? 'Añadir Server/DC' : 'Add Server/DC'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: connections.isEmpty
-              ? Center(
-                  child: Text(
-                    isEs
-                        ? 'No hay conexiones configuradas.'
-                        : 'No connections configured.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: connections.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final c = connections[i];
-                    final subtitle = c.deployment == JiraDeployment.cloud
-                        ? (c.siteUrl ?? c.cloudId ?? '—')
-                        : (c.baseUrl ?? '—');
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            c.deployment == JiraDeployment.cloud
-                                ? Icons.cloud_outlined
-                                : Icons.dns_outlined,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  c.label,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(color: scheme.onSurfaceVariant),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: isEs ? 'Eliminar' : 'Delete',
-                            onPressed: () => onDelete(c.id),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SourcesTab extends StatelessWidget {
-  const _SourcesTab({
-    required this.sources,
-    required this.connections,
-    required this.onCreate,
-    required this.onUpsert,
-    required this.onDelete,
-  });
-  final List<JiraSource> sources;
-  final List<JiraConnection> connections;
-  final VoidCallback onCreate;
-  final void Function(JiraSource source) onUpsert;
-  final void Function(String id) onDelete;
-
-  String _connLabel(String id) {
-    for (final c in connections) {
-      if (c.id == id) return c.label;
-    }
-    return '—';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                isEs ? 'Fuentes (para tableros Kanban)' : 'Sources (for Kanban)',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text(isEs ? 'Nueva' : 'New'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: sources.isEmpty
-              ? Center(
-                  child: Text(
-                    isEs ? 'No hay fuentes.' : 'No sources yet.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: sources.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final s = sources[i];
-                    final subtitle = switch (s.type) {
-                      JiraSourceType.jql => s.jql ?? '—',
-                      JiraSourceType.project => 'project=${s.projectKey ?? '—'}',
-                      JiraSourceType.board => 'board=${s.boardId ?? '—'}',
-                    };
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.filter_alt_outlined, color: scheme.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.name,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_connLabel(s.connectionId)} · ${s.type.name} · $subtitle',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(color: scheme.onSurfaceVariant),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    _ChipInfo(
-                                      icon: Icons.swap_horiz_rounded,
-                                      label: isEs
-                                          ? '${s.columnMappings.length} mappings'
-                                          : '${s.columnMappings.length} mappings',
-                                    ),
-                                    _ChipInfo(
-                                      icon: Icons.tune_rounded,
-                                      label: isEs
-                                          ? 'Comentarios ${s.importOptions.includeComments ? '✓' : '—'} · Adjuntos ${s.importOptions.includeAttachments ? '✓' : '—'} · Worklog ${s.importOptions.includeWorklog ? '✓' : '—'}'
-                                          : 'Comments ${s.importOptions.includeComments ? '✓' : '—'} · Attachments ${s.importOptions.includeAttachments ? '✓' : '—'} · Worklog ${s.importOptions.includeWorklog ? '✓' : '—'}',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: isEs ? 'Editar mapping' : 'Edit mapping',
-                            onPressed: () async {
-                              final updated = await showDialog<JiraSource?>(
-                                context: context,
-                                builder: (ctx) => _EditSourceMappingDialog(source: s),
-                              );
-                              if (updated != null) onUpsert(updated);
-                            },
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
-                          IconButton(
-                            tooltip: isEs ? 'Eliminar' : 'Delete',
-                            onPressed: () => onDelete(s.id),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChipInfo extends StatelessWidget {
-  const _ChipInfo({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurfaceVariant,
+          IntegrationInlineFormHeader(
+            title: l10n.jiraNewSource,
+            onBack: widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<JiraConnection>(
+                  initialValue: _selected,
+                  decoration: InputDecoration(
+                    labelText: isEs ? 'Conexión' : 'Connection',
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final c in connections)
+                      DropdownMenuItem(value: c, child: Text(c.label)),
+                  ],
+                  onChanged: (v) async {
+                    final next = v ?? _selected;
+                    if (next.id == _selected.id) return;
+                    setState(() => _selected = next);
+                    await _reloadLists();
+                  },
                 ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: l10n.jiraReload,
+                onPressed: _loading ? null : _reloadLists,
+                icon: _loading
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          if (_loadError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              isEs
+                  ? 'No se pudieron cargar proyectos/tableros. Puedes escribir los IDs manualmente.\n$_loadError'
+                  : 'Could not load projects/boards. You can type IDs manually.\n$_loadError',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.error,
+                  ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          DropdownButtonFormField<JiraSourceType>(
+            initialValue: _type,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Tipo' : 'Type',
+              border: const OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: JiraSourceType.project, child: Text('Project')),
+              DropdownMenuItem(value: JiraSourceType.board, child: Text('Board')),
+              DropdownMenuItem(value: JiraSourceType.jql, child: Text('JQL')),
+            ],
+            onChanged: (v) => setState(() => _type = v ?? _type),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Nombre' : 'Name',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_type == JiraSourceType.jql)
+            TextField(
+              controller: _jqlCtrl,
+              minLines: 2,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'JQL',
+                hintText: 'project=ABC ORDER BY updated DESC',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          if (_type == JiraSourceType.project) projectPicker(),
+          if (_type == JiraSourceType.board) ...[
+            boardPicker(),
+            const SizedBox(height: 10),
+            projectPicker(),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: widget.onCancel,
+                child: Text(isEs ? 'Cancelar' : 'Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                child: Text(isEs ? 'Crear' : 'Create'),
+              ),
+            ],
           ),
         ],
       ),
@@ -1233,15 +1008,23 @@ class _ChipInfo extends StatelessWidget {
   }
 }
 
-class _EditSourceMappingDialog extends StatefulWidget {
-  const _EditSourceMappingDialog({required this.source});
+class _EditSourceMappingForm extends StatefulWidget {
+  const _EditSourceMappingForm({
+    required this.session,
+    required this.source,
+    required this.onCancel,
+    required this.onDone,
+  });
+  final VaultSession session;
   final JiraSource source;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
 
   @override
-  State<_EditSourceMappingDialog> createState() => _EditSourceMappingDialogState();
+  State<_EditSourceMappingForm> createState() => _EditSourceMappingFormState();
 }
 
-class _EditSourceMappingDialogState extends State<_EditSourceMappingDialog> {
+class _EditSourceMappingFormState extends State<_EditSourceMappingForm> {
   late final List<JiraColumnMapping> _mappings = widget.source.columnMappings.toList();
   late JiraImportOptions _options = widget.source.importOptions;
   final _customFieldsCtrl = TextEditingController();
@@ -1261,151 +1044,151 @@ class _EditSourceMappingDialogState extends State<_EditSourceMappingDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return FolioDialog(
-      title: Text(isEs ? 'Configurar fuente' : 'Configure source'),
-      content: SizedBox(
-        width: 720,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEs ? 'Opciones de importación/push' : 'Import/push options',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IntegrationInlineFormHeader(
+            title: isEs ? 'Configurar fuente' : 'Configure source',
+            onBack: widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isEs ? 'Opciones de importación/push' : 'Import/push options',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          IntegrationImportOptionsChips(
+            options: [
+              IntegrationImportOption(
+                label: isEs ? 'Comentarios' : 'Comments',
+                selected: _options.includeComments,
+                onChanged: (v) => setState(() => _options = JiraImportOptions(
+                      includeComments: v,
+                      includeAttachments: _options.includeAttachments,
+                      includeSubtasks: _options.includeSubtasks,
+                      includeLinks: _options.includeLinks,
+                      includeWorklog: _options.includeWorklog,
+                    )),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  FilterChip(
-                    selected: _options.includeComments,
-                    onSelected: (v) => setState(() => _options = JiraImportOptions(
-                          includeComments: v,
-                          includeAttachments: _options.includeAttachments,
-                          includeSubtasks: _options.includeSubtasks,
-                          includeLinks: _options.includeLinks,
-                          includeWorklog: _options.includeWorklog,
-                        )),
-                    label: Text(isEs ? 'Comentarios' : 'Comments'),
-                  ),
-                  FilterChip(
-                    selected: _options.includeAttachments,
-                    onSelected: (v) => setState(() => _options = JiraImportOptions(
-                          includeComments: _options.includeComments,
-                          includeAttachments: v,
-                          includeSubtasks: _options.includeSubtasks,
-                          includeLinks: _options.includeLinks,
-                          includeWorklog: _options.includeWorklog,
-                        )),
-                    label: Text(isEs ? 'Adjuntos' : 'Attachments'),
-                  ),
-                  FilterChip(
-                    selected: _options.includeSubtasks,
-                    onSelected: (v) => setState(() => _options = JiraImportOptions(
-                          includeComments: _options.includeComments,
-                          includeAttachments: _options.includeAttachments,
-                          includeSubtasks: v,
-                          includeLinks: _options.includeLinks,
-                          includeWorklog: _options.includeWorklog,
-                        )),
-                    label: Text(isEs ? 'Subtareas' : 'Subtasks'),
-                  ),
-                  FilterChip(
-                    selected: _options.includeLinks,
-                    onSelected: (v) => setState(() => _options = JiraImportOptions(
-                          includeComments: _options.includeComments,
-                          includeAttachments: _options.includeAttachments,
-                          includeSubtasks: _options.includeSubtasks,
-                          includeLinks: v,
-                          includeWorklog: _options.includeWorklog,
-                        )),
-                    label: Text(isEs ? 'Links' : 'Links'),
-                  ),
-                  FilterChip(
-                    selected: _options.includeWorklog,
-                    onSelected: (v) => setState(() => _options = JiraImportOptions(
-                          includeComments: _options.includeComments,
-                          includeAttachments: _options.includeAttachments,
-                          includeSubtasks: _options.includeSubtasks,
-                          includeLinks: _options.includeLinks,
-                          includeWorklog: v,
-                        )),
-                    label: Text(isEs ? 'Worklog' : 'Worklog'),
-                  ),
-                ],
+              IntegrationImportOption(
+                label: isEs ? 'Adjuntos' : 'Attachments',
+                selected: _options.includeAttachments,
+                onChanged: (v) => setState(() => _options = JiraImportOptions(
+                      includeComments: _options.includeComments,
+                      includeAttachments: v,
+                      includeSubtasks: _options.includeSubtasks,
+                      includeLinks: _options.includeLinks,
+                      includeWorklog: _options.includeWorklog,
+                    )),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _customFieldsCtrl,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Custom fields (IDs, coma)' : 'Custom fields (IDs, comma)',
-                  hintText: 'customfield_10016, customfield_10020',
-                  border: const OutlineInputBorder(),
-                ),
+              IntegrationImportOption(
+                label: isEs ? 'Subtareas' : 'Subtasks',
+                selected: _options.includeSubtasks,
+                onChanged: (v) => setState(() => _options = JiraImportOptions(
+                      includeComments: _options.includeComments,
+                      includeAttachments: _options.includeAttachments,
+                      includeSubtasks: v,
+                      includeLinks: _options.includeLinks,
+                      includeWorklog: _options.includeWorklog,
+                    )),
               ),
-              const SizedBox(height: 18),
-              Text(
-                isEs ? 'Mapping Kanban → Jira (por columna)' : 'Kanban → Jira mapping (per column)',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              IntegrationImportOption(
+                label: 'Links',
+                selected: _options.includeLinks,
+                onChanged: (v) => setState(() => _options = JiraImportOptions(
+                      includeComments: _options.includeComments,
+                      includeAttachments: _options.includeAttachments,
+                      includeSubtasks: _options.includeSubtasks,
+                      includeLinks: v,
+                      includeWorklog: _options.includeWorklog,
+                    )),
               ),
-              const SizedBox(height: 8),
-              if (_mappings.isEmpty)
-                Text(isEs ? 'No hay mappings.' : 'No mappings yet.'),
-              for (int i = 0; i < _mappings.length; i++)
-                _MappingRow(
-                  key: ValueKey('map_$i'),
-                  mapping: _mappings[i],
-                  onChanged: (m) => setState(() => _mappings[i] = m),
-                  onRemove: () => setState(() => _mappings.removeAt(i)),
-                ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() {
-                    _mappings.add(const JiraColumnMapping(columnId: 'todo'));
-                  }),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: Text(isEs ? 'Añadir mapping' : 'Add mapping'),
-                ),
+              IntegrationImportOption(
+                label: 'Worklog',
+                selected: _options.includeWorklog,
+                onChanged: (v) => setState(() => _options = JiraImportOptions(
+                      includeComments: _options.includeComments,
+                      includeAttachments: _options.includeAttachments,
+                      includeSubtasks: _options.includeSubtasks,
+                      includeLinks: _options.includeLinks,
+                      includeWorklog: v,
+                    )),
               ),
             ],
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: Text(isEs ? 'Cancelar' : 'Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final cf = _customFieldsCtrl.text
-                .split(',')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty)
-                .toList(growable: false);
-            Navigator.pop(
-              context,
-              JiraSource(
-                id: widget.source.id,
-                connectionId: widget.source.connectionId,
-                type: widget.source.type,
-                name: widget.source.name,
-                jql: widget.source.jql,
-                boardId: widget.source.boardId,
-                projectKey: widget.source.projectKey,
-                importOptions: _options,
-                customFieldIds: cf,
-                columnMappings: _mappings,
+          const SizedBox(height: 14),
+          TextField(
+            controller: _customFieldsCtrl,
+            decoration: InputDecoration(
+              labelText: isEs ? 'Custom fields (IDs, coma)' : 'Custom fields (IDs, comma)',
+              hintText: 'customfield_10016, customfield_10020',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            isEs ? 'Mapping Kanban → Jira (por columna)' : 'Kanban → Jira mapping (per column)',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (_mappings.isEmpty)
+            Text(isEs ? 'No hay mappings.' : 'No mappings yet.'),
+          for (int i = 0; i < _mappings.length; i++)
+            _MappingRow(
+              key: ValueKey('map_$i'),
+              mapping: _mappings[i],
+              onChanged: (m) => setState(() => _mappings[i] = m),
+              onRemove: () => setState(() => _mappings.removeAt(i)),
+            ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _mappings.add(const JiraColumnMapping(columnId: 'todo'));
+              }),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(isEs ? 'Añadir mapping' : 'Add mapping'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: widget.onCancel,
+                child: Text(isEs ? 'Cancelar' : 'Cancel'),
               ),
-            );
-          },
-          child: Text(isEs ? 'Guardar' : 'Save'),
-        ),
-      ],
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  final cf = _customFieldsCtrl.text
+                      .split(',')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList(growable: false);
+                  final nextSource = JiraSource(
+                    id: widget.source.id,
+                    connectionId: widget.source.connectionId,
+                    type: widget.source.type,
+                    name: widget.source.name,
+                    jql: widget.source.jql,
+                    boardId: widget.source.boardId,
+                    projectKey: widget.source.projectKey,
+                    importOptions: _options,
+                    customFieldIds: cf,
+                    columnMappings: _mappings,
+                  );
+                  widget.session.upsertJiraSource(nextSource);
+                  widget.onDone();
+                },
+                child: Text(isEs ? 'Guardar' : 'Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1502,4 +1285,3 @@ class _MappingRowState extends State<_MappingRow> {
     );
   }
 }
-

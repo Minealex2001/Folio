@@ -43,6 +43,7 @@ import '../models/folio_canvas_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
+import '../models/trello_integration_state.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -357,6 +358,7 @@ class VaultSession extends ChangeNotifier {
   final List<FolioPageTemplate> _pageTemplates = [];
   JiraIntegrationState _jira = JiraIntegrationState.empty;
   YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
+  TrelloIntegrationState _trello = TrelloIntegrationState.empty;
   String? _selectedPageId;
   final WorkspaceNavigationHistory _navigationHistory =
       WorkspaceNavigationHistory();
@@ -546,6 +548,9 @@ class VaultSession extends ChangeNotifier {
   YouTrackIntegrationState get youtrackIntegrationState => _youtrack;
   List<YouTrackConnection> get youtrackConnections => _youtrack.connections;
   List<YouTrackSource> get youtrackSources => _youtrack.sources;
+  TrelloIntegrationState get trelloIntegrationState => _trello;
+  List<TrelloConnection> get trelloConnections => _trello.connections;
+  List<TrelloSource> get trelloSources => _trello.sources;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -963,6 +968,7 @@ class VaultSession extends ChangeNotifier {
       ..addAll(payload.pageTemplates);
     _jira = payload.jira;
     _youtrack = payload.youtrack;
+    _trello = payload.trello;
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
@@ -1086,6 +1092,67 @@ class VaultSession extends ChangeNotifier {
     final next = _youtrack.sources.where((s) => s.id != sourceId).toList();
     _youtrack = YouTrackIntegrationState(
       connections: _youtrack.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertTrelloConnection(TrelloConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TrelloConnection>.from(_trello.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _trello = TrelloIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _trello.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTrelloConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _trello.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _trello.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _trello = TrelloIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertTrelloSource(TrelloSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TrelloSource>.from(_trello.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _trello = TrelloIntegrationState(
+      connections: _trello.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTrelloSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _trello.sources.where((s) => s.id != sourceId).toList();
+    _trello = TrelloIntegrationState(
+      connections: _trello.connections,
       sources: List.unmodifiable(next),
     );
     notifyListeners();
@@ -4883,7 +4950,7 @@ class VaultSession extends ChangeNotifier {
 
   FolioTaskData _markTaskNeedsPushIfJiraLinked(FolioTaskData t) {
     final ext = t.external;
-    if (ext == null || (ext.provider != 'jira' && ext.provider != 'youtrack')) return t;
+    if (ext == null || !const {'jira', 'youtrack', 'trello'}.contains(ext.provider)) return t;
     final cur = (ext.syncState ?? '').trim();
     if (cur == 'conflict') return t;
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
@@ -5308,6 +5375,7 @@ class VaultSession extends ChangeNotifier {
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
       jira: _jira,
       youtrack: _youtrack,
+      trello: _trello,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
     );

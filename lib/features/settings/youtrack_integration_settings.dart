@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
-import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/integration_settings_widgets.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../models/youtrack_integration_state.dart';
 import '../../services/youtrack/youtrack_api_client.dart';
 import '../../session/vault_session.dart';
@@ -18,134 +19,43 @@ class YouTrackIntegrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
         final connections = session.youtrackConnections;
         final sources = session.youtrackSources;
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Image.asset('appLogos/youtrack.png'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'YouTrack',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+        return IntegrationCard(
+          logoAsset: 'appLogos/youtrack.png',
+          title: 'YouTrack',
+          subtitle: isEs
+              ? 'Conecta JetBrains YouTrack para sincronizar tareas con Kanban.'
+              : 'Connect JetBrains YouTrack to sync tasks with Kanban.',
+          configureLabel: l10n.youtrackConfigure,
+          onConfigure: session.state == VaultFlowState.unlocked
+              ? () => showIntegrationConfigSheet(
+                    context: context,
+                    builder: (ctx) => YouTrackIntegrationConfigDialog(
+                      session: session,
+                      appSettings: appSettings,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isEs
-                          ? 'Conecta JetBrains YouTrack para sincronizar tareas con Kanban.'
-                          : 'Connect JetBrains YouTrack to sync tasks with Kanban.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.35,
-                          ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _Pill(
-                          icon: Icons.link_rounded,
-                          label: isEs
-                              ? '${connections.length} conexiones'
-                              : '${connections.length} connections',
-                        ),
-                        _Pill(
-                          icon: Icons.filter_alt_outlined,
-                          label: isEs
-                              ? '${sources.length} fuentes'
-                              : '${sources.length} sources',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  FilledButton.icon(
-                    onPressed: session.state == VaultFlowState.unlocked
-                        ? () => showDialog<void>(
-                              context: context,
-                              builder: (ctx) =>
-                                  YouTrackIntegrationConfigDialog(
-                                    session: session,
-                                    appSettings: appSettings,
-                                  ),
-                            )
-                        : null,
-                    icon: const Icon(Icons.tune_rounded, size: 18),
-                    label: Text(isEs ? 'Configurar' : 'Configure'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  )
+              : null,
+          chips: [
+            IntegrationStatChip(
+              icon: Icons.link_rounded,
+              label: isEs
+                  ? '${connections.length} conexiones'
+                  : '${connections.length} connections',
+            ),
+            IntegrationStatChip(
+              icon: Icons.filter_alt_outlined,
+              label: isEs ? '${sources.length} fuentes' : '${sources.length} sources',
+            ),
+          ],
         );
       },
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -184,40 +94,15 @@ class _YouTrackIntegrationConfigDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return FolioDialog(
-      title: Text(isEs ? 'Configuración de YouTrack' : 'YouTrack Configuration'),
-      content: SizedBox(
-        width: 760,
-        height: 520,
-        child: Column(
-          children: [
-            TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(text: isEs ? 'Conexiones' : 'Connections'),
-                Tab(text: isEs ? 'Fuentes (Queries)' : 'Sources (Queries)'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _ConnectionsTab(session: widget.session),
-                  _SourcesTab(session: widget.session),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(isEs ? 'Cerrar' : 'Close'),
-        ),
-      ],
+    final l10n = AppLocalizations.of(context);
+    return IntegrationConfigDialogShell(
+      logoAsset: 'appLogos/youtrack.png',
+      title: l10n.youtrackIntegrationTitle,
+      tabController: _tabController,
+      connectionsTabLabel: l10n.youtrackConnectionsTab,
+      sourcesTabLabel: l10n.youtrackSourcesTab,
+      connectionsTab: _ConnectionsTab(session: widget.session),
+      sourcesTab: _SourcesTab(session: widget.session),
     );
   }
 }
@@ -231,9 +116,20 @@ class _ConnectionsTab extends StatefulWidget {
 }
 
 class _ConnectionsTabState extends State<_ConnectionsTab> {
+  bool _adding = false;
+
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    if (_adding) {
+      return _AddConnectionForm(
+        session: widget.session,
+        onCancel: () => setState(() => _adding = false),
+        onDone: () => setState(() => _adding = false),
+      );
+    }
+
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final conns = widget.session.youtrackConnections;
 
     return Column(
@@ -241,59 +137,53 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
       children: [
         Expanded(
           child: conns.isEmpty
-              ? Center(
-                  child: Text(
-                    isEs
-                        ? 'No hay conexiones configuradas.'
-                        : 'No connections configured yet.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                )
-              : ListView.builder(
+              ? IntegrationEmptyState(text: l10n.youtrackNoConnections)
+              : ListView.separated(
                   itemCount: conns.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final c = conns[i];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.link_rounded),
-                        title: Text(c.label),
-                        subtitle: Text(c.baseUrl),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                    return IntegrationEntryRow(
+                      icon: Icons.link_rounded,
+                      title: c.label,
+                      subtitle: c.baseUrl,
+                      trailing: [
+                        IconButton(
+                          tooltip: l10n.delete,
+                          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
                           onPressed: () => widget.session.removeYouTrackConnection(c.id),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
-          onPressed: () => _showAddConnectionDialog(context),
+          onPressed: () => setState(() => _adding = true),
           icon: const Icon(Icons.add_rounded),
-          label: Text(isEs ? 'Añadir conexión YouTrack' : 'Add YouTrack Connection'),
+          label: Text(l10n.youtrackAddConnection),
         ),
       ],
     );
   }
-
-  void _showAddConnectionDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => _AddConnectionDialog(session: widget.session),
-    );
-  }
 }
 
-class _AddConnectionDialog extends StatefulWidget {
-  const _AddConnectionDialog({required this.session});
+class _AddConnectionForm extends StatefulWidget {
+  const _AddConnectionForm({
+    required this.session,
+    required this.onCancel,
+    required this.onDone,
+  });
   final VaultSession session;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
 
   @override
-  State<_AddConnectionDialog> createState() => _AddConnectionDialogState();
+  State<_AddConnectionForm> createState() => _AddConnectionFormState();
 }
 
-class _AddConnectionDialogState extends State<_AddConnectionDialog> {
+class _AddConnectionFormState extends State<_AddConnectionForm> {
   final _formKey = GlobalKey<FormState>();
   final _labelCtrl = TextEditingController();
   final _urlCtrl = TextEditingController();
@@ -312,72 +202,84 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return FolioDialog(
-      title: Text(isEs ? 'Nueva conexión YouTrack' : 'New YouTrack Connection'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _labelCtrl,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Nombre de la conexión' : 'Connection Name',
-                  hintText: 'e.g. My YouTrack Standalone',
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IntegrationInlineFormHeader(
+            title: l10n.youtrackNewConnectionTitle,
+            onBack: _busy ? () {} : widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _labelCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.youtrackConnectionName,
+                    hintText: 'e.g. My YouTrack Standalone',
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.youtrackRequired : null,
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _urlCtrl,
-                decoration: InputDecoration(
-                  labelText: 'YouTrack Base URL',
-                  hintText: 'e.g. https://youtrack.example.com',
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _urlCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.youtrackBaseUrlLabel,
+                    hintText: 'e.g. https://youtrack.example.com',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return l10n.youtrackRequired;
+                    if (!v.startsWith('http://') && !v.startsWith('https://')) {
+                      return l10n.youtrackUrlMustStartWithHttp;
+                    }
+                    return null;
+                  },
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  if (!v.startsWith('http://') && !v.startsWith('https://')) {
-                    return 'URL must start with http:// or https://';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _tokenCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Permanent Token',
-                  hintText: 'perm:your-youtrack-personal-access-token',
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _tokenCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: l10n.youtrackPermanentToken,
+                    hintText: 'perm:your-youtrack-personal-access-token',
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.youtrackRequired : null,
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: TextStyle(color: scheme.error, fontSize: 13),
+                  ),
+                ],
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _busy ? null : widget.onCancel,
+                child: Text(l10n.cancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _busy ? null : _submit,
+                child: _busy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : Text(l10n.youtrackConnectAndSave),
+              ),
             ],
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text(isEs ? 'Cancelar' : 'Cancel'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
-              : Text(isEs ? 'Conectar y Guardar' : 'Connect & Save'),
-        ),
-      ],
     );
   }
 
@@ -405,7 +307,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
 
       widget.session.upsertYouTrackConnection(tempConn);
       if (mounted) {
-        Navigator.pop(context);
+        widget.onDone();
       }
     } catch (e) {
       if (mounted) {
@@ -430,9 +332,30 @@ class _SourcesTab extends StatefulWidget {
 }
 
 class _SourcesTabState extends State<_SourcesTab> {
+  bool _adding = false;
+  YouTrackSource? _editingMappingsFor;
+
   @override
   Widget build(BuildContext context) {
+    if (_adding) {
+      return _AddSourceForm(
+        session: widget.session,
+        onCancel: () => setState(() => _adding = false),
+        onDone: () => setState(() => _adding = false),
+      );
+    }
+    if (_editingMappingsFor != null) {
+      return _EditMappingsForm(
+        session: widget.session,
+        source: _editingMappingsFor!,
+        onCancel: () => setState(() => _editingMappingsFor = null),
+        onDone: () => setState(() => _editingMappingsFor = null),
+      );
+    }
+
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final scheme = Theme.of(context).colorScheme;
     final sources = widget.session.youtrackSources;
 
     return Column(
@@ -440,42 +363,30 @@ class _SourcesTabState extends State<_SourcesTab> {
       children: [
         Expanded(
           child: sources.isEmpty
-              ? Center(
-                  child: Text(
-                    isEs
-                        ? 'No hay fuentes configuradas.'
-                        : 'No sources configured yet.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                )
-              : ListView.builder(
+              ? IntegrationEmptyState(text: l10n.youtrackNoSources)
+              : ListView.separated(
                   itemCount: sources.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final s = sources[i];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.filter_alt_rounded),
-                        title: Text(s.name),
-                        subtitle: Text(
-                          s.type == YouTrackSourceType.project
-                              ? '${isEs ? "Proyecto" : "Project"}: ${s.projectShortName ?? s.projectId}'
-                              : 'Query: ${s.query}',
+                    return IntegrationEntryRow(
+                      icon: Icons.filter_alt_rounded,
+                      title: s.name,
+                      subtitle: s.type == YouTrackSourceType.project
+                          ? '${isEs ? "Proyecto" : "Project"}: ${s.projectShortName ?? s.projectId}'
+                          : 'Query: ${s.query}',
+                      trailing: [
+                        IconButton(
+                          tooltip: l10n.youtrackMapColumns,
+                          icon: const Icon(Icons.map_rounded),
+                          onPressed: () => setState(() => _editingMappingsFor = s),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: isEs ? 'Mapear columnas' : 'Map columns',
-                              icon: const Icon(Icons.map_rounded),
-                              onPressed: () => _showEditMappingsDialog(context, s),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                              onPressed: () => widget.session.removeYouTrackSource(s.id),
-                            ),
-                          ],
+                        IconButton(
+                          tooltip: l10n.delete,
+                          icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+                          onPressed: () => widget.session.removeYouTrackSource(s.id),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),
@@ -484,38 +395,30 @@ class _SourcesTabState extends State<_SourcesTab> {
         ElevatedButton.icon(
           onPressed: widget.session.youtrackConnections.isEmpty
               ? null
-              : () => _showAddSourceDialog(context),
+              : () => setState(() => _adding = true),
           icon: const Icon(Icons.add_rounded),
-          label: Text(isEs ? 'Añadir fuente YouTrack' : 'Add YouTrack Source'),
+          label: Text(l10n.youtrackAddSource),
         ),
       ],
     );
   }
-
-  void _showAddSourceDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => _AddSourceDialog(session: widget.session),
-    );
-  }
-
-  void _showEditMappingsDialog(BuildContext context, YouTrackSource source) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => _EditMappingsDialog(session: widget.session, source: source),
-    );
-  }
 }
 
-class _AddSourceDialog extends StatefulWidget {
-  const _AddSourceDialog({required this.session});
+class _AddSourceForm extends StatefulWidget {
+  const _AddSourceForm({
+    required this.session,
+    required this.onCancel,
+    required this.onDone,
+  });
   final VaultSession session;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
 
   @override
-  State<_AddSourceDialog> createState() => _AddSourceDialogState();
+  State<_AddSourceForm> createState() => _AddSourceFormState();
 }
 
-class _AddSourceDialogState extends State<_AddSourceDialog> {
+class _AddSourceFormState extends State<_AddSourceForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _queryCtrl = TextEditingController();
@@ -569,110 +472,122 @@ class _AddSourceDialogState extends State<_AddSourceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final conns = widget.session.youtrackConnections;
 
-    return FolioDialog(
-      title: Text(isEs ? 'Añadir fuente YouTrack' : 'Add YouTrack Source'),
-      content: SizedBox(
-        width: 520,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: InputDecoration(
-                  labelText: isEs ? 'Nombre de la fuente' : 'Source Name',
-                  hintText: 'e.g. My Sprint Backlog',
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _connectionId,
-                decoration: InputDecoration(labelText: isEs ? 'Conexión' : 'Connection'),
-                items: conns
-                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.label)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() {
-                      _connectionId = v;
-                    });
-                    _loadProjects();
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<YouTrackSourceType>(
-                value: _type,
-                decoration: InputDecoration(labelText: isEs ? 'Tipo de fuente' : 'Source Type'),
-                items: [
-                  DropdownMenuItem(
-                      value: YouTrackSourceType.project,
-                      child: Text(isEs ? 'Proyecto completo' : 'Full Project')),
-                  DropdownMenuItem(
-                      value: YouTrackSourceType.query,
-                      child: Text(isEs ? 'Búsqueda personalizada (Query)' : 'Custom Search Query')),
-                ],
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() => _type = v);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              if (_type == YouTrackSourceType.project) ...[
-                if (_loadingProjects)
-                  const Padding(padding: EdgeInsets.all(12), child: FolioLoadingIndicator(centered: true))
-                else if (_loadError != null)
-                  Text(_loadError!, style: const TextStyle(color: Colors.red, fontSize: 13))
-                else if (_projects.isEmpty)
-                  Text(isEs ? 'No se encontraron proyectos.' : 'No projects found.')
-                else
-                  DropdownButtonFormField<String>(
-                    value: _selectedProjectId,
-                    decoration: InputDecoration(labelText: isEs ? 'Seleccionar Proyecto' : 'Select Project'),
-                    items: _projects
-                        .map((p) => DropdownMenuItem(value: p.id, child: Text('${p.name} (${p.shortName})')))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        final project = _projects.firstWhereOrNull((p) => p.id == v);
-                        setState(() {
-                          _selectedProjectId = v;
-                          _selectedProjectShortName = project?.shortName;
-                        });
-                      }
-                    },
-                  ),
-              ] else ...[
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IntegrationInlineFormHeader(
+            title: l10n.youtrackAddSource,
+            onBack: widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 TextFormField(
-                  controller: _queryCtrl,
+                  controller: _nameCtrl,
                   decoration: InputDecoration(
-                    labelText: 'YouTrack Search Query',
-                    hintText: 'e.g. project: DEMO state: -Fixed, -Done',
+                    labelText: l10n.youtrackSourceName,
+                    hintText: 'e.g. My Sprint Backlog',
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.youtrackRequired : null,
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _connectionId,
+                  decoration: InputDecoration(labelText: l10n.youtrackConnectionLabel),
+                  items: conns
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.label)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _connectionId = v;
+                      });
+                      _loadProjects();
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<YouTrackSourceType>(
+                  initialValue: _type,
+                  decoration: InputDecoration(labelText: l10n.youtrackSourceType),
+                  items: [
+                    DropdownMenuItem(
+                        value: YouTrackSourceType.project,
+                        child: Text(l10n.youtrackFullProject)),
+                    DropdownMenuItem(
+                        value: YouTrackSourceType.query,
+                        child: Text(l10n.youtrackCustomQuery)),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _type = v);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (_type == YouTrackSourceType.project) ...[
+                  if (_loadingProjects)
+                    const Padding(padding: EdgeInsets.all(12), child: FolioLoadingIndicator(centered: true))
+                  else if (_loadError != null)
+                    Text(_loadError!, style: TextStyle(color: scheme.error, fontSize: 13))
+                  else if (_projects.isEmpty)
+                    Text(l10n.youtrackNoProjectsFound)
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedProjectId,
+                      decoration: InputDecoration(labelText: l10n.youtrackSelectProject),
+                      items: _projects
+                          .map((p) => DropdownMenuItem(value: p.id, child: Text('${p.name} (${p.shortName})')))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          final project = _projects.firstWhereOrNull((p) => p.id == v);
+                          setState(() {
+                            _selectedProjectId = v;
+                            _selectedProjectShortName = project?.shortName;
+                          });
+                        }
+                      },
+                    ),
+                ] else ...[
+                  TextFormField(
+                    controller: _queryCtrl,
+                    decoration: InputDecoration(
+                      labelText: l10n.youtrackSearchQueryLabel,
+                      hintText: 'e.g. project: DEMO state: -Fixed, -Done',
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.youtrackRequired : null,
+                  ),
+                ],
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: widget.onCancel,
+                child: Text(l10n.cancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                child: Text(l10n.save),
+              ),
             ],
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(isEs ? 'Cancelar' : 'Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(isEs ? 'Guardar' : 'Save'),
-        ),
-      ],
     );
   }
 
@@ -699,141 +614,149 @@ class _AddSourceDialogState extends State<_AddSourceDialog> {
     );
 
     widget.session.upsertYouTrackSource(source);
-    Navigator.pop(context);
+    widget.onDone();
   }
 }
 
-class _EditMappingsDialog extends StatefulWidget {
-  const _EditMappingsDialog({required this.session, required this.source});
+class _EditMappingsForm extends StatefulWidget {
+  const _EditMappingsForm({
+    required this.session,
+    required this.source,
+    required this.onCancel,
+    required this.onDone,
+  });
   final VaultSession session;
   final YouTrackSource source;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
 
   @override
-  State<_EditMappingsDialog> createState() => _EditMappingsDialogState();
+  State<_EditMappingsForm> createState() => _EditMappingsFormState();
 }
 
-class _EditMappingsDialogState extends State<_EditMappingsDialog> {
+class _EditMappingsFormState extends State<_EditMappingsForm> {
   late final List<YouTrackColumnMapping> _mappings = widget.source.columnMappings.toList();
   late YouTrackImportOptions _options = widget.source.importOptions;
 
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return FolioDialog(
-      title: Text(isEs ? 'Configurar mappings y opciones' : 'Configure Mappings & Options'),
-      content: SizedBox(
-        width: 600,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEs ? 'Opciones de importación' : 'Import Options',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    final l10n = AppLocalizations.of(context);
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IntegrationInlineFormHeader(
+            title: l10n.youtrackConfigureMappings,
+            onBack: widget.onCancel,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.youtrackImportOptions,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          IntegrationImportOptionsChips(
+            options: [
+              IntegrationImportOption(
+                label: l10n.youtrackComments,
+                selected: _options.includeComments,
+                onChanged: (v) => setState(() => _options = YouTrackImportOptions(
+                      includeComments: v,
+                      includeAttachments: _options.includeAttachments,
+                    )),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+              IntegrationImportOption(
+                label: l10n.youtrackAttachments,
+                selected: _options.includeAttachments,
+                onChanged: (v) => setState(() => _options = YouTrackImportOptions(
+                      includeComments: _options.includeComments,
+                      includeAttachments: v,
+                    )),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            l10n.youtrackColumnMapping,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < _mappings.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
                 children: [
-                  FilterChip(
-                    selected: _options.includeComments,
-                    onSelected: (v) => setState(() => _options = YouTrackImportOptions(
-                          includeComments: v,
-                          includeAttachments: _options.includeAttachments,
-                        )),
-                    label: Text(isEs ? 'Comentarios' : 'Comments'),
+                  Expanded(
+                    child: Text(
+                      _columnName(_mappings[i].columnId, l10n),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  FilterChip(
-                    selected: _options.includeAttachments,
-                    onSelected: (v) => setState(() => _options = YouTrackImportOptions(
-                          includeComments: _options.includeComments,
-                          includeAttachments: v,
-                        )),
-                    label: Text(isEs ? 'Adjuntos' : 'Attachments'),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.arrow_forward_rounded, size: 16),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      initialValue: _mappings[i].stateName ?? '',
+                      decoration: InputDecoration(
+                        hintText: l10n.youtrackStateHint,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        _mappings[i] = YouTrackColumnMapping(
+                          columnId: _mappings[i].columnId,
+                          stateName: val.trim(),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text(
-                isEs ? 'Mapeo Kanban → YouTrack (por columna)' : 'Kanban → YouTrack Mappings (per column)',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: widget.onCancel,
+                child: Text(l10n.cancel),
               ),
-              const SizedBox(height: 10),
-              for (int i = 0; i < _mappings.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _columnName(_mappings[i].columnId, isEs),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Icon(Icons.arrow_forward_rounded, size: 16),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          initialValue: _mappings[i].stateName ?? '',
-                          decoration: InputDecoration(
-                            hintText: isEs ? 'Estado en YouTrack' : 'YouTrack State',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onChanged: (val) {
-                            _mappings[i] = YouTrackColumnMapping(
-                              columnId: _mappings[i].columnId,
-                              stateName: val.trim(),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  final nextSource = YouTrackSource(
+                    id: widget.source.id,
+                    connectionId: widget.source.connectionId,
+                    type: widget.source.type,
+                    name: widget.source.name,
+                    query: widget.source.query,
+                    projectId: widget.source.projectId,
+                    projectShortName: widget.source.projectShortName,
+                    importOptions: _options,
+                    columnMappings: _mappings,
+                  );
+                  widget.session.upsertYouTrackSource(nextSource);
+                  widget.onDone();
+                },
+                child: Text(l10n.save),
+              ),
             ],
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(isEs ? 'Cancelar' : 'Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final nextSource = YouTrackSource(
-              id: widget.source.id,
-              connectionId: widget.source.connectionId,
-              type: widget.source.type,
-              name: widget.source.name,
-              query: widget.source.query,
-              projectId: widget.source.projectId,
-              projectShortName: widget.source.projectShortName,
-              importOptions: _options,
-              columnMappings: _mappings,
-            );
-            widget.session.upsertYouTrackSource(nextSource);
-            Navigator.pop(context);
-          },
-          child: Text(isEs ? 'Guardar' : 'Save'),
-        ),
-      ],
     );
   }
 
-  String _columnName(String columnId, bool isEs) {
+  String _columnName(String columnId, AppLocalizations l10n) {
     switch (columnId) {
       case 'todo':
-        return isEs ? 'Por hacer' : 'To Do';
+        return l10n.youtrackColumnTodo;
       case 'in_progress':
-        return isEs ? 'En curso' : 'In Progress';
+        return l10n.youtrackColumnInProgress;
       case 'done':
-        return isEs ? 'Hecho' : 'Done';
+        return l10n.youtrackColumnDone;
       default:
         return columnId;
     }

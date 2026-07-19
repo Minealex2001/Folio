@@ -5,6 +5,7 @@ import '../models/folio_page_revision.dart';
 import '../models/folio_page_template.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
+import '../models/trello_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -31,6 +32,7 @@ class VaultPayload {
     List<FolioPageTemplate>? pageTemplates,
     JiraIntegrationState? jira,
     YouTrackIntegrationState? youtrack,
+    TrelloIntegrationState? trello,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
   }) : pageRevisions = pageRevisions ?? {},
@@ -43,6 +45,7 @@ class VaultPayload {
        pageTemplates = pageTemplates ?? const [],
        jira = jira ?? JiraIntegrationState.empty,
        youtrack = youtrack ?? YouTrackIntegrationState.empty,
+       trello = trello ?? TrelloIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {};
 
   final int version;
@@ -60,6 +63,7 @@ class VaultPayload {
   final List<FolioPageTemplate> pageTemplates;
   final JiraIntegrationState jira;
   final YouTrackIntegrationState youtrack;
+  final TrelloIntegrationState trello;
 
   /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
   final Map<String, int> pageTombstones;
@@ -85,6 +89,8 @@ class VaultPayload {
     if (jira.connections.isNotEmpty || jira.sources.isNotEmpty) 'jira': jira.toJson(),
     if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty)
       'youtrack': youtrack.toJson(),
+    if (trello.connections.isNotEmpty || trello.sources.isNotEmpty)
+      'trello': trello.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
   };
@@ -149,6 +155,7 @@ class VaultPayload {
         .toList();
     final jira = JiraIntegrationState.fromJson(j['jira']);
     final youtrack = YouTrackIntegrationState.fromJson(j['youtrack']);
+    final trello = TrelloIntegrationState.fromJson(j['trello']);
     final pageTombstones = <String, int>{};
     final rawTombs = j['pageTombstones'];
     if (rawTombs is Map) {
@@ -180,6 +187,7 @@ class VaultPayload {
       pageTemplates: templates,
       jira: jira,
       youtrack: youtrack,
+      trello: trello,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
     );

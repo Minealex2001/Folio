@@ -22,6 +22,7 @@ class FolioTaskData {
     this.external,
     this.jira,
     this.youtrack,
+    this.trello,
     List<FolioTaskSubtask>? subtasks,
     List<String>? tags,
     this.assignee,
@@ -152,6 +153,9 @@ class FolioTaskData {
   /// Snapshot opcional de campos YouTrack para UI rica sin refetch constante.
   final FolioYouTrackIssueSnapshot? youtrack;
 
+  /// Snapshot opcional de campos Trello para UI rica sin refetch constante.
+  final FolioTrelloCardSnapshot? trello;
+
   /// Subtareas opcionales asociadas a la tarea principal.
   final List<FolioTaskSubtask> subtasks;
 
@@ -219,6 +223,7 @@ class FolioTaskData {
     external: null,
     jira: null,
     youtrack: null,
+    trello: null,
     subtasks: const [],
     tags: const [],
     assignee: null,
@@ -251,6 +256,7 @@ class FolioTaskData {
     Object? external = _sentinel,
     Object? jira = _sentinel,
     Object? youtrack = _sentinel,
+    Object? trello = _sentinel,
     Object? subtasks = _sentinel,
     Object? tags = _sentinel,
     Object? assignee = _sentinel,
@@ -294,6 +300,7 @@ class FolioTaskData {
           : external as FolioExternalTaskLink?,
       jira: jira == _sentinel ? this.jira : jira as FolioJiraIssueSnapshot?,
       youtrack: youtrack == _sentinel ? this.youtrack : youtrack as FolioYouTrackIssueSnapshot?,
+      trello: trello == _sentinel ? this.trello : trello as FolioTrelloCardSnapshot?,
       subtasks: subtasks == _sentinel
           ? this.subtasks
           : (subtasks as List<FolioTaskSubtask>),
@@ -393,6 +400,7 @@ class FolioTaskData {
     if (external != null) 'external': external!.toJson(),
     if (jira != null) 'jira': jira!.toJson(),
     if (youtrack != null) 'youtrack': youtrack!.toJson(),
+    if (trello != null) 'trello': trello!.toJson(),
     if (subtasks.isNotEmpty)
       'subtasks': subtasks.map((s) => s.toJson()).toList(growable: false),
     if (tags.isNotEmpty) 'tags': tags.toList(growable: false),
@@ -433,6 +441,7 @@ class FolioTaskData {
       final rawExternal = m['external'];
       final rawJira = m['jira'];
       final rawYouTrack = m['youtrack'];
+      final rawTrello = m['trello'];
       final subtasks = <FolioTaskSubtask>[];
       if (rawSubtasks is List) {
         for (final s in rawSubtasks) {
@@ -460,6 +469,12 @@ class FolioTaskData {
       if (rawYouTrack is Map) {
         youtrack = FolioYouTrackIssueSnapshot.tryParse(
           Map<String, dynamic>.from(rawYouTrack),
+        );
+      }
+      FolioTrelloCardSnapshot? trello;
+      if (rawTrello is Map) {
+        trello = FolioTrelloCardSnapshot.tryParse(
+          Map<String, dynamic>.from(rawTrello),
         );
       }
       final rawTags = m['tags'];
@@ -520,6 +535,7 @@ class FolioTaskData {
         external: external,
         jira: jira,
         youtrack: youtrack,
+        trello: trello,
         subtasks: subtasks,
         tags: tagList,
         assignee: (assigneeRaw?.isEmpty ?? true) ? null : assigneeRaw,
@@ -1052,6 +1068,101 @@ class FolioYouTrackIssueSnapshot {
       fixedInBuild: (fixedInBuild?.isEmpty ?? true) ? null : fixedInBuild,
       estimation: (estimation?.isEmpty ?? true) ? null : estimation,
       spentTime: (spentTime?.isEmpty ?? true) ? null : spentTime,
+    );
+  }
+}
+
+class FolioTrelloCardSnapshot {
+  const FolioTrelloCardSnapshot({
+    this.boardId,
+    this.boardName,
+    this.listId,
+    this.listName,
+    this.labels,
+    this.memberNames,
+    this.checklistItemCount,
+    this.checklistCheckedCount,
+    this.commentCount,
+    this.attachmentCount,
+    this.due,
+  });
+
+  final String? boardId;
+  final String? boardName;
+  final String? listId;
+  final String? listName;
+  final String? labels;
+  final String? memberNames;
+  final int? checklistItemCount;
+  final int? checklistCheckedCount;
+  final int? commentCount;
+  final int? attachmentCount;
+  final String? due;
+
+  FolioTrelloCardSnapshot copyWith({
+    String? boardId,
+    String? boardName,
+    String? listId,
+    String? listName,
+    String? labels,
+    String? memberNames,
+    int? checklistItemCount,
+    int? checklistCheckedCount,
+    int? commentCount,
+    int? attachmentCount,
+    String? due,
+  }) {
+    return FolioTrelloCardSnapshot(
+      boardId: boardId ?? this.boardId,
+      boardName: boardName ?? this.boardName,
+      listId: listId ?? this.listId,
+      listName: listName ?? this.listName,
+      labels: labels ?? this.labels,
+      memberNames: memberNames ?? this.memberNames,
+      checklistItemCount: checklistItemCount ?? this.checklistItemCount,
+      checklistCheckedCount: checklistCheckedCount ?? this.checklistCheckedCount,
+      commentCount: commentCount ?? this.commentCount,
+      attachmentCount: attachmentCount ?? this.attachmentCount,
+      due: due ?? this.due,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((boardId ?? '').trim().isNotEmpty) 'boardId': boardId,
+        if ((boardName ?? '').trim().isNotEmpty) 'boardName': boardName,
+        if ((listId ?? '').trim().isNotEmpty) 'listId': listId,
+        if ((listName ?? '').trim().isNotEmpty) 'listName': listName,
+        if ((labels ?? '').trim().isNotEmpty) 'labels': labels,
+        if ((memberNames ?? '').trim().isNotEmpty) 'memberNames': memberNames,
+        if (checklistItemCount != null) 'checklistItemCount': checklistItemCount,
+        if (checklistCheckedCount != null) 'checklistCheckedCount': checklistCheckedCount,
+        if (commentCount != null) 'commentCount': commentCount,
+        if (attachmentCount != null) 'attachmentCount': attachmentCount,
+        if ((due ?? '').trim().isNotEmpty) 'due': due,
+      };
+
+  static FolioTrelloCardSnapshot? tryParse(Map<String, dynamic> map) {
+    final boardId = (map['boardId'] as String?)?.trim();
+    final boardName = (map['boardName'] as String?)?.trim();
+    final listId = (map['listId'] as String?)?.trim();
+    final listName = (map['listName'] as String?)?.trim();
+    final labels = (map['labels'] as String?)?.trim();
+    final memberNames = (map['memberNames'] as String?)?.trim();
+    final due = (map['due'] as String?)?.trim();
+    int? asInt(Object? v) => v is num ? v.toInt() : null;
+
+    return FolioTrelloCardSnapshot(
+      boardId: (boardId?.isEmpty ?? true) ? null : boardId,
+      boardName: (boardName?.isEmpty ?? true) ? null : boardName,
+      listId: (listId?.isEmpty ?? true) ? null : listId,
+      listName: (listName?.isEmpty ?? true) ? null : listName,
+      labels: (labels?.isEmpty ?? true) ? null : labels,
+      memberNames: (memberNames?.isEmpty ?? true) ? null : memberNames,
+      checklistItemCount: asInt(map['checklistItemCount']),
+      checklistCheckedCount: asInt(map['checklistCheckedCount']),
+      commentCount: asInt(map['commentCount']),
+      attachmentCount: asInt(map['attachmentCount']),
+      due: (due?.isEmpty ?? true) ? null : due,
     );
   }
 }

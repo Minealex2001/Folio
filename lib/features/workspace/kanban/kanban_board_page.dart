@@ -17,6 +17,8 @@ import '../../../session/vault_session.dart';
 import '../../../services/jira/jira_sync_service.dart';
 import '../../../models/youtrack_integration_state.dart';
 import '../../../services/youtrack/youtrack_sync_service.dart';
+import '../../../models/trello_integration_state.dart';
+import '../../../services/trello/trello_sync_service.dart';
 import '../tasks/task_details_panel.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
@@ -62,6 +64,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   var _detailsFullScreen = false;
   var _jiraSyncBusy = false;
   var _youtrackSyncBusy = false;
+  var _trelloSyncBusy = false;
 
   @override
   void initState() {
@@ -115,6 +118,49 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
     } finally {
       if (mounted) setState(() => _youtrackSyncBusy = false);
+    }
+  }
+
+  Future<void> _syncTrello({required String trelloSourceId}) async {
+    if (_trelloSyncBusy) return;
+    setState(() => _trelloSyncBusy = true);
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(isEs ? 'Trello: sincronizando (pull).' : 'Trello: syncing (pull).'),
+        ),
+      );
+      final pull = await const TrelloSyncService().pullCardsIntoPage(
+        session: widget.session,
+        pageId: widget.pageId,
+        trelloSourceId: trelloSourceId,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(isEs ? 'Trello: pull OK - ahora push.' : 'Trello: pull OK - now push.'),
+        ),
+      );
+      final push = await const TrelloSyncService().pushLinkedTasksFromPage(
+        session: widget.session,
+        pageId: widget.pageId,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEs
+                ? 'Trello: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                : 'Trello: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error Trello: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _trelloSyncBusy = false);
     }
   }
 
@@ -833,6 +879,106 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                         );
                                       },
                                     ),
+                                    const SizedBox(height: FolioSpace.md),
+                                    Text(
+                                      'Trello',
+                                      style: theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Builder(
+                                      builder: (ctx) {
+                                        final sourcesById = <String, TrelloSource>{};
+                                        for (final s in widget.session.trelloSources) {
+                                          sourcesById[s.id] = s;
+                                        }
+                                        final sources = sourcesById.values.toList(
+                                          growable: false,
+                                        );
+                                        final selected = (data.trelloSourceId ?? '').trim();
+                                        final selectedValue =
+                                            selected.isEmpty ||
+                                                !sourcesById.containsKey(selected)
+                                            ? null
+                                            : selected;
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            DropdownButtonFormField<String?>(
+                                              initialValue: selectedValue,
+                                              decoration: InputDecoration(
+                                                labelText: isEs
+                                                    ? 'Tablero Trello (opcional)'
+                                                    : 'Trello board (optional)',
+                                                border: const OutlineInputBorder(),
+                                              ),
+                                              items: [
+                                                DropdownMenuItem<String?>(
+                                                  value: null,
+                                                  child: Text(isEs ? 'Ninguna' : 'None'),
+                                                ),
+                                                for (final s in sources)
+                                                  DropdownMenuItem<String?>(
+                                                    value: s.id,
+                                                    child: Text(s.name),
+                                                  ),
+                                              ],
+                                              onChanged: (v) {
+                                                _persistKanbanData(
+                                                  latestPage.id,
+                                                  latestCfg.blockId,
+                                                  data.copyWith(
+                                                    trelloSourceId:
+                                                        v?.trim().isEmpty == true
+                                                        ? null
+                                                        : v,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            if (selectedValue != null) ...[
+                                              const SizedBox(height: 8),
+                                              SwitchListTile.adaptive(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text(
+                                                  isEs
+                                                      ? 'Auto-importar desde Trello'
+                                                      : 'Auto-import from Trello',
+                                                ),
+                                                value: data.trelloAutoImport,
+                                                onChanged: (v) {
+                                                  _persistKanbanData(
+                                                    latestPage.id,
+                                                    latestCfg.blockId,
+                                                    data.copyWith(trelloAutoImport: v),
+                                                  );
+                                                },
+                                              ),
+                                              SwitchListTile.adaptive(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text(
+                                                  isEs
+                                                      ? 'Crear tarjetas al añadir tarea'
+                                                      : 'Create cards when adding tasks',
+                                                ),
+                                                value: data.trelloCreateCardsOnQuickAdd,
+                                                onChanged: (v) {
+                                                  _persistKanbanData(
+                                                    latestPage.id,
+                                                    latestCfg.blockId,
+                                                    data.copyWith(
+                                                      trelloCreateCardsOnQuickAdd: v,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              const SizedBox(height: 6),
+                                            ],
+                                          ],
+                                        );
+                                      },
+                                    ),
                                 ],
                               );
                             },
@@ -1050,6 +1196,20 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     : const Icon(Icons.sync_rounded, color: Colors.orange),
               ),
             if ((data.youtrackSourceId ?? '').trim().isNotEmpty)
+              const SizedBox(width: FolioSpace.xs),
+            if ((data.trelloSourceId ?? '').trim().isNotEmpty)
+              IconButton(
+                tooltip: isEs
+                    ? 'Sincronizar Trello (pull + push)'
+                    : 'Sync Trello (pull + push)',
+                onPressed: _trelloSyncBusy
+                    ? null
+                    : () => _syncTrello(trelloSourceId: data.trelloSourceId!.trim()),
+                icon: _trelloSyncBusy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const Icon(Icons.sync_rounded, color: Colors.blue),
+              ),
+            if ((data.trelloSourceId ?? '').trim().isNotEmpty)
               const SizedBox(width: FolioSpace.xs),
             IconButton(
               tooltip: l10n.settings,
@@ -1380,6 +1540,64 @@ class _KanbanColumnState extends State<_KanbanColumn> {
               ? 'ok'
               : (ext!.syncState ?? 'ok').trim())
         : null;
+    final trelloState = (ext?.provider == 'trello')
+        ? ((ext?.syncState ?? 'ok').trim().isEmpty
+              ? 'ok'
+              : (ext!.syncState ?? 'ok').trim())
+        : null;
+
+    Widget? trelloBadge() {
+      if (trelloState == null) return null;
+      if (trelloState == 'ok') return null;
+      final isEs =
+          Localizations.localeOf(context).languageCode ==
+          'es';
+      Color c() => switch (trelloState) {
+        'conflict' => scheme.error,
+        'needsPush' => scheme.tertiary,
+        'needsPull' => scheme.secondary,
+        _ => scheme.primary,
+      };
+      String label() => switch (trelloState) {
+        'conflict' => isEs ? 'Conflicto' : 'Conflict',
+        'needsPush' =>
+          isEs ? 'Pendiente push' : 'Needs push',
+        'needsPull' =>
+          isEs ? 'Pendiente pull' : 'Needs pull',
+        _ => 'Trello',
+      };
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 5,
+        ),
+        decoration: BoxDecoration(
+          color: c().withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: c().withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: Icon(Icons.dashboard_outlined, size: 12, color: Colors.blue),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label(),
+              style: textTheme.labelSmall?.copyWith(
+                color: c(),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     Widget? youtrackBadge() {
       if (youtrackState == null) return null;
@@ -1517,6 +1735,10 @@ class _KanbanColumnState extends State<_KanbanColumn> {
             ],
             if (youtrackBadge() != null) ...[
               youtrackBadge()!,
+              const SizedBox(width: 8),
+            ],
+            if (trelloBadge() != null) ...[
+              trelloBadge()!,
               const SizedBox(width: 8),
             ],
             PopupMenuButton<String>(
