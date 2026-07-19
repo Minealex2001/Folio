@@ -20,8 +20,8 @@ extension VaultSessionAi on VaultSession {
     final agentIdentity = systemPromptOverride.isNotEmpty
         ? systemPromptOverride
         : (isEs
-            ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
-            : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.');
+            ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app; en modo nota sé clara, útil y natural.'
+            : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app; in note mode be clear, helpful, and natural.');
 
     final schema = _agentResponseSchema;
 
@@ -55,7 +55,7 @@ extension VaultSessionAi on VaultSession {
         '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",',
       )
       ..writeln(
-        '"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",',
+        '"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña de la nota SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the note tab ONLY on the first turn; empty string if N/A'}",',
       )
       ..writeln(
         '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|task|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"... (para database/canvas/task: JSON Folio válido en text; task puede ser título plano o JSON FolioTaskData)","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
@@ -67,40 +67,40 @@ extension VaultSessionAi on VaultSession {
       ..writeln()
       ..writeln(isEs ? 'Reglas:' : 'Rules:')
       ..writeln(
-        '- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.',
+        '- summarize_current: ${isEs ? 'resume el folio activo' : 'summarize the active page'}.',
       )
       ..writeln(
-        '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.',
+        '- append_current: ${isEs ? 'añade bloques al folio activo' : 'append blocks to the active page'}.',
       )
       ..writeln(
-        '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.',
+        '- replace_current: ${isEs ? 'sustituye bloques del folio activo' : 'replace blocks in the active page'}.',
       )
       ..writeln(
-        '- edit_current: ${isEs ? 'edita con operations (usa blockId reales de la página en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.',
+        '- edit_current: ${isEs ? 'edita con operations (usa blockId reales del folio en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.',
       )
       ..writeln(
-        '- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}',
+        '- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes del folio abierto, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si no hay pagina activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}',
+        '- ${isEs ? 'Si no hay folio activo, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si el contexto de páginas está desactivado, no cites notas existentes; aun así puedes usar create_page cuando el usuario pida crear una página nueva.' : 'If page context is disabled, do not reference existing notes; you may still use create_page when the user asks for a new page.'}',
+        '- ${isEs ? 'Si el contexto de folios está desactivado, no cites notas existentes; aun así puedes usar create_page cuando el usuario pida crear un folio nuevo.' : 'If page context is disabled, do not reference existing notes; you may still use create_page when the user asks for a new page.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si el usuario pide traducir la página abierta e insertar cada bloque traducido justo después del original (bilingüe, mismo sitio), usa edit_current con operations insert_after por cada blockId; NUNCA uses create_page ni append_current al final.' : 'If the user asks to translate the open page and insert each translated block right after the original (bilingual, same place), use edit_current with insert_after operations per blockId; NEVER use create_page or append_current at the end.'}',
+        '- ${isEs ? 'Si el usuario pide traducir el folio abierto e insertar cada bloque traducido justo después del original (bilingüe, mismo sitio), usa edit_current con operations insert_after por cada blockId; NUNCA uses create_page ni append_current al final.' : 'If the user asks to translate the open page and insert each translated block right after the original (bilingual, same place), use edit_current with insert_after operations per blockId; NEVER use create_page or append_current at the end.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Prioridad de decision: si el usuario referencia la pagina abierta para transformar/traducir in-place, edit_current/replace_current > create_page; si pide nota nueva explicita, create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: if the user references the open page for in-place transform/translate, edit_current/replace_current > create_page; if they explicitly ask for a new note, create_page > edit_current > append/replace/summarize > chat.'}',
+        '- ${isEs ? 'Prioridad de decision: si el usuario referencia el folio abierto para transformar/traducir in-place, edit_current/replace_current > create_page; si pide nota nueva explicita, create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: if the user references the open page for in-place transform/translate, edit_current/replace_current > create_page; if they explicitly ask for a new note, create_page > edit_current > append/replace/summarize > chat.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
+        '- ${isEs ? 'Si el usuario pide crear un folio/nota nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
       )
       ..writeln(
         '- ${isEs ? 'create_page: "blocks" DEBE traer contenido sustancial (mínimo ~8–15 bloques con texto real): intro, h2/h3, párrafos, listas. Si pide diagramas, incluye bloques type=mermaid (y/o table). NUNCA dejes blocks vacío ni digas al usuario que añada el contenido él.' : 'create_page: "blocks" MUST include substantial content (at least ~8–15 blocks with real text): intro, h2/h3, paragraphs, lists. If they ask for diagrams, include type=mermaid blocks (and/or table). NEVER leave blocks empty or tell the user to fill the page themselves.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de la pagina abierta, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}',
+        '- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de el folio abierto, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}',
       )
       ..writeln(
         '- ${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or extra text outside JSON.'}',
@@ -109,7 +109,7 @@ extension VaultSessionAi on VaultSession {
     final contextMessage = StringBuffer()
       ..writeln(
         isEs
-            ? 'Contenido de páginas (referencia; puede haber varias):'
+            ? 'Contenido de folios (referencia; puede haber varias):'
             : 'Page contents (reference; there may be several):',
       )
       ..writeln(referencePagesText);
@@ -126,7 +126,7 @@ extension VaultSessionAi on VaultSession {
       ..writeln(editTargetLine)
       ..writeln(
         isEs
-            ? 'Bloques de la página en edición (ids para operations):'
+            ? 'Bloques del folio en edición (ids para operations):'
             : 'Blocks of the page under edit (ids for operations):',
       )
       ..writeln(pageBlocksContext.trim().isEmpty ? '[]' : pageBlocksContext);
@@ -185,7 +185,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -196,7 +196,7 @@ extension VaultSessionAi on VaultSession {
     final blockContent = overrideBlockText ?? block.text;
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
-        'Tarea: reescribir un bloque sin resumir la página completa. '
+        'Tarea: reescribir un bloque sin resumir el folio completo. '
         'Devuelve exclusivamente el texto final del bloque, sin markdown fences ni explicación.\n\n'
         'Página: ${page.title}\n'
         'Bloque actual:\n$blockContent\n\n'
@@ -239,7 +239,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -274,7 +274,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -307,7 +307,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -317,7 +317,7 @@ extension VaultSessionAi on VaultSession {
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         '$languageRule\n'
-        'Resume esta página de forma breve y accionable.\n'
+        'Resume este folio de forma breve y accionable.\n'
         'Título: ${page.title}\n'
         'Contenido:\n${page.plainTextContent}';
     final result = await ai.complete(
@@ -339,7 +339,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -368,7 +368,7 @@ extension VaultSessionAi on VaultSession {
       ..writeln(languageRule)
       ..writeln(
         isEs
-            ? 'Traduce cada bloque de la página abierta e inserta la traducción justo después del original (modo bilingüe).'
+            ? 'Traduce cada bloque del folio abierto e inserta la traducción justo después del original (modo bilingüe).'
             : 'Translate each block of the open page and insert the translation right after the original (bilingual mode).',
       )
       ..writeln(
@@ -418,7 +418,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -426,12 +426,12 @@ extension VaultSessionAi on VaultSession {
     if (page == null) throw StateError('Página no encontrada.');
     final fullPrompt =
         '${VaultSession._quillIdentityLeadEs}'
-        'Genera NUEVO contenido para insertar en una página existente. '
+        'Genera NUEVO contenido para insertar en un folio existente. '
         'Por defecto sé detallado y completo; adapta la extensión si el usuario dice «corto», «breve», «largo» o «detallado». '
         'No hagas resumen del contexto salvo que se pida explícitamente.\n'
         'Salida preferida: JSON válido con forma {"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
         'También puedes devolver markdown estructurado si no puedes JSON. Sin markdown fences.\n\n'
-        'Contexto de la página: ${page.title}\n'
+        'Contexto del folio: ${page.title}\n'
         'Contenido actual:\n${page.plainTextContent}\n\n'
         'Solicitud:\n${prompt.trim()}';
     final result = await ai.complete(
@@ -455,7 +455,7 @@ extension VaultSessionAi on VaultSession {
 
   static const _generateStandalonePagePromptPrefix =
       '${VaultSession._quillIdentityLeadEs}'
-      'Genera una página completa de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
+      'Genera un folio completo de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
       'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
       'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n';
 
@@ -471,7 +471,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -486,7 +486,7 @@ extension VaultSessionAi on VaultSession {
           cloudInkOperation: 'generate_page',
         ),
       );
-      return _parseAiHybridOutput(result.text, defaultTitle: 'Nueva página IA');
+      return _parseAiHybridOutput(result.text, defaultTitle: 'Nuevo Folio');
     }
 
     var draft = await generateOnce(prompt);
@@ -513,7 +513,7 @@ extension VaultSessionAi on VaultSession {
     _pages.add(
       FolioPage(
         id: id,
-        title: draft.title.trim().isEmpty ? 'Nueva página IA' : draft.title,
+        title: draft.title.trim().isEmpty ? 'Nuevo Folio' : draft.title,
         parentId: parentId,
         blocks: blocks,
       ),
@@ -554,7 +554,7 @@ extension VaultSessionAi on VaultSession {
   }) {
     if (pageIds.isEmpty) {
       return isEs
-          ? '(No hay páginas de texto en el contexto.)'
+          ? '(No hay folios de texto en el contexto.)'
           : '(No pages in the text context.)';
     }
     const maxPages = 3;
@@ -589,7 +589,7 @@ extension VaultSessionAi on VaultSession {
 
   String _plainChatContextFromPageIds(List<String> pageIds) {
     if (pageIds.isEmpty) return '';
-    final b = StringBuffer('\n\nContexto de páginas:\n');
+    final b = StringBuffer('\n\nContexto de folios:\n');
     for (final id in pageIds) {
       final p = _pageById(id);
       if (p == null) continue;
@@ -607,13 +607,13 @@ extension VaultSessionAi on VaultSession {
 IDENTIDAD: Tu nombre es Quill. Si te presentas o hablas de ti, usa ese nombre.
 
 === Folio — no confundir con sitios web genéricos ===
-En Folio, «página» = nota del árbol lateral con bloques (párrafo, imagen, tabla…). El usuario pregunta por Folio salvo que cite explícitamente WordPress, HTML, React, etc.
-NO respondas con etiquetas HTML <img>, CMS ni frameworks web ante frases como «añadir imagen a la página», «bloque», «nota», «mi página en Folio».
+En Folio, «folio» = hoja del árbol lateral con bloques (párrafo, imagen, tabla…). El usuario pregunta por Folio salvo que cite explícitamente WordPress, HTML, React, etc.
+NO respondas con etiquetas HTML <img>, CMS ni frameworks web ante frases como «añadir imagen al folio», «bloque», «nota», «mi folio en Folio».
 
-Ayuda frecuente sobre la app (concreta; el chat general puede ser más largo):
-• Imagen: con una página abierta, botón flotante + (abajo a la derecha) → bloque «Imagen». Alternativa: en un párrafo escribe / y elige «Imagen». En bloque vacío, «Elegir imagen»: en escritorio suele abrir el selector de archivos; en móvil, galería. Pegar una URL directa a un archivo de imagen en un bloque de texto puede convertirlo en bloque imagen. Menú ⋮ del bloque: cambiar o quitar imagen; puedes ajustar el ancho mostrado.
+Ayuda frecuente sobre la app (concreta; la nota general puede ser más larga):
+• Imagen: con un folio abierto, botón flotante + (abajo a la derecha) → bloque «Imagen». Alternativa: en un párrafo escribe / y elige «Imagen». En bloque vacío, «Elegir imagen»: en escritorio suele abrir el selector de archivos; en móvil, galería. Pegar una URL directa a un archivo de imagen en un bloque de texto puede convertirlo en bloque imagen. Menú ⋮ del bloque: cambiar o quitar imagen; puedes ajustar el ancho mostrado.
 • Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, mermaid, etc.).
-• Panel de chat con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de páginas en el contexto; otro icono elige varias páginas de referencia.
+• Panel de notas con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de folios en el contexto; otro icono elige varios folios de referencia.
 • Ajustes: engranaje. Búsqueda: lupa. Bloquear libreta: candado.
 '''
           .trim();
@@ -628,7 +628,7 @@ Do NOT answer Folio how-to questions with HTML <img>, CMS steps, or web framewor
 Quick app help (keep how-to tips concrete; general chat may be longer):
 • Image: With a page open, floating + (bottom-right) → "Image" block. Or type / in a paragraph and pick Image. In an empty image block use "Choose image" (desktop: file picker; mobile: gallery). Pasting a direct image file URL in a text block may turn it into an image block. Block ⋮ menu: replace/clear; adjust width.
 • Other blocks: same + button or / in a paragraph (table, file, code, mermaid, etc.).
-• Quill chat panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
+• Quill notes panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
 • Settings: gear. Search: magnifying glass. Lock vault: padlock.
 '''
         .trim();
@@ -638,7 +638,7 @@ Quick app help (keep how-to tips concrete; general chat may be longer):
     if (isEs) {
       return '''
 IDENTIDAD: Tu nombre es Quill.
-En Folio, «página» = nota con bloques (no web). No des tutoriales HTML/WordPress salvo petición explícita.
+En Folio, «folio» = hoja con bloques (no web). No des tutoriales HTML/WordPress salvo petición explícita.
 Para imágenes y bloques: botón + o comando / en un párrafo.
 '''
           .trim();
@@ -702,7 +702,7 @@ For images/blocks: use the + button or / command in a paragraph.
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -767,14 +767,14 @@ For images/blocks: use the + button or / command in a paragraph.
             activePageId: scopePageId,
           )
         : (isEs
-              ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
+              ? 'El usuario desactivó el contexto de folios: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
 
     final agentIdentity = systemPromptOverride.isNotEmpty
         ? systemPromptOverride
         : (isEs
-              ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app.'
-              : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app.');
+              ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
+              : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.');
 
     final wantsCreatePage = _looksLikeCreatePageIntent(
       prompt,
@@ -792,7 +792,7 @@ For images/blocks: use the + button or / command in a paragraph.
         ..writeln()
         ..writeln(
           isEs
-              ? 'El usuario pide crear una página nueva. Debes llamar a la tool create_page '
+              ? 'El usuario pide crear un folio nuevo. Debes llamar a la tool create_page '
                     'con "title" y "blocks" rellenos de contenido sustancial en la misma llamada '
                     '(mínimo ~8–15 bloques: intro, h2/h3, párrafos, listas; mermaid/table si pide diagramas). '
                     'No crees solo el título. No digas al usuario que añada el contenido él.'
@@ -867,7 +867,7 @@ For images/blocks: use the + button or / command in a paragraph.
 Modo agente (como un cliente MCP competente):
 - Si la petición implica crear/editar/buscar en la libreta, USA las tools disponibles; no digas solo lo que harías.
 - Responde de forma útil y completa por defecto; sé breve solo si el usuario pide «corto» o «breve».
-- Al crear o editar páginas, rellena siempre bloques con contenido real (nunca una página vacía o solo título).
+- Al crear o editar folios, rellena siempre bloques con contenido real (nunca un folio vacío o solo título).
 - Si piden diagramas, usa bloques type=mermaid y/o table.
 - Si una tool falla (p. ej. blocks vacío), corrige los argumentos y vuelve a llamarla.
 - Al terminar, escribe un resumen claro de lo hecho (título, qué incluye); no digas «añádelo tú».
@@ -986,7 +986,7 @@ Agent mode (like a capable MCP client):
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -1078,7 +1078,7 @@ Agent mode (like a capable MCP client):
             activePageId: scopePageId,
           )
         : (isEs
-              ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
+              ? 'El usuario desactivó el contexto de folios: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
     final pageBlocksContext =
         includePageContext && scopePage != null && wantsEditExistingBlocks
@@ -1110,14 +1110,14 @@ Agent mode (like a capable MCP client):
           _formatAgentDecisionReply(
             mode: 'edit_current',
             reason: isEs
-                ? 'Detecté traducción bilingüe en la página abierta e inserté cada bloque traducido tras el original.'
+                ? 'Detecté traducción bilingüe en el folio abierto e inserté cada bloque traducido tras el original.'
                 : 'Detected bilingual translation on the open page and inserted each translated block after the original.',
             reply: bilingual.insertedCount > 0
                 ? (isEs
-                      ? 'He insertado ${bilingual.insertedCount} bloque(s) traducido(s) en la misma página, justo después de cada original.'
+                      ? 'He insertado ${bilingual.insertedCount} bloque(s) traducido(s) en el mismo folio, justo después de cada original.'
                       : 'I inserted ${bilingual.insertedCount} translated block(s) on the same page, right after each original.')
                 : (isEs
-                      ? 'No encontré bloques con texto traducible en la página abierta.'
+                      ? 'No encontré bloques con texto traducible en el folio abierto.'
                       : 'No translatable text blocks were found on the open page.'),
             isEs: isEs,
           ),
@@ -1130,10 +1130,10 @@ Agent mode (like a capable MCP client):
             _formatAgentDecisionReply(
               mode: 'create_page',
               reason: isEs
-                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                  ? 'Detecté intención de crear subfolio pero no hay folio activo.'
                   : 'Detected subpage creation intent but there is no active page.',
               reply: isEs
-                  ? 'Selecciona primero una página para crear la subpágina dentro.'
+                  ? 'Selecciona primero un folio para crear la subfolio dentro.'
                   : 'Select a page first to create the subpage inside it.',
               isEs: isEs,
             ),
@@ -1146,22 +1146,22 @@ Agent mode (like a capable MCP client):
           attachments: attachments,
         );
         final created = _pageById(generated.pageId);
-        final title = created?.title ?? (isEs ? 'Nueva página IA' : 'New AI page');
+        final title = created?.title ?? (isEs ? 'Nuevo Folio' : 'New AI page');
         final contentGenerationFailed = generated.blockCount == 0;
         return finish(
           _formatAgentDecisionReply(
             mode: 'create_page',
             reason: isEs
-                ? 'Detecté intención de crear página y ejecuté creación directa.'
+                ? 'Detecté intención de crear folio y ejecuté creación directa.'
                 : 'Detected page creation intent and executed direct creation.',
             reply: contentGenerationFailed
                 ? (isEs
-                      ? 'He creado la página "$title", pero no conseguí generar contenido automáticamente. '
+                      ? 'He creado el folio "$title", pero no conseguí generar contenido automáticamente. '
                             'Prueba a pedírmelo de nuevo o sé más específico sobre lo que quieres que incluya.'
                       : 'I created the page "$title", but I couldn\'t generate content automatically. '
                             'Try asking again or be more specific about what you want it to include.')
                 : (isEs
-                      ? 'He creado la página "$title" con ${generated.blockCount} bloque(s) de contenido inicial.'
+                      ? 'He creado el folio "$title" con ${generated.blockCount} bloque(s) de contenido inicial.'
                       : 'I created the page "$title" with ${generated.blockCount} block(s) of initial content.'),
             isEs: isEs,
           ),
@@ -1188,7 +1188,7 @@ Agent mode (like a capable MCP client):
       var mode = _normalizeAgentMode(decoded['mode'] as String?);
       var reason = (decoded['reason'] as String? ?? '').trim();
       var reply = (decoded['reply'] as String? ?? '').trim();
-      final title = (decoded['title'] as String? ?? 'Nueva página IA').trim();
+      final title = (decoded['title'] as String? ?? 'Nuevo Folio').trim();
       final rawBlocks = decoded['blocks'];
       dynamic rawOperations = decoded['operations'];
       final parsedBlocks = rawBlocks is List
@@ -1212,7 +1212,7 @@ Agent mode (like a capable MCP client):
                   '${isEs ? 'Completa la edición con operaciones aplicables.' : 'Complete the edit with applicable operations.'}\n'
                   '${isEs ? 'Devuelve SOLO JSON con mode="edit_current" y operations no vacía usando blockId reales.' : 'Return ONLY JSON with mode="edit_current" and a non-empty operations list using real blockIds.'}\n\n'
                   '$editTargetLine\n'
-                  '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
+                  '${isEs ? 'Bloques del folio en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
                   '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
@@ -1260,10 +1260,10 @@ Agent mode (like a capable MCP client):
                 : 'You are Quill. Return ONLY valid JSON per schema. Do not invent blockId.',
             prompt:
                 '${isEs ? 'Corrige la salida a edición de bloques existentes.' : 'Correct the output to existing-block editing.'}\n'
-                '${isEs ? 'Devuelve mode="edit_current" y operations no vacía usando blockId reales de la página en edición.' : 'Return mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
-                '${isEs ? 'No crees páginas nuevas ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
+                '${isEs ? 'Devuelve mode="edit_current" y operations no vacía usando blockId reales del folio en edición.' : 'Return mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
+                '${isEs ? 'No crees folios nuevos ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
                 '$editTargetLine\n'
-                '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
+                '${isEs ? 'Bloques del folio en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
                 '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
             model: 'auto',
             messages: messages,
@@ -1316,7 +1316,7 @@ Agent mode (like a capable MCP client):
               reply: reply.isNotEmpty
                   ? reply
                   : (isEs
-                        ? 'No hay página activa para resumir.'
+                        ? 'No hay folio activo para resumir.'
                         : 'There is no active page to summarize.'),
               isEs: isEs,
             ),
@@ -1351,7 +1351,7 @@ Agent mode (like a capable MCP client):
               reply: reply.isNotEmpty
                   ? reply
                   : (isEs
-                        ? 'No hay página activa para editar.'
+                        ? 'No hay folio activo para editar.'
                         : 'There is no active page to edit.'),
               isEs: isEs,
             ),
@@ -1372,8 +1372,8 @@ Agent mode (like a capable MCP client):
             reply: reply.isNotEmpty
                 ? reply
                 : (mode == 'replace_current'
-                      ? 'He actualizado la página.'
-                      : 'He añadido contenido a la página.'),
+                      ? 'He actualizado el folio.'
+                      : 'He añadido contenido al folio.'),
             isEs: isEs,
           ),
         );
@@ -1388,7 +1388,7 @@ Agent mode (like a capable MCP client):
               reply: reply.isNotEmpty
                   ? reply
                   : (isEs
-                        ? 'No hay página activa para editar.'
+                        ? 'No hay folio activo para editar.'
                         : 'There is no active page to edit.'),
               isEs: isEs,
             ),
@@ -1407,7 +1407,7 @@ Agent mode (like a capable MCP client):
                 ? reply
                 : (changed
                       ? (isEs
-                            ? 'He editado bloques existentes de la página.'
+                            ? 'He editado bloques existentes del folio.'
                             : 'I edited existing page blocks.')
                       : (isEs
                             ? 'No se pudieron aplicar cambios en bloques existentes.'
@@ -1425,10 +1425,10 @@ Agent mode (like a capable MCP client):
               reason: reason.isNotEmpty
                   ? reason
                   : (isEs
-                        ? 'Solicitaste crear una subpágina pero no hay página activa.'
+                        ? 'Solicitaste crear una subfolio pero no hay folio activo.'
                         : 'You requested a subpage but there is no active page.'),
               reply: isEs
-                  ? 'Selecciona una página y vuelvo a crear la subpágina dentro de ella.'
+                  ? 'Selecciona un folio y vuelvo a crear la subfolio dentro de ella.'
                   : 'Select a page and I will create the subpage inside it.',
               isEs: isEs,
             ),
@@ -1444,22 +1444,22 @@ Agent mode (like a capable MCP client):
           );
           final created = _pageById(generated.pageId);
           final createdTitle =
-              created?.title ?? (isEs ? 'Nueva página IA' : 'New AI page');
+              created?.title ?? (isEs ? 'Nuevo Folio' : 'New AI page');
           final failed = generated.blockCount == 0;
           return finish(
             _formatAgentDecisionReply(
               mode: mode,
               reason: isEs
-                  ? 'create_page llegó sin contenido; generé la página con el flujo dedicado.'
+                  ? 'create_page llegó sin contenido; generé el folio con el flujo dedicado.'
                   : 'create_page arrived without content; generated the page via the dedicated flow.',
               reply: failed
                   ? (isEs
-                        ? 'He creado la página "$createdTitle", pero no conseguí generar contenido automáticamente. '
+                        ? 'He creado el folio "$createdTitle", pero no conseguí generar contenido automáticamente. '
                               'Prueba a pedírmelo de nuevo o sé más específico sobre lo que quieres que incluya.'
                         : 'I created the page "$createdTitle", but I couldn\'t generate content automatically. '
                               'Try asking again or be more specific about what you want it to include.')
                   : (isEs
-                        ? 'He creado la página "$createdTitle" con ${generated.blockCount} bloque(s) de contenido.'
+                        ? 'He creado el folio "$createdTitle" con ${generated.blockCount} bloque(s) de contenido.'
                         : 'I created the page "$createdTitle" with ${generated.blockCount} block(s) of content.'),
               isEs: isEs,
             ),
@@ -1470,7 +1470,7 @@ Agent mode (like a capable MCP client):
         _pages.add(
           FolioPage(
             id: id,
-            title: title.isEmpty ? 'Nueva página IA' : title,
+            title: title.isEmpty ? 'Nuevo Folio' : title,
             parentId: wantsSubpage ? scopePage?.id : null,
             blocks: blocks,
           ),
@@ -1485,7 +1485,7 @@ Agent mode (like a capable MCP client):
             'pageId': id,
             'isSubpage': wantsSubpage,
             'parentId': wantsSubpage ? scopePage?.id : null,
-            'title': title.isEmpty ? 'Nueva página IA' : title,
+            'title': title.isEmpty ? 'Nuevo Folio' : title,
             'blocksCount': blocks.length,
           },
         );
@@ -1493,7 +1493,7 @@ Agent mode (like a capable MCP client):
           _formatAgentDecisionReply(
             mode: mode,
             reason: reason,
-            reply: reply.isNotEmpty ? reply : 'He creado una nueva página.',
+            reply: reply.isNotEmpty ? reply : 'He creado un nuevo folio.',
             isEs: isEs,
           ),
         );
@@ -1508,16 +1508,16 @@ Agent mode (like a capable MCP client):
               _formatAgentDecisionReply(
                 mode: 'create_page',
                 reason: isEs
-                    ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                    ? 'Detecté intención de crear subfolio pero no hay folio activo.'
                     : 'Detected subpage creation intent but there is no active page.',
                 reply: isEs
-                    ? 'Selecciona primero una página para crear la subpágina dentro.'
+                    ? 'Selecciona primero un folio para crear la subfolio dentro.'
                     : 'Select a page first to create the subpage inside it.',
                 isEs: isEs,
               ),
             );
           }
-          // Llamada de corrección estructurada: el modelo respondió en modo chat
+          // Llamada de corrección estructurada: el modelo respondió en modo nota
           // cuando debería haber usado create_page. Pedimos JSON directamente.
           final createCorrection = await ai.complete(
             AiCompletionRequest(
@@ -1527,7 +1527,7 @@ Agent mode (like a capable MCP client):
                   : 'You are Quill. Return ONLY valid JSON per schema.',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
-                  '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                  '${isEs ? 'Respondiste en modo nota, pero el usuario quiere crear un nuevo folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in note mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
                   '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
@@ -1551,7 +1551,7 @@ Agent mode (like a capable MCP client):
                 FolioPage(
                   id: id,
                   title: createTitle.isEmpty
-                      ? (isEs ? 'Nueva página IA' : 'New AI page')
+                      ? (isEs ? 'Nuevo Folio' : 'New AI page')
                       : createTitle,
                   parentId: wantsSubpage ? scopePage?.id : null,
                   blocks: blocks,
@@ -1573,10 +1573,10 @@ Agent mode (like a capable MCP client):
                 _formatAgentDecisionReply(
                   mode: 'create_page',
                   reason: isEs
-                      ? 'Corregí el modo y generé la página en formato JSON estructurado.'
+                      ? 'Corregí el modo y generé el folio en formato JSON estructurado.'
                       : 'Corrected the mode and generated the page in structured JSON format.',
                   reply: isEs
-                      ? 'He creado la página con el contenido generado.'
+                      ? 'He creado el folio con el contenido generado.'
                       : 'I created the page with the generated content.',
                   isEs: isEs,
                 ),
@@ -1598,7 +1598,7 @@ Agent mode (like a capable MCP client):
                   ? 'Detecté edición implícita y apliqué la tabla devuelta en Markdown.'
                   : 'Detected implicit edit intent and applied markdown table output.',
               reply: isEs
-                  ? 'He actualizado la tabla existente de la página.'
+                  ? 'He actualizado la tabla existente del folio.'
                   : 'I updated the existing table in the page.',
               isEs: isEs,
             ),
@@ -1655,7 +1655,7 @@ Agent mode (like a capable MCP client):
               cloudInkOperation: 'agent_followup',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
-                  '${isEs ? 'La respuesta anterior no fue JSON válido. Corrige y devuelve SOLO JSON para editar la página actual.' : 'The previous response was not valid JSON. Fix it and return ONLY JSON to edit the current page.'}\n'
+                  '${isEs ? 'La respuesta anterior no fue JSON válido. Corrige y devuelve SOLO JSON para editar el folio actual.' : 'The previous response was not valid JSON. Fix it and return ONLY JSON to edit the current page.'}\n'
                   '{'
                   '"mode":"edit_current",'
                   '"reason":"${isEs ? 'motivo breve' : 'short reason'}",'
@@ -1663,7 +1663,7 @@ Agent mode (like a capable MCP client):
                   '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"...","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
                   '}\n'
                   '${isEs ? 'No escribas explicación, solo JSON.' : 'Do not write explanations, only JSON.'}\n\n'
-                  '${isEs ? 'Bloques de la página (ids):' : 'Page blocks (ids):'}\n${_buildAgentPageBlocksContext(scopePage)}\n\n'
+                  '${isEs ? 'Bloques del folio (ids):' : 'Page blocks (ids):'}\n${_buildAgentPageBlocksContext(scopePage)}\n\n'
                   '${_titleL10n.aiPromptOriginalUserMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
@@ -1695,7 +1695,7 @@ Agent mode (like a capable MCP client):
                       : reason,
                   reply: reply.isEmpty
                       ? (isEs
-                            ? 'He editado bloques existentes de la página.'
+                            ? 'He editado bloques existentes del folio.'
                             : 'I edited existing page blocks.')
                       : reply,
                   isEs: isEs,
@@ -1734,10 +1734,10 @@ Agent mode (like a capable MCP client):
             _formatAgentDecisionReply(
               mode: 'create_page',
               reason: isEs
-                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                  ? 'Detecté intención de crear subfolio pero no hay folio activo.'
                   : 'Detected subpage creation intent but there is no active page.',
               reply: isEs
-                  ? 'Selecciona primero una página para crear la subpágina dentro.'
+                  ? 'Selecciona primero un folio para crear la subfolio dentro.'
                   : 'Select a page first to create the subpage inside it.',
               isEs: isEs,
             ),
@@ -1750,7 +1750,7 @@ Agent mode (like a capable MCP client):
             cloudInkOperation: 'agent_followup',
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
-                '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear un folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
                 '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
@@ -1775,7 +1775,7 @@ Agent mode (like a capable MCP client):
               FolioPage(
                 id: id,
                 title: createFbTitle.isEmpty
-                    ? (isEs ? 'Nueva página IA' : 'New AI page')
+                    ? (isEs ? 'Nuevo Folio' : 'New AI page')
                     : createFbTitle,
                 parentId: wantsSubpage ? scopePage?.id : null,
                 blocks: blocks,
@@ -1797,10 +1797,10 @@ Agent mode (like a capable MCP client):
               _formatAgentDecisionReply(
                 mode: 'create_page',
                 reason: isEs
-                    ? 'La respuesta inicial no fue JSON válido; generé la página con una llamada estructurada.'
+                    ? 'La respuesta inicial no fue JSON válido; generé el folio con una llamada estructurada.'
                     : 'Initial response was not valid JSON; generated the page with a structured call.',
                 reply: isEs
-                    ? 'He creado la página con el contenido generado.'
+                    ? 'He creado el folio con el contenido generado.'
                     : 'I created the page with the generated content.',
                 isEs: isEs,
               ),
@@ -1813,7 +1813,7 @@ Agent mode (like a capable MCP client):
           mode: 'chat',
           reason: isEs
               ? 'No pude estructurar la acción; respondo en modo conversación.'
-              : 'I could not structure the action; responding in chat mode.',
+              : 'I could not structure the action; responding in note mode.',
           reply: fallbackChat.text,
           isEs: isEs,
         ),
@@ -2756,7 +2756,7 @@ Agent mode (like a capable MCP client):
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear la libreta para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -2767,14 +2767,14 @@ Agent mode (like a capable MCP client):
         cloudInkOperation: 'edit_page_panel',
         prompt:
             '${VaultSession._quillIdentityLeadEs}'
-            'Decide si la solicitud del usuario es para editar la página activa o para responder en chat.\n'
+            'Decide si la solicitud del usuario es para editar el folio activo o para responder en la nota.\n'
             'Devuelve SOLO JSON válido con este esquema:\n'
             '{'
             '"mode":"edit|chat",'
             '"reply":"texto breve para el usuario",'
             '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
-            'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
+            'Para renombrar el folio usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
             'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,task,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
@@ -2830,7 +2830,7 @@ Agent mode (like a capable MCP client):
     if (changed) {
       _notifySessionListeners();
       scheduleSave(trackRevisionForPageId: page.id);
-      return reply.isNotEmpty ? reply : 'He aplicado los cambios en la página.';
+      return reply.isNotEmpty ? reply : 'He aplicado los cambios en el folio.';
     }
     return reply.isNotEmpty ? reply : 'No se aplicaron cambios.';
   }

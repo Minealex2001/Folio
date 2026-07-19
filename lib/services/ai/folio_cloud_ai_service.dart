@@ -51,16 +51,16 @@ String _mapFolioCloudAiError(FirebaseFunctionsException e) {
     case 'permission-denied':
       return details.isNotEmpty
           ? details
-          : 'La IA en la nube requiere suscripción Folio Cloud con IA en la nube o tinta comprada. '
+          : 'Quill Cloud requiere suscripción Folio Cloud con Quill Cloud o tinta comprada. '
               'Revisa Ajustes → Folio Cloud.';
     case 'resource-exhausted':
       return details.isNotEmpty
           ? details
-          : 'No quedan gotas de tinta suficientes. Compra un tintero, espera la recarga mensual si tienes suscripción activa o usa IA local.';
+          : 'No quedan gotas de tinta suficientes. Compra un tintero, espera la recarga mensual si tienes suscripción activa o usa Quill en local.';
     case 'unavailable':
       return details.isNotEmpty
           ? details
-          : 'El servicio de IA en la nube no está disponible temporalmente. Reintenta en unos segundos.';
+          : 'El servicio de Quill Cloud no está disponible temporalmente. Reintenta en unos segundos.';
     case 'invalid-argument':
       return details.isNotEmpty ? details : 'Petición inválida.';
     case 'failed-precondition':
@@ -73,10 +73,10 @@ String _mapFolioCloudAiError(FirebaseFunctionsException e) {
         return _upstreamLlmVsFolioInkMessage();
       }
       if (details.isNotEmpty) return details;
-      return 'Error del servicio IA ($code).';
+      return 'Error del servicio Quill ($code).';
     default:
       if (details.isNotEmpty) return details;
-      return 'Error del servicio IA ($code).';
+      return 'Error del servicio Quill ($code).';
   }
 }
 

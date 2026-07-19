@@ -226,7 +226,7 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
             'No se pudo usar Folio Cloud: el servicio en la nube rechazó la '
             'conexión (401). Folio Cloud solo está disponible con suscripción '
             'activa e inicio de sesión en tu cuenta en Ajustes. Comprueba plan, '
-            'tinta e «IA en la nube». Si ya estás suscrito y el fallo continúa, '
+            'tinta e «Quill Cloud». Si ya estás suscrito y el fallo continúa, '
             'contacta con soporte de Folio.',
         code: 'permission-denied',
       );

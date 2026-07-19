@@ -2,7 +2,7 @@
   "@@locale": "en",
   "appTitle": "Folio",
   "loading": "Loading…",
-  "newVault": "New vault",
+  "newVault": "New notebook",
   "stepOfTotal": "Step {current} of {total}",
   "@stepOfTotal": {
     "placeholders": {
@@ -22,14 +22,14 @@
       "total": {"type": "int"}
     }
   },
-  "welcomeOptionCreateTitle": "Create a new vault",
-  "welcomeOptionCreateBody": "Start with a blank encrypted vault on this device.",
+  "welcomeOptionCreateTitle": "Create a new notebook",
+  "welcomeOptionCreateBody": "Start with a blank encrypted notebook on this device.",
   "welcomeOptionImportTitle": "I have data to import",
   "welcomeOptionImportBody": "Restore from a backup file, Folio Cloud, or a Notion export.",
-  "welcomeNewVaultTitle": "New vault",
+  "welcomeNewVaultTitle": "New notebook",
   "welcomeNewVaultBody": "Choose a master password and optional starter pages. You can change other settings later in Settings.",
-  "newVaultLeftPanelTitle": "New vault",
-  "newVaultLeftPanelBody": "Create an additional encrypted vault on this device.",
+  "newVaultLeftPanelTitle": "New notebook",
+  "newVaultLeftPanelBody": "Create an additional encrypted notebook on this device.",
   "importSourceTitle": "Where is your data?",
   "importSourceBody": "Pick a source. You can change other settings later in Settings.",
   "importSourceBackupSubtitle": "A .zip backup you exported from Folio on another device.",
@@ -52,11 +52,11 @@
   "selectPage": "Select a page",
   "saveInProgress": "Saving…",
   "savePending": "Pending save",
-  "savingVaultTooltip": "Saving encrypted vault to disk…",
+  "savingVaultTooltip": "Saving encrypted notebook to disk…",
   "autosaveSoonTooltip": "Autosave in a moment…",
   "welcomeTitle": "Welcome",
   "welcomeBody": "Folio stores your pages only on this device, encrypted with a master password. If you forget it, we cannot recover your data.\n\nThere is no cloud sync.",
-  "createNewVault": "Create new vault",
+  "createNewVault": "Create new notebook",
   "importBackupZip": "Import backup (.zip)",
   "importBackupTitle": "Import backup",
   "importBackupBody": "The file contains the same encrypted data as the other device. You need the master password used to create that backup.\n\nPasskey and quick unlock (Hello) are not included and are not transferable; you can configure them later in Settings.",
@@ -64,7 +64,7 @@
   "changeFile": "Change file",
   "backupPasswordLabel": "Backup password",
   "backupPlainNoPasswordHint": "This backup is not encrypted. No password is required to import it.",
-  "importVault": "Import vault",
+  "importVault": "Import notebook",
   "masterPasswordTitle": "Your master password",
   "masterPasswordHint": "At least {min} characters. You will use it every time you open Folio.",
   "@masterPasswordHint": {
@@ -78,8 +78,8 @@
   "confirmPasswordLabel": "Confirm password",
   "next": "Next",
   "readyTitle": "All set",
-  "readyBody": "An encrypted vault will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).",
-  "readyBodyPlainVault": "A non-encrypted vault will be created on this device. You can change more options in Settings whenever you like.",
+  "readyBody": "An encrypted notebook will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).",
+  "readyBodyPlainVault": "A non-encrypted notebook will be created on this device. You can change more options in Settings whenever you like.",
   "quillIntroTitle": "Meet Quill",
   "quillIntroBody": "Quill is Folio's built-in assistant. It can help you write, edit, and understand your pages, and also answer questions about how to use the app.",
   "quillIntroCapabilityWrite": "It can draft, summarize, or rewrite content inside your pages.",
@@ -90,8 +90,8 @@
   "quillIntroExampleOne": "Summarize this page in three bullets.",
   "quillIntroExampleTwo": "Change the title and improve the introduction.",
   "quillIntroExampleThree": "How do I add an image or a table?",
-  "quillIntroFootnote": "If AI is not enabled yet, you can activate it later. This intro is here so you understand what Quill can do when you use it.",
-  "createVault": "Create vault",
+  "quillIntroFootnote": "If Quill is not enabled yet, you can activate it later. This intro is here so you understand what Quill can do when you use it.",
+  "createVault": "Create notebook",
   "minCharactersError": "Minimum {min} characters.",
   "@minCharactersError": {
     "placeholders": {
@@ -111,16 +111,16 @@
   "enterBackupPasswordError": "Enter the backup password.",
   "importFailedError": "Could not import: {error}",
   "@importFailedError": {"placeholders": {"error": {}}},
-  "createVaultFailedError": "Could not create vault: {error}",
+  "createVaultFailedError": "Could not create notebook: {error}",
   "@createVaultFailedError": {"placeholders": {"error": {}}},
-  "encryptedVault": "Encrypted vault",
+  "encryptedVault": "Encrypted notebook",
   "unlock": "Unlock",
   "quickUnlock": "Hello / biometrics",
   "passkey": "Passkey",
-  "unlockFailed": "Incorrect password or damaged vault.",
+  "unlockFailed": "Incorrect password or damaged notebook.",
   "appearance": "Appearance",
   "security": "Security",
-  "vaultBackup": "Vault backup",
+  "vaultBackup": "Notebook backup",
   "data": "Data",
   "systemTheme": "System",
   "lightTheme": "Light",
@@ -185,46 +185,46 @@
   "@exportFailedError": {"placeholders": {"error": {}}},
   "importFailedGenericError": "Could not import: {error}",
   "@importFailedGenericError": {"placeholders": {"error": {}}},
-  "wipeFailedError": "Could not delete vault: {error}",
+  "wipeFailedError": "Could not delete notebook: {error}",
   "@wipeFailedError": {"placeholders": {"error": {}}},
   "filePathReadError": "Could not read file path.",
-  "importedVaultSuccessSnack": "Vault imported. It appears in the sidebar vault switcher; the current one remains unchanged.",
-  "exportVaultDialogTitle": "Export vault backup",
-  "exportVaultDialogBody": "To create a backup file, confirm your identity with the currently unlocked vault.",
+  "importedVaultSuccessSnack": "Notebook imported. It appears in the sidebar notebook switcher; the current one remains unchanged.",
+  "exportVaultDialogTitle": "Export notebook backup",
+  "exportVaultDialogBody": "To create a backup file, confirm your identity with the currently unlocked notebook.",
   "verifyAndExport": "Verify and export",
-  "saveVaultBackupDialogTitle": "Save vault backup",
-  "importVaultDialogTitle": "Import vault backup",
-  "importVaultDialogBody": "A new vault will be added from the file. Your currently open vault is not deleted or modified.\n\nThe file password will be the imported vault password (used when opening it after switching vaults).\n\nPasskey and quick unlock (Hello / biometrics) are not included in backups and are not transferable; you can configure them later for that vault.\n\nContinue?",
+  "saveVaultBackupDialogTitle": "Save notebook backup",
+  "importVaultDialogTitle": "Import notebook backup",
+  "importVaultDialogBody": "A new notebook will be added from the file. Your currently open notebook is not deleted or modified.\n\nThe file password will be the imported notebook password (used when opening it after switching notebooks).\n\nPasskey and quick unlock (Hello / biometrics) are not included in backups and are not transferable; you can configure them later for that notebook.\n\nContinue?",
   "verifyAndContinue": "Verify and continue",
   "verifyAndDelete": "Verify with password and delete",
-  "importIdentityBody": "Prove it is you with the currently unlocked vault before importing.",
-  "wipeVaultDialogTitle": "Delete vault",
+  "importIdentityBody": "Prove it is you with the currently unlocked notebook before importing.",
+  "wipeVaultDialogTitle": "Delete notebook",
   "wipeVaultDialogBody": "All pages will be deleted and the master password will no longer be valid. This action cannot be undone.\n\nAre you sure you want to continue?",
-  "wipeIdentityBody": "To delete the vault, prove your identity.",
+  "wipeIdentityBody": "To delete the notebook, prove your identity.",
   "exportZipTitle": "Export backup (.zip)",
-  "exportZipSubtitle": "Password, Hello, or passkey from current vault",
+  "exportZipSubtitle": "Password, Hello, or passkey from current notebook",
   "importZipTitle": "Import backup (.zip)",
-  "importZipSubtitle": "Adds a new vault · current identity + file password",
-  "backupInfoBody": "The file contains the same encrypted data as on disk (vault.keys and vault.bin), without exposing plain content. Attachment images are included as-is.\n\nPasskey and quick unlock are not included in backups and are not transferable between devices; you can set them up again for each imported vault.\n\nImporting adds a new vault; it does not replace the currently open one.",
-  "wipeCardTitle": "Delete vault and start over",
+  "importZipSubtitle": "Adds a new notebook · current identity + file password",
+  "backupInfoBody": "The file contains the same encrypted data as on disk (vault.keys and vault.bin), without exposing plain content. Attachment images are included as-is.\n\nPasskey and quick unlock are not included in backups and are not transferable between devices; you can set them up again for each imported notebook.\n\nImporting adds a new notebook; it does not replace the currently open one.",
+  "wipeCardTitle": "Delete notebook and start over",
   "wipeCardSubtitle": "Requires password, Hello, or passkey.",
-  "switchVaultTooltip": "Switch vault",
-  "switchVaultTitle": "Switch vault",
-  "switchVaultBody": "This vault session will be closed and you'll need to unlock the other vault with its password, Hello, or passkey (if configured there).",
-  "renameVaultTitle": "Rename vault",
+  "switchVaultTooltip": "Switch notebook",
+  "switchVaultTitle": "Switch notebook",
+  "switchVaultBody": "This notebook session will be closed and you'll need to unlock the other notebook with its password, Hello, or passkey (if configured there).",
+  "renameVaultTitle": "Rename notebook",
   "nameLabel": "Name",
-  "deleteOtherVaultTitle": "Delete another vault",
-  "deleteVaultConfirmTitle": "Delete vault?",
-  "deleteVaultConfirmBody": "Vault «{name}» will be completely deleted. This cannot be undone.",
+  "deleteOtherVaultTitle": "Delete another notebook",
+  "deleteVaultConfirmTitle": "Delete notebook?",
+  "deleteVaultConfirmBody": "Notebook «{name}» will be completely deleted. This cannot be undone.",
   "@deleteVaultConfirmBody": {"placeholders": {"name": {}}},
-  "vaultDeletedSnack": "Vault deleted.",
-  "noOtherVaultsSnack": "No other vaults to delete.",
-  "addVault": "Add vault",
-  "renameActiveVault": "Rename active vault",
-  "deleteOtherVault": "Delete another vault…",
-  "activeVaultLabel": "Active vault",
-  "sidebarVaultsLoading": "Loading vaults…",
-  "sidebarVaultsEmpty": "No vaults available",
+  "vaultDeletedSnack": "Notebook deleted.",
+  "noOtherVaultsSnack": "No other notebooks to delete.",
+  "addVault": "Add notebook",
+  "renameActiveVault": "Rename active notebook",
+  "deleteOtherVault": "Delete another notebook…",
+  "activeVaultLabel": "Active notebook",
+  "sidebarVaultsLoading": "Loading notebooks…",
+  "sidebarVaultsEmpty": "No notebooks available",
   "forceSyncTooltip": "Force sync",
   "searchDialogFooterHint": "Enter opens the highlighted result · ↑ / ↓ navigate · Esc closes",
   "searchFilterTasks": "Tasks",
@@ -352,7 +352,7 @@
     },
     "meetingNoteCloudEtaCalculating": "Calculating remaining time...",
   "meetingNoteCloudRequiresAccount": "Requires a Folio Cloud account with Ink.",
-  "meetingNoteCloudRequiresAiEnabled": "Turn on AI in Settings to use cloud transcription (Quill Cloud).",
+  "meetingNoteCloudRequiresAiEnabled": "Turn on Quill in Settings to use cloud transcription (Quill Cloud).",
   "meetingNoteHardwareSummary": "{cpus} cores · {ramLabel}",
   "@meetingNoteHardwareSummary": {
     "placeholders": {
@@ -367,7 +367,7 @@
       "modelLabel": {}
     }
   },
-  "meetingNoteLocalTranscriptionNotViable": "This device is below the minimum for local transcription. Only audio will be saved unless you enable “Force local transcription” in Settings or use Quill Cloud with AI enabled.",
+  "meetingNoteLocalTranscriptionNotViable": "This device is below the minimum for local transcription. Only audio will be saved unless you enable “Force local transcription” in Settings or use Quill Cloud with Quill enabled.",
   "meetingNoteGenerateTranscription": "Generate transcription",
   "meetingNoteGenerateTranscriptionSubtitle": "Turn off to keep audio only for this note.",
   "meetingNoteSettingsAutoWhisperModel": "Pick model automatically from hardware",
@@ -411,14 +411,14 @@
   "meetingNoteModelMedium": "Advanced",
   "meetingNoteModelTurbo": "Best quality",
   "meetingNoteCopyTranscript": "Copy transcript",
-  "meetingNoteSendToAi": "Send to AI…",
-  "meetingNoteAiPayloadLabel": "What to send to AI?",
+  "meetingNoteSendToAi": "Send to Quill…",
+  "meetingNoteAiPayloadLabel": "What to send to Quill?",
   "meetingNoteAiPayloadTranscript": "Transcript only",
   "meetingNoteAiPayloadAudio": "Audio only",
   "meetingNoteAiPayloadBoth": "Transcript + audio",
   "meetingNoteAiInstructionHint": "e.g. summarise the key points",
   "meetingNoteAiNoAudio": "No audio available for this mode",
-  "meetingNoteAiInstruction": "Instruction for AI",
+  "meetingNoteAiInstruction": "Instruction for Quill",
   "dragToReorder": "Drag to reorder",
   "addBlock": "Add block",
   "blockMentionPageSubtitle": "Mention page",
@@ -458,7 +458,7 @@
   "pasteAsUrlSubtitle": "Insert markdown link in text",
   "pasteAsEmbedSubtitle": "Video block with preview (YouTube) or bookmark",
   "pasteAsBookmarkSubtitle": "Card with title and link",
-  "pasteAsMentionSubtitle": "Link to a page in this vault",
+  "pasteAsMentionSubtitle": "Link to a page in this notebook",
   "tableAddRow": "Row",
   "tableRemoveRow": "Remove row",
   "tableAddColumn": "Column",
@@ -506,7 +506,7 @@
   "noVersionsYet": "No versions yet",
   "historyAppearsHint": "After you stop typing for a few seconds, change history will appear here.",
   "versionControl": "Version control",
-  "historyHeaderBody": "The vault saves quickly; history adds an entry when you stop editing and content changed.",
+  "historyHeaderBody": "The notebook saves quickly; history adds an entry when you stop editing and content changed.",
   "versionsCount": "{count} {count, plural, one {version} other {versions}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Untitled",
@@ -522,24 +522,24 @@
   "aiChatContextUsesCurrentPage": "Context: current page ({title})",
   "@aiChatContextUsesCurrentPage": {"placeholders": {"title": {}}},
   "aiChatContextOnePageFallback": "Context: 1 page",
-  "aiChatContextNPages": "{count} pages in chat context",
+  "aiChatContextNPages": "{count} pages in note context",
   "@aiChatContextNPages": {"placeholders": {"count": {"type": "int"}}},
   "aiChatPageContextTooltip": "Include page text in the model context",
   "aiChatChooseContextPagesTooltip": "Choose which pages add text to context",
-  "aiChatContextPagesDialogTitle": "Pages in chat context",
+  "aiChatContextPagesDialogTitle": "Pages in note context",
   "aiChatContextPagesClear": "Clear list",
   "aiChatContextPagesApply": "Apply",
   "aiTypingSemantics": "Quill is typing",
-  "aiRenameChatTooltip": "Rename chat",
-  "aiRenameChatDialogTitle": "Chat title",
+  "aiRenameChatTooltip": "Rename note",
+  "aiRenameChatDialogTitle": "Note title",
   "aiRenameChatLabel": "Title shown on the tab",
   "quillWorkspaceTourTitle": "Quill can help from here",
-  "quillWorkspaceTourBodyReady": "Your Quill chat is ready for questions, page edits, and note context workflows.",
+  "quillWorkspaceTourBodyReady": "Your Quill notes is ready for questions, page edits, and note context workflows.",
   "quillWorkspaceTourBodyUnavailable": "Even if it is not active right now, Quill belongs in this workspace and you can enable it later from Settings.",
   "quillWorkspaceTourPointsTitle": "What is worth knowing",
   "quillWorkspaceTourPointOne": "It works both as a conversational assistant and as an editor for titles and blocks.",
   "quillWorkspaceTourPointTwo": "It can use the current page or multiple pages as context.",
-  "quillWorkspaceTourPointThree": "If you tap an example below, it will prefill the chat when Quill is available.",
+  "quillWorkspaceTourPointThree": "If you tap an example below, it will prefill the note when Quill is available.",
   "quillWorkspaceTourExamplesTitle": "Try prompts like",
   "quillWorkspaceTourExampleOne": "Explain how to organize this page.",
   "quillWorkspaceTourExampleTwo": "Use these two pages to make a shared summary.",
@@ -549,10 +549,10 @@
   "aiCollapse": "Collapse",
   "sidebarItemExpandedSemantics": "Expanded",
   "sidebarItemCollapsedSemantics": "Collapsed",
-  "aiDeleteCurrentChat": "Delete current chat",
-  "aiNewChat": "New",
+  "aiDeleteCurrentChat": "Delete current note",
+  "aiNewChat": "New note",
   "aiAttach": "Attach",
-  "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).",
+  "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this note).",
   "aiChatEmptyFocusComposer": "Write a message",
   "aiInputHint": "Type your message. Quill will act as an agent.",
   "aiInputHintCopilot": "Type your message...",
@@ -565,7 +565,7 @@
   "aiContextAddPage": "Attach page",
   "aiContextEditorSelection": "Include editor selection (next send)",
   "aiContextLastMeetingOnPage": "Include last meeting on page (next send)",
-  "aiAttachMenuTitle": "Add to chat",
+  "aiAttachMenuTitle": "Add to note",
   "aiAttachMenuSubtitle": "Context, files, or meeting notes for this question",
   "aiAttachMenuBack": "Back",
   "aiAttachMenuSearchPagesHint": "Search pages…",
@@ -578,9 +578,9 @@
   "aiAttachLastMeetingSubtitle": "Last meeting on the open page on the next message",
   "aiAttachCurrentPageSubtitle": "Use only the open page as context",
   "aiAttachPageAlreadyAdded": "Already added",
-  "aiShowPanel": "Show AI panel",
-  "aiHidePanel": "Hide AI panel",
-  "aiPanelResizeHandle": "Resize AI panel",
+  "aiShowPanel": "Show Quill panel",
+  "aiHidePanel": "Hide Quill panel",
+  "aiPanelResizeHandle": "Resize Quill panel",
   "aiPanelResizeHandleHint": "Drag horizontally to change the assistant panel width",
   "importMarkdownPage": "Import Markdown",
   "exportMarkdownPage": "Export Markdown",
@@ -589,10 +589,10 @@
   "workspaceRedoTooltip": "Redo (Ctrl+Y)",
   "workspaceMoreActionsTooltip": "More actions",
   "closeCurrentPage": "Close current page",
-  "aiErrorWithDetails": "AI error: {error}",
+  "aiErrorWithDetails": "Quill error: {error}",
   "@aiErrorWithDetails": {"placeholders": {"error": {}}},
-  "aiServiceUnreachable": "Could not reach the AI service at the configured endpoint. Start Ollama or LM Studio and check the URL.",
-  "aiLaunchProviderWithApp": "Open AI app when Folio starts",
+  "aiServiceUnreachable": "Could not reach the Quill service at the configured endpoint. Start Ollama or LM Studio and check the URL.",
+  "aiLaunchProviderWithApp": "Open Quill provider app when Folio starts",
   "aiLaunchProviderWithAppHint": "Tries to launch Ollama or LM Studio on Windows when the endpoint is localhost. LM Studio may still need its server started manually.",
   "settingsMcpServerTitle": "Local MCP server (beta)",
   "settingsMcpServerSubtitle": "Lets external MCP clients (Cursor, Claude Desktop, Claude Code…) manage your pages and notebooks. This machine only.",
@@ -609,7 +609,7 @@
   "settingsMcpCopyClaudeConfigDone": "Claude Desktop JSON copied (mcp-remote). Paste into %APPDATA%\\Claude\\claude_desktop_config.json. Requires Node.js/npx. Do not use Claude’s “Custom connector” form with localhost.",
   "settingsMcpClaudeCustomConnectorHint": "Claude’s “Add custom connector” dialog needs a public HTTPS URL that Anthropic’s servers can reach. Folio’s MCP is local-only (127.0.0.1), so that form cannot use it. For Claude Desktop on this PC, use “Copy Claude Desktop JSON” and paste it into claude_desktop_config.json.",
   "aiContextWindowTokens": "Model context window (tokens)",
-  "aiContextWindowTokensHint": "Used for the context bar in AI chat. Match your model (e.g. 8192, 131072).",
+  "aiContextWindowTokensHint": "Used for the context bar in Quill notes. Match your model (e.g. 8192, 131072).",
   "aiContextUsageUnavailable": "Token usage was not reported for the last reply.",
   "aiContextUsageSummary": "Prompt {prompt} · Output {completion}",
   "@aiContextUsageSummary": {"placeholders": {"prompt": {}, "completion": {}}},
@@ -621,14 +621,14 @@
   "aiChatInkBreakdownTooltip": "Monthly {monthly} · Purchased {purchased}",
   "@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}},
   "aiAgentThought": "Quill's thought",
-  "aiAlwaysShowThought": "Always show AI thought",
+  "aiAlwaysShowThought": "Always show Quill thought",
   "aiAlwaysShowThoughtHint": "If disabled, it appears collapsed with an arrow in each message.",
   "aiBetaBadge": "BETA",
-  "aiBetaEnableTitle": "AI is in BETA",
+  "aiBetaEnableTitle": "Quill is in BETA",
   "aiBetaEnableBody": "This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?",
   "aiBetaEnableConfirm": "Enable BETA",
-  "ai": "AI",
-  "aiEnableToggleTitle": "Enable AI",
+  "ai": "Quill",
+  "aiEnableToggleTitle": "Enable Quill",
   "aiProviderLabel": "Provider",
   "aiProviderNone": "None",
   "aiEndpoint": "Endpoint",
@@ -639,12 +639,12 @@
   "aiAllowRemoteEndpointLocalhostOnly": "Localhost only",
   "aiAllowRemoteEndpointNotConfirmed": "Remote endpoint access is enabled but has not been confirmed yet.",
   "aiConnectToListModels": "Connect to list models",
-  "aiProviderAutoConfigured": "AI provider detected and configured: {provider}",
+  "aiProviderAutoConfigured": "Quill provider detected and configured: {provider}",
   "@aiProviderAutoConfigured": {"placeholders": {"provider": {}}},
-  "aiSetupAssistantTitle": "AI setup assistant",
+  "aiSetupAssistantTitle": "Quill setup",
   "aiSetupAssistantSubtitle": "Detect and configure Ollama or LM Studio automatically.",
-  "aiSetupWizardTitle": "AI setup assistant",
-  "aiSetupChooseProviderTitle": "Choose AI provider",
+  "aiSetupWizardTitle": "Quill setup",
+  "aiSetupChooseProviderTitle": "Choose Quill provider",
   "aiSetupChooseProviderBody": "First choose which provider you want to use. Then we guide you through installation and setup.",
   "aiSetupNoProviderTitle": "No active provider detected",
   "aiSetupNoProviderBody": "We could not find Ollama or LM Studio running and reachable.\nFollow the steps to install/start one of them and press Retry.",
@@ -657,14 +657,14 @@
   "aiCompareCloudTitle": "Folio Cloud",
   "aiCompareLocalTitle": "Local (Ollama / LM Studio)",
   "aiCompareCloudBulletNoSetup": "No local setup: works after signing in.",
-  "aiCompareCloudBulletNeedsSub": "Folio Cloud subscription with cloud AI or purchased ink.",
-  "aiCompareCloudBulletInk": "Uses ink for cloud AI (packs + monthly refill).",
-  "aiProviderFolioCloudBlockedSnack": "You need an active Folio Cloud plan with cloud AI or purchased ink — see Settings → Folio Cloud.",
+  "aiCompareCloudBulletNeedsSub": "Folio Cloud subscription with Quill Cloud or purchased ink.",
+  "aiCompareCloudBulletInk": "Uses ink for Quill Cloud (packs + monthly refill).",
+  "aiProviderFolioCloudBlockedSnack": "You need an active Folio Cloud plan with Quill Cloud or purchased ink — see Settings → Folio Cloud.",
   "aiCompareLocalBulletPrivacy": "Local privacy (your machine).",
   "aiCompareLocalBulletNoInk": "No ink: not tied to a balance.",
   "aiCompareLocalBulletSetup": "Requires installing and running a provider on localhost.",
-  "quillGlobalScopeNoticeTitle": "Quill works across all vaults",
-  "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.",
+  "quillGlobalScopeNoticeTitle": "Quill works across all notebooks",
+  "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any notebook on this installation, not just the current one.",
   "quillGlobalScopeNoticeConfirm": "I understand",
   "searchByNameOrShortcut": "Search by name or shortcut…",
   "search": "Search",
@@ -698,7 +698,7 @@
   "taskHubClose": "Close view",
   "taskHubDashboardHelpTitle": "Dashboard-style ideas",
   "taskHubDashboardHelpBody": "Create a page with a columns block linking list pages per context, or a database block with dates and statuses for a board. Quick capture and this view are inspired by apps like Snippets (snippets.ch).",
-  "taskHubEmpty": "No tasks in this vault.",
+  "taskHubEmpty": "No tasks in this notebook.",
   "taskHubFilterAll": "All",
   "taskHubFilterActive": "Open",
   "taskHubFilterDone": "Done",
@@ -730,7 +730,7 @@
   "hotkeyCtrlShiftK": "Ctrl + Shift + K",
   "minimizeToTray": "Minimize to tray",
   "closeToTray": "Close to tray",
-  "searchAllVaultHint": "Search across the entire vault...",
+  "searchAllVaultHint": "Search across the entire notebook...",
   "typeToSearch": "Type to search",
   "noSearchResults": "No results",
   "searchFilterAll": "All",
@@ -741,7 +741,7 @@
   "settingsSearchSections": "Search settings",
   "settingsSearchSectionsHint": "Filter categories in the sidebar",
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
-  "scheduledVaultBackupSubtitle": "While the vault is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.",
+  "scheduledVaultBackupSubtitle": "While the notebook is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.",
   "scheduledVaultBackupFolderTitle": "Backup to folder",
   "scheduledVaultBackupFolderSubtitle": "Save an encrypted incremental pack backup to the configured folder.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
@@ -767,7 +767,7 @@
   "scheduledVaultBackupSnackOk": "Scheduled backup saved.",
   "scheduledVaultBackupSnackFail": "Scheduled backup failed: {error}",
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
-  "vaultBackupOpenVaultHint": "Backups are for the vault open right now: “{name}”.",
+  "vaultBackupOpenVaultHint": "Backups are for the notebook open right now: “{name}”.",
   "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
   "vaultBackupDiskSizeApprox": "Approximate size on disk: {size}",
   "@vaultBackupDiskSizeApprox": {"placeholders": {"size": {"type": "String"}}},
@@ -814,8 +814,8 @@
   "remoteBackupRestoreFromWebdav": "WebDAV",
   "remoteBackupRestoreEmpty": "No Folio backups found at this destination.",
   "remoteBackupRestoreDownload": "Download",
-  "remoteBackupRestoreImportNew": "Import as new vault",
-  "remoteBackupRestoreImportOverwrite": "Overwrite active vault",
+  "remoteBackupRestoreImportNew": "Import as new notebook",
+  "remoteBackupRestoreImportOverwrite": "Overwrite active notebook",
   "remoteBackupRestoreOpen": "Restore from NAS or server",
   "remoteBackupRestoreIncrementalPackTitle": "Incremental backup ({vaultId})",
   "@remoteBackupRestoreIncrementalPackTitle": {
@@ -832,7 +832,7 @@
   "remoteBackupDialogClose": "Close",
   "remoteBackupDialogRefresh": "Refresh",
   "vaultCloudPackProgressPreparing": "Preparing cloud upload…",
-  "vaultCloudPackProgressPersisting": "Saving local vault changes…",
+  "vaultCloudPackProgressPersisting": "Saving local notebook changes…",
   "vaultCloudPackProgressFingerprint": "Computing content fingerprint…",
   "vaultCloudPackProgressFetchingMeta": "Checking Folio Cloud state…",
   "vaultCloudPackProgressSkippedUpToDate": "Nothing to upload: cloud already has this version.",
@@ -840,9 +840,9 @@
   "vaultCloudPackProgressIndexingLocal": "Indexing local files…",
   "vaultCloudPackProgressDownloadingManifest": "Downloading previous cloud inventory…",
   "vaultCloudPackProgressBlobManifest": "Backup manifest",
-  "vaultCloudPackProgressBlobVaultKeys": "Vault keys (vault.keys)",
-  "vaultCloudPackProgressBlobVaultData": "Encrypted vault data (vault.bin)",
-  "vaultCloudPackProgressBlobVaultMode": "Vault mode",
+  "vaultCloudPackProgressBlobVaultKeys": "Notebook keys (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Encrypted notebook data (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Notebook mode",
   "vaultCloudPackProgressBlobAttachment": "Attachment: {name}",
   "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
   "vaultCloudPackProgressBlobAttachmentAnonymous": "Attachment",
@@ -854,34 +854,34 @@
   "vaultCloudPackProgressUpdatingIndex": "Updating backup index…",
   "vaultCloudPackProgressComplete": "Cloud backup complete.",
   "vaultIdentitySyncTitle": "Synchronization",
-  "vaultIdentitySyncBody": "Enter your vault password (or Hello / passkey) to continue.",
+  "vaultIdentitySyncBody": "Enter your notebook password (or Hello / passkey) to continue.",
   "vaultIdentityCloudBackupTitle": "Cloud backups",
-  "vaultIdentityCloudBackupBody": "Confirm vault identity to list or download encrypted backups.",
-  "aiRewriteDialogTitle": "Rewrite with AI",
+  "vaultIdentityCloudBackupBody": "Confirm notebook identity to list or download encrypted backups.",
+  "aiRewriteDialogTitle": "Rewrite with Quill",
   "aiPreviewTitle": "Preview",
   "aiInstructionHint": "Example: make it clearer and shorter",
   "aiApply": "Apply",
   "aiGenerating": "Generating…",
-  "aiSummarizeSelection": "Summarize with AI…",
+  "aiSummarizeSelection": "Summarize with Quill…",
   "aiExtractTasksDates": "Extract tasks & dates…",
   "aiPreviewReadOnlyHint": "You can edit the text below before applying.",
   "aiRewriteApplied": "Block updated.",
   "aiUndoRewrite": "Undo",
   "aiInsertBelow": "Insert below",
-  "unlockVaultTitle": "Unlock vault",
+  "unlockVaultTitle": "Unlock notebook",
   "miniUnlockFailed": "Could not unlock."
   ,"importNotionTitle": "Import from Notion (.zip)"
   ,"importNotionSubtitle": "Notion ZIP export (Markdown/HTML)"
   ,"importNotionDialogTitle": "Import from Notion"
-  ,"importNotionDialogBody": "Import a ZIP exported by Notion. You can append into the current vault or create a new one."
+  ,"importNotionDialogBody": "Import a ZIP exported by Notion. You can append into the current notebook or create a new one."
   ,"importNotionSelectTargetTitle": "Import target"
-  ,"importNotionSelectTargetBody": "Choose whether to import the Notion export into your current vault or create a new vault from it."
-  ,"importNotionTargetCurrent": "Current vault"
-  ,"importNotionTargetNew": "New vault"
+  ,"importNotionSelectTargetBody": "Choose whether to import the Notion export into your current notebook or create a new notebook from it."
+  ,"importNotionTargetCurrent": "Current notebook"
+  ,"importNotionTargetNew": "New notebook"
   ,"importNotionDefaultVaultName": "Imported from Notion"
-  ,"importNotionNewVaultPasswordTitle": "Password for new vault"
-  ,"importNotionSuccessCurrent": "Notion imported into current vault."
-  ,"importNotionSuccessNew": "New vault imported from Notion."
+  ,"importNotionNewVaultPasswordTitle": "Password for new notebook"
+  ,"importNotionSuccessCurrent": "Notion imported into current notebook."
+  ,"importNotionSuccessNew": "New notebook imported from Notion."
   ,"importNotionError": "Could not import Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
   ,"importNotionWarningsTitle": "Import warnings"
@@ -889,7 +889,7 @@
   ,"ok": "OK"
   ,"notionExportGuideTitle": "How to export from Notion"
   ,"notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio."
-  ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your vault regularly."
+  ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your notebook regularly."
   ,"appBetaBannerDismiss": "Got it"
   ,"integrations": "Integrations"
   ,"integrationsAppsApprovedHint": "Approved external apps can use the local integration bridge."
@@ -912,10 +912,10 @@
   ,"integrationApprovalCanDoSessions": "Create short-lived import sessions in Folio."
   ,"integrationApprovalCanDoImport": "Send Markdown documentation to create or update pages through the import bridge."
   ,"integrationApprovalCanDoMetadata": "Store import provenance such as the client app, session, and source metadata on imported pages."
-  ,"integrationApprovalCanDoUnlockedVault": "Import only while the vault is available and the request includes the configured secret."
+  ,"integrationApprovalCanDoUnlockedVault": "Import only while the notebook is available and the request includes the configured secret."
   ,"integrationApprovalCannotDoTitle": "What it cannot do"
-  ,"integrationApprovalCannotDoRead": "It cannot read your vault contents through this bridge."
-  ,"integrationApprovalCannotDoBypassLock": "It cannot bypass the vault lock, encryption, or your explicit approval."
+  ,"integrationApprovalCannotDoRead": "It cannot read your notebook contents through this bridge."
+  ,"integrationApprovalCannotDoBypassLock": "It cannot bypass the notebook lock, encryption, or your explicit approval."
   ,"integrationApprovalCannotDoWithoutSecret": "It cannot access protected endpoints without the shared secret."
   ,"integrationApprovalCannotDoRemoteAccess": "It cannot use the bridge from outside localhost."
   ,"integrationApprovalEncryptedChip": "Encrypted content (v2)"
@@ -933,14 +933,14 @@
   ,"updaterBetaDescription": "Betas are GitHub releases marked as pre-release."
   ,"updaterStableDescription": "Only the latest stable release is considered."
   ,"checkUpdates": "Check for updates"
-  ,"noEncryptionConfirmTitle": "Create vault without encryption"
+  ,"noEncryptionConfirmTitle": "Create notebook without encryption"
   ,"noEncryptionConfirmBody": "Your data will be stored without a password and without encryption. Anyone with access to this device can read it."
   ,"createVaultWithoutEncryption": "Create without encryption"
-  ,"plainVaultSecurityNotice": "This vault is not encrypted. Passkey, quick unlock (Hello), auto-lock after idle time, lock on minimize, and master password do not apply."
-  ,"encryptPlainVaultTitle": "Encrypt this vault"
+  ,"plainVaultSecurityNotice": "This notebook is not encrypted. Passkey, quick unlock (Hello), auto-lock after idle time, lock on minimize, and master password do not apply."
+  ,"encryptPlainVaultTitle": "Encrypt this notebook"
   ,"encryptPlainVaultBody": "Choose a master password. All data on this device will be encrypted. If you forget it, your data cannot be recovered."
-  ,"encryptPlainVaultConfirm": "Encrypt vault"
-  ,"encryptPlainVaultSuccessSnack": "Vault is now encrypted"
+  ,"encryptPlainVaultConfirm": "Encrypt notebook"
+  ,"encryptPlainVaultSuccessSnack": "Notebook is now encrypted"
   ,"aiCopyMessage": "Copy"
   ,"aiCopyCode": "Copy code"
   ,"aiCopiedToClipboard": "Copied to clipboard"
@@ -987,7 +987,7 @@
   ,"templateEdit": "Edit template"
   ,"templateUpdated": "Template updated"
   ,"templateDeleteConfirmTitle": "Delete template"
-  ,"templateDeleteConfirmBody": "Template \"{name}\" will be removed from this vault."
+  ,"templateDeleteConfirmBody": "Template \"{name}\" will be removed from this notebook."
   ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
   ,"templateCreatedOn": "Created {date}"
   ,"@templateCreatedOn": {"placeholders": {"date": {}}}
@@ -1021,9 +1021,9 @@
   ,"@templateCommunityDownloadError": {"placeholders": {"error": {}}}
   ,"clear": "Clear"
   ,"cloudAccountSectionTitle": "Folio Cloud account"
-  ,"cloudAccountSectionDescription": "Optional. Sign in to subscribe to cloud backup, hosted AI, and web publishing. Your vault stays local unless you use those features."
+  ,"cloudAccountSectionDescription": "Optional. Sign in to subscribe to cloud backup, hosted Quill, and web publishing. Your notebook stays local unless you use those features."
   ,"cloudAccountChipOptional": "Optional"
-  ,"cloudAccountChipPaidCloud": "Backups, AI & web"
+  ,"cloudAccountChipPaidCloud": "Backups, Quill & web"
   ,"cloudAccountUnavailable": "Cloud sign-in is unavailable (Firebase did not start). Check your connection or run flutterfire configure with your project."
   ,"cloudAccountEmailLabel": "Email"
   ,"cloudAccountPasswordLabel": "Password"
@@ -1051,7 +1051,7 @@
   ,"cloudAuthErrorOperationNotAllowed": "This sign-in method is not enabled in Firebase."
   ,"cloudAuthErrorGeneric": "Sign-in failed. Try again."
   ,"cloudAuthDialogTitle": "Folio Cloud"
-  ,"cloudAuthSubtitleSignIn": "Use your Folio Cloud email and password. Nothing here changes your local vault."
+  ,"cloudAuthSubtitleSignIn": "Use your Folio Cloud email and password. Nothing here changes your local notebook."
   ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials. Signing up gives you 500 MB of cloud backups and multi-device sync (no monthly ink). Your notes are not uploaded until you enable backups or sync."
   ,"cloudAuthModeSignIn": "Sign in"
   ,"cloudAuthModeRegister": "Register"
@@ -1059,10 +1059,10 @@
   ,"cloudAuthValidationRequired": "This field is required."
   ,"cloudAuthValidationPasswordShort": "Use at least 6 characters."
   ,"cloudAuthValidationConfirmMismatch": "Passwords do not match."
-  ,"cloudAccountSignedOutPrompt": "Sign in or register to subscribe to Folio Cloud and use backups, cloud AI, and publishing."
+  ,"cloudAccountSignedOutPrompt": "Sign in or register to subscribe to Folio Cloud and use backups, Quill Cloud, and publishing."
   ,"cloudAuthResetHint": "We will email you a link to set a new password."
   ,"cloudAccountEmailVerified": "Verified"
-  ,"cloudAccountSignOutHelp": "Your local vault stays on this device."
+  ,"cloudAccountSignOutHelp": "Your local notebook stays on this device."
   ,"cloudAccountEmailUnverifiedBanner": "Verify your email to secure your Folio Cloud account."
   ,"cloudAccountResendVerification": "Resend verification email"
   ,"cloudAccountReloadVerification": "I've verified"
@@ -1078,7 +1078,7 @@
   ,"folioWebPortalLinkButton": "Link"
   ,"folioWebPortalLinkSuccess": "Web account linked successfully."
   ,"folioWebPortalNeedSignIn": "Sign in to Folio Cloud to link your web account."
-  ,"folioWebMirrorNote": "Backups, AI, and publishing are still governed by Folio Cloud (Firestore). Below reflects your web account."
+  ,"folioWebMirrorNote": "Backups, Quill, and publishing are still governed by Folio Cloud (Firestore). Below reflects your web account."
   ,"folioWebEntitlementLinked": "Web account linked"
   ,"folioWebEntitlementNotLinked": "Web account not linked"
   ,"folioWebEntitlementWebPlan": "Folio Cloud (web): {value}"
@@ -1105,7 +1105,7 @@
   ,"folioCloudSubscriptionActiveWithStatus": "Subscription active ({status})"
   ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
   ,"folioCloudSubscriptionNoneTitle": "No Folio Cloud subscription"
-  ,"folioCloudSubscriptionNoneSubtitle": "Activate a plan for encrypted backup, cloud AI, and web publishing."
+  ,"folioCloudSubscriptionNoneSubtitle": "Activate a plan for encrypted backup, Quill Cloud, and web publishing."
   ,"folioCloudFeatureBackup": "Cloud backup"
   ,"folioCloudDeviceSyncTitle": "Sync across devices"
   ,"folioCloudUnifiedSheetTitle": "Save and sync"
@@ -1145,7 +1145,7 @@
   ,"syncConflictMergeHunksTitle": "Changes by hunk"
   ,"syncConflictMergePageUntitled": "Untitled"
   ,"syncConflictMergeMissingPage": "Page not found"
-  ,"syncConflictMergeLegacyTitle": "Vault conflict"
+  ,"syncConflictMergeLegacyTitle": "Notebook conflict"
   ,"syncConflictMergeUnknownBlock": "Block"
   ,"syncConflictMergeBlockType": "Type: {type}"
   ,"@syncConflictMergeBlockType": {"placeholders": {"type": {"type": "String"}}}
@@ -1156,12 +1156,12 @@
   ,"@syncConflictMergeLegacyMeta": {"placeholders": {"device": {}, "detectedAt": {}}}
   ,"syncConflictMergeShowIds": "Show identifiers"
   ,"syncConflictMergeHideIds": "Hide identifiers"
-  ,"syncConflictMergeLegacyHint": "This is a vault-level conflict (legacy format). Use Keep local or Accept remote."
+  ,"syncConflictMergeLegacyHint": "This is a notebook-level conflict (legacy format). Use Keep local or Accept remote."
   ,"syncConflictMergeAppliedSnack": "Merge applied."
   ,"folioCloudDeviceSyncResolveConflictsTile": "Sync conflicts"
   ,"folioCloudDeviceSyncNowOk": "Sync completed."
   ,"folioCloudDeviceSyncNowFail": "Could not sync. Check the error details."
-  ,"folioCloudDeviceSyncNowDisabled": "Enable device sync or unlock the vault."
+  ,"folioCloudDeviceSyncNowDisabled": "Enable device sync or unlock the notebook."
   ,"folioCloudDeviceSyncAllVaultsOk": "All notebooks are synced"
   ,"folioCloudDeviceSyncVaultsNeedAttention": "{count, plural, one{1 notebook needs syncing} other{{count} notebooks need syncing}}"
   ,"@folioCloudDeviceSyncVaultsNeedAttention": {"placeholders": {"count": {"type": "int"}}}
@@ -1173,7 +1173,7 @@
   ,"folioCloudDeviceSyncOpenVault": "Open"
   ,"folioCloudSubsectionAccountProfile": "Account profile"
   ,"folioCloudAppProfileSyncTitle": "Sync app settings"
-  ,"folioCloudAppProfileSyncSubtitle": "Backs up theme, AI, shortcuts, custom icons and other preferences to your Folio Cloud account (encrypted)."
+  ,"folioCloudAppProfileSyncSubtitle": "Backs up theme, Quill, shortcuts, custom icons and other preferences to your Folio Cloud account (encrypted)."
   ,"folioCloudAppProfileUploadNow": "Upload settings now"
   ,"folioCloudAppProfileRestore": "Restore settings from cloud"
   ,"folioCloudAppProfileRestoreDialogTitle": "Restore account settings?"
@@ -1185,7 +1185,7 @@
   ,"folioCloudAppProfileRestoreFail": "Could not decrypt cloud settings (key mismatch). Choose start fresh to upload this device’s settings, or restore from another device that syncs correctly."
   ,"folioCloudAppProfileEmptyCloud": "No settings profile in the cloud yet. Upload from this device first."
   ,"folioCloudVaultProfileRestore": "Restore preferences for this notebook"
-  ,"folioCloudFeatureCloudAi": "Cloud AI"
+  ,"folioCloudFeatureCloudAi": "Quill Cloud"
   ,"folioCloudFeaturePublishWeb": "Web publishing"
   ,"folioCloudFeatureOn": "Included"
   ,"folioCloudFeatureOff": "Not included"
@@ -1198,7 +1198,7 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
   ,"folioCloudPlanFreeHeadline": "Folio Cloud free plan"
-  ,"folioCloudPlanFreeSubtitle": "500 MB of cloud backups and multi-device sync. No monthly ink — subscribe for cloud AI and more storage."
+  ,"folioCloudPlanFreeSubtitle": "500 MB of cloud backups and multi-device sync. No monthly ink — subscribe for Quill Cloud and more storage."
   ,"folioCloudImportAllWarningTitle": "Import notebooks from the cloud"
   ,"folioCloudImportAllWarningBodyEmpty": "All notebooks in your account will be downloaded and imported. Your local notebook is empty: the first cloud notebook will fill this slot and the rest will be added. Your account password is only used for import; unlocking each notebook still uses its own master password."
   ,"folioCloudImportAllWarningBodyKeepLocal": "All notebooks in your account will be downloaded and imported as new notebooks. Your local notebook is kept. Your account password is only used for import; unlocking each notebook still uses its own master password."
@@ -1256,17 +1256,17 @@
   ,"folioCloudStudentVerifyDialogHelp": "Supports Spanish university academic domains and global domains."
   ,"folioCloudStudentVerifyDialogAction": "Verify now"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
-  ,"folioCloudPitchHeadline": "Your vault stays local. The cloud works when you want it."
-  ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share."
+  ,"folioCloudPitchHeadline": "Your notebook stays local. The cloud works when you want it."
+  ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted Quill Cloud with a monthly ink allowance, and publishing to the web—only for what you choose to share."
   ,"folioCloudPitchLearnMore": "See what's included"
   ,"folioCloudPitchCtaNeedAccount": "Sign in or create account"
   ,"folioCloudPitchGuestTeaserTitle": "Folio Cloud account"
   ,"folioCloudPitchGuestTeaserBody": "Optional account: see what the plan includes, then sign in when you want to subscribe."
   ,"folioCloudPitchOpenSettingsToSignIn": "Open Settings and sign in to Folio Cloud (Folio Cloud section) to subscribe."
   ,"folioCloudBuyInk": "Buy ink"
-  ,"folioCloudInkSmall": "Small ink (€1.99)"
-  ,"folioCloudInkMedium": "Medium ink (€4.99)"
-  ,"folioCloudInkLarge": "Large ink (€9.99)"
+  ,"folioCloudInkSmall": "Small ink bottle (€1.99)"
+  ,"folioCloudInkMedium": "Medium ink bottle (€4.99)"
+  ,"folioCloudInkLarge": "Large ink bottle (€9.99)"
   ,"folioCloudManageSubscription": "Manage subscription"
   ,"folioCloudRefreshFromStripe": "Refresh"
   ,"folioCloudMicrosoftStoreBillingTitle": "Microsoft Store (Windows)"
@@ -1295,7 +1295,7 @@
       }
     }
   },
-  "folioCloudUploadSnackOk": "Vault backup saved to the cloud."
+  "folioCloudUploadSnackOk": "Notebook backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "Automatically uploads an encrypted incremental backup to your Folio Cloud account (on the chosen interval or on every change)."
   ,"folioCloudCloudBackupsList": "Cloud backups"
@@ -1316,36 +1316,36 @@
   ,"folioCloudBackupTypeIncremental": "Incremental backup (latest)"
   ,"folioCloudBackupPackNoDownload": "Incremental backups are restored with “Import and overwrite”. There is no separate file download."
   ,"folioCloudBackupQuotaExceeded": "Not enough cloud backup storage. Buy a storage expansion or delete old full backups under backups/."
-  ,"onboardingCloudBackupNeedLegacyArchive": "This vault only has an incremental cloud backup. To set up on a new device, download a full archive (.tar.gz) from another device with Folio, or create one from Settings → export."
-  ,"onboardingCloudBackupNeedRestoreWrap": "This incremental backup does not have a recovery key in the cloud yet. On the device where you created it, open Folio → Settings → upload the cloud backup (enter your vault password when prompted). You can also use a full archive (.zip) if you have one."
-  ,"onboardingCloudBackupIncrementalRestoreBody": "Incremental cloud backup selected. Enter your vault password (the one you use to unlock it). If your vault has no password, leave the field blank."
+  ,"onboardingCloudBackupNeedLegacyArchive": "This notebook only has an incremental cloud backup. To set up on a new device, download a full archive (.tar.gz) from another device with Folio, or create one from Settings → export."
+  ,"onboardingCloudBackupNeedRestoreWrap": "This incremental backup does not have a recovery key in the cloud yet. On the device where you created it, open Folio → Settings → upload the cloud backup (enter your notebook password when prompted). You can also use a full archive (.zip) if you have one."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Incremental cloud backup selected. Enter your notebook password (the one you use to unlock it). If your notebook has no password, leave the field blank."
   ,"cloudPackRestorePasswordHelper": "No password → leave blank"
   ,"settingsCloudBackupWrapPasswordTitle": "Recovery on other devices"
-  ,"settingsCloudBackupWrapPasswordBody": "Enter this vault’s password. It will be stored encrypted in your account so you can restore the incremental backup when installing Folio on a new device."
-  ,"settingsCloudBackupWrapPasswordRequired": "The vault password is required."
+  ,"settingsCloudBackupWrapPasswordBody": "Enter this notebook’s password. It will be stored encrypted in your account so you can restore the incremental backup when installing Folio on a new device."
+  ,"settingsCloudBackupWrapPasswordRequired": "The notebook password is required."
   ,"settingsCloudBackupWrapPasswordBodyPlain": "Optional: choose a recovery password to restore this incremental backup on another device. Leave it blank if you only use this device."
   ,"folioCloudPublishTestPage": "Publish test page"
   ,"folioCloudPublishedPagesList": "Published pages"
   ,"folioCloudReauthDialogTitle": "Confirm Folio Cloud account"
-  ,"folioCloudReauthDialogBody": "Enter your Folio Cloud account password (the one you use to sign in to the cloud) to list and download backups. This is not your local vault password."
+  ,"folioCloudReauthDialogBody": "Enter your Folio Cloud account password (the one you use to sign in to the cloud) to list and download backups. This is not your local notebook password."
   ,"folioCloudReauthRequiresPasswordProvider": "This session does not use a Folio Cloud password. Sign out and sign back in with email and password if you need to download backups."
-  ,"folioCloudAiNoInkTitle": "No cloud AI ink left"
-  ,"folioCloudAiNoInkBody": "Buy an ink bottle under Folio Cloud, wait for your monthly refill, or switch to local AI (Ollama or LM Studio) in the AI section of Settings."
+  ,"folioCloudAiNoInkTitle": "No Quill Cloud ink left"
+  ,"folioCloudAiNoInkBody": "Buy an ink bottle under Folio Cloud, wait for your monthly refill, or switch to local Quill (Ollama or LM Studio) in Quill section of Settings."
   ,"folioCloudAiNoInkActionCloud": "Folio Cloud & ink"
-  ,"folioCloudAiNoInkActionLocal": "AI provider"
-  ,"folioCloudAiZeroInkBanner": "Cloud AI ink is 0 — open Settings to buy ink or use local AI."
-  ,"folioCloudInkPurchaseAppliedHint": "Purchase applied: {purchased} purchased ink available for cloud AI."
+  ,"folioCloudAiNoInkActionLocal": "Quill provider"
+  ,"folioCloudAiZeroInkBanner": "Quill Cloud ink is 0 — open Settings to buy ink or use local Quill."
+  ,"folioCloudInkPurchaseAppliedHint": "Purchase applied: {purchased} purchased ink available for Quill Cloud."
   ,"@folioCloudInkPurchaseAppliedHint": {"placeholders": {"purchased": {}}}
   ,"onboardingCloudBackupCta": "Sign in and download a backup"
-  ,"onboardingCloudBackupPickVaultSubtitle": "Choose which vault you want to restore."
+  ,"onboardingCloudBackupPickVaultSubtitle": "Choose which notebook you want to restore."
   ,"onboardingFolioCloudTitle": "Folio Cloud"
-  ,"onboardingFolioCloudBody": "Enable cloud features when you need them: encrypted backups, hosted Quill, and web publishing. Your vault stays local unless you use these features."
+  ,"onboardingFolioCloudBody": "Enable cloud features when you need them: encrypted backups, hosted Quill, and web publishing. Your notebook stays local unless you use these features."
   ,"onboardingFolioCloudFeatureBackupTitle": "Encrypted cloud backups"
-  ,"onboardingFolioCloudFeatureBackupBody": "Store and download vault backups from your account. On desktop, listing/downloading is handled via Folio Cloud."
-  ,"onboardingFolioCloudFeatureAiTitle": "Cloud AI + ink"
-  ,"onboardingFolioCloudFeatureAiBody": "Hosted Quill with a Folio Cloud subscription (cloud AI) or by purchasing ink only. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureBackupBody": "Store and download notebook backups from your account. On desktop, listing/downloading is handled via Folio Cloud."
+  ,"onboardingFolioCloudFeatureAiTitle": "Quill Cloud + ink"
+  ,"onboardingFolioCloudFeatureAiBody": "Hosted Quill with a Folio Cloud subscription (Quill Cloud) or by purchasing ink only. Ink is consumed by usage; you can also use local Quill (Ollama/LM Studio)."
   ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
-  ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
+  ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your notebook is not shared."
   ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
   ,"folioCloudPitchPremiumMonthlyLabel": "Monthly Premium plan"
   ,"folioCloudCheckoutSuccess": "Payment completed successfully."
@@ -1359,14 +1359,14 @@
   ,"onboardingPrivacyTrustTitle": "Privacy and trust"
   ,"onboardingPrivacyTrustBody": "Your notes stay on this device. Optional anonymous usage statistics help improve Folio—you control this."
   ,"onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio works fully without the cloud."
-  ,"onboardingReadySummaryCloudActive": "Folio Cloud plan active—backups, cloud AI, and publishing are available."
+  ,"onboardingReadySummaryCloudActive": "Folio Cloud plan active—backups, Quill Cloud, and publishing are available."
   ,"onboardingReadySummaryCloudSkipped": "You can explore Folio Cloud anytime in Settings."
   ,"onboardingFolioCloudPitchForNotes": "Keep your notes safe with encrypted cloud backups when you want an extra copy."
   ,"onboardingFolioCloudPitchForJournal": "Protect your journal with encrypted backups you control."
   ,"onboardingFolioCloudPitchForTasks": "Share projects and publish pages on the web when you are ready."
-  ,"onboardingFolioCloudPitchForProjects": "Collaborate and publish selected pages—your full vault stays private."
-  ,"onboardingFolioCloudPitchForKnowledge": "Use cloud AI to organize and explore your knowledge base."
-  ,"onboardingFolioCloudPitchForStudy": "Study smarter with hosted AI and monthly ink refills."
+  ,"onboardingFolioCloudPitchForProjects": "Collaborate and publish selected pages—your full notebook stays private."
+  ,"onboardingFolioCloudPitchForKnowledge": "Use Quill Cloud to organize and explore your knowledge base."
+  ,"onboardingFolioCloudPitchForStudy": "Study smarter with hosted Quill and monthly ink refills."
   ,"onboardingFolioCloudCtaSubscribe": "Subscribe — 4.99 €/month"
   ,"onboardingFolioCloudCtaCreateAccount": "Create account and explore"
   ,"onboardingFolioCloudSkip": "Continue without cloud"
@@ -1458,7 +1458,7 @@
   ,"subtasks": "Subtasks"
   ,"add": "Add"
   ,"templateEmojiLabel": "Emoji"
-  ,"aiGenericErrorWithReason": "AI error: {reason}"
+  ,"aiGenericErrorWithReason": "Quill error: {reason}"
   ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
   ,"calloutTypeTooltip": "Callout type"
   ,"calloutTypeInfo": "Info"
@@ -1491,7 +1491,7 @@
   ,"@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"blockEditorDuplicate": "Duplicate"
   ,"blockEditorClearSelectionTooltip": "Clear selection"
-  ,"blockEditorMenuRewriteWithAi": "Rewrite with AI…"
+  ,"blockEditorMenuRewriteWithAi": "Rewrite with Quill…"
   ,"blockEditorMenuMoveUp": "Move up"
   ,"blockEditorMenuMoveDown": "Move down"
   ,"blockEditorMenuDuplicateBlock": "Duplicate block"
@@ -1574,12 +1574,12 @@
   ,"blockEditorCmdAiTranslateHint": "/ai translate · translate selection or block"
   ,"blockEditorAiSlashUnavailable": "Editor Quill slash commands are not wired in this view."
   ,"blockEditorAskQuillTooltip": "Ask Quill about the selection"
-  ,"aiChatSplitViewTooltip": "Split view: editor and chat side by side"
+  ,"aiChatSplitViewTooltip": "Split view: editor and note side by side"
   ,"aiThreadSearchHint": "Search threads…"
-  ,"settingsAiChatSplitViewTitle": "Quill chat split view"
-  ,"settingsAiChatSplitViewSubtitle": "Shows the chat panel beside the editor on desktop."
+  ,"settingsAiChatSplitViewTitle": "Quill notes split view"
+  ,"settingsAiChatSplitViewSubtitle": "Shows the Quill panel beside the editor on desktop."
   ,"settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (experimental)"
-  ,"settingsAiQuillCopilotExperimentalSubtitle": "Shows inline AI suggestions as you type; press Tab to accept. Requires a configured AI provider."
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Shows inline Quill suggestions as you type; press Tab to accept. Requires a configured Quill provider."
   ,"aiChatApplyInsertEnd": "Insert blocks at end"
   ,"aiChatApplyReplacePage": "Replace page blocks"
   ,"aiChatApplyOperations": "Apply edit operations"
@@ -1613,7 +1613,7 @@
   ,"blockTypeSectionMedia": "Media and data"
   ,"blockTypeSectionAdvanced": "Advanced and layout"
   ,"blockTypeSectionEmbeds": "Integrations"
-  ,"blockTypeSectionAiQuill": "Quill (AI)"
+  ,"blockTypeSectionAiQuill": "Quill (Quill)"
   ,"blockTypeParagraphLabel": "Text"
   ,"blockTypeParagraphHint": "Paragraph"
   ,"blockTypeChildPageLabel": "Page"
@@ -1754,7 +1754,7 @@
   ,"@driveBlockRowSubtitle": {"placeholders": {"files": {"type": "int"}, "folders": {"type": "int"}}}
   ,"driveNewFolder": "New folder"
   ,"driveUploadFile": "Upload file"
-  ,"driveImportFromVault": "Import from vault"
+  ,"driveImportFromVault": "Import from notebook"
   ,"driveViewGrid": "Grid"
   ,"driveViewList": "List"
   ,"driveEditBlock": "Edit block"
@@ -1802,13 +1802,13 @@
   ,"integrationCapImportPagesBody": "It can create pages, list them, and update only the pages that the same app previously imported."
   ,"integrationCapCustomEmojisTitle": "Manage its custom emojis"
   ,"integrationCapCustomEmojisBody": "It can list, create, replace, and delete only its own catalog of imported custom emojis or icons."
-  ,"integrationCapUnlockedVaultTitle": "Work only while the vault is unlocked"
-  ,"integrationCapUnlockedVaultBody": "Requests only work while Folio is open, the vault is available, and the current session is still active."
+  ,"integrationCapUnlockedVaultTitle": "Work only while the notebook is unlocked"
+  ,"integrationCapUnlockedVaultBody": "Requests only work while Folio is open, the notebook is available, and the current session is still active."
   ,"integrationSectionWhatStaysBlocked": "What will remain blocked"
   ,"integrationBlockNoSeeAllTitle": "It cannot see all your content"
-  ,"integrationBlockNoSeeAllBody": "It does not get general vault access. It can only list what it imported itself through its appId."
+  ,"integrationBlockNoSeeAllBody": "It does not get general notebook access. It can only list what it imported itself through its appId."
   ,"integrationBlockNoBypassTitle": "It cannot bypass lock or encryption"
-  ,"integrationBlockNoBypassBody": "If the vault is locked or there is no active session, Folio will reject the operation."
+  ,"integrationBlockNoBypassBody": "If the notebook is locked or there is no active session, Folio will reject the operation."
   ,"integrationBlockNoOtherAppsTitle": "It cannot touch another app's data"
   ,"integrationBlockNoOtherAppsBody": "It also cannot manage imported pages or custom emojis registered by other approved apps."
   ,"integrationBlockNoRemoteTitle": "It cannot connect from outside your machine"
@@ -1895,7 +1895,7 @@
   ,"createAction": "Create"
   ,"confirmAction": "Confirm"
   ,"confirmRemoteEndpointTitle": "Confirm remote endpoint"
-  ,"confirmRemoteEndpointBody": "You're about to enable AI with a remote host ({host}). Content you send may leave this device.\n\nContinue?"
+  ,"confirmRemoteEndpointBody": "You're about to enable Quill with a remote host ({host}). Content you send may leave this device.\n\nContinue?"
   ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Shift + F"
   ,"updateChannelRelease": "Release"
@@ -1906,15 +1906,15 @@
   ,"defaultNewPageTitle": "New page"
   ,"defaultPageDuplicateTitle": "{title} (copy)"
   ,"@defaultPageDuplicateTitle": {"placeholders": {"title": {}}}
-  ,"aiChatTitleNumbered": "Chat {n}"
+  ,"aiChatTitleNumbered": "Note {n}"
   ,"@aiChatTitleNumbered": {"placeholders": {"n": {"type": "int"}}}
   ,"invalidFolioTemplateFile": "The file is not a valid Folio template."
   ,"templateButtonDefaultLabel": "Template"
   ,"pageHtmlExportPublishedWithFolio": "Published with Folio"
   ,"releaseReadinessSemverOk": "Valid SemVer version"
-  ,"releaseReadinessEncryptedVault": "Encrypted vault"
-  ,"releaseReadinessAiRemotePolicy": "AI remote endpoint policy"
-  ,"releaseReadinessVaultUnlocked": "Vault unlocked"
+  ,"releaseReadinessEncryptedVault": "Encrypted notebook"
+  ,"releaseReadinessAiRemotePolicy": "Quill remote endpoint policy"
+  ,"releaseReadinessVaultUnlocked": "Notebook unlocked"
   ,"releaseReadinessStableChannel": "Stable channel selected"
   ,"aiPromptUserMessage": "User message:"
   ,"aiPromptOriginalMessage": "Original message:"
@@ -1963,7 +1963,7 @@
   ,"settingsAppRevoked": "App revoked: {appId}"
   ,"@settingsAppRevoked": {"placeholders": {"appId": {}}}
   ,"settingsDeviceRevokedSnack": "Device revoked."
-  ,"settingsAiConnectionOk": "AI connection OK"
+  ,"settingsAiConnectionOk": "Quill connection OK"
   ,"settingsAiConnectionError": "Connection error: {error}"
   ,"@settingsAiConnectionError": {"placeholders": {"error": {}}}
   ,"settingsAiListModelsFailed": "Could not list models: {error}"
@@ -1988,14 +1988,14 @@
   ,"mermaidPreviewTooltip": "Tap to enlarge and zoom. PNG via mermaid.ink (external service)."
   ,"aiEndpointInvalidUrl": "Invalid URL. Use http://host:port."
   ,"aiEndpointRemoteNotAllowed": "Remote endpoint is not allowed without confirmation."
-  ,"settingsAiSelectProviderFirst": "Select an AI provider first."
-  ,"releaseReadinessAiSummaryDisabled": "AI disabled"
-  ,"releaseReadinessAiSummaryQuillCloud": "Folio Cloud AI (no local endpoint)"
+  ,"settingsAiSelectProviderFirst": "Select an Quill provider first."
+  ,"releaseReadinessAiSummaryDisabled": "Quill disabled"
+  ,"releaseReadinessAiSummaryQuillCloud": "Folio Quill Cloud (no local endpoint)"
   ,"releaseReadinessAiSummaryEndpointOk": "Valid endpoint: {url}"
   ,"@releaseReadinessAiSummaryEndpointOk": {"placeholders": {"url": {}}}
   ,"releaseReadinessDetailSemverInvalid": "The installed version does not satisfy SemVer."
-  ,"releaseReadinessDetailVaultNotEncrypted": "The current vault is not encrypted."
-  ,"releaseReadinessDetailVaultLocked": "Unlock the vault to validate export/import and real flow."
+  ,"releaseReadinessDetailVaultNotEncrypted": "The current notebook is not encrypted."
+  ,"releaseReadinessDetailVaultLocked": "Unlock the notebook to validate export/import and real flow."
   ,"releaseReadinessDetailBetaChannel": "The beta update channel is active."
   ,"releaseReadinessReportTitle": "Folio: release readiness"
   ,"releaseReadinessReportInstalledVersion": "Installed version: {label}"
@@ -2004,19 +2004,19 @@
   ,"@releaseReadinessReportSemver": {"placeholders": {"value": {}}}
   ,"releaseReadinessReportChannel": "Update channel: {value}"
   ,"@releaseReadinessReportChannel": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportActiveVault": "Active vault: {id}"
+  ,"releaseReadinessReportActiveVault": "Active notebook: {id}"
   ,"@releaseReadinessReportActiveVault": {"placeholders": {"id": {}}}
-  ,"releaseReadinessReportVaultPath": "Vault path: {path}"
+  ,"releaseReadinessReportVaultPath": "Notebook path: {path}"
   ,"@releaseReadinessReportVaultPath": {"placeholders": {"path": {}}}
-  ,"releaseReadinessReportUnlocked": "Vault unlocked: {value}"
+  ,"releaseReadinessReportUnlocked": "Notebook unlocked: {value}"
   ,"@releaseReadinessReportUnlocked": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportEncrypted": "Vault encrypted: {value}"
+  ,"releaseReadinessReportEncrypted": "Notebook encrypted: {value}"
   ,"@releaseReadinessReportEncrypted": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiEnabled": "AI enabled: {value}"
+  ,"releaseReadinessReportAiEnabled": "Quill enabled: {value}"
   ,"@releaseReadinessReportAiEnabled": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiPolicy": "AI endpoint policy: {value}"
+  ,"releaseReadinessReportAiPolicy": "Quill endpoint policy: {value}"
   ,"@releaseReadinessReportAiPolicy": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiDetail": "AI detail: {detail}"
+  ,"releaseReadinessReportAiDetail": "Quill detail: {detail}"
   ,"@releaseReadinessReportAiDetail": {"placeholders": {"detail": {}}}
   ,"releaseReadinessReportStatus": "Release status: {value}"
   ,"@releaseReadinessReportStatus": {"placeholders": {"value": {}}}
@@ -2086,7 +2086,7 @@
   ,"settingsFolioCloudSubsectionScheduledCloud": "Scheduled backup to Folio Cloud"
   ,"settingsScheduledCloudUploadRequiresSchedule": "Turn on scheduled backup in Notebook › Scheduled backup (local) first."
   ,"settingsSyncHeroTitle": "Device synchronization"
-  ,"settingsSyncHeroDescription": "Pair machines on the local network; the relay only helps negotiate the connection and does not send vault content."
+  ,"settingsSyncHeroDescription": "Pair machines on the local network; the relay only helps negotiate the connection and does not send notebook content."
   ,"settingsSyncChipPairingCode": "Pairing code"
   ,"settingsSyncChipAutoDiscovery": "Auto discovery"
   ,"settingsSyncChipOptionalRelay": "Optional relay"
@@ -2096,7 +2096,7 @@
   ,"@settingsSyncDevicesFoundOnLan": {"placeholders": {"count": {"type": "int"}}}
   ,"settingsSyncDisabledSubtitle": "Synchronization is currently disabled."
   ,"settingsSyncRelayTitle": "Use signaling relay"
-  ,"settingsSyncRelaySubtitle": "Does not send vault content, only helps negotiate connectivity when LAN fails."
+  ,"settingsSyncRelaySubtitle": "Does not send notebook content, only helps negotiate connectivity when LAN fails."
   ,"settingsEdit": "Edit"
   ,"settingsSyncEmojiModeTitle": "Enable emoji pairing mode"
   ,"settingsSyncEmojiModeSubtitle": "Enable it on both devices to start pairing without typing codes."
@@ -2153,7 +2153,7 @@
   ,"settingsCouldNotOpenLink": "Could not open the link."
   ,"settingsStripeCheckoutUnavailable": "Checkout unavailable (configure Stripe on server)."
   ,"settingsCloudBackupEnablePlanSnack": "Enable Folio Cloud with the cloud backup feature included in your plan."
-  ,"settingsNoActiveVault": "No active vault."
+  ,"settingsNoActiveVault": "No active notebook."
   ,"settingsCloudBackupsNeedPlan": "You need an active Folio Cloud plan with cloud backup."
   ,"settingsCloudBackupsDialogTitle": "Cloud backups ({count}/10)"
   ,"@settingsCloudBackupsDialogTitle": {"placeholders": {"count": {"type": "int"}}}
@@ -2167,12 +2167,12 @@
   ,"settingsCloudBackupDeletedSnack": "Backup deleted."
   ,"settingsCloudBackupVaultRemovedSnack": "Backup deleted. This notebook no longer has cloud backups and was removed from Folio Cloud."
   ,"settingsCloudBackupImportedSnack": "Import completed."
-  ,"settingsCloudBackupVaultMustBeUnlocked": "The vault must be unlocked."
+  ,"settingsCloudBackupVaultMustBeUnlocked": "The notebook must be unlocked."
   ,"settingsCloudBackupsTotalLabel": "Total: {size}"
   ,"@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}}
   ,"settingsCloudBackupImportOverwriteTitle": "Import (overwrite)"
-  ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing."
-  ,"settingsCloudBackupImportRemoteCloudPackIntro": "This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s vault password to download it (leave blank if that notebook is not encrypted)."
+  ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open notebook. Make sure you have a local backup before continuing."
+  ,"settingsCloudBackupImportRemoteCloudPackIntro": "This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s notebook password to download it (leave blank if that notebook is not encrypted)."
   ,"settingsCloudBackupDeleteWarning": "Are you sure you want to delete this cloud backup? This action cannot be undone."
   ,"settingsCloudBackupDeleteCloudPackWarning": "Are you sure you want to delete this notebook's incremental backup? All of its cloud data will be removed and you won't be able to restore it until you upload a new one. This action cannot be undone."
   ,"settingsCloudBackupsManageHint": "Manage backups for this notebook. Deleting frees space in your quota."
@@ -2192,8 +2192,8 @@
   ,"settingsSessionEndedSnack": "Signed out"
   ,"settingsLabelYes": "Yes"
   ,"settingsLabelNo": "No"
-  ,"settingsSecurityEncryptedHeroDescription": "Quick unlock, passkey, auto-lock, and master password for your encrypted vault."
-  ,"settingsUnencryptedVaultTitle": "Unencrypted vault"
+  ,"settingsSecurityEncryptedHeroDescription": "Quick unlock, passkey, auto-lock, and master password for your encrypted notebook."
+  ,"settingsUnencryptedVaultTitle": "Unencrypted notebook"
   ,"settingsUnencryptedVaultChipDataOnDisk": "Data on disk"
   ,"settingsUnencryptedVaultChipEncryptionAvailable": "Encryption available"
   ,"settingsAppearanceChipTheme": "Theme"
@@ -2227,7 +2227,7 @@
   ,"settingsCustomIconsFieldSourceHint": "https://…gif | …webp | …png or data:image/…"
   ,"settingsCustomIconsImportButton": "Import icon"
   ,"settingsCustomIconsFromClipboard": "From clipboard"
-  ,"settingsCustomIconsLibraryTitle": "Library"
+  ,"settingsCustomIconsLibraryTitle": "Icon library"
   ,"settingsCustomIconsLibrarySubtitle": "Ready to use across the app"
   ,"settingsCustomIconsEmpty": "No icons imported yet."
   ,"settingsCustomIconsDeleteTooltip": "Delete icon"
@@ -2254,10 +2254,10 @@
   ,"settingsIconifyOffline": "Offline. You need a network connection to search Iconify."
   ,"settingsIconifySearchFailed": "Search could not be completed."
   ,"settingsIconifyLoadMore": "Load more"
-  ,"settingsAiHeroQuillWithLocalAlt": "AI runs on Quill Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio."
-  ,"settingsAiHeroQuillCloudOnly": "AI runs on Quill Cloud (subscription with cloud AI or purchased ink)."
+  ,"settingsAiHeroQuillWithLocalAlt": "Quill runs on Quill Cloud (subscription with Quill Cloud or purchased ink). Pick another provider below for local Ollama or LM Studio."
+  ,"settingsAiHeroQuillCloudOnly": "Quill runs on Quill Cloud (subscription with Quill Cloud or purchased ink)."
   ,"settingsAiHeroLocalDefault": "Connect Ollama or LM Studio locally; the assistant uses the model and context you set here."
-  ,"settingsAiHeroQuillMobileOnly": "On this device Quill can only use Quill Cloud. Choose Quill Cloud as the provider when you want to enable AI."
+  ,"settingsAiHeroQuillMobileOnly": "On this device Quill can only use Quill Cloud. Choose Quill Cloud as the provider when you want to enable Quill."
   ,"settingsAiChipCloud": "Hosted"
   ,"settingsAiSectionBasic": "Basics"
   ,"settingsAiSectionExperience": "Quill experience"
@@ -2278,7 +2278,7 @@
   ,"aiApiKeyOpenAiHelp": "Get your API key at platform.openai.com"
   ,"aiProviderNotSet": "Not set"
   ,"aiProviderNotReadyCloud": "Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/ink in Settings."
-  ,"aiProviderNotReadyLocal": "AI provider not available. Verify your connection or key in Settings."
+  ,"aiProviderNotReadyLocal": "Quill provider not available. Verify your connection or key in Settings."
   ,"aiToolActivityWorking": "Quill is working…"
   ,"aiToolActivityCreatePage": "Quill is creating a page…"
   ,"aiToolActivityCreateFolder": "Quill is creating a folder…"
@@ -2306,7 +2306,7 @@
 
   ,"settingsAiSnackFirebaseUnavailableBuild": "Firebase is not available in this build."
   ,"settingsAiSnackSignInCloudAccount": "Sign in to your cloud account (Settings)."
-  ,"settingsAiProviderSwitchFailed": "Could not switch AI provider: {error}"
+  ,"settingsAiProviderSwitchFailed": "Could not switch Quill provider: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
   ,"settingsAboutHeroDescription": "Build version, release notes, and your update channel. Use the list below to check for updates."
   ,"settingsOpenReleaseNotes": "Open release notes"
@@ -2337,14 +2337,14 @@
   ,"settingsCloudInkOpSummarizePage": "Summarize page"
   ,"settingsCloudInkOpGenerateInsert": "Generate insert"
   ,"settingsCloudInkOpGeneratePage": "Generate page"
-  ,"settingsCloudInkOpChatTurn": "Chat turn"
+  ,"settingsCloudInkOpChatTurn": "Note turn"
   ,"settingsCloudInkOpAgentMain": "Agent main run"
   ,"settingsCloudInkOpAgentFollowup": "Agent follow-up"
   ,"settingsCloudInkOpEditPagePanel": "Page edit panel"
   ,"settingsCloudInkOpDefault": "Fallback operation"
   ,"settingsDesktopRailSubtitle": "Pick a category from the list or scroll the content."
   ,"settingsCloudInkViewTableButton": "View table"
-  ,"settingsCloudInkHostedAiQuillCloudHint": "Reference pricing for cloud AI on Quill Cloud."
+  ,"settingsCloudInkHostedAiQuillCloudHint": "Reference pricing for Quill Cloud on Quill Cloud."
   ,"vaultStarterHomeTitle": "Start here"
   ,"vaultStarterHomeHeading": "Your notebook is ready"
   ,"vaultStarterHomeIntro": "Folio organizes your pages in a tree, edits content in blocks, and keeps data on this device. This short guide maps what you can do from minute one."
@@ -2352,7 +2352,7 @@
   ,"vaultStarterHomeSectionTips": "Most useful to begin"
   ,"vaultStarterHomeBulletSlash": "Press / in a paragraph to insert headings, lists, tables, code blocks, Mermaid, and more."
   ,"vaultStarterHomeBulletSidebar": "Use the side panel to create pages and subpages, and reorder the tree to match how you work."
-  ,"vaultStarterHomeBulletSettings": "Open Settings to enable AI, configure backup, change language, or add quick unlock."
+  ,"vaultStarterHomeBulletSettings": "Open Settings to enable Quill, configure backup, change language, or add quick unlock."
   ,"vaultStarterHomeTodo1": "Create my first working page"
   ,"vaultStarterHomeTodo2": "Try the / menu to insert a new block"
   ,"vaultStarterHomeTodo3": "Review Settings and decide whether to enable Quill or quick unlock"
@@ -2366,14 +2366,14 @@
   ,"vaultStarterCapabilitiesShortcutN": "Ctrl+N creates a new page."
   ,"vaultStarterCapabilitiesShortcutSearch": "Ctrl+K or Ctrl+F opens search."
   ,"vaultStarterCapabilitiesShortcutSettings": "Ctrl+, opens Settings and Ctrl+L locks the notebook."
-  ,"vaultStarterCapabilitiesAiCallout": "AI is off by default. If you use Quill, configure it in Settings—provider, model, and context permissions."
+  ,"vaultStarterCapabilitiesAiCallout": "Quill is off by default. If you use Quill, configure it in Settings—provider, model, and context permissions."
   ,"vaultStarterQuillTitle": "Quill and privacy"
   ,"vaultStarterQuillSectionWhat": "What Quill can do"
   ,"vaultStarterQuillBullet1": "Summarize, rewrite, or expand the content of a page."
   ,"vaultStarterQuillBullet2": "Answer questions about blocks, shortcuts, and how to organize notes in Folio."
   ,"vaultStarterQuillBullet3": "Work with the open page as context or with several pages you pick as references."
   ,"vaultStarterQuillSectionPrivacy": "Privacy and security"
-  ,"vaultStarterQuillPrivacyBody": "Your pages live on this device. If you enable AI, check what context you share and with which provider. If you forget the master password of an encrypted notebook, Folio cannot recover it for you."
+  ,"vaultStarterQuillPrivacyBody": "Your pages live on this device. If you enable Quill, check what context you share and with which provider. If you forget the master password of an encrypted notebook, Folio cannot recover it for you."
   ,"vaultStarterQuillBackupCallout": "Back up the notebook when you have important content. The backup keeps data and attachments but does not transfer Hello or passkeys across devices."
   ,"vaultStarterQuillMermaidCaption": "Quick Mermaid tryout:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nStart[Create notebook] --> Organize[Organize pages]\nOrganize --> Write[Write and link ideas]\nWrite --> Review[Search, review, improve]"
@@ -2505,14 +2505,14 @@
   ,"workspaceHomeTip1": "Folio auto-saves your changes. Just start writing."
   ,"workspaceHomeTip2": "Use search to jump across pages and keep momentum."
   ,"workspaceHomeTip3": "Subpages help keep each topic clean and structured."
-  ,"workspaceHomeTip4": "Reorder pages from the sidebar and keep your vault tidy as it grows."
+  ,"workspaceHomeTip4": "Reorder pages from the sidebar and keep your notebook tidy as it grows."
   ,"workspaceHomeTip5": "Templates speed up recurring structures—open the gallery from quick actions."
   ,"workspaceHomeTip6": "Graph view shows how pages link together; use it when navigation gets complex."
   ,"workspaceHomeTip7": "Mix headings, lists, and embeds so long notes stay easy to scan."
   ,"workspaceHomeTip8": "Tasks with due dates surface on home—set dates from Kanban or task blocks."
-  ,"workspaceHomeTip9": "Lock the vault when you step away; your passphrase stays on this device."
+  ,"workspaceHomeTip9": "Lock the notebook when you step away; your passphrase stays on this device."
   ,"workspaceHomeTip10": "Export a page to Markdown or PDF from the toolbar when you need to share."
-  ,"workspaceHomeTip11": "Device sync aligns vault snapshots—use force sync in the sidebar after pairing."
+  ,"workspaceHomeTip11": "Device sync aligns notebook snapshots—use force sync in the sidebar after pairing."
   ,"settingsWorkspaceOpenToHomeTitle": "Open to home"
   ,"settingsWorkspaceOpenToHomeSubtitle": "After unlock, show the home screen instead of the last opened page."
   ,"workspaceHomeGreetingMorning": "Good morning"
@@ -2520,13 +2520,13 @@
   ,"workspaceHomeGreetingEvening": "Good evening"
   ,"workspaceHomeGreetingNight": "Good night"
   ,"workspaceHomeNoRecentMatch": "No recent pages match your filter."
-  ,"workspaceHomeGlobalSearchTooltip": "Search everywhere in the vault"
+  ,"workspaceHomeGlobalSearchTooltip": "Search everywhere in the notebook"
   ,"workspaceHomeSearchSemanticsLabel": "Filter recent pages as you type; use the button at the end of the field for global search"
   ,"workspaceHomeQuickActionsTitle": "Quick actions"
   ,"workspaceHomeQuickSettings": "Settings"
   ,"workspaceHomeQuickGraph": "Graph view"
   ,"workspaceHomeQuickTemplates": "Templates"
-  ,"workspaceHomeQuickLock": "Lock vault"
+  ,"workspaceHomeQuickLock": "Lock notebook"
   ,"workspaceHomeQuickSync": "Sync devices"
   ,"workspaceHomeQuickTask": "Quick task"
   ,"workspaceHomeQuickVaultTasks": "All tasks"
@@ -2558,8 +2558,8 @@
   ,"workspaceHomeCloudCardTitle": "Folio Cloud"
   ,"workspaceHomeCloudStaffShort": "Staff access"
   ,"workspaceHomeCloudOpenSettings": "Open Settings"
-  ,"workspaceHomeVaultStatusTitle": "Vault status"
-  ,"workspaceHomeVaultBackupOff": "Scheduled backups are off for this vault."
+  ,"workspaceHomeVaultStatusTitle": "Notebook status"
+  ,"workspaceHomeVaultBackupOff": "Scheduled backups are off for this notebook."
   ,"workspaceHomeVaultBackupNeverRun": "No backup has run yet with the current settings."
   ,"workspaceHomeVaultBackupLast": "Last backup: {when}"
   ,"@workspaceHomeVaultBackupLast": {"placeholders": {"when": {"type": "String"}}}
@@ -2581,10 +2581,10 @@
   ,"workspaceHomeWhatsNewUnread": "You have not opened the release notes for this version yet."
   ,"workspaceHomeWhatsNewCurrent": "See what changed in this version."
   ,"workspaceHomeWhatsNewOpen": "Open release notes"
-  ,"workspaceHomeToggleVaultStatusTitle": "Vault status"
+  ,"workspaceHomeToggleVaultStatusTitle": "Notebook status"
   ,"workspaceHomeToggleVaultStatusSubtitle": "Backups, sync conflicts, read-only"
   ,"workspaceHomeToggleOnboardingTitle": "First-week checklist"
-  ,"workspaceHomeToggleOnboardingSubtitle": "Short goals for new vaults (auto-hides after 7 days)"
+  ,"workspaceHomeToggleOnboardingSubtitle": "Short goals for new notebooks (auto-hides after 7 days)"
   ,"workspaceHomeToggleWhatsNewTitle": "What's new"
   ,"workspaceHomeToggleWhatsNewSubtitle": "Show the update card when a new version has not been read yet"
   ,"workspaceHomeWhatsNewDismissTooltip": "Hide until the next update"
@@ -2689,7 +2689,7 @@
   "onboardingUsageIntentJournalTitle": "Journal",
   "onboardingUsageIntentStudyTitle": "Study",
   "vaultStarterHomeIntroNotes": "Folio is a great place to capture ideas, link thoughts, and organize personal notes. These starter pages help you begin writing without a rigid structure.",
-  "vaultStarterHomeIntroTasks": "Folio helps you combine notes and task lists in the same vault. These starter pages focus on tracking, priorities, and regular review.",
+  "vaultStarterHomeIntroTasks": "Folio helps you combine notes and task lists in the same notebook. These starter pages focus on tracking, priorities, and regular review.",
   "vaultStarterHomeIntroProjects": "Organize work by projects, meetings, and deliverables inside a page tree. These starter pages give you a focused starting outline.",
   "vaultStarterHomeIntroKnowledge": "Build a personal wiki with indexes, topic sheets, and reading notes. These starter pages encourage linking topics and review.",
   "vaultStarterHomeIntroJournal": "Use Folio as a space for daily reflection and monthly review. These starter pages suggest light routines to keep the habit.",
@@ -2720,7 +2720,7 @@
   "vaultStarterShortcutsSectionKeys": "Useful shortcuts",
   "vaultStarterShortcutsKeyN": "Ctrl+N creates a new page.",
   "vaultStarterShortcutsKeySearch": "Ctrl+K or Ctrl+F opens search.",
-  "vaultStarterShortcutsKeySettings": "Ctrl+, opens Settings and Ctrl+L locks the vault.",
+  "vaultStarterShortcutsKeySettings": "Ctrl+, opens Settings and Ctrl+L locks the notebook.",
   "vaultStarterShortcutsCallout": "Press / inside a paragraph to insert blocks without leaving the keyboard.",
   "vaultStarterNotesInboxTitle": "Idea inbox",
   "vaultStarterNotesInboxHeading": "Capture without filtering",
@@ -2748,7 +2748,7 @@
   "vaultStarterTasksDashboardSection": "Good practices",
   "vaultStarterTasksDashboardBullet1": "Separate today, this week, and someday tasks.",
   "vaultStarterTasksDashboardBullet2": "Use checklists for small repeatable steps.",
-  "vaultStarterTasksDashboardBullet3": "Open the vault task view to see everything together.",
+  "vaultStarterTasksDashboardBullet3": "Open the notebook task view to see everything together.",
   "vaultStarterTasksDashboardTodo1": "Add three tasks with different priority",
   "vaultStarterTasksDashboardTodo2": "Mark one as completed",
   "vaultStarterTasksDashboardCallout": "Tasks can also live inside project pages.",
@@ -2852,8 +2852,8 @@
   "vaultStarterStudyPlanTodo1": "Define three study sessions",
   "vaultStarterStudyPlanTodo2": "Mark the next review on the calendar",
   "vaultStarterStudyPlanCallout": "Adjust the plan each Sunday: little text, lots of clarity.",
-  "vaultRecoveryTitle": "Could not open vault",
-  "vaultRecoveryBody": "The active vault could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.",
+  "vaultRecoveryTitle": "Could not open notebook",
+  "vaultRecoveryBody": "The active notebook could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.",
   "vaultRecoveryRestoreBak": "Restore local copy (.bak)",
   "vaultRecoveryRestoreBakFail": "No valid .bak copy or restore failed.",
   "vaultRecoveryRestoreZip": "Restore from backup file",
@@ -2876,12 +2876,12 @@
   "settingsSearchThemeDesc": "Choose between light, dark, or system default theme.",
   "settingsSearchLangTitle": "App Language",
   "settingsSearchLangDesc": "Change the default language of the interface.",
-  "settingsSearchAiTitle": "Enable AI Services",
+  "settingsSearchAiTitle": "Enable Quill Services",
   "settingsSearchAiDesc": "Enable or disable integration with local or cloud language models.",
   "settingsSearchQuickUnlockTitle": "Quick Unlock",
   "settingsSearchQuickUnlockDesc": "Configure fingerprint, face recognition, or PIN unlock.",
   "settingsSearchCloudBackupTitle": "Cloud Backup",
-  "settingsSearchCloudBackupDesc": "Automatically backup your vaults securely in real-time.",
+  "settingsSearchCloudBackupDesc": "Automatically backup your notebooks securely in real-time.",
   "settingsSearchJiraTitle": "Connect Jira",
   "settingsSearchJiraDesc": "Import your tasks and issues directly into Folio.",
   "settingsSearchYouTrackTitle": "Connect YouTrack",
@@ -2911,7 +2911,7 @@
   "driveDetailSize": "Size",
   "driveDetailAdded": "Added",
   "driveDetailSource": "Source",
-  "driveDetailSourceImported": "Imported from vault",
+  "driveDetailSourceImported": "Imported from notebook",
   "driveDetailSourceUploaded": "Uploaded",
   "driveDetailFolders": "Folders",
   "driveDetailFiles": "Files",

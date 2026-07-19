@@ -2,7 +2,7 @@
   "@@locale": "gl",
   "appTitle": "Folio",
   "loading": "Cargando…",
-  "newVault": "Nova caixa forte",
+  "newVault": "Novo caderno",
   "stepOfTotal": "Paso {current} de {total}",
   "@stepOfTotal": {
     "placeholders": {
@@ -27,7 +27,7 @@
   "welcomeOptionImportTitle": "Teño datos para importar",
   "welcomeOptionImportBody": "Restaurar desde un ficheiro de copia, Folio Cloud ou unha exportación de Notion.",
   "welcomeNewVaultTitle": "Caderno novo",
-  "welcomeNewVaultBody": "Elixe un contrasinal mestre e, se queres, páxinas de axuda iniciais. O resto de axustes podes cambialos despois en Axustes.",
+  "welcomeNewVaultBody": "Elixe un contrasinal mestre e, se queres, folios de axuda iniciais. O resto de axustes podes cambialos despois en Axustes.",
   "newVaultLeftPanelTitle": "Caderno novo",
   "newVaultLeftPanelBody": "Crea un caderno cifrado adicional neste dispositivo.",
   "importSourceTitle": "Onde están os teus datos?",
@@ -45,18 +45,18 @@
   "onboardingSystemBody": "Preferencias da bandexa e notificacións de Folio en Windows.",
   "settings": "Axustes",
   "lockNow": "Bloquear",
-  "pageHistory": "Historial da páxina",
+  "pageHistory": "Historial da folio",
   "untitled": "Sen título",
-  "noPages": "Non hai páxinas",
-  "createPage": "Crear páxina",
-  "selectPage": "Seleccionar unha páxina",
+  "noPages": "Non hai folios",
+  "createPage": "Crear folio",
+  "selectPage": "Seleccionar un folio",
   "saveInProgress": "Gardando…",
   "savePending": "Pendente de gardar",
-  "savingVaultTooltip": "Gardando a caixa forte cifrada no disco… [cite: 2]",
+  "savingVaultTooltip": "Gardando a caderno cifrada no disco… [cite: 2]",
   "autosaveSoonTooltip": "Gardado automático nun momento…",
   "welcomeTitle": "Benvida",
-  "welcomeBody": "Folio garda as túas páxinas só neste dispositivo, cifradas cunha contrasinal mestra. Se a esqueces, non podemos recuperar os teus datos.\n\nNon hai sincronización na nube.",
-  "createNewVault": "Crear nova caixa forte",
+  "welcomeBody": "Folio garda as túas folios só neste dispositivo, cifradas cunha contrasinal mestra. Se a esqueces, non podemos recuperar os teus datos.\n\nNon hai sincronización na nube.",
+  "createNewVault": "Crear nova caderno",
   "importBackupZip": "Importar copia de seguridade (.zip)",
   "importBackupTitle": "Importar copia de seguridade",
   "importBackupBody": "O ficheiro contén os mesmos datos cifrados que o outro dispositivo. [cite: 3] Precisas a contrasinal mestra utilizada para crear esa copia.\n\nAs chaves de acceso (passkey) e o desbloqueo rápido (Hello) non están incluídos e non son transferibles; [cite: 3, 4] podes configuralos máis tarde en Axustes.",
@@ -64,7 +64,7 @@
   "changeFile": "Cambiar ficheiro",
   "backupPasswordLabel": "Contrasinal da copia",
   "backupPlainNoPasswordHint": "Esta copia de seguridade non está cifrada. [cite: 5] Non se require contrasinal para importala.",
-  "importVault": "Importar caixa forte",
+  "importVault": "Importar caderno",
   "masterPasswordTitle": "A túa contrasinal mestra",
   "masterPasswordHint": "Polo menos {min} caracteres. [cite: 6] Usaraa cada vez que abras Folio.",
   "@masterPasswordHint": {
@@ -72,26 +72,26 @@
       "min": {"type": "int"}
     }
   },
-  "createStarterPagesTitle": "Crear páxinas de axuda iniciais",
-  "createStarterPagesBody": "Engade unha guía inicial personalizada segundo como vas usar Folio. Podes eliminar esas páxinas máis tarde.",
+  "createStarterPagesTitle": "Crear folios de axuda iniciais",
+  "createStarterPagesBody": "Engade unha guía inicial personalizada segundo como vas usar Folio. Podes eliminar esas folios máis tarde.",
   "passwordLabel": "Contrasinal",
   "confirmPasswordLabel": "Confirmar contrasinal",
   "next": "Seguinte",
   "readyTitle": "Todo listo",
-  "readyBody": "Crearase unha caixa forte cifrada neste dispositivo. [cite: 8] Máis tarde podes engadir Windows Hello, biometría ou unha chave de acceso para un desbloqueo máis rápido (Axustes).",
-  "readyBodyPlainVault": "Crearase unha caixa forte sen cifrar neste dispositivo. Podes cambiar máis opcións en Axustes cando queiras.",
+  "readyBody": "Crearase unha caderno cifrada neste dispositivo. [cite: 8] Máis tarde podes engadir Windows Hello, biometría ou unha chave de acceso para un desbloqueo máis rápido (Axustes).",
+  "readyBodyPlainVault": "Crearase unha caderno sen cifrar neste dispositivo. Podes cambiar máis opcións en Axustes cando queiras.",
   "quillIntroTitle": "Coñece a Quill",
-  "quillIntroBody": "Quill é o asistente integrado de Folio. [cite: 9] Pode axudarte a escribir, editar e entender as túas páxinas, e tamén responder preguntas sobre como usar a aplicación.",
-  "quillIntroCapabilityWrite": "Pode redactar, resumir ou reescribir contido dentro das túas páxinas.",
+  "quillIntroBody": "Quill é o asistente integrado de Folio. [cite: 9] Pode axudarte a escribir, editar e entender as túas folios, e tamén responder preguntas sobre como usar a aplicación.",
+  "quillIntroCapabilityWrite": "Pode redactar, resumir ou reescribir contido dentro das túas folios.",
   "quillIntroCapabilityExplain": "Tamén responde preguntas sobre Folio, atallos, bloques e como organizar as túas notas.",
-  "quillIntroCapabilityContext": "Podes deixar que use a páxina actual como contexto ou escoller varias páxinas de referencia.",
+  "quillIntroCapabilityContext": "Podes deixar que use a folio actual como contexto ou escoller varias folios de referencia.",
   "quillIntroCapabilityExamples": "A mellor parte: fálalle con naturalidade e Quill decidirá se debe responder ou editar.",
   "quillIntroExamplesTitle": "Exemplos rápidos",
-  "quillIntroExampleOne": "Resume esta páxina en tres puntos.",
+  "quillIntroExampleOne": "Resume esta folio en tres puntos.",
   "quillIntroExampleTwo": "Cambia o título [cite: 10] e mellora a introdución.",
   "quillIntroExampleThree": "Como engado unha imaxe ou unha táboa?",
-  "quillIntroFootnote": "Se a IA aínda non está activada, podes activala máis tarde. [cite: 11] Esta introdución está aquí para que entendes o que pode facer Quill cando o uses.",
-  "createVault": "Crear caixa forte",
+  "quillIntroFootnote": "Se a Quill aínda non está activada, podes activala máis tarde. [cite: 11] Esta introdución está aquí para que entendes o que pode facer Quill cando o uses.",
+  "createVault": "Crear caderno",
   "minCharactersError": "Mínimo {min} caracteres.",
   "@minCharactersError": {
     "placeholders": {
@@ -111,16 +111,16 @@
   "enterBackupPasswordError": "Introduce a contrasinal da copia.",
   "importFailedError": "Non se puido [cite: 12] importar: {error}",
   "@importFailedError": {"placeholders": {"error": {}}},
-  "createVaultFailedError": "Non se puido crear a caixa forte: {error}",
+  "createVaultFailedError": "Non se puido crear a caderno: {error}",
   "@createVaultFailedError": {"placeholders": {"error": {}}},
-  "encryptedVault": "Caixa forte cifrada",
+  "encryptedVault": "Caderno cifrada",
   "unlock": "Desbloquear",
   "quickUnlock": "Hello / biometría",
   "passkey": "Chave de acceso",
-  "unlockFailed": "Contrasinal incorrecta ou caixa forte danada.",
+  "unlockFailed": "Contrasinal incorrecta ou caderno danada.",
   "appearance": "Apariencia",
   "security": "Seguridade",
-  "vaultBackup": "Copia da caixa forte",
+  "vaultBackup": "Copia da caderno",
   "data": "Datos",
   "systemTheme": "Sistema",
   "lightTheme": "Claro",
@@ -185,46 +185,46 @@
   "@exportFailedError": {"placeholders": {"error": {}}},
   "importFailedGenericError": "Non se puido importar: {error}",
   "@importFailedGenericError": {"placeholders": {"error": {}}},
-  "wipeFailedError": "Non se puido eliminar a caixa forte: {error}",
+  "wipeFailedError": "Non se puido eliminar a caderno: {error}",
   "@wipeFailedError": {"placeholders": {"error": {}}},
   "filePathReadError": "Non se puido ler a ruta do ficheiro.",
-  "importedVaultSuccessSnack": "Caixa forte importada. [cite: 16] Aparece no selector lateral; a actual permanece sen cambios.",
-  "exportVaultDialogTitle": "Exportar copia da caixa forte",
-  "exportVaultDialogBody": "Para crear un ficheiro de copia, confirma a túa identidade coa caixa forte actualmente desbloqueada.",
+  "importedVaultSuccessSnack": "Caderno importada. [cite: 16] Aparece no selector lateral; a actual permanece sen cambios.",
+  "exportVaultDialogTitle": "Exportar copia da caderno",
+  "exportVaultDialogBody": "Para crear un ficheiro de copia, confirma a túa identidade coa caderno actualmente desbloqueada.",
   "verifyAndExport": "Verificar e exportar",
-  "saveVaultBackupDialogTitle": "Gardar copia da caixa forte",
-  "importVaultDialogTitle": "Importar copia da caixa forte",
-  "importVaultDialogBody": "Engadirase unha nova caixa forte dende o ficheiro. [cite: 17] A túa caixa forte actual non se elimina nin se modifica.\n\nA contrasinal do ficheiro será a da caixa forte importada.\n\nAs chaves de acceso e o desbloqueo rápido non se inclúen nas copias; [cite: 18] podes configuralos máis tarde para esa caixa forte.\n\nContinuar?",
+  "saveVaultBackupDialogTitle": "Gardar copia da caderno",
+  "importVaultDialogTitle": "Importar copia da caderno",
+  "importVaultDialogBody": "Engadirase unha nova caderno dende o ficheiro. [cite: 17] A túa caderno actual non se elimina nin se modifica.\n\nA contrasinal do ficheiro será a da caderno importada.\n\nAs chaves de acceso e o desbloqueo rápido non se inclúen nas copias; [cite: 18] podes configuralos máis tarde para esa caderno.\n\nContinuar?",
   "verifyAndContinue": "Verificar e continuar",
   "verifyAndDelete": "Verificar con contrasinal e eliminar",
-  "importIdentityBody": "Demostra que es ti coa caixa forte actual antes de importar.",
-  "wipeVaultDialogTitle": "Eliminar caixa forte",
-  "wipeVaultDialogBody": "Eliminaranse todas as páxinas e a contrasinal mestra deixará de ser válida. [cite: 19] Esta acción non se pode deshacer.\n\nEstás seguro de que queres continuar?",
-  "wipeIdentityBody": "Para eliminar a caixa forte, demostra a túa identidade.",
+  "importIdentityBody": "Demostra que es ti coa caderno actual antes de importar.",
+  "wipeVaultDialogTitle": "Eliminar caderno",
+  "wipeVaultDialogBody": "Eliminaranse todas as folios e a contrasinal mestra deixará de ser válida. [cite: 19] Esta acción non se pode deshacer.\n\nEstás seguro de que queres continuar?",
+  "wipeIdentityBody": "Para eliminar a caderno, demostra a túa identidade.",
   "exportZipTitle": "Exportar copia (.zip)",
-  "exportZipSubtitle": "Contrasinal, Hello ou chave de acceso da caixa actual",
+  "exportZipSubtitle": "Contrasinal, Hello ou chave de acceso da caderno actual",
   "importZipTitle": "Importar copia (.zip)",
-  "importZipSubtitle": "Engade unha nova caixa forte · identidade actual + contrasinal do ficheiro",
-  "backupInfoBody": "O ficheiro contén os mesmos datos cifrados que no disco (vault.keys e vault.bin), sen expoñer o contido en texto plano. [cite: 20] As imaxes adxuntas inclúense tal cal.\n\nAs chaves de acceso e o desbloqueo rápido non son transferibles entre dispositivos; [cite: 21] podes configuralos de novo para cada caixa forte importada.\n\nImportar engade unha nova caixa forte; [cite: 22] non substitúe á que está aberta.",
-  "wipeCardTitle": "Eliminar caixa forte e comezar de novo",
+  "importZipSubtitle": "Engade unha nova caderno · identidade actual + contrasinal do ficheiro",
+  "backupInfoBody": "O ficheiro contén os mesmos datos cifrados que no disco (vault.keys e vault.bin), sen expoñer o contido en texto plano. [cite: 20] As imaxes adxuntas inclúense tal cal.\n\nAs chaves de acceso e o desbloqueo rápido non son transferibles entre dispositivos; [cite: 21] podes configuralos de novo para cada caderno importada.\n\nImportar engade unha nova caderno; [cite: 22] non substitúe á que está aberta.",
+  "wipeCardTitle": "Eliminar caderno e comezar de novo",
   "wipeCardSubtitle": "Require contrasinal, Hello ou chave de acceso.",
-  "switchVaultTooltip": "Cambiar de caixa forte",
-  "switchVaultTitle": "Cambiar de caixa forte",
-  "switchVaultBody": "Pecherase esta sesión e terás que desbloquear a outra caixa forte coa súa contrasinal, Hello ou chave de acceso.",
-  "renameVaultTitle": "Renomear caixa forte",
+  "switchVaultTooltip": "Cambiar de caderno",
+  "switchVaultTitle": "Cambiar de caderno",
+  "switchVaultBody": "Pecherase esta sesión e terás que desbloquear a outra caderno coa súa contrasinal, Hello ou chave de acceso.",
+  "renameVaultTitle": "Renomear caderno",
   "nameLabel": "Nome",
-  "deleteOtherVaultTitle": "Eliminar outra caixa forte",
-  "deleteVaultConfirmTitle": "Eliminar caixa forte?",
-  "deleteVaultConfirmBody": "A caixa forte «{name}» eliminarase por completo. [cite: 23] Isto non se pode deshacer.",
+  "deleteOtherVaultTitle": "Eliminar outra caderno",
+  "deleteVaultConfirmTitle": "Eliminar caderno?",
+  "deleteVaultConfirmBody": "A caderno «{name}» eliminarase por completo. [cite: 23] Isto non se pode deshacer.",
   "@deleteVaultConfirmBody": {"placeholders": {"name": {}}},
-  "vaultDeletedSnack": "Caixa forte eliminada.",
-  "noOtherVaultsSnack": "Non hai outras caixas fortes para eliminar.",
-  "addVault": "Engadir caixa forte",
-  "renameActiveVault": "Renomear caixa forte activa",
-  "deleteOtherVault": "Eliminar outra caixa forte…",
-  "activeVaultLabel": "Caixa forte activa",
-  "sidebarVaultsLoading": "Cargando caixas fortes…",
-  "sidebarVaultsEmpty": "Non hai caixas fortes dispoñibles",
+  "vaultDeletedSnack": "Caderno eliminada.",
+  "noOtherVaultsSnack": "Non hai outras cadernos para eliminar.",
+  "addVault": "Engadir caderno",
+  "renameActiveVault": "Renomear caderno activa",
+  "deleteOtherVault": "Eliminar outra caderno…",
+  "activeVaultLabel": "Caderno activo",
+  "sidebarVaultsLoading": "Cargando cadernos…",
+  "sidebarVaultsEmpty": "Non hai cadernos dispoñibles",
   "forceSyncTooltip": "Forzar sincronización",
   "searchDialogFooterHint": "Intro abre o resultado resaltado · ↑ / ↓ navegar · Esc pecha",
   "searchFilterTasks": "Tarefas",
@@ -233,21 +233,21 @@
   "searchShortcutsHelpTooltip": "Atallos de teclado",
   "searchShortcutsHelpTitle": "Busca global",
   "searchShortcutsHelpBody": "Intro: abrir o resultado resaltado\n↑ ou ↓: anterior / seguinte resultado\nEsc: pechar",
-  "renamePageTitle": "Renomear páxina",
+  "renamePageTitle": "Renomear folio",
   "@renamePageTitle": {"placeholders": {"title": {}}},
   "titleLabel": "Título",
   "rootPage": "Raíz",
   "movePageTitle": "Mover “{title}”",
   "@movePageTitle": {"placeholders": {"title": {}}},
-  "subpage": "Subpáxina",
+  "subpage": "Subfolio",
   "move": "Mover",
-  "pages": "Páxinas",
+  "pages": "Folios",
   "pageOutlineTitle": "Esquema",
   "pageOutlineEmpty": "Engade encabezados (H1–H3) para construír o esquema.",
   "showPageOutline": "Amosar esquema",
   "hidePageOutline": "Agochar esquema",
   "backlinksTitle": "Referencias entrantes",
-  "backlinksEmpty": "Ningunha páxina enlaza aquí todavía.",
+  "backlinksEmpty": "Ningun folio enlaza aquí todavía.",
   "showBacklinks": "Amosar referencias",
   "hideBacklinks": "Agochar referencias",
   "commentsTitle": "Comentarios",
@@ -280,7 +280,7 @@
   "tagRemove": "Eliminar etiqueta",
   "tagFilterAll": "Todas",
   "tagInputHint": "Nova etiqueta…",
-  "tagNoPagesForFilter": "Non hai páxinas con esta etiqueta.",
+  "tagNoPagesForFilter": "Non hai folios con esta etiqueta.",
   "tocBlockTitle": "Índice de contidos",
   "showSidebar": "Amosar barra lateral",
   "hideSidebar": "Agochar barra lateral",
@@ -290,7 +290,7 @@
   "resizeAiPanelHeightHandleHint": "Arrastra verticalmente para cambiar a altura do panel do asistente",
   "sidebarAutoRevealTitle": "Amosar barra lateral ao achegar o punteiro",
   "sidebarAutoRevealSubtitle": "Cando a barra lateral estea agochada, move o [cite: 25] punteiro ao bordo esquerdo para amosala temporalmente.",
-  "newRootPageTooltip": "Nova páxina (raíz)",
+  "newRootPageTooltip": "Nova folio (raíz)",
   "blockOptions": "Opcións do bloque",
   "meetingNoteTitle": "Nota de reunión",
   "meetingNoteDesktopOnly": "Dispoñible só en escritorio.",
@@ -323,9 +323,9 @@
   "meetingNoteChunkTranscriptionError": "Non se puido transcribir este fragmento de audio.",
   "meetingNoteProviderLocal": "Local (Whisper)",
   "meetingNoteProviderCloud": "Quill Cloud",
-  "meetingNoteProviderCloudCost": "1 Ink por cada 5 min. [cite: 27] gravados",
+  "meetingNoteProviderCloudCost": "1 Tinta por cada 5 min. [cite: 27] gravados",
   "meetingNoteCloudFallbackNotice": "Nube non dispoñible. Usando Whisper local.",
-  "meetingNoteCloudInkExhaustedNotice": "Ink insuficiente. [cite: 28] Cambiando a Whisper local.",
+  "meetingNoteCloudInkExhaustedNotice": "Tinta insuficiente. [cite: 28] Cambiando a Whisper local.",
   "meetingNoteCloudRecordingBadge": "Quill Cloud | Idioma: {language}",
   "@meetingNoteCloudRecordingBadge": {
     "placeholders": {
@@ -353,8 +353,8 @@
       }
     },
     "meetingNoteCloudEtaCalculating": "Calculando o tempo restante...",
-  "meetingNoteCloudRequiresAccount": "Require unha conta de Folio Cloud con Ink.",
-  "meetingNoteCloudRequiresAiEnabled": "Activa a IA en Axustes para usar a transcrición na nube (Quill Cloud).",
+  "meetingNoteCloudRequiresAccount": "Require unha conta de Folio Cloud con Tinta.",
+  "meetingNoteCloudRequiresAiEnabled": "Activa a Quill en Axustes para usar a transcrición na nube (Quill Cloud).",
   "meetingNoteHardwareSummary": "{cpus} núcleos · {ramLabel}",
   "@meetingNoteHardwareSummary": {
     "placeholders": {
@@ -369,7 +369,7 @@
       "modelLabel": {}
     }
   },
-  "meetingNoteLocalTranscriptionNotViable": "Este equipo non cumpre os requisitos mínimos para transcrición local. Só se gardará o audio, agás que actives «Forzar transcrición local» en Axustes ou uses Quill Cloud con IA activada.",
+  "meetingNoteLocalTranscriptionNotViable": "Este equipo non cumpre os requisitos mínimos para transcrición local. Só se gardará o audio, agás que actives «Forzar transcrición local» en Axustes ou uses Quill Cloud con Quill activada.",
   "meetingNoteGenerateTranscription": "Xerar transcrición",
   "meetingNoteGenerateTranscriptionSubtitle": "Desactívao para gardar só o audio nesta nota.",
   "meetingNoteSettingsAutoWhisperModel": "Escoller modelo automaticamente segundo o hardware",
@@ -413,17 +413,17 @@
   "meetingNoteModelMedium": "Avanzado",
   "meetingNoteModelTurbo": "Máxima calidade",
   "meetingNoteCopyTranscript": "Copiar transcrición",
-  "meetingNoteSendToAi": "Enviar á IA…",
-  "meetingNoteAiPayloadLabel": "Que enviar á IA?",
+  "meetingNoteSendToAi": "Enviar á Quill…",
+  "meetingNoteAiPayloadLabel": "Que enviar á Quill?",
   "meetingNoteAiPayloadTranscript": "Só a transcrición",
   "meetingNoteAiPayloadAudio": "Só o audio",
   "meetingNoteAiPayloadBoth": "Transcrición + audio",
   "meetingNoteAiInstructionHint": "ex: [cite: 33] resumir os puntos clave",
   "meetingNoteAiNoAudio": "Non hai audio dispoñible para este modo",
-  "meetingNoteAiInstruction": "Instrución para a IA",
+  "meetingNoteAiInstruction": "Instrución para a Quill",
   "dragToReorder": "Arrastrar para reordenar",
   "addBlock": "Engadir bloque",
-  "blockMentionPageSubtitle": "Mencionar páxina",
+  "blockMentionPageSubtitle": "Mencionar folio",
   "blockTypesSheetTitle": "Tipos de bloque",
   "blockTypesSheetSubtitle": "Escolle como se verá este bloque",
   "blockTypeFilterEmpty": "Nada coincide coa túa busca",
@@ -460,13 +460,13 @@
   "pasteAsUrlSubtitle": "Inserir ligazón markdown no texto",
   "pasteAsEmbedSubtitle": "Bloque de vídeo con vista previa [cite: 35] (YouTube) ou marcador",
   "pasteAsBookmarkSubtitle": "Tarxeta con título e ligazón",
-  "pasteAsMentionSubtitle": "Ligazón a unha páxina nesta caixa forte",
+  "pasteAsMentionSubtitle": "Ligazón a un folio nesta caderno",
   "tableAddRow": "Fila",
   "tableRemoveRow": "Eliminar fila",
   "tableAddColumn": "Columna",
   "tableRemoveColumn": "Eliminar col.",
   "tablePasteFromClipboard": "Pegar táboa",
-  "pickPageForMention": "Escoller páxina",
+  "pickPageForMention": "Escoller folio",
   "bookmarkTitleHint": "Título",
   "bookmarkOpenLink": "Abrir ligazón",
   "bookmarkSetUrl": "Definir URL…",
@@ -482,8 +482,8 @@
   "blockSizeHalf": "50%",
   "blockSizeThreeQuarter": "75%",
   "blockSizeFull": "100%",
-  "pasteAsEmbedSubtitleWeb": "Amosar a páxina dentro do bloque (se é compatible)",
-  "pasteAsMentionSubtitleRich": "Ligazón co título da páxina (ex: YouTube)",
+  "pasteAsEmbedSubtitleWeb": "Amosar a folio dentro do bloque (se é compatible)",
+  "pasteAsMentionSubtitleRich": "Ligazón co título da folio (ex: YouTube)",
   "formatToolbar": "Barra de formato",
   "formatToolbarScrollPrevious": "Ver ferramentas anteriores",
   "formatToolbarScrollNext": "Ver máis ferramentas",
@@ -501,14 +501,14 @@
   "linkTip": "Ligazón",
   "pageHistoryTitle": "Historial de versións",
   "restoreVersionTitle": "Restaurar versión",
-  "restoreVersionBody": "O título e o contido da páxina substituiranse por esta versión. [cite: 38] O estado actual gardarase primeiro no historial.",
+  "restoreVersionBody": "O título e o contido da folio substituiranse por esta versión. [cite: 38] O estado actual gardarase primeiro no historial.",
   "restore": "Restaurar",
   "deleteVersionTitle": "Eliminar versión",
-  "deleteVersionBody": "Esta entrada eliminarase do historial. [cite: 39] O texto actual da páxina non cambia.",
+  "deleteVersionBody": "Esta entrada eliminarase do historial. [cite: 39] O texto actual da folio non cambia.",
   "noVersionsYet": "Aínda sen versións",
   "historyAppearsHint": "Despois de deixar de escribir uns segundos, o historial de cambios aparecerá aquí.",
   "versionControl": "Control de versións",
-  "historyHeaderBody": "A caixa forte gárdase rapidamente; [cite: 40] o historial engade unha entrada cando deixas de editar e o contido cambiou.",
+  "historyHeaderBody": "A caderno gárdase rapidamente; [cite: 40] o historial engade unha entrada cando deixas de editar e o contido cambiou.",
   "versionsCount": "{count} {count, plural, one {versión} other {versións}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Sen título",
@@ -519,71 +519,71 @@
   "emptyValue": "(baleiro)",
   "noTextChanges": "Sen cambios de texto.",
   "aiAssistantTitle": "Quill",
-  "aiNoPageSelected": "Ningunha páxina seleccionada",
-  "aiChatContextDisabledSubtitle": "Texto da páxina non enviado ao modelo",
-  "aiChatContextUsesCurrentPage": "Contexto: páxina actual ({title})",
+  "aiNoPageSelected": "Ningun folio seleccionada",
+  "aiChatContextDisabledSubtitle": "Texto da folio non enviado ao modelo",
+  "aiChatContextUsesCurrentPage": "Contexto: folio actual ({title})",
   "@aiChatContextUsesCurrentPage": {"placeholders": {"title": {}}},
-  "aiChatContextOnePageFallback": "Contexto: 1 páxina",
-  "aiChatContextNPages": "{count} páxinas no contexto do chat",
+  "aiChatContextOnePageFallback": "Contexto: 1 folio",
+  "aiChatContextNPages": "{count} folios no contexto do nota",
   "@aiChatContextNPages": {"placeholders": {"count": {"type": "int"}}},
-  "aiChatPageContextTooltip": "Incluír o texto da páxina no contexto do modelo",
-  "aiChatChooseContextPagesTooltip": "Escoller que páxinas engaden texto ao contexto",
-  "aiChatContextPagesDialogTitle": "Páxinas no contexto do chat",
+  "aiChatPageContextTooltip": "Incluír o texto da folio no contexto do modelo",
+  "aiChatChooseContextPagesTooltip": "Escoller que folios engaden texto ao contexto",
+  "aiChatContextPagesDialogTitle": "Folios no contexto do nota",
   "aiChatContextPagesClear": "Limpar lista",
   "aiChatContextPagesApply": "Aplicar",
   "aiTypingSemantics": "Quill está escribindo",
-  "aiRenameChatTooltip": "Renomear chat",
-  "aiRenameChatDialogTitle": "Título do chat",
+  "aiRenameChatTooltip": "Renomear nota",
+  "aiRenameChatDialogTitle": "Título do nota",
   "aiRenameChatLabel": "Título amosado na pestana",
   "quillWorkspaceTourTitle": "Quill pode axudar dende aquí",
-  "quillWorkspaceTourBodyReady": "O teu chat con Quill está listo para preguntas, edicións de páxina e fluxos con contexto.",
+  "quillWorkspaceTourBodyReady": "O teu nota con Quill está listo para preguntas, edicións de folio e fluxos con contexto.",
   "quillWorkspaceTourBodyUnavailable": "Aínda que non estea activo agora, Quill pertence a este espazo e poderás activalo máis tarde dende Axustes.",
   "quillWorkspaceTourPointsTitle": "O que [cite: 42] paga a pena saber",
   "quillWorkspaceTourPointOne": "Funciona tanto como asistente conversacional como editor para títulos e bloques.",
-  "quillWorkspaceTourPointTwo": "Pode usar a páxina actual ou varias páxinas como contexto.",
-  "quillWorkspaceTourPointThree": "Se tocas un exemplo de abaixo, cubrirase o chat cando Quill estea dispoñible.",
+  "quillWorkspaceTourPointTwo": "Pode usar a folio actual ou varias folios como contexto.",
+  "quillWorkspaceTourPointThree": "Se tocas un exemplo de abaixo, cubrirase o nota cando Quill estea dispoñible.",
   "quillWorkspaceTourExamplesTitle": "Proba mensaxes como",
-  "quillWorkspaceTourExampleOne": "Explica como organizar esta páxina.",
-  "quillWorkspaceTourExampleTwo": "Usa estas dúas páxinas para facer un resumo compartido.",
+  "quillWorkspaceTourExampleOne": "Explica como organizar esta folio.",
+  "quillWorkspaceTourExampleTwo": "Usa estas dúas folios para facer un resumo compartido.",
   "quillWorkspaceTourExampleThree": "Reescribe este bloque nun ton máis claro.",
   "quillTourDismiss": "Entendido",
   "aiExpand": "Expandir",
   "aiCollapse": "Contraer",
   "sidebarItemExpandedSemantics": "Expandido",
   "sidebarItemCollapsedSemantics": "Colapsado",
-  "aiDeleteCurrentChat": "Eliminar chat actual",
-  "aiNewChat": "Novo",
+  "aiDeleteCurrentChat": "Eliminar nota actual",
+  "aiNewChat": "Nova nota",
   "aiAttach": "Adxuntar",
-  "aiChatEmptyHint": "Inicia unha conversa.\nQuill decidirá automaticamente que facer coa túa mensaxe.\nTamén podes preguntar como usar Folio (atallos, axustes, páxinas ou este chat).",
+  "aiChatEmptyHint": "Inicia unha conversa.\nQuill decidirá automaticamente que facer coa túa mensaxe.\nTamén podes preguntar como usar Folio (atallos, axustes, folios ou este nota).",
   "aiChatEmptyFocusComposer": "Escribe unha mensaxe",
   "aiInputHint": "Escribe a túa mensaxe. Quill actuará como un axente.",
   "aiInputHintCopilot": "Escribe a túa mensaxe...",
   "aiContextComposerHint": "Sen contexto engadido",
   "aiContextComposerHelper": "Usa @ para engadir contexto",
-  "aiContextCurrentPageChip": "Páxina actual: {title}",
+  "aiContextCurrentPageChip": "Folio actual: {title}",
   "@aiContextCurrentPageChip": {"placeholders": {"title": {}}},
-  "aiContextCurrentPageFallback": "Páxina actual",
+  "aiContextCurrentPageFallback": "Folio actual",
   "aiContextAddFile": "Adxuntar ficheiro",
-  "aiContextAddPage": "Adxuntar páxina",
+  "aiContextAddPage": "Adxuntar folio",
   "aiContextEditorSelection": "Incluír selección do editor (próximo envío)",
-  "aiContextLastMeetingOnPage": "Incluír última xuntanza da páxina (próximo envío)"
-  ,"aiAttachMenuTitle": "Add to chat"
+  "aiContextLastMeetingOnPage": "Incluír última xuntanza da folio (próximo envío)"
+  ,"aiAttachMenuTitle": "Engadir á nota"
   ,"aiAttachMenuSubtitle": "Context, files, or meeting notes for this question"
   ,"aiAttachMenuBack": "Back"
   ,"aiAttachMenuSearchPagesHint": "Search pages…"
   ,"aiAttachMenuSectionActions": "Actions"
   ,"aiAttachMenuSectionPages": "Pages"
   ,"aiAttachFileSubtitle": "PDF, text, images, or other files"
-  ,"aiAttachPageSubtitle": "Pick notebook pages as context"
+  ,"aiAttachPageSubtitle": "Escoller folios do caderno como contexto"
   ,"aiAttachSelectionSubtitle": "Current editor selection on the next message"
   ,"aiAttachMeetingSubtitle": "Transcript or audio from a meeting note"
   ,"aiAttachLastMeetingSubtitle": "Last meeting on the open page on the next message"
   ,"aiAttachCurrentPageSubtitle": "Use only the open page as context"
   ,"aiAttachPageAlreadyAdded": "Already added"
 ,
-  "aiShowPanel": "Amosar panel de IA",
-  "aiHidePanel": "Agochar panel de IA",
-  "aiPanelResizeHandle": "Redimensionar panel de IA",
+  "aiShowPanel": "Amosar panel de Quill",
+  "aiHidePanel": "Agochar panel de Quill",
+  "aiPanelResizeHandle": "Redimensionar panel de Quill",
   "aiPanelResizeHandleHint": "Arrastra horitzontalmente para cambiar o ancho do panel do asistente",
   "importMarkdownPage": "Importar Markdown",
   "exportMarkdownPage": "Exportar Markdown",
@@ -591,14 +591,14 @@
   "workspaceUndoTooltip": "Desfacer (Ctrl+Z)",
   "workspaceRedoTooltip": "Refacer (Ctrl+Y)",
   "workspaceMoreActionsTooltip": "Máis accións",
-  "closeCurrentPage": "Pechar páxina actual",
-  "aiErrorWithDetails": "Erro de IA: {error}",
+  "closeCurrentPage": "Pechar folio actual",
+  "aiErrorWithDetails": "Erro de Quill: {error}",
   "@aiErrorWithDetails": {"placeholders": {"error": {}}},
-  "aiServiceUnreachable": "Non se puido contactar co servizo de IA no enderezo configurado. [cite: 46] Inicia Ollama ou LM Studio e revisa a URL.",
-  "aiLaunchProviderWithApp": "Abrir a app de IA cando se inicie Folio",
+  "aiServiceUnreachable": "Non se puido contactar co servizo de Quill no enderezo configurado. [cite: 46] Inicia Ollama ou LM Studio e revisa a URL.",
+  "aiLaunchProviderWithApp": "Abrir a app de Quill cando se inicie Folio",
   "aiLaunchProviderWithAppHint": "Tenta iniciar Ollama ou LM Studio en Windows cando o enderezo é localhost. [cite: 47] LM Studio pode precisar que o seu servidor se inicie manualmente.",
   "settingsMcpServerTitle": "Servidor MCP local (beta)",
-  "settingsMcpServerSubtitle": "Permite que clientes MCP externos (Cursor, Claude Desktop, Claude Code…) xestionen as túas páxinas e cadernos. Só neste equipo.",
+  "settingsMcpServerSubtitle": "Permite que clientes MCP externos (Cursor, Claude Desktop, Claude Code…) xestionen as túas folios e cadernos. Só neste equipo.",
   "settingsMcpServerRunningDetails": "Activo en {endpoint}\nToken: {token}",
   "@settingsMcpServerRunningDetails": {
     "placeholders": {
@@ -612,26 +612,26 @@
   "settingsMcpCopyClaudeConfigDone": "JSON de Claude Desktop copiado (mcp-remote). Pégao en %APPDATA%\\Claude\\claude_desktop_config.json. Require Node.js/npx. Non uses o formulario «Conector personalizado» con localhost.",
   "settingsMcpClaudeCustomConnectorHint": "O diálogo «Engadir conector personalizado» de Claude esixe unha URL HTTPS pública alcanzable desde os servidores de Anthropic. O MCP de Folio é só local (127.0.0.1), así que ese formulario non o pode usar. Neste PC, usa «Copiar JSON de Claude Desktop» e pégao en claude_desktop_config.json.",
   "aiContextWindowTokens": "Xanela de contexto do modelo (tokens)",
-  "aiContextWindowTokensHint": "Usado para a barra de contexto no chat de IA. [cite: 48] Debe coincidir co teu modelo (ex: 8192, 131072).",
+  "aiContextWindowTokensHint": "Usado para a barra de contexto no nota de Quill. [cite: 48] Debe coincidir co teu modelo (ex: 8192, 131072).",
   "aiContextUsageUnavailable": "Non se informou do uso de tokens na última resposta.",
   "aiContextUsageSummary": "Prompt {prompt} · Saída {completion}",
   "@aiContextUsageSummary": {"placeholders": {"prompt": {}, "completion": {}}},
   "aiContextUsageTooltip": "Última petición vs a túa xanela de contexto configurada ({window} tokens).",
   "@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}},
   "aiChatKeyboardHint": "Intro para enviar · Ctrl+Intro para nova liña",
-  "aiChatInkRemaining": "{total, plural, one{queda 1 gota de ink} other{quedan {total} gotas de ink}}",
+  "aiChatInkRemaining": "{total, plural, one{queda 1 gota de tinta} other{quedan {total} gotas de tinta}}",
   "@aiChatInkRemaining": {"placeholders": {"total": {"type": "int"}}},
   "aiChatInkBreakdownTooltip": "Mensual {monthly} · Comprado {purchased}",
   "@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}},
   "aiAgentThought": "Pensamento de Quill",
-  "aiAlwaysShowThought": "Amosar sempre [cite: 49] o pensamento da IA",
+  "aiAlwaysShowThought": "Amosar sempre [cite: 49] o pensamento da Quill",
   "aiAlwaysShowThoughtHint": "Se está desactivado, aparece contraído cunha frecha en cada mensaxe.",
   "aiBetaBadge": "BETA",
-  "aiBetaEnableTitle": "A IA está en BETA",
+  "aiBetaEnableTitle": "A Quill está en BETA",
   "aiBetaEnableBody": "Esta función está actualmente en BETA e pode fallar ou comportarse de forma inesperada.\n\nQueres activala de todos xeitos?",
   "aiBetaEnableConfirm": "Activar BETA",
-  "ai": "IA",
-  "aiEnableToggleTitle": "Activar IA",
+  "ai": "Quill",
+  "aiEnableToggleTitle": "Activar Quill",
   "aiProviderLabel": "Provedor",
   "aiProviderNone": "Ningún",
   "aiEndpoint": "Endpoint (enderezo)",
@@ -642,12 +642,12 @@
   "aiAllowRemoteEndpointLocalhostOnly": "Só localhost",
   "aiAllowRemoteEndpointNotConfirmed": "O acceso ao endpoint remoto está activado pero aínda non foi confirmado.",
   "aiConnectToListModels": "Conectar para listar modelos",
-  "aiProviderAutoConfigured": "Provedor de IA detectado e configurado: {provider}",
+  "aiProviderAutoConfigured": "Provedor de Quill detectado e configurado: {provider}",
   "@aiProviderAutoConfigured": {"placeholders": {"provider": {}}},
-  "aiSetupAssistantTitle": "Asistente de configuración de IA",
+  "aiSetupAssistantTitle": "Asistente de configuración de Quill",
   "aiSetupAssistantSubtitle": "Detectar e configurar Ollama ou LM Studio automaticamente.",
-  "aiSetupWizardTitle": "Asistente de configuración de IA",
-  "aiSetupChooseProviderTitle": "Escoller provedor de IA",
+  "aiSetupWizardTitle": "Asistente de configuración de Quill",
+  "aiSetupChooseProviderTitle": "Escoller provedor de Quill",
   "aiSetupChooseProviderBody": "Primeiro escolle que provedor queres usar. [cite: 51] Despois guiarémoste na instalación e configuración.",
   "aiSetupNoProviderTitle": "Non se detectou provedor activo",
   "aiSetupNoProviderBody": "Non atopamos Ollama ou LM Studio en execución.\nSegue os pasos para instalar/iniciar un deles e preme Tentar de novo.",
@@ -660,14 +660,14 @@
   "aiCompareCloudTitle": "Folio [cite: 52] Cloud",
   "aiCompareLocalTitle": "Local (Ollama / LM Studio)",
   "aiCompareCloudBulletNoSetup": "Sen configuración local: funciona tras iniciar sesión.",
-  "aiCompareCloudBulletNeedsSub": "Subscrición a Folio Cloud con IA na nube ou ink comprado.",
-  "aiCompareCloudBulletInk": "Usa ink para a IA na nube (paquetes + recarga mensual).",
-  "aiProviderFolioCloudBlockedSnack": "Precisas un plan activo de Folio Cloud con IA na nube ou ink comprado — mira en Axustes → Folio Cloud.",
+  "aiCompareCloudBulletNeedsSub": "Subscrición a Folio Cloud con Quill na nube ou tinta comprado.",
+  "aiCompareCloudBulletInk": "Usa tinta para a Quill na nube (paquetes + recarga mensual).",
+  "aiProviderFolioCloudBlockedSnack": "Precisas un plan activo de Folio Cloud con Quill na nube ou tinta comprado — mira en Axustes → Folio Cloud.",
   "aiCompareLocalBulletPrivacy": "Privacidade local (na túa máquina).",
-  "aiCompareLocalBulletNoInk": "Sen ink: non depende dun saldo.",
+  "aiCompareLocalBulletNoInk": "Sen tinta: non depende dun saldo.",
   "aiCompareLocalBulletSetup": "Require instalar e executar un provedor en localhost.",
-  "quillGlobalScopeNoticeTitle": "Quill funciona en todas as caixas fortes",
-  "quillGlobalScopeNoticeBody": "Quill é un axuste a nivel de aplicación. [cite: 53] Se o activas agora, estará dispoñible para calquera caixa forte desta instalación.",
+  "quillGlobalScopeNoticeTitle": "Quill funciona en todas as cadernos",
+  "quillGlobalScopeNoticeBody": "Quill é un axuste a nivel de aplicación. [cite: 53] Se o activas agora, estará dispoñible para calquera caderno desta instalación.",
   "quillGlobalScopeNoticeConfirm": "Enténdoo",
   "searchByNameOrShortcut": "Buscar por nome ou atallo…",
   "search": "Buscar",
@@ -677,20 +677,20 @@
   "keyboardShortcutsSection": "Teclado (na app)",
   "tasksCaptureSettingsSection": "Tarefas (captura rápida)",
   "taskInboxPageTitle": "Bandexa de tarefas",
-  "taskInboxPageSubtitle": "Páxina onde se gardan as tarefas engadidas con captura rápida.",
+  "taskInboxPageSubtitle": "Folio onde se gardan as tarefas engadidas con captura rápida.",
   "taskInboxNone": "Sen definir (créase ao gardar a primeira)",
   "taskInboxDefaultTitle": "Bandexa de tarefas",
   "taskAliasManageTitle": "Alias de destino",
-  "taskAliasManageSubtitle": "Usa `#etiqueta` ou `@etiqueta` ao final da captura. Define a clave sen símbolo (ex. traballo) e a páxina destino.",
+  "taskAliasManageSubtitle": "Usa `#etiqueta` ou `@etiqueta` ao final da captura. Define a clave sen símbolo (ex. traballo) e a folio destino.",
   "taskAliasAddButton": "Engadir alias",
   "taskAliasTagLabel": "Etiqueta",
-  "taskAliasTargetLabel": "Páxina",
+  "taskAliasTargetLabel": "Folio",
   "taskAliasDeleteTooltip": "Quitar",
   "taskQuickAddTitle": "Captura rápida de tarefa",
   "taskQuickAddHint": "Ex.: Mercar leite mañá alta #traballo. Tamén: due:2026-04-20, p1, en progreso.",
   "taskQuickAddConfirm": "Engadir",
   "taskQuickAddSuccess": "Tarefa engadida.",
-  "taskQuickAddAliasTargetMissing": "A páxina dese alias xa non existe.",
+  "taskQuickAddAliasTargetMissing": "A folio dese alias xa non existe.",
   "taskQuickAddTagsLabel": "Etiquetas",
   "taskQuickAddTagsHint": "Separadas por comas (ex.: traballo, cliente)",
   "taskQuickAddAssigneeLabel": "Asignado a",
@@ -700,7 +700,7 @@
   "taskHubTitle": "Todas as tarefas",
   "taskHubClose": "Pechar vista",
   "taskHubDashboardHelpTitle": "Ideas tipo dashboard",
-  "taskHubDashboardHelpBody": "Crea unha páxina co bloque columnas e enlaza páxinas de listas por contexto, ou usa un bloque base de datos con datas e estados para un taboleiro.",
+  "taskHubDashboardHelpBody": "Crea un folio co bloque columnas e enlaza folios de listas por contexto, ou usa un bloque base de datos con datas e estados para un taboleiro.",
   "taskHubEmpty": "Non hai tarefas neste caderno.",
   "taskHubFilterAll": "Todas",
   "taskHubFilterActive": "Pendentes",
@@ -711,11 +711,11 @@
   "taskHubOpen": "Abrir",
   "taskHubMarkDone": "Feito",
   "taskHubIncludeTodos": "Incluír checklists",
-  "vaultTaskHubSearchHint": "Buscar por título, páxina, etiqueta ou asignado",
+  "vaultTaskHubSearchHint": "Buscar por título, folio, etiqueta ou asignado",
   "vaultTaskPresetNext7Days": "Próximos 7 días",
   "vaultTaskPresetNoDueDate": "Sen data",
-  "taskVaultMoveToPage": "Mover a outra páxina…",
-  "taskVaultMovePickTitle": "Elixe a páxina de destino",
+  "taskVaultMoveToPage": "Mover a outra folio…",
+  "taskVaultMovePickTitle": "Elixe a folio de destino",
   "sidebarQuickAddTask": "Tarefa rápida",
   "sidebarTaskHub": "Todas as tarefas",
   "shortcutTestAction": "Proba",
@@ -733,7 +733,7 @@
   "hotkeyCtrlShiftK": "Ctrl + Maiús + K",
   "minimizeToTray": "Minimizar á bandexa",
   "closeToTray": "Pechar á bandexa",
-  "searchAllVaultHint": "Buscar en toda a caixa forte...",
+  "searchAllVaultHint": "Buscar en toda a caderno...",
   "typeToSearch": "Escribe para buscar",
   "noSearchResults": "Sen resultados",
   "searchFilterAll": "Todo",
@@ -744,7 +744,7 @@
   "settingsSearchSections": "Axustes de busca",
   "settingsSearchSectionsHint": "Filtrar categorías na barra lateral",
   "scheduledVaultBackupTitle": "Copia cifrada programada",
-  "scheduledVaultBackupSubtitle": "Mentres a caixa forte estea desbloqueada, Folio cópiaa automáticamente co intervalo escollido. Activa a copia en carpeta, na nube, ou as dúas.",
+  "scheduledVaultBackupSubtitle": "Mentres a caderno estea desbloqueada, Folio cópiaa automáticamente co intervalo escollido. Activa a copia en carpeta, na nube, ou as dúas.",
   "scheduledVaultBackupFolderTitle": "Copia en carpeta",
   "scheduledVaultBackupFolderSubtitle": "Garda unha copia cifrada incremental (pack) na carpeta configurada.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copia",
@@ -770,7 +770,7 @@
   "scheduledVaultBackupSnackOk": "Copia programada gardada.",
   "scheduledVaultBackupSnackFail": "Fallou a copia programada: {error}",
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
-  "vaultBackupOpenVaultHint": "As copias son para a caixa forte aberta agora: “{name}”.",
+  "vaultBackupOpenVaultHint": "As copias son para a caderno aberta agora: “{name}”.",
   "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
   "vaultBackupDiskSizeApprox": "Tamaño aproximado no disco: {size}",
   "@vaultBackupDiskSizeApprox": {"placeholders": {"size": {"type": "String"}}},
@@ -835,7 +835,7 @@
   "remoteBackupDialogClose": "Pechar",
   "remoteBackupDialogRefresh": "Actualizar",
   "vaultCloudPackProgressPreparing": "Preparando subida á nube…",
-  "vaultCloudPackProgressPersisting": "Gardando cambios locais da caixa forte…",
+  "vaultCloudPackProgressPersisting": "Gardando cambios locais da caderno…",
   "vaultCloudPackProgressFingerprint": "Calculando pegada do contido…",
   "vaultCloudPackProgressFetchingMeta": "Consultando o estado en Folio Cloud…",
   "vaultCloudPackProgressSkippedUpToDate": "Nada que subir: a nube xa ten esta versión.",
@@ -843,9 +843,9 @@
   "vaultCloudPackProgressIndexingLocal": "Inventariando ficheiros locais…",
   "vaultCloudPackProgressDownloadingManifest": "Descargando inventario anterior da nube…",
   "vaultCloudPackProgressBlobManifest": "Manifesto da copia",
-  "vaultCloudPackProgressBlobVaultKeys": "Chaves da caixa forte (vault.keys)",
-  "vaultCloudPackProgressBlobVaultData": "Datos cifrados da caixa forte (vault.bin)",
-  "vaultCloudPackProgressBlobVaultMode": "Modo da caixa forte",
+  "vaultCloudPackProgressBlobVaultKeys": "Chaves da caderno (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Datos cifrados da caderno (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Modo da caderno",
   "vaultCloudPackProgressBlobAttachment": "Anexo: {name}",
   "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
   "vaultCloudPackProgressBlobAttachmentAnonymous": "Anexo",
@@ -857,34 +857,34 @@
   "vaultCloudPackProgressUpdatingIndex": "Actualizando o índice de copias…",
   "vaultCloudPackProgressComplete": "Copia na nube completada.",
   "vaultIdentitySyncTitle": "Sincronización",
-  "vaultIdentitySyncBody": "Introduce a contrasinal da caixa forte (ou Hello / passkey) para continuar.",
+  "vaultIdentitySyncBody": "Introduce a contrasinal da caderno (ou Hello / passkey) para continuar.",
   "vaultIdentityCloudBackupTitle": "Copias na nube",
-  "vaultIdentityCloudBackupBody": "Confirma a identidade da caixa forte para listar ou descargar copias cifradas.",
-  "aiRewriteDialogTitle": "Reescribir con IA",
+  "vaultIdentityCloudBackupBody": "Confirma a identidade da caderno para listar ou descargar copias cifradas.",
+  "aiRewriteDialogTitle": "Reescribir con Quill",
   "aiPreviewTitle": "Vista previa",
   "aiInstructionHint": "Exemplo: facelo máis claro e curto",
   "aiApply": "Aplicar",
   "aiGenerating": "Xerando…",
-  "aiSummarizeSelection": "Resumir con IA…",
+  "aiSummarizeSelection": "Resumir con Quill…",
   "aiExtractTasksDates": "Extraer tarefas e datas…",
   "aiPreviewReadOnlyHint": "Podes editar o texto de abaixo antes de aplicar.",
   "aiRewriteApplied": "Bloque actualizado.",
   "aiUndoRewrite": "Desfacer",
   "aiInsertBelow": "Inserir abaixo",
-  "unlockVaultTitle": "Desbloquear caixa forte",
+  "unlockVaultTitle": "Desbloquear caderno",
   "miniUnlockFailed": "Non se puido desbloquear."
  ,"importNotionTitle": "Importar dende Notion (.zip)"
   ,"importNotionSubtitle": "Exportación ZIP de Notion (Markdown/HTML)"
   ,"importNotionDialogTitle": "Importar dende Notion"
-  ,"importNotionDialogBody": "Importa un ZIP exportado por Notion. Podes engadilo á caixa actual ou crear unha nova."
+  ,"importNotionDialogBody": "Importa un ZIP exportado por Notion. Podes engadilo á caderno actual ou crear unha nova."
   ,"importNotionSelectTargetTitle": "Destino da importación"
-  ,"importNotionSelectTargetBody": "Escolle se queres importar a Notion á túa caixa forte actual ou crear unha nova."
-  ,"importNotionTargetCurrent": "Caixa forte actual"
-  ,"importNotionTargetNew": "Nova caixa forte"
+  ,"importNotionSelectTargetBody": "Escolle se queres importar a Notion á túa caderno actual ou crear unha nova."
+  ,"importNotionTargetCurrent": "Caderno actual"
+  ,"importNotionTargetNew": "Nova caderno"
   ,"importNotionDefaultVaultName": "Importado de Notion"
-  ,"importNotionNewVaultPasswordTitle": "Contrasinal para a nova caixa forte"
-  ,"importNotionSuccessCurrent": "Notion importado na caixa forte actual."
-  ,"importNotionSuccessNew": "Nova caixa forte importada dende Notion."
+  ,"importNotionNewVaultPasswordTitle": "Contrasinal para a nova caderno"
+  ,"importNotionSuccessCurrent": "Notion importado na caderno actual."
+  ,"importNotionSuccessNew": "Nova caderno importada dende Notion."
   ,"importNotionError": "Non se puido importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
   ,"importNotionWarningsTitle": "Avisos da importación"
@@ -913,11 +913,11 @@
   ,"integrationApprovalProtocolVersion": "Versión da integración"
   ,"integrationApprovalCanDoTitle": "Que pode facer esta integración"
   ,"integrationApprovalCanDoSessions": "Crear sesións de importación temporais en Folio."
-  ,"integrationApprovalCanDoImport": "Enviar documentación Markdown para crear ou actualizar páxinas."
-  ,"integrationApprovalCanDoMetadata": "Gardar metadatos de orixe nas páxinas importadas."
-  ,"integrationApprovalCanDoUnlockedVault": "Importar só mentres a caixa forte estea dispoñible e [cite: 63] a petición inclúa o segredo configurado."
+  ,"integrationApprovalCanDoImport": "Enviar documentación Markdown para crear ou actualizar folios."
+  ,"integrationApprovalCanDoMetadata": "Gardar metadatos de orixe nas folios importadas."
+  ,"integrationApprovalCanDoUnlockedVault": "Importar só mentres a caderno estea dispoñible e [cite: 63] a petición inclúa o segredo configurado."
   ,"integrationApprovalCannotDoTitle": "O que non pode facer"
-  ,"integrationApprovalCannotDoRead": "Non pode ler o contido da túa caixa forte."
+  ,"integrationApprovalCannotDoRead": "Non pode ler o contido da túa caderno."
   ,"integrationApprovalCannotDoBypassLock": "Non pode saltar o bloqueo, o cifrado ou a túa aprobación."
   ,"integrationApprovalCannotDoWithoutSecret": "Non pode acceder a funcións protexidas sen o segredo compartido."
   ,"integrationApprovalCannotDoRemoteAccess": "Non pode usar a ponte dende fóra de localhost."
@@ -936,14 +936,14 @@
   ,"updaterBetaDescription": "As betas son lanzamentos de GitHub marcados como pre-lanzamento."
   ,"updaterStableDescription": "Só se considera o último lanzamento estable."
   ,"checkUpdates": "Buscar actualizacións"
-  ,"noEncryptionConfirmTitle": "Crear caixa forte sen cifrado"
+  ,"noEncryptionConfirmTitle": "Crear caderno sen cifrado"
   ,"noEncryptionConfirmBody": "Os teus datos gardaranse sen contrasinal e sen cifrar. [cite: 65] Calquera con acceso a este dispositivo poderá lelos."
   ,"createVaultWithoutEncryption": "Crear sen cifrado"
-  ,"plainVaultSecurityNotice": "Esta caixa forte non está cifrada. [cite: 66] Non se aplica a chave de acceso, o Hello nin o bloqueo automático."
-  ,"encryptPlainVaultTitle": "Cifrar esta caixa forte"
+  ,"plainVaultSecurityNotice": "Esta caderno non está cifrada. [cite: 66] Non se aplica a chave de acceso, o Hello nin o bloqueo automático."
+  ,"encryptPlainVaultTitle": "Cifrar esta caderno"
   ,"encryptPlainVaultBody": "Escolle unha contrasinal mestra. [cite: 67] Todos os datos serán cifrados. Se a esqueces, non poderás recuperalos."
-  ,"encryptPlainVaultConfirm": "Cifrar caixa forte"
-  ,"encryptPlainVaultSuccessSnack": "A caixa forte agora está cifrada"
+  ,"encryptPlainVaultConfirm": "Cifrar caderno"
+  ,"encryptPlainVaultSuccessSnack": "A caderno agora está cifrada"
   ,"aiCopyMessage": "Copiar"
   ,"aiCopyCode": "Copiar código"
   ,"aiCopiedToClipboard": "Copiado ao portapapeis"
@@ -957,7 +957,7 @@
   ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
   ,"aiMessageTimestampDays": "fa {n} días"
   ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
-  ,"templateGalleryTitle": "Modelos de páxina"
+  ,"templateGalleryTitle": "Modelos de folio"
   ,"templateImport": "Importar"
   ,"templateImportPickTitle": "Selecciona un ficheiro de modelo"
   ,"templateImportSuccess": "Modelo importado"
@@ -968,12 +968,12 @@
   ,"templateExportError": "Erro ao exportar: {error}"
   ,"@templateExportError": {"placeholders": {"error": {}}}
   ,"templateSearchHint": "Buscar modelos..."
-  ,"templateEmptyHint": "Aínda non hai modelos.\nGarda unha páxina como modelo ou importa un."
+  ,"templateEmptyHint": "Aínda non hai modelos.\nGarda un folio como modelo ou importa un."
   ,"templateBlockCount": "{count} {count, plural, one {bloque} other {bloques}}"
   ,"@templateBlockCount": {"placeholders": {"count": {"type": "int"}}}
   ,"templateUse": "Usar modelo"
   ,"templateExport": "Exportar"
-  ,"templateBlankPage": "Páxina en branco"
+  ,"templateBlankPage": "Folio en branco"
   ,"templateFromGallery": "Dende modelo…"
   ,"saveAsTemplate": "Gardar como modelo"
   ,"saveAsTemplateTitle": "Gardar como modelo"
@@ -990,7 +990,7 @@
   ,"templateEdit": "Editar modelo"
   ,"templateUpdated": "Modelo actualizado"
   ,"templateDeleteConfirmTitle": "Eliminar modelo"
-  ,"templateDeleteConfirmBody": "O modelo \"{name}\" eliminarase desta caixa forte."
+  ,"templateDeleteConfirmBody": "O modelo \"{name}\" eliminarase desta caderno."
   ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
   ,"templateCreatedOn": "Creado o {date}"
   ,"@templateCreatedOn": {"placeholders": {"date": {}}}
@@ -1024,9 +1024,9 @@
   ,"@templateCommunityDownloadError": {"placeholders": {"error": {}}}
   ,"clear": "Limpar"
   ,"cloudAccountSectionTitle": "Conta de Folio Cloud"
-  ,"cloudAccountSectionDescription": "Opcional. [cite: 75] Inicia sesión para subscribirte a copias na nube, IA hospedada e publicación web. [cite: 76] A túa caixa forte permanece local a menos que uses esas funcións."
+  ,"cloudAccountSectionDescription": "Opcional. [cite: 75] Inicia sesión para subscribirte a copias na nube, Quill hospedada e publicación web. [cite: 76] A túa caderno permanece local a menos que uses esas funcións."
   ,"cloudAccountChipOptional": "Opcional"
-  ,"cloudAccountChipPaidCloud": "Copias, IA e web"
+  ,"cloudAccountChipPaidCloud": "Copias, Quill e web"
   ,"cloudAccountUnavailable": "O inicio de sesión non está dispoñible (Firebase non iniciou). [cite: 77] Revisa a túa conexión."
   ,"cloudAccountEmailLabel": "Correo"
   ,"cloudAccountPasswordLabel": "Contrasinal"
@@ -1054,7 +1054,7 @@
   ,"cloudAuthErrorOperationNotAllowed": "Este método de acceso non está habilitado en Firebase."
   ,"cloudAuthErrorGeneric": "Erro ao entrar. [cite: 80] Téntao de novo."
   ,"cloudAuthDialogTitle": "Folio Cloud"
-  ,"cloudAuthSubtitleSignIn": "Usa o teu correo e contrasinal de Folio Cloud. [cite: 81] Nada aquí cambia a túa caixa forte local."
+  ,"cloudAuthSubtitleSignIn": "Usa o teu correo e contrasinal de Folio Cloud. [cite: 81] Nada aquí cambia a túa caderno local."
   ,"cloudAuthSubtitleRegister": "Crea credenciais para Folio Cloud. [cite: 82] As túas notas non se subirán ata que actives as copias ou funcións de pago."
   ,"cloudAuthModeSignIn": "Entrar"
   ,"cloudAuthModeRegister": "Rexistrarse"
@@ -1062,10 +1062,10 @@
   ,"cloudAuthValidationRequired": "Este campo é obrigatorio."
   ,"cloudAuthValidationPasswordShort": "Usa polo menos 6 caracteres."
   ,"cloudAuthValidationConfirmMismatch": "As contrasinais non coinciden."
-  ,"cloudAccountSignedOutPrompt": "Entra ou rexístrate para subscribirte a Folio Cloud e usar as copias, a IA na nube e a publicación."
+  ,"cloudAccountSignedOutPrompt": "Entra ou rexístrate para subscribirte a Folio Cloud e usar as copias, a Quill na nube e a publicación."
   ,"cloudAuthResetHint": "Enviarémosche unha ligazón para poñer unha nova contrasinal."
   ,"cloudAccountEmailVerified": "Verificado"
-  ,"cloudAccountSignOutHelp": "A túa caixa forte local queda neste dispositivo."
+  ,"cloudAccountSignOutHelp": "A túa caderno local queda neste dispositivo."
   ,"cloudAccountEmailUnverifiedBanner": "Verifica o teu correo para asegurar a túa conta de Folio Cloud."
   ,"cloudAccountResendVerification": "Reenviar correo de verificación"
   ,"cloudAccountReloadVerification": "Xa verifiquei"
@@ -1081,7 +1081,7 @@
   ,"folioWebPortalLinkButton": "Ligar"
   ,"folioWebPortalLinkSuccess": "Conta web ligada con éxito."
   ,"folioWebPortalNeedSignIn": "Entra en Folio Cloud para ligar a túa conta web."
-  ,"folioWebMirrorNote": "As copias, a IA e a publicación réxense por Folio Cloud (Firestore). [cite: 85] O de abaixo reflicte a túa conta web."
+  ,"folioWebMirrorNote": "As copias, a Quill e a publicación réxense por Folio Cloud (Firestore). [cite: 85] O de abaixo reflicte a túa conta web."
   ,"folioWebEntitlementLinked": "Conta web ligada"
   ,"folioWebEntitlementNotLinked": "Conta web non ligada"
   ,"folioWebEntitlementWebPlan": "Plan de Folio Cloud (web): {value}"
@@ -1090,7 +1090,7 @@
   ,"@folioWebEntitlementWebStatus": {"placeholders": {"value": {"type": "String"}}}
   ,"folioWebEntitlementWebPeriodEnd": "Fin do período (web): {value}"
   ,"@folioWebEntitlementWebPeriodEnd": {"placeholders": {"value": {"type": "String"}}}
-  ,"folioWebEntitlementWebInk": "Ink (web): {count}"
+  ,"folioWebEntitlementWebInk": "Tinta (web): {count}"
   ,"@folioWebEntitlementWebInk": {"placeholders": {"count": {"type": "int"}}}
   ,"folioWebPortalRefreshWeb": "Actualizar estado web"
   ,"folioWebPortalErrorNetwork": "Non se puido contactar co portal. [cite: 86] Revisa a túa conexión."
@@ -1101,21 +1101,21 @@
   ,"folioWebPortalServerMessage": "{message}"
   ,"@folioWebPortalServerMessage": {"placeholders": {"message": {"type": "String"}}}
   ,"folioCloudSubsectionPlan": "Plan e estado"
-  ,"folioCloudSubsectionInk": "Saldo de Ink"
+  ,"folioCloudSubsectionInk": "Saldo de Tinta"
   ,"folioCloudSubsectionSubscription": "Subscrición e facturación"
   ,"folioCloudSubsectionBackupPublish": "Copias e publicación"
   ,"folioCloudSubscriptionActive": "Subscrición activa"
   ,"folioCloudSubscriptionActiveWithStatus": "Subscrición activa ({status})"
   ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
   ,"folioCloudSubscriptionNoneTitle": "Sen subscripció a Folio Cloud"
-  ,"folioCloudSubscriptionNoneSubtitle": "Activa un plan para ter copias cifradas, IA na nube e publicación web."
+  ,"folioCloudSubscriptionNoneSubtitle": "Activa un plan para ter copias cifradas, Quill na nube e publicación web."
   ,"folioCloudFeatureBackup": "Copia na nube"
   ,"folioCloudDeviceSyncTitle": "Sincronización entre dispositivos"
   ,"folioCloudUnifiedSheetTitle": "Gardado e sincronización"
   ,"folioCloudUnifiedLocalSaveSection": "Este dispositivo"
   ,"folioCloudUnifiedTooltip": "{local} · {cloud}"
   ,"@folioCloudUnifiedTooltip": {"placeholders": {"local": {"type": "String"}, "cloud": {"type": "String"}}}
-  ,"folioCloudDeviceSyncSubtitle": "Propaga cambios case ao instante aos outros dispositivos (merge por páxina/bloque; non substitúe unha restauración manual)."
+  ,"folioCloudDeviceSyncSubtitle": "Propaga cambios case ao instante aos outros dispositivos (merge por folio/bloque; non substitúe unha restauración manual)."
   ,"folioCloudDeviceSyncStatusSyncing": "Sincronizando…"
   ,"folioCloudDeviceSyncStatusError": "Erro de sincronización — reintentando…"
   ,"folioCloudDeviceSyncStatusPending": "Agardando a primeira sincronización…"
@@ -1132,9 +1132,9 @@
   ,"@folioCloudDeviceSyncConflictsTooltip": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudDeviceSyncOpenConflicts": "Resolver conflitos ({count})"
   ,"@folioCloudDeviceSyncOpenConflicts": {"placeholders": {"count": {"type": "int"}}}
-  ,"folioCloudDeviceSyncConflictHint": "Conservouse a túa versión na páxina. A outra gardouse no historial de revisións."
-  ,"folioCloudDeviceSyncConflictKeepLocalHint": "Mántense a túa versión local. A do outro dispositivo queda no historial da páxina (revisión sync_remote)."
-  ,"folioCloudDeviceSyncRemoteRevisionBanner": "{count, plural, one{Hai 1 versión remota de sync no historial desta páxina} other{Hai {count} versións remotas de sync no historial desta páxina}}"
+  ,"folioCloudDeviceSyncConflictHint": "Conservouse a túa versión na folio. A outra gardouse no historial de revisións."
+  ,"folioCloudDeviceSyncConflictKeepLocalHint": "Mántense a túa versión local. A do outro dispositivo queda no historial da folio (revisión sync_remote)."
+  ,"folioCloudDeviceSyncRemoteRevisionBanner": "{count, plural, one{Hai 1 versión remota de sync no historial desta folio} other{Hai {count} versións remotas de sync no historial desta folio}}"
   ,"@folioCloudDeviceSyncRemoteRevisionBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudDeviceSyncViewHistory": "Ver historial"
   ,"syncConflictMergeSheetTitle": "Resolver conflitos de sync"
@@ -1143,11 +1143,11 @@
   ,"syncConflictMergeOtherVersion": "A outra"
   ,"syncConflictMergeBoth": "Ambas"
   ,"syncConflictMergeApply": "Aplicar merge"
-  ,"syncConflictMergeOpenPage": "Ir á páxina"
+  ,"syncConflictMergeOpenPage": "Ir á folio"
   ,"syncConflictMergePreviewTitle": "Resultado fusionado"
   ,"syncConflictMergeHunksTitle": "Cambios por anacos"
   ,"syncConflictMergePageUntitled": "Sen título"
-  ,"syncConflictMergeMissingPage": "Páxina non atopada"
+  ,"syncConflictMergeMissingPage": "Folio non atopada"
   ,"syncConflictMergeLegacyTitle": "Conflito de caderno"
   ,"syncConflictMergeUnknownBlock": "Bloque"
   ,"syncConflictMergeBlockType": "Tipo: {type}"
@@ -1176,7 +1176,7 @@
   ,"folioCloudDeviceSyncOpenVault": "Abrir"
   ,"folioCloudSubsectionAccountProfile": "Perfil da conta"
   ,"folioCloudAppProfileSyncTitle": "Sincronizar axustes da app"
-  ,"folioCloudAppProfileSyncSubtitle": "Garda o tema, a IA, os atallos, as iconas personalizadas e outras preferencias na túa conta Folio Cloud (cifrado)."
+  ,"folioCloudAppProfileSyncSubtitle": "Garda o tema, a Quill, os atallos, as iconas personalizadas e outras preferencias na túa conta Folio Cloud (cifrado)."
   ,"folioCloudAppProfileUploadNow": "Subir axustes agora"
   ,"folioCloudAppProfileRestore": "Restaurar axustes dende a nube"
   ,"folioCloudAppProfileRestoreDialogTitle": "Restaurar axustes da conta?"
@@ -1188,7 +1188,7 @@
   ,"folioCloudAppProfileRestoreFail": "Non se puideron descifrar os axustes da nube (chave distinta). Escolle «comezar de novo» para subir os deste dispositivo, ou restaura dende outro que sincronice correctamente."
   ,"folioCloudAppProfileEmptyCloud": "Aínda non hai un perfil de axustes na nube. Súbeo primeiro dende este dispositivo."
   ,"folioCloudVaultProfileRestore": "Restaurar preferencias desta caderniña"
-  ,"folioCloudFeatureCloudAi": "IA na nube"
+  ,"folioCloudFeatureCloudAi": "Quill na nube"
   ,"folioCloudFeaturePublishWeb": "Publicación web"
   ,"folioCloudFeatureOn": "Incluído"
   ,"folioCloudFeatureOff": "Non incluído"
@@ -1201,7 +1201,7 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Plan mensual de Folio Cloud activo"
   ,"folioCloudPlanFreeHeadline": "Plan gratuíto de Folio Cloud"
-  ,"folioCloudPlanFreeSubtitle": "500 MB de copias na nube e sincronización entre dispositivos. Sen tinta mensual: subscríbete para IA na nube e máis espazo."
+  ,"folioCloudPlanFreeSubtitle": "500 MB de copias na nube e sincronización entre dispositivos. Sen tinta mensual: subscríbete para Quill na nube e máis espazo."
   ,"folioCloudImportAllWarningTitle": "Importar cadernos da nube"
   ,"folioCloudImportAllWarningBodyEmpty": "Descargaranse e importaranse todos os cadernos da túa conta. O caderno local está baleiro: o primeiro da nube ocupará este espazo e o resto engadiranse. O contrasinal da conta só se usa para importar; o desbloqueo de cada caderno segue sendo o seu."
   ,"folioCloudImportAllWarningBodyKeepLocal": "Descargaranse e importaranse todos os cadernos da túa conta como cadernos novos. O caderno local consérvase. O contrasinal da conta só se usa para importar; o desbloqueo de cada caderno segue sendo o seu."
@@ -1259,17 +1259,17 @@
   ,"folioCloudStudentVerifyDialogHelp": "Admite dominios académicos universitarios españois e dominios globais."
   ,"folioCloudStudentVerifyDialogAction": "Verificar agora"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
-  ,"folioCloudPitchHeadline": "A túa caixa forte é local. [cite: 89] A nube funciona cando ti queres."
-  ,"folioCloudPitchSubhead": "Un plan mensual desbloquea as copias cifradas, a IA na nube con saldo mensual de ink e a publicación web—só para o que escollas compartir."
+  ,"folioCloudPitchHeadline": "A túa caderno é local. [cite: 89] A nube funciona cando ti queres."
+  ,"folioCloudPitchSubhead": "Un plan mensual desbloquea as copias cifradas, a Quill na nube con saldo mensual de tinta e a publicación web—só para o que escollas compartir."
   ,"folioCloudPitchLearnMore": "Mira que inclúe"
   ,"folioCloudPitchCtaNeedAccount": "Entrar ou crear conta"
   ,"folioCloudPitchGuestTeaserTitle": "Conta de Folio Cloud"
   ,"folioCloudPitchGuestTeaserBody": "Conta opcional: mira o que inclúe o plan e entra cando queiras subscribirte."
   ,"folioCloudPitchOpenSettingsToSignIn": "Abre Axustes e entra en Folio Cloud para subscribirte."
-  ,"folioCloudBuyInk": "Comprar ink"
-  ,"folioCloudInkSmall": "Ink Pequeno (1,99 €)"
-  ,"folioCloudInkMedium": "Ink Medio (4,99 €)"
-  ,"folioCloudInkLarge": "Ink [cite: 90] Grande (9,99 €)"
+  ,"folioCloudBuyInk": "Comprar tinta"
+  ,"folioCloudInkSmall": "Tinta Pequeno (1,99 €)"
+  ,"folioCloudInkMedium": "Tinta Medio (4,99 €)"
+  ,"folioCloudInkLarge": "Tinta [cite: 90] Grande (9,99 €)"
   ,"folioCloudManageSubscription": "Xestionar subscrición"
   ,"folioCloudRefreshFromStripe": "Actualizar"
   ,"folioCloudMicrosoftStoreBillingTitle": "Microsoft Store (Windows)"
@@ -1298,7 +1298,7 @@
       }
     }
   },
-  "folioCloudUploadSnackOk": "Copia da caixa forte gardada na nube."
+  "folioCloudUploadSnackOk": "Copia da caderno gardada na nube."
   ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "Sobe automáticamente unha copia cifrada incremental á túa conta de Folio Cloud (segundo o intervalo ou en cada cambio)."
   ,"folioCloudCloudBackupsList": "Copias na nube"
@@ -1309,11 +1309,11 @@
   ,"folioCloudBackupStorageStatQuota": "Cota"
   ,"folioCloudBackupStorageStatRemaining": "Restante"
   ,"folioCloudBackupStorageExpansionTitle": "Ampliar almacenamento de copias"
-  ,"folioCloudBackupStorageLibrarySmallTitle": "Biblioteca pequena"
+  ,"folioCloudBackupStorageLibrarySmallTitle": "Libraría pequena"
   ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · 1,99 €/mes"
-  ,"folioCloudBackupStorageLibraryMediumTitle": "Biblioteca mediana"
+  ,"folioCloudBackupStorageLibraryMediumTitle": "Libraría mediana"
   ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · 4,99 €/mes"
-  ,"folioCloudBackupStorageLibraryLargeTitle": "Biblioteca grande"
+  ,"folioCloudBackupStorageLibraryLargeTitle": "Libraría grande"
   ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · 9,99 €/mes"
   ,"folioCloudSubscribeBackupStorageAddon": "Subscribirse"
   ,"folioCloudBackupTypeIncremental": "Copia incremental (última)"
@@ -1327,28 +1327,28 @@
   ,"settingsCloudBackupWrapPasswordBody": "Introduce o contrasinal deste caderno. Gardarase cifrado na túa conta para restaurar a copia incremental ao instalar Folio nun dispositivo novo."
   ,"settingsCloudBackupWrapPasswordRequired": "Fai falta o contrasinal do caderno."
   ,"settingsCloudBackupWrapPasswordBodyPlain": "Opcional: elixe un contrasinal de recuperación para restaurar esta copia incremental noutro dispositivo. Déixao baleiro se só vas usar este equipo."
-  ,"folioCloudPublishTestPage": "Publicar páxina de proba"
-  ,"folioCloudPublishedPagesList": "Páxinas publicadas"
+  ,"folioCloudPublishTestPage": "Publicar folio de proba"
+  ,"folioCloudPublishedPagesList": "Folios publicadas"
   ,"folioCloudReauthDialogTitle": "Confirmar conta de Folio Cloud"
-  ,"folioCloudReauthDialogBody": "Introduce a contrasinal da túa conta Folio Cloud (a que usas para entrar na nube) para listar e descargar copias. [cite: 92] Non é a contrasinal da túa caixa forte local."
+  ,"folioCloudReauthDialogBody": "Introduce a contrasinal da túa conta Folio Cloud (a que usas para entrar na nube) para listar e descargar copias. [cite: 92] Non é a contrasinal da túa caderno local."
   ,"folioCloudReauthRequiresPasswordProvider": "Esta sesión non usa unha contrasinal de Folio Cloud. [cite: 93] Sae e entra de novo con correo e contrasinal se precisas descargar copias."
-  ,"folioCloudAiNoInkTitle": "Sen ink de IA na nube"
-  ,"folioCloudAiNoInkBody": "Compra ink en Folio Cloud, agarda á recarga mensual ou cambia á IA local (Ollama ou LM Studio) na sección de IA."
-  ,"folioCloudAiNoInkActionCloud": "Folio Cloud e ink"
-  ,"folioCloudAiNoInkActionLocal": "Provedor de IA"
-  ,"folioCloudAiZeroInkBanner": "O ink para IA na nube é 0 — abre Axustes para comprar ink ou usa IA local."
-  ,"folioCloudInkPurchaseAppliedHint": "Compra aplicada: {purchased} ink comprado dispoñible para a IA na nube."
+  ,"folioCloudAiNoInkTitle": "Sen tinta de Quill na nube"
+  ,"folioCloudAiNoInkBody": "Compra tinta en Folio Cloud, agarda á recarga mensual ou cambia á Quill local (Ollama ou LM Studio) na sección de Quill."
+  ,"folioCloudAiNoInkActionCloud": "Folio Cloud e tinta"
+  ,"folioCloudAiNoInkActionLocal": "Provedor de Quill"
+  ,"folioCloudAiZeroInkBanner": "O tinta para Quill na nube é 0 — abre Axustes para comprar tinta ou usa Quill local."
+  ,"folioCloudInkPurchaseAppliedHint": "Compra aplicada: {purchased} tinta comprado dispoñible para a Quill na nube."
   ,"@folioCloudInkPurchaseAppliedHint": {"placeholders": {"purchased": {}}}
   ,"onboardingCloudBackupCta": "Entrar e [cite: 94] descargar unha copia"
-  ,"onboardingCloudBackupPickVaultSubtitle": "Escolle que caixa forte queres restaurar."
+  ,"onboardingCloudBackupPickVaultSubtitle": "Escolle que caderno queres restaurar."
   ,"onboardingFolioCloudTitle": "Folio Cloud"
-  ,"onboardingFolioCloudBody": "Activa as funcións na nube cando as necesites: copias cifradas, Quill hospedado e publicación web. [cite: 95] A túa caixa forte permanece local a menos que uses estas funcións."
+  ,"onboardingFolioCloudBody": "Activa as funcións na nube cando as necesites: copias cifradas, Quill hospedado e publicación web. [cite: 95] A túa caderno permanece local a menos que uses estas funcións."
   ,"onboardingFolioCloudFeatureBackupTitle": "Copias cifradas na nube"
-  ,"onboardingFolioCloudFeatureBackupBody": "Garda e descarga copias das túas caixas fortes dende a túa conta. [cite: 96] En escritorio, o listado e descarga fano vía Folio Cloud."
-  ,"onboardingFolioCloudFeatureAiTitle": "IA na nube + ink"
-  ,"onboardingFolioCloudFeatureAiBody": "Quill hospedado cunha subscrición a Folio Cloud ou comprando ink. [cite: 97] O ink consómese polo uso; tamén podes usar IA local (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureBackupBody": "Garda e descarga copias das túas cadernos dende a túa conta. [cite: 96] En escritorio, o listado e descarga fano vía Folio Cloud."
+  ,"onboardingFolioCloudFeatureAiTitle": "Quill na nube + tinta"
+  ,"onboardingFolioCloudFeatureAiBody": "Quill hospedado cunha subscrición a Folio Cloud ou comprando tinta. [cite: 97] O tinta consómese polo uso; tamén podes usar Quill local (Ollama/LM Studio)."
   ,"onboardingFolioCloudFeatureWebTitle": "Publicación web"
-  ,"onboardingFolioCloudFeatureWebBody": "Publica páxinas seleccionadas e controla que se fai público. [cite: 98] O resto da caixa forte non se comparte."
+  ,"onboardingFolioCloudFeatureWebBody": "Publica folios seleccionadas e controla que se fai público. [cite: 98] O resto da caderno non se comparte."
   ,"onboardingFolioCloudLaterInSettings": "Mirareino en Axustes"
   ,"onboardingPersonalizeTitle": "Faino teu"
   ,"onboardingPersonalizeBody": "Escolle como se ve Folio e cando se bloquea. Podes cambialo en Axustes cando queiras."
@@ -1357,14 +1357,14 @@
   ,"onboardingPrivacyTrustTitle": "Privacidade e confianza"
   ,"onboardingPrivacyTrustBody": "As túas notas permanecen neste dispositivo. As estatísticas anónimas opcionais axudan a mellorar Folio—ti decides."
   ,"onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio funciona por completo sen a nube."
-  ,"onboardingReadySummaryCloudActive": "Plan Folio Cloud activo—copias, IA na nube e publicación dispoñibles."
+  ,"onboardingReadySummaryCloudActive": "Plan Folio Cloud activo—copias, Quill na nube e publicación dispoñibles."
   ,"onboardingReadySummaryCloudSkipped": "Podes explorar Folio Cloud en calquera momento desde Axustes."
   ,"onboardingFolioCloudPitchForNotes": "Protexe as túas notas con copias cifradas na nube cando queiras unha copia extra."
   ,"onboardingFolioCloudPitchForJournal": "Protexe o teu diario con copias cifradas baixo o teu control."
-  ,"onboardingFolioCloudPitchForTasks": "Comparte proxectos e publica páxinas na web cando esteas listo."
-  ,"onboardingFolioCloudPitchForProjects": "Colabora e publica páxinas seleccionadas—a túa caixa forte completa segue sendo privada."
-  ,"onboardingFolioCloudPitchForKnowledge": "Usa a IA na nube para organizar e explorar a túa base de coñecemento."
-  ,"onboardingFolioCloudPitchForStudy": "Estuda mellor con IA hospedada e recarga mensual de tinta."
+  ,"onboardingFolioCloudPitchForTasks": "Comparte proxectos e publica folios na web cando esteas listo."
+  ,"onboardingFolioCloudPitchForProjects": "Colabora e publica folios seleccionadas—a túa caderno completa segue sendo privada."
+  ,"onboardingFolioCloudPitchForKnowledge": "Usa a Quill na nube para organizar e explorar a túa base de coñecemento."
+  ,"onboardingFolioCloudPitchForStudy": "Estuda mellor con Quill hospedada e recarga mensual de tinta."
   ,"onboardingFolioCloudCtaSubscribe": "Subscribirse — 4,99 €/mes"
   ,"onboardingFolioCloudCtaCreateAccount": "Crear conta e explorar"
   ,"onboardingFolioCloudSkip": "Continuar sen nube"
@@ -1375,7 +1375,7 @@
   ,"workspaceHomeCloudGuestTeaserCta": "Ver que inclúe"
   ,"collabMenuAction": "Colaboración en vivo"
   ,"collabSheetTitle": "Colaboración en vivo"
-  ,"collabHeaderSubtitle": "Precísase conta de Folio. [cite: 99] Hostatjar require un plan con colaboración; unirse só precisa un código. O contido e o chat están cifrados de extremo a extremo; [cite: 100] o servidor nunca ve o teu texto."
+  ,"collabHeaderSubtitle": "Precísase conta de Folio. [cite: 99] Hostatjar require un plan con colaboración; unirse só precisa un código. O contido e o nota están cifrados de extremo a extremo; [cite: 100] o servidor nunca ve o teu texto."
   ,"collabNoRoomHint": "Crea unha sala (se o teu plan inclúe hostatxe) ou pega o código do anfitrión (emojis + díxitos)."
   ,"collabCreateRoom": "Crear sala"
   ,"collabJoinCodeLabel": "Código da sala"
@@ -1388,11 +1388,11 @@
   ,"collabHostRequiresPlan": "Crear salas require Folio Cloud con colaboración (hostatxe). [cite: 102] Podes unirte a salas doutros cun código sen ese plan."
   ,"collabChatEmptyHint": "Sen mensaxes aínda. [cite: 103] Saúda ao teu equipo."
   ,"collabMessageHint": "Escribe unha mensaxe…"
-  ,"collabArchivedOk": "Chat arquivado como comentarios de páxina."
-  ,"collabArchiveToPage": "Arquivar chat na páxina"
+  ,"collabArchivedOk": "Nota arquivado como comentarios de folio."
+  ,"collabArchiveToPage": "Arquivar nota na folio"
   ,"collabLeaveRoom": "Saír da sala"
   ,"collabNeedsJoinCode": "Introduce o código da sala para descifrar esta sesión de colaboración."
-  ,"collabMissingJoinCodeHint": "Esta páxina está ligada a unha sala pero non hai código gardado. [cite: 104] Pega o código do anfitrión para descifrar o contido e o chat."
+  ,"collabMissingJoinCodeHint": "Esta folio está ligada a unha sala pero non hai código gardado. [cite: 104] Pega o código do anfitrión para descifrar o contido e o nota."
   ,"collabUnlockWithCode": "Desbloquear con código"
   ,"collabHidePanel": "Agochar panel de colaboración"
   ,"shortcutsCaptureTitle": "Novo atallo"
@@ -1461,7 +1461,7 @@
   ,"subtasks": "Subtarefas"
   ,"add": "Engadir"
   ,"templateEmojiLabel": "Emoji"
-  ,"aiGenericErrorWithReason": "Erro de IA: {reason}"
+  ,"aiGenericErrorWithReason": "Erro de Quill: {reason}"
   ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
   ,"calloutTypeTooltip": "Tipo de chamada"
   ,"calloutTypeInfo": "Info"
@@ -1494,7 +1494,7 @@
   ,"@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"blockEditorDuplicate": "Duplicar"
   ,"blockEditorClearSelectionTooltip": "Limpar selección"
-  ,"blockEditorMenuRewriteWithAi": "Reescribir con IA…"
+  ,"blockEditorMenuRewriteWithAi": "Reescribir con Quill…"
   ,"blockEditorMenuMoveUp": "Mover arriba"
   ,"blockEditorMenuMoveDown": "Mover abaixo"
   ,"blockEditorMenuDuplicateBlock": "Duplicar bloque"
@@ -1503,9 +1503,9 @@
   ,"blockEditorCalloutMenuType": "Tipo: {typeName}"
   ,"@blockEditorCalloutMenuType": {"placeholders": {"typeName": {"type": "String"}}}
   ,"blockEditorCopyLink": "Copiar ligazón"
-  ,"blockEditorMenuCreateSubpage": "Crear subpáxina"
-  ,"blockEditorMenuLinkPage": "Ligar páxina…"
-  ,"blockEditorMenuOpenSubpage": "Abrir subpáxina"
+  ,"blockEditorMenuCreateSubpage": "Crear subfolio"
+  ,"blockEditorMenuLinkPage": "Ligar folio…"
+  ,"blockEditorMenuOpenSubpage": "Abrir subfolio"
   ,"blockEditorMenuPickImage": "Elixir imaxe…"
   ,"blockEditorMenuRemoveImage": "Quitar imaxe"
   ,"blockEditorMenuCodeLanguage": "Linguaxe do código…"
@@ -1553,12 +1553,12 @@
   ,"blockEditorCmdDuplicatePrevHint": "Clona o bloque inmediatamente anterior"
   ,"blockEditorCmdInsertDate": "Inserir data"
   ,"blockEditorCmdInsertDateHint": "Escribe a data actual"
-  ,"blockEditorCmdMentionPage": "Mencionar páxina"
-  ,"blockEditorCmdMentionPageHint": "Insire ligazón interna a unha páxina"
+  ,"blockEditorCmdMentionPage": "Mencionar folio"
+  ,"blockEditorCmdMentionPageHint": "Insire ligazón interna a un folio"
   ,"blockEditorCmdTurnInto": "Converter bloque"
   ,"blockEditorCmdTurnIntoHint": "Elixir tipo de bloque no selector"
   ,"blockEditorCmdAiSummarize": "Quill: resumir"
-  ,"blockEditorCmdAiSummarizeHint": "/ai summarize · resume a páxina ou a selección"
+  ,"blockEditorCmdAiSummarizeHint": "/ai summarize · resume a folio ou a selección"
   ,"blockEditorCmdAiContinue": "Quill: continuar"
   ,"blockEditorCmdAiContinueHint": "/ai continue · segue escribindo dende o cursor"
   ,"blockEditorCmdAiExplain": "Quill: explicar"
@@ -1577,17 +1577,17 @@
   ,"blockEditorCmdAiTranslateHint": "/ai translate · traduce a selección ou o bloque"
   ,"blockEditorAiSlashUnavailable": "As ordes Quill do editor non están conectadas nesta vista."
   ,"blockEditorAskQuillTooltip": "Preguntar a Quill sobre a selección"
-  ,"aiChatSplitViewTooltip": "Vista dividida: editor e chat á vez"
+  ,"aiChatSplitViewTooltip": "Vista dividida: editor e nota á vez"
   ,"aiThreadSearchHint": "Buscar fíos…"
-  ,"settingsAiChatSplitViewTitle": "Chat Quill en vista dividida"
-  ,"settingsAiChatSplitViewSubtitle": "Mostra o panel de chat xunto ao editor no escritorio."
+  ,"settingsAiChatSplitViewTitle": "Nota Quill en vista dividida"
+  ,"settingsAiChatSplitViewSubtitle": "Mostra o panel de nota xunto ao editor no escritorio."
   ,"settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)"
-  ,"settingsAiQuillCopilotExperimentalSubtitle": "Mostra suxestións de IA en liña mentres escribes; preme Tab para aceptalas. Require un provedor de IA configurado."
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Mostra suxestións de Quill en liña mentres escribes; preme Tab para aceptalas. Require un provedor de Quill configurado."
   ,"aiChatApplyInsertEnd": "Inserir bloques ao final"
-  ,"aiChatApplyReplacePage": "Substituír a páxina"
+  ,"aiChatApplyReplacePage": "Substituír a folio"
   ,"aiChatApplyOperations": "Aplicar operacións"
-  ,"aiChatApplySnapshotSuccess": "Cambios aplicados na páxina aberta."
-  ,"aiChatApplySnapshotFailure": "Non se puideron aplicar os cambios (revisa a páxina ou o JSON)."
+  ,"aiChatApplySnapshotSuccess": "Cambios aplicados na folio aberta."
+  ,"aiChatApplySnapshotFailure": "Non se puideron aplicar os cambios (revisa a folio ou o JSON)."
   ,"aiChatHeaderMenuTooltip": "Detalles do asistente"
   ,"aiChatHeaderDetailsTitle": "Asistente e tinta"
   ,"aiChatHeaderProviderSection": "Provedor"
@@ -1616,11 +1616,11 @@
   ,"blockTypeSectionMedia": "Multimedia e datos"
   ,"blockTypeSectionAdvanced": "Avanzado e deseño"
   ,"blockTypeSectionEmbeds": "Integracións"
-  ,"blockTypeSectionAiQuill": "Quill (IA)"
+  ,"blockTypeSectionAiQuill": "Quill (Quill)"
   ,"blockTypeParagraphLabel": "Texto"
   ,"blockTypeParagraphHint": "Parágrafo"
-  ,"blockTypeChildPageLabel": "Páxina"
-  ,"blockTypeChildPageHint": "Subpáxina ligada"
+  ,"blockTypeChildPageLabel": "Folio"
+  ,"blockTypeChildPageHint": "Subfolio ligada"
   ,"blockTypeH1Label": "Título 1"
   ,"blockTypeH1Hint": "Título grande · #"
   ,"blockTypeH2Label": "Título 2"
@@ -1662,15 +1662,15 @@
   ,"blockTypeDatabaseLabel": "Base de datos"
   ,"blockTypeDatabaseHint": "Vista lista/táboa/táboiro"
   ,"blockTypeKanbanLabel": "Kanban"
-  ,"blockTypeKanbanHint": "Vista táboiro para as tarefas desta páxina"
+  ,"blockTypeKanbanHint": "Vista táboiro para as tarefas desta folio"
   ,"kanbanBlockRowTitle": "Táboiro Kanban"
-  ,"kanbanBlockRowSubtitle": "Ao abrir a páxina móstrase o táboiro. Na barra usa «Abrir editor de bloques» para editar ou quitar este bloque."
+  ,"kanbanBlockRowSubtitle": "Ao abrir a folio móstrase o táboiro. Na barra usa «Abrir editor de bloques» para editar ou quitar este bloque."
   ,"kanbanRowTodosExcluded": "Sen checklists"
   ,"kanbanToolbarOpenEditor": "Abrir editor de bloques"
   ,"kanbanToolbarAddTask": "Engadir tarefa"
   ,"kanbanClassicModeBanner": "Editor de bloques: podes mover ou eliminar o bloque Kanban."
   ,"kanbanBackToBoard": "Volver ao táboiro"
-  ,"kanbanMultipleBlocksSnack": "Esta páxina ten máis dun bloque Kanban; úsase o primeiro."
+  ,"kanbanMultipleBlocksSnack": "Esta folio ten máis dun bloque Kanban; úsase o primeiro."
   ,"kanbanEmptyColumn": "Sen tarefas"
   ,"blockTypeCanvasLabel": "Lenzo infinito"
   ,"blockTypeCanvasHint": "Encerado libre con nodos, formas e frechas"
@@ -1687,7 +1687,7 @@
   ,"canvasToolbarAddBlock": "Engadir bloque"
   ,"canvasClassicModeBanner": "Editor de bloques: podes mover ou eliminar o bloque Lenzo."
   ,"canvasBackToCanvas": "Volver ao lenzo"
-  ,"canvasMultipleBlocksSnack": "Esta páxina ten máis dun bloque Lenzo; úsase o primeiro."
+  ,"canvasMultipleBlocksSnack": "Esta folio ten máis dun bloque Lenzo; úsase o primeiro."
   ,"canvasExportSuccess": "Lenzo exportado correctamente"
   ,"canvasExportError": "Erro ao exportar o lenzo"
   ,"canvasDeleteNodeConfirm": "¿Eliminar este nodo?"
@@ -1767,7 +1767,7 @@
   ,"driveMoveTo": "Mover a…"
   ,"driveClassicModeBanner": "Editor de bloques: podes mover ou eliminar o bloque Drive."
   ,"driveBackToDrive": "Volver ao drive"
-  ,"driveMultipleBlocksSnack": "Esta páxina ten máis dun bloque Drive; úsase o primeiro."
+  ,"driveMultipleBlocksSnack": "Esta folio ten máis dun bloque Drive; úsase o primeiro."
   ,"driveDeleteOriginalsTitle": "Eliminar orixinais ao importar"
   ,"driveDeleteOriginalsSubtitle": "Ao subir ficheiros ao drive, os orixinais elimínanse automaticamente do disco."
   ,"driveAllFilesRoot": "Todos os ficheiros"
@@ -1799,8 +1799,8 @@
   ,"integrationSectionWhatAppCanDo": "O que esta app poderá facer"
   ,"integrationCapEphemeralSessionsTitle": "Abrir sesións locais efémeras"
   ,"integrationCapEphemeralSessionsBody": "Poderá iniciar unha sesión temporal para falar coa ponte local de Folio neste dispositivo."
-  ,"integrationCapImportPagesTitle": "Importar e actualizar as súas propias páxinas"
-  ,"integrationCapImportPagesBody": "Poderá crear páxinas, listalas e actualizar só as que a mesma app importara antes."
+  ,"integrationCapImportPagesTitle": "Importar e actualizar as súas propias folios"
+  ,"integrationCapImportPagesBody": "Poderá crear folios, listalas e actualizar só as que a mesma app importara antes."
   ,"integrationCapCustomEmojisTitle": "Xestionar os seus emojis personalizados"
   ,"integrationCapCustomEmojisBody": "Poderá listar, crear, substituír e borrar só o seu catálogo de emojis ou iconas importadas."
   ,"integrationCapUnlockedVaultTitle": "Traballar só co caderno desbloqueado"
@@ -1811,7 +1811,7 @@
   ,"integrationBlockNoBypassTitle": "Non pode saltarse o bloqueo nin o cifrado"
   ,"integrationBlockNoBypassBody": "Se o caderno está bloqueado ou non hai sesión activa, Folio rexeitará a operación."
   ,"integrationBlockNoOtherAppsTitle": "Non pode tocar datos doutras apps"
-  ,"integrationBlockNoOtherAppsBody": "Tampouco pode xestionar páxinas importadas ou emojis rexistrados por outras apps aprobadas."
+  ,"integrationBlockNoOtherAppsBody": "Tampouco pode xestionar folios importadas ou emojis rexistrados por outras apps aprobadas."
   ,"integrationBlockNoRemoteTitle": "Non pode entrar desde fóra do teu equipo"
   ,"integrationBlockNoRemoteBody": "A ponte segue limitada a localhost e esta aprobación pódese revogar máis tarde dende Axustes."
   ,"integrationSnackMarkdownImportDone": "Importación completada: {pageTitle}."
@@ -1822,7 +1822,7 @@
   ,"@integrationSnackPageUpdateDone": {"placeholders": {"pageTitle": {}}}
   ,"markdownImportModeDialogTitle": "Importar Markdown"
   ,"markdownImportModeDialogBody": "Elixe como queres aplicar o ficheiro Markdown."
-  ,"markdownImportModeNewPage": "Páxina nova"
+  ,"markdownImportModeNewPage": "Folio nova"
   ,"markdownImportModeAppend": "Anexar á actual"
   ,"markdownImportModeReplace": "Substituír a actual"
   ,"markdownImportCouldNotReadPath": "Non se puido ler a ruta do ficheiro."
@@ -1831,31 +1831,31 @@
   ,"markdownImportFailedWithError": "Non se puido importar o Markdown: {error}"
   ,"@markdownImportFailedWithError": {"placeholders": {"error": {}}}
   ,"importPage": "Importar…"
-  ,"exportMarkdownFileDialogTitle": "Exportar páxina a Markdown"
-  ,"markdownExportSuccess": "Páxina exportada a Markdown."
-  ,"markdownExportFailedWithError": "Non se puido exportar a páxina: {error}"
+  ,"exportMarkdownFileDialogTitle": "Exportar folio a Markdown"
+  ,"markdownExportSuccess": "Folio exportada a Markdown."
+  ,"markdownExportFailedWithError": "Non se puido exportar a folio: {error}"
   ,"@markdownExportFailedWithError": {"placeholders": {"error": {}}}
-  ,"exportPageDialogTitle": "Exportar páxina"
+  ,"exportPageDialogTitle": "Exportar folio"
   ,"exportPageFormatMarkdown": "Markdown (.md)"
   ,"exportPageFormatHtml": "HTML (.html)"
   ,"exportPageFormatTxt": "Texto (.txt)"
   ,"exportPageFormatJson": "JSON (.json)"
   ,"exportPageFormatPdf": "PDF (.pdf)"
-  ,"exportHtmlFileDialogTitle": "Exportar páxina a HTML"
-  ,"htmlExportSuccess": "Páxina exportada a HTML."
-  ,"htmlExportFailedWithError": "Non se puido exportar a páxina: {error}"
+  ,"exportHtmlFileDialogTitle": "Exportar folio a HTML"
+  ,"htmlExportSuccess": "Folio exportada a HTML."
+  ,"htmlExportFailedWithError": "Non se puido exportar a folio: {error}"
   ,"@htmlExportFailedWithError": {"placeholders": {"error": {}}}
-  ,"exportTxtFileDialogTitle": "Exportar páxina a texto"
-  ,"txtExportSuccess": "Páxina exportada a texto."
-  ,"txtExportFailedWithError": "Non se puido exportar a páxina: {error}"
+  ,"exportTxtFileDialogTitle": "Exportar folio a texto"
+  ,"txtExportSuccess": "Folio exportada a texto."
+  ,"txtExportFailedWithError": "Non se puido exportar a folio: {error}"
   ,"@txtExportFailedWithError": {"placeholders": {"error": {}}}
-  ,"exportJsonFileDialogTitle": "Exportar páxina a JSON"
-  ,"jsonExportSuccess": "Páxina exportada a JSON."
-  ,"jsonExportFailedWithError": "Non se puido exportar a páxina: {error}"
+  ,"exportJsonFileDialogTitle": "Exportar folio a JSON"
+  ,"jsonExportSuccess": "Folio exportada a JSON."
+  ,"jsonExportFailedWithError": "Non se puido exportar a folio: {error}"
   ,"@jsonExportFailedWithError": {"placeholders": {"error": {}}}
-  ,"exportPdfFileDialogTitle": "Exportar páxina a PDF"
-  ,"pdfExportSuccess": "Páxina exportada a PDF."
-  ,"pdfExportFailedWithError": "Non se puido exportar a páxina: {error}"
+  ,"exportPdfFileDialogTitle": "Exportar folio a PDF"
+  ,"pdfExportSuccess": "Folio exportada a PDF."
+  ,"pdfExportFailedWithError": "Non se puido exportar a folio: {error}"
   ,"@pdfExportFailedWithError": {"placeholders": {"error": {}}}
   ,"firebaseUnavailablePublish": "Firebase non está dispoñible."
   ,"signInCloudToPublishWeb": "Inicia sesión na conta na nube (Axustes) para publicar."
@@ -1896,25 +1896,25 @@
   ,"createAction": "Crear"
   ,"confirmAction": "Confirmar"
   ,"confirmRemoteEndpointTitle": "Confirmar endpoint remoto"
-  ,"confirmRemoteEndpointBody": "Vas activar a IA cun host remoto ({host}). O contido que envíes pode saír deste equipo.\n\nContinuar?"
+  ,"confirmRemoteEndpointBody": "Vas activar a Quill cun host remoto ({host}). O contido que envíes pode saír deste equipo.\n\nContinuar?"
   ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Maiús + F"
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
   ,"blockActionChooseAudio": "Escoller audio…"
-  ,"blockActionCreateSubpage": "Crear subpáxina"
-  ,"blockActionLinkPage": "Ligar páxina…"
-  ,"defaultNewPageTitle": "Páxina nova"
+  ,"blockActionCreateSubpage": "Crear subfolio"
+  ,"blockActionLinkPage": "Ligar folio…"
+  ,"defaultNewPageTitle": "Novo folio"
   ,"defaultPageDuplicateTitle": "{title} (copia)"
   ,"@defaultPageDuplicateTitle": {"placeholders": {"title": {}}}
-  ,"aiChatTitleNumbered": "Chat {n}"
+  ,"aiChatTitleNumbered": "Nota {n}"
   ,"@aiChatTitleNumbered": {"placeholders": {"n": {"type": "int"}}}
   ,"invalidFolioTemplateFile": "O ficheiro non é un modelo Folio válido."
   ,"templateButtonDefaultLabel": "Plantilla"
   ,"pageHtmlExportPublishedWithFolio": "Publicado con Folio"
   ,"releaseReadinessSemverOk": "Versión SemVer válida"
   ,"releaseReadinessEncryptedVault": "Caderno cifrado"
-  ,"releaseReadinessAiRemotePolicy": "Política de endpoint de IA"
+  ,"releaseReadinessAiRemotePolicy": "Política de endpoint de Quill"
   ,"releaseReadinessVaultUnlocked": "Caderno desbloqueado"
   ,"releaseReadinessStableChannel": "Canal estable seleccionado"
   ,"aiPromptUserMessage": "Mensaxe do usuario:"
@@ -1964,7 +1964,7 @@
   ,"settingsAppRevoked": "App revogada: {appId}"
   ,"@settingsAppRevoked": {"placeholders": {"appId": {}}}
   ,"settingsDeviceRevokedSnack": "Dispositivo revogado."
-  ,"settingsAiConnectionOk": "Conexión de IA OK"
+  ,"settingsAiConnectionOk": "Conexión de Quill OK"
   ,"settingsAiConnectionError": "Erro de conexión: {error}"
   ,"@settingsAiConnectionError": {"placeholders": {"error": {}}}
   ,"settingsAiListModelsFailed": "Non se puideron listar modelos: {error}"
@@ -1983,15 +1983,15 @@
   ,"aiProviderOllamaName": "Ollama"
   ,"aiProviderLmStudioName": "LM Studio"
   ,"blockAudioEmptyHint": "Elixe un ficheiro de audio"
-  ,"blockChildPageTitle": "Bloque de páxina"
-  ,"blockChildPageNoLink": "Sen subpáxina ligada."
+  ,"blockChildPageTitle": "Bloque de folio"
+  ,"blockChildPageNoLink": "Sen subfolio ligada."
   ,"mermaidExpandedLoadError": "Non se puido mostrar o diagrama ampliado."
-  ,"mermaidPreviewTooltip": "Toca para ampliar e facer zoom. PNG mediante mermaid.ink (servizo externo)."
+  ,"mermaidPreviewTooltip": "Toca para ampliar e facer zoom. PNG mediante mermaid.tinta (servizo externo)."
   ,"aiEndpointInvalidUrl": "URL non válida. Usa http://host:porto."
   ,"aiEndpointRemoteNotAllowed": "O endpoint remoto non está permitido sen confirmación."
-  ,"settingsAiSelectProviderFirst": "Selecciona primeiro un provedor de IA."
-  ,"releaseReadinessAiSummaryDisabled": "IA desactivada"
-  ,"releaseReadinessAiSummaryQuillCloud": "Folio Cloud IA (sen endpoint local)"
+  ,"settingsAiSelectProviderFirst": "Selecciona primeiro un provedor de Quill."
+  ,"releaseReadinessAiSummaryDisabled": "Quill desactivada"
+  ,"releaseReadinessAiSummaryQuillCloud": "Folio Cloud Quill (sen endpoint local)"
   ,"releaseReadinessAiSummaryEndpointOk": "Endpoint válido: {url}"
   ,"@releaseReadinessAiSummaryEndpointOk": {"placeholders": {"url": {}}}
   ,"releaseReadinessDetailSemverInvalid": "A versión instalada non cumpre SemVer."
@@ -2013,11 +2013,11 @@
   ,"@releaseReadinessReportUnlocked": {"placeholders": {"value": {}}}
   ,"releaseReadinessReportEncrypted": "Caderno cifrado: {value}"
   ,"@releaseReadinessReportEncrypted": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiEnabled": "IA habilitada: {value}"
+  ,"releaseReadinessReportAiEnabled": "Quill habilitada: {value}"
   ,"@releaseReadinessReportAiEnabled": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiPolicy": "Política de endpoint IA: {value}"
+  ,"releaseReadinessReportAiPolicy": "Política de endpoint Quill: {value}"
   ,"@releaseReadinessReportAiPolicy": {"placeholders": {"value": {}}}
-  ,"releaseReadinessReportAiDetail": "Detalle IA: {detail}"
+  ,"releaseReadinessReportAiDetail": "Detalle Quill: {detail}"
   ,"@releaseReadinessReportAiDetail": {"placeholders": {"detail": {}}}
   ,"releaseReadinessReportStatus": "Estado de lanzamento: {value}"
   ,"@releaseReadinessReportStatus": {"placeholders": {"value": {}}}
@@ -2048,11 +2048,11 @@
   ,"settingsPairingConfirmationSent": "Confirmación enviada. Falta que o outro dispositivo pulse Vincular no seu popup."
   ,"settingsResolveConflictsTitle": "Resolver conflitos"
   ,"settingsNoPendingConflicts": "Non hai conflitos pendentes."
-  ,"settingsSyncConflictCardSubtitle": "Orixe: {fromPeerId}\nPáxinas remotas: {remotePageCount}\nDetectado: {detectedAt}"
+  ,"settingsSyncConflictCardSubtitle": "Orixe: {fromPeerId}\nFolios remotas: {remotePageCount}\nDetectado: {detectedAt}"
   ,"@settingsSyncConflictCardSubtitle": {"placeholders": {"fromPeerId": {}, "remotePageCount": {"type": "int"}, "detectedAt": {}}}
   ,"settingsSyncConflictHeading": "Conflito de sincronización"
   ,"settingsSyncBlockConflictHeading": "Conflito de bloque"
-  ,"settingsSyncBlockConflictCardSubtitle": "Orixe: {fromPeerId}\nPáxina: {pageId}\nBloque: {blockId}\nDetectado: {detectedAt}"
+  ,"settingsSyncBlockConflictCardSubtitle": "Orixe: {fromPeerId}\nFolio: {pageId}\nBloque: {blockId}\nDetectado: {detectedAt}"
   ,"@settingsSyncBlockConflictCardSubtitle": {"placeholders": {"fromPeerId": {}, "pageId": {}, "blockId": {}, "detectedAt": {}}}
   ,"settingsSyncBlockConflictLocalPreview": "Local: {text}"
   ,"@settingsSyncBlockConflictLocalPreview": {"placeholders": {"text": {}}}
@@ -2075,7 +2075,7 @@
   ,"settingsSubsectionVaultData": "Datos (zona de perigo)"
   ,"folioCloudSubsectionAccount": "Conta"
   ,"folioCloudSubsectionEncryptedBackups": "Copias e almacenamento (nube)"
-  ,"folioCloudBackupStorageSectionIntro": "O uso inclúe a copia incremental (cloud-pack) e os arquivos completos antigos en backups/. Podes subscribirte a unha biblioteca pequena, mediana ou grande (cota extra mensual mentres a subscrición estea activa)."
+  ,"folioCloudBackupStorageSectionIntro": "O uso inclúe a copia incremental (cloud-pack) e os arquivos completos antigos en backups/. Podes subscribirte a unha libraría pequena, mediana ou grande (cota extra mensual mentres a subscrición estea activa)."
   ,"folioCloudBackupStoragePurchasedExtra": "Ampliacións mercadas: +{size}"
   ,"@folioCloudBackupStoragePurchasedExtra": {"placeholders": {"size": {}}}
   ,"folioCloudBackupStorageBarTitle": "Uso de almacenamento"
@@ -2120,7 +2120,7 @@
   ,"settingsSyncPeerIdLabel": "ID: {peerId}"
   ,"@settingsSyncPeerIdLabel": {"placeholders": {"peerId": {}}}
   ,"settingsRevoke": "Revogar"
-  ,"sidebarPageIconTitle": "Icona da páxina"
+  ,"sidebarPageIconTitle": "Icona da folio"
   ,"sidebarPageIconPickerHelper": "Elixe unha icona rápida, unha importada ou abre o selector completo."
   ,"sidebarPageIconCustomEmoji": "Emoji personalizado"
   ,"sidebarPageIconRemove": "Quitar"
@@ -2158,7 +2158,7 @@
   ,"settingsCloudBackupsNeedPlan": "Necesitas Folio Cloud activo con copia na nube."
   ,"settingsCloudBackupsDialogTitle": "Copias na nube ({count}/10)"
   ,"@settingsCloudBackupsDialogTitle": {"placeholders": {"count": {"type": "int"}}}
-  ,"settingsCloudBackupsVaultLabel": "Caixa forte"
+  ,"settingsCloudBackupsVaultLabel": "Caderno"
   ,"settingsCloudBackupsEmpty": "Aínda non hai copias nesta conta."
   ,"settingsCloudBackupDownloadTooltip": "Descargar"
   ,"settingsCloudBackupActionDownload": "Descargar"
@@ -2180,8 +2180,8 @@
   ,"settingsCloudBackupDeleteTooltip": "Borrar copia"
   ,"settingsCloudBackupsSheetTitle": "Copias na nube"
   ,"settingsPublishedRequiresPlan": "Necesitas Folio Cloud con publicación web activa."
-  ,"settingsPublishedPagesTitle": "Páxinas publicadas"
-  ,"settingsPublishedPagesEmpty": "Aínda non hai páxinas publicadas."
+  ,"settingsPublishedPagesTitle": "Folios publicadas"
+  ,"settingsPublishedPagesEmpty": "Aínda non hai folios publicadas."
   ,"settingsPublishedDeleteDialogTitle": "¿Eliminar publicación?"
   ,"settingsPublishedDeleteDialogBody": "Borrarase o HTML público e a ligazón deixará de funcionar."
   ,"settingsPublishedRemovedSnack": "Publicación eliminada."
@@ -2214,7 +2214,7 @@
   ,"settingsEnterCreatesNewBlockSubtitleWhenDisabled": "Agora Intro insire salto de liña. Maiús+Intro tamén funciona."
   ,"settingsWorkspaceSubsection": "Espazo de traballo"
   ,"settingsCustomIconsTitle": "Iconas personalizadas"
-  ,"settingsCustomIconsDescription": "Importa unha URL PNG, GIF ou WebP, un data:image compatible copiado desde páxinas como notionicons.so, ou busca iconas open source co explorador Iconify. Despois poderás usalas como icona de páxina ou de callout."
+  ,"settingsCustomIconsDescription": "Importa unha URL PNG, GIF ou WebP, un data:image compatible copiado desde folios como notionicons.so, ou busca iconas open source co explorador Iconify. Despois poderás usalas como icona de folio ou de callout."
   ,"settingsCustomIconsSavedCount": "{count} gardados"
   ,"@settingsCustomIconsSavedCount": {"placeholders": {"count": {"type": "int"}}}
   ,"settingsCustomIconsChipUrl": "URL PNG, GIF ou WebP"
@@ -2228,7 +2228,7 @@
   ,"settingsCustomIconsFieldSourceHint": "https://…gif | …webp | …png ou data:image/…"
   ,"settingsCustomIconsImportButton": "Importar icona"
   ,"settingsCustomIconsFromClipboard": "Desde portapapeis"
-  ,"settingsCustomIconsLibraryTitle": "Biblioteca"
+  ,"settingsCustomIconsLibraryTitle": "Biblioteca de iconas"
   ,"settingsCustomIconsLibrarySubtitle": "Listos para usar en toda a app"
   ,"settingsCustomIconsEmpty": "Aínda non importaches iconas."
   ,"settingsCustomIconsDeleteTooltip": "Eliminar icona"
@@ -2255,10 +2255,10 @@
   ,"settingsIconifyOffline": "Sen conexión. Precisas rede para buscar en Iconify."
   ,"settingsIconifySearchFailed": "Non se puido completar a busca."
   ,"settingsIconifyLoadMore": "Cargar máis"
-  ,"settingsAiHeroQuillWithLocalAlt": "A IA execútase en Quill Cloud (subscrición con IA na nube ou tinta mercada). Elixe outro provedor abaixo para Ollama ou LM Studio en local."
-  ,"settingsAiHeroQuillCloudOnly": "A IA execútase en Quill Cloud (subscrición con IA na nube ou tinta mercada)."
+  ,"settingsAiHeroQuillWithLocalAlt": "A Quill execútase en Quill Cloud (subscrición con Quill na nube ou tinta mercada). Elixe outro provedor abaixo para Ollama ou LM Studio en local."
+  ,"settingsAiHeroQuillCloudOnly": "A Quill execútase en Quill Cloud (subscrición con Quill na nube ou tinta mercada)."
   ,"settingsAiHeroLocalDefault": "Conecta Ollama ou LM Studio en local; o asistente usa o modelo e o contexto que configures aquí."
-  ,"settingsAiHeroQuillMobileOnly": "Neste dispositivo Quill só pode usar Quill Cloud. Elixe Quill Cloud como provedor cando queiras activar a IA."
+  ,"settingsAiHeroQuillMobileOnly": "Neste dispositivo Quill só pode usar Quill Cloud. Elixe Quill Cloud como provedor cando queiras activar a Quill."
   ,"settingsAiChipCloud": "Na nube"
   ,"settingsAiSectionBasic": "Basics"
   ,"settingsAiSectionExperience": "Quill experience"
@@ -2278,8 +2278,8 @@
   ,"aiApiKeyGeminiHelp": "Get your API key at aistudio.google.com"
   ,"aiApiKeyOpenAiHelp": "Get your API key at platform.openai.com"
   ,"aiProviderNotSet": "Not set"
-  ,"aiProviderNotReadyCloud": "Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/ink in Settings."
-  ,"aiProviderNotReadyLocal": "AI provider not available. Verify your connection or key in Settings."
+  ,"aiProviderNotReadyCloud": "Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/tinta in Settings."
+  ,"aiProviderNotReadyLocal": "Quill provider not available. Verify your connection or key in Settings."
   ,"aiToolActivityWorking": "Quill is working…"
   ,"aiToolActivityCreatePage": "Quill is creating a page…"
   ,"aiToolActivityCreateFolder": "Quill is creating a folder…"
@@ -2307,7 +2307,7 @@
 
   ,"settingsAiSnackFirebaseUnavailableBuild": "Firebase non está dispoñible nesta compilación."
   ,"settingsAiSnackSignInCloudAccount": "Inicia sesión na conta na nube (Axustes)."
-  ,"settingsAiProviderSwitchFailed": "Non se puido cambiar o provedor de IA: {error}"
+  ,"settingsAiProviderSwitchFailed": "Non se puido cambiar o provedor de Quill: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
   ,"settingsAboutHeroDescription": "Versión do build, notas de publicación e canle de actualización. As accións están na lista de abaixo."
   ,"settingsOpenReleaseNotes": "Ver notas de versión"
@@ -2335,49 +2335,49 @@
   ,"settingsCloudInkOpRewriteBlock": "Reescribir bloque"
   ,"settingsCloudInkOpSummarizeSelection": "Resumir selección"
   ,"settingsCloudInkOpExtractTasks": "Extraer tarefas"
-  ,"settingsCloudInkOpSummarizePage": "Resumir páxina"
+  ,"settingsCloudInkOpSummarizePage": "Resumir folio"
   ,"settingsCloudInkOpGenerateInsert": "Xerar inserción"
-  ,"settingsCloudInkOpGeneratePage": "Xerar páxina"
-  ,"settingsCloudInkOpChatTurn": "Quenda de chat"
+  ,"settingsCloudInkOpGeneratePage": "Xerar folio"
+  ,"settingsCloudInkOpChatTurn": "Quenda de nota"
   ,"settingsCloudInkOpAgentMain": "Execución de axente"
   ,"settingsCloudInkOpAgentFollowup": "Seguimento de axente"
-  ,"settingsCloudInkOpEditPagePanel": "Edición de páxina (panel)"
+  ,"settingsCloudInkOpEditPagePanel": "Edición de folio (panel)"
   ,"settingsCloudInkOpDefault": "Operación por defecto"
   ,"settingsDesktopRailSubtitle": "Elixe unha categoría na lista ou desprázate polo contido."
   ,"settingsCloudInkViewTableButton": "Ver táboa"
-  ,"settingsCloudInkHostedAiQuillCloudHint": "Prezos de referencia para IA na nube en Quill Cloud."
+  ,"settingsCloudInkHostedAiQuillCloudHint": "Prezos de referencia para Quill na nube en Quill Cloud."
   ,"vaultStarterHomeTitle": "Comeza aquí"
   ,"vaultStarterHomeHeading": "O teu caderno xa está listo"
-  ,"vaultStarterHomeIntro": "Folio organiza as túas páxinas nun árbore, edita o contido por bloques e mantén os datos neste dispositivo. Esta mini guía dache un mapa rápido do que podes facer desde o primeiro minuto."
-  ,"vaultStarterHomeCallout": "Podes borrar, renomear ou mover estas páxinas cando queiras. Son só unha base para arrancar máis rápido."
+  ,"vaultStarterHomeIntro": "Folio organiza as túas folios nun árbore, edita o contido por bloques e mantén os datos neste dispositivo. Esta mini guía dache un mapa rápido do que podes facer desde o primeiro minuto."
+  ,"vaultStarterHomeCallout": "Podes borrar, renomear ou mover estas folios cando queiras. Son só unha base para arrancar máis rápido."
   ,"vaultStarterHomeSectionTips": "O máis útil para empezar"
   ,"vaultStarterHomeBulletSlash": "Pulsa / dentro dun parágrafo para inserir cabeceiras, listas, táboas, bloques de código, Mermaid e máis."
-  ,"vaultStarterHomeBulletSidebar": "Usa o panel lateral para crear páxinas e subpáxinas, e reorganiza a árbore segundo a túa forma de traballar."
-  ,"vaultStarterHomeBulletSettings": "Abre Axustes para activar IA, configurar copia de seguranza, cambiar idioma ou engadir desbloqueo rápido."
-  ,"vaultStarterHomeTodo1": "Crear a miña primeira páxina de traballo"
+  ,"vaultStarterHomeBulletSidebar": "Usa o panel lateral para crear folios e subfolios, e reorganiza a árbore segundo a túa forma de traballar."
+  ,"vaultStarterHomeBulletSettings": "Abre Axustes para activar Quill, configurar copia de seguranza, cambiar idioma ou engadir desbloqueo rápido."
+  ,"vaultStarterHomeTodo1": "Crear a miña primeira folio de traballo"
   ,"vaultStarterHomeTodo2": "Probar o menú / para inserir un bloque novo"
   ,"vaultStarterHomeTodo3": "Revisar Axustes e decidir se quero activar Quill ou un método de desbloqueo rápido"
   ,"vaultStarterCapabilitiesTitle": "Que pode facer Folio"
   ,"vaultStarterCapabilitiesSectionMain": "Capacidades principais"
   ,"vaultStarterCapabilitiesBullet1": "Tomar notas con estrutura libre usando parágrafos, títulos, listas, checklists, citas e divisores."
   ,"vaultStarterCapabilitiesBullet2": "Traballar con bloques especiais como táboas, bases de datos, ficheiros, audio, vídeo, embeds e diagramas Mermaid."
-  ,"vaultStarterCapabilitiesBullet3": "Buscar contido, revisar historial de páxina e manter revisións dentro do mesmo caderno."
+  ,"vaultStarterCapabilitiesBullet3": "Buscar contido, revisar historial de folio e manter revisións dentro do mesmo caderno."
   ,"vaultStarterCapabilitiesBullet4": "Exportar ou importar datos, incluíndo copia do caderno e importación desde Notion."
   ,"vaultStarterCapabilitiesSectionShortcuts": "Atallos rápidos"
-  ,"vaultStarterCapabilitiesShortcutN": "Ctrl+N crea unha páxina nova."
+  ,"vaultStarterCapabilitiesShortcutN": "Ctrl+N crea un folio nova."
   ,"vaultStarterCapabilitiesShortcutSearch": "Ctrl+K ou Ctrl+F abre a busca."
   ,"vaultStarterCapabilitiesShortcutSettings": "Ctrl+, abre Axustes e Ctrl+L bloquea o caderno."
-  ,"vaultStarterCapabilitiesAiCallout": "A IA non se activa por defecto. Se decides usar Quill, configúraa en Axustes e elixes provedor, modelo e permisos de contexto."
+  ,"vaultStarterCapabilitiesAiCallout": "A Quill non se activa por defecto. Se decides usar Quill, configúraa en Axustes e elixes provedor, modelo e permisos de contexto."
   ,"vaultStarterQuillTitle": "Quill e privacidade"
   ,"vaultStarterQuillSectionWhat": "Que pode facer Quill"
-  ,"vaultStarterQuillBullet1": "Resumir, reescribir ou expandir o contido dunha páxina."
+  ,"vaultStarterQuillBullet1": "Resumir, reescribir ou expandir o contido dun folio."
   ,"vaultStarterQuillBullet2": "Responder dúbidas sobre bloques, atallos e formas de organizar as túas notas en Folio."
-  ,"vaultStarterQuillBullet3": "Traballar coa páxina aberta como contexto ou con varias páxinas que selecciones como referencia."
+  ,"vaultStarterQuillBullet3": "Traballar coa folio aberta como contexto ou con varias folios que selecciones como referencia."
   ,"vaultStarterQuillSectionPrivacy": "Privacidade e seguranza"
-  ,"vaultStarterQuillPrivacyBody": "As túas páxinas viven neste dispositivo. Se habilitas IA, revisa que contexto compartes e con que provedor. Se esqueces o contrasinal mestre dun caderno cifrado, Folio non pode recuperalo por ti."
+  ,"vaultStarterQuillPrivacyBody": "As túas folios viven neste dispositivo. Se habilitas Quill, revisa que contexto compartes e con que provedor. Se esqueces o contrasinal mestre dun caderno cifrado, Folio non pode recuperalo por ti."
   ,"vaultStarterQuillBackupCallout": "Fai unha copia do caderno cando teñas contido importante. A copia conserva os datos e anexos, pero non transfere Hello nin passkeys entre dispositivos."
   ,"vaultStarterQuillMermaidCaption": "Proba rápida de Mermaid:"
-  ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear caderno] --> Organizar[Organizar páxinas]\nOrganizar --> Escribir[Escribir e enlazar ideas]\nEscribir --> Revisar[Buscar, revisar e mellorar]"
+  ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear caderno] --> Organizar[Organizar folios]\nOrganizar --> Escribir[Escribir e enlazar ideas]\nEscribir --> Revisar[Buscar, revisar e mellorar]"
   ,"settingsAccentColorTitle": "Cor de acento"
   ,"settingsAccentFolioDefault": "Folio"
   ,"settingsAccentCustom": "Personalizado"
@@ -2389,11 +2389,11 @@
   ,"onboardingTelemetryBody": "Se está activado, Folio pode enviar analítica anónima para entender como se usa a app. No primeiro arranque envíase igualmente un sinal anónimo único de instalación. Podes cambiar as estatísticas de uso en calquera momento en Axustes."
   ,"onboardingTelemetrySwitchTitle": "Estatísticas de uso anónimas"
   ,"onboardingTelemetrySwitchSubtitle": "Se está activado, axuda a medir o uso de funcións. Aínda que o desactives, rexístrase unha instalación anónima única. Non se envía contido do caderno nin títulos."
-  ,"onboardingTelemetryFootnote": "Non se envía contido do caderno nin títulos de páxinas. Envíase un evento anónimo de instalación unha vez por instalación, independentemente deste axuste."
+  ,"onboardingTelemetryFootnote": "Non se envía contido do caderno nin títulos de folios. Envíase un evento anónimo de instalación unha vez por instalación, independentemente deste axuste."
   ,"settingsAutoCrashReportsTitle": "Enviar diagnósticos de fallos automaticamente"
   ,"settingsAutoCrashReportsSubtitle": "Se hai un erro grave, envíase un anaco do rexistro a Folio (opcional, limitado por sesión)."
   ,"settingsReportBugButton": "Informar dun erro"
-  ,"settingsPrivacyFootnote": "Podes engadir unha nota; pode abrirse a páxina de incidencias no navegador."
+  ,"settingsPrivacyFootnote": "Podes engadir unha nota; pode abrirse a folio de incidencias no navegador."
   ,"settingsReportBugDialogTitle": "Informar dun erro"
   ,"settingsReportBugDialogBody": "Enviaremos metadatos anónimos, un anaco do rexistro e a túa nota. Despois podes abrir o xestor de incidencias."
   ,"settingsReportBugNoteLabel": "Que ocorreu? (opcional)"
@@ -2415,11 +2415,11 @@
   ,"syncedBlockGroupCount": "{count,plural, =1{1 copia sincronizada} other{{count} copias sincronizadas}}"
   ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
   ,"graphViewTitle": "Vista de grafo"
-  ,"graphViewEmpty": "Non hai ligazons entre páxinas"
-  ,"graphViewIncludeOrphans": "Incluír páxinas sen ligazons"
-  ,"graphViewOpenPage": "Abrir páxina"
+  ,"graphViewEmpty": "Non hai ligazons entre folios"
+  ,"graphViewIncludeOrphans": "Incluír folios sen ligazons"
+  ,"graphViewOpenPage": "Abrir folio"
   ,"importPdf": "Importar PDF…"
-  ,"importPdfDialogTitle": "Importar PDF como páxina"
+  ,"importPdfDialogTitle": "Importar PDF como folio"
   ,"importPdfAnnotationsOnly": "Só anotacións"
   ,"importPdfFullText": "Texto completo + anotacións"
   ,"importPdfSuccess": "PDF importado: {title}"
@@ -2497,42 +2497,42 @@
   ,"workspaceHomeHeadline": "O teu espazo"
   ,"workspaceHomeSubtitle": "Retoma onde o deixaches, busca ou comeza algo novo."
   ,"workspaceHomeSearchHint": "Buscar…"
-  ,"workspaceHomeNoRecentPages": "Aínda non hai páxinas recentes. Crea unha ou usa o buscador."
+  ,"workspaceHomeNoRecentPages": "Aínda non hai folios recentes. Crea unha ou usa o buscador."
   ,"workspaceHomeVisitedAt": "Aberta {dateTime}"
   ,"@workspaceHomeVisitedAt": {"placeholders": {"dateTime": {"type": "String"}}}
-  ,"workspaceHomeTip0": "Consello: crea unha páxina e usa / para inserir bloques rápido."
+  ,"workspaceHomeTip0": "Consello: crea un folio e usa / para inserir bloques rápido."
   ,"workspaceHomeTip1": "Folio garda os cambios automaticamente. Só comeza a escribir."
-  ,"workspaceHomeTip2": "Usa buscar para saltar entre páxinas."
-  ,"workspaceHomeTip3": "As subpáxinas axudan a manter cada tema ordenado."
-  ,"workspaceHomeTip4": "Reorganiza páxinas desde a barra lateral e mantén o cofre ordenado ó medrar."
+  ,"workspaceHomeTip2": "Usa buscar para saltar entre folios."
+  ,"workspaceHomeTip3": "As subfolios axudan a manter cada tema ordenado."
+  ,"workspaceHomeTip4": "Reorganiza folios desde a barra lateral e mantén o caderno ordenado ó medrar."
   ,"workspaceHomeTip5": "As plantillas agilizan estruturas repetidas; ábreas dende accesos rápidos."
-  ,"workspaceHomeTip6": "A vista de grafo mostra como se enlazan as páxinas; úsaa se te perdes."
+  ,"workspaceHomeTip6": "A vista de grafo mostra como se enlazan as folios; úsaa se te perdes."
   ,"workspaceHomeTip7": "Combina títulos, listas e bloques enriquecidos para que as notas longas se lean mellor."
   ,"workspaceHomeTip8": "As tarefas con data aparecen no inicio; pon datas dende Kanban ou bloques de tarefa."
-  ,"workspaceHomeTip9": "Bloquea o cofre cando te afastes do equipo; o contrasinal non sae deste dispositivo."
-  ,"workspaceHomeTip10": "Exporta unha páxina a Markdown ou PDF dende a barra cando queiras compartila."
+  ,"workspaceHomeTip9": "Bloquea o caderno cando te afastes do equipo; o contrasinal non sae deste dispositivo."
+  ,"workspaceHomeTip10": "Exporta un folio a Markdown ou PDF dende a barra cando queiras compartila."
   ,"workspaceHomeTip11": "A sincronización entre dispositivos alinea copias; forza a sincronización na barra lateral tras emparellar."
   ,"settingsWorkspaceOpenToHomeTitle": "Abrir no inicio"
-  ,"settingsWorkspaceOpenToHomeSubtitle": "Tras desbloquear, mostrar a pantalla de inicio no lugar da última páxina aberta."
+  ,"settingsWorkspaceOpenToHomeSubtitle": "Tras desbloquear, mostrar a pantalla de inicio no lugar da última folio aberta."
   ,"workspaceHomeGreetingMorning": "Bo día"
   ,"workspaceHomeGreetingAfternoon": "Boas tardes"
   ,"workspaceHomeGreetingEvening": "Boas tardes"
   ,"workspaceHomeGreetingNight": "Boas noites"
-  ,"workspaceHomeNoRecentMatch": "Ningunha páxina recente coincide co filtro."
-  ,"workspaceHomeGlobalSearchTooltip": "Buscar en todo o cofre"
-  ,"workspaceHomeSearchSemanticsLabel": "Filtra páxinas recentes mentres escribes; usa o botón ao final do campo para a busca global"
+  ,"workspaceHomeNoRecentMatch": "Ningun folio recente coincide co filtro."
+  ,"workspaceHomeGlobalSearchTooltip": "Buscar en todo o caderno"
+  ,"workspaceHomeSearchSemanticsLabel": "Filtra folios recentes mentres escribes; usa o botón ao final do campo para a busca global"
   ,"workspaceHomeQuickActionsTitle": "Accesos rápidos"
   ,"workspaceHomeQuickSettings": "Axustes"
   ,"workspaceHomeQuickGraph": "Vista de grafo"
   ,"workspaceHomeQuickTemplates": "Plantillas"
-  ,"workspaceHomeQuickLock": "Bloquear cofre"
+  ,"workspaceHomeQuickLock": "Bloquear caderno"
   ,"workspaceHomeQuickSync": "Sincronizar dispositivos"
   ,"workspaceHomeQuickTask": "Tarefa rápida"
   ,"workspaceHomeQuickVaultTasks": "Todas as tarefas"
   ,"workspaceHomeQuickFolder": "Novo cartafol"
   ,"workspaceHomeQuickImport": "Importar Markdown"
-  ,"workspaceHomeRootPagesTitle": "Páxinas raíz"
-  ,"workspaceHomeMiniStats": "{pageCount} páxinas · {taskCount} tarefas con data (14 días)"
+  ,"workspaceHomeRootPagesTitle": "Folios raíz"
+  ,"workspaceHomeMiniStats": "{pageCount} folios · {taskCount} tarefas con data (14 días)"
   ,"@workspaceHomeMiniStats": {"placeholders": {"pageCount": {"type": "int"}, "taskCount": {"type": "int"}}}
   ,"workspaceHomeUpcomingTasksTitle": "Tarefas próximas (14 días)"
   ,"workspaceHomeUpcomingTasksEmpty": "Non hai tarefas con data nas próximas dúas semanas."
@@ -2544,10 +2544,10 @@
   ,"workspaceHomeCustomizeTitle": "Pantalla de inicio"
   ,"workspaceHomeToggleFolioCloudTitle": "Resumo Folio Cloud"
   ,"workspaceHomeToggleFolioCloudSubtitle": "Tinta e espazo de copias na nube se iniciaches sesión"
-  ,"workspaceHomeToggleRootPagesTitle": "Páxinas raíz"
-  ,"workspaceHomeToggleRootPagesSubtitle": "Chips horizontais de páxinas de primeiro nivel"
+  ,"workspaceHomeToggleRootPagesTitle": "Folios raíz"
+  ,"workspaceHomeToggleRootPagesSubtitle": "Chips horizontais de folios de primeiro nivel"
   ,"workspaceHomeToggleMiniStatsTitle": "Contadores"
-  ,"workspaceHomeToggleMiniStatsSubtitle": "Número de páxinas e tarefas con data (14 días)"
+  ,"workspaceHomeToggleMiniStatsSubtitle": "Número de folios e tarefas con data (14 días)"
   ,"workspaceHomeToggleTasksTitle": "Tarefas próximas"
   ,"workspaceHomeToggleTasksSubtitle": "Franxa de dúas semanas e lista"
   ,"workspaceHomeToggleQuickActionsTitle": "Accesos rápidos"
@@ -2557,7 +2557,7 @@
   ,"workspaceHomeCloudCardTitle": "Folio Cloud"
   ,"workspaceHomeCloudStaffShort": "Acceso staff"
   ,"workspaceHomeCloudOpenSettings": "Abrir axustes"
-  ,"workspaceHomeVaultStatusTitle": "Estado do cofre"
+  ,"workspaceHomeVaultStatusTitle": "Estado do caderno"
   ,"workspaceHomeVaultBackupOff": "As copias programadas están desactivadas para esta libreta."
   ,"workspaceHomeVaultBackupNeverRun": "Aínda non se executou ningunha copia coa configuración actual."
   ,"workspaceHomeVaultBackupLast": "Última copia: {when}"
@@ -2569,8 +2569,8 @@
   ,"workspaceHomeVaultReadOnlyHint": "Vista só de lectura; activa a edición desde a barra do espazo de traballo."
   ,"workspaceHomeOnboardingTitle": "Primeira semana"
   ,"workspaceHomeOnboardingHint": "Complétanse sós mentres usas Folio."
-  ,"workspaceHomeOnboardingStepPage": "Crea unha páxina"
-  ,"workspaceHomeOnboardingStepSubpage": "Crea unha subpáxina baixo unha páxina"
+  ,"workspaceHomeOnboardingStepPage": "Crea un folio"
+  ,"workspaceHomeOnboardingStepSubpage": "Crea un subfolio baixo un folio"
   ,"workspaceHomeOnboardingStepSearch": "Usa a busca global unha vez"
   ,"workspaceHomeOnboardingStepCloudExplore": "Mira o que inclúe Folio Cloud"
   ,"workspaceHomeOnboardingDismiss": "Ocultar lista"
@@ -2580,7 +2580,7 @@
   ,"workspaceHomeWhatsNewUnread": "Aínda non abriches as notas desta versión."
   ,"workspaceHomeWhatsNewCurrent": "Consulta os cambios desta versión."
   ,"workspaceHomeWhatsNewOpen": "Abrir notas da versión"
-  ,"workspaceHomeToggleVaultStatusTitle": "Estado do cofre"
+  ,"workspaceHomeToggleVaultStatusTitle": "Estado do caderno"
   ,"workspaceHomeToggleVaultStatusSubtitle": "Copias, conflitos, só lectura"
   ,"workspaceHomeToggleOnboardingTitle": "Lista primeira semana"
   ,"workspaceHomeToggleOnboardingSubtitle": "Obxectivos breves (ocultase só ao cabo de 7 días)"
@@ -2604,10 +2604,10 @@
   ,"workspaceHomeClockTimezoneLine": "{zoneName} ({offset})"
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Campo de busca"
-  ,"workspaceHomeSectionLabelCreatePage": "Botón páxina nova"
+  ,"workspaceHomeSectionLabelCreatePage": "Botón folio nova"
   ,"driveMoveToFolderTitle": "Mover a cartafol"
   ,"driveFolderColor": "Cor do cartafol"
-  ,"workspaceEditorReadySubtitle": "Crea unha páxina para comezar a escribir ou usa a busca para volver a unha nota existente."
+  ,"workspaceEditorReadySubtitle": "Crea un folio para comezar a escribir ou usa a busca para volver a unha nota existente."
   ,"releaseNotesEmpty": "Non hai notas de versión dispoñibles para esta versión."
   ,"kanbanJiraError": "Erro Jira: {error}"
   ,"@kanbanJiraError": {"placeholders": {"error": {"type": "String"}}}
@@ -2682,7 +2682,7 @@
   ,"equationLatexLabel": "LaTeX"
   ,"mermaidInlineLoadError": "Non se puido amosar o diagrama. Comproba a sintaxe Mermaid ou a conexión.",
   "onboardingUsageProfileTitle": "Como vas usar Folio?",
-  "onboardingUsageProfileBody": "Escolleremos unhas páxinas de axuda iniciais adaptadas a ti. Podes borralas ou editalas cando queiras.",
+  "onboardingUsageProfileBody": "Escolleremos unhas folios de axuda iniciais adaptadas a ti. Podes borralas ou editalas cando queiras.",
   "onboardingUsageProfileHint": "Escolle ata 3 usos principais.",
   "onboardingUsageProfileMinSelectionError": "Selecciona polo menos un uso para continuar.",
   "onboardingUsageIntentNotesTitle": "Notas persoais",
@@ -2691,19 +2691,19 @@
   "onboardingUsageIntentKnowledgeTitle": "Base de coñecemento",
   "onboardingUsageIntentJournalTitle": "Diario",
   "onboardingUsageIntentStudyTitle": "Estudo",
-  "vaultStarterHomeIntroNotes": "Folio é un bo lugar para capturar ideas, enlazar pensamentos e ordenar notas persoais. Estas páxinas iniciais están pensadas para que comeces a escribir sen unha estrutura ríxida.",
-  "vaultStarterHomeIntroTasks": "Folio axúdache a combinar notas e listas de tarefas no mesmo caderno. Estas páxinas iniciais priorizan seguimento, prioridades e revisión periódica.",
-  "vaultStarterHomeIntroProjects": "Organiza o traballo por proxectos, reunións e entregables dentro dun árbore de páxinas. Estas páxinas iniciais déixanche un esquema para arrancar con foco.",
-  "vaultStarterHomeIntroKnowledge": "Constrúe unha wiki persoal con índices, fichas e notas de lectura. Estas páxinas iniciais favorecen enlaces entre temas e revisión.",
-  "vaultStarterHomeIntroJournal": "Usa Folio como espazo de reflexión diaria e repaso mensual. Estas páxinas iniciais propoñen rutinas lixeiras para manter o hábito.",
-  "vaultStarterHomeIntroStudy": "Centraliza apuntamentos, plans de estudo e repasos nun só sitio. Estas páxinas iniciais están orientadas a cursos e preparación.",
+  "vaultStarterHomeIntroNotes": "Folio é un bo lugar para capturar ideas, enlazar pensamentos e ordenar notas persoais. Estas folios iniciais están pensadas para que comeces a escribir sen unha estrutura ríxida.",
+  "vaultStarterHomeIntroTasks": "Folio axúdache a combinar notas e listas de tarefas no mesmo caderno. Estas folios iniciais priorizan seguimento, prioridades e revisión periódica.",
+  "vaultStarterHomeIntroProjects": "Organiza o traballo por proxectos, reunións e entregables dentro dun árbore de folios. Estas folios iniciais déixanche un esquema para arrancar con foco.",
+  "vaultStarterHomeIntroKnowledge": "Constrúe unha wiki persoal con índices, fichas e notas de lectura. Estas folios iniciais favorecen enlaces entre temas e revisión.",
+  "vaultStarterHomeIntroJournal": "Usa Folio como espazo de reflexión diaria e repaso mensual. Estas folios iniciais propoñen rutinas lixeiras para manter o hábito.",
+  "vaultStarterHomeIntroStudy": "Centraliza apuntamentos, plans de estudo e repasos nun só sitio. Estas folios iniciais están orientadas a cursos e preparación.",
   "vaultStarterHomeTodoNotes1": "Volcar tres ideas soltas na bandexa de ideas",
   "vaultStarterHomeTodoNotes2": "Crear unha nota de captura rápida co menú /",
-  "vaultStarterHomeTodoNotes3": "Enlazar dúas páxinas desde o panel lateral",
+  "vaultStarterHomeTodoNotes3": "Enlazar dúas folios desde o panel lateral",
   "vaultStarterHomeTodoTasks1": "Engadir tres tarefas ao panel de tarefas",
   "vaultStarterHomeTodoTasks2": "Marcar unha tarefa como feita e outra con data",
   "vaultStarterHomeTodoTasks3": "Planificar a revisión semanal",
-  "vaultStarterHomeTodoProjects1": "Crear a primeira páxina dun proxecto",
+  "vaultStarterHomeTodoProjects1": "Crear a primeira folio dun proxecto",
   "vaultStarterHomeTodoProjects2": "Probar o modelo de notas de reunión",
   "vaultStarterHomeTodoProjects3": "Definir o seguinte fito no hub de proxectos",
   "vaultStarterHomeTodoKnowledge1": "Engadir tres temas ao índice de contidos",
@@ -2712,28 +2712,28 @@
   "vaultStarterHomeTodoJournal1": "Escribir a entrada de hoxe no diario",
   "vaultStarterHomeTodoJournal2": "Responder ás preguntas de reflexión",
   "vaultStarterHomeTodoJournal3": "Revisar o resumo do mes anterior",
-  "vaultStarterHomeTodoStudy1": "Crear a páxina do curso actual",
+  "vaultStarterHomeTodoStudy1": "Crear a folio do curso actual",
   "vaultStarterHomeTodoStudy2": "Engadir tres conceptos clave aos apuntamentos",
   "vaultStarterHomeTodoStudy3": "Definir o plan de estudo desta semana",
   "vaultStarterShortcutsTitle": "Atallos e primeiros pasos",
   "vaultStarterShortcutsSectionMain": "O esencial de Folio",
-  "vaultStarterShortcutsBullet1": "Cada páxina compóñese de bloques: parágrafos, títulos, listas, táboas e máis.",
-  "vaultStarterShortcutsBullet2": "O panel lateral organiza páxinas e subpáxinas nun árbore.",
+  "vaultStarterShortcutsBullet1": "Cada folio compóñese de bloques: parágrafos, títulos, listas, táboas e máis.",
+  "vaultStarterShortcutsBullet2": "O panel lateral organiza folios e subfolios nun árbore.",
   "vaultStarterShortcutsBullet3": "A busca e o historial axúdanche a retomar contexto rapidamente.",
   "vaultStarterShortcutsSectionKeys": "Atallos útiles",
-  "vaultStarterShortcutsKeyN": "Ctrl+N crea unha páxina nova.",
+  "vaultStarterShortcutsKeyN": "Ctrl+N crea un folio nova.",
   "vaultStarterShortcutsKeySearch": "Ctrl+K ou Ctrl+F abre a busca.",
   "vaultStarterShortcutsKeySettings": "Ctrl+, abre Axustes e Ctrl+L bloquea o caderno.",
   "vaultStarterShortcutsCallout": "Preme / dentro dun parágrafo para inserir bloques sen saír do teclado.",
   "vaultStarterNotesInboxTitle": "Bandexa de ideas",
   "vaultStarterNotesInboxHeading": "Captura sen filtrar",
-  "vaultStarterNotesInboxIntro": "Usa esta páxina como inbox: anota ideas soltas, enlaces e pensamentos para revisar máis tarde.",
+  "vaultStarterNotesInboxIntro": "Usa esta folio como inbox: anota ideas soltas, enlaces e pensamentos para revisar máis tarde.",
   "vaultStarterNotesInboxSection": "Como usala",
   "vaultStarterNotesInboxBullet1": "Escribe unha idea por viñeta ou parágrafo curto.",
-  "vaultStarterNotesInboxBullet2": "Cando unha idea madure, crea unha páxina dedicada e enlázaa.",
+  "vaultStarterNotesInboxBullet2": "Cando unha idea madure, crea un folio dedicada e enlázaa.",
   "vaultStarterNotesInboxBullet3": "Baleira a bandexa en revisións breves semanais.",
   "vaultStarterNotesInboxTodo1": "Engadir tres ideas novas",
-  "vaultStarterNotesInboxTodo2": "Mover unha idea á súa propia páxina",
+  "vaultStarterNotesInboxTodo2": "Mover unha idea á súa propia folio",
   "vaultStarterNotesInboxCallout": "Non busques perfección ao volcar: a bandexa é para pensar en voz alta.",
   "vaultStarterNotesCaptureTitle": "Captura rápida",
   "vaultStarterNotesCaptureHeading": "Unha nota en segundos",
@@ -2743,7 +2743,7 @@
   "vaultStarterNotesCaptureBullet2": "Bloque de cita ou callout para a conclusión clave.",
   "vaultStarterNotesCaptureBullet3": "Lista de accións opcionais se aplica.",
   "vaultStarterNotesCaptureTodo1": "Completar o parágrafo principal",
-  "vaultStarterNotesCaptureTodo2": "Engadir etiquetas ou enlazar páxinas relacionadas",
+  "vaultStarterNotesCaptureTodo2": "Engadir etiquetas ou enlazar folios relacionadas",
   "vaultStarterNotesCaptureCallout": "Proba o menú / para inserir unha lista ou táboa sen cambiar de bloque.",
   "vaultStarterTasksDashboardTitle": "Panel de tarefas",
   "vaultStarterTasksDashboardHeading": "Que facer agora",
@@ -2754,7 +2754,7 @@
   "vaultStarterTasksDashboardBullet3": "Abre a vista de tarefas do caderno para ver todo xunto.",
   "vaultStarterTasksDashboardTodo1": "Engadir tres tarefas con distinta prioridade",
   "vaultStarterTasksDashboardTodo2": "Marcar unha como completada",
-  "vaultStarterTasksDashboardCallout": "As tarefas tamén poden vivir dentro de páxinas de proxecto.",
+  "vaultStarterTasksDashboardCallout": "As tarefas tamén poden vivir dentro de folios de proxecto.",
   "vaultStarterTasksWeeklyTitle": "Revisión semanal",
   "vaultStarterTasksWeeklyHeading": "Pechar a semana con claridade",
   "vaultStarterTasksWeeklyIntro": "Repasa o feito, o pendente e o que entra a próxima semana.",
@@ -2767,14 +2767,14 @@
   "vaultStarterTasksWeeklyCallout": "Unha revisión de 15 minutos adoita bastar para manter o sistema vivo.",
   "vaultStarterProjectsHubTitle": "Hub de proxectos",
   "vaultStarterProjectsHubHeading": "Vista xeral do traballo",
-  "vaultStarterProjectsHubIntro": "Agrupa obxectivo, estado, riscos e enlaces a páxinas fillas de cada proxecto.",
+  "vaultStarterProjectsHubIntro": "Agrupa obxectivo, estado, riscos e enlaces a folios fillas de cada proxecto.",
   "vaultStarterProjectsHubSection": "Seccións útiles",
   "vaultStarterProjectsHubBullet1": "Resumo executivo no primeiro parágrafo.",
   "vaultStarterProjectsHubBullet2": "Lista de entregables con checklists.",
   "vaultStarterProjectsHubBullet3": "Enlaces a reunións, decisións e documentación.",
   "vaultStarterProjectsHubTodo1": "Definir o obxectivo do proxecto",
-  "vaultStarterProjectsHubTodo2": "Crear a primeira subpáxina de entregable",
-  "vaultStarterProjectsHubCallout": "Duplica esta páxina como modelo para novos proxectos.",
+  "vaultStarterProjectsHubTodo2": "Crear a primeira subfolio de entregable",
+  "vaultStarterProjectsHubCallout": "Duplica esta folio como modelo para novos proxectos.",
   "vaultStarterProjectsMeetingTitle": "Notas de reunión",
   "vaultStarterProjectsMeetingHeading": "Reunión con contexto",
   "vaultStarterProjectsMeetingIntro": "Modelo para asistentes, axenda, decisións e accións con responsable.",
@@ -2787,11 +2787,11 @@
   "vaultStarterProjectsMeetingCallout": "Se gravas audio, podes usar bloques de nota de reunión con transcrición.",
   "vaultStarterKnowledgeIndexTitle": "Índice de contidos",
   "vaultStarterKnowledgeIndexHeading": "Mapa do teu coñecemento",
-  "vaultStarterKnowledgeIndexIntro": "Páxina índice con enlaces a temas, áreas e coleccións de notas.",
+  "vaultStarterKnowledgeIndexIntro": "Folio índice con enlaces a temas, áreas e coleccións de notas.",
   "vaultStarterKnowledgeIndexSection": "Como mantelo",
   "vaultStarterKnowledgeIndexBullet1": "Agrupa por áreas amplas e enlaza fichas fillas.",
   "vaultStarterKnowledgeIndexBullet2": "Engade unha liña de resumo baixo cada enlace.",
-  "vaultStarterKnowledgeIndexBullet3": "Revisa o índice cando crees páxinas novas.",
+  "vaultStarterKnowledgeIndexBullet3": "Revisa o índice cando crees folios novas.",
   "vaultStarterKnowledgeIndexTodo1": "Engadir tres temas ao índice",
   "vaultStarterKnowledgeIndexTodo2": "Crear a primeira ficha de tema",
   "vaultStarterKnowledgeIndexCallout": "Un bo índice reduce a fricción ao buscar ideas antigas.",
@@ -2816,7 +2816,7 @@
   "vaultStarterKnowledgeReadingTodo2": "Extraer polo menos dúas citas ou ideas",
   "vaultStarterKnowledgeReadingCallout": "Enlaza lecturas desde o índice para ver a túa biblioteca viva.",
   "vaultStarterJournalDailyTitle": "Diario diario",
-  "vaultStarterJournalDailyHeading": "Hoxe nunha páxina",
+  "vaultStarterJournalDailyHeading": "Hoxe nun folio",
   "vaultStarterJournalDailyIntro": "Espazo breve para rexistrar como foi o día, que aprendiches e que agradeces.",
   "vaultStarterJournalDailySection": "Preguntas opcionais",
   "vaultStarterJournalDailyBullet1": "Que foi o máis importante hoxe?",
@@ -2834,16 +2834,16 @@
   "vaultStarterJournalMonthlyBullet3": "Un obxectivo realista para o mes entrante.",
   "vaultStarterJournalMonthlyTodo1": "Listar dous logros do mes",
   "vaultStarterJournalMonthlyTodo2": "Elixir un foco para o próximo mes",
-  "vaultStarterJournalMonthlyCallout": "Podes duplicar esta páxina cada mes e conservar o historial.",
+  "vaultStarterJournalMonthlyCallout": "Podes duplicar esta folio cada mes e conservar o historial.",
   "vaultStarterStudyCourseTitle": "Apuntamentos de curso",
-  "vaultStarterStudyCourseHeading": "Un curso, unha páxina raíz",
-  "vaultStarterStudyCourseIntro": "Organiza módulos, conceptos e exercicios baixo unha páxina de curso.",
+  "vaultStarterStudyCourseHeading": "Un curso, un folio raíz",
+  "vaultStarterStudyCourseIntro": "Organiza módulos, conceptos e exercicios baixo un folio de curso.",
   "vaultStarterStudyCourseSection": "Estrutura",
   "vaultStarterStudyCourseBullet1": "Resumo do temario e calendario.",
-  "vaultStarterStudyCourseBullet2": "Subpáxinas por tema ou sesión.",
+  "vaultStarterStudyCourseBullet2": "Subfolios por tema ou sesión.",
   "vaultStarterStudyCourseBullet3": "Lista de dúbidas pendentes.",
   "vaultStarterStudyCourseTodo1": "Nomear o curso e o profesor ou plataforma",
-  "vaultStarterStudyCourseTodo2": "Crear a primeira subpáxina de tema",
+  "vaultStarterStudyCourseTodo2": "Crear a primeira subfolio de tema",
   "vaultStarterStudyCourseCallout": "Combina apuntamentos con bloques de código ou ecuación cando faga falta.",
   "vaultStarterStudyPlanTitle": "Plan de estudo",
   "vaultStarterStudyPlanHeading": "Esta semana de estudo",
@@ -2879,7 +2879,7 @@
   "settingsSearchThemeDesc": "Elixe entre tema claro, escuro ou o predeterminado do sistema.",
   "settingsSearchLangTitle": "Idioma da aplicación",
   "settingsSearchLangDesc": "Cambia o idioma predeterminado da interface.",
-  "settingsSearchAiTitle": "Habilitar servizos de IA",
+  "settingsSearchAiTitle": "Habilitar servizos de Quill",
   "settingsSearchAiDesc": "Activa ou desactiva la integración con modelos de linguaxe locais ou na nube.",
   "settingsSearchQuickUnlockTitle": "Desbloqueo rápido",
   "settingsSearchQuickUnlockDesc": "Configura pegada dixital, recoñecemento facial ou PIN de desbloqueo.",

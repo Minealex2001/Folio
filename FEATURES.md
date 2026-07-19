@@ -1,19 +1,41 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última revisión: 2026-05-05 (sincronizado con el estado del repositorio).
+> Última revisión: 2026-07-19 (sincronizado con el estado del repositorio).
+
+---
+
+## Voz de producto / glosario
+
+Folio usa una metáfora de **libreta de escritura**. El copy de usuario (l10n) debe seguir este glosario; los identificadores de código (`Vault`, `pageId`, `flutter_quill`, ficheros `vault.keys` / `vault.bin`) no se renombran.
+
+| Concepto | ES (UI) | EN (UI) | Notas |
+|---|---|---|---|
+| App / marca | Folio | Folio | — |
+| Contenedor cifrado | **libreta** | **notebook** | Nunca «cofre» / «vault» en labels de usuario |
+| Unidad de contenido | **folio** / folios | **page** / pages | Título por defecto ES: **Nuevo Folio**; acción: **Crear folio** |
+| Asistente | **Quill** | **Quill** | Labels de ajustes/panel: Quill, no «IA» / «AI» |
+| Hilo con Quill | **nota** / notas | **note** / notes | No «chat» (el chat de colaboración en equipo sí puede decir chat) |
+| Crédito cloud | tinta / gotas / **tintero** | ink / ink drops / **ink bottle** | — |
+| Cuota de almacenamiento cloud | **librería** | **library** | Distinto de la libreta de contenido |
+| Catálogo de iconos | biblioteca de iconos | icon library | No confundir con librería de almacenamiento |
+
+**Quill (asistente) vs Quill (editor):** el asistente de producto se llama Quill. El motor WYSIWYG interno usa el paquete `flutter_quill` (Delta); eso es detalle de implementación, no marca visible al usuario.
+
+Ejemplos de UI: `Crear folio`, `Nuevo Folio`, `Libreta activa` / `Active notebook`, `Activar Quill`, `Nueva nota`, packs `Librería pequeña` / `Small library`.
 
 ---
 
 ## Índice
 
+0. [Voz de producto / glosario](#voz-de-producto--glosario)
 1. [Plataformas soportadas](#1-plataformas-soportadas)
 2. [Editor de bloques](#2-editor-de-bloques)
 3. [Tipos de bloque](#3-tipos-de-bloque)
-4. [Rich text WYSIWYG (Quill)](#4-rich-text-wysiwyg-quill)
+4. [Rich text WYSIWYG (Quill editor)](#4-rich-text-wysiwyg-quill)
 5. [Barra de formato flotante](#5-barra-de-formato-flotante)
 6. [Menú slash `/`](#6-menú-slash-)
-7. [Sistema @mention de páginas](#7-sistema-mention-de-páginas)
+7. [Sistema @mention de folios](#7-sistema-mention-de-páginas)
 8. [Atajos de teclado del editor](#8-atajos-de-teclado-del-editor)
 9. [Atajos Markdown inline](#9-atajos-markdown-inline)
 10. [Atajos globales remapeables](#10-atajos-globales-remapeables)
@@ -21,16 +43,16 @@
 12. [Drag & drop de bloques](#12-drag--drop-de-bloques)
 13. [Duplicar bloques](#13-duplicar-bloques)
 14. [Apariencia de bloques](#14-apariencia-de-bloques)
-15. [Historial de versiones por página](#15-historial-de-versiones-por-página)
-16. [Undo / Redo por página](#16-undo--redo-por-página)
+15. [Historial de versiones por folio](#15-historial-de-versiones-por-página)
+16. [Undo / Redo por folio](#16-undo--redo-por-página)
 17. [Inserción de medios](#17-inserción-de-medios)
 18. [Redimensionado de imágenes](#18-redimensionado-de-imágenes)
 19. [Pegado inteligente de URLs](#19-pegado-inteligente-de-urls)
 20. [Notas de reunión (beta)](#20-notas-de-reunión-beta)
 21. [Colaboración en tiempo real](#21-colaboración-en-tiempo-real)
 22. [Sincronización P2P entre dispositivos](#22-sincronización-p2p-entre-dispositivos)
-23. [Asistente IA Quill](#23-asistente-ia-quill)
-24. [Contexto IA con `@`](#24-contexto-ia-con-)
+23. [Quill (asistente)](#23-asistente-ia-quill)
+24. [Contexto de Quill con `@`](#24-contexto-ia-con-)
 25. [Folio Cloud](#25-folio-cloud)
 26. [Seguridad de libreta (Vault)](#26-seguridad-de-libreta-vault)
 27. [Importación de contenido](#27-importación-de-contenido)
@@ -39,7 +61,7 @@
 30. [Búsqueda global](#30-búsqueda-global)
 31. [Captura rápida de tarea](#31-captura-rápida-de-tarea)
 32. [Temas y apariencia](#32-temas-y-apariencia)
-33. [Iconos de página personalizados](#33-iconos-de-página-personalizados)
+33. [Iconos de folio personalizados](#33-iconos-de-página-personalizados)
 34. [Onboarding](#34-onboarding)
 35. [Actualizador integrado](#35-actualizador-integrado)
 36. [Diagnóstico y reporte de bugs](#36-diagnóstico-y-reporte-de-bugs)
@@ -50,7 +72,7 @@
 41. [Lienzo infinito (canvas)](#41-lienzo-infinito-canvas)
 42. [Pantalla de inicio (Home)](#42-pantalla-de-inicio-home)
 43. [Hub de tareas de la libreta](#43-hub-de-tareas-de-la-libreta)
-44. [Papelera de páginas](#44-papelera-de-páginas)
+44. [Papelera de folios](#44-papelera-de-páginas)
 
 **Apéndice:** [configuración persistida (`AppSettings`)](#apéndice-configuración-persistida-appsettings)
 
@@ -155,7 +177,7 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 ---
 
-## 4. Rich text WYSIWYG (Quill)
+## 4. Rich text WYSIWYG (Quill editor)
 
 Disponible en los tipos `paragraph`, `h1`, `h2`, `h3`, `quote`, `callout`, `bullet`, `numbered`, `todo`, `toggle`.
 
@@ -221,7 +243,7 @@ Se activa escribiendo `/` en un bloque de texto compatible.
 
 ---
 
-## 7. Sistema @mention de páginas
+## 7. Sistema @mention de folios
 
 - Se activa escribiendo `@` en un bloque de texto compatible.
 - Muestra un panel flotante (`BlockEditorInlineMentionList`) con las páginas de la libreta filtradas por título.
@@ -525,9 +547,9 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`. El merge
 
 ---
 
-## 23. Asistente IA Quill
+## 23. Quill (asistente)
 
-Quill es una función **estable** (fuera de beta): el panel de chat ya no muestra badge BETA y activar la IA en Ajustes no pide confirmación de fase beta. Sigue haciendo falta el aviso de alcance global (Quill es un ajuste de la app, no solo de la libreta actual).
+Quill es una función **estable** (fuera de beta): el panel de notas ya no muestra badge BETA y activar Quill en Ajustes no pide confirmación de fase beta. Sigue haciendo falta el aviso de alcance global (Quill es un ajuste de la app, no solo de la libreta actual).
 
 ### Ajustes → IA (orden)
 
@@ -623,7 +645,7 @@ Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (
 
 ---
 
-## 24. Contexto IA con `@`
+## 24. Contexto de Quill con `@`
 
 `lib/features/workspace/shell/workspace_page_ai_context.dart`
 
