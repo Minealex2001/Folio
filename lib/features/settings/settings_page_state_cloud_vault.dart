@@ -302,10 +302,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
   Future<void> _removeCustomIcon(CustomIconEntry entry) async {
     await _app.removeCustomIcon(entry.id);
     try {
-      final file = File(entry.filePath);
-      if (file.existsSync()) {
-        await file.delete();
-      }
+      await _customIconImportService.deleteIconBytes(entry.filePath);
     } catch (_) {
       // Ignorar: la referencia ya se eliminó de ajustes.
     }

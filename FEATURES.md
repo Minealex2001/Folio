@@ -967,12 +967,13 @@ Picker con tres pestañas:
 | Pestaña | Contenido |
 |---|---|
 | Recientes / Rápidos | Emojis predefinidos (💡 ✅ ⚠️ 🚨 ℹ️ 📌 🧠 🚀 …) |
-| Importados | SVG/PNG importados por el usuario |
+| Importados | SVG/PNG/GIF/WebP importados por el usuario |
 | Todos los emojis | Selector completo de emojis |
 
 - Icono personalizado: texto libre / emoji único.
 - Opción "Quitar" para eliminar el icono.
 - Implementado en `showFolioIconPicker()`.
+- **Web:** los iconos importados se persisten en IndexedDB (`CustomIconBlobStore`) y se renderizan igual que en escritorio/móvil (antes estaban desactivados en web). Metadatos en SharedPreferences; bytes en blob store (filesystem nativo o IDB).
 
 ### Explorador Iconify en Ajustes
 
@@ -985,7 +986,7 @@ En **Ajustes → Iconos personalizados**, debajo del formulario de importación 
 - Los iconos importados aparecen en la pestaña **Importados** del picker de página/callout.
 - Requiere conexión a internet para buscar/descargar; tras importar funcionan offline.
 - Atribución visible a Iconify (colecciones open source con licencias MIT/Apache/ISC según el set).
-- Implementación: `lib/services/iconify/iconify_catalog_service.dart`, `lib/features/settings/widgets/iconify_icon_browser.dart`.
+- Implementación: `lib/services/iconify/iconify_catalog_service.dart`, `lib/features/settings/widgets/iconify_icon_browser.dart`, `lib/services/custom_icons/custom_icon_blob_store.dart`.
 
 ---
 

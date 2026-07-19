@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/workspace_prefs_keys.dart';
 import '../../data/folio_settings_profile_format.dart';
 import '../../models/folio_usage_intent.dart';
+import '../custom_icons/custom_icon_blob_store.dart';
 import '../secure_credential_storage.dart';
 
 /// Construye perfiles de ajustes (app / libreta) listos para cifrar y subir.
@@ -23,12 +22,13 @@ class SettingsProfileBuilder {
   /// Bytes de iconos locales referenciados por el perfil de app.
   Future<Map<String, List<int>>> collectIconBytes(AppSettings settings) async {
     final out = <String, List<int>>{};
+    final store = CustomIconBlobStore.instance;
     Future<void> add(CustomIconEntry e) async {
       if (e.id.isEmpty || e.filePath.isEmpty) return;
       if (out.containsKey(e.id)) return;
-      final f = File(e.filePath);
-      if (!f.existsSync()) return;
-      out[e.id] = await f.readAsBytes();
+      final bytes = await store.read(e.filePath);
+      if (bytes == null || bytes.isEmpty) return;
+      out[e.id] = bytes;
     }
 
     for (final e in settings.customIcons) {
