@@ -63,6 +63,12 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow write: if false;
       }
+
+      // Buzón de comandos entrantes Slack/Teams (solo lectura cliente; escritura Functions).
+      match /pendingIntegrationCommands/{commandId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // Familias: lectura permitida para el dueño o miembros del grupo
@@ -86,6 +92,21 @@ service cloud.firestore {
 
     // Idempotencia consumibles Microsoft Store (solo backend).
     match /microsoftStoreProcessedPurchases/{docId} {
+      allow read, write: if false;
+    }
+
+    // Códigos temporales de vinculación Slack/Teams (solo Functions).
+    match /integrationLinkCodes/{code} {
+      allow read, write: if false;
+    }
+
+    // Índice externo (slackUserId/teamsUserId) → cuenta Folio (solo Functions).
+    match /integrationUserIndex/{docId} {
+      allow read, write: if false;
+    }
+
+    // Tokens HMAC de Outgoing Webhook de Teams por conexión (solo Functions).
+    match /teamsWebhookEndpoints/{connectionId} {
       allow read, write: if false;
     }
 

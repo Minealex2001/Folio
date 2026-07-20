@@ -59,6 +59,7 @@ Ejemplos de UI: `Crear folio`, `Nuevo Folio`, `Libreta activa` / `Active noteboo
 28. [Exportación de contenido](#28-exportación-de-contenido)
 29. [Integración con Jira](#29-integración-con-jira)
 29a. [Integración con Trello](#29a-integración-con-trello)
+29b. [Integración con Slack y Microsoft Teams](#29b-integración-con-slack-y-microsoft-teams)
 30. [Búsqueda global](#30-búsqueda-global)
 31. [Captura rápida de tarea](#31-captura-rápida-de-tarea)
 32. [Temas y apariencia](#32-temas-y-apariencia)
@@ -823,7 +824,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 | Sync multi-dispositivo | `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` |
 | IA | `folioCloudAiComplete`, `folioCloudAiCompleteHttp`, `folioCloudAiPricing`, `folioCloudTranscribeChunk` |
 | Operaciones | `monthlyInkRefill` (programada) |
-| Otras HTTP | `folioJiraExchangeOAuth`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
+| Otras HTTP | `folioJiraExchangeOAuth`, `folioIntegrationWebhookProxy`, `folioSlackCommand`, `folioTeamsCommand`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
 
 ### Nota: distribución Windows
 
@@ -942,6 +943,43 @@ Implementada en `lib/services/trello/` (`trello_api_client.dart`, `trello_sync_s
 ### Kanban: una sola integración
 
 Un bloque Kanban solo puede tener asociada **una** fuente: Jira **o** YouTrack **o** Trello. Al elegir una se limpian las demás; si hay datos legacy con varias, se normaliza (prioridad Jira → YouTrack → Trello).
+
+---
+
+## 29b. Integración con Slack y Microsoft Teams
+
+Implementada en `lib/services/slack/`, `lib/services/teams/`, `lib/services/integrations/` y ajustes en `lib/features/settings/slack_integration_settings.dart` / `teams_integration_settings.dart`. **Beta**, sin OAuth (Fase 1 + Fase 3).
+
+### Notificaciones salientes (webhook)
+
+- Conexión por **Incoming Webhook URL** (Slack) o **Workflow webhook** (Teams).
+- Eventos configurables por conexión: cambio de estado de tarea, tarea nueva, comentario nuevo.
+- Estado en vault v12 (`slack` / `teams` en `VaultPayload`).
+- En **Web**, el POST al webhook usa el callable `folioIntegrationWebhookProxy` (auth Firebase + whitelist de dominios) para evitar CORS.
+
+### Comandos entrantes (v1, buzón)
+
+Requiere **sesión Firebase** (Folio Cloud) y libreta desbloqueada. No es tiempo real: el comando se encola en Firestore y se aplica al abrir/sincronizar Folio.
+
+| Comando | Acción |
+|---|---|
+| `/folio link CODE` | Vincula `slackUserId` / usuario Teams → cuenta Firebase + libreta activa |
+| `/folio create task "Título"` | Encola creación de bloque `task` en la bandeja de tareas |
+
+- UI: pestaña **Comandos** en el diálogo de integración (generar código de enlace, 15 min TTL).
+- **Slack:** slash command `/folio` → Cloud Function `folioSlackCommand` (firma `SLACK_SIGNING_SECRET`).
+- **Teams:** Outgoing Webhook → `folioTeamsCommand?connectionId=…` (HMAC con token guardado en la conexión).
+- Confirmación al canal vía webhook almacenado al vincular (`folioAckIntegrationCommand`).
+
+### Cloud Functions relacionadas
+
+| Función | Tipo |
+|---|---|
+| `folioIntegrationWebhookProxy` | callable (proxy webhooks salientes Web) |
+| `folioRegisterIntegrationLinkCode` | callable |
+| `folioAckIntegrationCommand` | callable |
+| `folioSlackCommand` | HTTP (slash commands) |
+| `folioTeamsCommand` | HTTP (outgoing webhook) |
 
 ---
 

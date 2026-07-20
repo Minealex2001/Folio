@@ -62,6 +62,13 @@ class VaultSyncMergeEngine {
       'pageTombstones': {for (final k in tombKeys) k: tombs[k]},
       'comments': payload.comments.map((c) => c.toJson()).toList(),
       'pageTemplates': payload.pageTemplates.map((t) => t.toJson()).toList(),
+      'jira': payload.jira.toJson(),
+      'youtrack': payload.youtrack.toJson(),
+      'trello': payload.trello.toJson(),
+      'github': payload.github.toJson(),
+      'gitlab': payload.gitlab.toJson(),
+      'slack': payload.slack.toJson(),
+      'teams': payload.teams.toJson(),
     });
   }
 
@@ -279,9 +286,34 @@ class VaultSyncMergeEngine {
       pageTemplates: templates,
       jira: _pickJira(local.jira, remote.jira, base.jira),
       youtrack: _pickYoutrack(local.youtrack, remote.youtrack, base.youtrack),
-      trello: local.trello.connections.isNotEmpty || local.trello.sources.isNotEmpty
-          ? local.trello
-          : remote.trello,
+      trello: _pickIfHasData(
+        local.trello,
+        remote.trello,
+        hasData: (s) =>
+            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      ),
+      github: _pickIfHasData(
+        local.github,
+        remote.github,
+        hasData: (s) =>
+            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      ),
+      gitlab: _pickIfHasData(
+        local.gitlab,
+        remote.gitlab,
+        hasData: (s) =>
+            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      ),
+      slack: _pickIfHasData(
+        local.slack,
+        remote.slack,
+        hasData: (s) => s.connections.isNotEmpty,
+      ),
+      teams: _pickIfHasData(
+        local.teams,
+        remote.teams,
+        hasData: (s) => s.connections.isNotEmpty,
+      ),
       pageTombstones: tombstones,
       syncClock: syncClock,
       mcpReadablePageIds: mcpReadable,
@@ -587,6 +619,19 @@ class VaultSyncMergeEngine {
       return remote;
     }
     return null;
+  }
+
+  /// Si ambos lados tienen datos de integración, preferir remoto (llegó por sync).
+  T _pickIfHasData<T extends Object>(
+    T local,
+    T remote, {
+    required bool Function(T state) hasData,
+  }) {
+    final localHas = hasData(local);
+    final remoteHas = hasData(remote);
+    if (localHas && remoteHas) return remote;
+    if (localHas) return local;
+    return remote;
   }
 
   JiraIntegrationState _pickJira(

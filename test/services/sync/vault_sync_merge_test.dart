@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/vault_payload.dart';
 import 'package:folio/models/block.dart';
 import 'package:folio/models/folio_page.dart';
+import 'package:folio/models/slack_integration_state.dart';
+import 'package:folio/models/teams_integration_state.dart';
 import 'package:folio/services/sync/vault_sync_merge.dart';
 
 void main() {
@@ -144,5 +146,87 @@ void main() {
     );
 
     expect(result.payload.pages.single.trashedAt, trashed);
+  });
+
+  test('slack y teams: si ambos lados tienen conexiones, gana remoto', () {
+    const localSlack = SlackIntegrationState(
+      connections: [
+        SlackConnection(
+          id: 'local',
+          label: 'Local',
+          webhookUrl: 'https://hooks.slack.com/local',
+        ),
+      ],
+    );
+    const remoteSlack = SlackIntegrationState(
+      connections: [
+        SlackConnection(
+          id: 'remote',
+          label: 'Remote',
+          webhookUrl: 'https://hooks.slack.com/remote',
+        ),
+      ],
+    );
+    const localTeams = TeamsIntegrationState(
+      connections: [
+        TeamsConnection(
+          id: 'local',
+          label: 'Local',
+          webhookUrl: 'https://teams.local/webhook',
+        ),
+      ],
+    );
+    const remoteTeams = TeamsIntegrationState(
+      connections: [
+        TeamsConnection(
+          id: 'remote',
+          label: 'Remote',
+          webhookUrl: 'https://teams.remote/webhook',
+        ),
+      ],
+    );
+
+    final local = VaultPayload(
+      pages: const [],
+      slack: localSlack,
+      teams: localTeams,
+    );
+    final remote = VaultPayload(
+      pages: const [],
+      slack: remoteSlack,
+      teams: remoteTeams,
+    );
+
+    final result = engine.merge(
+      local: local,
+      remote: remote,
+      baseline: VaultPayload(pages: const []),
+    );
+
+    expect(result.payload.slack.connections.single.id, 'remote');
+    expect(result.payload.teams.connections.single.id, 'remote');
+  });
+
+  test('slack y teams: solo remoto con conexiones se conserva', () {
+    const remoteSlack = SlackIntegrationState(
+      connections: [
+        SlackConnection(
+          id: 'remote',
+          label: 'Remote',
+          webhookUrl: 'https://hooks.slack.com/remote',
+        ),
+      ],
+    );
+
+    final local = VaultPayload(pages: const []);
+    final remote = VaultPayload(pages: const [], slack: remoteSlack);
+
+    final result = engine.merge(
+      local: local,
+      remote: remote,
+      baseline: VaultPayload(pages: const []),
+    );
+
+    expect(result.payload.slack.connections.single.id, 'remote');
   });
 }

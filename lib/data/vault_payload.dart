@@ -8,6 +8,8 @@ import '../models/youtrack_integration_state.dart';
 import '../models/trello_integration_state.dart';
 import '../models/github_integration_state.dart';
 import '../models/gitlab_integration_state.dart';
+import '../models/slack_integration_state.dart';
+import '../models/teams_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -18,7 +20,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 9: tombstones de sync multi-dispositivo + `syncClock`.
 /// Esquema 10: `displayName` de la libreta (sync multi-dispositivo).
 /// Esquema 11: allowlist MCP de páginas legibles (`mcpReadablePageIds`).
-const int kVaultPayloadVersion = 11;
+/// Esquema 12: estado de integraciones Slack y Microsoft Teams (notificaciones vía webhook).
+const int kVaultPayloadVersion = 12;
 
 class VaultPayload {
   VaultPayload({
@@ -38,6 +41,8 @@ class VaultPayload {
     TrelloIntegrationState? trello,
     GitHubIntegrationState? github,
     GitLabIntegrationState? gitlab,
+    SlackIntegrationState? slack,
+    TeamsIntegrationState? teams,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
     Set<String>? mcpReadablePageIds,
@@ -54,6 +59,8 @@ class VaultPayload {
        trello = trello ?? TrelloIntegrationState.empty,
        github = github ?? GitHubIntegrationState.empty,
        gitlab = gitlab ?? GitLabIntegrationState.empty,
+       slack = slack ?? SlackIntegrationState.empty,
+       teams = teams ?? TeamsIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {},
        mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
@@ -75,6 +82,8 @@ class VaultPayload {
   final TrelloIntegrationState trello;
   final GitHubIntegrationState github;
   final GitLabIntegrationState gitlab;
+  final SlackIntegrationState slack;
+  final TeamsIntegrationState teams;
 
   /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
   final Map<String, int> pageTombstones;
@@ -110,6 +119,8 @@ class VaultPayload {
       'github': github.toJson(),
     if (gitlab.connections.isNotEmpty || gitlab.sources.isNotEmpty)
       'gitlab': gitlab.toJson(),
+    if (slack.connections.isNotEmpty) 'slack': slack.toJson(),
+    if (teams.connections.isNotEmpty) 'teams': teams.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
     if (mcpReadablePageIds.isNotEmpty)
@@ -179,6 +190,8 @@ class VaultPayload {
     final trello = TrelloIntegrationState.fromJson(j['trello']);
     final github = GitHubIntegrationState.fromJson(j['github']);
     final gitlab = GitLabIntegrationState.fromJson(j['gitlab']);
+    final slack = SlackIntegrationState.fromJson(j['slack']);
+    final teams = TeamsIntegrationState.fromJson(j['teams']);
     final pageTombstones = <String, int>{};
     final rawTombs = j['pageTombstones'];
     if (rawTombs is Map) {
@@ -221,6 +234,8 @@ class VaultPayload {
       trello: trello,
       github: github,
       gitlab: gitlab,
+      slack: slack,
+      teams: teams,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
       mcpReadablePageIds: mcpReadablePageIds,

@@ -46,6 +46,9 @@ import '../models/youtrack_integration_state.dart';
 import '../models/trello_integration_state.dart';
 import '../models/github_integration_state.dart';
 import '../models/gitlab_integration_state.dart';
+import '../models/slack_integration_state.dart';
+import '../models/teams_integration_state.dart';
+import '../services/integrations/integration_notification_dispatcher.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -367,6 +370,10 @@ class VaultSession extends ChangeNotifier {
   TrelloIntegrationState _trello = TrelloIntegrationState.empty;
   GitHubIntegrationState _github = GitHubIntegrationState.empty;
   GitLabIntegrationState _gitlab = GitLabIntegrationState.empty;
+  SlackIntegrationState _slack = SlackIntegrationState.empty;
+  TeamsIntegrationState _teams = TeamsIntegrationState.empty;
+  final IntegrationNotificationDispatcher _notificationDispatcher =
+      const IntegrationNotificationDispatcher();
   String? _selectedPageId;
   final WorkspaceNavigationHistory _navigationHistory =
       WorkspaceNavigationHistory();
@@ -566,6 +573,10 @@ class VaultSession extends ChangeNotifier {
   GitLabIntegrationState get gitlabIntegrationState => _gitlab;
   List<GitLabConnection> get gitlabConnections => _gitlab.connections;
   List<GitLabSource> get gitlabSources => _gitlab.sources;
+  SlackIntegrationState get slackIntegrationState => _slack;
+  List<SlackConnection> get slackConnections => _slack.connections;
+  TeamsIntegrationState get teamsIntegrationState => _teams;
+  List<TeamsConnection> get teamsConnections => _teams.connections;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -986,6 +997,8 @@ class VaultSession extends ChangeNotifier {
     _trello = payload.trello;
     _github = payload.github;
     _gitlab = payload.gitlab;
+    _slack = payload.slack;
+    _teams = payload.teams;
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
@@ -1297,6 +1310,50 @@ class VaultSession extends ChangeNotifier {
       connections: _gitlab.connections,
       sources: List.unmodifiable(next),
     );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertSlackConnection(SlackConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<SlackConnection>.from(_slack.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _slack = SlackIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeSlackConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _slack.connections.where((c) => c.id != connectionId).toList();
+    _slack = SlackIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertTeamsConnection(TeamsConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TeamsConnection>.from(_teams.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _teams = TeamsIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTeamsConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _teams.connections.where((c) => c.id != connectionId).toList();
+    _teams = TeamsIntegrationState(connections: List.unmodifiable(next));
     notifyListeners();
     scheduleSave();
   }
@@ -4219,6 +4276,21 @@ class VaultSession extends ChangeNotifier {
         blockId: blockId,
       ),
     );
+    if (_slack.connections.isNotEmpty || _teams.connections.isNotEmpty) {
+      final page = _pageById(pageId);
+      final pageTitle = (page?.title.trim().isEmpty ?? true)
+          ? _titleL10n.untitled
+          : page!.title.trim();
+      final comment = t.trim();
+      final snippet = comment.length > 200
+          ? '${comment.substring(0, 200)}…'
+          : comment;
+      _notificationDispatcher.notifyCommentAdded(
+        slackConnections: _slack.connections,
+        teamsConnections: _teams.connections,
+        message: _titleL10n.integrationNotifyNewComment(pageTitle, snippet),
+      );
+    }
     notifyListeners();
     scheduleSave();
   }
@@ -5034,6 +5106,14 @@ class VaultSession extends ChangeNotifier {
     final bid = '${pageId}_${_uuid.v4()}';
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.add(FolioBlock(id: bid, type: 'task', text: task.encode()));
+    if (_slack.connections.isNotEmpty || _teams.connections.isNotEmpty) {
+      final title = task.title.trim().isEmpty ? _titleL10n.untitled : task.title.trim();
+      _notificationDispatcher.notifyTaskCreated(
+        slackConnections: _slack.connections,
+        teamsConnections: _teams.connections,
+        message: _titleL10n.integrationNotifyNewTask(title),
+      );
+    }
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
     return bid;
@@ -5155,10 +5235,12 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     if (b.type == 'todo') {
       b.checked = status == 'done';
+      _notifyTaskStatusChanged(b.text, status);
     } else if (b.type == 'task') {
       final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
       final next = t.copyWith(status: status, columnId: status);
       b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
+      _notifyTaskStatusChanged(next.title, status);
     } else {
       return;
     }
@@ -5172,6 +5254,18 @@ class VaultSession extends ChangeNotifier {
     final cur = (ext.syncState ?? '').trim();
     if (cur == 'conflict') return t;
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
+  }
+
+  /// Notifica a las conexiones de Slack/Teams suscritas, en segundo plano y
+  /// sin bloquear la mutación que lo disparó (ver `IntegrationNotificationDispatcher`).
+  void _notifyTaskStatusChanged(String title, String status) {
+    if (_slack.connections.isEmpty && _teams.connections.isEmpty) return;
+    final displayTitle = title.trim().isEmpty ? _titleL10n.untitled : title.trim();
+    _notificationDispatcher.notifyTaskStatusChanged(
+      slackConnections: _slack.connections,
+      teamsConnections: _teams.connections,
+      message: _titleL10n.integrationNotifyTaskMoved(displayTitle, status),
+    );
   }
 
   /// Primera configuración `kanban` de la página, o valores por defecto.
@@ -5196,6 +5290,7 @@ class VaultSession extends ChangeNotifier {
     final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
     final next = t.withKanbanColumn(columnId);
     b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
+    _notifyTaskStatusChanged(next.title, columnId);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -5598,6 +5693,8 @@ class VaultSession extends ChangeNotifier {
       trello: _trello,
       github: _github,
       gitlab: _gitlab,
+      slack: _slack,
+      teams: _teams,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
       mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),

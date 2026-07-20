@@ -1,6 +1,35 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../ui_tokens.dart';
+
+/// Insignia "BETA" compartida por las tarjetas/diálogos de integración que
+/// aún no tienen la cobertura o estabilidad de las integraciones ya
+/// asentadas (Jira, Trello, GitHub...). Reutiliza la cadena `aiBetaBadge` ya
+/// traducida a los 6 idiomas en vez de crear claves nuevas.
+class IntegrationBetaBadge extends StatelessWidget {
+  const IntegrationBetaBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        AppLocalizations.of(context).aiBetaBadge,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onTertiaryContainer,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+      ),
+    );
+  }
+}
 
 /// Muestra el diálogo de configuración de una integración como un bottom
 /// sheet modal (mismo cromo que "Copias en la nube": tirador, icono+título+X
@@ -60,15 +89,26 @@ class IntegrationStatChip extends StatelessWidget {
 class IntegrationCard extends StatelessWidget {
   const IntegrationCard({
     super.key,
-    required this.logoAsset,
+    this.logoAsset,
+    this.brandIcon,
+    this.brandColor,
+    this.beta = false,
     required this.title,
     required this.subtitle,
     required this.chips,
     required this.configureLabel,
     required this.onConfigure,
-  });
+  }) : assert(
+          logoAsset != null || brandIcon != null,
+          'Provide either logoAsset or brandIcon',
+        );
 
-  final String logoAsset;
+  /// Ruta de un asset en `appLogos/`. Si es `null`, se usa [brandIcon] en su
+  /// lugar (para proveedores sin un logo de marca embebido en el repo).
+  final String? logoAsset;
+  final IconData? brandIcon;
+  final Color? brandColor;
+  final bool beta;
   final String title;
   final String subtitle;
   final List<Widget> chips;
@@ -95,21 +135,34 @@ class IntegrationCard extends StatelessWidget {
               color: scheme.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Image.asset(logoAsset),
-            ),
+            child: logoAsset != null
+                ? Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Image.asset(logoAsset!),
+                  )
+                : Icon(brandIcon, color: brandColor ?? scheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                       ),
+                    ),
+                    if (beta) ...[
+                      const SizedBox(width: 8),
+                      const IntegrationBetaBadge(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -148,23 +201,37 @@ class IntegrationCard extends StatelessWidget {
 class IntegrationConfigDialogShell extends StatelessWidget {
   const IntegrationConfigDialogShell({
     super.key,
-    required this.logoAsset,
+    this.logoAsset,
+    this.brandIcon,
+    this.brandColor,
+    this.beta = false,
     required this.title,
     required this.tabController,
     required this.connectionsTabLabel,
     required this.sourcesTabLabel,
     required this.connectionsTab,
     required this.sourcesTab,
+    this.commandsTabLabel,
+    this.commandsTab,
     this.errorText,
-  });
+  }) : assert(
+          logoAsset != null || brandIcon != null,
+          'Provide either logoAsset or brandIcon',
+        );
 
-  final String logoAsset;
+  /// Ruta de un asset en `appLogos/`. Si es `null`, se usa [brandIcon].
+  final String? logoAsset;
+  final IconData? brandIcon;
+  final Color? brandColor;
+  final bool beta;
   final String title;
   final TabController tabController;
   final String connectionsTabLabel;
   final String sourcesTabLabel;
   final Widget connectionsTab;
   final Widget sourcesTab;
+  final String? commandsTabLabel;
+  final Widget? commandsTab;
   final String? errorText;
 
   @override
@@ -185,14 +252,31 @@ class IntegrationConfigDialogShell extends StatelessWidget {
           children: [
             Row(
               children: [
-                SizedBox(width: 26, height: 26, child: Image.asset(logoAsset)),
+                SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: logoAsset != null
+                      ? Image.asset(logoAsset!)
+                      : Icon(brandIcon, size: 24, color: brandColor ?? scheme.primary),
+                ),
                 const SizedBox(width: FolioSpace.sm),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (beta) ...[
+                        const SizedBox(width: 8),
+                        const IntegrationBetaBadge(),
+                      ],
+                    ],
                   ),
                 ),
                 IconButton(
@@ -207,6 +291,7 @@ class IntegrationConfigDialogShell extends StatelessWidget {
               tabs: [
                 Tab(text: connectionsTabLabel),
                 Tab(text: sourcesTabLabel),
+                if (commandsTab != null) Tab(text: commandsTabLabel ?? ''),
               ],
             ),
             const SizedBox(height: FolioSpace.sm),
@@ -232,7 +317,11 @@ class IntegrationConfigDialogShell extends StatelessWidget {
               height: 480,
               child: TabBarView(
                 controller: tabController,
-                children: [connectionsTab, sourcesTab],
+                children: [
+                  connectionsTab,
+                  sourcesTab,
+                  if (commandsTab != null) commandsTab!,
+                ],
               ),
             ),
           ],

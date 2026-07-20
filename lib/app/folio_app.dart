@@ -45,6 +45,7 @@ import '../services/tasks/platform_notification_service.dart';
 import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
+import '../services/integrations/integration_command_processor.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -121,6 +122,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       Duration(seconds: 45);
   TaskReminderService? _taskReminderService;
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
+  late final IntegrationCommandProcessor _integrationCommandProcessor;
 
   late final FolioTelemetryNavigatorObserver _telemetryNavObserver;
   late final AppBootstrap _appBootstrap;
@@ -249,6 +251,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       onEvent: _showSnack,
     );
     _cloudSettingsSyncController!.addListener(_onCloudSettingsSync);
+    _integrationCommandProcessor = IntegrationCommandProcessor(
+      session: widget.session,
+      appSettings: widget.appSettings,
+    );
+    _integrationCommandProcessor.bind();
     widget.session.onSyncConflictCountChanged = (count) {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
@@ -278,6 +285,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_integrationsBridge.dispose());
+    _integrationCommandProcessor.dispose();
     widget.session.onSyncConflictCountChanged = null;
     widget.session.onPersisted = null;
     widget.session.onBeforeLeaveVault = null;

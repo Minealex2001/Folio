@@ -24,6 +24,14 @@ export {
   onTelemetryEventCreated,
 } from "./telemetry";
 
+export {
+  folioIntegrationWebhookProxy,
+  folioRegisterIntegrationLinkCode,
+  folioAckIntegrationCommand,
+  folioSlackCommand,
+  folioTeamsCommand,
+} from "./slack_teams_integration";
+
 admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;

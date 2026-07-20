@@ -76,6 +76,8 @@ import 'youtrack_integration_settings.dart';
 import 'trello_integration_settings.dart';
 import 'github_integration_settings.dart';
 import 'gitlab_integration_settings.dart';
+import 'slack_integration_settings.dart';
+import 'teams_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
@@ -5189,6 +5191,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     ),
                                                     const SizedBox(height: 10),
                                                     GitLabIntegrationCard(
+                                                      session: _s,
+                                                      appSettings: _app,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    SlackIntegrationCard(
+                                                      session: _s,
+                                                      appSettings: _app,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    TeamsIntegrationCard(
                                                       session: _s,
                                                       appSettings: _app,
                                                     ),
