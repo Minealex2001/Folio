@@ -187,6 +187,11 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     icon: Icons.web_rounded,
     section: BlockTypeSection.embeds,
   ),
+  BlockTypeTemplate(
+    key: 'spotify',
+    icon: Icons.music_note_rounded,
+    section: BlockTypeSection.embeds,
+  ),
 ];
 
 enum BlockTypeSection { basicText, lists, media, advanced, embeds, aiQuill, apps }
@@ -284,6 +289,8 @@ String blockTypeLabelForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeColumnListLabel;
     case 'embed':
       return l10n.blockTypeEmbedLabel;
+    case 'spotify':
+      return l10n.blockTypeSpotify;
     default:
       return key;
   }
@@ -355,6 +362,8 @@ String blockTypeHintForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeColumnListHint;
     case 'embed':
       return l10n.blockTypeEmbedHint;
+    case 'spotify':
+      return l10n.spotifyBlockEmptyHint;
     default:
       return '';
   }

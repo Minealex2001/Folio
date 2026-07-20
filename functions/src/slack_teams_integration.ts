@@ -1,3 +1,4 @@
+import "./admin_init";
 import * as admin from "firebase-admin";
 import { createHmac, timingSafeEqual } from "crypto";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";

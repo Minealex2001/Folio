@@ -457,6 +457,8 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_show_recent_pages';
   static const _workspaceSidebarRecentPagesCollapsedKey =
       'folio_workspace_sidebar_recent_pages_collapsed';
+  static const _workspaceSidebarSpotifyExpandedKey =
+      'folio_workspace_sidebar_spotify_expanded';
   static const _workspaceSidebarCollapsedPagesPrefix =
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
@@ -712,7 +714,8 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
   bool _workspaceSidebarShowRecentPages = true;
-  bool _workspaceSidebarRecentPagesCollapsed = false;
+  bool _workspaceSidebarRecentPagesCollapsed = true;
+  bool _workspaceSidebarSpotifyExpanded = false;
   bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
@@ -862,6 +865,7 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
   bool get workspaceSidebarShowRecentPages => _workspaceSidebarShowRecentPages;
   bool get workspaceSidebarRecentPagesCollapsed => _workspaceSidebarRecentPagesCollapsed;
+  bool get workspaceSidebarSpotifyExpanded => _workspaceSidebarSpotifyExpanded;
   bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
@@ -1208,7 +1212,9 @@ class AppSettings extends ChangeNotifier {
     _workspaceSidebarShowRecentPages =
         p.getBool(_workspaceSidebarShowRecentPagesKey) ?? true;
     _workspaceSidebarRecentPagesCollapsed =
-        p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? false;
+        p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? true;
+    _workspaceSidebarSpotifyExpanded =
+        p.getBool(_workspaceSidebarSpotifyExpandedKey) ?? false;
     _workspaceOpenToHome =
         p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
@@ -2191,6 +2197,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceSidebarRecentPagesCollapsedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarSpotifyExpanded(bool value) async {
+    if (_workspaceSidebarSpotifyExpanded == value) return;
+    _workspaceSidebarSpotifyExpanded = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarSpotifyExpandedKey, value);
   }
 
   Future<void> setAiChatPanelCollapsed(bool value) async {

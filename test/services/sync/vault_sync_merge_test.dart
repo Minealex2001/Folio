@@ -5,6 +5,7 @@ import 'package:folio/models/block.dart';
 import 'package:folio/models/folio_page.dart';
 import 'package:folio/models/slack_integration_state.dart';
 import 'package:folio/models/teams_integration_state.dart';
+import 'package:folio/models/spotify_integration_state.dart';
 import 'package:folio/services/sync/vault_sync_merge.dart';
 
 void main() {
@@ -228,5 +229,36 @@ void main() {
     );
 
     expect(result.payload.slack.connections.single.id, 'remote');
+  });
+
+  test('spotify: si ambos lados tienen conexiones, gana remoto', () {
+    final localSpotify = SpotifyIntegrationState(
+      connections: [
+        SpotifyConnection(
+          id: 'local',
+          label: 'Local',
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          expiresAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    final remoteSpotify = SpotifyIntegrationState(
+      connections: [
+        SpotifyConnection(
+          id: 'remote',
+          label: 'Remote',
+          accessToken: 'a2',
+          refreshToken: 'r2',
+          expiresAt: DateTime.utc(2026, 2, 1),
+        ),
+      ],
+    );
+    final result = engine.merge(
+      local: VaultPayload(pages: const [], spotify: localSpotify),
+      remote: VaultPayload(pages: const [], spotify: remoteSpotify),
+      baseline: VaultPayload(pages: const []),
+    );
+    expect(result.payload.spotify.connections.single.id, 'remote');
   });
 }

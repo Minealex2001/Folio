@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../session/vault_session.dart';
+import 'folio_spotify.dart';
 
 /// Resultado del menú al pegar una URL en el editor.
 enum FolioPasteUrlMode {
@@ -9,6 +10,7 @@ enum FolioPasteUrlMode {
   embed,
   bookmark,
   vaultMention,
+  spotify,
 }
 
 Widget _pasteOptionTile({
@@ -71,9 +73,13 @@ Widget _pasteOptionTile({
   );
 }
 
-Future<FolioPasteUrlMode?> showPasteUrlOptionsSheet(BuildContext context) {
+Future<FolioPasteUrlMode?> showPasteUrlOptionsSheet(
+  BuildContext context, {
+  String? pastedUrl,
+}) {
   final l10n = AppLocalizations.of(context);
   final scheme = Theme.of(context).colorScheme;
+  final isSpotify = folioSpotifyRefFromUrl(pastedUrl) != null;
   return showModalBottomSheet<FolioPasteUrlMode>(
     context: context,
     showDragHandle: true,
@@ -98,6 +104,14 @@ Future<FolioPasteUrlMode?> showPasteUrlOptionsSheet(BuildContext context) {
                   ),
                 ),
               ),
+              if (isSpotify)
+                _pasteOptionTile(
+                  context: ctx,
+                  icon: Icons.music_note_rounded,
+                  title: l10n.spotifyPasteUrlOption,
+                  subtitle: l10n.spotifyPasteUrlOptionSubtitle,
+                  onTap: () => Navigator.pop(ctx, FolioPasteUrlMode.spotify),
+                ),
               _pasteOptionTile(
                 context: ctx,
                 icon: Icons.alternate_email_rounded,

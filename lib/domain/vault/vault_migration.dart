@@ -68,6 +68,7 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
     gitlab: raw.gitlab,
     slack: raw.slack,
     teams: raw.teams,
+    spotify: raw.spotify,
     pageTombstones: raw.pageTombstones,
     syncClock: raw.syncClock,
     mcpReadablePageIds: raw.mcpReadablePageIds,

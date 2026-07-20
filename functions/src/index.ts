@@ -4,6 +4,8 @@ import { config as loadEnv } from "dotenv";
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
 loadEnv({ path: path.resolve(__dirname, "../.env") });
 
+import "./admin_init";
+
 import * as admin from "firebase-admin";
 import { createHash, randomInt } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
@@ -32,7 +34,12 @@ export {
   folioTeamsCommand,
 } from "./slack_teams_integration";
 
-admin.initializeApp();
+export {
+  folioSpotifyExchangeOAuth,
+  folioSpotifyOAuthCallback,
+  folioSpotifyApiProxy,
+} from "./spotify_integration";
+
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 

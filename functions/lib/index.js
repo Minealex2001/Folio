@@ -36,11 +36,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
 (0, dotenv_1.config)({ path: path.resolve(__dirname, "../.env") });
+require("./admin_init");
 const admin = __importStar(require("firebase-admin"));
 const crypto_1 = require("crypto");
 const functionsV1 = __importStar(require("firebase-functions/v1"));
@@ -53,7 +55,16 @@ var telemetry_1 = require("./telemetry");
 Object.defineProperty(exports, "aggregateDailyTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateDailyTelemetryStats; } });
 Object.defineProperty(exports, "aggregateGlobalTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateGlobalTelemetryStats; } });
 Object.defineProperty(exports, "onTelemetryEventCreated", { enumerable: true, get: function () { return telemetry_1.onTelemetryEventCreated; } });
-admin.initializeApp();
+var slack_teams_integration_1 = require("./slack_teams_integration");
+Object.defineProperty(exports, "folioIntegrationWebhookProxy", { enumerable: true, get: function () { return slack_teams_integration_1.folioIntegrationWebhookProxy; } });
+Object.defineProperty(exports, "folioRegisterIntegrationLinkCode", { enumerable: true, get: function () { return slack_teams_integration_1.folioRegisterIntegrationLinkCode; } });
+Object.defineProperty(exports, "folioAckIntegrationCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioAckIntegrationCommand; } });
+Object.defineProperty(exports, "folioSlackCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioSlackCommand; } });
+Object.defineProperty(exports, "folioTeamsCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioTeamsCommand; } });
+var spotify_integration_1 = require("./spotify_integration");
+Object.defineProperty(exports, "folioSpotifyExchangeOAuth", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyExchangeOAuth; } });
+Object.defineProperty(exports, "folioSpotifyOAuthCallback", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyOAuthCallback; } });
+Object.defineProperty(exports, "folioSpotifyApiProxy", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyApiProxy; } });
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 /** HttpsError de 1st gen: la callable `folioCloudAiComplete` corre en CF 1st gen (no Cloud Run). */

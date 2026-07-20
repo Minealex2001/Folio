@@ -60,6 +60,7 @@ Ejemplos de UI: `Crear folio`, `Nuevo Folio`, `Libreta activa` / `Active noteboo
 29. [Integración con Jira](#29-integración-con-jira)
 29a. [Integración con Trello](#29a-integración-con-trello)
 29b. [Integración con Slack y Microsoft Teams](#29b-integración-con-slack-y-microsoft-teams)
+29c. [Integración con Spotify](#29c-integración-con-spotify)
 30. [Búsqueda global](#30-búsqueda-global)
 31. [Captura rápida de tarea](#31-captura-rápida-de-tarea)
 32. [Temas y apariencia](#32-temas-y-apariencia)
@@ -882,7 +883,7 @@ Desde el panel de herramientas de página (`workspace_page_page_tools.dart`):
 
 ## 29. Integración con Jira
 
-Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jira_api_client.dart`, `jira_sync_service.dart`).
+Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jira_api_client.dart`, `jira_sync_service.dart`). En Ajustes → Integraciones aparece bajo **Gestión de proyectos** (junto a YouTrack y Trello).
 
 ### Autenticación
 
@@ -970,6 +971,7 @@ Requiere **sesión Firebase** (Folio Cloud) y libreta desbloqueada. No es tiempo
 - **Slack:** slash command `/folio` → Cloud Function `folioSlackCommand` (firma `SLACK_SIGNING_SECRET`).
 - **Teams:** Outgoing Webhook → `folioTeamsCommand?connectionId=…` (HMAC con token guardado en la conexión).
 - Confirmación al canal vía webhook almacenado al vincular (`folioAckIntegrationCommand`).
+- **Windows:** los comandos entrantes de Slack/Teams **no aplican** en Windows (el SDK nativo de Firestore crashea con `0xE06D7363` y la API REST de Firestore no permite listar subcolecciones sin regla `list` explícita). `IntegrationCommandProcessor` no hace polling en Windows para evitar el error 403; los acks y notificaciones salientes siguen funcionando.
 
 ### Cloud Functions relacionadas
 
@@ -983,9 +985,43 @@ Requiere **sesión Firebase** (Folio Cloud) y libreta desbloqueada. No es tiempo
 
 ---
 
+## 29c. Integración con Spotify
+
+Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integration_settings.dart`, bloque `spotify` en el editor y reproductor now playing en el pie del sidebar. En Ajustes → Integraciones las nativas se agrupan por categoría (**Gestión de proyectos**, **Desarrollo**, **Comunicación**, **Música**) en un **grid** responsive de tarjetas; el rail muestra Integraciones encima de Acerca de.
+
+### Cuenta conectada (OAuth 2.0 + PKCE)
+
+- Conexión en **Ajustes → Integraciones → Música → Spotify** (loopback `http://127.0.0.1:45748/callback` en escritorio).
+- Tokens (`accessToken`, `refreshToken`, `expiresAt`) en vault **v13** (`spotify` en `VaultPayload`).
+- Scopes: reproducción, now playing, playlists privadas del usuario.
+- **Premium** y **dispositivo activo** requeridos para control de reproducción vía Web API.
+
+### Reproducción y modo zen
+
+- **`SpotifyPlaybackController`**: polling de now playing; reproductor en el pie del sidebar con densidades `mini` / `expanded` (`workspaceSidebarSpotifyExpanded`). El **modo extendido** (sidebar y zen) muestra carátula grande, título/artista, barra de tiempo (seek), prev/play/next centrados, volumen y «Abrir en Spotify» en la cabecera (para no desalinear los controles). Visible **siempre** que haya cuenta conectada; al pulsar play sin contenido inicia la playlist de enfoque o reanuda.
+- Playlist de **enfoque** configurable por conexión; selector dedicado (`spotify_playlist_picker.dart`) con búsqueda local, paginación, portada, número de canciones y vista previa antes de confirmar; accesible desde las pestañas Reproducción y Modo zen.
+- Al entrar en **modo zen** puede iniciarse automáticamente (`zenAutoPlay`); al salir, pausa opcional (`zenPauseOnExit`). Sin playlist seleccionada, el interruptor de auto-play queda deshabilitado.
+
+### Bloque `spotify` en folios
+
+- Tipo de bloque en menú `/` (sección embeds) y al pegar URLs `open.spotify.com`.
+- Embed vía `open.spotify.com/embed/...` (`FolioEmbedWebView`); metadatos con oEmbed público.
+- En Web/Linux sin WebView: enlace externo de fallback.
+
+### Cloud Functions (build Web)
+
+| Función | Uso |
+|---|---|
+| `folioSpotifyExchangeOAuth` | Intercambio OAuth PKCE |
+| `folioSpotifyOAuthCallback` | Redirect URI Web |
+| `folioSpotifyApiProxy` | Proxy Web API (CORS) con auth Firebase |
+
+---
+
 ## 30. Búsqueda global
 
 - Atajo por defecto: `Ctrl+K`.
+- También desde el campo de búsqueda extendido del sidebar (abre la misma búsqueda global; ya no hay filtro local del árbol).
 - Busca en todos los títulos y contenidos de páginas de la libreta.
 - Navegación por resultados con teclado.
 
@@ -1251,7 +1287,7 @@ Vista **`VaultTaskHubPage`** (`lib/features/workspace/tasks/vault_task_hub_page.
 
 ### Acceso
 
-- **Barra lateral** (`sidebar.dart`): acción dedicada cuando el cofre está desbloqueado (`onOpenVaultTaskHub`).
+- **Barra lateral** (`sidebar.dart`): botones con etiqueta cuando el cofre está desbloqueado (`onOpenVaultTaskHub` / tarea rápida).
 - **Home** → módulo **Accesos rápidos**: icono de tareas de la libreta (`onOpenVaultTasks` en `workspace_home_view.dart` / `workspace_editor_surface.dart`).
 
 ### Filtros y presets
@@ -1304,10 +1340,13 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 ### UI
 
-- Menú **⋯** de cada página/carpeta en el sidebar (`_SidebarTile`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover).
+- Menú **⋯** de cada página/carpeta en el sidebar (`SidebarTile` en `sidebar/sidebar_page_tree.dart`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover).
 - Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
-- Entrada fija **Papelera** en el pie del sidebar (`showPageTrashSheet` en `page_trash_sheet.dart`): restaurar, eliminar definitivamente, vaciar, con aviso de retención 30 días.
-- Badge de conteo cuando hay elementos en papelera.
+- Pie del sidebar densificado (`SidebarFooter`): **papelera solo icono** + badge de conteo, botón extendido de **Ajustes**, PWA (web) y Spotify mini/expandido. Abre `showPageTrashSheet` en `page_trash_sheet.dart` (restaurar, eliminar definitivamente, vaciar, retención 30 días).
+- Desk tools: búsqueda global como campo extendido (tap abre búsqueda); sync/lock en iconos. Tareas: icono de tarea rápida + botón extendido «Todas las tareas».
+- Recientes: fila horizontal colapsable (hasta 4 chips; colapsados por defecto en instalaciones nuevas).
+- Al colapsar una carpeta, sus hijas no se muestran en la raíz (`buildSidebarVisiblePageRows` omite ancestros colapsados en el fallback de huérfanos).
+- Código modular bajo `lib/features/workspace/shell/sidebar/`: `sidebar_page_tree.dart` (árbol visible, tiles, filtro por tags, diálogo renombrar), `sidebar_recents.dart`, `sidebar_vault_toolbar.dart`, `sidebar_footer.dart`; orquestador `Sidebar` en `sidebar.dart` (estado, drag-and-drop, acciones de página).
 
 ---
 
@@ -1573,8 +1612,8 @@ Revisión centrada en errores del editor de bloques, páginas y persistencia de 
 
 En Windows el SDK nativo de Cloud Firestore (C++) crashea al inicializarse, por lo que estaba deshabilitado (`folioFirestoreSupported == false`) y todas las lecturas devolvían vacío. Efecto visible: la suscripción a Folio Cloud no aparecía en Ajustes, porque `FolioCloudEntitlementsController` no podía leer `users/{uid}`.
 
-- **Cliente REST** (`lib/services/folio_cloud/folio_firestore_rest.dart`): lee documentos de Firestore por su [API REST](https://firebase.google.com/docs/firestore/use-rest-api) usando el ID token de Firebase Auth como Bearer (Auth sí funciona en escritorio, igual que las Cloud Functions por HTTP). Incluye un decodificador del formato `Value` de Firestore (`integerValue` como String, `mapValue`, `arrayValue`, etc.) a `Map` plano compatible con los `fromJson` de la app. Reutilizable vía `folioFirestoreRestGetDocument(path)` y el atajo `folioFirestoreRestGetUserDoc(uid)`.
-- **Integración:** `_fetchUserDocFromServerWithRetries` usa el fallback REST cuando el SDK nativo no está disponible, con los mismos reintentos por arranque en frío. Como en Windows ya se usa sondeo (`_folioFirestoreUseGetPolling`) en vez de streams, todas las rutas de derechos (carga inicial, `handleAppResumed`, refresco manual, re-sync con Stripe) funcionan ahora.
+- **Cliente REST** (`lib/services/folio_cloud/folio_firestore_rest.dart`): lee documentos de Firestore por su [API REST](https://firebase.google.com/docs/firestore/use-rest-api) usando el ID token de Firebase Auth como Bearer. Reutilizable vía `folioFirestoreRestGetDocument(path)` y el atajo `folioFirestoreRestGetUserDoc(uid)`.
+- **Integración:** `_fetchUserDocFromServerWithRetries` usa el fallback REST cuando el SDK nativo no está disponible, con los mismos reintentos por arranque en frío. Como en Windows ya se usa sondeo en vez de streams, todas las rutas de derechos funcionan.
 - **Alcance:** solo lecturas puntuales (`get`); no reemplaza streams en tiempo real (se aproximan con el sondeo existente) ni escrituras. El helper queda disponible para que otras lecturas (páginas publicadas, plantillas de comunidad, etc.) lo adopten si se requiere en Windows.
 
 ## Auditoría de seguridad y mantenimiento — julio 2026

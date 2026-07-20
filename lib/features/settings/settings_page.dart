@@ -30,6 +30,7 @@ import '../../app/widgets/vault_backup_progress_dialog.dart';
 import '../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/folio_error_card.dart';
+import '../../app/widgets/integration_settings_widgets.dart';
 import '../../app/widgets/web_desktop_only_notice.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
@@ -78,6 +79,7 @@ import 'github_integration_settings.dart';
 import 'gitlab_integration_settings.dart';
 import 'slack_integration_settings.dart';
 import 'teams_integration_settings.dart';
+import 'spotify_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
@@ -738,11 +740,11 @@ class _SettingsPageState extends State<SettingsPage> {
         id: _SettingsSectionId.sync,
         label: l10n.settingsSectionDeviceSyncNav,
       ),
-      _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
       _SettingsSectionNavItem(
         id: _SettingsSectionId.integrations,
         label: l10n.integrations,
       ),
+      _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -5160,7 +5162,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      l10n.settingsIntegrationsNativeTitle,
+                                                      l10n.settingsIntegrationsProjectManagementTitle,
                                                       style: Theme.of(context)
                                                           .textTheme
                                                           .titleSmall
@@ -5170,39 +5172,88 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           ),
                                                     ),
                                                     const SizedBox(height: 10),
-                                                    JiraIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        JiraIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        YouTrackIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        TrelloIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsDevelopmentTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
                                                     ),
                                                     const SizedBox(height: 10),
-                                                    YouTrackIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        GitHubIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        GitLabIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsCommunicationTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
                                                     ),
                                                     const SizedBox(height: 10),
-                                                    TrelloIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        SlackIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        TeamsIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsMusicTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
                                                     ),
                                                     const SizedBox(height: 10),
-                                                    GitHubIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
-                                                    ),
-                                                    const SizedBox(height: 10),
-                                                    GitLabIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
-                                                    ),
-                                                    const SizedBox(height: 10),
-                                                    SlackIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
-                                                    ),
-                                                    const SizedBox(height: 10),
-                                                    TeamsIntegrationCard(
-                                                      session: _s,
-                                                      appSettings: _app,
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        SpotifyIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                      ],
                                                     ),
                                                     const SizedBox(height: 10),
                                                     const SizedBox(height: 8),

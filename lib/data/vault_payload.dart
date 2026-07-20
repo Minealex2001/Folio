@@ -10,6 +10,7 @@ import '../models/github_integration_state.dart';
 import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
+import '../models/spotify_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -21,7 +22,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 10: `displayName` de la libreta (sync multi-dispositivo).
 /// Esquema 11: allowlist MCP de páginas legibles (`mcpReadablePageIds`).
 /// Esquema 12: estado de integraciones Slack y Microsoft Teams (notificaciones vía webhook).
-const int kVaultPayloadVersion = 12;
+/// Esquema 13: integración Spotify (OAuth, reproducción, modo zen).
+const int kVaultPayloadVersion = 13;
 
 class VaultPayload {
   VaultPayload({
@@ -43,6 +45,7 @@ class VaultPayload {
     GitLabIntegrationState? gitlab,
     SlackIntegrationState? slack,
     TeamsIntegrationState? teams,
+    SpotifyIntegrationState? spotify,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
     Set<String>? mcpReadablePageIds,
@@ -61,6 +64,7 @@ class VaultPayload {
        gitlab = gitlab ?? GitLabIntegrationState.empty,
        slack = slack ?? SlackIntegrationState.empty,
        teams = teams ?? TeamsIntegrationState.empty,
+       spotify = spotify ?? SpotifyIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {},
        mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
@@ -84,6 +88,7 @@ class VaultPayload {
   final GitLabIntegrationState gitlab;
   final SlackIntegrationState slack;
   final TeamsIntegrationState teams;
+  final SpotifyIntegrationState spotify;
 
   /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
   final Map<String, int> pageTombstones;
@@ -121,6 +126,7 @@ class VaultPayload {
       'gitlab': gitlab.toJson(),
     if (slack.connections.isNotEmpty) 'slack': slack.toJson(),
     if (teams.connections.isNotEmpty) 'teams': teams.toJson(),
+    if (spotify.connections.isNotEmpty) 'spotify': spotify.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
     if (mcpReadablePageIds.isNotEmpty)
@@ -192,6 +198,7 @@ class VaultPayload {
     final gitlab = GitLabIntegrationState.fromJson(j['gitlab']);
     final slack = SlackIntegrationState.fromJson(j['slack']);
     final teams = TeamsIntegrationState.fromJson(j['teams']);
+    final spotify = SpotifyIntegrationState.fromJson(j['spotify']);
     final pageTombstones = <String, int>{};
     final rawTombs = j['pageTombstones'];
     if (rawTombs is Map) {
@@ -236,6 +243,7 @@ class VaultPayload {
       gitlab: gitlab,
       slack: slack,
       teams: teams,
+      spotify: spotify,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
       mcpReadablePageIds: mcpReadablePageIds,

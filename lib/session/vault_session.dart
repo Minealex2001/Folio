@@ -48,6 +48,7 @@ import '../models/github_integration_state.dart';
 import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
+import '../models/spotify_integration_state.dart';
 import '../services/integrations/integration_notification_dispatcher.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
@@ -372,6 +373,7 @@ class VaultSession extends ChangeNotifier {
   GitLabIntegrationState _gitlab = GitLabIntegrationState.empty;
   SlackIntegrationState _slack = SlackIntegrationState.empty;
   TeamsIntegrationState _teams = TeamsIntegrationState.empty;
+  SpotifyIntegrationState _spotify = SpotifyIntegrationState.empty;
   final IntegrationNotificationDispatcher _notificationDispatcher =
       const IntegrationNotificationDispatcher();
   String? _selectedPageId;
@@ -577,6 +579,8 @@ class VaultSession extends ChangeNotifier {
   List<SlackConnection> get slackConnections => _slack.connections;
   TeamsIntegrationState get teamsIntegrationState => _teams;
   List<TeamsConnection> get teamsConnections => _teams.connections;
+  SpotifyIntegrationState get spotifyIntegrationState => _spotify;
+  List<SpotifyConnection> get spotifyConnections => _spotify.connections;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -999,6 +1003,7 @@ class VaultSession extends ChangeNotifier {
     _gitlab = payload.gitlab;
     _slack = payload.slack;
     _teams = payload.teams;
+    _spotify = payload.spotify;
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
@@ -1354,6 +1359,29 @@ class VaultSession extends ChangeNotifier {
     if (_state != VaultFlowState.unlocked) return;
     final next = _teams.connections.where((c) => c.id != connectionId).toList();
     _teams = TeamsIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertSpotifyConnection(SpotifyConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<SpotifyConnection>.from(_spotify.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeSpotifyConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _spotify.connections.where((c) => c.id != connectionId).toList();
+    _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
     notifyListeners();
     scheduleSave();
   }
@@ -5695,6 +5723,7 @@ class VaultSession extends ChangeNotifier {
       gitlab: _gitlab,
       slack: _slack,
       teams: _teams,
+      spotify: _spotify,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
       mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),

@@ -14,6 +14,7 @@ abstract final class FolioLocalSecrets {
   static const String folioIntegrationSecret = '';
   /// Id de producto Partner Center / enlace apps.microsoft.com/detail/…
   static const String microsoftStoreListingProductId = '';
+  static const String spotifyOAuthClientId = '';
 
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {
@@ -26,6 +27,8 @@ abstract final class FolioLocalSecrets {
         return folioIntegrationSecret.trim();
       case 'FOLIO_MS_STORE_LISTING_PRODUCT_ID':
         return microsoftStoreListingProductId.trim();
+      case 'SPOTIFY_OAUTH_CLIENT_ID':
+        return spotifyOAuthClientId.trim();
       default:
         return '';
     }

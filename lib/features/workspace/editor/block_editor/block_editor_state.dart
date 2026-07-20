@@ -1499,7 +1499,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (raw == null) return;
     final url = _singleHttpUrlTrimmed(raw);
     if (url != null) {
-      final mode = await showPasteUrlOptionsSheet(context);
+      final mode = await showPasteUrlOptionsSheet(context, pastedUrl: url);
       if (!mounted || mode == null) return;
       await _applyPasteUrlMode(page, blockId, index, ctrl, url, mode);
       return;
@@ -1555,6 +1555,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         unawaited(_refreshBookmarkTitleIfEmpty(page.id, blockId, url));
         if (mounted) setState(() {});
         break;
+      case FolioPasteUrlMode.spotify:
+        _ignoreShortcuts = true;
+        _s.changeBlockType(page.id, blockId, 'spotify');
+        _s.updateBlockUrl(page.id, blockId, url);
+        _s.updateBlockText(page.id, blockId, '');
+        if (index < _controllers.length) {
+          _controllers[index].value = const TextEditingValue(
+            text: '',
+            selection: TextSelection.collapsed(offset: 0),
+          );
+        }
+        _ignoreShortcuts = false;
+        unawaited(_refreshSpotifyTitleIfEmpty(page.id, blockId, url));
+        if (mounted) setState(() {});
+        break;
       case FolioPasteUrlMode.vaultMention:
         final title = await fetchLinkTitleForMention(url);
         if (!mounted) return;
@@ -1565,6 +1580,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         folioApplyLink(ctrl, label, url);
         break;
     }
+  }
+
+  Future<void> _refreshSpotifyTitleIfEmpty(
+    String pageId,
+    String blockId,
+    String url,
+  ) async {
+    final p = _s.selectedPage;
+    if (p == null || p.id != pageId) return;
+    final b = p.blocks.cast<FolioBlock?>().firstWhere(
+          (x) => x?.id == blockId,
+          orElse: () => null,
+        );
+    if (b == null || b.type != 'spotify') return;
+    if ((b.text ?? '').trim().isNotEmpty) return;
+    final meta = await fetchSpotifyOEmbed(url);
+    if (!mounted || meta?.title == null || meta!.title!.isEmpty) return;
+    _s.updateBlockText(pageId, blockId, meta.title!);
+    if (mounted) setState(() {});
   }
 
   Future<void> _refreshBookmarkTitleIfEmpty(
@@ -1696,6 +1730,61 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final u = c.text.trim();
       if (u.isEmpty) return;
       _s.updateBlockUrl(pageId, blockId, u);
+      if (mounted) setState(() {});
+    } finally {
+      final ctrl = c;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ctrl.dispose();
+      });
+    }
+  }
+
+  Future<void> _editSpotifyUrlDialog(
+    String pageId,
+    String blockId,
+    int index,
+  ) async {
+    final p = _s.selectedPage;
+    if (p == null) return;
+    FolioBlock? b;
+    for (final x in p.blocks) {
+      if (x.id == blockId) {
+        b = x;
+        break;
+      }
+    }
+    if (b == null || b.type != 'spotify') return;
+    final c = TextEditingController(text: b.url ?? '');
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => FolioDialog(
+          title: Text(AppLocalizations.of(context).urlLabel),
+          content: TextField(
+            controller: c,
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context).urlHint,
+            ),
+            keyboardType: TextInputType.url,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(AppLocalizations.of(context).insert),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      final u = c.text.trim();
+      if (u.isEmpty) return;
+      _s.updateBlockUrl(pageId, blockId, u);
+      unawaited(_refreshSpotifyTitleIfEmpty(pageId, blockId, u));
       if (mounted) setState(() {});
     } finally {
       final ctrl = c;
@@ -5806,6 +5895,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _ignoreShortcuts = false;
       }
       if (mounted) setState(() {});
+    } else if (v == 'spotify_set_url') {
+      unawaited(_editSpotifyUrlDialog(page.id, b.id, index));
+    } else if (v == 'spotify_clear') {
+      _clearBlockUrl(page.id, b.id);
+      _s.updateBlockText(page.id, b.id, '');
+      if (mounted) setState(() {});
     } else if (v == 'table_row_add') {
       _mutateTable(page.id, b.id, index, (d) => d.addRow());
     } else if (v == 'table_row_rem') {
@@ -6241,6 +6336,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           item(
             ctx,
             value: 'embed_clear',
+            icon: Icons.delete_outline_rounded,
+            label: AppLocalizations.of(ctx).embedRemove,
+          ),
+      ],
+      if (b.type == 'spotify') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'spotify_set_url',
+          icon: Icons.music_note_rounded,
+          label: AppLocalizations.of(ctx).embedSetUrl,
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'spotify_clear',
             icon: Icons.delete_outline_rounded,
             label: AppLocalizations.of(ctx).embedRemove,
           ),

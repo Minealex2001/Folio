@@ -16,6 +16,7 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
   'file': _specialRowFile,
   'bookmark': _specialRowBookmark,
   'embed': _specialRowEmbed,
+  'spotify': _specialRowSpotify,
   'audio': _specialRowAudio,
   'meeting_note': _specialRowMeetingNote,
   'video': _specialRowVideo,

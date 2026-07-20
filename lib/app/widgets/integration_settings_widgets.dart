@@ -125,29 +125,32 @@ class IntegrationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: logoAsset != null
-                ? Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Image.asset(logoAsset!),
-                  )
-                : Icon(brandIcon, color: brandColor ?? scheme.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: logoAsset != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(7),
+                        child: Image.asset(logoAsset!),
+                      )
+                    : Icon(
+                        brandIcon,
+                        size: 22,
+                        color: brandColor ?? scheme.primary,
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Row(
                   children: [
                     Flexible(
                       child: Text(
@@ -159,36 +162,70 @@ class IntegrationCard extends StatelessWidget {
                       ),
                     ),
                     if (beta) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       const IntegrationBetaBadge(),
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.35,
-                      ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: chips),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            children: [
-              FilledButton.icon(
-                onPressed: onConfigure,
-                icon: const Icon(Icons.tune_rounded, size: 18),
-                label: Text(configureLabel),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            subtitle,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+          ),
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, runSpacing: 6, children: chips),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: onConfigure,
+              icon: const Icon(Icons.tune_rounded, size: 18),
+              label: Text(configureLabel),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Grid responsive de tarjetas de integración (2–3 columnas según ancho).
+class IntegrationCardsGrid extends StatelessWidget {
+  const IntegrationCardsGrid({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 900
+            ? 3
+            : (width >= 520 ? 2 : 1);
+        const spacing = 10.0;
+        final itemWidth =
+            (width - spacing * (crossAxisCount - 1)) / crossAxisCount;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
     );
   }
 }

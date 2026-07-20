@@ -41,6 +41,7 @@ import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
+import '../../../services/spotify/spotify_playback_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
@@ -55,6 +56,7 @@ import '../../../services/device_sync/device_sync_controller.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
+import '../widgets/spotify_now_playing_bar.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
@@ -252,6 +254,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _setStateSafe(VoidCallback fn) {
     if (!mounted) return;
     setState(fn);
+  }
+
+  void _toggleZenMode() {
+    final entering = !_zenMode;
+    setState(() {
+      _zenMode = entering;
+      if (_zenMode) _sidebarPeek = false;
+    });
+    final playback = SpotifyPlaybackController.instance;
+    final conn = _s.spotifyConnections.isNotEmpty ? _s.spotifyConnections.first : null;
+    if (entering) {
+      if (conn != null && conn.zenAutoPlay && (conn.focusPlaylistUri?.isNotEmpty ?? false)) {
+        unawaited(playback.startFocusPlaylist());
+      }
+    } else if (conn != null && conn.zenPauseOnExit) {
+      unawaited(playback.pause());
+    }
   }
 
   void _applyAiChatPanelCollapsed(bool collapsed) {
@@ -1316,10 +1335,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       (
         activator: const SingleActivator(LogicalKeyboardKey.f11),
         action: () {
-          setState(() {
-            _zenMode = !_zenMode;
-            if (_zenMode) _sidebarPeek = false;
-          });
+          _toggleZenMode();
         },
       ),
     ];
@@ -2212,12 +2228,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             icon: _zenMode
                 ? Icons.fullscreen_exit_rounded
                 : Icons.self_improvement_rounded,
-            onPressed: () {
-              setState(() {
-                _zenMode = !_zenMode;
-                if (_zenMode) _sidebarPeek = false;
-              });
-            },
+            onPressed: _toggleZenMode,
             forcePrimary: true,
           ),
           _WorkspaceActionEntry(
@@ -2718,42 +2729,43 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
     final useSplitAi =
         useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
-    final Widget shellEditorBody;
+    Widget shellEditorBody;
     if (_zenMode) {
       shellEditorBody = Stack(
         children: [
           editorContent,
+          // Salir del modo zen: solo icono, esquina superior derecha.
           Positioned(
-            top: 8,
+            top: 10,
             right: 12,
             child: SafeArea(
-              child: AnimatedOpacity(
-                opacity: 0.85,
-                duration: const Duration(milliseconds: 200),
-                child: FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                  ),
-                  onPressed: () => setState(() => _zenMode = false),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.fullscreen_exit_rounded, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        l10n.zenModeExit,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
+              child: Material(
+                color: scheme.surface.withValues(alpha: 0.72),
+                elevation: 1,
+                shadowColor: scheme.shadow.withValues(alpha: 0.2),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: l10n.zenModeExit,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.fullscreen_exit_rounded, size: 18),
+                  onPressed: _toggleZenMode,
                 ),
               ),
             ),
           ),
+          // Spotify: pastilla flotante pequeña, no barra a ancho completo.
+          if (_s.spotifyConnections.isNotEmpty)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: SafeArea(
+                child: SpotifyNowPlayingBar(
+                  session: _s,
+                  density: SpotifyBarDensity.zen,
+                  opacity: 0.92,
+                ),
+              ),
+            ),
         ],
       );
     } else if (useSplitAi) {

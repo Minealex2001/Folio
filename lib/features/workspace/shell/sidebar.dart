@@ -5,26 +5,24 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, setEquals;
 import 'package:flutter/material.dart';
 
-import 'package:url_launcher/url_launcher.dart';
-
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_dialog.dart';
-import '../../../app/widgets/folio_interactions.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
-import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/app_logger.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
-import '../../../services/platform/pwa_install.dart';
-import '../editor/block_editor_support_widgets.dart';
+import '../../../app/widgets/folio_interactions.dart';
 import '../recent_page_visits.dart';
 import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
-import 'page_trash_sheet.dart';
+import 'sidebar/sidebar_footer.dart';
+import 'sidebar/sidebar_page_tree.dart';
+import 'sidebar/sidebar_recents.dart';
+import 'sidebar/sidebar_vault_toolbar.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -64,8 +62,6 @@ class _SidebarState extends State<Sidebar> {
   String _lastSidebarFingerprint = '';
   Set<String> _lastPageIds = const {};
   final ScrollController _pagesScrollController = ScrollController();
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
   String? _loadedCollapsedVaultId;
   final List<RecentPageVisit> _recentVisits = <RecentPageVisit>[];
   String? _loadedRecentVaultId;
@@ -77,7 +73,6 @@ class _SidebarState extends State<Sidebar> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
-    _searchController.addListener(_onSearchChanged);
     unawaited(_loadCollapsedState());
     unawaited(_loadRecentState());
     _reloadVaults();
@@ -86,16 +81,8 @@ class _SidebarState extends State<Sidebar> {
   @override
   void dispose() {
     session.removeListener(_onSession);
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
     _pagesScrollController.dispose();
     super.dispose();
-  }
-
-  void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-    });
   }
 
   void _onSession() {
@@ -134,6 +121,8 @@ class _SidebarState extends State<Sidebar> {
   String _sidebarFingerprint() {
     final buf = StringBuffer();
     buf.write(session.selectedPageId ?? '');
+    buf.write('|');
+    buf.write(session.spotifyConnections.map((c) => c.id).join(','));
     buf.write('|');
     for (final p in session.pages) {
       buf.write(p.id);
@@ -281,84 +270,6 @@ class _SidebarState extends State<Sidebar> {
     unawaited(_persistCollapsedState());
   }
 
-  ({List<_VisiblePageRow> rows, Map<String, bool> hasChildrenById})
-  _buildVisiblePageRows(List<FolioPage> pages, {String? tagFilter, String? searchQuery}) {
-    // When a tag filter or a search query is active, show matching pages.
-    if ((tagFilter != null && tagFilter.isNotEmpty) || (searchQuery != null && searchQuery.isNotEmpty)) {
-      var matched = pages;
-      if (tagFilter != null && tagFilter.isNotEmpty) {
-        matched = matched.where((p) => p.tags.contains(tagFilter)).toList();
-      }
-      if (searchQuery != null && searchQuery.isNotEmpty) {
-        final query = searchQuery.toLowerCase();
-        matched = matched.where((p) => p.title.toLowerCase().contains(query)).toList();
-      }
-      final rows = matched
-          .map((p) => _VisiblePageRow(page: p, indent: 4))
-          .toList();
-      final hasChildrenById = <String, bool>{
-        for (final p in matched) p.id: false,
-      };
-      return (rows: rows, hasChildrenById: hasChildrenById);
-    }
-
-    final byId = <String, FolioPage>{for (final p in pages) p.id: p};
-    final childCounts = <String, int>{};
-    for (final p in pages) {
-      final pid = p.parentId;
-      if (pid != null) {
-        childCounts[pid] = (childCounts[pid] ?? 0) + 1;
-      }
-    }
-
-    final hasChildrenById = <String, bool>{
-      for (final p in pages) p.id: (childCounts[p.id] ?? 0) > 0,
-    };
-
-    final rows = <_VisiblePageRow>[];
-    // Camino actual + ya emitidos: evita ciclos parent/orden (p. ej. tras sync).
-    final walking = <String>{};
-    final emitted = <String>{};
-    const maxDepth = 64;
-
-    void walk(String? parentId, double indent, int depth) {
-      if (depth > maxDepth) return;
-      final orderIds = session.pageOrderForParent(parentId);
-      if (orderIds.isEmpty) return;
-      for (final rawId in orderIds) {
-        final id = rawId.trim();
-        if (id.isEmpty) continue;
-        if (walking.contains(id) || emitted.contains(id)) continue;
-        final p = byId[id];
-        if (p == null) continue;
-        // Ignorar entradas de orden inconsistentes con parentId (aristas fantasma).
-        final expectedParent = parentId;
-        final actualParent = p.parentId;
-        if (expectedParent == null) {
-          if (actualParent != null && actualParent.trim().isNotEmpty) continue;
-        } else if (actualParent != expectedParent) {
-          continue;
-        }
-        emitted.add(id);
-        rows.add(_VisiblePageRow(page: p, indent: indent));
-        if (hasChildrenById[p.id] == true && !_isCollapsed(p.id)) {
-          walking.add(p.id);
-          walk(p.id, indent + 14, depth + 1);
-          walking.remove(p.id);
-        }
-      }
-    }
-
-    walk(null, 4, 0);
-    // Cualquier página no alcanzada (ciclo / orden inconsistente) al final.
-    for (final p in pages) {
-      if (emitted.contains(p.id)) continue;
-      emitted.add(p.id);
-      rows.add(_VisiblePageRow(page: p, indent: 4));
-    }
-    return (rows: rows, hasChildrenById: hasChildrenById);
-  }
-
   Future<void> _setPageEmoji(BuildContext context, FolioPage page) async {
     final l10n = AppLocalizations.of(context);
     const quickEmojis = <String>[
@@ -435,30 +346,6 @@ class _SidebarState extends State<Sidebar> {
     }
   }
 
-  Future<void> _installWebApp(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    final outcome = await PwaInstallController.instance.promptInstall();
-    if (!context.mounted) return;
-    switch (outcome) {
-      case PwaInstallOutcome.accepted:
-        showFolioSnack(context, l10n.installWebAppDone);
-      case PwaInstallOutcome.dismissed:
-        showFolioSnack(context, l10n.installWebAppDismissed);
-      case PwaInstallOutcome.unavailable:
-        await _showInstallWebAppHowTo(context);
-    }
-  }
-
-  Future<void> _showInstallWebAppHowTo(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    await FolioDialog.info(
-      context,
-      title: Text(l10n.installWebAppHowToTitle),
-      content: Text(l10n.installWebAppHowToBody),
-      okLabel: l10n.ok,
-    );
-  }
-
   Future<void> _renameActiveVault() async {
     final l10n = AppLocalizations.of(context);
     final activeId = session.activeVaultId;
@@ -496,193 +383,6 @@ class _SidebarState extends State<Sidebar> {
       await session.renameActiveVault(controller.text);
     }
     controller.dispose();
-  }
-
-  Widget _vaultToolbar(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    if (_vaultsLoading) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          FolioSpace.sm,
-          FolioSpace.sm,
-          FolioSpace.sm,
-          FolioSpace.xs,
-        ),
-        child: Semantics(
-          label: l10n.sidebarVaultsLoading,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(FolioRadius.sm),
-                child: LinearProgressIndicator(
-                  minHeight: 3,
-                  backgroundColor: scheme.surfaceContainerHighest.withValues(
-                    alpha: FolioAlpha.track,
-                  ),
-                  color: scheme.primary.withValues(alpha: 0.85),
-                ),
-              ),
-              const SizedBox(height: FolioSpace.sm),
-              Text(
-                l10n.sidebarVaultsLoading,
-                style: textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (_vaults.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          FolioSpace.sm,
-          FolioSpace.sm,
-          FolioSpace.sm,
-          FolioSpace.xs,
-        ),
-        child: Semantics(
-          label: l10n.sidebarVaultsEmpty,
-          child: FadingEmptyState(
-            child: Container(
-              padding: const EdgeInsets.all(FolioSpace.sm),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(FolioRadius.md),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.folder_off_outlined,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: FolioSpace.sm),
-                  Expanded(
-                    child: Text(
-                      l10n.sidebarVaultsEmpty,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    final activeId = session.activeVaultId;
-    VaultEntry? current;
-    for (final e in _vaults) {
-      if (e.id == activeId) {
-        current = e;
-        break;
-      }
-    }
-    current ??= _vaults.first;
-
-    return Padding(
-      padding: const EdgeInsets.all(FolioSpace.sm),
-      child: PopupMenuButton<String>(
-        tooltip: l10n.switchVaultTooltip,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolioRadius.md),
-        ),
-        offset: const Offset(0, 64),
-        onSelected: (value) {
-          if (value == 'add') {
-            _addVault();
-          } else if (value == 'rename') {
-            _renameActiveVault();
-          } else {
-            _confirmSwitchVault(value);
-          }
-        },
-        itemBuilder: (ctx) => [
-          for (final e in _vaults)
-            PopupMenuItem(
-              value: e.id,
-              child: ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: Text(e.displayName),
-                trailing: e.id == activeId ? const Icon(Icons.check) : null,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: 'add',
-            child: ListTile(
-              leading: Icon(Icons.add_circle_outline),
-              title: Text(l10n.addVault),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          PopupMenuItem(
-            value: 'rename',
-            child: ListTile(
-              leading: Icon(Icons.edit_outlined),
-              title: Text(l10n.renameActiveVault),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-        child: Container(
-          padding: const EdgeInsets.all(FolioSpace.sm),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(FolioRadius.md),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.lock,
-                  size: 20,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: FolioSpace.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.activeVaultLabel,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      current.displayName,
-                      style: textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: scheme.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.unfold_more, color: scheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _openTemplateGallery(BuildContext context) async {
@@ -766,7 +466,7 @@ class _SidebarState extends State<Sidebar> {
   void _rename(BuildContext context, FolioPage page) {
     showDialog<void>(
       context: context,
-      builder: (ctx) => _RenamePageDialog(
+      builder: (ctx) => SidebarRenamePageDialog(
         initialTitle: page.title,
         onSave: (newTitle) => session.renamePage(page.id, newTitle),
       ),
@@ -880,8 +580,6 @@ class _SidebarState extends State<Sidebar> {
     }
   }
 
-  // _tile() removed — replaced by _SidebarTile StatefulWidget below the class.
-
   Widget _draggablePageTile(
     BuildContext context,
     FolioPage page,
@@ -900,8 +598,8 @@ class _SidebarState extends State<Sidebar> {
     final canDelete = session.canMovePageToTrash(page.id);
 
     // Builds a tile widget. interactive=false for drag feedback / ghost copies.
-    _SidebarTile buildTile({bool interactive = true}) {
-      return _SidebarTile(
+    SidebarTile buildTile({bool interactive = true}) {
+      return SidebarTile(
         key: interactive ? ValueKey('tile_${page.id}') : null,
         page: page,
         indent: indent,
@@ -1000,105 +698,6 @@ class _SidebarState extends State<Sidebar> {
     );
   }
 
-  Widget _recentPagesSection(BuildContext context) {
-    if (!widget.appSettings.workspaceSidebarShowRecentPages) {
-      return const SizedBox.shrink();
-    }
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final pagesById = <String, FolioPage>{
-      for (final p in session.activePages) p.id: p,
-    };
-    final recentPages = _recentVisits
-        .take(kRecentPageVisitsSidebarDisplayLimit)
-        .map((v) => pagesById[v.pageId])
-        .whereType<FolioPage>()
-        .toList(growable: false);
-    if (recentPages.isEmpty) return const SizedBox.shrink();
-
-    final isCollapsed = widget.appSettings.workspaceSidebarRecentPagesCollapsed;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        FolioSpace.sm,
-        0,
-        FolioSpace.sm,
-        FolioSpace.sm,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(FolioSpace.sm),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context).workspaceRecentPagesSectionTitle,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    isCollapsed
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.keyboard_arrow_up_rounded,
-                    size: 16,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () {
-                    widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(!isCollapsed);
-                    setState(() {});
-                  },
-                ),
-              ],
-            ),
-            if (!isCollapsed) ...[
-              const SizedBox(height: FolioSpace.xs),
-              Wrap(
-                spacing: FolioSpace.xs,
-                runSpacing: FolioSpace.xs,
-                children: recentPages
-                    .map((page) {
-                      return ActionChip(
-                        onPressed: () => session.selectPage(page.id),
-                        avatar: FolioIconTokenView(
-                          appSettings: widget.appSettings,
-                          token: page.emoji,
-                          fallbackText: '📄',
-                          size: 16,
-                        ),
-                        label: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 150),
-                          child: Text(
-                            page.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -1108,10 +707,11 @@ class _SidebarState extends State<Sidebar> {
         widget.onLock != null;
     final scheme = Theme.of(context).colorScheme;
 
-    final visible = _buildVisiblePageRows(
+    final visible = buildSidebarVisiblePageRows(
       session.activePages,
+      pageOrderForParent: session.pageOrderForParent,
+      isCollapsed: _isCollapsed,
       tagFilter: _selectedTagFilter,
-      searchQuery: _searchQuery,
     );
     _hasChildrenById = visible.hasChildrenById;
 
@@ -1140,7 +740,14 @@ class _SidebarState extends State<Sidebar> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _vaultToolbar(context),
+            SidebarVaultToolbar(
+              vaults: _vaults,
+              loading: _vaultsLoading,
+              activeVaultId: session.activeVaultId,
+              onSwitchVault: (vaultId) => unawaited(_confirmSwitchVault(vaultId)),
+              onAddVault: () => unawaited(_addVault()),
+              onRenameVault: () => unawaited(_renameActiveVault()),
+            ),
             if (showDeskTools)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -1159,43 +766,47 @@ class _SidebarState extends State<Sidebar> {
                     children: [
                       if (widget.onSearch != null)
                         Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerLow,
+                          child: Material(
+                            color: scheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(FolioRadius.md),
+                            child: InkWell(
+                              onTap: widget.onSearch,
                               borderRadius: BorderRadius.circular(FolioRadius.md),
-                              border: Border.all(
-                                color: scheme.outlineVariant.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: FolioSpace.sm),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.search_rounded,
-                                  size: 18,
-                                  color: scheme.onSurfaceVariant,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                                  ),
                                 ),
-                                const SizedBox(width: FolioSpace.xs),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchController,
-                                    style: Theme.of(context).textTheme.bodyMedium,
-                                    decoration: InputDecoration(
-                                      hintText: l10n.search,
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: FolioSpace.sm,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.search_rounded,
+                                      size: 18,
+                                      color: scheme.onSurfaceVariant,
                                     ),
-                                  ),
+                                    const SizedBox(width: FolioSpace.xs),
+                                    Expanded(
+                                      child: Text(
+                                        l10n.search,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                if (_searchQuery.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.clear_rounded, size: 16),
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
-                                    onPressed: () => _searchController.clear(),
-                                  ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -1226,28 +837,36 @@ class _SidebarState extends State<Sidebar> {
                   FolioSpace.sm,
                   FolioSpace.sm,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Row(
                   children: [
                     if (widget.onQuickAddTask != null)
-                      FilledButton.tonalIcon(
+                      IconButton(
+                        tooltip: l10n.sidebarQuickAddTask,
+                        icon: const Icon(Icons.add_task_rounded),
                         onPressed: widget.onQuickAddTask,
-                        icon: const Icon(Icons.add_task_rounded, size: 20),
-                        label: Text(l10n.sidebarQuickAddTask),
                       ),
-                    if (widget.onQuickAddTask != null &&
-                        widget.onOpenVaultTaskHub != null)
-                      const SizedBox(height: FolioSpace.xs),
                     if (widget.onOpenVaultTaskHub != null)
-                      OutlinedButton.icon(
-                        onPressed: widget.onOpenVaultTaskHub,
-                        icon: const Icon(Icons.task_alt_outlined, size: 20),
-                        label: Text(l10n.sidebarTaskHub),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onOpenVaultTaskHub,
+                          icon: const Icon(Icons.task_alt_outlined, size: 20),
+                          label: Text(l10n.sidebarTaskHub),
+                        ),
                       ),
                   ],
                 ),
               ),
-            _recentPagesSection(context),
+            SidebarRecentsSection(
+              appSettings: widget.appSettings,
+              session: session,
+              recentVisits: _recentVisits,
+              onSelectPage: session.selectPage,
+              onToggleCollapsed: () {
+                final next = !widget.appSettings.workspaceSidebarRecentPagesCollapsed;
+                widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(next);
+                setState(() {});
+              },
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 FolioSpace.md,
@@ -1320,7 +939,7 @@ class _SidebarState extends State<Sidebar> {
                 ],
               ),
             ),
-            _TagFilterBar(
+            SidebarTagFilterBar(
               tags: session.allTags,
               selected: _selectedTagFilter,
               onSelect: (tag) => setState(() {
@@ -1489,629 +1108,16 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
             ),
-            if (kIsWeb)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  FolioSpace.sm,
-                  0,
-                  FolioSpace.sm,
-                  FolioSpace.xs,
-                ),
-                child: ListenableBuilder(
-                  listenable: PwaInstallController.instance,
-                  builder: (context, _) {
-                    final pwa = PwaInstallController.instance;
-                    if (pwa.isStandalone) {
-                      return const SizedBox.shrink();
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (pwa.canInstall)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: FolioSpace.xs),
-                            child: FilledButton.icon(
-                              onPressed: () => unawaited(_installWebApp(context)),
-                              icon: const Icon(Icons.install_desktop_rounded),
-                              label: Text(l10n.installWebApp),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size.fromHeight(40),
-                              ),
-                            ),
-                          )
-                        else
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: FolioSpace.xs),
-                            child: FilledButton.tonalIcon(
-                              onPressed: () => unawaited(_showInstallWebAppHowTo(context)),
-                              icon: const Icon(Icons.add_to_home_screen_rounded),
-                              label: Text(l10n.installWebApp),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size.fromHeight(40),
-                              ),
-                            ),
-                          ),
-                        FilledButton.icon(
-                          onPressed: () => launchUrl(
-                            Uri.parse('https://minealexgames.com/folio'),
-                            mode: LaunchMode.externalApplication,
-                          ),
-                          icon: const Icon(Icons.download_rounded),
-                          label: Text(l10n.downloadDesktopApp),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(40),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                FolioSpace.sm,
-                0,
-                FolioSpace.sm,
-                widget.onOpenSettings != null ? FolioSpace.xs : FolioSpace.sm,
-              ),
-              child: FilledButton.tonalIcon(
-                onPressed: () => unawaited(
-                  showPageTrashSheet(context: context, session: session),
-                ),
-                icon: Badge(
-                  isLabelVisible: trashCount > 0,
-                  label: Text(
-                    l10n.sidebarTrashCountBadge(trashCount),
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                  child: const Icon(Icons.delete_outline_rounded),
-                ),
-                label: Text(l10n.sidebarTrashTitle),
-              ),
+            SidebarFooter(
+              session: session,
+              appSettings: widget.appSettings,
+              trashCount: trashCount,
+              onOpenSettings: widget.onOpenSettings,
+              onSpotifyExpandedChanged: () => setState(() {}),
             ),
-            if (widget.onOpenSettings != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  FolioSpace.sm,
-                  0,
-                  FolioSpace.sm,
-                  FolioSpace.sm,
-                ),
-                child: FilledButton.tonalIcon(
-                  onPressed: widget.onOpenSettings,
-                  icon: const Icon(Icons.settings_rounded),
-                  label: Text(l10n.settings),
-                ),
-              ),
           ],
         );
       },
-    );
-  }
-}
-
-class _VisiblePageRow {
-  const _VisiblePageRow({required this.page, required this.indent});
-  final FolioPage page;
-  final double indent;
-}
-
-// ---------------------------------------------------------------------------
-// Per-tile widget that owns its own hover state.
-// Moving hover tracking here means mouse movements only rebuild the individual
-// tile, NOT the entire sidebar (which was the main source of mouse-lag).
-// ---------------------------------------------------------------------------
-
-class _SidebarTile extends StatefulWidget {
-  const _SidebarTile({
-    super.key,
-    required this.page,
-    required this.indent,
-    required this.selected,
-    required this.hasChildren,
-    required this.collapsed,
-    required this.canDelete,
-    required this.appSettings,
-    required this.onTap,
-    required this.onDoubleTap,
-    required this.onToggleCollapsed,
-    required this.onSetEmoji,
-    required this.onAddSubpage,
-    required this.onMove,
-    required this.onRename,
-    required this.onSaveAsTemplate,
-    required this.onDeleteRequest,
-  });
-
-  final FolioPage page;
-  final double indent;
-  final bool selected;
-  final bool hasChildren;
-  final bool collapsed;
-  final bool canDelete;
-  final AppSettings appSettings;
-  final VoidCallback onTap;
-  final VoidCallback onDoubleTap;
-  final VoidCallback onToggleCollapsed;
-  final VoidCallback onSetEmoji;
-  final VoidCallback? onAddSubpage;
-  final VoidCallback onMove;
-  final VoidCallback onRename;
-  final VoidCallback onSaveAsTemplate;
-  final VoidCallback? onDeleteRequest;
-
-  @override
-  State<_SidebarTile> createState() => _SidebarTileState();
-}
-
-class _SidebarTileState extends State<_SidebarTile> {
-  bool _hovered = false;
-  bool _menuOpen = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final page = widget.page;
-    final selected = widget.selected;
-    final hasChildren = widget.hasChildren;
-    final collapsed = widget.collapsed;
-    final isFolder = page.isFolder;
-    // En táctil/web no hay hover fiable: las acciones (⋯) deben quedar visibles.
-    // En escritorio nativo se revelan al pasar el ratón.
-    final isDesktopPointer =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.linux);
-    final showRowActions = _hovered || !isDesktopPointer;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(widget.indent, 0, 0, FolioSpace.xs),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.secondaryContainer
-                : (_hovered
-                      ? scheme.surfaceContainerHighest.withValues(alpha: 0.4)
-                      : scheme.surface),
-            borderRadius: BorderRadius.circular(FolioRadius.lg),
-            border: Border.all(
-              color: selected
-                  ? scheme.secondary.withValues(alpha: 0.2)
-                  : scheme.outlineVariant.withValues(alpha: 0.1),
-              width: 1,
-            ),
-            boxShadow: _hovered && !selected
-                ? [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          child: InkWell(
-            onTap: () {
-              if (isFolder) {
-                widget.onToggleCollapsed();
-              } else {
-                widget.onTap();
-              }
-            },
-            onDoubleTap: widget.onDoubleTap,
-            child: Semantics(
-              selected: selected,
-              button: true,
-              label: page.title,
-              value: hasChildren
-                  ? (collapsed
-                        ? l10n.sidebarItemCollapsedSemantics
-                        : l10n.sidebarItemExpandedSemantics)
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: FolioSpace.xs,
-                  vertical: FolioSpace.xs,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
-                    // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
-                    final allowInlineActions =
-                        (showRowActions || _menuOpen) &&
-                        constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
-                    return Row(
-                      children: [
-                        // Selection bar indicator
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: selected ? 3 : 0,
-                          height: selected ? 16 : 0,
-                          margin: EdgeInsets.only(right: selected ? 6 : 0),
-                          decoration: BoxDecoration(
-                            color: scheme.primary,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              if (hasChildren)
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                    FolioRadius.sm,
-                                  ),
-                                  onTap: widget.onToggleCollapsed,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(
-                                      FolioSpace.xxs,
-                                    ),
-                                    child: AnimatedRotation(
-                                      turns: collapsed ? 0 : 0.25,
-                                      duration: const Duration(
-                                        milliseconds: 200,
-                                      ),
-                                      child: Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 18,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 18),
-                              const SizedBox(width: FolioSpace.xxs),
-                              FolioIconTokenView(
-                                appSettings: widget.appSettings,
-                                token: page.emoji,
-                                fallbackText: isFolder ? '📁' : '📄',
-                                size: 18,
-                              ),
-                              const SizedBox(width: FolioSpace.xs),
-                              Expanded(
-                                child: Text(
-                                  page.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: selected
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                    color: selected
-                                        ? scheme.onSecondaryContainer
-                                        : scheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: FolioMotion.short2,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: animation,
-                                  child: child,
-                                ),
-                              ),
-                          child: allowInlineActions
-                              ? Container(
-                                  key: ValueKey('page_actions_${page.id}'),
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? scheme.onSecondaryContainer
-                                              .withValues(
-                                                alpha: FolioAlpha.faint,
-                                              )
-                                        : scheme.surfaceContainerHighest
-                                              .withValues(
-                                                alpha: FolioAlpha.panel,
-                                              ),
-                                    borderRadius: BorderRadius.circular(
-                                      FolioRadius.md,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isFolder && widget.onAddSubpage != null)
-                                        IconButton(
-                                          icon: const Icon(Icons.add, size: 18),
-                                          tooltip: l10n.subpage,
-                                          visualDensity: VisualDensity.compact,
-                                          color: selected
-                                              ? scheme.onSecondaryContainer
-                                              : scheme.onSurfaceVariant,
-                                          onPressed: widget.onAddSubpage,
-                                        ),
-                                      PopupMenuButton<String>(
-                                        icon: const Icon(
-                                          Icons.more_horiz_rounded,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.workspaceMoreActionsTooltip,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(FolioRadius.md),
-                                        ),
-                                        color: scheme.surfaceContainerHighest,
-                                        iconColor: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onOpened: () => WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (mounted) setState(() => _menuOpen = true);
-                                        }),
-                                        onCanceled: () => WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (mounted) setState(() => _menuOpen = false);
-                                        }),
-                                        onSelected: (value) {
-                                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                                            if (!mounted) return;
-                                            setState(() => _menuOpen = false);
-                                            switch (value) {
-                                              case 'emoji':
-                                                widget.onSetEmoji();
-                                                break;
-                                              case 'move':
-                                                widget.onMove();
-                                                break;
-                                              case 'rename':
-                                                widget.onRename();
-                                                break;
-                                              case 'template':
-                                                widget.onSaveAsTemplate();
-                                                break;
-                                              case 'delete':
-                                                widget.onDeleteRequest?.call();
-                                                break;
-                                            }
-                                          });
-                                        },
-                                        itemBuilder: (ctx) => [
-                                          PopupMenuItem(
-                                            value: 'emoji',
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.emoji_emotions_outlined, size: 18),
-                                                const SizedBox(width: 8),
-                                                Text(l10n.sidebarPageIconTitle),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'move',
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.drive_file_move_outline, size: 18),
-                                                const SizedBox(width: 8),
-                                                Text(l10n.move),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'rename',
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.edit_outlined, size: 18),
-                                                const SizedBox(width: 8),
-                                                Text(l10n.rename),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'template',
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.bookmark_add_outlined, size: 18),
-                                                const SizedBox(width: 8),
-                                                Text(l10n.saveAsTemplate),
-                                              ],
-                                            ),
-                                          ),
-                                          if (widget.onDeleteRequest != null) ...[
-                                            const PopupMenuDivider(),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.delete_outline, size: 18, color: scheme.error),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    l10n.delete,
-                                                    style: TextStyle(color: scheme.error),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : const SizedBox.shrink(
-                                  key: ValueKey('page_actions_hidden'),
-                                ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tag filter bar shown below the "Pages" header in the sidebar.
-// ---------------------------------------------------------------------------
-
-class _TagFilterBar extends StatelessWidget {
-  const _TagFilterBar({
-    required this.tags,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<String> tags;
-  final String? selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    if (tags.isEmpty) return const SizedBox.shrink();
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(FolioSpace.sm, 0, FolioSpace.sm, 6),
-        children: [
-          _filterChip(
-            context: context,
-            label: l10n.tagFilterAll,
-            isSelected: selected == null,
-            scheme: scheme,
-            textTheme: textTheme,
-            onTap: () {
-              if (selected != null) onSelect(selected!); // toggle off
-            },
-          ),
-          for (final tag in tags) ...[
-            const SizedBox(width: 6),
-            _filterChip(
-              context: context,
-              label: tag,
-              isSelected: selected == tag,
-              scheme: scheme,
-              textTheme: textTheme,
-              onTap: () => onSelect(tag),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _filterChip({
-    required BuildContext context,
-    required String label,
-    required bool isSelected,
-    required ColorScheme scheme,
-    required TextTheme textTheme,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? scheme.primaryContainer
-              : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(FolioRadius.md),
-          border: Border.all(
-            color: isSelected
-                ? scheme.primary.withValues(alpha: 0.2)
-                : scheme.outlineVariant.withValues(alpha: 0.4),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              Icon(
-                Icons.check_rounded,
-                size: 12,
-                color: scheme.onPrimaryContainer,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: textTheme.labelSmall?.copyWith(
-                color: isSelected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RenamePageDialog extends StatefulWidget {
-  const _RenamePageDialog({required this.initialTitle, required this.onSave});
-
-  final String initialTitle;
-  final ValueChanged<String> onSave;
-
-  @override
-  State<_RenamePageDialog> createState() => _RenamePageDialogState();
-}
-
-class _RenamePageDialogState extends State<_RenamePageDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialTitle);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _saveAndClose() {
-    widget.onSave(_controller.text);
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return FolioDialog(
-      title: Text(l10n.renamePageTitle),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(labelText: l10n.titleLabel),
-        onSubmitted: (_) => _saveAndClose(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancel),
-        ),
-        TextButton(onPressed: _saveAndClose, child: Text(l10n.save)),
-      ],
     );
   }
 }

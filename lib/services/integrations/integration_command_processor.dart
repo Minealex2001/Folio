@@ -11,6 +11,7 @@ import '../../models/folio_task_data.dart';
 import '../../session/vault_session.dart';
 import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
+import '../folio_firestore_support.dart';
 import 'integration_command_parser.dart';
 
 /// Procesa el buzón `pendingIntegrationCommands` al tener vault desbloqueado.
@@ -55,9 +56,16 @@ class IntegrationCommandProcessor {
   }
 
   void _ensureListening() {
-    if (_subscription != null) return;
+    // En Windows el SDK C++ de Firestore crashea el proceso (0xE06D7363) y
+    // la API REST no permite listar subcolecciones sin regla `list` explícita.
+    // Los comandos entrantes de Slack/Teams no son funcionales en Windows de
+    // todas formas; simplemente no hacemos polling.
+    if (!folioFirestoreSupported) return;
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    if (_subscription != null) return;
+
     _subscription = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -71,15 +79,18 @@ class IntegrationCommandProcessor {
         context: {'error': '$e'},
       );
     });
-    _pollTimer ??= Timer.periodic(const Duration(seconds: 45), (_) {
-      unawaited(_processPending());
-    });
+
+    _pollTimer ??= Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => unawaited(_processPending()),
+    );
   }
 
   AppLocalizations get _l10n =>
       lookupAppLocalizations(_session.titleLocale ?? const Locale('es'));
 
   Future<void> _processPending() async {
+    if (!folioFirestoreSupported) return;
     if (_processing) return;
     if (_session.state != VaultFlowState.unlocked) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;

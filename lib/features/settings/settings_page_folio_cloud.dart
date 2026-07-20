@@ -1987,6 +1987,6 @@ enum _SettingsSectionId {
   uiWorkspace,
   ai,
   sync,
-  about,
   integrations,
+  about,
 }

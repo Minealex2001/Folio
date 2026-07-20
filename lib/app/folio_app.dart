@@ -46,6 +46,7 @@ import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integration_command_processor.dart';
+import '../services/spotify/spotify_playback_controller.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -324,6 +325,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _lastVaultFlowForTelemetry = nextVault;
     }
     if (widget.session.state == VaultFlowState.locked) {
+      SpotifyPlaybackController.instance.detachSession();
       // Device-sync sigue en segundo plano (headless) aunque la libreta esté
       // bloqueada; solo se cierra la UI del workspace.
       unawaited(_cloudSettingsSyncController?.stopWatching());
@@ -340,6 +342,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         await _cloudDeviceSyncController?.onActiveVaultMaybeChanged();
       }());
     } else if (widget.session.state == VaultFlowState.unlocked) {
+      SpotifyPlaybackController.instance.attachSession(widget.session);
       // `_onSession` se dispara en CADA notificación de la sesión (cada
       // edición, no solo al desbloquear). `_syncCloudDeviceSyncLifecycle` ya
       // cachea el último `isEnabled` aplicado y no hace nada si no cambió;

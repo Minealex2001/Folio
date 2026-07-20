@@ -69,6 +69,7 @@ class VaultSyncMergeEngine {
       'gitlab': payload.gitlab.toJson(),
       'slack': payload.slack.toJson(),
       'teams': payload.teams.toJson(),
+      'spotify': payload.spotify.toJson(),
     });
   }
 
@@ -312,6 +313,11 @@ class VaultSyncMergeEngine {
       teams: _pickIfHasData(
         local.teams,
         remote.teams,
+        hasData: (s) => s.connections.isNotEmpty,
+      ),
+      spotify: _pickIfHasData(
+        local.spotify,
+        remote.spotify,
         hasData: (s) => s.connections.isNotEmpty,
       ),
       pageTombstones: tombstones,
