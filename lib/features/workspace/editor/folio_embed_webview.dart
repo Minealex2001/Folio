@@ -21,11 +21,16 @@ class FolioEmbedWebView extends StatefulWidget {
   State<FolioEmbedWebView> createState() => _FolioEmbedWebViewState();
 }
 
-class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
+class _FolioEmbedWebViewState extends State<FolioEmbedWebView>
+    with AutomaticKeepAliveClientMixin {
   WebViewController? _mobile;
   WebviewController? _windows;
   String? _error;
   var _winReady = false;
+  var _disposed = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _useWindows => !kIsWeb && Platform.isWindows;
 
@@ -52,17 +57,39 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
     }
   }
 
+  @override
+  void didUpdateWidget(covariant FolioEmbedWebView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url == widget.url) return;
+    final uri = Uri.tryParse(widget.url.trim());
+    if (uri == null ||
+        (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https'))) {
+      setState(() => _error = 'bad');
+      return;
+    }
+    _error = null;
+    if (_useWindows && _windows != null && _winReady) {
+      unawaited(_windows!.loadUrl(uri.toString()));
+    } else if (_useMobileWebView && _mobile != null) {
+      unawaited(_mobile!.loadRequest(uri));
+    }
+  }
+
   Future<void> _initWindows(String url) async {
     final c = _windows;
     if (c == null) return;
     try {
       await c.initialize();
+      if (_disposed) {
+        unawaited(c.dispose());
+        return;
+      }
       await c.setBackgroundColor(Colors.transparent);
       await c.setPopupWindowPolicy(WebviewPopupWindowPolicy.deny);
       await c.loadUrl(url);
-      if (mounted) setState(() => _winReady = true);
+      if (!_disposed && mounted) setState(() => _winReady = true);
     } catch (e) {
-      if (mounted) {
+      if (!_disposed && mounted) {
         setState(() {
           _error = e.toString();
         });
@@ -72,7 +99,9 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
 
   @override
   void dispose() {
+    _disposed = true;
     final w = _windows;
+    _windows = null;
     if (w != null) {
       unawaited(w.dispose());
     }
@@ -81,13 +110,13 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
 
   Future<void> _openExternal() async {
     final u = Uri.tryParse(widget.url.trim());
-    if (u != null && await canLaunchUrl(u)) {
-      await launchUrl(u, mode: LaunchMode.externalApplication);
-    }
+    if (u == null) return;
+    await launchUrl(u, mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final l10n = AppLocalizations.of(context);
     if (_error != null) {
       return _Fallback(

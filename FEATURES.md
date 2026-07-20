@@ -1005,8 +1005,9 @@ Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integrat
 ### Bloque `spotify` en folios
 
 - Tipo de bloque en menú `/` (sección embeds) y al pegar URLs `open.spotify.com`.
-- Embed vía `open.spotify.com/embed/...` (`FolioEmbedWebView`); metadatos con oEmbed público.
-- En Web/Linux sin WebView: enlace externo de fallback.
+- Tarjeta con portada/título vía oEmbed (sin WebView embebido: en Windows el embed de Spotify dentro del `ReorderableListView` corrompía el árbol de widgets — `Duplicate GlobalKey` / wrong build scope).
+- Con cuenta conectada: botón **Reproducir** vía Web API; siempre **Abrir en Spotify** (app/navegador externo).
+- Metadatos (título) al pegar URL; la tarjeta refresca portada con oEmbed.
 
 ### Cloud Functions (build Web)
 

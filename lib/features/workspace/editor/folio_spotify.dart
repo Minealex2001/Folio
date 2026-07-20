@@ -57,6 +57,9 @@ String folioSpotifyEmbedUrl(String type, String id) =>
 String folioSpotifyOpenUrl(String type, String id) =>
     'https://open.spotify.com/$type/$id';
 
+/// URI de recurso para la Web API (`spotify:track:…`, `spotify:playlist:…`, …).
+String folioSpotifyUri(String type, String id) => 'spotify:$type:$id';
+
 /// Metadatos públicos vía oEmbed (sin auth).
 class SpotifyOEmbedData {
   const SpotifyOEmbedData({this.title, this.thumbnailUrl, this.html});

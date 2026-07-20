@@ -20,13 +20,8 @@ Widget? _specialRowSpotify(_BlockRowScope s) {
   final readOnlyMode = s.readOnlyMode;
 
   final rawUrl = (block.url ?? '').trim();
-  final ref = folioSpotifyRefFromUrl(rawUrl);
-  final embedUrl = ref != null
-      ? folioSpotifyEmbedUrl(ref.type, ref.id)
-      : rawUrl;
-  final title = (block.text ?? '').trim();
+  final title = block.text.trim();
   final wf = st._imageWidthFor(block);
-  final embedH = (360 * (0.45 + 0.55 * wf)).clamp(200.0, 560.0);
 
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
@@ -51,34 +46,9 @@ Widget? _specialRowSpotify(_BlockRowScope s) {
                     children: [
                       if (showActions)
                         st._blockMediaWidthToolbar(page, block, theme),
-                      if (title.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.music_note_rounded,
-                                size: 18,
-                                color: const Color(0xFF1DB954),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          height: embedH,
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerHighest.withValues(
                               alpha: 0.35,
@@ -89,27 +59,26 @@ Widget? _specialRowSpotify(_BlockRowScope s) {
                               ),
                             ),
                           ),
-                          child: embedUrl.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Text(
-                                      AppLocalizations.of(
-                                        context,
-                                      ).spotifyBlockEmptyHint,
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
-                                          ),
+                          child: rawUrl.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).spotifyBlockEmptyHint,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
                                     ),
                                   ),
                                 )
                               : MetaData(
                                   metaData: folioInteractiveMetaDataTag,
                                   behavior: HitTestBehavior.translucent,
-                                  child: FolioEmbedWebView(
-                                    url: embedUrl,
+                                  child: FolioSpotifyBlockCard(
+                                    key: ValueKey('spotify_card_${block.id}'),
+                                    url: rawUrl,
+                                    title: title,
                                     scheme: scheme,
                                   ),
                                 ),

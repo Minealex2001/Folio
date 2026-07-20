@@ -65,6 +65,7 @@ import 'folio_text_format.dart';
 import 'folio_embed_webview.dart';
 import 'folio_youtube.dart';
 import 'folio_spotify.dart';
+import 'folio_spotify_block_card.dart';
 import 'link_title_fetch.dart';
 import 'paste_url_sheet.dart';
 import 'folio_special_block_widgets.dart';

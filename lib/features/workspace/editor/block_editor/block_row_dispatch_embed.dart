@@ -79,6 +79,7 @@ Widget? _specialRowEmbed(_BlockRowScope s) {
                                   metaData: folioInteractiveMetaDataTag,
                                   behavior: HitTestBehavior.translucent,
                                   child: FolioEmbedWebView(
+                                    key: ValueKey('embed_${block.id}'),
                                     url: url,
                                     scheme: scheme,
                                   ),

@@ -222,6 +222,27 @@ class SpotifyPlaybackController extends ChangeNotifier {
     await refresh();
   }
 
+  /// Reproduce un recurso Spotify (`track`/`episode` como uris; resto como context).
+  Future<void> playSpotifyRef({
+    required String type,
+    required String id,
+  }) async {
+    if (_client == null) _rebuildClient();
+    final client = _client;
+    if (client == null) {
+      throw StateError('No Spotify connection');
+    }
+    if (_pollTimer == null) _startPolling();
+    final spotifyUri = 'spotify:$type:$id';
+    if (type == 'track' || type == 'episode') {
+      await client.play(uris: [spotifyUri]);
+    } else {
+      await client.play(contextUri: spotifyUri);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await refresh();
+  }
+
   Future<void> pause() async {
     final client = _client;
     if (client == null) return;

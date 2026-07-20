@@ -333,14 +333,14 @@ class SpotifyApiClient {
   }
 
   Future<void> play({String? contextUri, List<String>? uris}) async {
-    final query = <String, String>{};
-    if (contextUri != null && contextUri.isNotEmpty) {
-      query['context_uri'] = contextUri;
+    final uri = Uri.https('api.spotify.com', '/v1/me/player/play');
+    Map<String, Object?>? bodyMap;
+    if (uris != null && uris.isNotEmpty) {
+      bodyMap = {'uris': uris};
+    } else if (contextUri != null && contextUri.isNotEmpty) {
+      bodyMap = {'context_uri': contextUri};
     }
-    final uri = Uri.https('api.spotify.com', '/v1/me/player/play', query);
-    final body = uris != null && uris.isNotEmpty
-        ? jsonEncode({'uris': uris})
-        : null;
+    final body = bodyMap != null ? jsonEncode(bodyMap) : null;
     final resp = await _request(
       'PUT',
       uri,
