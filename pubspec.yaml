@@ -141,6 +141,8 @@ flutter:
     - appLogos/jira.png
     - appLogos/youtrack.png
     - appLogos/trello.png
+    - appLogos/github.png
+    - appLogos/gitlab.png
     - docs/FEATURES.md
 
   # An image asset can refer to one or more resolution-specific "variants", see

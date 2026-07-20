@@ -11,14 +11,13 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_page.dart';
-import '../../../models/jira_integration_state.dart';
 import '../../../models/vault_task_list_entry.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/jira/jira_sync_service.dart';
-import '../../../models/youtrack_integration_state.dart';
 import '../../../services/youtrack/youtrack_sync_service.dart';
-import '../../../models/trello_integration_state.dart';
 import '../../../services/trello/trello_sync_service.dart';
+import '../../../services/github/github_sync_service.dart';
+import '../../../services/gitlab/gitlab_sync_service.dart';
 import '../tasks/task_details_panel.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
@@ -65,6 +64,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   var _jiraSyncBusy = false;
   var _youtrackSyncBusy = false;
   var _trelloSyncBusy = false;
+  var _githubSyncBusy = false;
+  var _gitlabSyncBusy = false;
 
   @override
   void initState() {
@@ -209,6 +210,90 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
     } finally {
       if (mounted) setState(() => _jiraSyncBusy = false);
+    }
+  }
+
+  Future<void> _syncGitHub({required String githubSourceId}) async {
+    if (_githubSyncBusy) return;
+    setState(() => _githubSyncBusy = true);
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // Push primero: subir cambios locales antes de que el pull pueda
+      // sobrescribirlos o marcar conflicto.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEs ? 'GitHub: sincronizando (push).' : 'GitHub: syncing (push).',
+          ),
+        ),
+      );
+      final push = await const GitHubSyncService().pushLinkedTasksFromPage(
+        session: widget.session,
+        pageId: widget.pageId,
+      );
+      final pull = await const GitHubSyncService().pullIssuesIntoPage(
+        session: widget.session,
+        pageId: widget.pageId,
+        githubSourceId: githubSourceId,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEs
+                ? 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                : 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error GitHub: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _githubSyncBusy = false);
+    }
+  }
+
+  Future<void> _syncGitLab({required String gitlabSourceId}) async {
+    if (_gitlabSyncBusy) return;
+    setState(() => _gitlabSyncBusy = true);
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // Push primero: subir cambios locales antes de que el pull pueda
+      // sobrescribirlos o marcar conflicto.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEs ? 'GitLab: sincronizando (push).' : 'GitLab: syncing (push).',
+          ),
+        ),
+      );
+      final push = await const GitLabSyncService().pushLinkedTasksFromPage(
+        session: widget.session,
+        pageId: widget.pageId,
+      );
+      final pull = await const GitLabSyncService().pullIssuesIntoPage(
+        session: widget.session,
+        pageId: widget.pageId,
+        gitlabSourceId: gitlabSourceId,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEs
+                ? 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                : 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error GitLab: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _gitlabSyncBusy = false);
     }
   }
 
@@ -401,12 +486,18 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     widget.session.updateBlockText(pageId, blockId, data.encode());
   }
 
-  /// Un Kanban solo puede tener una integración (Jira XOR YouTrack XOR Trello).
+  /// Un Kanban solo puede tener una integración (Jira XOR YouTrack XOR Trello XOR GitHub XOR GitLab).
   FolioKanbanData _normalizeExclusiveKanbanIntegration(FolioKanbanData data) {
     final hasJira = (data.jiraSourceId ?? '').trim().isNotEmpty;
     final hasYt = (data.youtrackSourceId ?? '').trim().isNotEmpty;
     final hasTr = (data.trelloSourceId ?? '').trim().isNotEmpty;
-    final count = (hasJira ? 1 : 0) + (hasYt ? 1 : 0) + (hasTr ? 1 : 0);
+    final hasGh = (data.githubSourceId ?? '').trim().isNotEmpty;
+    final hasGl = (data.gitlabSourceId ?? '').trim().isNotEmpty;
+    final count = (hasJira ? 1 : 0) +
+        (hasYt ? 1 : 0) +
+        (hasTr ? 1 : 0) +
+        (hasGh ? 1 : 0) +
+        (hasGl ? 1 : 0);
     if (count <= 1) return data;
     if (hasJira) {
       return data.copyWith(
@@ -416,6 +507,12 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         trelloSourceId: null,
         trelloAutoImport: false,
         trelloCreateCardsOnQuickAdd: false,
+        githubSourceId: null,
+        githubAutoImport: false,
+        githubCreateIssuesOnQuickAdd: false,
+        gitlabSourceId: null,
+        gitlabAutoImport: false,
+        gitlabCreateIssuesOnQuickAdd: false,
       );
     }
     if (hasYt) {
@@ -423,6 +520,29 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         trelloSourceId: null,
         trelloAutoImport: false,
         trelloCreateCardsOnQuickAdd: false,
+        githubSourceId: null,
+        githubAutoImport: false,
+        githubCreateIssuesOnQuickAdd: false,
+        gitlabSourceId: null,
+        gitlabAutoImport: false,
+        gitlabCreateIssuesOnQuickAdd: false,
+      );
+    }
+    if (hasTr) {
+      return data.copyWith(
+        githubSourceId: null,
+        githubAutoImport: false,
+        githubCreateIssuesOnQuickAdd: false,
+        gitlabSourceId: null,
+        gitlabAutoImport: false,
+        gitlabCreateIssuesOnQuickAdd: false,
+      );
+    }
+    if (hasGh) {
+      return data.copyWith(
+        gitlabSourceId: null,
+        gitlabAutoImport: false,
+        gitlabCreateIssuesOnQuickAdd: false,
       );
     }
     return data;
@@ -485,6 +605,55 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           youtrackSourceId: null,
           youtrackAutoImport: false,
           youtrackCreateIssuesOnQuickAdd: false,
+          githubSourceId: null,
+          githubAutoImport: false,
+          githubCreateIssuesOnQuickAdd: false,
+        );
+      case 'github':
+        if (clear) {
+          return data.copyWith(
+            githubSourceId: null,
+            githubAutoImport: false,
+            githubCreateIssuesOnQuickAdd: false,
+          );
+        }
+        return data.copyWith(
+          githubSourceId: sourceId,
+          jiraSourceId: null,
+          jiraAutoImport: false,
+          jiraCreateIssuesOnQuickAdd: false,
+          youtrackSourceId: null,
+          youtrackAutoImport: false,
+          youtrackCreateIssuesOnQuickAdd: false,
+          trelloSourceId: null,
+          trelloAutoImport: false,
+          trelloCreateCardsOnQuickAdd: false,
+          gitlabSourceId: null,
+          gitlabAutoImport: false,
+          gitlabCreateIssuesOnQuickAdd: false,
+        );
+      case 'gitlab':
+        if (clear) {
+          return data.copyWith(
+            gitlabSourceId: null,
+            gitlabAutoImport: false,
+            gitlabCreateIssuesOnQuickAdd: false,
+          );
+        }
+        return data.copyWith(
+          gitlabSourceId: sourceId,
+          jiraSourceId: null,
+          jiraAutoImport: false,
+          jiraCreateIssuesOnQuickAdd: false,
+          youtrackSourceId: null,
+          youtrackAutoImport: false,
+          youtrackCreateIssuesOnQuickAdd: false,
+          trelloSourceId: null,
+          trelloAutoImport: false,
+          trelloCreateCardsOnQuickAdd: false,
+          githubSourceId: null,
+          githubAutoImport: false,
+          githubCreateIssuesOnQuickAdd: false,
         );
       default:
         return data;
@@ -676,7 +845,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     final normalized = _normalizeExclusiveKanbanIntegration(cfg.data);
     if ((normalized.jiraSourceId ?? '') != (cfg.data.jiraSourceId ?? '') ||
         (normalized.youtrackSourceId ?? '') != (cfg.data.youtrackSourceId ?? '') ||
-        (normalized.trelloSourceId ?? '') != (cfg.data.trelloSourceId ?? '')) {
+        (normalized.trelloSourceId ?? '') != (cfg.data.trelloSourceId ?? '') ||
+        (normalized.githubSourceId ?? '') != (cfg.data.githubSourceId ?? '') ||
+        (normalized.gitlabSourceId ?? '') != (cfg.data.gitlabSourceId ?? '')) {
       _persistKanbanData(page.id, cfg.blockId, normalized);
     }
     await showModalBottomSheet<void>(
@@ -775,372 +946,211 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                           Builder(
                             builder: (ctx) {
                               final l10nSheet = AppLocalizations.of(ctx);
+                              final isEs =
+                                  Localizations.localeOf(ctx).languageCode ==
+                                      'es';
                               final hasJira =
                                   (data.jiraSourceId ?? '').trim().isNotEmpty;
                               final hasYt =
                                   (data.youtrackSourceId ?? '').trim().isNotEmpty;
                               final hasTr =
                                   (data.trelloSourceId ?? '').trim().isNotEmpty;
+                              final hasGh =
+                                  (data.githubSourceId ?? '').trim().isNotEmpty;
+                              final hasGl =
+                                  (data.gitlabSourceId ?? '').trim().isNotEmpty;
                               final activeProvider = hasJira
-                                  ? 'Jira'
+                                  ? 'jira'
                                   : hasYt
-                                      ? 'YouTrack'
+                                      ? 'youtrack'
                                       : hasTr
-                                          ? 'Trello'
-                                          : null;
-                              final jiraEnabled =
-                                  activeProvider == null || hasJira;
-                              final ytEnabled =
-                                  activeProvider == null || hasYt;
-                              final trelloEnabled =
-                                  activeProvider == null || hasTr;
+                                          ? 'trello'
+                                          : hasGh
+                                              ? 'github'
+                                              : hasGl
+                                                  ? 'gitlab'
+                                                  : null;
+
+                              String composite(String provider, String sourceId) =>
+                                  '$provider:$sourceId';
+
+                              final items = <DropdownMenuItem<String?>>[
+                                DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text(l10nSheet.kanbanNone),
+                                ),
+                                for (final s in widget.session.jiraSources)
+                                  DropdownMenuItem<String?>(
+                                    value: composite('jira', s.id),
+                                    child: Text('Jira · ${s.name}'),
+                                  ),
+                                for (final s in widget.session.youtrackSources)
+                                  DropdownMenuItem<String?>(
+                                    value: composite('youtrack', s.id),
+                                    child: Text('YouTrack · ${s.name}'),
+                                  ),
+                                for (final s in widget.session.trelloSources)
+                                  DropdownMenuItem<String?>(
+                                    value: composite('trello', s.id),
+                                    child: Text('Trello · ${s.name}'),
+                                  ),
+                                for (final s in widget.session.githubSources)
+                                  DropdownMenuItem<String?>(
+                                    value: composite('github', s.id),
+                                    child: Text('GitHub · ${s.name}'),
+                                  ),
+                                for (final s in widget.session.gitlabSources)
+                                  DropdownMenuItem<String?>(
+                                    value: composite('gitlab', s.id),
+                                    child: Text('GitLab · ${s.name}'),
+                                  ),
+                              ];
+
+                              String? selectedValue = switch (activeProvider) {
+                                'jira' => composite(
+                                    'jira', data.jiraSourceId!.trim()),
+                                'youtrack' => composite(
+                                    'youtrack', data.youtrackSourceId!.trim()),
+                                'trello' => composite(
+                                    'trello', data.trelloSourceId!.trim()),
+                                'github' => composite(
+                                    'github', data.githubSourceId!.trim()),
+                                'gitlab' => composite(
+                                    'gitlab', data.gitlabSourceId!.trim()),
+                                _ => null,
+                              };
+                              if (selectedValue != null &&
+                                  !items.any((i) => i.value == selectedValue)) {
+                                // La fuente seleccionada ya no existe (se borró
+                                // en Ajustes → Integraciones).
+                                selectedValue = null;
+                              }
+
+                              final autoImport = switch (activeProvider) {
+                                'jira' => data.jiraAutoImport,
+                                'youtrack' => data.youtrackAutoImport,
+                                'trello' => data.trelloAutoImport,
+                                'github' => data.githubAutoImport,
+                                'gitlab' => data.gitlabAutoImport,
+                                _ => false,
+                              };
+                              final createOnQuickAdd = switch (activeProvider) {
+                                'jira' => data.jiraCreateIssuesOnQuickAdd,
+                                'youtrack' => data.youtrackCreateIssuesOnQuickAdd,
+                                'trello' => data.trelloCreateCardsOnQuickAdd,
+                                'github' => data.githubCreateIssuesOnQuickAdd,
+                                'gitlab' => data.gitlabCreateIssuesOnQuickAdd,
+                                _ => false,
+                              };
+                              final providerLabel = switch (activeProvider) {
+                                'jira' => 'Jira',
+                                'youtrack' => 'YouTrack',
+                                'trello' => 'Trello',
+                                'github' => 'GitHub',
+                                'gitlab' => 'GitLab',
+                                _ => null,
+                              };
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  if (activeProvider != null) ...[
-                                    Text(
-                                      l10nSheet.kanbanIntegrationExclusive(
-                                        activeProvider,
-                                      ),
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
+                                  Text(
+                                    isEs ? 'Fuente' : 'Source',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                    const SizedBox(height: FolioSpace.sm),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  DropdownButtonFormField<String?>(
+                                    initialValue: selectedValue,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: isEs ? 'Fuente' : 'Source',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    items: items,
+                                    onChanged: (v) {
+                                      final String provider;
+                                      final String? sourceId;
+                                      if (v == null) {
+                                        provider = activeProvider ?? '';
+                                        sourceId = null;
+                                      } else {
+                                        final parts = v.split(':');
+                                        provider = parts.first;
+                                        sourceId = parts.sublist(1).join(':');
+                                      }
+                                      if (provider.isEmpty) return;
+                                      _persistKanbanData(
+                                        latestPage.id,
+                                        latestCfg.blockId,
+                                        _selectKanbanIntegration(
+                                          data: data,
+                                          provider: provider,
+                                          sourceId: sourceId,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  if (activeProvider != null &&
+                                      providerLabel != null) ...[
+                                    const SizedBox(height: 8),
+                                    SwitchListTile.adaptive(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(
+                                        isEs
+                                            ? 'Auto-importar desde $providerLabel'
+                                            : 'Auto-import from $providerLabel',
+                                      ),
+                                      value: autoImport,
+                                      onChanged: (v) {
+                                        final next = switch (activeProvider) {
+                                          'jira' =>
+                                            data.copyWith(jiraAutoImport: v),
+                                          'youtrack' => data.copyWith(
+                                              youtrackAutoImport: v),
+                                          'trello' =>
+                                            data.copyWith(trelloAutoImport: v),
+                                          'github' =>
+                                            data.copyWith(githubAutoImport: v),
+                                          _ => data,
+                                        };
+                                        _persistKanbanData(
+                                          latestPage.id,
+                                          latestCfg.blockId,
+                                          next,
+                                        );
+                                      },
+                                    ),
+                                    SwitchListTile.adaptive(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(
+                                        isEs
+                                            ? 'Crear elementos al añadir tarea'
+                                            : 'Create items when adding tasks',
+                                      ),
+                                      value: createOnQuickAdd,
+                                      onChanged: (v) {
+                                        final next = switch (activeProvider) {
+                                          'jira' => data.copyWith(
+                                              jiraCreateIssuesOnQuickAdd: v),
+                                          'youtrack' => data.copyWith(
+                                              youtrackCreateIssuesOnQuickAdd:
+                                                  v),
+                                          'trello' => data.copyWith(
+                                              trelloCreateCardsOnQuickAdd: v),
+                                          'github' => data.copyWith(
+                                              githubCreateIssuesOnQuickAdd: v),
+                                          _ => data,
+                                        };
+                                        _persistKanbanData(
+                                          latestPage.id,
+                                          latestCfg.blockId,
+                                          next,
+                                        );
+                                      },
+                                    ),
                                   ],
-                                  Text(
-                                    'Jira',
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Builder(
-                                    builder: (ctx) {
-                                      final sourcesById = <String, JiraSource>{};
-                                      for (final s in widget.session.jiraSources) {
-                                        sourcesById[s.id] = s;
-                                      }
-                                      final sources = sourcesById.values.toList(
-                                        growable: false,
-                                      );
-                                      final selected =
-                                          (data.jiraSourceId ?? '').trim();
-                                      final selectedValue = selected.isEmpty ||
-                                              !sourcesById.containsKey(selected)
-                                          ? null
-                                          : selected;
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          DropdownButtonFormField<String?>(
-                                            initialValue: selectedValue,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  l10nSheet.jiraSourcesTab,
-                                              border:
-                                                  const OutlineInputBorder(),
-                                            ),
-                                            items: [
-                                              DropdownMenuItem<String?>(
-                                                value: null,
-                                                child: Text(l10nSheet.kanbanNone),
-                                              ),
-                                              for (final s in sources)
-                                                DropdownMenuItem<String?>(
-                                                  value: s.id,
-                                                  child: Text(s.name),
-                                                ),
-                                            ],
-                                            onChanged: jiraEnabled
-                                                ? (v) {
-                                                    _persistKanbanData(
-                                                      latestPage.id,
-                                                      latestCfg.blockId,
-                                                      _selectKanbanIntegration(
-                                                        data: data,
-                                                        provider: 'jira',
-                                                        sourceId: v,
-                                                      ),
-                                                    );
-                                                  }
-                                                : null,
-                                          ),
-                                          if (selectedValue != null) ...[
-                                            const SizedBox(height: 8),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Auto-importar desde Jira'
-                                                    : 'Auto-import from Jira',
-                                              ),
-                                              value: data.jiraAutoImport,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    jiraAutoImport: v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Crear issues al añadir tarea'
-                                                    : 'Create issues when adding tasks',
-                                              ),
-                                              value:
-                                                  data.jiraCreateIssuesOnQuickAdd,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    jiraCreateIssuesOnQuickAdd:
-                                                        v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 6),
-                                          ],
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: FolioSpace.md),
-                                  Text(
-                                    'YouTrack',
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Builder(
-                                    builder: (ctx) {
-                                      final sourcesById =
-                                          <String, YouTrackSource>{};
-                                      for (final s
-                                          in widget.session.youtrackSources) {
-                                        sourcesById[s.id] = s;
-                                      }
-                                      final sources = sourcesById.values.toList(
-                                        growable: false,
-                                      );
-                                      final selected =
-                                          (data.youtrackSourceId ?? '').trim();
-                                      final selectedValue = selected.isEmpty ||
-                                              !sourcesById.containsKey(selected)
-                                          ? null
-                                          : selected;
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          DropdownButtonFormField<String?>(
-                                            initialValue: selectedValue,
-                                            decoration: InputDecoration(
-                                              labelText: 'YouTrack',
-                                              border:
-                                                  const OutlineInputBorder(),
-                                            ),
-                                            items: [
-                                              DropdownMenuItem<String?>(
-                                                value: null,
-                                                child: Text(l10nSheet.kanbanNone),
-                                              ),
-                                              for (final s in sources)
-                                                DropdownMenuItem<String?>(
-                                                  value: s.id,
-                                                  child: Text(s.name),
-                                                ),
-                                            ],
-                                            onChanged: ytEnabled
-                                                ? (v) {
-                                                    _persistKanbanData(
-                                                      latestPage.id,
-                                                      latestCfg.blockId,
-                                                      _selectKanbanIntegration(
-                                                        data: data,
-                                                        provider: 'youtrack',
-                                                        sourceId: v,
-                                                      ),
-                                                    );
-                                                  }
-                                                : null,
-                                          ),
-                                          if (selectedValue != null) ...[
-                                            const SizedBox(height: 8),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Auto-importar desde YouTrack'
-                                                    : 'Auto-import from YouTrack',
-                                              ),
-                                              value: data.youtrackAutoImport,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    youtrackAutoImport: v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Crear issues al añadir tarea'
-                                                    : 'Create issues when adding tasks',
-                                              ),
-                                              value: data
-                                                  .youtrackCreateIssuesOnQuickAdd,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    youtrackCreateIssuesOnQuickAdd:
-                                                        v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 6),
-                                          ],
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: FolioSpace.md),
-                                  Text(
-                                    l10nSheet.trelloDetailsTitle,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Builder(
-                                    builder: (ctx) {
-                                      final sourcesById =
-                                          <String, TrelloSource>{};
-                                      for (final s
-                                          in widget.session.trelloSources) {
-                                        sourcesById[s.id] = s;
-                                      }
-                                      final sources = sourcesById.values.toList(
-                                        growable: false,
-                                      );
-                                      final selected =
-                                          (data.trelloSourceId ?? '').trim();
-                                      final selectedValue = selected.isEmpty ||
-                                              !sourcesById.containsKey(selected)
-                                          ? null
-                                          : selected;
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          DropdownButtonFormField<String?>(
-                                            initialValue: selectedValue,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  l10nSheet.trelloSelectBoard,
-                                              border:
-                                                  const OutlineInputBorder(),
-                                            ),
-                                            items: [
-                                              DropdownMenuItem<String?>(
-                                                value: null,
-                                                child: Text(l10nSheet.kanbanNone),
-                                              ),
-                                              for (final s in sources)
-                                                DropdownMenuItem<String?>(
-                                                  value: s.id,
-                                                  child: Text(s.name),
-                                                ),
-                                            ],
-                                            onChanged: trelloEnabled
-                                                ? (v) {
-                                                    _persistKanbanData(
-                                                      latestPage.id,
-                                                      latestCfg.blockId,
-                                                      _selectKanbanIntegration(
-                                                        data: data,
-                                                        provider: 'trello',
-                                                        sourceId: v,
-                                                      ),
-                                                    );
-                                                  }
-                                                : null,
-                                          ),
-                                          if (selectedValue != null) ...[
-                                            const SizedBox(height: 8),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Auto-importar desde Trello'
-                                                    : 'Auto-import from Trello',
-                                              ),
-                                              value: data.trelloAutoImport,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    trelloAutoImport: v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            SwitchListTile.adaptive(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(
-                                                Localizations.localeOf(ctx)
-                                                            .languageCode ==
-                                                        'es'
-                                                    ? 'Crear tarjetas al añadir tarea'
-                                                    : 'Create cards when adding tasks',
-                                              ),
-                                              value: data
-                                                  .trelloCreateCardsOnQuickAdd,
-                                              onChanged: (v) {
-                                                _persistKanbanData(
-                                                  latestPage.id,
-                                                  latestCfg.blockId,
-                                                  data.copyWith(
-                                                    trelloCreateCardsOnQuickAdd:
-                                                        v,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 6),
-                                          ],
-                                        ],
-                                      );
-                                    },
-                                  ),
                                 ],
                               );
                             },
@@ -1377,6 +1387,48 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                       ),
               ),
             if ((data.trelloSourceId ?? '').trim().isNotEmpty)
+              const SizedBox(width: FolioSpace.xs),
+            if ((data.githubSourceId ?? '').trim().isNotEmpty)
+              IconButton(
+                tooltip: isEs
+                    ? 'Sincronizar GitHub (push + pull)'
+                    : 'Sync GitHub (push + pull)',
+                onPressed: _githubSyncBusy
+                    ? null
+                    : () => _syncGitHub(githubSourceId: data.githubSourceId!.trim()),
+                icon: _githubSyncBusy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Image(
+                          image: AssetImage('appLogos/github.png'),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+              ),
+            if ((data.githubSourceId ?? '').trim().isNotEmpty)
+              const SizedBox(width: FolioSpace.xs),
+            if ((data.gitlabSourceId ?? '').trim().isNotEmpty)
+              IconButton(
+                tooltip: isEs
+                    ? 'Sincronizar GitLab (push + pull)'
+                    : 'Sync GitLab (push + pull)',
+                onPressed: _gitlabSyncBusy
+                    ? null
+                    : () => _syncGitLab(gitlabSourceId: data.gitlabSourceId!.trim()),
+                icon: _gitlabSyncBusy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Image(
+                          image: AssetImage('appLogos/gitlab.png'),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+              ),
+            if ((data.gitlabSourceId ?? '').trim().isNotEmpty)
               const SizedBox(width: FolioSpace.xs),
             IconButton(
               tooltip: l10n.settings,

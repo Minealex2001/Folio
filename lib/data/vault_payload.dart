@@ -6,6 +6,8 @@ import '../models/folio_page_template.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
 import '../models/trello_integration_state.dart';
+import '../models/github_integration_state.dart';
+import '../models/gitlab_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -34,6 +36,8 @@ class VaultPayload {
     JiraIntegrationState? jira,
     YouTrackIntegrationState? youtrack,
     TrelloIntegrationState? trello,
+    GitHubIntegrationState? github,
+    GitLabIntegrationState? gitlab,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
     Set<String>? mcpReadablePageIds,
@@ -48,6 +52,8 @@ class VaultPayload {
        jira = jira ?? JiraIntegrationState.empty,
        youtrack = youtrack ?? YouTrackIntegrationState.empty,
        trello = trello ?? TrelloIntegrationState.empty,
+       github = github ?? GitHubIntegrationState.empty,
+       gitlab = gitlab ?? GitLabIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {},
        mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
@@ -67,6 +73,8 @@ class VaultPayload {
   final JiraIntegrationState jira;
   final YouTrackIntegrationState youtrack;
   final TrelloIntegrationState trello;
+  final GitHubIntegrationState github;
+  final GitLabIntegrationState gitlab;
 
   /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
   final Map<String, int> pageTombstones;
@@ -98,6 +106,10 @@ class VaultPayload {
       'youtrack': youtrack.toJson(),
     if (trello.connections.isNotEmpty || trello.sources.isNotEmpty)
       'trello': trello.toJson(),
+    if (github.connections.isNotEmpty || github.sources.isNotEmpty)
+      'github': github.toJson(),
+    if (gitlab.connections.isNotEmpty || gitlab.sources.isNotEmpty)
+      'gitlab': gitlab.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
     if (mcpReadablePageIds.isNotEmpty)
@@ -165,6 +177,8 @@ class VaultPayload {
     final jira = JiraIntegrationState.fromJson(j['jira']);
     final youtrack = YouTrackIntegrationState.fromJson(j['youtrack']);
     final trello = TrelloIntegrationState.fromJson(j['trello']);
+    final github = GitHubIntegrationState.fromJson(j['github']);
+    final gitlab = GitLabIntegrationState.fromJson(j['gitlab']);
     final pageTombstones = <String, int>{};
     final rawTombs = j['pageTombstones'];
     if (rawTombs is Map) {
@@ -205,6 +219,8 @@ class VaultPayload {
       jira: jira,
       youtrack: youtrack,
       trello: trello,
+      github: github,
+      gitlab: gitlab,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
       mcpReadablePageIds: mcpReadablePageIds,

@@ -19,8 +19,12 @@ import '../../../services/jira/jira_api_client.dart';
 import '../../../services/jira/jira_sync_service.dart';
 import '../../../services/trello/trello_api_client.dart';
 import '../../../services/youtrack/youtrack_api_client.dart';
+import '../../../services/github/github_api_client.dart';
+import '../../../services/gitlab/gitlab_api_client.dart';
 import '../kanban/kanban_ui_helpers.dart';
 import '../../../models/trello_integration_state.dart';
+import '../../../models/github_integration_state.dart';
+import '../../../models/gitlab_integration_state.dart';
 
 /// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
 String folioFmtTaskDue(String due) => due.replaceFirst('T', ' ');
@@ -331,6 +335,20 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
    final _trelloNewCommentCtrl = TextEditingController();
    bool _trelloAutoPulledOnce = false;
 
+   var _githubBusy = false;
+   String? _githubError;
+   GitHubIssue? _githubIssue;
+   List<GitHubComment> _githubComments = const [];
+   final _githubNewCommentCtrl = TextEditingController();
+   bool _githubAutoPulledOnce = false;
+
+   var _gitlabBusy = false;
+   String? _gitlabError;
+   GitLabIssueOrMr? _gitlabIssueOrMr;
+   List<GitLabNote> _gitlabComments = const [];
+   final _gitlabNewCommentCtrl = TextEditingController();
+   bool _gitlabAutoPulledOnce = false;
+
   @override
   void initState() {
     super.initState();
@@ -371,6 +389,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     _jiraWorklogMinutesCtrl.dispose();
     _youtrackNewCommentCtrl.dispose();
     _trelloNewCommentCtrl.dispose();
+    _githubNewCommentCtrl.dispose();
+    _gitlabNewCommentCtrl.dispose();
     super.dispose();
   }
 
@@ -478,6 +498,22 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
       _trelloAutoPulledOnce = true;
       unawaited(_trelloRefresh());
     }
+    // Best-effort: auto pull GitHub details once per task open.
+    if (!_githubAutoPulledOnce &&
+        ext != null &&
+        ext.provider == 'github' &&
+        ext.issueId.trim().isNotEmpty) {
+      _githubAutoPulledOnce = true;
+      unawaited(_githubRefresh());
+    }
+    // Best-effort: auto pull GitLab details once per task open.
+    if (!_gitlabAutoPulledOnce &&
+        ext != null &&
+        ext.provider == 'gitlab' &&
+        ext.issueId.trim().isNotEmpty) {
+      _gitlabAutoPulledOnce = true;
+      unawaited(_gitlabRefresh());
+    }
   }
 
   void _emit(FolioTaskData next) =>
@@ -498,7 +534,9 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     if (ext != null &&
         (ext.provider == 'jira' ||
             ext.provider == 'youtrack' ||
-            ext.provider == 'trello')) {
+            ext.provider == 'trello' ||
+            ext.provider == 'github' ||
+            ext.provider == 'gitlab')) {
       final cur = (ext.syncState ?? '').trim();
       if (cur != 'conflict') {
         next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
@@ -555,6 +593,10 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
           : 'This will delete the task in Folio and also the issue in ${provider == 'jira' ? 'Jira' : 'YouTrack'} (including linked subtasks). Continue?';
     } else if (provider == 'trello') {
       confirmText = l10n.trelloDeleteRemoteConfirm;
+    } else if (provider == 'github') {
+      confirmText = l10n.githubDeleteRemoteConfirm;
+    } else if (provider == 'gitlab') {
+      confirmText = l10n.gitlabDeleteRemoteConfirm;
     } else {
       confirmText = Localizations.localeOf(context).languageCode == 'es'
           ? '¿Borrar la tarea en Folio?'
@@ -636,6 +678,44 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
           final cardId = ext.issueId.trim();
           if (cardId.isNotEmpty) {
             await client.archiveCard(cardId);
+          }
+        } else if (ext.provider == 'github') {
+          final client = _githubClientFor(ext);
+          if (client == null) {
+            throw StateError(l10n.githubConnectionMissingDelete);
+          }
+          // GitHub REST no expone un endpoint para borrar issues/PRs: la
+          // acción equivalente disponible es cerrarlo.
+          final gh = t?.github;
+          final owner = (gh?.owner ?? '').trim();
+          final repo = (gh?.repo ?? '').trim();
+          final number = gh?.number;
+          if (owner.isNotEmpty && repo.isNotEmpty && number != null) {
+            await client.updateIssue(
+              owner: owner,
+              repo: repo,
+              number: number,
+              state: 'closed',
+            );
+          }
+        } else if (ext.provider == 'gitlab') {
+          final client = _gitlabClientFor(ext);
+          if (client == null) {
+            throw StateError(l10n.gitlabConnectionMissingDelete);
+          }
+          // GitLab expone un endpoint de borrado de issues, pero requiere
+          // permisos de owner/maintainer que no todos los tokens tendrán:
+          // por consistencia con GitHub, cerramos en vez de borrar.
+          final gl = t?.gitlab;
+          final projectPath = (gl?.projectPath ?? '').trim();
+          final iid = gl?.iid;
+          if (projectPath.isNotEmpty && iid != null) {
+            await client.updateIssueOrMr(
+              projectPath,
+              iid,
+              isMergeRequest: gl?.isMergeRequest ?? false,
+              stateEvent: 'close',
+            );
           }
         }
       }
@@ -1014,6 +1094,644 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
       setState(() => _trelloError = '$e');
     } finally {
       if (mounted) setState(() => _trelloBusy = false);
+    }
+  }
+
+  GitHubApiClient? _githubClientFor(FolioExternalTaskLink ext) {
+    final connectionId = (ext.cloudId ?? '').trim();
+    if (connectionId.isEmpty) return null;
+    final conn = widget.session.githubConnections.firstWhereOrNull(
+      (c) => c.id == connectionId,
+    );
+    if (conn == null) return null;
+    return GitHubApiClient(connection: conn);
+  }
+
+  GitHubApiClient? _githubClientOrSetError(FolioExternalTaskLink ext) {
+    final client = _githubClientFor(ext);
+    if (client != null) return client;
+    setState(() {
+      _githubError = AppLocalizations.of(context).githubConnectionMissing;
+    });
+    return null;
+  }
+
+  GitHubSource? _githubSourceForPage() {
+    final page = widget.session.pages.firstWhereOrNull(
+      (p) => p.id == widget.taskRef.pageId,
+    );
+    if (page == null) return null;
+    for (final b in page.blocks) {
+      if (b.type != 'kanban') continue;
+      final kd = FolioKanbanData.tryParse(b.text);
+      final sid = (kd?.githubSourceId ?? '').trim();
+      if (sid.isEmpty) continue;
+      return widget.session.githubSources.firstWhereOrNull((s) => s.id == sid);
+    }
+    return null;
+  }
+
+  FolioGitHubIssueSnapshot _githubSnapshotFromIssue(
+    GitHubIssue issue, {
+    required String owner,
+    required String repo,
+  }) {
+    return FolioGitHubIssueSnapshot(
+      owner: owner,
+      repo: repo,
+      number: issue.number,
+      isPullRequest: issue.isPullRequest,
+      state: issue.state,
+      labels: issue.labels.isEmpty
+          ? null
+          : issue.labels.map((l) => l.name).join(', '),
+      assigneeLogin: issue.assigneeLogin,
+      htmlUrl: issue.htmlUrl,
+    );
+  }
+
+  String? _mapGitHubPriorityFromLabels(
+    List<GitHubLabel> labels,
+    List<GitHubPriorityLabelMapping> mappings,
+  ) {
+    if (labels.isEmpty || mappings.isEmpty) return null;
+    for (final label in labels) {
+      final mapping =
+          mappings.firstWhereOrNull((m) => m.labelName == label.name);
+      if (mapping != null) return mapping.priority;
+    }
+    return null;
+  }
+
+  /// Prioriza el mapeo por label (más específico); si no hay match, cae al
+  /// estado abierto/cerrado del issue/PR.
+  String _mapGitHubColumnFromIssue(
+    GitHubIssue issue,
+    List<GitHubColumnMapping> mappings,
+  ) {
+    final labelNames = issue.labels.map((l) => l.name).toSet();
+    final byLabel = mappings.firstWhereOrNull(
+      (m) => (m.labelName ?? '').isNotEmpty && labelNames.contains(m.labelName),
+    );
+    if (byLabel != null) return byLabel.columnId;
+    final byState = mappings.firstWhereOrNull((m) => m.stateValue == issue.state);
+    if (byState != null) return byState.columnId;
+    return 'todo';
+  }
+
+  String? _mapPriorityToGitHubLabelName(
+    String? folioPriority,
+    List<GitHubPriorityLabelMapping> mappings,
+  ) {
+    final p = (folioPriority ?? '').trim().toLowerCase();
+    if (p.isEmpty) return null;
+    return mappings.firstWhereOrNull((m) => m.priority.toLowerCase() == p)?.labelName;
+  }
+
+  Future<void> _githubRefresh() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'github') return;
+    final client = _githubClientOrSetError(ext);
+    if (client == null) return;
+    final gh = data.github;
+    final source = _githubSourceForPage();
+    final owner = (gh?.owner ?? source?.owner ?? '').trim();
+    final repo = (gh?.repo ?? source?.repo ?? '').trim();
+    final number = gh?.number;
+    if (owner.isEmpty || repo.isEmpty || number == null) return;
+    setState(() {
+      _githubBusy = true;
+      _githubError = null;
+    });
+    try {
+      final list = await client.getIssuesAndPRs(owner, repo);
+      final issue = list.firstWhereOrNull((i) => i.number == number);
+      if (issue == null) return;
+      final comments = await client.getComments(owner, repo, number);
+      setState(() {
+        _githubIssue = issue;
+        _githubComments = comments;
+      });
+    } catch (e) {
+      setState(() => _githubError = '$e');
+    } finally {
+      if (mounted) setState(() => _githubBusy = false);
+    }
+  }
+
+  Future<void> _githubAddComment() async {
+    final text = _githubNewCommentCtrl.text.trim();
+    if (text.isEmpty) return;
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'github') return;
+    final client = _githubClientOrSetError(ext);
+    if (client == null) return;
+    final gh = data.github;
+    final owner = (gh?.owner ?? '').trim();
+    final repo = (gh?.repo ?? '').trim();
+    final number = gh?.number;
+    if (owner.isEmpty || repo.isEmpty || number == null) return;
+    setState(() {
+      _githubBusy = true;
+      _githubError = null;
+    });
+    try {
+      await client.addComment(owner: owner, repo: repo, number: number, body: text);
+      _githubNewCommentCtrl.clear();
+      await _githubRefresh();
+    } catch (e) {
+      setState(() => _githubError = '$e');
+    } finally {
+      if (mounted) setState(() => _githubBusy = false);
+    }
+  }
+
+  Future<void> _githubResolveKeepRemote() async {
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'github') return;
+    final client = _githubClientOrSetError(ext);
+    if (client == null) return;
+    final gh = data.github;
+    final source = _githubSourceForPage();
+    final owner = (gh?.owner ?? source?.owner ?? '').trim();
+    final repo = (gh?.repo ?? source?.repo ?? '').trim();
+    final number = gh?.number;
+    if (owner.isEmpty || repo.isEmpty || number == null) return;
+    setState(() {
+      _githubBusy = true;
+      _githubError = null;
+    });
+    try {
+      final list = await client.getIssuesAndPRs(owner, repo);
+      final issue = list.firstWhereOrNull((i) => i.number == number);
+      if (issue == null) return;
+      final folioPriority = _mapGitHubPriorityFromLabels(
+        issue.labels,
+        source?.priorityLabelMappings ?? const [],
+      );
+      final folioStatus = _mapGitHubColumnFromIssue(
+        issue,
+        source?.columnMappings ?? const [],
+      );
+      final tags = <String>[];
+      final seen = <String>{};
+      for (final l in issue.labels) {
+        final name = l.name.trim();
+        if (name.isEmpty) continue;
+        if (seen.add(name.toLowerCase())) tags.add(name);
+      }
+
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: issue.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      final next = data.copyWith(
+        title: issue.title.trim(),
+        description: issue.body,
+        priority: folioPriority,
+        status: folioStatus,
+        columnId: folioStatus,
+        assignee: issue.assigneeLogin,
+        tags: tags,
+        external: nextExternal,
+        github: _githubSnapshotFromIssue(issue, owner: owner, repo: repo),
+      );
+
+      _emit(next);
+      final comments = await client.getComments(owner, repo, number);
+      setState(() {
+        _githubIssue = issue;
+        _githubComments = comments;
+      });
+    } catch (e) {
+      setState(() => _githubError = '$e');
+    } finally {
+      if (mounted) setState(() => _githubBusy = false);
+    }
+  }
+
+  Future<void> _githubResolveKeepLocalForcePush() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'github') return;
+    final client = _githubClientOrSetError(ext);
+    if (client == null) return;
+    final gh = data.github;
+    final source = _githubSourceForPage();
+    final owner = (gh?.owner ?? source?.owner ?? '').trim();
+    final repo = (gh?.repo ?? source?.repo ?? '').trim();
+    final number = gh?.number;
+    if (owner.isEmpty || repo.isEmpty || number == null) return;
+    setState(() {
+      _githubBusy = true;
+      _githubError = null;
+    });
+    try {
+      final list = await client.getIssuesAndPRs(owner, repo);
+      final remote = list.firstWhereOrNull((i) => i.number == number);
+
+      final effectiveColumn = (data.columnId ?? '').trim().isNotEmpty
+          ? data.columnId!.trim()
+          : data.status.trim();
+      final mapping = source?.columnMappings.firstWhereOrNull(
+        (m) => m.columnId.trim() == effectiveColumn,
+      );
+      final desiredState = mapping?.stateValue;
+
+      final columnLabelNames = source?.columnMappings
+              .map((m) => (m.labelName ?? '').trim())
+              .where((n) => n.isNotEmpty)
+              .toSet() ??
+          const <String>{};
+      final priorityLabelNames = source?.priorityLabelMappings
+              .map((m) => m.labelName.trim())
+              .toSet() ??
+          const <String>{};
+      final desiredColumnLabel = (mapping?.labelName ?? '').trim();
+      final desiredPriorityLabel = source == null
+          ? null
+          : _mapPriorityToGitHubLabelName(data.priority, source.priorityLabelMappings);
+
+      final nextLabels = (remote?.labels ?? const <GitHubLabel>[])
+          .map((l) => l.name)
+          .where((n) => !columnLabelNames.contains(n) && !priorityLabelNames.contains(n))
+          .toSet();
+      if (desiredColumnLabel.isNotEmpty) nextLabels.add(desiredColumnLabel);
+      if (desiredPriorityLabel != null) nextLabels.add(desiredPriorityLabel);
+
+      await client.updateIssue(
+        owner: owner,
+        repo: repo,
+        number: number,
+        title: data.title.trim(),
+        state: desiredState,
+        labels: nextLabels.toList(),
+      );
+
+      final updatedList = await client.getIssuesAndPRs(owner, repo);
+      final updatedRemote =
+          updatedList.firstWhereOrNull((i) => i.number == number) ?? remote;
+      if (updatedRemote == null) return;
+
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: updatedRemote.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      _emit(
+        data.copyWith(
+          external: nextExternal,
+          github: _githubSnapshotFromIssue(updatedRemote, owner: owner, repo: repo),
+        ),
+      );
+      final comments = await client.getComments(owner, repo, number);
+      setState(() {
+        _githubIssue = updatedRemote;
+        _githubComments = comments;
+      });
+    } catch (e) {
+      setState(() => _githubError = '$e');
+    } finally {
+      if (mounted) setState(() => _githubBusy = false);
+    }
+  }
+
+  GitLabApiClient? _gitlabClientFor(FolioExternalTaskLink ext) {
+    final connectionId = (ext.cloudId ?? '').trim();
+    if (connectionId.isEmpty) return null;
+    final conn = widget.session.gitlabConnections.firstWhereOrNull(
+      (c) => c.id == connectionId,
+    );
+    if (conn == null) return null;
+    return GitLabApiClient(connection: conn);
+  }
+
+  GitLabApiClient? _gitlabClientOrSetError(FolioExternalTaskLink ext) {
+    final client = _gitlabClientFor(ext);
+    if (client != null) return client;
+    setState(() {
+      _gitlabError = AppLocalizations.of(context).gitlabConnectionMissing;
+    });
+    return null;
+  }
+
+  GitLabSource? _gitlabSourceForPage() {
+    final page = widget.session.pages.firstWhereOrNull(
+      (p) => p.id == widget.taskRef.pageId,
+    );
+    if (page == null) return null;
+    for (final b in page.blocks) {
+      if (b.type != 'kanban') continue;
+      final kd = FolioKanbanData.tryParse(b.text);
+      final sid = (kd?.gitlabSourceId ?? '').trim();
+      if (sid.isEmpty) continue;
+      return widget.session.gitlabSources.firstWhereOrNull((s) => s.id == sid);
+    }
+    return null;
+  }
+
+  FolioGitLabIssueSnapshot _gitlabSnapshotFromIssueOrMr(
+    GitLabIssueOrMr item, {
+    required String projectPath,
+  }) {
+    return FolioGitLabIssueSnapshot(
+      projectPath: projectPath,
+      iid: item.iid,
+      isMergeRequest: item.isMergeRequest,
+      state: item.state,
+      labels: item.labels.isEmpty
+          ? null
+          : item.labels.map((l) => l.name).join(', '),
+      assigneeUsername: item.assigneeUsername,
+      webUrl: item.webUrl,
+    );
+  }
+
+  String? _mapGitLabPriorityFromLabels(
+    List<GitLabLabel> labels,
+    List<GitLabPriorityLabelMapping> mappings,
+  ) {
+    if (labels.isEmpty || mappings.isEmpty) return null;
+    for (final label in labels) {
+      final mapping =
+          mappings.firstWhereOrNull((m) => m.labelName == label.name);
+      if (mapping != null) return mapping.priority;
+    }
+    return null;
+  }
+
+  /// Prioriza el mapeo por label (más específico); si no hay match, cae al
+  /// estado abierto/cerrado (vocabulario GitLab: `opened`/`closed`).
+  String _mapGitLabColumnFromItem(
+    GitLabIssueOrMr item,
+    List<GitLabColumnMapping> mappings,
+  ) {
+    final labelNames = item.labels.map((l) => l.name).toSet();
+    final byLabel = mappings.firstWhereOrNull(
+      (m) => (m.labelName ?? '').isNotEmpty && labelNames.contains(m.labelName),
+    );
+    if (byLabel != null) return byLabel.columnId;
+    final byState = mappings.firstWhereOrNull((m) => m.stateValue == item.state);
+    if (byState != null) return byState.columnId;
+    return 'todo';
+  }
+
+  String? _mapPriorityToGitLabLabelName(
+    String? folioPriority,
+    List<GitLabPriorityLabelMapping> mappings,
+  ) {
+    final p = (folioPriority ?? '').trim().toLowerCase();
+    if (p.isEmpty) return null;
+    return mappings.firstWhereOrNull((m) => m.priority.toLowerCase() == p)?.labelName;
+  }
+
+  /// Traduce el estado deseado (columna destino) al campo de escritura
+  /// `state_event` (`close`/`reopen`), comparando contra el estado actual.
+  String? _mapGitLabDesiredStateToStateEvent(String? desiredState, String currentState) {
+    final desired = (desiredState ?? '').trim();
+    if (desired.isEmpty) return null;
+    if (desired == 'closed' && currentState != 'closed') return 'close';
+    if (desired == 'opened' && currentState == 'closed') return 'reopen';
+    return null;
+  }
+
+  Future<GitLabIssueOrMr?> _gitlabFindItem(
+    GitLabApiClient client,
+    String projectPath,
+    int iid, {
+    required bool isMergeRequest,
+  }) async {
+    final list = isMergeRequest
+        ? await client.getMergeRequests(projectPath)
+        : await client.getIssues(projectPath);
+    return list.firstWhereOrNull((i) => i.iid == iid);
+  }
+
+  Future<void> _gitlabRefresh() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'gitlab') return;
+    final client = _gitlabClientOrSetError(ext);
+    if (client == null) return;
+    final gl = data.gitlab;
+    final source = _gitlabSourceForPage();
+    final projectPath = (gl?.projectPath ?? source?.projectPath ?? '').trim();
+    final iid = gl?.iid;
+    final isMr = gl?.isMergeRequest ?? false;
+    if (projectPath.isEmpty || iid == null) return;
+    setState(() {
+      _gitlabBusy = true;
+      _gitlabError = null;
+    });
+    try {
+      final item = await _gitlabFindItem(client, projectPath, iid, isMergeRequest: isMr);
+      if (item == null) return;
+      final comments = await client.getNotes(projectPath, iid, isMergeRequest: isMr);
+      setState(() {
+        _gitlabIssueOrMr = item;
+        _gitlabComments = comments;
+      });
+    } catch (e) {
+      setState(() => _gitlabError = '$e');
+    } finally {
+      if (mounted) setState(() => _gitlabBusy = false);
+    }
+  }
+
+  Future<void> _gitlabAddComment() async {
+    final text = _gitlabNewCommentCtrl.text.trim();
+    if (text.isEmpty) return;
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'gitlab') return;
+    final client = _gitlabClientOrSetError(ext);
+    if (client == null) return;
+    final gl = data.gitlab;
+    final projectPath = (gl?.projectPath ?? '').trim();
+    final iid = gl?.iid;
+    if (projectPath.isEmpty || iid == null) return;
+    setState(() {
+      _gitlabBusy = true;
+      _gitlabError = null;
+    });
+    try {
+      await client.addNote(
+        projectPath,
+        iid,
+        isMergeRequest: gl?.isMergeRequest ?? false,
+        body: text,
+      );
+      _gitlabNewCommentCtrl.clear();
+      await _gitlabRefresh();
+    } catch (e) {
+      setState(() => _gitlabError = '$e');
+    } finally {
+      if (mounted) setState(() => _gitlabBusy = false);
+    }
+  }
+
+  Future<void> _gitlabResolveKeepRemote() async {
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'gitlab') return;
+    final client = _gitlabClientOrSetError(ext);
+    if (client == null) return;
+    final gl = data.gitlab;
+    final source = _gitlabSourceForPage();
+    final projectPath = (gl?.projectPath ?? source?.projectPath ?? '').trim();
+    final iid = gl?.iid;
+    final isMr = gl?.isMergeRequest ?? false;
+    if (projectPath.isEmpty || iid == null) return;
+    setState(() {
+      _gitlabBusy = true;
+      _gitlabError = null;
+    });
+    try {
+      final item = await _gitlabFindItem(client, projectPath, iid, isMergeRequest: isMr);
+      if (item == null) return;
+      final folioPriority = _mapGitLabPriorityFromLabels(
+        item.labels,
+        source?.priorityLabelMappings ?? const [],
+      );
+      final folioStatus = _mapGitLabColumnFromItem(
+        item,
+        source?.columnMappings ?? const [],
+      );
+      final tags = <String>[];
+      final seen = <String>{};
+      for (final l in item.labels) {
+        final name = l.name.trim();
+        if (name.isEmpty) continue;
+        if (seen.add(name.toLowerCase())) tags.add(name);
+      }
+
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: item.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      final next = data.copyWith(
+        title: item.title.trim(),
+        description: item.description,
+        priority: folioPriority,
+        status: folioStatus,
+        columnId: folioStatus,
+        assignee: item.assigneeUsername,
+        tags: tags,
+        external: nextExternal,
+        gitlab: _gitlabSnapshotFromIssueOrMr(item, projectPath: projectPath),
+      );
+
+      _emit(next);
+      final comments = await client.getNotes(projectPath, iid, isMergeRequest: isMr);
+      setState(() {
+        _gitlabIssueOrMr = item;
+        _gitlabComments = comments;
+      });
+    } catch (e) {
+      setState(() => _gitlabError = '$e');
+    } finally {
+      if (mounted) setState(() => _gitlabBusy = false);
+    }
+  }
+
+  Future<void> _gitlabResolveKeepLocalForcePush() async {
+    _flushPendingEmit();
+    final data = _data;
+    final ext = data?.external;
+    if (data == null || ext == null || ext.provider != 'gitlab') return;
+    final client = _gitlabClientOrSetError(ext);
+    if (client == null) return;
+    final gl = data.gitlab;
+    final source = _gitlabSourceForPage();
+    final projectPath = (gl?.projectPath ?? source?.projectPath ?? '').trim();
+    final iid = gl?.iid;
+    final isMr = gl?.isMergeRequest ?? false;
+    if (projectPath.isEmpty || iid == null) return;
+    setState(() {
+      _gitlabBusy = true;
+      _gitlabError = null;
+    });
+    try {
+      final remote = await _gitlabFindItem(client, projectPath, iid, isMergeRequest: isMr);
+
+      final effectiveColumn = (data.columnId ?? '').trim().isNotEmpty
+          ? data.columnId!.trim()
+          : data.status.trim();
+      final mapping = source?.columnMappings.firstWhereOrNull(
+        (m) => m.columnId.trim() == effectiveColumn,
+      );
+      final desiredState = mapping?.stateValue;
+      final stateEvent = _mapGitLabDesiredStateToStateEvent(
+        desiredState,
+        remote?.state ?? 'opened',
+      );
+
+      final columnLabelNames = source?.columnMappings
+              .map((m) => (m.labelName ?? '').trim())
+              .where((n) => n.isNotEmpty)
+              .toSet() ??
+          const <String>{};
+      final priorityLabelNames = source?.priorityLabelMappings
+              .map((m) => m.labelName.trim())
+              .toSet() ??
+          const <String>{};
+      final desiredColumnLabel = (mapping?.labelName ?? '').trim();
+      final desiredPriorityLabel = source == null
+          ? null
+          : _mapPriorityToGitLabLabelName(data.priority, source.priorityLabelMappings);
+
+      final nextLabels = (remote?.labels ?? const <GitLabLabel>[])
+          .map((l) => l.name)
+          .where((n) => !columnLabelNames.contains(n) && !priorityLabelNames.contains(n))
+          .toSet();
+      if (desiredColumnLabel.isNotEmpty) nextLabels.add(desiredColumnLabel);
+      if (desiredPriorityLabel != null) nextLabels.add(desiredPriorityLabel);
+
+      await client.updateIssueOrMr(
+        projectPath,
+        iid,
+        isMergeRequest: isMr,
+        title: data.title.trim(),
+        stateEvent: stateEvent,
+        labels: nextLabels.toList(),
+      );
+
+      final updatedRemote =
+          await _gitlabFindItem(client, projectPath, iid, isMergeRequest: isMr) ?? remote;
+      if (updatedRemote == null) return;
+
+      final nextExternal = ext.copyWith(
+        remoteUpdatedAtMs: updatedRemote.updatedAtMs,
+        lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
+        syncState: 'ok',
+      );
+
+      _emit(
+        data.copyWith(
+          external: nextExternal,
+          gitlab: _gitlabSnapshotFromIssueOrMr(updatedRemote, projectPath: projectPath),
+        ),
+      );
+      final comments = await client.getNotes(projectPath, iid, isMergeRequest: isMr);
+      setState(() {
+        _gitlabIssueOrMr = updatedRemote;
+        _gitlabComments = comments;
+      });
+    } catch (e) {
+      setState(() => _gitlabError = '$e');
+    } finally {
+      if (mounted) setState(() => _gitlabBusy = false);
     }
   }
 
@@ -1567,6 +2285,33 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     return Uri.tryParse('https://trello.com/c/$cardId');
   }
 
+  Uri? _githubBrowseUri(FolioTaskData data) {
+    final ext = data.external;
+    if (ext == null || ext.provider != 'github') return null;
+    final fromSnap = (data.github?.htmlUrl ?? '').trim();
+    if (fromSnap.isNotEmpty) return Uri.tryParse(fromSnap);
+    final fromLive = (_githubIssue?.htmlUrl ?? '').trim();
+    if (fromLive.isNotEmpty) return Uri.tryParse(fromLive);
+    final owner = (data.github?.owner ?? '').trim();
+    final repo = (data.github?.repo ?? '').trim();
+    final number = data.github?.number;
+    if (owner.isEmpty || repo.isEmpty || number == null) return null;
+    final kind = (data.github?.isPullRequest ?? false) ? 'pull' : 'issues';
+    return Uri.tryParse('https://github.com/$owner/$repo/$kind/$number');
+  }
+
+  Uri? _gitlabBrowseUri(FolioTaskData data) {
+    final ext = data.external;
+    if (ext == null || ext.provider != 'gitlab') return null;
+    // GitLab expone `web_url` directamente en la API, así que no hace falta
+    // reconstruir la URL a mano salvo que aún no haya snapshot ni dato en vivo.
+    final fromSnap = (data.gitlab?.webUrl ?? '').trim();
+    if (fromSnap.isNotEmpty) return Uri.tryParse(fromSnap);
+    final fromLive = (_gitlabIssueOrMr?.webUrl ?? '').trim();
+    if (fromLive.isNotEmpty) return Uri.tryParse(fromLive);
+    return null;
+  }
+
   DateTime? _parseIso(String? iso) {
     if (iso == null || iso.trim().isEmpty) return null;
     return DateTime.tryParse(iso.trim());
@@ -1799,6 +2544,118 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                               Expanded(
                                 child: Text(
                                   l10n.trelloBannerLabel(label),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: uri == null
+                                    ? null
+                                    : () async {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                label: Text(l10n.taskHubOpen),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : null;
+
+              // GitHub link banner
+              final githubBanner = data.external?.provider == 'github'
+                  ? Builder(
+                      builder: (ctx) {
+                        final ext = data.external!;
+                        final uri = _githubBrowseUri(data);
+                        final label = (ext.issueKey ?? '').trim().isNotEmpty
+                            ? ext.issueKey!.trim()
+                            : ext.issueId;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(FolioRadius.md),
+                            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Image(
+                                  image: AssetImage('appLogos/github.png'),
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  l10n.githubBannerLabel(label),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: uri == null
+                                    ? null
+                                    : () async {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                label: Text(l10n.taskHubOpen),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : null;
+
+              // GitLab link banner
+              final gitlabBanner = data.external?.provider == 'gitlab'
+                  ? Builder(
+                      builder: (ctx) {
+                        final ext = data.external!;
+                        final uri = _gitlabBrowseUri(data);
+                        final label = (ext.issueKey ?? '').trim().isNotEmpty
+                            ? ext.issueKey!.trim()
+                            : ext.issueId;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(FolioRadius.md),
+                            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Image(
+                                  image: AssetImage('appLogos/gitlab.png'),
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  l10n.gitlabBannerLabel(label),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -2222,6 +3079,40 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                     )
                   : null;
 
+              // GitHub sync/comments section
+              final githubDetailsSection = data.external?.provider == 'github'
+                  ? _GitHubDetailsSection(
+                      scheme: scheme,
+                      data: data,
+                      busy: _githubBusy,
+                      error: _githubError,
+                      issue: _githubIssue,
+                      comments: _githubComments,
+                      newCommentCtrl: _githubNewCommentCtrl,
+                      onRefresh: _githubRefresh,
+                      onResolveKeepRemote: _githubResolveKeepRemote,
+                      onResolveKeepLocalForcePush: _githubResolveKeepLocalForcePush,
+                      onAddComment: _githubAddComment,
+                    )
+                  : null;
+
+              // GitLab sync/comments section
+              final gitlabDetailsSection = data.external?.provider == 'gitlab'
+                  ? _GitLabDetailsSection(
+                      scheme: scheme,
+                      data: data,
+                      busy: _gitlabBusy,
+                      error: _gitlabError,
+                      issueOrMr: _gitlabIssueOrMr,
+                      comments: _gitlabComments,
+                      newCommentCtrl: _gitlabNewCommentCtrl,
+                      onRefresh: _gitlabRefresh,
+                      onResolveKeepRemote: _gitlabResolveKeepRemote,
+                      onResolveKeepLocalForcePush: _gitlabResolveKeepLocalForcePush,
+                      onAddComment: _gitlabAddComment,
+                    )
+                  : null;
+
               // Subtasks section: inline FolioTaskSubtask (Trello/kanban) +
               // child task blocks (Jira parentTaskId).
               final inlineSubtasks = data.subtasks;
@@ -2392,6 +3283,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                 if (ytBanner != null) ytBanner,
                                 if (jiraBanner != null) jiraBanner,
                                 if (trelloBanner != null) trelloBanner,
+                                if (githubBanner != null) githubBanner,
+                                if (gitlabBanner != null) gitlabBanner,
                                 titleField,
                                 const SizedBox(height: 10),
                                 descField,
@@ -2408,6 +3301,14 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                 if (trelloDetailsSection != null) ...[
                                   const SizedBox(height: 10),
                                   trelloDetailsSection,
+                                ],
+                                if (githubDetailsSection != null) ...[
+                                  const SizedBox(height: 10),
+                                  githubDetailsSection,
+                                ],
+                                if (gitlabDetailsSection != null) ...[
+                                  const SizedBox(height: 10),
+                                  gitlabDetailsSection,
                                 ],
                                 const SizedBox(height: FolioSpace.md),
                               ],
@@ -2475,6 +3376,16 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                     if (trelloBanner != null) trelloBanner,
                     if (trelloDetailsSection != null) ...[
                       trelloDetailsSection,
+                      const SizedBox(height: 10),
+                    ],
+                    if (githubBanner != null) githubBanner,
+                    if (githubDetailsSection != null) ...[
+                      githubDetailsSection,
+                      const SizedBox(height: 10),
+                    ],
+                    if (gitlabBanner != null) gitlabBanner,
+                    if (gitlabDetailsSection != null) ...[
+                      gitlabDetailsSection,
                       const SizedBox(height: 10),
                     ],
                     titleField,
@@ -3746,6 +4657,704 @@ class _TrelloDetailsSection extends StatelessWidget {
                   controller: newCommentCtrl,
                   decoration: InputDecoration(
                     hintText: l10n.trelloAddCommentHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: busy ? null : onAddComment,
+                icon: const Icon(Icons.send_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GitHubDetailsSection extends StatelessWidget {
+  const _GitHubDetailsSection({
+    required this.scheme,
+    required this.data,
+    required this.busy,
+    required this.error,
+    required this.issue,
+    required this.comments,
+    required this.newCommentCtrl,
+    required this.onRefresh,
+    required this.onResolveKeepRemote,
+    required this.onResolveKeepLocalForcePush,
+    required this.onAddComment,
+  });
+
+  final ColorScheme scheme;
+  final FolioTaskData data;
+  final bool busy;
+  final String? error;
+  final GitHubIssue? issue;
+  final List<GitHubComment> comments;
+  final TextEditingController newCommentCtrl;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onResolveKeepRemote;
+  final Future<void> Function() onResolveKeepLocalForcePush;
+  final Future<void> Function() onAddComment;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final ext = data.external!;
+    final snap = data.github;
+    final state = (ext.syncState ?? 'ok').trim().isEmpty
+        ? 'ok'
+        : ext.syncState!.trim();
+    Color stateColor() => switch (state) {
+      'conflict' => scheme.error,
+      'needsPush' => scheme.tertiary,
+      'needsPull' => scheme.secondary,
+      _ => scheme.primary,
+    };
+
+    Widget pill(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: stateColor().withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: stateColor().withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: stateColor(),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: Image(
+                  image: AssetImage('appLogos/github.png'),
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.githubDetailsTitle,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              pill(state),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onRefresh,
+                icon: busy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(l10n.githubRefresh),
+              ),
+            ],
+          ),
+          if (state == 'conflict') ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.githubConflictMessage,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (ctx) {
+                      String norm(String? s) => (s ?? '').trim();
+                      String cut(String s, {int max = 120}) {
+                        final t = s.trim();
+                        if (t.isEmpty) return '—';
+                        if (t.length <= max) return t;
+                        return '${t.substring(0, max)}…';
+                      }
+
+                      Widget diffRow(String label, String folio, String remote) {
+                        final same = folio.trim() == remote.trim();
+                        final folioText =
+                            folio.trim().isEmpty ? '—' : folio.trim();
+                        final remoteText =
+                            remote.trim().isEmpty ? '—' : remote.trim();
+                        final baseStyle =
+                            Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                  color: scheme.onErrorContainer
+                                      .withValues(alpha: 0.92),
+                                );
+                        final hi = Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: scheme.onErrorContainer,
+                              fontWeight: FontWeight.w800,
+                            );
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: scheme.surface.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: same
+                                  ? scheme.outlineVariant
+                                      .withValues(alpha: 0.35)
+                                  : scheme.error.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                label,
+                                style: Theme.of(ctx)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: scheme.onErrorContainer,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Folio: $folioText',
+                                style: same ? baseStyle : hi,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'GitHub: $remoteText',
+                                style: baseStyle,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final remote = issue;
+                      if (remote == null) {
+                        return Text(
+                          l10n.githubConflictLoadHint,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer
+                                    .withValues(alpha: 0.9),
+                              ),
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          diffRow(
+                            l10n.title,
+                            norm(data.title),
+                            norm(remote.title),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.description,
+                            cut(norm(data.description), max: 140),
+                            cut(norm(remote.body), max: 140),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.kanbanStatusColumn,
+                            norm(data.columnId ?? data.status),
+                            norm(remote.state),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: onResolveKeepRemote,
+                                  child: Text(l10n.githubKeepRemote),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: onResolveKeepLocalForcePush,
+                                  child: Text(l10n.githubForceFolio),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: TextStyle(color: scheme.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (snap?.number != null) _Tag(label: '#${snap!.number}'),
+              _Tag(label: (snap?.isPullRequest ?? false) ? 'PR' : 'Issue'),
+              if ((snap?.state ?? '').trim().isNotEmpty)
+                _Tag(
+                  label: '${l10n.githubStateHint}: '
+                      '${snap!.state == 'closed' ? l10n.githubStateClosed : l10n.githubStateOpen}',
+                ),
+              if ((snap?.labels ?? '').trim().isNotEmpty)
+                _Tag(label: '${l10n.githubLabelHint}: ${snap!.labels}'),
+              if ((snap?.assigneeLogin ?? '').trim().isNotEmpty)
+                _Tag(label: snap!.assigneeLogin!),
+            ],
+          ),
+          const Divider(height: 24),
+          Text(
+            l10n.githubCommentsTitle,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (comments.isNotEmpty) ...[
+            for (final c in comments)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          c.authorLogin.isEmpty
+                              ? l10n.githubDetailsTitle
+                              : c.authorLogin,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (c.createdMs > 0)
+                          Text(
+                            DateTime.fromMillisecondsSinceEpoch(c.createdMs)
+                                .toString()
+                                .substring(0, 16),
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(c.body, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+          ] else
+            Text(
+              l10n.githubNoComments,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: newCommentCtrl,
+                  decoration: InputDecoration(
+                    hintText: l10n.githubAddCommentHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: busy ? null : onAddComment,
+                icon: const Icon(Icons.send_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GitLabDetailsSection extends StatelessWidget {
+  const _GitLabDetailsSection({
+    required this.scheme,
+    required this.data,
+    required this.busy,
+    required this.error,
+    required this.issueOrMr,
+    required this.comments,
+    required this.newCommentCtrl,
+    required this.onRefresh,
+    required this.onResolveKeepRemote,
+    required this.onResolveKeepLocalForcePush,
+    required this.onAddComment,
+  });
+
+  final ColorScheme scheme;
+  final FolioTaskData data;
+  final bool busy;
+  final String? error;
+  final GitLabIssueOrMr? issueOrMr;
+  final List<GitLabNote> comments;
+  final TextEditingController newCommentCtrl;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onResolveKeepRemote;
+  final Future<void> Function() onResolveKeepLocalForcePush;
+  final Future<void> Function() onAddComment;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final ext = data.external!;
+    final snap = data.gitlab;
+    final state = (ext.syncState ?? 'ok').trim().isEmpty
+        ? 'ok'
+        : ext.syncState!.trim();
+    Color stateColor() => switch (state) {
+      'conflict' => scheme.error,
+      'needsPush' => scheme.tertiary,
+      'needsPull' => scheme.secondary,
+      _ => scheme.primary,
+    };
+
+    Widget pill(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: stateColor().withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: stateColor().withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: stateColor(),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: Image(
+                  image: AssetImage('appLogos/gitlab.png'),
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.gitlabDetailsTitle,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              pill(state),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onRefresh,
+                icon: busy
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(l10n.gitlabRefresh),
+              ),
+            ],
+          ),
+          if (state == 'conflict') ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.gitlabConflictMessage,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (ctx) {
+                      String norm(String? s) => (s ?? '').trim();
+                      String cut(String s, {int max = 120}) {
+                        final t = s.trim();
+                        if (t.isEmpty) return '—';
+                        if (t.length <= max) return t;
+                        return '${t.substring(0, max)}…';
+                      }
+
+                      Widget diffRow(String label, String folio, String remote) {
+                        final same = folio.trim() == remote.trim();
+                        final folioText =
+                            folio.trim().isEmpty ? '—' : folio.trim();
+                        final remoteText =
+                            remote.trim().isEmpty ? '—' : remote.trim();
+                        final baseStyle =
+                            Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                  color: scheme.onErrorContainer
+                                      .withValues(alpha: 0.92),
+                                );
+                        final hi = Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: scheme.onErrorContainer,
+                              fontWeight: FontWeight.w800,
+                            );
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: scheme.surface.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: same
+                                  ? scheme.outlineVariant
+                                      .withValues(alpha: 0.35)
+                                  : scheme.error.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                label,
+                                style: Theme.of(ctx)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: scheme.onErrorContainer,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Folio: $folioText',
+                                style: same ? baseStyle : hi,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'GitLab: $remoteText',
+                                style: baseStyle,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final remote = issueOrMr;
+                      if (remote == null) {
+                        return Text(
+                          l10n.gitlabConflictLoadHint,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer
+                                    .withValues(alpha: 0.9),
+                              ),
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          diffRow(
+                            l10n.title,
+                            norm(data.title),
+                            norm(remote.title),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.description,
+                            cut(norm(data.description), max: 140),
+                            cut(norm(remote.description), max: 140),
+                          ),
+                          const SizedBox(height: 8),
+                          diffRow(
+                            l10n.kanbanStatusColumn,
+                            norm(data.columnId ?? data.status),
+                            norm(remote.state),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: onResolveKeepRemote,
+                                  child: Text(l10n.gitlabKeepRemote),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: onResolveKeepLocalForcePush,
+                                  child: Text(l10n.gitlabForceFolio),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: TextStyle(color: scheme.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (snap?.iid != null) _Tag(label: '#${snap!.iid}'),
+              _Tag(label: (snap?.isMergeRequest ?? false) ? 'MR' : 'Issue'),
+              if ((snap?.state ?? '').trim().isNotEmpty)
+                _Tag(
+                  label: '${l10n.gitlabStateHint}: '
+                      '${snap!.state == 'closed' ? l10n.gitlabStateClosed : l10n.gitlabStateOpen}',
+                ),
+              if ((snap?.labels ?? '').trim().isNotEmpty)
+                _Tag(label: '${l10n.gitlabLabelHint}: ${snap!.labels}'),
+              if ((snap?.assigneeUsername ?? '').trim().isNotEmpty)
+                _Tag(label: snap!.assigneeUsername!),
+            ],
+          ),
+          const Divider(height: 24),
+          Text(
+            l10n.gitlabCommentsTitle,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (comments.isNotEmpty) ...[
+            for (final c in comments)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          c.authorUsername.isEmpty
+                              ? l10n.gitlabDetailsTitle
+                              : c.authorUsername,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (c.createdMs > 0)
+                          Text(
+                            DateTime.fromMillisecondsSinceEpoch(c.createdMs)
+                                .toString()
+                                .substring(0, 16),
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(c.body, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+          ] else
+            Text(
+              l10n.gitlabNoComments,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: newCommentCtrl,
+                  decoration: InputDecoration(
+                    hintText: l10n.gitlabAddCommentHint,
                     border: const OutlineInputBorder(),
                     isDense: true,
                   ),

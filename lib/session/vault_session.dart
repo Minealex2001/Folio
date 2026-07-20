@@ -44,6 +44,8 @@ import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
 import '../models/trello_integration_state.dart';
+import '../models/github_integration_state.dart';
+import '../models/gitlab_integration_state.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -363,6 +365,8 @@ class VaultSession extends ChangeNotifier {
   JiraIntegrationState _jira = JiraIntegrationState.empty;
   YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
   TrelloIntegrationState _trello = TrelloIntegrationState.empty;
+  GitHubIntegrationState _github = GitHubIntegrationState.empty;
+  GitLabIntegrationState _gitlab = GitLabIntegrationState.empty;
   String? _selectedPageId;
   final WorkspaceNavigationHistory _navigationHistory =
       WorkspaceNavigationHistory();
@@ -556,6 +560,12 @@ class VaultSession extends ChangeNotifier {
   TrelloIntegrationState get trelloIntegrationState => _trello;
   List<TrelloConnection> get trelloConnections => _trello.connections;
   List<TrelloSource> get trelloSources => _trello.sources;
+  GitHubIntegrationState get githubIntegrationState => _github;
+  List<GitHubConnection> get githubConnections => _github.connections;
+  List<GitHubSource> get githubSources => _github.sources;
+  GitLabIntegrationState get gitlabIntegrationState => _gitlab;
+  List<GitLabConnection> get gitlabConnections => _gitlab.connections;
+  List<GitLabSource> get gitlabSources => _gitlab.sources;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -974,6 +984,8 @@ class VaultSession extends ChangeNotifier {
     _jira = payload.jira;
     _youtrack = payload.youtrack;
     _trello = payload.trello;
+    _github = payload.github;
+    _gitlab = payload.gitlab;
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
@@ -1161,6 +1173,128 @@ class VaultSession extends ChangeNotifier {
     final next = _trello.sources.where((s) => s.id != sourceId).toList();
     _trello = TrelloIntegrationState(
       connections: _trello.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitHubConnection(GitHubConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitHubConnection>.from(_github.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _github = GitHubIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _github.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitHubConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _github.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _github.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _github = GitHubIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitHubSource(GitHubSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitHubSource>.from(_github.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _github = GitHubIntegrationState(
+      connections: _github.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitHubSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _github.sources.where((s) => s.id != sourceId).toList();
+    _github = GitHubIntegrationState(
+      connections: _github.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitLabConnection(GitLabConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitLabConnection>.from(_gitlab.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _gitlab = GitLabIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _gitlab.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitLabConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _gitlab.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _gitlab.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _gitlab = GitLabIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitLabSource(GitLabSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitLabSource>.from(_gitlab.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _gitlab = GitLabIntegrationState(
+      connections: _gitlab.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitLabSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _gitlab.sources.where((s) => s.id != sourceId).toList();
+    _gitlab = GitLabIntegrationState(
+      connections: _gitlab.connections,
       sources: List.unmodifiable(next),
     );
     notifyListeners();
@@ -5462,6 +5596,8 @@ class VaultSession extends ChangeNotifier {
       jira: _jira,
       youtrack: _youtrack,
       trello: _trello,
+      github: _github,
+      gitlab: _gitlab,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
       mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
