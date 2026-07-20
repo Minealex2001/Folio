@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
@@ -11,26 +10,19 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
-import '../../core/errors/folio_exception.dart';
 import '../../firebase_options.dart';
 import '../../models/spotify_integration_state.dart';
-import '../folio_cloud/folio_cloud_callable.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
+import '../folio_cloud/folio_cloud_callable.dart';
 import 'spotify_auth_config.dart';
+import 'spotify_auth_errors.dart';
+import 'spotify_oauth_loopback_io.dart'
+    if (dart.library.html) 'spotify_oauth_loopback_stub.dart' as loopback;
+import 'spotify_oauth_web_stub.dart'
+    if (dart.library.html) 'spotify_oauth_web.dart' as web_oauth;
 
-class SpotifyAuthCancelledException extends FolioException {
-  const SpotifyAuthCancelledException() : super('OAuth cancelado por el usuario.');
-}
-
-class SpotifyAuthCancelToken {
-  final Completer<void> _c = Completer<void>();
-  bool get isCancelled => _c.isCompleted;
-  Future<void> get whenCancelled => _c.future;
-  void cancel() {
-    if (!_c.isCompleted) _c.complete();
-  }
-}
+export 'spotify_auth_errors.dart';
 
 class SpotifyAuthService {
   SpotifyAuthService({http.Client? client}) : _client = client ?? http.Client();
@@ -40,24 +32,19 @@ class SpotifyAuthService {
 
   static String overrideClientId = '';
 
-  static String _readEnv(String key) {
-    final define = String.fromEnvironment(key).trim();
-    if (define.isNotEmpty) return define;
-    final fromDart = FolioLocalSecrets.valueForDefineKey(key).trim();
-    if (fromDart.isNotEmpty) return fromDart;
-    if (!kIsWeb) {
-      final local = (LocalEnv.get(key) ?? '').trim();
-      if (local.isNotEmpty) return local;
-      return (Platform.environment[key] ?? '').trim();
-    }
-    return '';
-  }
-
   static String spotifyClientId() {
     final override = overrideClientId.trim();
     if (override.isNotEmpty) return override;
-    final env = _readEnv('SPOTIFY_OAUTH_CLIENT_ID');
-    if (env.isNotEmpty) return env;
+    // Debe ser `const`: en Web/JS `String.fromEnvironment` no-const lanza.
+    const define = String.fromEnvironment('SPOTIFY_OAUTH_CLIENT_ID');
+    final fromDefine = define.trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+    final fromDart = FolioLocalSecrets.spotifyOAuthClientId.trim();
+    if (fromDart.isNotEmpty) return fromDart;
+    final local = (LocalEnv.get('SPOTIFY_OAUTH_CLIENT_ID') ?? '').trim();
+    if (local.isNotEmpty) return local;
+    final fromOs = loopback.readOsEnv('SPOTIFY_OAUTH_CLIENT_ID');
+    if (fromOs.isNotEmpty) return fromOs;
     return SpotifyAuthConfig.officialClientId;
   }
 
@@ -68,9 +55,17 @@ class SpotifyAuthService {
     SpotifyAuthCancelToken? cancelToken,
   }) async {
     if (kIsWeb) {
-      return _connectWeb(label: label, scopes: scopes, cancelToken: cancelToken);
+      return _connectWeb(
+        label: label,
+        scopes: scopes,
+        cancelToken: cancelToken,
+      );
     }
-    return _connectLoopback(label: label, scopes: scopes, cancelToken: cancelToken);
+    return _connectLoopback(
+      label: label,
+      scopes: scopes,
+      cancelToken: cancelToken,
+    );
   }
 
   Future<SpotifyConnection> _connectLoopback({
@@ -86,23 +81,7 @@ class SpotifyAuthService {
       );
     }
 
-    HttpServer server;
-    try {
-      server = await HttpServer.bind(
-        InternetAddress.loopbackIPv4,
-        SpotifyAuthConfig.oauthLoopbackPort,
-        shared: false,
-      );
-    } catch (e) {
-      throw StateError(
-        'No se pudo abrir el callback OAuth en '
-        '${SpotifyAuthConfig.loopbackRedirectUri}. '
-        'Comprueba que el puerto ${SpotifyAuthConfig.oauthLoopbackPort} esté libre. '
-        'Detalle: $e',
-      );
-    }
     final redirectUri = SpotifyAuthConfig.loopbackRedirectUri;
-
     final state = _randomToken(16);
     final codeVerifier = _randomToken(64);
     final codeChallenge = await _pkceCodeChallenge(codeVerifier);
@@ -123,22 +102,25 @@ class SpotifyAuthService {
       context: {'redirectUri': redirectUri.toString()},
     );
 
+    // Bind del servidor antes de abrir el navegador.
+    final codeFuture = loopback.awaitLoopbackOAuthCode(
+      port: SpotifyAuthConfig.oauthLoopbackPort,
+      expectedState: state,
+      whenCancelled: cancelToken?.whenCancelled,
+    );
+
     final opened =
         await launchUrl(authUri, mode: LaunchMode.externalApplication) ||
         await launchUrl(authUri, mode: LaunchMode.platformDefault);
     if (!opened) {
-      await server.close(force: true);
+      cancelToken?.cancel();
       throw StateError(
         'No se pudo abrir el navegador para OAuth de Spotify. '
         'Abre manualmente esta URL:\n$authUri',
       );
     }
 
-    final code = await _awaitOAuthCode(
-      server,
-      expectedState: state,
-      cancelToken: cancelToken,
-    );
+    final code = await codeFuture;
 
     final tokenJson = await _exchangeCode(
       code: code,
@@ -164,16 +146,19 @@ class SpotifyAuthService {
       throw StateError('Falta SPOTIFY_OAUTH_CLIENT_ID para OAuth en Web.');
     }
     if (Firebase.apps.isEmpty) {
-      throw StateError('Firebase no está inicializado (requerido para OAuth Web).');
+      throw StateError(
+        'Firebase no está inicializado (requerido para OAuth Web).',
+      );
     }
 
     final state = _randomToken(16);
     final codeVerifier = _randomToken(64);
     final codeChallenge = await _pkceCodeChallenge(codeVerifier);
 
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
+    // Misma origen que Folio → localStorage/postMessage funcionan.
+    // Registrar en Spotify Dashboard: {origin}/spotify_oauth_callback.html
     final redirectUri = Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioSpotifyOAuthCallback',
+      '${Uri.base.origin}/spotify_oauth_callback.html',
     );
 
     final authUri = Uri.https('accounts.spotify.com', '/authorize', {
@@ -186,21 +171,42 @@ class SpotifyAuthService {
       'code_challenge': codeChallenge,
     });
 
-    final opened =
-        await launchUrl(authUri, mode: LaunchMode.platformDefault) ||
-        await launchUrl(authUri, mode: LaunchMode.externalApplication);
+    web_oauth.clearPendingOAuthResult();
+
+    AppLogger.info(
+      'Launching Spotify OAuth (web)',
+      tag: 'spotify',
+      context: {'redirectUri': redirectUri.toString()},
+    );
+
+    final codeFuture = web_oauth.awaitWebOAuthCode(
+      expectedState: state,
+      whenCancelled: cancelToken?.whenCancelled,
+    );
+
+    final opened = await launchUrl(
+      authUri,
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
     if (!opened) {
+      cancelToken?.cancel();
       throw StateError('No se pudo abrir el navegador para OAuth de Spotify.');
     }
 
-    // Esperar código vía localStorage polling o postMessage — simplificado:
-    // en Web usamos intercambio manual con popup que redirige a callback CF
-    // que guarda en query y el usuario pega el code (fallback) o usamos
-    // window listener. Para v1 usamos el mismo patrón que loopback vía
-    // folioSpotifyExchangeOAuth con code obtenido del callback page.
-    throw UnimplementedError(
-      'OAuth Web de Spotify: completa el flujo en el navegador y usa desktop '
-      'o espera folioSpotifyOAuthCallback (Cloud Function).',
+    final code = await codeFuture;
+
+    final tokenJson = await _exchangeCodeViaCloud(
+      code: code,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      codeVerifier: codeVerifier,
+    );
+
+    return _connectionFromTokenJson(
+      tokenJson: tokenJson,
+      label: label,
+      accessTokenOverride: null,
     );
   }
 
@@ -210,7 +216,8 @@ class SpotifyAuthService {
     String? accessTokenOverride,
   }) async {
     final accessToken =
-        (accessTokenOverride ?? tokenJson['access_token'] as String? ?? '').trim();
+        (accessTokenOverride ?? tokenJson['access_token'] as String? ?? '')
+            .trim();
     final refreshToken = (tokenJson['refresh_token'] as String? ?? '').trim();
     final expiresIn = (tokenJson['expires_in'] as num?)?.toInt() ?? 3600;
     if (accessToken.isEmpty) {
@@ -260,6 +267,13 @@ class SpotifyAuthService {
     if (cid.isEmpty) {
       throw StateError('Falta SPOTIFY_OAUTH_CLIENT_ID.');
     }
+    if (kIsWeb && Firebase.apps.isNotEmpty) {
+      // En Web el token endpoint de Spotify suele bloquear CORS; usamos proxy.
+      return _exchangeRefreshViaCloud(
+        refreshToken: refreshToken,
+        clientId: cid,
+      );
+    }
     final resp = await _client
         .post(
           Uri.https('accounts.spotify.com', '/api/token'),
@@ -283,12 +297,61 @@ class SpotifyAuthService {
     return Map<String, dynamic>.from(decoded);
   }
 
+  Future<Map<String, dynamic>> _exchangeRefreshViaCloud({
+    required String refreshToken,
+    required String clientId,
+  }) async {
+    // Reutilizamos el mismo endpoint de intercambio con grant distinto si
+    // el CF lo soporta; si no, intentamos refresh directo (puede fallar CORS).
+    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
+    final uri = Uri.parse(
+      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioSpotifyExchangeOAuth',
+    );
+    final resp = await _client
+        .post(
+          uri,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+          body: jsonEncode({
+            'grantType': 'refresh_token',
+            'refreshToken': refreshToken,
+            'clientId': clientId,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+    late final Map<String, dynamic> mapTry;
+    try {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! Map) throw StateError('bad shape');
+      mapTry = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      throw StateError(
+        'Respuesta inválida del servidor Spotify refresh (${resp.statusCode}): ${resp.body}',
+      );
+    }
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      final err =
+          mapTry['error']?.toString() ?? mapTry['body']?.toString() ?? resp.body;
+      throw StateError(
+        'Refresh Spotify vía servidor falló (${resp.statusCode}): $err',
+      );
+    }
+    return mapTry;
+  }
+
   Future<Map<String, dynamic>> _exchangeCode({
     required String code,
     required String clientId,
     required Uri redirectUri,
     required String codeVerifier,
   }) async {
+    if (kIsWeb && Firebase.apps.isNotEmpty) {
+      return _exchangeCodeViaCloud(
+        code: code,
+        clientId: clientId,
+        redirectUri: redirectUri,
+        codeVerifier: codeVerifier,
+      );
+    }
     final resp = await _client
         .post(
           Uri.https('accounts.spotify.com', '/api/token'),
@@ -303,14 +366,6 @@ class SpotifyAuthService {
         )
         .timeout(const Duration(seconds: 30));
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      if (kIsWeb && Firebase.apps.isNotEmpty) {
-        return _exchangeCodeViaCloud(
-          code: code,
-          clientId: clientId,
-          redirectUri: redirectUri,
-          codeVerifier: codeVerifier,
-        );
-      }
       throw StateError(
         'OAuth token exchange falló (${resp.statusCode}): ${resp.body}',
       );
@@ -362,98 +417,6 @@ class SpotifyAuthService {
       );
     }
     return mapTry;
-  }
-
-  Future<String> _awaitOAuthCode(
-    HttpServer server, {
-    required String expectedState,
-    SpotifyAuthCancelToken? cancelToken,
-  }) async {
-    final completer = Completer<String>();
-    late StreamSubscription<HttpRequest> sub;
-    sub = server.listen((request) async {
-      try {
-        if (request.uri.path != '/callback') {
-          request.response.statusCode = HttpStatus.notFound;
-          await request.response.close();
-          return;
-        }
-        final state = (request.uri.queryParameters['state'] ?? '').trim();
-        final code = (request.uri.queryParameters['code'] ?? '').trim();
-        final err = (request.uri.queryParameters['error'] ?? '').trim();
-        if (state != expectedState) {
-          request.response.statusCode = HttpStatus.badRequest;
-          request.response.headers.contentType = ContentType.html;
-          request.response.write('<h2>OAuth error</h2><p>Invalid state.</p>');
-          await request.response.close();
-          return;
-        }
-        if (err.isNotEmpty) {
-          request.response.statusCode = HttpStatus.ok;
-          request.response.headers.contentType = ContentType.html;
-          request.response.write(
-            '<h2>OAuth cancelado</h2><p>$err</p><p>Puedes cerrar esta pestaña.</p>',
-          );
-          await request.response.close();
-          if (!completer.isCompleted) {
-            completer.completeError(const SpotifyAuthCancelledException());
-          }
-          return;
-        }
-        if (code.isEmpty) {
-          request.response.statusCode = HttpStatus.badRequest;
-          request.response.headers.contentType = ContentType.html;
-          request.response.write('<h2>OAuth error</h2><p>Missing code.</p>');
-          await request.response.close();
-          return;
-        }
-        request.response.statusCode = HttpStatus.ok;
-        request.response.headers.contentType = ContentType.html;
-        request.response.write(
-          '<h2>Conectado</h2><p>Ya puedes volver a Folio. Puedes cerrar esta pestaña.</p>',
-        );
-        await request.response.close();
-        if (!completer.isCompleted) completer.complete(code);
-      } catch (e) {
-        if (!completer.isCompleted) completer.completeError(e);
-      } finally {
-        await sub.cancel();
-        await server.close(force: true);
-      }
-    });
-
-    Future<String> waitForCode() async {
-      return completer.future.timeout(
-        const Duration(minutes: 5),
-        onTimeout: () async {
-          await sub.cancel();
-          await server.close(force: true);
-          throw TimeoutException('Timeout esperando callback OAuth Spotify.');
-        },
-      );
-    }
-
-    if (cancelToken == null) return waitForCode();
-
-    try {
-      final result = await Future.any<Object>([
-        waitForCode(),
-        cancelToken.whenCancelled.then<Object>(
-          (_) => const SpotifyAuthCancelledException(),
-        ),
-      ]);
-      if (result is SpotifyAuthCancelledException) throw result;
-      return result as String;
-    } finally {
-      if (cancelToken.isCancelled) {
-        try {
-          await sub.cancel();
-        } catch (_) {}
-        try {
-          await server.close(force: true);
-        } catch (_) {}
-      }
-    }
   }
 
   static String _randomToken(int byteLength) {

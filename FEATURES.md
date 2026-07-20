@@ -992,9 +992,14 @@ Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integrat
 ### Cuenta conectada (OAuth 2.0 + PKCE)
 
 - Conexión en **Ajustes → Integraciones → Música → Spotify** (loopback `http://127.0.0.1:45748/callback` en escritorio).
+- En **Web**: redirect a `{origin}/spotify_oauth_callback.html` (misma origen; `postMessage` + `localStorage`); intercambio de tokens vía `folioSpotifyExchangeOAuth` (CORS). Redirect URIs a registrar en Spotify Developer Dashboard:
+  - `https://foliobeta.minealexgames.com/spotify_oauth_callback.html` (beta)
+  - `https://folio.minealexgames.com/spotify_oauth_callback.html` (producción)
+  - `http://localhost:PUERTO/spotify_oauth_callback.html` (solo `flutter run -d chrome`)
 - Tokens (`accessToken`, `refreshToken`, `expiresAt`) en vault **v13** (`spotify` en `VaultPayload`).
 - Scopes: reproducción, now playing, playlists privadas del usuario.
 - **Premium** y **dispositivo activo** requeridos para control de reproducción vía Web API.
+- Client ID: `--dart-define=SPOTIFY_OAUTH_CLIENT_ID=…` (const), `folio_local_secrets.dart`, o `.env` en escritorio.
 
 ### Reproducción y modo zen
 

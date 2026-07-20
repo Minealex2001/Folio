@@ -34,11 +34,50 @@ function isValidLoopbackRedirect(redirectUri) {
         return false;
     }
 }
+function isValidCloudCallbackRedirect(redirectUri) {
+    try {
+        const u = new URL(redirectUri);
+        return (u.protocol === "https:" &&
+            u.hostname.endsWith(".cloudfunctions.net") &&
+            (u.pathname === "/folioSpotifyOAuthCallback" ||
+                u.pathname.endsWith("/folioSpotifyOAuthCallback")));
+    }
+    catch {
+        return false;
+    }
+}
+function isValidFolioWebCallbackRedirect(redirectUri) {
+    try {
+        const u = new URL(redirectUri);
+        const pathOk = u.pathname === "/spotify_oauth_callback.html" ||
+            u.pathname.endsWith("/spotify_oauth_callback.html");
+        if (!pathOk)
+            return false;
+        const host = u.hostname.toLowerCase();
+        if (host === "foliobeta.minealexgames.com" ||
+            host === "folio.minealexgames.com") {
+            return u.protocol === "https:";
+        }
+        if (u.protocol === "http:" &&
+            (host === "localhost" || host === "127.0.0.1")) {
+            return true;
+        }
+        return false;
+    }
+    catch {
+        return false;
+    }
+}
+function isValidRedirect(redirectUri) {
+    return (isValidLoopbackRedirect(redirectUri) ||
+        isValidCloudCallbackRedirect(redirectUri) ||
+        isValidFolioWebCallbackRedirect(redirectUri));
+}
 /**
- * Intercambio authorization_code → tokens (Spotify OAuth PKCE).
+ * Intercambio authorization_code / refresh_token → tokens (Spotify OAuth PKCE).
  */
 exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f;
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -51,25 +90,45 @@ exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory:
         return;
     }
     const body = readJsonBody(req);
-    const code = String((_a = body.code) !== null && _a !== void 0 ? _a : "").trim();
-    const redirectUri = String((_b = body.redirectUri) !== null && _b !== void 0 ? _b : "").trim();
-    const clientId = String((_c = body.clientId) !== null && _c !== void 0 ? _c : "").trim() || spotifyOauthClientId();
-    const codeVerifier = String((_d = body.codeVerifier) !== null && _d !== void 0 ? _d : "").trim();
-    if (!code || !redirectUri || !clientId || !codeVerifier) {
-        res.status(400).json({ error: "missing_fields" });
+    const grantType = String((_a = body.grantType) !== null && _a !== void 0 ? _a : "authorization_code").trim();
+    const clientId = String((_b = body.clientId) !== null && _b !== void 0 ? _b : "").trim() || spotifyOauthClientId();
+    if (!clientId) {
+        res.status(400).json({ error: "missing_client_id" });
         return;
     }
-    if (!isValidLoopbackRedirect(redirectUri)) {
-        res.status(400).json({ error: "invalid_redirect_uri" });
-        return;
+    let params;
+    if (grantType === "refresh_token") {
+        const refreshToken = String((_c = body.refreshToken) !== null && _c !== void 0 ? _c : "").trim();
+        if (!refreshToken) {
+            res.status(400).json({ error: "missing_fields" });
+            return;
+        }
+        params = new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+            client_id: clientId,
+        });
     }
-    const params = new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-        client_id: clientId,
-        code_verifier: codeVerifier,
-    });
+    else {
+        const code = String((_d = body.code) !== null && _d !== void 0 ? _d : "").trim();
+        const redirectUri = String((_e = body.redirectUri) !== null && _e !== void 0 ? _e : "").trim();
+        const codeVerifier = String((_f = body.codeVerifier) !== null && _f !== void 0 ? _f : "").trim();
+        if (!code || !redirectUri || !codeVerifier) {
+            res.status(400).json({ error: "missing_fields" });
+            return;
+        }
+        if (!isValidRedirect(redirectUri)) {
+            res.status(400).json({ error: "invalid_redirect_uri" });
+            return;
+        }
+        params = new URLSearchParams({
+            grant_type: "authorization_code",
+            code,
+            redirect_uri: redirectUri,
+            client_id: clientId,
+            code_verifier: codeVerifier,
+        });
+    }
     const tokenResp = await fetch(SPOTIFY_TOKEN_URL, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -93,17 +152,51 @@ exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory:
     }
 });
 /**
- * Callback OAuth Web: página HTML tras autorizar en Spotify.
+ * Callback OAuth Web: notifica a Folio (postMessage + localStorage) tras autorizar.
  */
 exports.folioSpotifyOAuthCallback = (0, https_1.onRequest)({ cors: true, memory: "128MiB", invoker: "public" }, async (req, res) => {
-    var _a;
+    var _a, _b, _c;
     const err = String((_a = req.query.error) !== null && _a !== void 0 ? _a : "").trim();
+    const code = String((_b = req.query.code) !== null && _b !== void 0 ? _b : "").trim();
+    const state = String((_c = req.query.state) !== null && _c !== void 0 ? _c : "").trim();
     res.set("Content-Type", "text/html; charset=utf-8");
-    if (err) {
-        res.status(200).send(`<h2>OAuth cancelado</h2><p>${err}</p><p>Puedes cerrar esta pestaña.</p>`);
-        return;
-    }
-    res.status(200).send("<h2>Conectado</h2><p>Ya puedes volver a Folio. Puedes cerrar esta pestaña.</p>");
+    const payload = JSON.stringify({
+        type: "folio-spotify-oauth",
+        code,
+        state,
+        error: err,
+    });
+    const title = err ? "OAuth cancelado" : "Conectado";
+    const message = err
+        ? `Error: ${err}`
+        : "Ya puedes volver a Folio. Puedes cerrar esta pestaña.";
+    res.status(200).send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${title}</title></head>
+<body>
+  <h2>${title}</h2>
+  <p>${message}</p>
+  <script>
+    (function () {
+      var payload = ${payload};
+      try {
+        localStorage.setItem("folio_spotify_oauth", JSON.stringify(payload));
+      } catch (e) {}
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, "*");
+        }
+      } catch (e) {}
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(payload, "*");
+        }
+      } catch (e) {}
+      setTimeout(function () {
+        try { window.close(); } catch (e) {}
+      }, 400);
+    })();
+  </script>
+</body></html>`);
 });
 /**
  * Proxy autenticado para Web API de Spotify (CORS en build Web).

@@ -51,17 +51,17 @@ class JiraAuthService {
   /// así que no podemos usar puertos aleatorios.
   static const int _oauthLoopbackPort = 45747;
 
-  static String _readEnv(String key) {
-    final define = String.fromEnvironment(key).trim();
-    if (define.isNotEmpty) return define;
-    final fromDart = FolioLocalSecrets.valueForDefineKey(key).trim();
+  static String jiraCloudClientSecret() {
+    const define = String.fromEnvironment('JIRA_OAUTH_CLIENT_SECRET');
+    final fromDefine = define.trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+    final fromDart =
+        FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_SECRET').trim();
     if (fromDart.isNotEmpty) return fromDart;
-    final local = (LocalEnv.get(key) ?? '').trim();
+    final local = (LocalEnv.get('JIRA_OAUTH_CLIENT_SECRET') ?? '').trim();
     if (local.isNotEmpty) return local;
-    return (Platform.environment[key] ?? '').trim();
+    return (Platform.environment['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim();
   }
-
-  static String jiraCloudClientSecret() => _readEnv('JIRA_OAUTH_CLIENT_SECRET');
 
   /// Client ID para Jira Cloud OAuth 3LO (PKCE).
   ///
@@ -70,8 +70,18 @@ class JiraAuthService {
   /// 2) `JIRA_OAUTH_CLIENT_ID` (env o --dart-define)
   /// 3) Client ID oficial (fallback)
   static String jiraCloudClientId() {
-    final env = _readEnv('JIRA_OAUTH_CLIENT_ID');
-    if (env.isNotEmpty) return env;
+    final override = overrideClientId.trim();
+    if (override.isNotEmpty) return override;
+    const define = String.fromEnvironment('JIRA_OAUTH_CLIENT_ID');
+    final fromDefine = define.trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+    final fromDart =
+        FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_ID').trim();
+    if (fromDart.isNotEmpty) return fromDart;
+    final local = (LocalEnv.get('JIRA_OAUTH_CLIENT_ID') ?? '').trim();
+    if (local.isNotEmpty) return local;
+    final fromOs = (Platform.environment['JIRA_OAUTH_CLIENT_ID'] ?? '').trim();
+    if (fromOs.isNotEmpty) return fromOs;
     return _officialCloudClientId;
   }
 
