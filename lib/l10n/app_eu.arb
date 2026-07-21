@@ -2482,6 +2482,8 @@
   "settingsReportBugSentFail": "Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago."
   ,"zenModeEnter": "Zen modua"
   ,"zenModeExit": "Zen modutik irten"
+  ,"zenFullscreenEnter": "Pantaila osoa"
+  ,"zenFullscreenExit": "Pantaila osotik irten"
   ,"syncedBlockCreate": "Blokea sinkronizatu"
   ,"syncedBlockInsert": "Txertatu bloke sinkronizatua…"
   ,"syncedBlockBadge": "Bloke sinkronizatua"

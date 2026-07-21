@@ -2482,6 +2482,8 @@
   ,"settingsReportBugSentFail": "Could not send diagnostic. Check your connection or try again later."
   ,"zenModeEnter": "Zen mode"
   ,"zenModeExit": "Exit zen mode"
+  ,"zenFullscreenEnter": "Enter fullscreen"
+  ,"zenFullscreenExit": "Exit fullscreen"
   ,"syncedBlockCreate": "Sync this block"
   ,"syncedBlockInsert": "Insert synced block…"
   ,"syncedBlockBadge": "Synced block"

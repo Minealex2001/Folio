@@ -2481,6 +2481,8 @@
   "settingsReportBugSentFail": "No s'ha pogut enviar el diagnòstic. Reviseu la connexió o torneu-ho a provar més tard."
   ,"zenModeEnter": "Mode zen"
   ,"zenModeExit": "Sortir del mode zen"
+  ,"zenFullscreenEnter": "Pantalla completa"
+  ,"zenFullscreenExit": "Sortir de la pantalla completa"
   ,"syncedBlockCreate": "Sincronitzar bloc"
   ,"syncedBlockInsert": "Inserir bloc sincronitzat…"
   ,"syncedBlockBadge": "Bloc sincronitzat"

@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -28,6 +29,7 @@ import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
 import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
+import '../../../desktop/desktop_window_fullscreen.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
@@ -180,6 +182,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _collabSheetOpen = false;
   int _collabUnreadCount = 0;
   bool _zenMode = false;
+  /// Pantalla completa OS desacoplada del modo zen (solo escritorio).
+  bool _zenOsFullscreen = false;
   final Set<String> _dismissedSyncRemoteBanners = {};
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
@@ -256,12 +260,25 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(fn);
   }
 
+  bool get _supportsOsFullscreen =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
   void _toggleZenMode() {
     final entering = !_zenMode;
     setState(() {
       _zenMode = entering;
-      if (_zenMode) _sidebarPeek = false;
+      if (_zenMode) {
+        _sidebarPeek = false;
+        if (_supportsOsFullscreen) _zenOsFullscreen = true;
+      } else {
+        _zenOsFullscreen = false;
+      }
     });
+    if (_supportsOsFullscreen) {
+      unawaited(
+        DesktopWindowFullscreen.instance.setFullScreen(entering),
+      );
+    }
     final playback = SpotifyPlaybackController.instance;
     final conn = _s.spotifyConnections.isNotEmpty ? _s.spotifyConnections.first : null;
     if (entering) {
@@ -271,6 +288,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } else if (conn != null && conn.zenPauseOnExit) {
       unawaited(playback.pause());
     }
+  }
+
+  void _toggleZenOsFullscreen() {
+    if (!_zenMode || !_supportsOsFullscreen) return;
+    final next = !_zenOsFullscreen;
+    setState(() => _zenOsFullscreen = next);
+    unawaited(DesktopWindowFullscreen.instance.setFullScreen(next));
+  }
+
+  void _onOsFullscreenChanged(bool fullScreen) {
+    if (!mounted || !_zenMode) return;
+    if (_zenOsFullscreen == fullScreen) return;
+    setState(() => _zenOsFullscreen = fullScreen);
   }
 
   void _applyAiChatPanelCollapsed(bool collapsed) {
@@ -1042,6 +1072,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.addListener(_onSession);
     widget.appSettings.addListener(_onAppSettings);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
+    if (_supportsOsFullscreen) {
+      DesktopWindowFullscreen.instance.addListener(_onOsFullscreenChanged);
+    }
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
@@ -1063,6 +1096,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _hideAiContextMenu();
     _draftSaveTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
+    if (_supportsOsFullscreen) {
+      DesktopWindowFullscreen.instance.removeListener(_onOsFullscreenChanged);
+      if (_zenOsFullscreen) {
+        unawaited(DesktopWindowFullscreen.instance.setFullScreen(false));
+      }
+    }
     widget.appSettings.removeListener(_onAppSettings);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
@@ -2225,9 +2264,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           _WorkspaceActionEntry(
             id: 'zen_mode',
             label: _zenMode ? l10n.zenModeExit : l10n.zenModeEnter,
-            icon: _zenMode
-                ? Icons.fullscreen_exit_rounded
-                : Icons.self_improvement_rounded,
+            icon: Icons.self_improvement_rounded,
             onPressed: _toggleZenMode,
             forcePrimary: true,
           ),
@@ -2731,25 +2768,54 @@ class _WorkspacePageState extends State<WorkspacePage> {
         useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
     Widget shellEditorBody;
     if (_zenMode) {
+      Widget zenChromeButton({
+        required String tooltip,
+        required IconData icon,
+        required VoidCallback onPressed,
+      }) {
+        return Material(
+          color: scheme.surface.withValues(alpha: 0.72),
+          elevation: 1,
+          shadowColor: scheme.shadow.withValues(alpha: 0.2),
+          shape: const CircleBorder(),
+          child: IconButton(
+            tooltip: tooltip,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(icon, size: 18),
+            onPressed: onPressed,
+          ),
+        );
+      }
+
       shellEditorBody = Stack(
         children: [
           editorContent,
-          // Salir del modo zen: solo icono, esquina superior derecha.
+          // Controles zen: fullscreen OS (desktop) + salir del modo zen.
           Positioned(
             top: 10,
             right: 12,
             child: SafeArea(
-              child: Material(
-                color: scheme.surface.withValues(alpha: 0.72),
-                elevation: 1,
-                shadowColor: scheme.shadow.withValues(alpha: 0.2),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: l10n.zenModeExit,
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.fullscreen_exit_rounded, size: 18),
-                  onPressed: _toggleZenMode,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_supportsOsFullscreen) ...[
+                    zenChromeButton(
+                      tooltip: _zenOsFullscreen
+                          ? l10n.zenFullscreenExit
+                          : l10n.zenFullscreenEnter,
+                      icon: _zenOsFullscreen
+                          ? Icons.fullscreen_exit_rounded
+                          : Icons.fullscreen_rounded,
+                      onPressed: _toggleZenOsFullscreen,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  zenChromeButton(
+                    tooltip: l10n.zenModeExit,
+                    icon: Icons.self_improvement_rounded,
+                    onPressed: _toggleZenMode,
+                  ),
+                ],
               ),
             ),
           ),

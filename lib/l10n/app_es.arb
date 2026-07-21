@@ -2479,6 +2479,8 @@
   ,"settingsReportBugSentFail": "No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde."
   ,"zenModeEnter": "Modo zen"
   ,"zenModeExit": "Salir del modo zen"
+  ,"zenFullscreenEnter": "Pantalla completa"
+  ,"zenFullscreenExit": "Salir de pantalla completa"
   ,"syncedBlockCreate": "Sincronizar bloque"
   ,"syncedBlockInsert": "Insertar bloque sincronizado…"
   ,"syncedBlockBadge": "Bloque sincronizado"

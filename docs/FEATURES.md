@@ -1009,7 +1009,7 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 ## 37. Modo zen / escritura sin distracciones
 
-Implementado en `lib/features/workspace/shell/workspace_page.dart`.
+Implementado en `lib/features/workspace/shell/workspace_page.dart` y `lib/desktop/desktop_window_fullscreen.dart`.
 
 - **Activación**: atajo `F11` (hotkey hardware en `_onHardwareKeyEvent`) o botón de la barra de herramientas del editor (`id: 'zen_mode'`).
 - **Efecto sobre la interfaz**:
@@ -1018,8 +1018,9 @@ Implementado en `lib/features/workspace/shell/workspace_page.dart`.
   - Oculta el panel flotante de IA y el de colaboración.
   - Fija el ancho del contenido del editor a 740 px centrado.
   - Colapsa el sidebar (`effectiveSidebarW` devuelve 0.0).
-- **Salida**: botón semitransparente superpuesto sobre el editor (`Icons.fullscreen_exit_rounded`) que llama a `setState(() => _zenMode = false)`; también disponible volviendo a pulsar `F11`.
-- **Estado**: `bool _zenMode = false` en `_WorkspacePageState`.
+- **Pantalla completa OS (escritorio)**: al entrar en zen, la ventana pasa a fullscreen vía `window_manager` (`DesktopWindowFullscreen`). El estado `_zenOsFullscreen` es independiente de `_zenMode`: en el overlay se puede salir o volver a entrar en fullscreen sin abandonar el modo zen. Al salir del zen (o al disponer la página) se restaura la ventana. Escape u otras salidas nativas sincronizan el icono vía `onWindowLeaveFullScreen` / `onWindowEnterFullScreen` sin forzar la salida del zen. En web/móvil el zen es solo UI (sin fullscreen OS).
+- **Salida del zen**: botón del overlay (`Icons.self_improvement_rounded`) o volver a pulsar `F11` / toolbar; restaura UI y fullscreen OS.
+- **Estado**: `bool _zenMode` y `bool _zenOsFullscreen` en `_WorkspacePageState`.
 
 ---
 
