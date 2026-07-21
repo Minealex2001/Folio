@@ -116,11 +116,16 @@ service firebase.storage {
         && request.resource.size < 1 * 1024 * 1024;
     }
 
-    // Adjuntos multimedia cifrados E2E por sala.
+    // Adjuntos multimedia cifrados E2E por sala. Solo `create` (no `update`):
+    // cada subida usa un mediaId nuevo generado por el cliente, así que un
+    // miembro nunca debería poder sobrescribir el blob ya subido por otro.
     match /collab-media-e2e/{roomId}/{mediaId} {
-      allow write: if collabMember(roomId)
+      allow create: if collabMember(roomId)
+        && resource == null
         && request.resource.size > 0
         && request.resource.size <= 80 * 1024 * 1024;
+
+      allow update: if false;
 
       allow read: if collabMember(roomId)
         && collabMediaVisible(roomId, mediaId);

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../crypto/vault_crypto.dart';
 import '../app_logger.dart';
+import 'folio_cloud_callable.dart';
 
 /// Cache de material de cifrado para device-sync **sin** desbloquear la libreta.
 ///
@@ -31,15 +32,38 @@ class DeviceSyncKeyCache {
       'folio_device_sync_key_prefs_v1_${vaultId.trim()}';
 
   /// Clave de pack determinista para libretas en claro (cross-device).
+  ///
+  /// [accountSecret] es un valor aleatorio de 32 bytes por cuenta+libreta
+  /// (ver [ensureAccountSyncSecret]) — sin él, esta clave sería recalculable
+  /// solo con `uid`+`vaultId`, que el backend ya conoce por ser parte de la
+  /// propia ruta de Storage/Firestore del pack.
   static Future<SecretKey> plainPackKey({
     required String uid,
     required String vaultId,
+    required String accountSecret,
   }) async {
     final material = utf8.encode(
-      'FolioDeviceSyncPlainV1:${uid.trim()}:${vaultId.trim()}',
+      'FolioDeviceSyncPlainV1:${uid.trim()}:${vaultId.trim()}:${accountSecret.trim()}',
     );
     final digest = await Sha256().hash(material);
     return VaultCrypto.dekFromBytes(Uint8List.fromList(digest.bytes));
+  }
+
+  /// Obtiene (o crea, en el primer dispositivo que lo pida) el secreto de
+  /// cuenta+libreta usado en [plainPackKey], vía la Cloud Function
+  /// `folioEnsurePlainVaultSyncSecret`. Todos los dispositivos de la misma
+  /// cuenta obtienen el mismo valor (get-or-create idempotente en Firestore).
+  static Future<String> ensureAccountSyncSecret(String vaultId) async {
+    final result = await callFolioHttpsCallable(
+      'folioEnsurePlainVaultSyncSecret',
+      {'vaultId': vaultId.trim()},
+    );
+    final map = result is Map ? Map<String, dynamic>.from(result) : const {};
+    final secret = (map['secret'] as String?)?.trim() ?? '';
+    if (secret.isEmpty) {
+      throw StateError('folioEnsurePlainVaultSyncSecret: respuesta sin secreto');
+    }
+    return secret;
   }
 
   Future<void> save(String vaultId, List<int> keyBytes) async {
@@ -67,13 +91,35 @@ class DeviceSyncKeyCache {
         context: {'vaultId': id, 'error': '$e'},
       );
     }
+    if (secureOk) {
+      // Secure write succeeded: purge any legacy plaintext copy so the raw
+      // key never lingers unencrypted on disk.
+      try {
+        final p = await SharedPreferences.getInstance();
+        await p.remove(_prefsFallback(id));
+      } catch (e) {
+        AppLogger.warn(
+          'key cache prefs cleanup failed',
+          tag: 'cloud_sync',
+          context: {'vaultId': id, 'error': '$e'},
+        );
+      }
+      AppLogger.debug(
+        'key cache saved',
+        tag: 'cloud_sync',
+        context: {'vaultId': id, 'secure': true},
+      );
+      return;
+    }
+    // Secure storage unavailable on this platform/device: fall back to
+    // SharedPreferences only in this branch, never unconditionally.
     try {
       final p = await SharedPreferences.getInstance();
       await p.setString(_prefsFallback(id), b64);
       AppLogger.debug(
         'key cache saved',
         tag: 'cloud_sync',
-        context: {'vaultId': id, 'secure': secureOk},
+        context: {'vaultId': id, 'secure': false},
       );
     } catch (e) {
       AppLogger.warn(

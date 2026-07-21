@@ -1,29 +1,19 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/gitlab_integration_state.dart';
+import '../integrations/integration_api_exception.dart';
 
-class GitLabApiException implements Exception {
+class GitLabApiException extends IntegrationApiException {
   const GitLabApiException(
-    this.message, {
-    this.statusCode,
-    this.body,
-    this.uri,
-    this.method,
+    super.message, {
+    super.statusCode,
+    super.body,
+    super.uri,
+    super.method,
   });
-  final String message;
-  final int? statusCode;
-  final String? body;
-  final String? uri;
-  final String? method;
 
   @override
-  String toString() {
-    final code = statusCode;
-    final m = (method ?? '').trim().isEmpty ? '' : '${method!.trim()} ';
-    final u = (uri ?? '').trim().isEmpty ? '' : ' ${uri!.trim()}';
-    final b = (body ?? '').trim().isEmpty ? '' : ' | body=${body!.trim()}';
-    return 'GitLabApiException($code): $m$message$u$b';
-  }
+  String get exceptionName => 'GitLabApiException';
 }
 
 class GitLabProject {
@@ -277,6 +267,23 @@ class GitLabApiClient {
         .whereType<Map>()
         .map((e) => GitLabIssueOrMr.fromJson(Map<String, dynamic>.from(e), isMergeRequest: true))
         .toList();
+  }
+
+  /// Trae un único issue por iid (evita paginar la lista completa solo para
+  /// leer o confirmar un item ya conocido).
+  Future<GitLabIssueOrMr> getIssue(String projectPath, int iid) async {
+    final json = await _getJson(
+      _uri('/projects/${_encodedProject(projectPath)}/issues/$iid'),
+    );
+    return GitLabIssueOrMr.fromJson(json, isMergeRequest: false);
+  }
+
+  /// Trae una única merge request por iid (ver [getIssue]).
+  Future<GitLabIssueOrMr> getMergeRequest(String projectPath, int iid) async {
+    final json = await _getJson(
+      _uri('/projects/${_encodedProject(projectPath)}/merge_requests/$iid'),
+    );
+    return GitLabIssueOrMr.fromJson(json, isMergeRequest: true);
   }
 
   Future<List<GitLabLabel>> getLabels(String projectPath) async {

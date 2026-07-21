@@ -31,7 +31,7 @@ Widget _buildBlockRowMarker({
                 metaData: folioInteractiveMetaDataTag,
                 behavior: HitTestBehavior.translucent,
                 child: Transform.scale(
-                  scale: compactReadOnlyMobile ? 1.05 : 1.28,
+                  scale: compactReadOnlyMobile ? 1.05 : 1.12,
                   alignment: Alignment.centerLeft,
                   child: Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.padded,

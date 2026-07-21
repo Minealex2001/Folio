@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = void 0;
+exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioEnsurePlainVaultSyncSecret = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -1523,16 +1523,35 @@ async function grantMicrosoftStoreConsumableInk(uid, grants) {
     for (const g of grants) {
         if (g.drops <= 0)
             continue;
-        const docId = (0, crypto_1.createHash)("sha256")
+        // Global doc id: a single real-world Store purchase can only ever be
+        // claimed once across ALL Folio accounts, not just once per account.
+        const globalDocId = (0, crypto_1.createHash)("sha256").update(g.dedupKey).digest("hex").slice(0, 64);
+        // Legacy per-uid doc id (pre-fix): kept so purchases already credited
+        // under the old scheme are never re-credited during migration.
+        const legacyDocId = (0, crypto_1.createHash)("sha256")
             .update(`${uid}:${g.dedupKey}`)
             .digest("hex")
             .slice(0, 64);
-        const doneRef = db.collection("microsoftStoreProcessedPurchases").doc(docId);
+        const globalRef = db.collection("microsoftStoreProcessedPurchases").doc(globalDocId);
+        const legacyRef = db.collection("microsoftStoreProcessedPurchases").doc(legacyDocId);
         await db.runTransaction(async (tx) => {
-            const doneSnap = await tx.get(doneRef);
-            if (doneSnap.exists)
+            const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+            if (globalSnap.exists)
+                return; // already claimed globally, by this uid or another
+            if (legacySnap.exists) {
+                // Already credited pre-migration under the old per-uid key: backfill
+                // the global marker so no account can double-claim it going
+                // forward, without incrementing the balance again.
+                tx.set(globalRef, {
+                    uid,
+                    dedupKey: g.dedupKey,
+                    drops: g.drops,
+                    processedAt: FieldValue.serverTimestamp(),
+                    migratedFromLegacy: true,
+                });
                 return;
-            tx.set(doneRef, {
+            }
+            tx.set(globalRef, {
                 uid,
                 dedupKey: g.dedupKey,
                 drops: g.drops,
@@ -1550,16 +1569,31 @@ async function grantMicrosoftStoreBackupStorage(uid, grants) {
     for (const g of grants) {
         if (g.bytes <= 0)
             continue;
-        const docId = (0, crypto_1.createHash)("sha256")
+        const globalDocId = (0, crypto_1.createHash)("sha256")
+            .update(`${g.dedupKey}:foliobackup`)
+            .digest("hex")
+            .slice(0, 64);
+        const legacyDocId = (0, crypto_1.createHash)("sha256")
             .update(`${uid}:${g.dedupKey}:foliobackup`)
             .digest("hex")
             .slice(0, 64);
-        const doneRef = db.collection("microsoftStoreProcessedBackupGrants").doc(docId);
+        const globalRef = db.collection("microsoftStoreProcessedBackupGrants").doc(globalDocId);
+        const legacyRef = db.collection("microsoftStoreProcessedBackupGrants").doc(legacyDocId);
         await db.runTransaction(async (tx) => {
-            const doneSnap = await tx.get(doneRef);
-            if (doneSnap.exists)
+            const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+            if (globalSnap.exists)
                 return;
-            tx.set(doneRef, {
+            if (legacySnap.exists) {
+                tx.set(globalRef, {
+                    uid,
+                    dedupKey: g.dedupKey,
+                    bytes: g.bytes,
+                    processedAt: FieldValue.serverTimestamp(),
+                    migratedFromLegacy: true,
+                });
+                return;
+            }
+            tx.set(globalRef, {
                 uid,
                 dedupKey: g.dedupKey,
                 bytes: g.bytes,
@@ -2745,6 +2779,39 @@ exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "pub
         legacyBytes,
         totalUsedBytes: newUsed + legacyBytes,
     };
+});
+// Secreto por cuenta+libreta, generado una sola vez (get-or-create) y
+// mezclado en la derivación de la clave de device-sync de libretas "en
+// claro" (sin contraseña) — ver DeviceSyncKeyCache.plainPackKey en el
+// cliente. Sin esto, esa clave era recalculable solo con uid+vaultId, que
+// ya son parte de la propia ruta de Storage/Firestore.
+exports.folioEnsurePlainVaultSyncSecret = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const ref = db
+        .collection("users")
+        .doc(uid)
+        .collection("plainVaultSyncSecrets")
+        .doc(vaultId);
+    const secretB64 = await db.runTransaction(async (tx) => {
+        var _a;
+        const snap = await tx.get(ref);
+        const existing = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.secret;
+        if (typeof existing === "string" && existing.length > 0) {
+            return existing;
+        }
+        const generated = (0, crypto_1.randomBytes)(32).toString("base64");
+        tx.set(ref, {
+            secret: generated,
+            createdAt: FieldValue.serverTimestamp(),
+        });
+        return generated;
+    });
+    return { ok: true, secret: secretB64 };
 });
 exports.folioGetDeviceSyncMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c, _d;
@@ -4031,7 +4098,7 @@ async function _diarizeSegmentsWithGpt(segments, inferenceApiKey) {
  * En caso de fallo de transcripción, reembolsa la tinta cobrada.
  */
 exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
@@ -4106,27 +4173,44 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
     try {
         const audioBuffer = Buffer.from(audioBase64, "base64");
         const blob = new Blob([audioBuffer], { type: "audio/wav" });
-        const form = new FormData();
-        form.append("file", blob, "chunk.wav");
-        // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
-        form.append("model", "gpt-4o-mini-transcribe");
-        if (language && language !== "auto") {
-            form.append("language", language.slice(0, 2).toLowerCase());
+        // Reintentos con backoff ante fallos transitorios del proveedor (mismo
+        // patrón que openAiFetchChatCompletion / OPENAI_MAX_429_RETRIES).
+        const maxTranscribeRetries = 2;
+        let resp;
+        let lastErrBody = "";
+        for (let attempt = 0; attempt <= maxTranscribeRetries; attempt++) {
+            const form = new FormData();
+            form.append("file", blob, "chunk.wav");
+            // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
+            form.append("model", "gpt-4o-mini-transcribe");
+            if (language && language !== "auto") {
+                form.append("language", language.slice(0, 2).toLowerCase());
+            }
+            form.append("response_format", "verbose_json");
+            resp = await fetch(openAiAudioTranscriptionsUrl(), {
+                method: "POST",
+                headers: { Authorization: `Bearer ${inferenceApiKey}` },
+                body: form,
+            });
+            if (resp.ok)
+                break;
+            const attemptStatus = resp.status;
+            lastErrBody = await resp.text().catch(() => `HTTP ${attemptStatus}`);
+            const transient = resp.status === 429 ||
+                resp.status === 502 ||
+                resp.status === 503 ||
+                resp.status === 504;
+            if (!transient || attempt === maxTranscribeRetries)
+                break;
+            await sleepMs(400 * 2 ** attempt);
         }
-        form.append("response_format", "verbose_json");
-        const resp = await fetch(openAiAudioTranscriptionsUrl(), {
-            method: "POST",
-            headers: { Authorization: `Bearer ${inferenceApiKey}` },
-            body: form,
-        });
-        if (!resp.ok) {
-            const errBody = await resp.text().catch(() => `HTTP ${resp.status}`);
-            console.error("folioCloudTranscribeChunk: transcription API error", resp.status, errBody);
-            throw new https_1.HttpsError("internal", `Transcription failed (${resp.status})`);
+        if (!resp || !resp.ok) {
+            console.error("folioCloudTranscribeChunk: transcription API error", resp === null || resp === void 0 ? void 0 : resp.status, lastErrBody);
+            throw new https_1.HttpsError("internal", `Transcription failed (${(_d = resp === null || resp === void 0 ? void 0 : resp.status) !== null && _d !== void 0 ? _d : "unknown"})`);
         }
         const verboseResult = (await resp.json());
-        const rawText = ((_d = verboseResult.text) !== null && _d !== void 0 ? _d : "").trim();
-        const segments = (_e = verboseResult.segments) !== null && _e !== void 0 ? _e : [];
+        const rawText = ((_e = verboseResult.text) !== null && _e !== void 0 ? _e : "").trim();
+        const segments = (_f = verboseResult.segments) !== null && _f !== void 0 ? _f : [];
         if (rawText.length === 0) {
             transcript = "";
         }
@@ -4155,7 +4239,7 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
     }
     // ── Leer saldos finales ───────────────────────────────────────────────────
     const finalSnap = await db.collection("users").doc(uid).get();
-    const inkOut = readInkBalances(((_f = finalSnap.data()) !== null && _f !== void 0 ? _f : {}));
+    const inkOut = readInkBalances(((_g = finalSnap.data()) !== null && _g !== void 0 ? _g : {}));
     return {
         transcript,
         ink: {

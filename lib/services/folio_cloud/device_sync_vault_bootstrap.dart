@@ -190,10 +190,24 @@ Future<SecretKey?> adoptDeviceSyncPackKeyFromBootstrap({
 
   final probe = headless ?? HeadlessDeviceSyncVault(keyCache: keyCache);
   if (await probe.isPlain(id)) {
-    final key = await DeviceSyncKeyCache.plainPackKey(uid: uid, vaultId: id);
-    final raw = await key.extractBytes();
-    await keyCache.save(id, raw);
-    return key;
+    try {
+      final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(id);
+      final key = await DeviceSyncKeyCache.plainPackKey(
+        uid: uid,
+        vaultId: id,
+        accountSecret: secret,
+      );
+      final raw = await key.extractBytes();
+      await keyCache.save(id, raw);
+      return key;
+    } catch (e) {
+      AppLogger.debug(
+        'adoptDeviceSyncPackKeyFromBootstrap: account sync secret unavailable',
+        tag: 'cloud_sync',
+        context: {'vaultId': id, 'error': '$e'},
+      );
+      return null;
+    }
   }
 
   final accountKey = await resolveAccountProfilePackKeyQuietly();
@@ -397,7 +411,21 @@ Future<bool> materializeRemoteDeviceSyncVault({
       return false;
     }
   } else {
-    packKey = await DeviceSyncKeyCache.plainPackKey(uid: uid, vaultId: vaultId);
+    try {
+      final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
+      packKey = await DeviceSyncKeyCache.plainPackKey(
+        uid: uid,
+        vaultId: vaultId,
+        accountSecret: secret,
+      );
+    } catch (e) {
+      AppLogger.warn(
+        'materialize: account sync secret unavailable',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+      return false;
+    }
   }
 
   await VaultPaths.initVaultStorage(vaultId);

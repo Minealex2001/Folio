@@ -48,6 +48,14 @@ Future<void> showIntegrationConfigSheet({
   );
 }
 
+/// Enmascara un secreto (URL de webhook, token) para mostrarlo en listas,
+/// dejando visibles solo los últimos [visibleTail] caracteres.
+String maskIntegrationSecret(String value, {int visibleTail = 6}) {
+  final v = value.trim();
+  if (v.length <= visibleTail) return '•' * v.length;
+  return '••••••…${v.substring(v.length - visibleTail)}';
+}
+
 /// Widgets compartidos por las tarjetas/diálogos de configuración de
 /// integraciones (Jira, YouTrack, Trello, y futuras), para que todas
 /// compartan el mismo lenguaje visual usado en el resto de Ajustes

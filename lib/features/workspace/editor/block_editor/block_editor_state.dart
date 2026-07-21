@@ -551,6 +551,39 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final qc = quill.QuillController(
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
+      config: quill.QuillControllerConfig(
+        clipboardConfig: quill.QuillClipboardConfig(
+          onClipboardPaste: () async {
+            if (!mounted) return false;
+            final page = _s.selectedPage;
+            if (page == null) return false;
+            final idx = page.blocks.indexWhere((x) => x.id == block.id);
+            if (idx < 0 || idx >= _controllers.length) return false;
+            final data = await Clipboard.getData(Clipboard.kTextPlain);
+            final raw = data?.text;
+            if (raw == null) return false;
+            if (_singleHttpUrlTrimmed(raw) != null) {
+              await _handleClipboardPaste(
+                page,
+                block.id,
+                idx,
+                _controllers[idx],
+              );
+              return true;
+            }
+            if (raw.contains('\n') && _containsMarkdownBlockSyntax(raw)) {
+              await _handleClipboardPaste(
+                page,
+                block.id,
+                idx,
+                _controllers[idx],
+              );
+              return true;
+            }
+            return false;
+          },
+        ),
+      ),
     );
     // Persiste texto + Delta a la sesión sin tocar los TextEditingController.
     // Seguro de invocar durante el teardown de controllers.
@@ -803,49 +836,57 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return (block.imageWidth ?? 1.0).clamp(0.2, 1.0);
   }
 
+  void _setBlockImageWidth(FolioPage page, FolioBlock block, double width) {
+    _s.setBlockImageWidth(page.id, block.id, width);
+  }
+
   void _nudgeImageWidth(FolioPage page, FolioBlock block, double delta) {
     final next = (_imageWidthFor(block) + delta).clamp(0.2, 1.0);
     _s.setBlockImageWidth(page.id, block.id, next);
   }
 
-  Widget _blockMediaWidthToolbar(
-    FolioPage page,
-    FolioBlock block,
-    ThemeData theme,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          FilledButton.tonalIcon(
-            onPressed: () => _nudgeImageWidth(page, block, -0.1),
-            icon: const Icon(Icons.remove, size: 16),
-            label: Text(l10n.blockSizeSmaller),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: () => _nudgeImageWidth(page, block, 0.1),
-            icon: const Icon(Icons.add, size: 16),
-            label: Text(l10n.blockSizeLarger),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.5),
-            child: Text(l10n.blockSizeHalf),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.75),
-            child: Text(l10n.blockSizeThreeQuarter),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 1.0),
-            child: Text(l10n.blockSizeFull),
-          ),
-        ],
-      ),
+  Widget _wrapResizableBlockMedia({
+    required FolioPage page,
+    required FolioBlock block,
+    required bool enabled,
+    required double maxAvailableWidth,
+    required Widget child,
+  }) {
+    return FolioBlockResizeHandle(
+      widthFactor: _imageWidthFor(block),
+      maxAvailableWidth: maxAvailableWidth,
+      enabled: enabled,
+      onWidthChanged: (w) => _setBlockImageWidth(page, block, w),
+      child: child,
     );
+  }
+
+  static const Set<String> _clipboardPasteTextTypes = {
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'toggle',
+    'quote',
+    'callout',
+  };
+
+  static const Set<String> _clipboardPasteUrlBlockTypes = {
+    'bookmark',
+    'embed',
+    'spotify',
+    'image',
+    'video',
+    'file',
+    'audio',
+  };
+
+  bool _shouldConsumePasteKey(String blockType) {
+    return _clipboardPasteTextTypes.contains(blockType) ||
+        _clipboardPasteUrlBlockTypes.contains(blockType);
   }
 
   // ignore: unused_element
@@ -3182,11 +3223,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               AppLocalizations.of(context).noImageHint,
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
             ),
-            TextButton.icon(
+            BlockButton.primaryIcon(
               onPressed: () =>
                   unawaited(_pickImageForBlock(page.id, block.id, index)),
-              icon: const Icon(Icons.upload_rounded, size: 20),
-              label: Text(AppLocalizations.of(context).chooseImage),
+              icon: Icons.upload_rounded,
+              label: AppLocalizations.of(context).chooseImage,
             ),
           ],
         ),
@@ -3210,8 +3251,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (showControls)
-                _blockMediaWidthToolbar(page, block, Theme.of(context)),
               _buildCollabUploadProgressBadge(
                 block.id,
                 Theme.of(context),
@@ -3227,59 +3266,54 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                     alignment: Alignment.centerLeft,
                     child: SizedBox(
                       width: targetW,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 380),
-                          child: bytes == null
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    AppLocalizations.of(context).fileNotFound,
-                                    style: TextStyle(
-                                      color: scheme.error,
-                                      fontSize: 13,
+                      child: _wrapResizableBlockMedia(
+                        page: page,
+                        block: block,
+                        enabled: showControls,
+                        maxAvailableWidth: maxW,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 380),
+                            child: bytes == null
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
                                     ),
-                                  ),
-                                )
-                              : Image.memory(
-                                  bytes,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        child: Text(
-                                          AppLocalizations.of(
-                                            context,
-                                          ).couldNotLoadImage,
-                                          style: TextStyle(
-                                            color: scheme.error,
-                                            fontSize: 13,
+                                    child: Text(
+                                      AppLocalizations.of(context).fileNotFound,
+                                      style: TextStyle(
+                                        color: scheme.error,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  )
+                                : Image.memory(
+                                    bytes,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).couldNotLoadImage,
+                                            style: TextStyle(
+                                              color: scheme.error,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                ),
+                                  ),
+                          ),
                         ),
                       ),
                     ),
                   );
                 },
               ),
-              if (showControls)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Ancho: ${(widthFactor * 100).round()}%',
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
             ],
           );
         },
@@ -3311,8 +3345,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (showControls)
-              _blockMediaWidthToolbar(page, block, Theme.of(context)),
             _buildCollabUploadProgressBadge(
               block.id,
               Theme.of(context),
@@ -3328,66 +3360,61 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                   alignment: Alignment.centerLeft,
                   child: SizedBox(
                     width: targetW,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 380),
-                        child: isRemote
-                            ? Image.network(
-                                rel,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).couldNotLoadImage,
-                                        style: TextStyle(
-                                          color: scheme.error,
-                                          fontSize: 13,
+                    child: _wrapResizableBlockMedia(
+                      page: page,
+                      block: block,
+                      enabled: showControls,
+                      maxAvailableWidth: maxW,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 380),
+                          child: isRemote
+                              ? Image.network(
+                                  rel,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).couldNotLoadImage,
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                              )
-                            : Image.file(
-                                file!,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).couldNotLoadImage,
-                                        style: TextStyle(
-                                          color: scheme.error,
-                                          fontSize: 13,
+                                )
+                              : Image.file(
+                                  file!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).couldNotLoadImage,
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                              ),
+                                ),
+                        ),
                       ),
                     ),
                   ),
                 );
               },
             ),
-            if (showControls)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Ancho: ${(widthFactor * 100).round()}%',
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -4735,19 +4762,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         (HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed)) {
       final bt0 = page.blocks[index].type;
-      const pasteTypes = {
-        'paragraph',
-        'h1',
-        'h2',
-        'h3',
-        'bullet',
-        'numbered',
-        'todo',
-        'toggle',
-        'quote',
-        'callout',
-      };
-      if (pasteTypes.contains(bt0)) {
+      if (_shouldConsumePasteKey(bt0)) {
         unawaited(_handleClipboardPaste(page, blockId, index, ctrl));
         return KeyEventResult.handled;
       }

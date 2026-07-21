@@ -10,6 +10,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../models/youtrack_integration_state.dart';
 import '../../services/youtrack/youtrack_api_client.dart';
 import '../../session/vault_session.dart';
+import '../../utils/private_host.dart';
 
 class YouTrackIntegrationCard extends StatelessWidget {
   const YouTrackIntegrationCard({super.key, required this.session, required this.appSettings});
@@ -235,7 +236,14 @@ class _AddConnectionFormState extends State<_AddConnectionForm> {
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return l10n.youtrackRequired;
-                    if (!v.startsWith('http://') && !v.startsWith('https://')) {
+                    final value = v.trim();
+                    final uri = Uri.tryParse(value);
+                    if (uri == null ||
+                        !uri.hasScheme ||
+                        (uri.scheme != 'http' && uri.scheme != 'https')) {
+                      return l10n.youtrackUrlMustStartWithHttp;
+                    }
+                    if (uri.scheme == 'http' && !isPrivateOrLocalHost(uri.host)) {
                       return l10n.youtrackUrlMustStartWithHttp;
                     }
                     return null;

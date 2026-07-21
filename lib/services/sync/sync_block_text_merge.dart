@@ -135,7 +135,7 @@ class SyncBlockTextMerge {
     return [
       for (final h in hunks)
         h.isConflict
-            ? SyncMergeHunkChoice.local
+            ? SyncMergeHunkChoice.remote
             : SyncMergeHunkChoice.local,
     ];
   }

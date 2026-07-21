@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_skeletons.dart';
@@ -116,6 +119,16 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
 
   Future<void> _connect() async {
     final l10n = AppLocalizations.of(context);
+    if (kIsWeb &&
+        Firebase.apps.isNotEmpty &&
+        FirebaseAuth.instance.currentUser == null) {
+      setState(() {
+        _error = l10n.spotifyConnectionFailed(
+          'Inicia sesión en Folio Cloud para conectar Spotify.',
+        );
+      });
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;

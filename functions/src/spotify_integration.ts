@@ -83,6 +83,31 @@ function isValidRedirect(redirectUri: string): boolean {
   );
 }
 
+// Same set of Folio web origins trusted by isValidFolioWebCallbackRedirect,
+// used to validate the postMessage target origin for folioSpotifyOAuthCallback.
+function resolveTargetOrigin(origin: string): string {
+  try {
+    const u = new URL(origin);
+    const host = u.hostname.toLowerCase();
+    if (
+      (host === "foliobeta.minealexgames.com" ||
+        host === "folio.minealexgames.com") &&
+      u.protocol === "https:"
+    ) {
+      return u.origin;
+    }
+    if (
+      u.protocol === "http:" &&
+      (host === "localhost" || host === "127.0.0.1")
+    ) {
+      return u.origin;
+    }
+  } catch {
+    // fall through
+  }
+  return "*";
+}
+
 /**
  * Intercambio authorization_code / refresh_token → tokens (Spotify OAuth PKCE).
  */
@@ -100,12 +125,33 @@ export const folioSpotifyExchangeOAuth = onRequest(
       res.status(405).json({ error: "method_not_allowed" });
       return;
     }
+    // Require a verified Firebase session (same pattern as folioSpotifyApiProxy)
+    // so this isn't an open, unauthenticated relay to Spotify's token endpoint.
+    const authHeader = String(req.headers.authorization ?? "");
+    const authMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!authMatch) {
+      res.status(401).json({ error: "missing_auth" });
+      return;
+    }
+    try {
+      await getAuth().verifyIdToken(authMatch[1]!);
+    } catch {
+      res.status(401).json({ error: "invalid_auth" });
+      return;
+    }
     const body = readJsonBody(req);
     const grantType = String(body.grantType ?? "authorization_code").trim();
-    const clientId =
-      String(body.clientId ?? "").trim() || spotifyOauthClientId();
+    const configuredClientId = spotifyOauthClientId();
+    const requestedClientId = String(body.clientId ?? "").trim();
+    const clientId = requestedClientId || configuredClientId;
     if (!clientId) {
       res.status(400).json({ error: "missing_client_id" });
+      return;
+    }
+    // Only ever proxy token requests for Folio's own Spotify app, never an
+    // arbitrary caller-supplied client_id.
+    if (configuredClientId && clientId !== configuredClientId) {
+      res.status(403).json({ error: "client_id_not_allowed" });
       return;
     }
 
@@ -174,6 +220,12 @@ export const folioSpotifyOAuthCallback = onRequest(
     const err = String(req.query.error ?? "").trim();
     const code = String(req.query.code ?? "").trim();
     const state = String(req.query.state ?? "").trim();
+    // Callers that need a non-wildcard postMessage target can append
+    // ?origin=<their https origin> to the registered redirect_uri; Spotify
+    // preserves it when appending code/state on redirect back here.
+    const targetOrigin = resolveTargetOrigin(
+      String(req.query.origin ?? "").trim(),
+    );
     res.set("Content-Type", "text/html; charset=utf-8");
     const payload = JSON.stringify({
       type: "folio-spotify-oauth",
@@ -181,6 +233,7 @@ export const folioSpotifyOAuthCallback = onRequest(
       state,
       error: err,
     });
+    const targetOriginJson = JSON.stringify(targetOrigin);
     const title = err ? "OAuth cancelado" : "Conectado";
     const message = err
       ? `Error: ${err}`
@@ -196,14 +249,15 @@ export const folioSpotifyOAuthCallback = onRequest(
       try {
         localStorage.setItem("folio_spotify_oauth", JSON.stringify(payload));
       } catch (e) {}
+      var targetOrigin = ${targetOriginJson};
       try {
         if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(payload, "*");
+          window.opener.postMessage(payload, targetOrigin);
         }
       } catch (e) {}
       try {
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage(payload, "*");
+          window.parent.postMessage(payload, targetOrigin);
         }
       } catch (e) {}
       setTimeout(function () {

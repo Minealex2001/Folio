@@ -230,9 +230,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null && uid.isNotEmpty) {
+          final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
           final key = await DeviceSyncKeyCache.plainPackKey(
             uid: uid,
             vaultId: vaultId,
+            accountSecret: secret,
           );
           final raw = await key.extractBytes();
           await _headless.keyCache.save(vaultId, raw);
@@ -1434,9 +1436,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || uid.isEmpty) return null;
     try {
+      final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
       final key = await DeviceSyncKeyCache.plainPackKey(
         uid: uid,
         vaultId: vaultId,
+        accountSecret: secret,
       );
       final raw = await key.extractBytes();
       await _headless.keyCache.save(vaultId, raw);

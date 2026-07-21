@@ -2,11 +2,13 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart';
 
 import '../data/vault_paths.dart';
 import '../data/storage/vault_storage.dart';
 import 'platform/current_web_host.dart';
+import 'webauthn/webauthn_verify.dart';
 
 /// Relying party **local** para passkeys (mismo enfoque que el ejemplo oficial de `passkeys`).
 /// Solo metadatos de credencial; no contiene el contenido de la libreta.
@@ -16,6 +18,7 @@ class FolioRpUser {
     required this.id,
     this.credentialID,
     this.transports = const [],
+    this.webAuthnPublicKey,
   });
 
   final String name;
@@ -23,11 +26,17 @@ class FolioRpUser {
   String? credentialID;
   List<String> transports;
 
+  /// Clave pública COSE extraída en el registro (ver `webauthn_verify.dart`),
+  /// usada para verificar criptográficamente la firma en cada login. Puede
+  /// ser `null` para passkeys registradas antes de que esto existiera.
+  Map<String, dynamic>? webAuthnPublicKey;
+
   Map<String, dynamic> toJson() => {
     'name': name,
     'id': id,
     'credentialID': credentialID,
     'transports': transports,
+    if (webAuthnPublicKey != null) 'webAuthnPublicKey': webAuthnPublicKey,
   };
 
   factory FolioRpUser.fromJson(Map<String, dynamic> j) {
@@ -40,6 +49,7 @@ class FolioRpUser {
               ?.map((e) => e as String)
               .toList() ??
           [],
+      webAuthnPublicKey: (j['webAuthnPublicKey'] as Map?)?.cast<String, dynamic>(),
     );
   }
 }
@@ -127,9 +137,12 @@ class FolioRpServer {
     return jsonEncode(request);
   }
 
+  Uint8List _decodeBase64ToBytes(String value) {
+    return Uint8List.fromList(base64.decode(addBase64Padding(value)));
+  }
+
   Map<String, dynamic> _decodeClientDataJson(String clientDataJSON) {
-    final raw = addBase64Padding(clientDataJSON);
-    return jsonDecode(String.fromCharCodes(base64.decode(raw)))
+    return jsonDecode(String.fromCharCodes(_decodeBase64ToBytes(clientDataJSON)))
         as Map<String, dynamic>;
   }
 
@@ -161,9 +174,13 @@ class FolioRpServer {
     final clientDataJSON = responseData['clientDataJSON'] as String;
     final id = responseMap['id'] as String;
     final transports = responseData['transports'] as List<dynamic>?;
+    final attestationObjectB64 = responseData['attestationObject'] as String?;
 
     if (id.isEmpty) {
       throw StateError('Credential ID vacío');
+    }
+    if (attestationObjectB64 == null || attestationObjectB64.isEmpty) {
+      throw StateError('Respuesta de registro sin attestationObject');
     }
 
     final clientData = _decodeClientDataJson(clientDataJSON);
@@ -178,11 +195,18 @@ class FolioRpServer {
       expectedType: 'webauthn.create',
     );
 
+    // Extrae y guarda la clave pública COSE del autenticador — sin esto no
+    // hay forma de verificar criptográficamente la firma en logins futuros.
+    final publicKey = parsePublicKeyFromAttestationObject(
+      _decodeBase64ToBytes(attestationObjectB64),
+    );
+
     user
       ..credentialID = id
       ..transports = (transports?.isEmpty ?? true)
           ? ['internal', 'hybrid']
-          : transports!.map((e) => e as String).toList();
+          : transports!.map((e) => e as String).toList()
+      ..webAuthnPublicKey = publicKey.toJson();
     _users[user.name] = user;
     _inFlight.remove(challenge);
     await saveToDisk();
@@ -237,6 +261,39 @@ class FolioRpServer {
         credentialId != expectedId) {
       throw StateError('Credential ID no coincide');
     }
+
+    // Verificación criptográfica de la firma del autenticador. Passkeys
+    // registradas antes de que esto existiera no tienen `webAuthnPublicKey`
+    // guardada — para esas, solo queda el chequeo de campos JSON de arriba
+    // (comportamiento previo), hasta que el usuario vuelva a registrar la
+    // passkey.
+    final storedPublicKey = WebAuthnPublicKey.tryParse(user.webAuthnPublicKey);
+    if (storedPublicKey != null) {
+      final authenticatorDataB64 = responseData['authenticatorData'] as String?;
+      final signatureB64 = responseData['signature'] as String?;
+      if (authenticatorDataB64 == null ||
+          authenticatorDataB64.isEmpty ||
+          signatureB64 == null ||
+          signatureB64.isEmpty) {
+        throw StateError('Respuesta passkey incompleta (falta firma)');
+      }
+      final authenticatorData = _decodeBase64ToBytes(authenticatorDataB64);
+      final signature = _decodeBase64ToBytes(signatureB64);
+      final clientDataHash = await Sha256().hash(_decodeBase64ToBytes(clientDataJSON));
+      final signedData = Uint8List.fromList([
+        ...authenticatorData,
+        ...clientDataHash.bytes,
+      ]);
+      final verified = verifyWebAuthnSignature(
+        publicKey: storedPublicKey,
+        signedData: signedData,
+        derSignature: signature,
+      );
+      if (!verified) {
+        throw StateError('Firma passkey inválida');
+      }
+    }
+
     _inFlight.remove(challenge);
   }
 

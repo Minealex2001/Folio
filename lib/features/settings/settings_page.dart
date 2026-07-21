@@ -4806,17 +4806,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                               ..._sync.discoveredPeers.map((
                                                 peer,
                                               ) {
-                                                final hasActiveCode =
-                                                    (peer.pairingCode ?? '')
-                                                        .trim()
-                                                        .isNotEmpty;
-                                                final pairingReady =
-                                                    _sync.isPairingModeActive &&
-                                                    hasActiveCode;
-                                                final subtitle = pairingReady
+                                                // El código de emparejamiento del
+                                                // peer ya no viaja en el "hello"
+                                                // (se pide cifrado y bajo demanda
+                                                // al intentar vincular), así que
+                                                // ya no podemos saber de antemano
+                                                // si el otro dispositivo tiene un
+                                                // código activo sin sondearlo.
+                                                final subtitle =
+                                                    _sync.isPairingModeActive
                                                     ? l10n.settingsSyncPeerReadyToLink
-                                                    : hasActiveCode
-                                                    ? l10n.settingsSyncPeerOtherInPairingMode
                                                     : l10n.settingsSyncPeerDetectedLan;
                                                 return Container(
                                                   margin: const EdgeInsets.only(
@@ -4848,8 +4847,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     subtitle: Text(subtitle),
                                                     trailing: FilledButton.tonal(
                                                       onPressed:
-                                                          _app.syncEnabled &&
-                                                              pairingReady
+                                                          _app.syncEnabled
                                                           ? () =>
                                                                 _submitPairingCodeDialog(
                                                                   peer: peer,

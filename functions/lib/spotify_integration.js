@@ -73,11 +73,32 @@ function isValidRedirect(redirectUri) {
         isValidCloudCallbackRedirect(redirectUri) ||
         isValidFolioWebCallbackRedirect(redirectUri));
 }
+// Same set of Folio web origins trusted by isValidFolioWebCallbackRedirect,
+// used to validate the postMessage target origin for folioSpotifyOAuthCallback.
+function resolveTargetOrigin(origin) {
+    try {
+        const u = new URL(origin);
+        const host = u.hostname.toLowerCase();
+        if ((host === "foliobeta.minealexgames.com" ||
+            host === "folio.minealexgames.com") &&
+            u.protocol === "https:") {
+            return u.origin;
+        }
+        if (u.protocol === "http:" &&
+            (host === "localhost" || host === "127.0.0.1")) {
+            return u.origin;
+        }
+    }
+    catch {
+        // fall through
+    }
+    return "*";
+}
 /**
  * Intercambio authorization_code / refresh_token → tokens (Spotify OAuth PKCE).
  */
 exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -89,16 +110,39 @@ exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory:
         res.status(405).json({ error: "method_not_allowed" });
         return;
     }
+    // Require a verified Firebase session (same pattern as folioSpotifyApiProxy)
+    // so this isn't an open, unauthenticated relay to Spotify's token endpoint.
+    const authHeader = String((_a = req.headers.authorization) !== null && _a !== void 0 ? _a : "");
+    const authMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!authMatch) {
+        res.status(401).json({ error: "missing_auth" });
+        return;
+    }
+    try {
+        await (0, auth_1.getAuth)().verifyIdToken(authMatch[1]);
+    }
+    catch {
+        res.status(401).json({ error: "invalid_auth" });
+        return;
+    }
     const body = readJsonBody(req);
-    const grantType = String((_a = body.grantType) !== null && _a !== void 0 ? _a : "authorization_code").trim();
-    const clientId = String((_b = body.clientId) !== null && _b !== void 0 ? _b : "").trim() || spotifyOauthClientId();
+    const grantType = String((_b = body.grantType) !== null && _b !== void 0 ? _b : "authorization_code").trim();
+    const configuredClientId = spotifyOauthClientId();
+    const requestedClientId = String((_c = body.clientId) !== null && _c !== void 0 ? _c : "").trim();
+    const clientId = requestedClientId || configuredClientId;
     if (!clientId) {
         res.status(400).json({ error: "missing_client_id" });
         return;
     }
+    // Only ever proxy token requests for Folio's own Spotify app, never an
+    // arbitrary caller-supplied client_id.
+    if (configuredClientId && clientId !== configuredClientId) {
+        res.status(403).json({ error: "client_id_not_allowed" });
+        return;
+    }
     let params;
     if (grantType === "refresh_token") {
-        const refreshToken = String((_c = body.refreshToken) !== null && _c !== void 0 ? _c : "").trim();
+        const refreshToken = String((_d = body.refreshToken) !== null && _d !== void 0 ? _d : "").trim();
         if (!refreshToken) {
             res.status(400).json({ error: "missing_fields" });
             return;
@@ -110,9 +154,9 @@ exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory:
         });
     }
     else {
-        const code = String((_d = body.code) !== null && _d !== void 0 ? _d : "").trim();
-        const redirectUri = String((_e = body.redirectUri) !== null && _e !== void 0 ? _e : "").trim();
-        const codeVerifier = String((_f = body.codeVerifier) !== null && _f !== void 0 ? _f : "").trim();
+        const code = String((_e = body.code) !== null && _e !== void 0 ? _e : "").trim();
+        const redirectUri = String((_f = body.redirectUri) !== null && _f !== void 0 ? _f : "").trim();
+        const codeVerifier = String((_g = body.codeVerifier) !== null && _g !== void 0 ? _g : "").trim();
         if (!code || !redirectUri || !codeVerifier) {
             res.status(400).json({ error: "missing_fields" });
             return;
@@ -155,10 +199,14 @@ exports.folioSpotifyExchangeOAuth = (0, https_1.onRequest)({ cors: true, memory:
  * Callback OAuth Web: notifica a Folio (postMessage + localStorage) tras autorizar.
  */
 exports.folioSpotifyOAuthCallback = (0, https_1.onRequest)({ cors: true, memory: "128MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const err = String((_a = req.query.error) !== null && _a !== void 0 ? _a : "").trim();
     const code = String((_b = req.query.code) !== null && _b !== void 0 ? _b : "").trim();
     const state = String((_c = req.query.state) !== null && _c !== void 0 ? _c : "").trim();
+    // Callers that need a non-wildcard postMessage target can append
+    // ?origin=<their https origin> to the registered redirect_uri; Spotify
+    // preserves it when appending code/state on redirect back here.
+    const targetOrigin = resolveTargetOrigin(String((_d = req.query.origin) !== null && _d !== void 0 ? _d : "").trim());
     res.set("Content-Type", "text/html; charset=utf-8");
     const payload = JSON.stringify({
         type: "folio-spotify-oauth",
@@ -166,6 +214,7 @@ exports.folioSpotifyOAuthCallback = (0, https_1.onRequest)({ cors: true, memory:
         state,
         error: err,
     });
+    const targetOriginJson = JSON.stringify(targetOrigin);
     const title = err ? "OAuth cancelado" : "Conectado";
     const message = err
         ? `Error: ${err}`
@@ -181,14 +230,15 @@ exports.folioSpotifyOAuthCallback = (0, https_1.onRequest)({ cors: true, memory:
       try {
         localStorage.setItem("folio_spotify_oauth", JSON.stringify(payload));
       } catch (e) {}
+      var targetOrigin = ${targetOriginJson};
       try {
         if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(payload, "*");
+          window.opener.postMessage(payload, targetOrigin);
         }
       } catch (e) {}
       try {
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage(payload, "*");
+          window.parent.postMessage(payload, targetOrigin);
         }
       } catch (e) {}
       setTimeout(function () {

@@ -1679,6 +1679,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         settings: const RouteSettings(name: 'graph_view'),
         builder: (_) => GraphViewScreen(
           session: _s,
+          appSettings: widget.appSettings,
           onOpenPage: _s.selectPage,
         ),
       ),

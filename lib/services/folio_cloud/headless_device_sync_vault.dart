@@ -65,13 +65,26 @@ class HeadlessDeviceSyncVault {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (await isPlain(vaultId)) {
       if (uid != null && uid.isNotEmpty) {
-        final key = await DeviceSyncKeyCache.plainPackKey(
-          uid: uid,
-          vaultId: vaultId,
-        );
-        final raw = await key.extractBytes();
-        await _keys.save(vaultId, raw);
-        return key;
+        try {
+          final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
+          final key = await DeviceSyncKeyCache.plainPackKey(
+            uid: uid,
+            vaultId: vaultId,
+            accountSecret: secret,
+          );
+          final raw = await key.extractBytes();
+          await _keys.save(vaultId, raw);
+          return key;
+        } catch (e) {
+          // Sin red/Cloud Function no hay forma de obtener el secreto de
+          // cuenta; se trata como "aún no disponible" en vez de propagar.
+          AppLogger.debug(
+            'resolvePackKey: account sync secret unavailable',
+            tag: 'cloud_sync',
+            context: {'vaultId': vaultId, 'error': '$e'},
+          );
+          return null;
+        }
       }
       return _keys.ensurePlainVaultSyncKey(vaultId);
     }

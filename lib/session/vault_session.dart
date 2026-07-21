@@ -72,6 +72,7 @@ import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
+import '../services/unlock_attempt_throttle.dart';
 import '../services/folio_cloud/device_sync_key_cache.dart';
 import '../services/sync/sync_conflict_entry.dart';
 import '../services/sync/sync_conflict_store.dart';
@@ -2245,8 +2246,23 @@ class VaultSession extends ChangeNotifier {
       }
       return;
     }
+    final throttle = UnlockAttemptThrottle();
+    final vaultIdForThrottle = _vaultId ?? '';
+    final wait = await throttle.remainingWait(vaultIdForThrottle);
+    if (wait != null) {
+      throw UnlockThrottledException(wait);
+    }
     try {
-      final dek = await _repo.unlockWithPassword(password);
+      final Uint8List dek;
+      try {
+        dek = await _repo.unlockWithPassword(password);
+      } on VaultCorruptionException {
+        rethrow;
+      } catch (e) {
+        await throttle.recordFailure(vaultIdForThrottle);
+        rethrow;
+      }
+      await throttle.recordSuccess(vaultIdForThrottle);
       _dek = dek.toList();
       final payload = await _repo.loadPayload(_dek);
       _pages = List.from(payload.pages);
@@ -2373,9 +2389,11 @@ class VaultSession extends ChangeNotifier {
       } else {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null && uid.isNotEmpty) {
+          final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vid);
           final key = await DeviceSyncKeyCache.plainPackKey(
             uid: uid,
             vaultId: vid,
+            accountSecret: secret,
           );
           final raw = await key.extractBytes();
           await cache.save(vid, raw);
@@ -6045,10 +6063,23 @@ class VaultSession extends ChangeNotifier {
   Future<bool> verifyPasswordMatchesUnlockedSession(String password) async {
     if (_dek == null) return false;
     touchActivity();
+    final throttle = UnlockAttemptThrottle();
+    final vaultIdForThrottle = _vaultId ?? '';
+    final wait = await throttle.remainingWait(vaultIdForThrottle);
+    if (wait != null) {
+      throw UnlockThrottledException(wait);
+    }
     try {
       final dek = await _repo.unlockWithPassword(password);
-      return const ListEquality<int>().equals(dek, _dek!);
+      final matches = const ListEquality<int>().equals(dek, _dek!);
+      if (matches) {
+        await throttle.recordSuccess(vaultIdForThrottle);
+      } else {
+        await throttle.recordFailure(vaultIdForThrottle);
+      }
+      return matches;
     } catch (_) {
+      await throttle.recordFailure(vaultIdForThrottle);
       return false;
     }
   }

@@ -38,20 +38,23 @@ Widget? _specialRowFile(_BlockRowScope s) {
                 alignment: Alignment.centerLeft,
                 child: SizedBox(
                   width: targetW,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showActions)
-                        st._blockMediaWidthToolbar(page, block, theme),
-                      st._buildCollabUploadProgressBadge(
-                        block.id,
-                        theme,
-                        scheme,
-                      ),
-                      SizedBox(
-                        height: boxH,
-                        child: Container(
+                  child: st._wrapResizableBlockMedia(
+                    page: page,
+                    block: block,
+                    enabled: showActions || showInlineEditControls,
+                    maxAvailableWidth: maxW,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        st._buildCollabUploadProgressBadge(
+                          block.id,
+                          theme,
+                          scheme,
+                        ),
+                        SizedBox(
+                          height: boxH,
+                          child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerHighest.withValues(
@@ -83,19 +86,15 @@ Widget? _specialRowFile(_BlockRowScope s) {
                                           ?.copyWith(color: scheme.error),
                                     ),
                                     const SizedBox(height: 8),
-                                    FilledButton.tonalIcon(
+                                    BlockButton.primaryIcon(
                                       onPressed: () => st._pickFileForBlock(
                                         page.id,
                                         block.id,
                                       ),
-                                      icon: const Icon(
-                                        Icons.attach_file_rounded,
-                                      ),
-                                      label: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).replaceFile,
-                                      ),
+                                      icon: Icons.attach_file_rounded,
+                                      label: AppLocalizations.of(
+                                        context,
+                                      ).replaceFile,
                                     ),
                                   ],
                                 );
@@ -114,38 +113,33 @@ Widget? _specialRowFile(_BlockRowScope s) {
                                             ?.copyWith(color: scheme.error),
                                       ),
                                     const SizedBox(height: 8),
-                                    FilledButton.tonalIcon(
+                                    BlockButton.primaryIcon(
                                       onPressed: () => st._pickFileForBlock(
                                         page.id,
                                         block.id,
                                       ),
-                                      icon: const Icon(
-                                        Icons.attach_file_rounded,
-                                      ),
-                                      label: Text(
-                                        (block.url ?? '').trim().isEmpty
-                                            ? AppLocalizations.of(
-                                                context,
-                                              ).chooseFile
-                                            : AppLocalizations.of(
-                                                context,
-                                              ).replaceFile,
-                                      ),
+                                      icon: Icons.attach_file_rounded,
+                                      label: (block.url ?? '').trim().isEmpty
+                                          ? AppLocalizations.of(
+                                              context,
+                                            ).chooseFile
+                                          : AppLocalizations.of(
+                                              context,
+                                            ).replaceFile,
                                     ),
                                     if ((block.url ?? '')
                                         .trim()
                                         .isNotEmpty) ...[
                                       const SizedBox(height: 4),
-                                      TextButton(
+                                      BlockButton.tertiaryIcon(
                                         onPressed: () => st._clearBlockUrl(
                                           page.id,
                                           block.id,
                                         ),
-                                        child: Text(
-                                          AppLocalizations.of(
-                                            context,
-                                          ).removeFile,
-                                        ),
+                                        icon: Icons.close_rounded,
+                                        label: AppLocalizations.of(
+                                          context,
+                                        ).removeFile,
                                       ),
                                     ],
                                   ],
@@ -173,7 +167,8 @@ Widget? _specialRowFile(_BlockRowScope s) {
                     ],
                   ),
                 ),
-              );
+              ),
+            );
             },
           ),
         ),

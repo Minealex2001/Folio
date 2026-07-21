@@ -464,6 +464,7 @@
   "tableAddColumn": "Columna",
   "tableRemoveColumn": "Suprimeix la col.",
   "tablePasteFromClipboard": "Enganxa la taula",
+  "tableMoreActions": "Més accions de taula",
   "pickPageForMention": "Tria un fòli",
   "bookmarkTitleHint": "Títol",
   "bookmarkOpenLink": "Obre l'enllaç",
@@ -2496,9 +2497,11 @@
   ,"syncedBlockGroupCount": "{count,plural, =1{1 còpia sincronitzada} other{{count} còpies sincronitzades}}"
   ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
   ,"graphViewTitle": "Vista de graf"
-  ,"graphViewEmpty": "No hi ha enllaços entre fòlis"
+  ,"graphViewEmpty": "No hi ha relacions entre fòlis ni carpetes"
   ,"graphViewIncludeOrphans": "Incloure fòlis sense enllaços"
   ,"graphViewOpenPage": "Obrir fòli"
+  ,"graphViewLegendLink": "Enllaç"
+  ,"graphViewLegendHierarchy": "Carpeta"
   ,"importPdf": "Importar PDF…"
   ,"importPdfDialogTitle": "Importar PDF com a fòli"
   ,"importPdfAnnotationsOnly": "Només anotacions"

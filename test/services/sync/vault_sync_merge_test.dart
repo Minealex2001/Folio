@@ -204,8 +204,45 @@ void main() {
       baseline: VaultPayload(pages: const []),
     );
 
-    expect(result.payload.slack.connections.single.id, 'remote');
-    expect(result.payload.teams.connections.single.id, 'remote');
+    // Distintas conexiones (ids distintos) en cada lado deben fusionarse por
+    // id, no descartar una wholesale — cada dispositivo añadió la suya.
+    expect(
+      result.payload.slack.connections.map((c) => c.id).toSet(),
+      {'local', 'remote'},
+    );
+    expect(
+      result.payload.teams.connections.map((c) => c.id).toSet(),
+      {'local', 'remote'},
+    );
+  });
+
+  test('slack: misma conexión (mismo id) editada en ambos lados, gana local', () {
+    const localSlack = SlackIntegrationState(
+      connections: [
+        SlackConnection(
+          id: 'shared',
+          label: 'Local label',
+          webhookUrl: 'https://hooks.slack.com/local',
+        ),
+      ],
+    );
+    const remoteSlack = SlackIntegrationState(
+      connections: [
+        SlackConnection(
+          id: 'shared',
+          label: 'Remote label',
+          webhookUrl: 'https://hooks.slack.com/remote',
+        ),
+      ],
+    );
+
+    final result = engine.merge(
+      local: VaultPayload(pages: const [], slack: localSlack),
+      remote: VaultPayload(pages: const [], slack: remoteSlack),
+      baseline: VaultPayload(pages: const []),
+    );
+
+    expect(result.payload.slack.connections.single.label, 'Local label');
   });
 
   test('slack y teams: solo remoto con conexiones se conserva', () {
@@ -231,7 +268,7 @@ void main() {
     expect(result.payload.slack.connections.single.id, 'remote');
   });
 
-  test('spotify: si ambos lados tienen conexiones, gana remoto', () {
+  test('spotify: conexiones distintas en cada lado se fusionan por id', () {
     final localSpotify = SpotifyIntegrationState(
       connections: [
         SpotifyConnection(
@@ -259,6 +296,12 @@ void main() {
       remote: VaultPayload(pages: const [], spotify: remoteSpotify),
       baseline: VaultPayload(pages: const []),
     );
-    expect(result.payload.spotify.connections.single.id, 'remote');
+    // Bug corregido: antes se descartaba wholesale la lista local si ambos
+    // lados tenían conexiones no vacías. Ahora se fusionan por id, así que
+    // una conexión añadida en cada dispositivo sobrevive en ambos.
+    expect(
+      result.payload.spotify.connections.map((c) => c.id).toSet(),
+      {'local', 'remote'},
+    );
   });
 }

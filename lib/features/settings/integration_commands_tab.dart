@@ -87,6 +87,7 @@ class _IntegrationCommandsTabState extends State<IntegrationCommandsTab> {
   String? _generatedCode;
   bool _busy = false;
   String? _error;
+  bool _obscureTeamsToken = true;
 
   @override
   void initState() {
@@ -237,8 +238,20 @@ class _IntegrationCommandsTabState extends State<IntegrationCommandsTab> {
           TextFormField(
             key: ValueKey(conn.id),
             initialValue: conn.outgoingWebhookToken,
+            obscureText: _obscureTeamsToken,
             decoration: InputDecoration(
               labelText: l10n.integrationTeamsOutgoingTokenLabel,
+              suffixIcon: IconButton(
+                tooltip: _obscureTeamsToken ? l10n.showPassword : l10n.hidePassword,
+                icon: Icon(
+                  _obscureTeamsToken
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                ),
+                onPressed: () => setState(
+                  () => _obscureTeamsToken = !_obscureTeamsToken,
+                ),
+              ),
             ),
             onChanged: (v) => widget.onTeamsTokenChanged?.call(conn.id, v),
           ),

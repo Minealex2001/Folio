@@ -116,6 +116,15 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 - **Scroll TOC**: `scrollToBlock(blockId)` — desplazamiento animado con `Scrollable.ensureVisible` desde la tabla de contenidos lateral.
 - **Índice de bloques ordenado**: `_orderedListNumber()` calcula el número correlativo para listas numeradas, respetando niveles de anidación.
 
+### Controles de bloque (UI compacta estilo Notion)
+
+Implementados en `lib/app/folio_block_controls.dart`:
+
+- **`BlockButton`**: botones compactos (`primary` / `secondary` / `tertiary` / `destructive`) con radio 12px, distintos del tema pill global de diálogos.
+- **`FolioBlockToolbar`**: barra de acciones externa que va **debajo** del contenido del bloque (database, columnas, etc.).
+- **`FolioTableGutterButton`**: botones `+` integrados en la rejilla de tablas (gutter derecho para columna, inferior para fila; menú en esquina para pegar/eliminar).
+- **`FolioBlockResizeHandle`**: asa en la esquina inferior derecha para redimensionar media con `imageWidth` arrastrando horizontalmente (imagen, video, embed, file, spotify). El arrastre usa el ancho completo de la fila como referencia. `bookmark` ocupa siempre el ancho completo (sin asa). Sustituye la antigua toolbar de presets de ancho.
+
 ---
 
 ## 3. Tipos de bloque
@@ -444,16 +453,15 @@ El selector se presenta como un bottom sheet con preview en tiempo real y botón
 
 ## 18. Redimensionado de imágenes
 
-- Factor de ancho: 20%–100% en pasos de 10% (`_nudgeImageWidth`, delta ±0,1).
-- Botones rápidos: «Más pequeño», «Más grande», «50%», «75%», «100%».
-- El factor se persiste en `block.imageWidth` (rango 0,2–1,0).
-- Los controles se muestran como toolbar por encima de la imagen cuando el bloque está activo.
+- Factor de ancho: 20%–100% (`imageWidth` en el bloque, rango 0,2–1,0).
+- Redimensionar: arrastrar el asa inferior derecha en bloques de media (`FolioBlockResizeHandle`).
+- Atajos del menú contextual: «Más pequeño» / «Más grande» (±10%), «50%», «75%», «100%».
 
 ---
 
 ## 19. Pegado inteligente de URLs
 
-Al pegar (`Ctrl+V`) una URL en un bloque de texto, se muestra un bottom sheet con opciones:
+Al pegar (`Ctrl+V`) una URL en un bloque de texto (WYSIWYG vía Quill), en bloques de media vacíos (embed, spotify, imagen, etc.) o en un marcador, se muestra un bottom sheet con opciones:
 
 | Modo (`FolioPasteUrlMode`) | Comportamiento |
 |---|---|
@@ -1004,6 +1012,8 @@ Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integrat
 ### Reproducción y modo zen
 
 - **`SpotifyPlaybackController`**: polling de now playing; reproductor en el pie del sidebar con densidades `mini` / `expanded` (`workspaceSidebarSpotifyExpanded`). El **modo extendido** (sidebar y zen) muestra carátula grande, título/artista, barra de tiempo (seek), prev/play/next centrados, volumen y «Abrir en Spotify» en la cabecera (para no desalinear los controles). Visible **siempre** que haya cuenta conectada; al pulsar play sin contenido inicia la playlist de enfoque o reanuda.
+- **Color dominante de la carátula**: `spotify_art_color.dart` descarga la carátula a una miniatura 8×8 (usando el caché de imágenes de Flutter), calcula el color promedio ponderado por saturación HSL en un `Isolate` (`compute`) y aplica un boost de saturación. El color de fondo del banner (mini, expandido y zen) se actualiza con `AnimatedContainer` (600 ms, `easeOutCubic`) al cambiar de canción. El color de texto/iconos se calcula automáticamente (blanco u oscuro) para garantizar contraste sobre el fondo dominante.
+- **Animación de expansión** mini↔expandido gestionada con `AnimationController` + `AnimatedContainer`/`AnimatedSize` (`easeOutCubic`, 320 ms sidebar, 260 ms zen). El botón **Expandir** va superpuesto sobre la carátula (overlay semitransparente) y solo aparece al pasar el ratón por el card (`MouseRegion`).
 - Playlist de **enfoque** configurable por conexión; selector dedicado (`spotify_playlist_picker.dart`) con búsqueda local, paginación, portada, número de canciones y vista previa antes de confirmar; accesible desde las pestañas Reproducción y Modo zen.
 - Al entrar en **modo zen** puede iniciarse automáticamente (`zenAutoPlay`); al salir, pausa opcional (`zenPauseOnExit`). Sin playlist seleccionada, el interruptor de auto-play queda deshabilitado.
 
@@ -1201,19 +1211,24 @@ Implementado en `lib/models/block.dart`, `lib/session/vault_session.dart` y `lib
 
 ## 39. Vista de grafo
 
-Implementado en `lib/features/workspace/graph/graph_view_screen.dart`.
+Implementado en `lib/features/workspace/graph/graph_view_screen.dart` y `lib/features/workspace/graph/graph_model.dart`.
 
 - **Acceso**: botón en la barra de herramientas del workspace (`id: 'graph_view'`) → `Navigator.push` a `GraphViewScreen`.
-- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring = 0.04, damping = 0.85, gravedad central = 0.015.
+- **Relaciones incluidas**:
+  - **Enlaces** (`GraphEdgeKind.link`): menciones `@`, URIs `folio://open/<id>` y bloques `child_page` (vía `backlinkPagesFor`).
+  - **Jerarquía** (`GraphEdgeKind.hierarchy`): relación carpeta/folio del sidebar (`parentId` → hijo).
+- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring enlace = 0.04, spring jerarquía = 0.08, damping = 0.85, gravedad central = 0.015.
 - **Renderizado**:
-  - Nodos como círculos con etiqueta de título de página; tamaño proporcional a backlinks.
-  - Aristas mediante `CustomPainter` (`_EdgePainter`) con líneas semitransparentes.
+  - Nodos de folio como círculos; nodos de carpeta (`isFolder`) como rectángulos redondeados con icono.
+  - Aristas de enlace: línea sólida (`outlineVariant`).
+  - Aristas de jerarquía: línea discontinua (`outline` con opacidad reducida).
+  - Leyenda compacta en el AppBar (`graphViewLegendLink`, `graphViewLegendHierarchy`).
   - `InteractiveViewer` para zoom y paneo libre.
 - **Interacción**:
   - Hover sobre nodo: resalte visual (`_hoveredNodeId`).
   - Tap en nodo: `Navigator.pop()` + `onOpenPage(pageId)` para navegar a la página.
-- **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar.
-- **Estado vacío**: mensaje `graphViewEmpty` cuando no hay páginas con relaciones.
+- **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar; cuenta como conectado cualquier nodo con arista de enlace o jerarquía.
+- **Estado vacío**: mensaje `graphViewEmpty` cuando no hay relaciones entre folios ni carpetas.
 
 ---
 
@@ -1347,7 +1362,7 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 ### UI
 
-- Menú **⋯** de cada página/carpeta en el sidebar (`SidebarTile` en `sidebar/sidebar_page_tree.dart`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover).
+- Menú **⋯** de cada página/carpeta en el sidebar (`SidebarTile` en `sidebar/sidebar_page_tree.dart`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover). La zona de acciones reserva ancho fijo (`FolioSidebar.tileActionsSlotWidth`) y solo cambia opacidad al hover, sin comprimir el título ni alterar el tamaño de la fila.
 - Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
 - Pie del sidebar densificado (`SidebarFooter`): **papelera solo icono** + badge de conteo, botón extendido de **Ajustes**, PWA (web) y Spotify mini/expandido. Abre `showPageTrashSheet` en `page_trash_sheet.dart` (restaurar, eliminar definitivamente, vaciar, retención 30 días).
 - Desk tools: búsqueda global como campo extendido (tap abre búsqueda); sync/lock en iconos. Tareas: icono de tarea rápida + botón extendido «Todas las tareas».

@@ -464,6 +464,7 @@
   "tableAddColumn": "Coluna",
   "tableRemoveColumn": "Remover col.",
   "tablePasteFromClipboard": "Colar tabela",
+  "tableMoreActions": "Mais ações da tabela",
   "pickPageForMention": "Escolher fólio",
   "bookmarkTitleHint": "Título",
   "bookmarkOpenLink": "Abrir link",
@@ -2496,9 +2497,11 @@
   ,"syncedBlockGroupCount": "{count,plural, =1{1 cópia sincronizada} other{{count} cópias sincronizadas}}"
   ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
   ,"graphViewTitle": "Vista de grafo"
-  ,"graphViewEmpty": "Não há ligações entre fólios"
+  ,"graphViewEmpty": "Não há relações entre fólios nem pastas"
   ,"graphViewIncludeOrphans": "Incluir fólios sem ligações"
   ,"graphViewOpenPage": "Abrir fólio"
+  ,"graphViewLegendLink": "Ligação"
+  ,"graphViewLegendHierarchy": "Pasta"
   ,"importPdf": "Importar PDF…"
   ,"importPdfDialogTitle": "Importar PDF como fólio"
   ,"importPdfAnnotationsOnly": "Apenas anotações"

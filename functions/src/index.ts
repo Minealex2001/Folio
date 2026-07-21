@@ -7,7 +7,7 @@ loadEnv({ path: path.resolve(__dirname, "../.env") });
 import "./admin_init";
 
 import * as admin from "firebase-admin";
-import { createHash, randomInt } from "crypto";
+import { createHash, randomBytes, randomInt } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
@@ -1806,15 +1806,34 @@ async function grantMicrosoftStoreConsumableInk(
 ): Promise<void> {
   for (const g of grants) {
     if (g.drops <= 0) continue;
-    const docId = createHash("sha256")
+    // Global doc id: a single real-world Store purchase can only ever be
+    // claimed once across ALL Folio accounts, not just once per account.
+    const globalDocId = createHash("sha256").update(g.dedupKey).digest("hex").slice(0, 64);
+    // Legacy per-uid doc id (pre-fix): kept so purchases already credited
+    // under the old scheme are never re-credited during migration.
+    const legacyDocId = createHash("sha256")
       .update(`${uid}:${g.dedupKey}`)
       .digest("hex")
       .slice(0, 64);
-    const doneRef = db.collection("microsoftStoreProcessedPurchases").doc(docId);
+    const globalRef = db.collection("microsoftStoreProcessedPurchases").doc(globalDocId);
+    const legacyRef = db.collection("microsoftStoreProcessedPurchases").doc(legacyDocId);
     await db.runTransaction(async (tx) => {
-      const doneSnap = await tx.get(doneRef);
-      if (doneSnap.exists) return;
-      tx.set(doneRef, {
+      const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+      if (globalSnap.exists) return; // already claimed globally, by this uid or another
+      if (legacySnap.exists) {
+        // Already credited pre-migration under the old per-uid key: backfill
+        // the global marker so no account can double-claim it going
+        // forward, without incrementing the balance again.
+        tx.set(globalRef, {
+          uid,
+          dedupKey: g.dedupKey,
+          drops: g.drops,
+          processedAt: FieldValue.serverTimestamp(),
+          migratedFromLegacy: true,
+        });
+        return;
+      }
+      tx.set(globalRef, {
         uid,
         dedupKey: g.dedupKey,
         drops: g.drops,
@@ -1839,15 +1858,30 @@ async function grantMicrosoftStoreBackupStorage(
 ): Promise<void> {
   for (const g of grants) {
     if (g.bytes <= 0) continue;
-    const docId = createHash("sha256")
+    const globalDocId = createHash("sha256")
+      .update(`${g.dedupKey}:foliobackup`)
+      .digest("hex")
+      .slice(0, 64);
+    const legacyDocId = createHash("sha256")
       .update(`${uid}:${g.dedupKey}:foliobackup`)
       .digest("hex")
       .slice(0, 64);
-    const doneRef = db.collection("microsoftStoreProcessedBackupGrants").doc(docId);
+    const globalRef = db.collection("microsoftStoreProcessedBackupGrants").doc(globalDocId);
+    const legacyRef = db.collection("microsoftStoreProcessedBackupGrants").doc(legacyDocId);
     await db.runTransaction(async (tx) => {
-      const doneSnap = await tx.get(doneRef);
-      if (doneSnap.exists) return;
-      tx.set(doneRef, {
+      const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+      if (globalSnap.exists) return;
+      if (legacySnap.exists) {
+        tx.set(globalRef, {
+          uid,
+          dedupKey: g.dedupKey,
+          bytes: g.bytes,
+          processedAt: FieldValue.serverTimestamp(),
+          migratedFromLegacy: true,
+        });
+        return;
+      }
+      tx.set(globalRef, {
         uid,
         dedupKey: g.dedupKey,
         bytes: g.bytes,
@@ -3262,6 +3296,41 @@ export const folioFinalizeCloudPack = onCall(
       legacyBytes,
       totalUsedBytes: newUsed + legacyBytes,
     };
+  }
+);
+
+// Secreto por cuenta+libreta, generado una sola vez (get-or-create) y
+// mezclado en la derivación de la clave de device-sync de libretas "en
+// claro" (sin contraseña) — ver DeviceSyncKeyCache.plainPackKey en el
+// cliente. Sin esto, esa clave era recalculable solo con uid+vaultId, que
+// ya son parte de la propia ruta de Storage/Firestore.
+export const folioEnsurePlainVaultSyncSecret = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const ref = db
+      .collection("users")
+      .doc(uid)
+      .collection("plainVaultSyncSecrets")
+      .doc(vaultId);
+    const secretB64 = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const existing = snap.data()?.secret;
+      if (typeof existing === "string" && existing.length > 0) {
+        return existing;
+      }
+      const generated = randomBytes(32).toString("base64");
+      tx.set(ref, {
+        secret: generated,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return generated;
+    });
+    return { ok: true as const, secret: secretB64 };
   }
 );
 
@@ -4917,25 +4986,48 @@ export const folioCloudTranscribeChunk = onCall(
     try {
       const audioBuffer = Buffer.from(audioBase64, "base64");
       const blob = new Blob([audioBuffer], { type: "audio/wav" });
-      const form = new FormData();
-      form.append("file", blob, "chunk.wav");
-      // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
-      form.append("model", "gpt-4o-mini-transcribe");
-      if (language && language !== "auto") {
-        form.append("language", language.slice(0, 2).toLowerCase());
+
+      // Reintentos con backoff ante fallos transitorios del proveedor (mismo
+      // patrón que openAiFetchChatCompletion / OPENAI_MAX_429_RETRIES).
+      const maxTranscribeRetries = 2;
+      let resp: Response | undefined;
+      let lastErrBody = "";
+      for (let attempt = 0; attempt <= maxTranscribeRetries; attempt++) {
+        const form = new FormData();
+        form.append("file", blob, "chunk.wav");
+        // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
+        form.append("model", "gpt-4o-mini-transcribe");
+        if (language && language !== "auto") {
+          form.append("language", language.slice(0, 2).toLowerCase());
+        }
+        form.append("response_format", "verbose_json");
+
+        resp = await fetch(openAiAudioTranscriptionsUrl(), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${inferenceApiKey}` },
+          body: form,
+        });
+
+        if (resp.ok) break;
+
+        const attemptStatus = resp.status;
+        lastErrBody = await resp.text().catch(() => `HTTP ${attemptStatus}`);
+        const transient =
+          resp.status === 429 ||
+          resp.status === 502 ||
+          resp.status === 503 ||
+          resp.status === 504;
+        if (!transient || attempt === maxTranscribeRetries) break;
+        await sleepMs(400 * 2 ** attempt);
       }
-      form.append("response_format", "verbose_json");
 
-      const resp = await fetch(openAiAudioTranscriptionsUrl(), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${inferenceApiKey}` },
-        body: form,
-      });
-
-      if (!resp.ok) {
-        const errBody = await resp.text().catch(() => `HTTP ${resp.status}`);
-        console.error("folioCloudTranscribeChunk: transcription API error", resp.status, errBody);
-        throw new HttpsError("internal", `Transcription failed (${resp.status})`);
+      if (!resp || !resp.ok) {
+        console.error(
+          "folioCloudTranscribeChunk: transcription API error",
+          resp?.status,
+          lastErrBody
+        );
+        throw new HttpsError("internal", `Transcription failed (${resp?.status ?? "unknown"})`);
       }
 
       const verboseResult = (await resp.json()) as {

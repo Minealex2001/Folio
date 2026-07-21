@@ -1,29 +1,19 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/github_integration_state.dart';
+import '../integrations/integration_api_exception.dart';
 
-class GitHubApiException implements Exception {
+class GitHubApiException extends IntegrationApiException {
   const GitHubApiException(
-    this.message, {
-    this.statusCode,
-    this.body,
-    this.uri,
-    this.method,
+    super.message, {
+    super.statusCode,
+    super.body,
+    super.uri,
+    super.method,
   });
-  final String message;
-  final int? statusCode;
-  final String? body;
-  final String? uri;
-  final String? method;
 
   @override
-  String toString() {
-    final code = statusCode;
-    final m = (method ?? '').trim().isEmpty ? '' : '${method!.trim()} ';
-    final u = (uri ?? '').trim().isEmpty ? '' : ' ${uri!.trim()}';
-    final b = (body ?? '').trim().isEmpty ? '' : ' | body=${body!.trim()}';
-    return 'GitHubApiException($code): $m$message$u$b';
-  }
+  String get exceptionName => 'GitHubApiException';
 }
 
 class GitHubRepo {
@@ -263,6 +253,13 @@ class GitHubApiClient {
         .whereType<Map>()
         .map((e) => GitHubIssue.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+  }
+
+  /// Trae un único issue/PR por número (evita paginar la lista completa
+  /// solo para leer o confirmar un item ya conocido).
+  Future<GitHubIssue> getIssue(String owner, String repo, int number) async {
+    final json = await _getJson(_uri('/repos/$owner/$repo/issues/$number'));
+    return GitHubIssue.fromJson(json);
   }
 
   Future<List<GitHubLabel>> getLabels(String owner, String repo) async {

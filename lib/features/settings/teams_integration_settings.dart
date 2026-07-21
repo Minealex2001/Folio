@@ -132,7 +132,7 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
                     return IntegrationEntryRow(
                       icon: Icons.groups_rounded,
                       title: c.label,
-                      subtitle: c.webhookUrl,
+                      subtitle: maskIntegrationSecret(c.webhookUrl),
                       trailing: [
                         IconButton(
                           tooltip: l10n.delete,
@@ -338,7 +338,7 @@ class _NotificationsTab extends StatelessWidget {
         return IntegrationEntryRow(
           icon: Icons.groups_rounded,
           title: c.label,
-          subtitle: c.webhookUrl,
+          subtitle: maskIntegrationSecret(c.webhookUrl),
           subtitleMaxLines: 1,
           extra: IntegrationImportOptionsChips(
             options: [

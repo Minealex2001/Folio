@@ -1,28 +1,18 @@
 import '../../models/slack_integration_state.dart';
+import '../integrations/integration_api_exception.dart';
 import '../integrations/integration_webhook_transport.dart';
 
-class SlackApiException implements Exception {
+class SlackApiException extends IntegrationApiException {
   const SlackApiException(
-    this.message, {
-    this.statusCode,
-    this.body,
-    this.uri,
-    this.method,
+    super.message, {
+    super.statusCode,
+    super.body,
+    super.uri,
+    super.method,
   });
-  final String message;
-  final int? statusCode;
-  final String? body;
-  final String? uri;
-  final String? method;
 
   @override
-  String toString() {
-    final code = statusCode;
-    final m = (method ?? '').trim().isEmpty ? '' : '${method!.trim()} ';
-    final u = (uri ?? '').trim().isEmpty ? '' : ' ${uri!.trim()}';
-    final b = (body ?? '').trim().isEmpty ? '' : ' | body=${body!.trim()}';
-    return 'SlackApiException($code): $m$message$u$b';
-  }
+  String get exceptionName => 'SlackApiException';
 }
 
 /// Cliente delgado sobre la Incoming Webhook URL de un canal de Slack
@@ -39,11 +29,20 @@ class SlackApiClient {
 
   SlackConnection get connection => _connection;
 
+  /// Registra esta conexión server-side (requerido en Web antes de poder
+  /// relayar mensajes vía folioIntegrationWebhookProxy).
+  Future<void> registerConnection() => _transport.registerConnection(
+        provider: 'slack',
+        connectionId: _connection.id,
+        webhookUrl: _connection.webhookUrl,
+      );
+
   /// Publica [text] en el canal vinculado a la Incoming Webhook URL.
   Future<void> postMessage(String text) async {
     try {
       await _transport.postJson(
         provider: 'slack',
+        connectionId: _connection.id,
         webhookUrl: _connection.webhookUrl,
         payload: {'text': text},
       );
@@ -58,7 +57,10 @@ class SlackApiClient {
     }
   }
 
-  /// Verifica que la URL de webhook es válida enviando un mensaje de prueba.
-  Future<void> verifyConnection({required String testMessage}) =>
-      postMessage(testMessage);
+  /// Registra la conexión (si aplica) y verifica que la URL de webhook es
+  /// válida enviando un mensaje de prueba.
+  Future<void> verifyConnection({required String testMessage}) async {
+    await registerConnection();
+    await postMessage(testMessage);
+  }
 }

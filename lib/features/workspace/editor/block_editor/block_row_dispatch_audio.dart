@@ -63,12 +63,12 @@ Widget? _specialRowAudio(_BlockRowScope s) {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          FilledButton.tonalIcon(
+                          BlockButton.primaryIcon(
                             onPressed: () => unawaited(
                               st._pickAudioForBlock(page.id, block.id),
                             ),
-                            icon: const Icon(Icons.audio_file_rounded),
-                            label: Text(l10n.blockActionChooseAudio),
+                            icon: Icons.audio_file_rounded,
+                            label: l10n.blockActionChooseAudio,
                           ),
                         ],
                       )

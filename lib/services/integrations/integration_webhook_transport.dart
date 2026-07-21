@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
@@ -14,17 +15,52 @@ class IntegrationWebhookTransport {
 
   final http.Client _http;
 
+  /// Registra la conexión en el backend antes de poder relayarla vía
+  /// [postJson] en Web — folioIntegrationWebhookProxy ya no acepta una
+  /// webhookUrl arbitraria del cliente, solo un connectionId previamente
+  /// registrado por su propio dueño.
+  Future<void> registerConnection({
+    required String provider,
+    required String connectionId,
+    required String webhookUrl,
+  }) async {
+    if (!kIsWeb) return;
+    await callFolioHttpsCallable('folioUpsertIntegrationWebhookConnection', {
+      'provider': provider,
+      'connectionId': connectionId,
+      'webhookUrl': webhookUrl,
+    });
+  }
+
   Future<void> postJson({
     required String provider,
+    required String connectionId,
     required String webhookUrl,
     required Map<String, Object?> payload,
   }) async {
     if (kIsWeb) {
-      await callFolioHttpsCallable('folioIntegrationWebhookProxy', {
-        'provider': provider,
-        'webhookUrl': webhookUrl,
-        'payload': payload,
-      });
+      try {
+        await callFolioHttpsCallable('folioIntegrationWebhookProxy', {
+          'provider': provider,
+          'connectionId': connectionId,
+          'payload': payload,
+        });
+      } on FirebaseFunctionsException catch (e) {
+        // Connections created before the server-side registration step
+        // existed won't be found yet — register once (self-healing) and
+        // retry, instead of permanently breaking pre-existing connections.
+        if (e.code.toLowerCase() != 'not-found') rethrow;
+        await registerConnection(
+          provider: provider,
+          connectionId: connectionId,
+          webhookUrl: webhookUrl,
+        );
+        await callFolioHttpsCallable('folioIntegrationWebhookProxy', {
+          'provider': provider,
+          'connectionId': connectionId,
+          'payload': payload,
+        });
+      }
       return;
     }
 

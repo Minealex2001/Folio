@@ -11,6 +11,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../models/gitlab_integration_state.dart';
 import '../../services/gitlab/gitlab_api_client.dart';
 import '../../session/vault_session.dart';
+import '../../utils/private_host.dart';
 
 const List<String> kGitLabPriorities = ['low', 'medium', 'high'];
 const String kGitLabDefaultBaseUrl = 'https://gitlab.com';
@@ -258,6 +259,10 @@ class _AddConnectionFormState extends State<_AddConnectionForm> {
                     if (value.isEmpty) return null;
                     final uri = Uri.tryParse(value);
                     if (uri == null || !uri.hasScheme) return l10n.gitlabRequired;
+                    if (uri.scheme == 'http' &&
+                        !isPrivateOrLocalHost(uri.host)) {
+                      return l10n.gitlabRequired;
+                    }
                     return null;
                   },
                 ),

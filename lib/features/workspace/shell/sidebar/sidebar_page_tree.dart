@@ -308,19 +308,15 @@ class _SidebarTileState extends State<SidebarTile> {
                             ],
                           ),
                         ),
-                        AnimatedSwitcher(
-                          duration: FolioMotion.short2,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: animation,
-                                  child: child,
-                                ),
-                              ),
-                          child: allowInlineActions
-                              ? Container(
-                                  key: ValueKey('page_actions_${page.id}'),
+                        if (constraints.maxWidth >= FolioSidebar.tileActionsMinWidth)
+                          SizedBox(
+                            width: FolioSidebar.tileActionsSlotWidth,
+                            child: IgnorePointer(
+                              ignoring: !allowInlineActions,
+                              child: AnimatedOpacity(
+                                opacity: allowInlineActions ? 1 : 0,
+                                duration: FolioMotion.short2,
+                                child: Container(
                                   decoration: BoxDecoration(
                                     color: selected
                                         ? scheme.onSecondaryContainer
@@ -451,11 +447,10 @@ class _SidebarTileState extends State<SidebarTile> {
                                       ),
                                     ],
                                   ),
-                                )
-                              : const SizedBox.shrink(
-                                  key: ValueKey('page_actions_hidden'),
                                 ),
-                        ),
+                              ),
+                            ),
+                          ),
                       ],
                     );
                   },

@@ -213,22 +213,83 @@ async function dispatchParsedCommand(
   );
 }
 
+// Registers (or updates) the caller's own webhook connection server-side so
+// folioIntegrationWebhookProxy never has to trust a client-supplied URL.
+export const folioUpsertIntegrationWebhookConnection = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    const connectionId = String(data.connectionId ?? "").trim();
+    const provider = String(data.provider ?? "").trim() as IntegrationProvider;
+    const webhookUrl = String(data.webhookUrl ?? "").trim();
+    if (!connectionId) {
+      throw new HttpsError("invalid-argument", "missing_connection_id");
+    }
+    if (provider !== "slack" && provider !== "teams") {
+      throw new HttpsError("invalid-argument", "invalid_provider");
+    }
+    if (!webhookUrl) {
+      throw new HttpsError("invalid-argument", "missing_webhook_url");
+    }
+    let host: string;
+    try {
+      host = new URL(webhookUrl).hostname;
+    } catch {
+      throw new HttpsError("invalid-argument", "invalid_webhook_url");
+    }
+    if (!integrationWebhookHostAllowed(host)) {
+      throw new HttpsError("permission-denied", "webhook_host_not_allowed");
+    }
+    const ref = db.collection("integrationWebhookConnections").doc(connectionId);
+    const existing = await ref.get();
+    if (existing.exists && String(existing.data()?.firebaseUid ?? "") !== uid) {
+      // connectionId is client-generated (uuid-like); a collision with
+      // someone else's id should never silently reassign ownership.
+      throw new HttpsError("already-exists", "connection_id_taken");
+    }
+    await ref.set({
+      firebaseUid: uid,
+      provider,
+      webhookUrl,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { ok: true };
+  },
+);
+
 export const folioIntegrationWebhookProxy = onCall(
   { invoker: "public" },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
+    const uid = request.auth.uid;
     const data = (request.data ?? {}) as Record<string, unknown>;
     const provider = String(data.provider ?? "").trim() as IntegrationProvider;
-    const webhookUrl = String(data.webhookUrl ?? "").trim();
+    const connectionId = String(data.connectionId ?? "").trim();
     const payload = data.payload;
     if (provider !== "slack" && provider !== "teams") {
       throw new HttpsError("invalid-argument", "invalid_provider");
     }
-    if (!webhookUrl || typeof payload !== "object" || payload === null) {
-      throw new HttpsError("invalid-argument", "missing_webhook_or_payload");
+    if (!connectionId || typeof payload !== "object" || payload === null) {
+      throw new HttpsError("invalid-argument", "missing_connection_or_payload");
     }
+    const connSnap = await db
+      .collection("integrationWebhookConnections")
+      .doc(connectionId)
+      .get();
+    if (!connSnap.exists) {
+      throw new HttpsError("not-found", "connection_not_found");
+    }
+    const conn = connSnap.data()!;
+    if (String(conn.firebaseUid ?? "") !== uid || String(conn.provider ?? "") !== provider) {
+      throw new HttpsError("permission-denied", "not_your_connection");
+    }
+    const webhookUrl = String(conn.webhookUrl ?? "").trim();
     let host: string;
     try {
       host = new URL(webhookUrl).hostname;

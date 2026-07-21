@@ -232,8 +232,12 @@ class GitHubSyncService {
       final client = GitHubApiClient(connection: connection);
 
       try {
-        final remoteList = await client.getIssuesAndPRs(owner, repo);
-        final remote = remoteList.firstWhereOrNull((i) => i.number == number);
+        GitHubIssue? remote;
+        try {
+          remote = await client.getIssue(owner, repo, number);
+        } on GitHubApiException {
+          remote = null;
+        }
         if (remote == null) {
           skipped++;
           continue;
@@ -295,9 +299,12 @@ class GitHubSyncService {
           labels: nextLabels.toList(),
         );
 
-        final updatedList = await client.getIssuesAndPRs(owner, repo);
-        final updatedRemote =
-            updatedList.firstWhereOrNull((i) => i.number == number) ?? remote;
+        GitHubIssue updatedRemote;
+        try {
+          updatedRemote = await client.getIssue(owner, repo, number);
+        } on GitHubApiException {
+          updatedRemote = remote;
+        }
 
         final nextSnapshot = FolioGitHubIssueSnapshot(
           owner: owner,

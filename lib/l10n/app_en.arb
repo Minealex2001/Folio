@@ -464,6 +464,7 @@
   "tableAddColumn": "Column",
   "tableRemoveColumn": "Remove col.",
   "tablePasteFromClipboard": "Paste table",
+  "tableMoreActions": "More table actions",
   "pickPageForMention": "Choose page",
   "bookmarkTitleHint": "Title",
   "bookmarkOpenLink": "Open link",
@@ -2497,9 +2498,11 @@
   ,"syncedBlockGroupCount": "{count,plural, =1{1 synced copy} other{{count} synced copies}}"
   ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
   ,"graphViewTitle": "Graph view"
-  ,"graphViewEmpty": "No links between pages"
+  ,"graphViewEmpty": "No relationships between pages or folders"
   ,"graphViewIncludeOrphans": "Include unlinked pages"
   ,"graphViewOpenPage": "Open page"
+  ,"graphViewLegendLink": "Link"
+  ,"graphViewLegendHierarchy": "Folder"
   ,"importPdf": "Import PDF…"
   ,"importPdfDialogTitle": "Import PDF as page"
   ,"importPdfAnnotationsOnly": "Annotations only"

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,6 +8,51 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import 'system_audio_service.dart';
+
+/// FIFO de muestras PCM respaldado por chunks `Uint8List` en vez de un
+/// `List<int>` byte a byte: consumir con `removeAt(0)` sobre una lista
+/// creciente es O(n) por muestra (O(n²) acumulado) y en hardware más lento
+/// el backlog de audio puede no llegar a drenarse a tiempo. `Queue.removeFirst`
+/// es O(1) amortizado, así que el coste de drenar el buffer es O(1) por muestra.
+class _SampleFifo {
+  final Queue<Uint8List> _chunks = Queue<Uint8List>();
+  int _offset = 0;
+  int _length = 0;
+
+  int get lengthInBytes => _length;
+
+  void add(Uint8List data) {
+    if (data.isEmpty) return;
+    _chunks.add(data);
+    _length += data.length;
+  }
+
+  int _readByte() {
+    final front = _chunks.first;
+    final b = front[_offset];
+    _offset++;
+    _length--;
+    if (_offset >= front.length) {
+      _chunks.removeFirst();
+      _offset = 0;
+    }
+    return b;
+  }
+
+  /// Lee y consume la siguiente muestra Int16LE con signo.
+  int readInt16LE() {
+    final lo = _readByte();
+    final hi = _readByte();
+    final v = (hi << 8) | lo;
+    return v > 32767 ? v - 65536 : v;
+  }
+
+  void clear() {
+    _chunks.clear();
+    _offset = 0;
+    _length = 0;
+  }
+}
 
 /// Mezcla PCM del micrófono y del audio del sistema, escribe el WAV mezclado
 /// en disco y emite chunks de ~15 s para transcripción.
@@ -23,8 +69,8 @@ class AudioMixerService {
   StreamSubscription<Uint8List>? _sysSub;
 
   // Buffers de muestra pendientes de mezcla
-  final List<int> _micBuf = [];
-  final List<int> _sysBuf = [];
+  final _micBuf = _SampleFifo();
+  final _sysBuf = _SampleFifo();
 
   // Acumulador de samples mezclados para el chunk actual
   final List<int> _chunkSamples_ = [];
@@ -77,14 +123,25 @@ class AudioMixerService {
     _writeWavHeader(raf, 0); // placeholder, se actualizará al parar
 
     // Micrófono — stream PCM Int16LE 16kHz mono
-    final micStream = await _record.startStream(
-      RecordConfig(
-        encoder: AudioEncoder.pcm16bits,
-        sampleRate: _sampleRate,
-        numChannels: 1,
-        device: selectedMicDevice,
-      ),
-    );
+    Stream<Uint8List> micStream;
+    try {
+      micStream = await _record.startStream(
+        RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: _sampleRate,
+          numChannels: 1,
+          device: selectedMicDevice,
+        ),
+      );
+    } catch (_) {
+      // Sin dispositivo de entrada disponible, permiso denegado a nivel de
+      // SO, o el backend nativo de grabación falló al abrir el stream.
+      raf.closeSync();
+      unawaited(File(_wavTempPath!).delete().catchError((_) => File('')));
+      _wavRaf = null;
+      _wavTempPath = null;
+      return false;
+    }
     _micSub = micStream.listen(_onMicData);
 
     // Audio del sistema
@@ -142,34 +199,24 @@ class AudioMixerService {
   // ───────────── handlers de datos PCM
 
   void _onMicData(Uint8List data) {
-    _micBuf.addAll(data);
+    _micBuf.add(data);
     _tryMix();
   }
 
   void _onSysData(Uint8List data) {
-    _sysBuf.addAll(data);
+    _sysBuf.add(data);
     _tryMix();
   }
 
   void _tryMix() {
     // Siempre priorizamos avance del micrófono. Si no hay muestra del sistema,
     // mezclamos con cero para evitar bloquear el pipeline.
-    while (_micBuf.length >= 2) {
-      final micLo = _micBuf.removeAt(0);
-      final micHi = _micBuf.removeAt(0);
-      int micSample = (micHi << 8) | micLo;
-      if (micSample > 32767) micSample -= 65536; // sign extend
+    while (_micBuf.lengthInBytes >= 2) {
+      final micSample = _micBuf.readInt16LE();
 
-      int mixed;
-      if (_sysBuf.length >= 2) {
-        final sysLo = _sysBuf.removeAt(0);
-        final sysHi = _sysBuf.removeAt(0);
-        int sysSample = (sysHi << 8) | sysLo;
-        if (sysSample > 32767) sysSample -= 65536;
-        mixed = (micSample + sysSample).clamp(-32768, 32767);
-      } else {
-        mixed = micSample;
-      }
+      final mixed = _sysBuf.lengthInBytes >= 2
+          ? (micSample + _sysBuf.readInt16LE()).clamp(-32768, 32767)
+          : micSample;
 
       // Escribir al WAV
       final lo = mixed & 0xFF;
@@ -190,9 +237,10 @@ class AudioMixerService {
 
   void _flushRemaining() {
     // Vaciar micBuf sin sistema
-    while (_micBuf.length >= 2) {
-      final lo = _micBuf.removeAt(0);
-      final hi = _micBuf.removeAt(0);
+    while (_micBuf.lengthInBytes >= 2) {
+      final sample = _micBuf.readInt16LE();
+      final lo = sample & 0xFF;
+      final hi = (sample >> 8) & 0xFF;
       _wavRaf?.writeByteSync(lo);
       _wavRaf?.writeByteSync(hi);
       _wavDataBytes += 2;

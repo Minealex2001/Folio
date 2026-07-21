@@ -465,6 +465,7 @@
   "tableAddColumn": "Zutabea",
   "tableRemoveColumn": "Kendu zut.",
   "tablePasteFromClipboard": "Itsatsi taula",
+  "tableMoreActions": "Taularen ekintza gehiago",
   "pickPageForMention": "Hautatu folioa",
   "bookmarkTitleHint": "Izenburua",
   "bookmarkOpenLink": "Ireki esteka",
@@ -2497,9 +2498,11 @@
   ,"syncedBlockGroupCount": "{count,plural, =1{1 kopia sinkronizatuta} other{{count} kopia sinkronizatuta}}"
   ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
   ,"graphViewTitle": "Grafo ikuspegia"
-  ,"graphViewEmpty": "Ez dago orrien arteko loturarik"
+  ,"graphViewEmpty": "Ez dago orrien eta karpeten arteko loturarik"
   ,"graphViewIncludeOrphans": "Lotura gabeko orriak sartu"
   ,"graphViewOpenPage": "Orria ireki"
+  ,"graphViewLegendLink": "Lotura"
+  ,"graphViewLegendHierarchy": "Karpeta"
   ,"importPdf": "PDF inportatu…"
   ,"importPdfDialogTitle": "PDF orri gisa inportatu"
   ,"importPdfAnnotationsOnly": "Oharrak soilik"

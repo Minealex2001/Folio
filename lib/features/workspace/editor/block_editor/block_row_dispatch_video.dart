@@ -43,18 +43,21 @@ Widget? _specialRowVideo(_BlockRowScope s) {
                   alignment: Alignment.centerLeft,
                   child: SizedBox(
                     width: targetW,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (showActions)
-                          st._blockMediaWidthToolbar(page, block, theme),
-                        st._buildCollabUploadProgressBadge(
-                          block.id,
-                          theme,
-                          scheme,
-                        ),
-                        Container(
+                    child: st._wrapResizableBlockMedia(
+                      page: page,
+                      block: block,
+                      enabled: showActions || showInlineEditControls,
+                      maxAvailableWidth: maxW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          st._buildCollabUploadProgressBadge(
+                            block.id,
+                            theme,
+                            scheme,
+                          ),
+                          Container(
                           height: vidH,
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -99,13 +102,14 @@ Widget? _specialRowVideo(_BlockRowScope s) {
                       ],
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
   final localH = (200 * (0.45 + 0.55 * wf)).clamp(120.0, 300.0);
   return Padding(
@@ -125,20 +129,23 @@ Widget? _specialRowVideo(_BlockRowScope s) {
                 alignment: Alignment.centerLeft,
                 child: SizedBox(
                   width: targetW,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showActions)
-                        st._blockMediaWidthToolbar(page, block, theme),
-                      st._buildCollabUploadProgressBadge(
-                        block.id,
-                        theme,
-                        scheme,
-                      ),
-                      SizedBox(
-                        height: localH,
-                        child: Container(
+                  child: st._wrapResizableBlockMedia(
+                    page: page,
+                    block: block,
+                    enabled: showActions || showInlineEditControls,
+                    maxAvailableWidth: maxW,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        st._buildCollabUploadProgressBadge(
+                          block.id,
+                          theme,
+                          scheme,
+                        ),
+                        SizedBox(
+                          height: localH,
+                          child: Container(
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerHighest.withValues(
                               alpha: 0.5,
@@ -246,7 +253,8 @@ Widget? _specialRowVideo(_BlockRowScope s) {
                     ],
                   ),
                 ),
-              );
+              ),
+            );
             },
           ),
         ),

@@ -31,7 +31,12 @@ Widget? _specialRowEmbed(_BlockRowScope s) {
         dragHandle,
         marker,
         Expanded(
-          child: LayoutBuilder(
+          child: Focus(
+            focusNode: focus,
+            child: GestureDetector(
+              onTap: () => focus.requestFocus(),
+              behavior: HitTestBehavior.opaque,
+              child: LayoutBuilder(
             builder: (context, constraints) {
               final maxW = constraints.maxWidth;
               final targetW = (maxW * wf).clamp(120.0, maxW);
@@ -39,15 +44,14 @@ Widget? _specialRowEmbed(_BlockRowScope s) {
                 alignment: Alignment.centerLeft,
                 child: SizedBox(
                   width: targetW,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showActions)
-                        st._blockMediaWidthToolbar(page, block, theme),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
+                  child: st._wrapResizableBlockMedia(
+                    page: page,
+                    block: block,
+                    enabled: showActions || showInlineEditControls,
+                    maxAvailableWidth: maxW,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
                           height: embedH,
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerHighest.withValues(
@@ -86,11 +90,12 @@ Widget? _specialRowEmbed(_BlockRowScope s) {
                                 ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
+            ),
           ),
         ),
       ],

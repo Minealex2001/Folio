@@ -70,6 +70,9 @@ class DeviceSyncController extends ChangeNotifier {
   final Map<String, SyncPeer> _discoveredById = <String, SyncPeer>{};
   final Map<String, _PendingPairAck> _pendingPairAcks =
       <String, _PendingPairAck>{};
+  final Map<String, Completer<String?>> _pendingCodeRequests =
+      <String, Completer<String?>>{};
+  final Map<String, String> _lastFetchedRemoteCodeByPeer = <String, String>{};
   final Map<String, InternetAddress> _peerLastUdpHost =
       <String, InternetAddress>{};
   final Map<String, int> _lastSnapshotPullByPeer = <String, int>{};
@@ -228,12 +231,23 @@ class DeviceSyncController extends ChangeNotifier {
     return pairing;
   }
 
-  List<String> sharedPairingEmojisForPeer(SyncPeer peer) {
+  /// Pide (cifrado, punto a punto) el código activo de [peer] y calcula los
+  /// emojis compartidos para la comparación visual de emparejamiento. El
+  /// código obtenido se cachea brevemente para que la llamada subsiguiente a
+  /// [submitEmojiPairingRequest] no tenga que volver a pedirlo.
+  Future<List<String>> sharedPairingEmojisForPeer(SyncPeer peer) async {
     final localCode = _activePairingCode;
-    final remoteCode = (peer.pairingCode ?? '').trim();
-    if (localCode == null || localCode.isExpired || remoteCode.isEmpty) {
+    if (localCode == null || localCode.isExpired || peer.peerId.trim().isEmpty) {
       return const <String>[];
     }
+    final remoteCode = await _requestPairingCodeFrom(
+      peer.peerId,
+      alsoToHost: _peerLastUdpHost[peer.peerId],
+    );
+    if (remoteCode == null || remoteCode.isEmpty) {
+      return const <String>[];
+    }
+    _lastFetchedRemoteCodeByPeer[peer.peerId] = remoteCode;
     return _buildSharedPairingEmojis(localCode.code, remoteCode);
   }
 
@@ -367,12 +381,17 @@ class DeviceSyncController extends ChangeNotifier {
   }
 
   Future<bool> submitEmojiPairingRequest(SyncPeer peer) async {
-    final remoteCode = (peer.pairingCode ?? '').trim();
     final localCode = _activePairingCode;
     if (peer.peerId.trim().isEmpty) return false;
-    if (remoteCode.isEmpty || localCode == null || localCode.isExpired) {
-      return false;
+    if (localCode == null || localCode.isExpired) return false;
+    var remoteCode = _lastFetchedRemoteCodeByPeer.remove(peer.peerId);
+    if (remoteCode == null || remoteCode.isEmpty) {
+      remoteCode = await _requestPairingCodeFrom(
+        peer.peerId,
+        alsoToHost: _peerLastUdpHost[peer.peerId],
+      );
     }
+    if (remoteCode == null || remoteCode.isEmpty) return false;
     return submitPairingCode(
       remoteCode,
       remoteDeviceName: peer.deviceName,
@@ -613,6 +632,12 @@ class DeviceSyncController extends ChangeNotifier {
         case 'folio.sync.snapshot_ping':
           _consumeSnapshotPing(map, datagram.address);
           break;
+        case 'folio.sync.pairing_code_request':
+          unawaited(_consumePairingCodeRequest(map, datagram.address));
+          break;
+        case 'folio.sync.pairing_code_reply':
+          unawaited(_consumePairingCodeReply(map, datagram.address));
+          break;
         default:
           break;
       }
@@ -627,7 +652,6 @@ class DeviceSyncController extends ChangeNotifier {
     final isHelloReply = map['helloReply'] == true;
     _peerLastUdpHost[deviceId] = remoteHost;
     final deviceName = (map['deviceName'] as String? ?? '').trim();
-    final pairingCode = _stringField(map, 'pairingCode');
     final pubKey = _stringField(map, 'pubKey');
     final now = DateTime.now().millisecondsSinceEpoch;
     _discoveredById[deviceId] = SyncPeer(
@@ -638,7 +662,9 @@ class DeviceSyncController extends ChangeNotifier {
       lastSeenAtMs: now,
       paired: _peers.any((peer) => peer.peerId == deviceId),
       source: SyncPeerDiscoverySource.localDiscovery,
-      pairingCode: pairingCode.isEmpty ? null : pairingCode,
+      // El código de emparejamiento ya no viaja en `hello` (ver
+      // `_requestPairingCodeFrom`) — este campo queda deprecado/siempre nulo
+      // para descubrimiento por LAN.
       publicKeyB64: pubKey.isEmpty ? null : pubKey,
     );
     _maybePinPeerPublicKey(deviceId, pubKey);
@@ -1066,16 +1092,17 @@ class DeviceSyncController extends ChangeNotifier {
     }
   }
 
+  // NOTA DE SEGURIDAD: `hello` NUNCA lleva el código de emparejamiento en
+  // claro — se transmitía por broadcast/multicast a toda la LAN cada ~4s
+  // durante la ventana de 2 minutos de emparejamiento, visible a cualquier
+  // oyente pasivo. El código solo se comparte cifrado y punto a punto, vía
+  // `folio.sync.pairing_code_request`/`_reply` (ver más abajo), sellado con
+  // la clave derivada del intercambio X25519 ya presente en `pubKey`.
   void _broadcastHello() {
-    final code = _activePairingCode;
-    final pairingCode = code != null && !code.isExpired
-        ? code.code.trim()
-        : null;
     final payload = <String, Object?>{
       'type': 'folio.sync.hello',
       'deviceId': _settings.syncDeviceId,
       'deviceName': _settings.syncDeviceName,
-      'pairingCode': pairingCode,
       'pubKey': _crypto.publicKeyB64,
       'helloReply': false,
       'ts': DateTime.now().millisecondsSinceEpoch,
@@ -1084,20 +1111,104 @@ class DeviceSyncController extends ChangeNotifier {
   }
 
   void _sendHelloDirect(InternetAddress host) {
-    final code = _activePairingCode;
-    final pairingCode = code != null && !code.isExpired
-        ? code.code.trim()
-        : null;
     final payload = <String, Object?>{
       'type': 'folio.sync.hello',
       'deviceId': _settings.syncDeviceId,
       'deviceName': _settings.syncDeviceName,
-      'pairingCode': pairingCode,
       'pubKey': _crypto.publicKeyB64,
       'helloReply': true,
       'ts': DateTime.now().millisecondsSinceEpoch,
     };
     _emitUdpUnicast(payload, host);
+  }
+
+  /// Pide el código de emparejamiento activo de [targetDeviceId], cifrado
+  /// punto a punto con la clave derivada de X25519 (nunca en claro por la
+  /// red). Devuelve `null` si el peer no responde a tiempo o no tiene un
+  /// código activo.
+  Future<String?> _requestPairingCodeFrom(
+    String targetDeviceId, {
+    InternetAddress? alsoToHost,
+  }) async {
+    final requestNonce = _generateToken(10);
+    final completer = Completer<String?>();
+    _pendingCodeRequests[requestNonce] = completer;
+    final payload = <String, Object?>{
+      'type': 'folio.sync.pairing_code_request',
+      'targetDeviceId': targetDeviceId,
+      'requesterDeviceId': _settings.syncDeviceId,
+      'requesterPubKey': _crypto.publicKeyB64,
+      'requestNonce': requestNonce,
+      'ts': DateTime.now().millisecondsSinceEpoch,
+    };
+    _emitUdp(payload, alsoToHost: alsoToHost);
+    try {
+      return await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      return null;
+    } finally {
+      _pendingCodeRequests.remove(requestNonce);
+    }
+  }
+
+  Future<void> _consumePairingCodeRequest(
+    Map map,
+    InternetAddress remoteHost,
+  ) async {
+    final target = (map['targetDeviceId'] as String? ?? '').trim();
+    if (target != _settings.syncDeviceId) return;
+    final requesterId = (map['requesterDeviceId'] as String? ?? '').trim();
+    final requesterPubKey = _stringField(map, 'requesterPubKey');
+    final requestNonce = _stringField(map, 'requestNonce');
+    if (requesterId.isEmpty ||
+        requesterId == _settings.syncDeviceId ||
+        requesterPubKey.isEmpty ||
+        requestNonce.isEmpty) {
+      return;
+    }
+    _peerLastUdpHost[requesterId] = remoteHost;
+    final code = _activePairingCode;
+    if (code == null || code.isExpired) return;
+    try {
+      final sharedKey = await _crypto.sharedKeyWith(requesterPubKey);
+      final sealed = await _crypto.sealB64(utf8.encode(code.code), sharedKey);
+      final payload = <String, Object?>{
+        'type': 'folio.sync.pairing_code_reply',
+        'targetDeviceId': requesterId,
+        'fromDeviceId': _settings.syncDeviceId,
+        'requestNonce': requestNonce,
+        'sealedCode': sealed,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      };
+      _emitUdp(payload, alsoToHost: remoteHost);
+    } catch (_) {
+      // No se pudo derivar/sellar el canal con este peer; se ignora.
+    }
+  }
+
+  Future<void> _consumePairingCodeReply(
+    Map map,
+    InternetAddress remoteHost,
+  ) async {
+    final target = (map['targetDeviceId'] as String? ?? '').trim();
+    if (target != _settings.syncDeviceId) return;
+    final requestNonce = _stringField(map, 'requestNonce');
+    final sealed = _stringField(map, 'sealedCode');
+    final fromDeviceId = (map['fromDeviceId'] as String? ?? '').trim();
+    final completer = _pendingCodeRequests[requestNonce];
+    if (completer == null || completer.isCompleted) return;
+    final peerPubKey = _discoveredById[fromDeviceId]?.publicKeyB64;
+    if (peerPubKey == null || peerPubKey.isEmpty || sealed.isEmpty) {
+      completer.complete(null);
+      return;
+    }
+    try {
+      final sharedKey = await _crypto.sharedKeyWith(peerPubKey);
+      final opened = await _crypto.openB64(sealed, sharedKey);
+      completer.complete(utf8.decode(opened));
+    } catch (_) {
+      completer.complete(null);
+    }
   }
 
   void _emitUdp(Map<String, Object?> payload, {InternetAddress? alsoToHost}) {

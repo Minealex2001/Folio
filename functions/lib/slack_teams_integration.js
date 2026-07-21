@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = void 0;
+exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.folioUpsertIntegrationWebhookConnection = void 0;
 exports.parseIntegrationCommand = parseIntegrationCommand;
 require("./admin_init");
 const admin = __importStar(require("firebase-admin"));
@@ -216,21 +216,80 @@ async function dispatchParsedCommand(provider, externalUserId, parsed) {
     }
     return ("Unknown command. Supported: `/folio link CODE`, `/folio create task \"Title\"`.");
 }
-exports.folioIntegrationWebhookProxy = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b, _c, _d;
+// Registers (or updates) the caller's own webhook connection server-side so
+// folioIntegrationWebhookProxy never has to trust a client-supplied URL.
+exports.folioUpsertIntegrationWebhookConnection = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
+    const uid = request.auth.uid;
+    const data = ((_b = request.data) !== null && _b !== void 0 ? _b : {});
+    const connectionId = String((_c = data.connectionId) !== null && _c !== void 0 ? _c : "").trim();
+    const provider = String((_d = data.provider) !== null && _d !== void 0 ? _d : "").trim();
+    const webhookUrl = String((_e = data.webhookUrl) !== null && _e !== void 0 ? _e : "").trim();
+    if (!connectionId) {
+        throw new https_1.HttpsError("invalid-argument", "missing_connection_id");
+    }
+    if (provider !== "slack" && provider !== "teams") {
+        throw new https_1.HttpsError("invalid-argument", "invalid_provider");
+    }
+    if (!webhookUrl) {
+        throw new https_1.HttpsError("invalid-argument", "missing_webhook_url");
+    }
+    let host;
+    try {
+        host = new URL(webhookUrl).hostname;
+    }
+    catch {
+        throw new https_1.HttpsError("invalid-argument", "invalid_webhook_url");
+    }
+    if (!integrationWebhookHostAllowed(host)) {
+        throw new https_1.HttpsError("permission-denied", "webhook_host_not_allowed");
+    }
+    const ref = db.collection("integrationWebhookConnections").doc(connectionId);
+    const existing = await ref.get();
+    if (existing.exists && String((_g = (_f = existing.data()) === null || _f === void 0 ? void 0 : _f.firebaseUid) !== null && _g !== void 0 ? _g : "") !== uid) {
+        // connectionId is client-generated (uuid-like); a collision with
+        // someone else's id should never silently reassign ownership.
+        throw new https_1.HttpsError("already-exists", "connection_id_taken");
+    }
+    await ref.set({
+        firebaseUid: uid,
+        provider,
+        webhookUrl,
+        updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { ok: true };
+});
+exports.folioIntegrationWebhookProxy = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
     const data = ((_b = request.data) !== null && _b !== void 0 ? _b : {});
     const provider = String((_c = data.provider) !== null && _c !== void 0 ? _c : "").trim();
-    const webhookUrl = String((_d = data.webhookUrl) !== null && _d !== void 0 ? _d : "").trim();
+    const connectionId = String((_d = data.connectionId) !== null && _d !== void 0 ? _d : "").trim();
     const payload = data.payload;
     if (provider !== "slack" && provider !== "teams") {
         throw new https_1.HttpsError("invalid-argument", "invalid_provider");
     }
-    if (!webhookUrl || typeof payload !== "object" || payload === null) {
-        throw new https_1.HttpsError("invalid-argument", "missing_webhook_or_payload");
+    if (!connectionId || typeof payload !== "object" || payload === null) {
+        throw new https_1.HttpsError("invalid-argument", "missing_connection_or_payload");
     }
+    const connSnap = await db
+        .collection("integrationWebhookConnections")
+        .doc(connectionId)
+        .get();
+    if (!connSnap.exists) {
+        throw new https_1.HttpsError("not-found", "connection_not_found");
+    }
+    const conn = connSnap.data();
+    if (String((_e = conn.firebaseUid) !== null && _e !== void 0 ? _e : "") !== uid || String((_f = conn.provider) !== null && _f !== void 0 ? _f : "") !== provider) {
+        throw new https_1.HttpsError("permission-denied", "not_your_connection");
+    }
+    const webhookUrl = String((_g = conn.webhookUrl) !== null && _g !== void 0 ? _g : "").trim();
     let host;
     try {
         host = new URL(webhookUrl).hostname;

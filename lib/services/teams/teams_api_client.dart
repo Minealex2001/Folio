@@ -1,28 +1,18 @@
 import '../../models/teams_integration_state.dart';
+import '../integrations/integration_api_exception.dart';
 import '../integrations/integration_webhook_transport.dart';
 
-class TeamsApiException implements Exception {
+class TeamsApiException extends IntegrationApiException {
   const TeamsApiException(
-    this.message, {
-    this.statusCode,
-    this.body,
-    this.uri,
-    this.method,
+    super.message, {
+    super.statusCode,
+    super.body,
+    super.uri,
+    super.method,
   });
-  final String message;
-  final int? statusCode;
-  final String? body;
-  final String? uri;
-  final String? method;
 
   @override
-  String toString() {
-    final code = statusCode;
-    final m = (method ?? '').trim().isEmpty ? '' : '${method!.trim()} ';
-    final u = (uri ?? '').trim().isEmpty ? '' : ' ${uri!.trim()}';
-    final b = (body ?? '').trim().isEmpty ? '' : ' | body=${body!.trim()}';
-    return 'TeamsApiException($code): $m$message$u$b';
-  }
+  String get exceptionName => 'TeamsApiException';
 }
 
 /// Cliente delgado sobre la URL de webhook de un Workflow de Teams ("Post to
@@ -40,6 +30,14 @@ class TeamsApiClient {
   final TeamsConnection _connection;
 
   TeamsConnection get connection => _connection;
+
+  /// Registra esta conexión server-side (requerido en Web antes de poder
+  /// relayar mensajes vía folioIntegrationWebhookProxy).
+  Future<void> registerConnection() => _transport.registerConnection(
+        provider: 'teams',
+        connectionId: _connection.id,
+        webhookUrl: _connection.webhookUrl,
+      );
 
   /// Publica [text] en el canal vinculado, como una Adaptive Card mínima
   /// (formato requerido por los webhooks de Workflows de Teams).
@@ -63,6 +61,7 @@ class TeamsApiClient {
     try {
       await _transport.postJson(
         provider: 'teams',
+        connectionId: _connection.id,
         webhookUrl: _connection.webhookUrl,
         payload: payload,
       );
@@ -77,7 +76,10 @@ class TeamsApiClient {
     }
   }
 
-  /// Verifica que la URL de webhook es válida enviando un mensaje de prueba.
-  Future<void> verifyConnection({required String testMessage}) =>
-      postMessage(testMessage);
+  /// Registra la conexión (si aplica) y verifica que la URL de webhook es
+  /// válida enviando un mensaje de prueba.
+  Future<void> verifyConnection({required String testMessage}) async {
+    await registerConnection();
+    await postMessage(testMessage);
+  }
 }

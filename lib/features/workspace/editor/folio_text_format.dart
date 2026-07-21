@@ -1015,11 +1015,11 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                         TextButton(
                           onPressed: () =>
                               Navigator.pop(menuCtx, const Color(0x00000000)),
-                          child: const Text('Quitar'),
+                          child: Text(AppLocalizations.of(menuCtx).clear),
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(menuCtx, temp),
-                          child: const Text('Aplicar'),
+                          child: Text(AppLocalizations.of(menuCtx).aiApply),
                         ),
                       ],
                     ),

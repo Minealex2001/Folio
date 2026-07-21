@@ -7,6 +7,12 @@ import '../../models/folio_page.dart';
 import '../../models/folio_page_revision.dart';
 import '../../models/jira_integration_state.dart';
 import '../../models/youtrack_integration_state.dart';
+import '../../models/trello_integration_state.dart';
+import '../../models/github_integration_state.dart';
+import '../../models/gitlab_integration_state.dart';
+import '../../models/slack_integration_state.dart';
+import '../../models/teams_integration_state.dart';
+import '../../models/spotify_integration_state.dart';
 
 /// Conflicto de un bloque concreto tras un merge a 3 vías.
 class VaultSyncBlockConflict {
@@ -287,38 +293,62 @@ class VaultSyncMergeEngine {
       pageTemplates: templates,
       jira: _pickJira(local.jira, remote.jira, base.jira),
       youtrack: _pickYoutrack(local.youtrack, remote.youtrack, base.youtrack),
-      trello: _pickIfHasData(
-        local.trello,
-        remote.trello,
-        hasData: (s) =>
-            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      trello: TrelloIntegrationState(
+        connections: _mergeById(
+          local: local.trello.connections,
+          remote: remote.trello.connections,
+          idOf: (c) => c.id,
+        ),
+        sources: _mergeById(
+          local: local.trello.sources,
+          remote: remote.trello.sources,
+          idOf: (s) => s.id,
+        ),
       ),
-      github: _pickIfHasData(
-        local.github,
-        remote.github,
-        hasData: (s) =>
-            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      github: GitHubIntegrationState(
+        connections: _mergeById(
+          local: local.github.connections,
+          remote: remote.github.connections,
+          idOf: (c) => c.id,
+        ),
+        sources: _mergeById(
+          local: local.github.sources,
+          remote: remote.github.sources,
+          idOf: (s) => s.id,
+        ),
       ),
-      gitlab: _pickIfHasData(
-        local.gitlab,
-        remote.gitlab,
-        hasData: (s) =>
-            s.connections.isNotEmpty || s.sources.isNotEmpty,
+      gitlab: GitLabIntegrationState(
+        connections: _mergeById(
+          local: local.gitlab.connections,
+          remote: remote.gitlab.connections,
+          idOf: (c) => c.id,
+        ),
+        sources: _mergeById(
+          local: local.gitlab.sources,
+          remote: remote.gitlab.sources,
+          idOf: (s) => s.id,
+        ),
       ),
-      slack: _pickIfHasData(
-        local.slack,
-        remote.slack,
-        hasData: (s) => s.connections.isNotEmpty,
+      slack: SlackIntegrationState(
+        connections: _mergeById(
+          local: local.slack.connections,
+          remote: remote.slack.connections,
+          idOf: (c) => c.id,
+        ),
       ),
-      teams: _pickIfHasData(
-        local.teams,
-        remote.teams,
-        hasData: (s) => s.connections.isNotEmpty,
+      teams: TeamsIntegrationState(
+        connections: _mergeById(
+          local: local.teams.connections,
+          remote: remote.teams.connections,
+          idOf: (c) => c.id,
+        ),
       ),
-      spotify: _pickIfHasData(
-        local.spotify,
-        remote.spotify,
-        hasData: (s) => s.connections.isNotEmpty,
+      spotify: SpotifyIntegrationState(
+        connections: _mergeById(
+          local: local.spotify.connections,
+          remote: remote.spotify.connections,
+          idOf: (c) => c.id,
+        ),
       ),
       pageTombstones: tombstones,
       syncClock: syncClock,
@@ -625,19 +655,6 @@ class VaultSyncMergeEngine {
       return remote;
     }
     return null;
-  }
-
-  /// Si ambos lados tienen datos de integración, preferir remoto (llegó por sync).
-  T _pickIfHasData<T extends Object>(
-    T local,
-    T remote, {
-    required bool Function(T state) hasData,
-  }) {
-    final localHas = hasData(local);
-    final remoteHas = hasData(remote);
-    if (localHas && remoteHas) return remote;
-    if (localHas) return local;
-    return remote;
   }
 
   JiraIntegrationState _pickJira(

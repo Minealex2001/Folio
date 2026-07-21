@@ -183,7 +183,8 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     if (!_sync.isPairingModeActive) {
       _sync.generatePairingCode();
     }
-    final sharedEmojis = _sync.sharedPairingEmojisForPeer(targetPeer);
+    final sharedEmojis = await _sync.sharedPairingEmojisForPeer(targetPeer);
+    if (!mounted) return;
     if (sharedEmojis.isEmpty) {
       _snack(AppLocalizations.of(context).settingsPairingSameEmojisBothDevices);
       return;

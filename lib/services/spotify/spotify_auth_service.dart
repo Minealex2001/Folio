@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
@@ -297,6 +298,17 @@ class SpotifyAuthService {
     return Map<String, dynamic>.from(decoded);
   }
 
+  Future<Map<String, String>> _folioIdTokenHeader() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw StateError(
+        'Inicia sesión en Folio Cloud para conectar Spotify.',
+      );
+    }
+    final idToken = await user.getIdToken();
+    return {'authorization': 'Bearer $idToken'};
+  }
+
   Future<Map<String, dynamic>> _exchangeRefreshViaCloud({
     required String refreshToken,
     required String clientId,
@@ -310,7 +322,10 @@ class SpotifyAuthService {
     final resp = await _client
         .post(
           uri,
-          headers: {'content-type': 'application/json; charset=utf-8'},
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            ...await _folioIdTokenHeader(),
+          },
           body: jsonEncode({
             'grantType': 'refresh_token',
             'refreshToken': refreshToken,
@@ -390,7 +405,10 @@ class SpotifyAuthService {
     final resp = await _client
         .post(
           uri,
-          headers: {'content-type': 'application/json; charset=utf-8'},
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            ...await _folioIdTokenHeader(),
+          },
           body: jsonEncode({
             'code': code,
             'redirectUri': redirectUri.toString(),

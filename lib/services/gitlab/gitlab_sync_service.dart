@@ -227,10 +227,14 @@ class GitLabSyncService {
       final client = GitLabApiClient(connection: connection);
 
       try {
-        final remoteList = isMr
-            ? await client.getMergeRequests(projectPath)
-            : await client.getIssues(projectPath);
-        final remote = remoteList.firstWhereOrNull((i) => i.iid == iid);
+        GitLabIssueOrMr? remote;
+        try {
+          remote = isMr
+              ? await client.getMergeRequest(projectPath, iid)
+              : await client.getIssue(projectPath, iid);
+        } on GitLabApiException {
+          remote = null;
+        }
         if (remote == null) {
           skipped++;
           continue;
@@ -293,11 +297,14 @@ class GitLabSyncService {
           labels: nextLabels.toList(),
         );
 
-        final updatedList = isMr
-            ? await client.getMergeRequests(projectPath)
-            : await client.getIssues(projectPath);
-        final updatedRemote =
-            updatedList.firstWhereOrNull((i) => i.iid == iid) ?? remote;
+        GitLabIssueOrMr updatedRemote;
+        try {
+          updatedRemote = isMr
+              ? await client.getMergeRequest(projectPath, iid)
+              : await client.getIssue(projectPath, iid);
+        } on GitLabApiException {
+          updatedRemote = remote;
+        }
 
         final nextSnapshot = FolioGitLabIssueSnapshot(
           projectPath: projectPath,

@@ -43,7 +43,7 @@ Widget? _specialRowTable(_BlockRowScope s) {
             scheme: scheme,
             textTheme: theme.textTheme,
             firstCellFocusNode: focus,
-            showToolbar: showInlineEditControls,
+            showGutters: showInlineEditControls,
             onChanged: (enc) => st._onTableEncoded(page.id, block.id, index, enc),
           ),
         ),
