@@ -2067,28 +2067,28 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _showMigrationNotificationIfNeeded() {
     if (!_s.justMigrated) return;
 
-    final l10n = AppLocalizations.of(context);
+    final isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Text(
-          Localizations.localeOf(context).languageCode == 'es'
+          isSpanish
               ? 'Libreta migrada a v1 ✅'
               : 'Vault migrated to v1 ✅',
         ),
         action: SnackBarAction(
-          label: Localizations.localeOf(context).languageCode == 'es'
+          label: isSpanish
               ? 'Eliminar v0'
               : 'Delete v0',
           onPressed: () async {
             await _s.deleteV0VaultBinary();
             _s.resetMigrationFlag();
-            if (context.mounted) {
-              scaffoldMessenger.showSnackBar(
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    Localizations.localeOf(context).languageCode == 'es'
+                    isSpanish
                         ? 'Versión anterior eliminada'
                         : 'Legacy version deleted',
                   ),
