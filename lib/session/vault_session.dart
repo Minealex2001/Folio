@@ -29,6 +29,7 @@ import '../data/vault_paths.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_registry.dart';
 import '../data/vault_repository.dart';
+import '../data/storage/vault_storage.dart';
 import '../models/block.dart';
 import '../models/folio_page.dart';
 import '../models/folio_usage_intent.dart';
