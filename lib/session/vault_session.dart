@@ -83,6 +83,12 @@ import '../services/sync/vault_sync_merge.dart';
 import '../services/sync/vault_sync_pack.dart';
 import '../l10n/generated/app_localizations.dart';
 import 'workspace_navigation_history.dart';
+// M5: Format handler
+import '../git/vault_format_handler.dart';
+import '../git/vault_snapshot_manager.dart';
+import '../data/vault_local_storage.dart';
+import '../git/vault_migration_tool.dart';
+import '../git/version_info.dart';
 
 export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
 
@@ -405,6 +411,12 @@ class VaultSession extends ChangeNotifier {
   Duration _idleLockDuration = const Duration(minutes: 15);
   bool _lockOnAppBackground = false;
   bool _vaultUsesEncryption = true;
+
+  // M5: Dual format v0/v1 support
+  late VaultFormatHandler _formatHandler;
+  int _vaultFormatVersion = 0; // 0=legacy, 1=tree
+  late VaultSnapshotManager _snapshotManager;
+  String _deviceId = 'unknown-device';
 
   /// Tras "Añadir libreta", se restaura al cancelar onboarding.
   String? _resumeVaultIdAfterNewVault;
