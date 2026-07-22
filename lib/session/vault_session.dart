@@ -417,6 +417,7 @@ class VaultSession extends ChangeNotifier {
   int _vaultFormatVersion = 0; // 0=legacy, 1=tree
   late VaultSnapshotManager _snapshotManager;
   String _deviceId = 'unknown-device';
+  bool _justMigrated = false; // Marks if v0→v1 migration just happened
 
   /// Tras "Añadir libreta", se restaura al cancelar onboarding.
   String? _resumeVaultIdAfterNewVault;
@@ -450,6 +451,28 @@ class VaultSession extends ChangeNotifier {
 
   /// M5: Get vault format version (0=legacy, 1=tree)
   int get vaultFormatVersion => _vaultFormatVersion;
+
+  /// M5: Check if vault was just migrated (for UI notification)
+  bool get justMigrated => _justMigrated;
+
+  /// M5: Reset migration flag after showing notification
+  void resetMigrationFlag() {
+    _justMigrated = false;
+  }
+
+  /// M5: Delete legacy v0 vault.bin after successful migration
+  Future<bool> deleteV0VaultBinary() async {
+    try {
+      final cipherPayload = await VaultPaths.readCipherPayloadFile();
+      if (cipherPayload == null) return false;
+      await cipherPayload.delete();
+      AppLogger.info('Deleted legacy v0 vault.bin');
+      return true;
+    } catch (e) {
+      AppLogger.error('Failed to delete v0 vault.bin: $e');
+      return false;
+    }
+  }
 
   String? get _vaultId => VaultPaths.activeVaultId;
 
@@ -919,6 +942,8 @@ class VaultSession extends ChangeNotifier {
               AppLogger.error('Migration failed: ${migrationResult.error}');
               throw VaultCorruptionException('Migration failed');
             }
+            // Mark migration successful
+            _justMigrated = true;
             // Reload from v1
             _vaultFormatVersion = 1;
             final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
