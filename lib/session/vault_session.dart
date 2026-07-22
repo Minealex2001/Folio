@@ -917,6 +917,7 @@ class VaultSession extends ChangeNotifier {
       onMigrationNeeded: _triggerMigrationPrompt,
     );
     _vaultFormatVersion = await _formatHandler.detectFormat();
+    AppLogger.info('BOOTSTRAP: Detected vault format version=$_vaultFormatVersion');
 
     final exists = await VaultPaths.vaultExists();
     if (!exists) {
@@ -934,7 +935,7 @@ class VaultSession extends ChangeNotifier {
           if (_vaultFormatVersion == 0) {
             // Beta: MANDATORY migration v0 → v1
             payload = await _repo.loadPayload(null);
-            AppLogger.info('Auto-migrating v0 → v1 (mandatory for Beta)');
+            AppLogger.info('BOOTSTRAP: Detected v0 format, auto-migrating v0 → v1 (mandatory for Beta)');
             final migrationResult = await VaultMigrationTool.migrateVault(
               payload: payload,
               deviceId: _deviceId,
