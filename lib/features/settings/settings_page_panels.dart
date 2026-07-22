@@ -354,7 +354,11 @@ class _SettingsOverviewBanner extends StatelessWidget {
         : (Localizations.localeOf(context).languageCode == 'es'
               ? 'Sin cifrar'
               : 'Unencrypted');
-              
+
+    final vaultVersionLabel = session.vaultFormatVersion == 0
+        ? (Localizations.localeOf(context).languageCode == 'es' ? 'v0 (Legacy)' : 'v0 (Legacy)')
+        : (Localizations.localeOf(context).languageCode == 'es' ? 'v1 (Tree)' : 'v1 (Tree)');
+
     final statusLabel = Localizations.localeOf(context).languageCode == 'es' ? 'Al día' : 'Up to date';
 
     return Container(
@@ -434,6 +438,13 @@ class _SettingsOverviewBanner extends StatelessWidget {
                     ? 'Libreta'
                     : 'Vault',
                 value: vaultLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.storage_rounded,
+                label: Localizations.localeOf(context).languageCode == 'es'
+                    ? 'Versión'
+                    : 'Format',
+                value: vaultVersionLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.check_circle_outline_rounded,

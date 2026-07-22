@@ -448,6 +448,9 @@ class VaultSession extends ChangeNotifier {
     return e?.displayName ?? id;
   }
 
+  /// M5: Get vault format version (0=legacy, 1=tree)
+  int get vaultFormatVersion => _vaultFormatVersion;
+
   String? get _vaultId => VaultPaths.activeVaultId;
 
   /// Tras dejar de editar, se crea una entrada de historial (además del guardado rápido).
