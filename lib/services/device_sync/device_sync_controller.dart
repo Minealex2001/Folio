@@ -131,6 +131,9 @@ class DeviceSyncController extends ChangeNotifier {
 
   Future<void> load() async {
     try {
+      // M5: Initialize dual format transport
+      await _initializeTransport();
+
       final p = await SharedPreferences.getInstance();
       final raw = p.getString(_pairedPeersKey);
       if (raw == null || raw.trim().isEmpty) {
@@ -1750,6 +1753,47 @@ class DeviceSyncController extends ChangeNotifier {
     if (v == null) return '';
     if (v is String) return v.trim();
     return '$v'.trim();
+  }
+
+  /// M5: Helpers for dual format support
+  Future<void> _initializeTransport() async {
+    _deviceId = await _getDeviceId();
+    _transport = DualFormatVaultTransport(deviceId: _deviceId);
+    _vaultFormatVersion = await _transport.getFormatVersion(
+      VaultPaths.activeVaultId ?? 'unknown',
+    );
+  }
+
+  Future<String> _getDeviceId() async {
+    try {
+      return Platform.localHostname;
+    } catch (_) {
+      return 'unknown-device';
+    }
+  }
+
+  Future<Map<String, dynamic>> getVaultSyncStats() async {
+    if (_vaultFormatVersion == 0) {
+      final cipherPayload = await VaultPaths.readCipherPayload();
+      return {
+        'format': 'v0-legacy',
+        'sizeBytes': cipherPayload?.length ?? 0,
+      };
+    } else {
+      final treeDir = await VaultPaths.vaultTreeDirectory();
+      int uncompressed = 0;
+
+      await for (final entity in treeDir.list(recursive: true)) {
+        if (entity is File) {
+          uncompressed += await entity.length();
+        }
+      }
+
+      return {
+        'format': 'v1-tree',
+        'uncompressedBytes': uncompressed,
+      };
+    }
   }
 
   @override
