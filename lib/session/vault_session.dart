@@ -463,9 +463,9 @@ class VaultSession extends ChangeNotifier {
   /// M5: Delete legacy v0 vault.bin after successful migration
   Future<bool> deleteV0VaultBinary() async {
     try {
-      final cipherPayload = await VaultPaths.readCipherPayloadFile();
-      if (cipherPayload == null) return false;
-      await cipherPayload.delete();
+      final vaultId = _vaultId;
+      if (vaultId == null || vaultId.isEmpty) return false;
+      await VaultStorage.instance.deleteVaultFile(vaultId, 'vault.bin');
       AppLogger.info('Deleted legacy v0 vault.bin');
       return true;
     } catch (e) {
