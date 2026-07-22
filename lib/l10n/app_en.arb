@@ -397,6 +397,15 @@
   "meetingNoteTranscriptionTitle": "Transcription",
   "meetingNoteNoTranscription": "No transcription available.",
   "meetingNoteNewRecording": "New recording",
+  "meetingNoteWorkerError": "Meeting process error: {detail}",
+  "@meetingNoteWorkerError": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "meetingNoteAnotherSessionActive": "A meeting is already in progress. Stop it before starting another.",
+  "meetingNoteActiveBarTitle": "Meeting in progress",
+  "meetingNoteActiveBarGoTo": "Go to meeting",
   "meetingNoteSettingsSection": "Meeting note (audio)",
   "meetingNoteSettingsDescription": "These devices are used by default when recording a meeting note.",
   "meetingNoteSettingsMicrophone": "Microphone",

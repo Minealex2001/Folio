@@ -73,6 +73,7 @@ import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
+import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
 import '../services/unlock_attempt_throttle.dart';
 import '../services/folio_cloud/device_sync_key_cache.dart';
@@ -2524,6 +2525,7 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> lock() async {
     if (!vaultUsesEncryption) return;
+    unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
     await _persistLastSelectedPageBeforeLock();
     // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
     await flushPendingSave();
@@ -6572,6 +6574,7 @@ class VaultSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
     _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();

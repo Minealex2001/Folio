@@ -61,6 +61,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../widgets/spotify_now_playing_bar.dart';
+import '../widgets/meeting_note_active_bar.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
@@ -2906,7 +2907,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 actions: appBarActions,
                 onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-        body: WorkspaceBodyShell(
+        body: Stack(
+          children: [
+            WorkspaceBodyShell(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
@@ -3025,6 +3028,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
           overlay: _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: compact ? 96 : 16,
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: MeetingNoteActiveBar(session: _s),
+                ),
+              ),
+            ),
+          ],
         ),
         floatingActionButton: compact && page != null
             ? Padding(

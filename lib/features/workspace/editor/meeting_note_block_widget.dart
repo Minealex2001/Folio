@@ -1,22 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
 import '../../../app/widgets/folio_skeletons.dart';
-import '../../../data/vault_paths.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
-import '../../../services/audio_mixer_service.dart';
-import '../../../services/diarization_service.dart';
-import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/meeting_note_session_controller.dart';
 import '../../../services/system_audio_service.dart';
 import '../../../services/transcription_hardware_profile.dart';
 import '../../../services/whisper_service.dart';
@@ -47,8 +40,6 @@ class MeetingNoteBlockWidget extends StatefulWidget {
   State<MeetingNoteBlockWidget> createState() => _MeetingNoteBlockWidgetState();
 }
 
-enum _MeetingState { idle, setup, recording, cloudProcessing, completed }
-
 enum _TranscriptionProvider { local, quillCloud }
 
 class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
@@ -62,64 +53,33 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     _MeetingLanguageOption(code: 'de', labelKey: 'meetingNoteLangDe'),
   ];
 
-  _MeetingState _state = _MeetingState.idle;
+  final _controller = MeetingNoteSessionController.instance;
 
-  String _setupLabel = '';
-  double _setupProgress = 0;
-
-  Timer? _timer;
-  Duration _elapsed = Duration.zero;
-  String _transcript = '';
-  bool _transcribing = false;
   String _selectedLanguageCode = 'auto';
   bool _languageInitialized = false;
-  String? _diarizationSessionId;
-  StreamSubscription<File>? _chunkSub;
-  /// Serializa el procesamiento de chunks de audio: `chunkStream` puede emitir
-  /// más rápido de lo que tarda `_onChunk`, y ejecutarlos en paralelo mezclaría
-  /// la transcripción fuera de orden.
-  Future<void> _chunkChain = Future<void>.value();
-
-  String? _savedAudioPath;
-  String? _runtimeError;
-
   _TranscriptionProvider _provider = _TranscriptionProvider.local;
-  String? _cloudFallbackNotice;
-  final List<File> _pendingCloudChunks = [];
-  int _cloudTotalChunks = 0;
-  int _cloudProcessedChunks = 0;
-  DateTime? _cloudProcessingStartedAt;
-  Timer? _cloudEtaTicker;
-
   late TranscriptionHardwareSnapshot _hardwareSnapshot;
   bool _generateTranscription = true;
+  String? _localIdleError;
 
   @override
   void initState() {
     super.initState();
     _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
-    _generateTranscription = widget.block.meetingNoteTranscriptionEnabled != false;
+    _generateTranscription =
+        widget.block.meetingNoteTranscriptionEnabled != false;
     _loadProviderFromBlock();
     _normalizeMeetingNoteProviderWithAi();
-    if (widget.resolvedFile != null) {
-      _state = _MeetingState.completed;
-      _transcript = widget.block.text;
-      _savedAudioPath = widget.resolvedFile!.path;
-    }
+    _controller.addListener(_onSessionChanged);
   }
 
   @override
   void didUpdateWidget(MeetingNoteBlockWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.resolvedFile != null &&
-        widget.resolvedFile?.path != oldWidget.resolvedFile?.path) {
-      _state = _MeetingState.completed;
-      _transcript = widget.block.text;
-      _savedAudioPath = widget.resolvedFile!.path;
-    }
     if (oldWidget.appSettings.isAiRuntimeEnabled !=
             widget.appSettings.isAiRuntimeEnabled ||
-        oldWidget.block.meetingNoteProvider != widget.block.meetingNoteProvider) {
+        oldWidget.block.meetingNoteProvider !=
+            widget.block.meetingNoteProvider) {
       _loadProviderFromBlock();
       _normalizeMeetingNoteProviderWithAi();
     }
@@ -144,15 +104,27 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _cloudEtaTicker?.cancel();
-    _chunkSub?.cancel();
-    final sid = _diarizationSessionId;
-    if (sid != null) {
-      DiarizationService.instance.endSession(sid);
-    }
-    _cleanupPendingChunks();
+    _controller.removeListener(_onSessionChanged);
+    // No detener la sesión: el worker sigue en proceso aparte.
     super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool get _isThisSession =>
+      _controller.isSessionFor(widget.page.id, widget.block.id);
+
+  MeetingNoteSessionState get _effectiveState {
+    if (_isThisSession) return _controller.state;
+    if (widget.resolvedFile != null ||
+        (widget.block.url ?? '').trim().isNotEmpty ||
+        widget.block.text.trim().isNotEmpty) {
+      return MeetingNoteSessionState.completed;
+    }
+    return MeetingNoteSessionState.idle;
   }
 
   void _loadProviderFromBlock() {
@@ -219,12 +191,6 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     };
   }
 
-  String? _whisperLanguageArg() {
-    final code = _selectedLanguageCode.trim();
-    if (code.isEmpty || code == 'auto') return null;
-    return code;
-  }
-
   String _selectedLanguageLabel(AppLocalizations l10n) {
     for (final o in _languageOptions) {
       if (o.code == _selectedLanguageCode) {
@@ -270,289 +236,49 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     );
   }
 
+  String get _displayTranscript {
+    if (_isThisSession && _controller.transcript.isNotEmpty) {
+      return _controller.transcript;
+    }
+    return widget.block.text;
+  }
+
   String _recordingTranscriptCaption(AppLocalizations l10n) {
     if (!_generateTranscription) {
       return l10n.meetingNotePerNoteTranscriptionOffHint;
     }
-    if (_transcript.isEmpty) return l10n.meetingNoteWaitingTranscription;
-    return _transcript;
+    final t = _displayTranscript;
+    if (t.isEmpty) return l10n.meetingNoteWaitingTranscription;
+    return t;
   }
 
-  Future<void> _startRecording() async {
-    final l10n = AppLocalizations.of(context);
-    _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
-    setState(() {
-      _state = _MeetingState.setup;
-      _setupLabel = l10n.meetingNotePreparing;
-      _setupProgress = 0;
-      _runtimeError = null;
-      _cloudFallbackNotice = null;
-    });
-
-    if (_runLocalWhisperDuringRecording) {
-      try {
-        await WhisperService.instance.ensureReady(
-          modelId: _activeModelId(),
-          onProgress: (label, prog) {
-            if (!mounted) return;
-            setState(() {
-              _setupLabel = label;
-              _setupProgress = prog;
-            });
-          },
-        );
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _state = _MeetingState.idle;
-          _runtimeError = l10n.meetingNoteWhisperInitError(e.toString());
-        });
-        return;
-      }
-    } else if (mounted) {
-      setState(() {
-        _setupLabel = l10n.meetingNotePreparing;
-        _setupProgress = 1;
-      });
-    }
-
-    if (!mounted) return;
-
-    final micDeviceId = widget.appSettings.meetingNoteMicDeviceId.trim();
-    final systemDeviceId = widget.appSettings.meetingNoteSystemDeviceId.trim();
-    bool ok;
-    try {
-      ok = await AudioMixerService.instance.start(
-        micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
-        systemOutputDeviceId: systemDeviceId.isEmpty ? null : systemDeviceId,
-      );
-    } catch (_) {
-      ok = false;
-    }
-    if (!ok) {
-      if (!mounted) return;
-      setState(() {
-        _state = _MeetingState.idle;
-        _runtimeError = l10n.meetingNoteAudioAccessError;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.meetingNoteMicrophoneAccessError)),
-      );
-      return;
-    }
-
-    if (_runLocalWhisperDuringRecording) {
-      final sid = const Uuid().v4();
-      _diarizationSessionId = sid;
-      DiarizationService.instance.startSession(sid);
-    }
-    _chunkChain = Future<void>.value();
-    _chunkSub = AudioMixerService.instance.chunkStream.listen((chunkFile) {
-      // Encadenar para procesar los chunks estrictamente en orden de llegada.
-      _chunkChain = _chunkChain
-          .then((_) => _onChunk(chunkFile))
-          .catchError((_) {});
-    });
-
-    _pendingCloudChunks.clear();
-    _elapsed = Duration.zero;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
-    });
-
-    setState(() {
-      _state = _MeetingState.recording;
-      _transcript = '';
-      _transcribing = false;
-      _cloudTotalChunks = 0;
-      _cloudProcessedChunks = 0;
-    });
+  String? _resolveRuntimeError(AppLocalizations l10n) {
+    if (_localIdleError != null) return _localIdleError;
+    if (!_isThisSession) return null;
+    final code = _controller.runtimeErrorCode;
+    if (code == null) return null;
+    final detail = _controller.runtimeErrorDetail;
+    return switch (code) {
+      'audio_access' => l10n.meetingNoteAudioAccessError,
+      'whisper_init' => l10n.meetingNoteWhisperInitError(detail ?? ''),
+      'chunk_transcription' =>
+        (detail != null && detail.isNotEmpty && detail != 'chunk_transcription')
+            ? detail
+            : l10n.meetingNoteChunkTranscriptionError,
+      'worker_start' || 'worker_crashed' =>
+        l10n.meetingNoteWorkerError(detail ?? ''),
+      'stop_failed' => l10n.meetingNoteWorkerError(detail ?? ''),
+      _ => detail ?? l10n.meetingNoteWorkerError(code),
+    };
   }
 
-  Future<void> _onChunk(File chunkFile) async {
-    if (!mounted) return;
-
-    final saveForCloud = _effectiveCloudPostProcess;
-    final runLocal = _runLocalWhisperDuringRecording;
-
-    if (!runLocal && !saveForCloud) {
-      unawaited(chunkFile.delete().catchError((_) => File('')));
-      return;
-    }
-
-    if (runLocal) {
-      if (mounted) setState(() => _transcribing = true);
-    }
-
-    if (saveForCloud) {
-      _pendingCloudChunks.add(chunkFile);
-    }
-
-    if (runLocal) {
-      final chunkText = await _onChunkLocal(
-        chunkFile,
-        deleteAfter: !saveForCloud,
-      );
-
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context);
-      if (chunkText.isNotEmpty) {
-        setState(() {
-          _transcript = _mergeTranscriptChunk(_transcript, chunkText);
-          _runtimeError = null;
-        });
-      } else {
-        setState(() {
-          _runtimeError =
-              WhisperService.instance.lastError ??
-              l10n.meetingNoteChunkTranscriptionError;
-        });
-      }
-      if (mounted) setState(() => _transcribing = false);
-    }
-  }
-
-  Future<String> _onChunkLocal(
-    File chunkFile, {
-    bool deleteAfter = true,
-  }) async {
-    final text = await WhisperService.instance.transcribe(
-      chunkFile,
-      language: _whisperLanguageArg(),
-      modelId: _activeModelId(),
-    );
-
-    String finalText = text;
-    if (text.isNotEmpty) {
-      final sid = _diarizationSessionId;
-      final diarized = await DiarizationService.instance.diarizeChunk(
-        audioChunk: chunkFile,
-        transcript: text,
-        language: _whisperLanguageArg() ?? 'auto',
-        sessionId: sid ?? 'meeting-${widget.page.id}-${widget.block.id}',
-      );
-      if (diarized != null && diarized.trim().isNotEmpty) {
-        finalText = diarized.trim();
-      }
-    }
-
-    if (deleteAfter) {
-      unawaited(chunkFile.delete().catchError((_) => File('')));
-    }
-    return finalText;
-  }
-
-  Future<void> _processCloudChunks() async {
-    final l10n = AppLocalizations.of(context);
-    final chunks = List<File>.from(_pendingCloudChunks);
-    _pendingCloudChunks.clear();
-
-    final inkCostTotal = math.max(1, (_elapsed.inSeconds / 300).ceil());
-    String cloudTranscript = '';
-    var cloudFailed = false;
-
-    for (var i = 0; i < chunks.length; i++) {
-      final chunk = chunks[i];
-
-      if (!mounted) return;
-      setState(() => _cloudProcessedChunks = i + 1);
-
-      try {
-        final bytes = await chunk.readAsBytes();
-        final payload = <String, dynamic>{
-          'audioBase64': _base64Encode(bytes),
-          'language': _whisperLanguageArg() ?? 'auto',
-          'chargeInk': i == 0,
-          if (i == 0) 'inkAmount': inkCostTotal,
-        };
-
-        final res = await callFolioHttpsCallable(
-          'folioCloudTranscribeChunk',
-          payload,
-        );
-
-        final inkRaw = res is Map ? res['ink'] : null;
-        if (inkRaw is Map) {
-          final ent = widget.folioCloudEntitlements;
-          final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
-          final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
-          if (ent != null &&
-              monthly != null &&
-              purchased != null &&
-              monthly >= 0 &&
-              purchased >= 0) {
-            ent.applyInkBalancesFromCloudAi(
-              monthlyBalance: monthly,
-              purchasedBalance: purchased,
-            );
-          }
-        }
-
-        final text = res is Map ? '${res['transcript'] ?? ''}' : '';
-        if (text.isNotEmpty) {
-          cloudTranscript = cloudTranscript.isEmpty
-              ? text
-              : _mergeTranscriptChunk(cloudTranscript, text);
-        }
-      } on FirebaseFunctionsException catch (e) {
-        if (mounted) {
-          setState(() {
-            _cloudFallbackNotice = e.code == 'resource-exhausted'
-                ? l10n.meetingNoteCloudInkExhaustedNotice
-                : l10n.meetingNoteCloudFallbackNotice;
-          });
-        }
-        cloudFailed = true;
-        break;
-      } catch (_) {
-        if (mounted) {
-          setState(() {
-            _cloudFallbackNotice = l10n.meetingNoteCloudFallbackNotice;
-          });
-        }
-        cloudFailed = true;
-        break;
-      } finally {
-        unawaited(chunk.delete().catchError((_) => File('')));
-      }
-    }
-
-    for (final chunk in chunks) {
-      if (await chunk.exists()) {
-        unawaited(chunk.delete().catchError((_) => File('')));
-      }
-    }
-
-    if (!mounted) return;
-    if (!cloudFailed && cloudTranscript.isNotEmpty) {
-      setState(() => _transcript = cloudTranscript);
-      widget.session.updateBlockText(
-        widget.page.id,
-        widget.block.id,
-        cloudTranscript,
-      );
-    }
-
-    _cloudEtaTicker?.cancel();
-    _cloudEtaTicker = null;
-    _cloudProcessingStartedAt = null;
-    setState(() => _state = _MeetingState.completed);
-  }
-
-  Duration? _estimatedCloudRemaining() {
-    final startedAt = _cloudProcessingStartedAt;
-    if (startedAt == null) return null;
-    if (_cloudTotalChunks <= 0) return null;
-    if (_cloudProcessedChunks <= 0) return null;
-
-    final elapsed = DateTime.now().difference(startedAt);
-    final perChunkMs = elapsed.inMilliseconds / _cloudProcessedChunks;
-    final remainingChunks = _cloudTotalChunks - _cloudProcessedChunks;
-    if (remainingChunks <= 0) return Duration.zero;
-
-    final remainingMs = (perChunkMs * remainingChunks).round();
-    if (remainingMs < 0) return Duration.zero;
-    return Duration(milliseconds: remainingMs);
+  String? _resolveCloudFallback(AppLocalizations l10n) {
+    if (!_isThisSession) return null;
+    return switch (_controller.cloudFallbackNoticeCode) {
+      'ink_exhausted' => l10n.meetingNoteCloudInkExhaustedNotice,
+      'cloud_fallback' => l10n.meetingNoteCloudFallbackNotice,
+      _ => null,
+    };
   }
 
   String _formatDurationClock(Duration d) {
@@ -562,196 +288,42 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     return '$mm:$ss';
   }
 
-  void _cleanupPendingChunks() {
-    for (final chunk in _pendingCloudChunks) {
-      unawaited(chunk.delete().catchError((_) => File('')));
-    }
-    _pendingCloudChunks.clear();
-  }
+  Future<void> _startRecording() async {
+    final l10n = AppLocalizations.of(context);
+    _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
+    setState(() => _localIdleError = null);
 
-  static String _base64Encode(List<int> bytes) {
-    const chars =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    final buf = StringBuffer();
-    var i = 0;
-    while (i + 2 < bytes.length) {
-      final b0 = bytes[i];
-      final b1 = bytes[i + 1];
-      final b2 = bytes[i + 2];
-      buf
-        ..writeCharCode(chars.codeUnitAt((b0 >> 2) & 63))
-        ..writeCharCode(chars.codeUnitAt(((b0 & 3) << 4) | ((b1 >> 4) & 15)))
-        ..writeCharCode(chars.codeUnitAt(((b1 & 15) << 2) | ((b2 >> 6) & 3)))
-        ..writeCharCode(chars.codeUnitAt(b2 & 63));
-      i += 3;
-    }
-    if (i < bytes.length) {
-      final b0 = bytes[i];
-      if (i + 1 < bytes.length) {
-        final b1 = bytes[i + 1];
-        buf
-          ..writeCharCode(chars.codeUnitAt((b0 >> 2) & 63))
-          ..writeCharCode(chars.codeUnitAt(((b0 & 3) << 4) | ((b1 >> 4) & 15)))
-          ..writeCharCode(chars.codeUnitAt((b1 & 15) << 2))
-          ..write('=');
-      } else {
-        buf
-          ..writeCharCode(chars.codeUnitAt((b0 >> 2) & 63))
-          ..writeCharCode(chars.codeUnitAt((b0 & 3) << 4))
-          ..write('==');
-      }
-    }
-    return buf.toString();
-  }
-
-  String _mergeTranscriptChunk(String current, String incoming) {
-    final base = current.trimRight();
-    final add = incoming.trim();
-    if (add.isEmpty) return current;
-    if (base.isEmpty) return add;
-
-    final baseLines = base
-        .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .toList();
-    final addLines = add.split('\n').where((l) => l.trim().isNotEmpty).toList();
-
-    if (baseLines.isEmpty) return add;
-    if (addLines.isEmpty) return base;
-
-    var consumedFirstIncoming = false;
-    final lastIndex = baseLines.length - 1;
-    final lastLine = baseLines[lastIndex];
-    final firstIncoming = addLines.first;
-
-    final parsedLast = _parseSpeakerLine(lastLine);
-    final parsedFirst = _parseSpeakerLine(firstIncoming);
-
-    if (parsedLast != null && parsedFirst != null) {
-      if (parsedLast.speakerId == parsedFirst.speakerId &&
-          _shouldContinueParagraph(parsedLast.text, parsedFirst.text)) {
-        baseLines[lastIndex] =
-            'Speaker ${parsedLast.speakerId}: ${_joinSegments(parsedLast.text, parsedFirst.text)}';
-        consumedFirstIncoming = true;
-      }
-    } else if (parsedLast == null && parsedFirst == null) {
-      if (_shouldContinueParagraph(lastLine, firstIncoming)) {
-        baseLines[lastIndex] = _joinSegments(lastLine, firstIncoming);
-        consumedFirstIncoming = true;
-      }
-    }
-
-    final remainingIncoming = consumedFirstIncoming
-        ? addLines.skip(1).toList()
-        : addLines;
-    if (remainingIncoming.isNotEmpty) baseLines.addAll(remainingIncoming);
-    return baseLines.join('\n');
-  }
-
-  _SpeakerLine? _parseSpeakerLine(String line) {
-    final m = RegExp(r'^\s*Speaker\s+(\d+)\s*:\s*(.+?)\s*$').firstMatch(line);
-    if (m == null) return null;
-    final speakerId = int.tryParse(m.group(1) ?? '');
-    final text = (m.group(2) ?? '').trim();
-    if (speakerId == null || text.isEmpty) return null;
-    return _SpeakerLine(speakerId: speakerId, text: text);
-  }
-
-  bool _shouldContinueParagraph(String previousText, String nextText) {
-    final prev = previousText.trimRight();
-    final next = nextText.trimLeft();
-    if (prev.isEmpty || next.isEmpty) return false;
-
-    final hardStop = RegExp(r'[\.!\?…]["”’\)\]]*$').hasMatch(prev);
-    if (!hardStop) return true;
-
-    if (RegExp(r'^[,.;:\)\]]').hasMatch(next)) return true;
-    if (RegExp(r'^[a-z]').hasMatch(next)) return true;
-    if (RegExp(
-      r'^(y|e|o|u|de|que|pero|pues|entonces|and|but|or|so|because|then)\b',
-      caseSensitive: false,
-    ).hasMatch(next)) {
-      return true;
-    }
-    return false;
-  }
-
-  String _joinSegments(String left, String right) {
-    final a = left.trimRight();
-    final b = right.trimLeft();
-    if (a.isEmpty) return b;
-    if (b.isEmpty) return a;
-
-    if (a.endsWith('-')) return '$a$b';
-    if (RegExp(r'^[,.;:!?\)]').hasMatch(b)) return '$a$b';
-    return '$a $b';
-  }
-
-  Future<void> _stopRecording() async {
-    _timer?.cancel();
-    _timer = null;
-    await _chunkSub?.cancel();
-    _chunkSub = null;
-
-    final sid = _diarizationSessionId;
-    if (sid != null) {
-      DiarizationService.instance.endSession(sid);
-      _diarizationSessionId = null;
-    }
-
-    const uuid = Uuid();
-    final dateStr = DateTime.now()
-        .toIso8601String()
-        .substring(0, 19)
-        .replaceAll(':', '-');
-    final filename = 'meeting_${dateStr}_${uuid.v4()}.wav';
-
-    final attachDir = await VaultPaths.attachmentsDirectory();
-    final destPath = p.join(attachDir.path, filename);
-    final wavFile = await AudioMixerService.instance.stop(destPath: destPath);
-
-    if (!mounted) return;
-
-    if (wavFile == null) {
-      _cleanupPendingChunks();
-      setState(() => _state = _MeetingState.idle);
+    if (_controller.isActive && !_isThisSession) {
+      setState(() => _localIdleError = l10n.meetingNoteAnotherSessionActive);
       return;
     }
 
-    final vault = await VaultPaths.vaultDirectory();
-    final relative = p
-        .relative(wavFile.path, from: vault.path)
-        .replaceAll(r'\\', '/');
-
-    widget.session.updateBlockUrl(widget.page.id, widget.block.id, relative);
-    widget.session.updateBlockText(
-      widget.page.id,
-      widget.block.id,
-      _transcript,
+    await _controller.start(
+      session: widget.session,
+      appSettings: widget.appSettings,
+      pageId: widget.page.id,
+      blockId: widget.block.id,
+      generateTranscription: _generateTranscription,
+      languageCode: _selectedLanguageCode,
+      provider: _provider == _TranscriptionProvider.quillCloud
+          ? 'quill_cloud'
+          : 'local',
+      runLocalWhisper: _runLocalWhisperDuringRecording,
+      saveCloudChunks: _effectiveCloudPostProcess,
+      modelId: _activeModelId(),
+      entitlements: widget.folioCloudEntitlements,
     );
-    _savedAudioPath = wavFile.path;
 
-    final shouldPostProcessCloud =
-        _effectiveCloudPostProcess && _pendingCloudChunks.isNotEmpty;
-
-    if (shouldPostProcessCloud) {
-      setState(() {
-        _state = _MeetingState.cloudProcessing;
-        _cloudTotalChunks = _pendingCloudChunks.length;
-        _cloudProcessedChunks = 0;
-        _cloudProcessingStartedAt = DateTime.now();
-      });
-      _cloudEtaTicker?.cancel();
-      _cloudEtaTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted && _state == _MeetingState.cloudProcessing) {
-          setState(() {});
-        }
-      });
-      await _processCloudChunks();
-    } else {
-      _cleanupPendingChunks();
-      setState(() => _state = _MeetingState.completed);
+    if (!mounted) return;
+    if (_controller.runtimeErrorCode == 'audio_access') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.meetingNoteMicrophoneAccessError)),
+      );
     }
+  }
+
+  Future<void> _stopRecording() async {
+    await _controller.stop();
   }
 
   @override
@@ -759,16 +331,18 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
-    return switch (_state) {
-      _MeetingState.idle => _buildIdle(theme, l10n),
-      _MeetingState.setup => _buildSetup(theme),
-      _MeetingState.recording => _buildRecording(theme, l10n),
-      _MeetingState.cloudProcessing => _buildCloudProcessing(theme, l10n),
-      _MeetingState.completed => _buildCompleted(theme, l10n),
+    return switch (_effectiveState) {
+      MeetingNoteSessionState.idle => _buildIdle(theme, l10n),
+      MeetingNoteSessionState.setup => _buildSetup(theme),
+      MeetingNoteSessionState.recording => _buildRecording(theme, l10n),
+      MeetingNoteSessionState.cloudProcessing =>
+        _buildCloudProcessing(theme, l10n),
+      MeetingNoteSessionState.completed => _buildCompleted(theme, l10n),
     };
   }
 
   Widget _buildIdle(ThemeData theme, AppLocalizations l10n) {
+    final runtimeError = _resolveRuntimeError(l10n);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -920,10 +494,10 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
           ),
         ],
-        if (_runtimeError != null) ...[
+        if (runtimeError != null) ...[
           const SizedBox(height: 8),
           Text(
-            _runtimeError!,
+            runtimeError,
             style: theme.textTheme.labelSmall?.copyWith(
               color: widget.scheme.error,
             ),
@@ -946,26 +520,35 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   }
 
   Widget _buildSetup(ThemeData theme) {
+    final label = _isThisSession && _controller.setupLabel.isNotEmpty
+        ? _controller.setupLabel
+        : AppLocalizations.of(context).meetingNotePreparing;
+    final progress = _isThisSession ? _controller.setupProgress : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          _setupLabel,
+          label,
           style: theme.textTheme.bodySmall?.copyWith(
             color: widget.scheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
         LinearProgressIndicator(
-          value: _setupProgress == 0 ? null : _setupProgress,
+          value: progress == 0 ? null : progress,
         ),
       ],
     );
   }
 
   Widget _buildRecording(ThemeData theme, AppLocalizations l10n) {
-    final mm = _elapsed.inMinutes.toString().padLeft(2, '0');
-    final ss = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
+    final elapsed = _isThisSession ? _controller.elapsed : Duration.zero;
+    final mm = elapsed.inMinutes.toString().padLeft(2, '0');
+    final ss = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+    final transcript = _displayTranscript;
+    final transcribing = _isThisSession && _controller.transcribing;
+    final systemAudio =
+        _isThisSession && _controller.systemAudioCapturing;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -999,7 +582,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 ),
               ),
             ),
-            if (SystemAudioService.instance.isCapturing) ...[
+            if (systemAudio) ...[
               const SizedBox(width: 8),
               Tooltip(
                 message: l10n.meetingNoteSystemAudioCaptured,
@@ -1052,13 +635,13 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 SelectableText(
                   _recordingTranscriptCaption(l10n),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: _transcript.isEmpty || !_generateTranscription
+                    color: transcript.isEmpty || !_generateTranscription
                         ? widget.scheme.onSurfaceVariant.withValues(alpha: 0.5)
                         : widget.scheme.onSurface,
                     height: 1.5,
                   ),
                 ),
-                if (_transcribing && _runLocalWhisperDuringRecording)
+                if (transcribing && _runLocalWhisperDuringRecording)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(
@@ -1086,10 +669,11 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   }
 
   Widget _buildCloudProcessing(ThemeData theme, AppLocalizations l10n) {
-    final progress = _cloudTotalChunks > 0
-        ? (_cloudProcessedChunks / _cloudTotalChunks).clamp(0, 1)
-        : null;
-    final remaining = _estimatedCloudRemaining();
+    final total = _isThisSession ? _controller.cloudTotalChunks : 0;
+    final done = _isThisSession ? _controller.cloudProcessedChunks : 0;
+    final progress = total > 0 ? (done / total).clamp(0, 1) : null;
+    final remaining =
+        _isThisSession ? _controller.estimatedCloudRemaining() : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1112,10 +696,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         ),
         const SizedBox(height: 6),
         Text(
-          l10n.meetingNoteCloudProgress(
-            _cloudProcessedChunks,
-            _cloudTotalChunks,
-          ),
+          l10n.meetingNoteCloudProgress(done, total),
           style: theme.textTheme.labelSmall?.copyWith(
             color: widget.scheme.onSurfaceVariant,
           ),
@@ -1134,18 +715,21 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   }
 
   Widget _buildCompleted(ThemeData theme, AppLocalizations l10n) {
+    final savedPath =
+        _isThisSession ? _controller.savedAudioPath : null;
     final file =
         widget.resolvedFile ??
-        ((_savedAudioPath != null && _savedAudioPath!.isNotEmpty)
-            ? File(_savedAudioPath!)
-            : null);
+        ((savedPath != null && savedPath.isNotEmpty) ? File(savedPath) : null);
+    final transcript = _displayTranscript;
+    final runtimeError = _resolveRuntimeError(l10n);
+    final cloudFallback = _resolveCloudFallback(l10n);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (file != null) _buildPlayer(theme, file),
+        if (file != null) FolioAudioBlockPlayer(file: file, scheme: widget.scheme),
         if (file != null) const SizedBox(height: 10),
-        if (_transcript.isNotEmpty) ...[
+        if (transcript.isNotEmpty) ...[
           Text(
             l10n.meetingNoteTranscriptionTitle,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -1166,7 +750,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(10),
               child: SelectableText(
-                _transcript,
+                transcript,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: widget.scheme.onSurface,
                   height: 1.6,
@@ -1184,16 +768,16 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
           ),
         ],
-        if (_runtimeError != null) ...[
+        if (runtimeError != null) ...[
           const SizedBox(height: 8),
           Text(
-            _runtimeError!,
+            runtimeError,
             style: theme.textTheme.labelSmall?.copyWith(
               color: widget.scheme.error,
             ),
           ),
         ],
-        if (_cloudFallbackNotice != null) ...[
+        if (cloudFallback != null) ...[
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1205,7 +789,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _cloudFallbackNotice!,
+                  cloudFallback,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: widget.scheme.error,
                   ),
@@ -1217,10 +801,6 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       ],
     );
   }
-
-  Widget _buildPlayer(ThemeData theme, File file) {
-    return FolioAudioBlockPlayer(file: file, scheme: widget.scheme);
-  }
 }
 
 class _MeetingLanguageOption {
@@ -1228,11 +808,4 @@ class _MeetingLanguageOption {
 
   final String code;
   final String labelKey;
-}
-
-class _SpeakerLine {
-  const _SpeakerLine({required this.speakerId, required this.text});
-
-  final int speakerId;
-  final String text;
 }

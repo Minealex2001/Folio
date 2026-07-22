@@ -281,4 +281,29 @@ class VaultPaths {
     final dir = await vaultDirectory();
     return File(p.join(dir.path, vaultModeFile));
   }
+
+  // ── M1: New tree format and versioning ────────────────────────────────
+  // Directories for the new vault format (repo/ and versions/).
+
+  /// Retorna el directorio del árbol de archivos: <vault>/repo/
+  /// Contiene: tree.json, pages/, vault/, attachments.manifest.jsonl
+  static Future<Directory> vaultTreeDirectory() async {
+    final v = await vaultDirectory();
+    final dir = Directory(p.join(v.path, 'repo'));
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  /// Retorna el directorio de versiones: <vault>/versions/
+  /// Contiene snapshots con metadatos e historial comprimido.
+  static Future<Directory> vaultVersionsDirectory() async {
+    final v = await vaultDirectory();
+    final dir = Directory(p.join(v.path, 'versions'));
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
 }

@@ -25,10 +25,17 @@ import 'services/cloud_account/cloud_account_controller.dart';
 import 'services/env/local_env_loader.dart';
 import 'services/env/local_env.dart';
 import 'services/folio_cloud/folio_cloud_entitlements.dart';
+import 'meeting_worker/meeting_worker_main.dart';
+import 'meeting_worker/meeting_worker_protocol.dart';
 import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  if (MeetingWorkerProtocol.isWorkerArgs(args)) {
+    await runMeetingWorker(args);
+    return;
+  }
+
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();

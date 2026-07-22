@@ -397,6 +397,15 @@
   "meetingNoteTranscriptionTitle": "Transcripción",
   "meetingNoteNoTranscription": "Sin transcripción disponible.",
   "meetingNoteNewRecording": "Nueva grabación",
+  "meetingNoteWorkerError": "Error del proceso de reunión: {detail}",
+  "@meetingNoteWorkerError": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "meetingNoteAnotherSessionActive": "Ya hay una reunión en curso. Deténla antes de iniciar otra.",
+  "meetingNoteActiveBarTitle": "Reunión en curso",
+  "meetingNoteActiveBarGoTo": "Ir a la reunión",
   "meetingNoteSettingsSection": "Nota de reunión (audio)",
   "meetingNoteSettingsDescription": "Estos dispositivos se usan por defecto al grabar una nota de reunión.",
   "meetingNoteSettingsMicrophone": "Micrófono",

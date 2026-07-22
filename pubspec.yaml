@@ -100,6 +100,8 @@ dependencies:
   http_parser: ^4.1.2
   cbor: ^6.5.1
   pointycastle: ^4.0.0
+  git: ^2.3.2
+  json_annotation: ^4.11.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -112,6 +114,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
   msix: ^3.16.13
+  json_serializable: ^6.8.0
+  build_runner: ^2.4.0
 
 # passkeys_doctor (via passkeys) pins device_info_plus ^11.x; Syncfusion pdfviewer
 # needs ^12.x. package_info_plus 10.x needs win32 ^6 but file_picker 11 still uses

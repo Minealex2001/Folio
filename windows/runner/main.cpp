@@ -88,6 +88,25 @@ std::optional<std::wstring> GetFirstProtocolLaunchArgument() {
   return protocol_argument;
 }
 
+bool IsMeetingWorkerLaunch() {
+  int argc = 0;
+  wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+  if (argv == nullptr) {
+    return false;
+  }
+
+  bool found = false;
+  for (int i = 1; i < argc; ++i) {
+    if (wcscmp(argv[i], L"--meeting-worker") == 0) {
+      found = true;
+      break;
+    }
+  }
+
+  ::LocalFree(argv);
+  return found;
+}
+
 HWND FindExistingWindow() {
   for (int attempt = 0; attempt < 50; ++attempt) {
     HWND window = ::FindWindowW(kFolioWindowClassName, kFolioWindowTitle);
@@ -145,42 +164,54 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   flutter::DartProject project(L"data");
 
-  HANDLE single_instance_mutex =
-      ::CreateMutexW(nullptr, TRUE, kFolioSingleInstanceMutexName);
-  if (single_instance_mutex != nullptr &&
-      ::GetLastError() == ERROR_ALREADY_EXISTS) {
-    HWND existing_window = FindExistingWindow();
-    const auto launch_argument = GetFirstProtocolLaunchArgument();
-    if (existing_window != nullptr) {
-      BringWindowToFront(existing_window);
-      if (launch_argument.has_value()) {
-        ForwardProtocolLaunchArgument(existing_window, launch_argument.value());
+  const bool meeting_worker = IsMeetingWorkerLaunch();
+
+  HANDLE single_instance_mutex = nullptr;
+  if (!meeting_worker) {
+    single_instance_mutex =
+        ::CreateMutexW(nullptr, TRUE, kFolioSingleInstanceMutexName);
+    if (single_instance_mutex != nullptr &&
+        ::GetLastError() == ERROR_ALREADY_EXISTS) {
+      HWND existing_window = FindExistingWindow();
+      const auto launch_argument = GetFirstProtocolLaunchArgument();
+      if (existing_window != nullptr) {
+        BringWindowToFront(existing_window);
+        if (launch_argument.has_value()) {
+          ForwardProtocolLaunchArgument(existing_window, launch_argument.value());
+        }
+        ::CloseHandle(single_instance_mutex);
+        ::CoUninitialize();
+        return EXIT_SUCCESS;
       }
+      // Mutex already exists but no existing window was found. Close this
+      // handle and continue with normal startup instead of exiting and
+      // doing nothing.
       ::CloseHandle(single_instance_mutex);
-      ::CoUninitialize();
-      return EXIT_SUCCESS;
+      single_instance_mutex = nullptr;
     }
-    // Mutex already exists but no existing window was found. Close this
-    // handle and continue with normal startup instead of exiting and
-    // doing nothing.
-    ::CloseHandle(single_instance_mutex);
-    single_instance_mutex = nullptr;
   }
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
-  RegisterFolioProtocol();
+  if (!meeting_worker) {
+    RegisterFolioProtocol();
+  }
   std::vector<std::string> launch_arguments = GetCommandLineArguments();
 
   FlutterWindow window(project, std::move(launch_arguments));
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
-  if (!window.Create(kFolioWindowTitle, origin, size)) {
+  Win32Window::Size size(meeting_worker ? 1 : 1280, meeting_worker ? 1 : 720);
+  const wchar_t* window_title =
+      meeting_worker ? L"Folio Meeting Worker" : kFolioWindowTitle;
+  if (!window.Create(window_title, origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
+  if (meeting_worker) {
+    ::ShowWindow(window.GetHandle(), SW_HIDE);
+  }
 
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {
