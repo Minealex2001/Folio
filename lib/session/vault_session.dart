@@ -419,6 +419,7 @@ class VaultSession extends ChangeNotifier {
   late VaultSnapshotManager _snapshotManager;
   String _deviceId = 'unknown-device';
   bool _justMigrated = false; // Marks if v0→v1 migration just happened
+  bool _hasV0FilesToDelete = false; // Marks if vault.bin still exists after migration
 
   /// Tras "Añadir libreta", se restaura al cancelar onboarding.
   String? _resumeVaultIdAfterNewVault;
@@ -456,18 +457,35 @@ class VaultSession extends ChangeNotifier {
   /// M5: Check if vault was just migrated (for UI notification)
   bool get justMigrated => _justMigrated;
 
+  /// M5: Check if v0 files still exist after migration
+  bool get hasV0FilesToDelete => _hasV0FilesToDelete;
+
   /// M5: Reset migration flag after showing notification
   void resetMigrationFlag() {
     _justMigrated = false;
+    _hasV0FilesToDelete = false;
   }
 
   /// M5: Delete legacy v0 vault.bin after successful migration
   Future<bool> deleteV0VaultBinary() async {
     try {
       final vaultId = _vaultId;
-      if (vaultId == null || vaultId.isEmpty) return false;
+      if (vaultId == null || vaultId.isEmpty) {
+        AppLogger.error('Cannot delete v0: no vault ID');
+        return false;
+      }
+
+      // Delete via VaultStorage (same API used everywhere)
       await VaultStorage.instance.deleteVaultFile(vaultId, 'vault.bin');
-      AppLogger.info('Deleted legacy v0 vault.bin');
+      AppLogger.info('Deleted legacy v0 vault.bin via VaultStorage');
+
+      // Verify it's really gone
+      final stillExists = await VaultPaths.cipherPayloadExists();
+      if (stillExists) {
+        AppLogger.warn('vault.bin still exists after delete attempt');
+        return false;
+      }
+
       return true;
     } catch (e) {
       AppLogger.error('Failed to delete v0 vault.bin: $e');
@@ -946,6 +964,11 @@ class VaultSession extends ChangeNotifier {
             }
             // Mark migration successful
             _justMigrated = true;
+            // Check if v0 files still exist
+            _hasV0FilesToDelete = await VaultPaths.cipherPayloadExists();
+            if (_hasV0FilesToDelete) {
+              AppLogger.info('BOOTSTRAP: v0 vault.bin found and ready for cleanup');
+            }
             // Reload from v1
             _vaultFormatVersion = 1;
             final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
