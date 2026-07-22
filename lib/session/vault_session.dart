@@ -87,6 +87,7 @@ import 'workspace_navigation_history.dart';
 import '../git/vault_format_handler.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../data/vault_local_storage.dart';
+import '../git/vault_migration_tool.dart';
 import '../git/version_info.dart';
 
 export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
@@ -904,7 +905,21 @@ class VaultSession extends ChangeNotifier {
         try {
           VaultPayload payload;
           if (_vaultFormatVersion == 0) {
+            // Beta: MANDATORY migration v0 → v1
             payload = await _repo.loadPayload(null);
+            AppLogger.info('Auto-migrating v0 → v1 (mandatory for Beta)');
+            final migrationResult = await VaultMigrationTool.migrateVault(
+              payload: payload,
+              deviceId: _deviceId,
+            );
+            if (!migrationResult.success) {
+              AppLogger.error('Migration failed: ${migrationResult.error}');
+              throw VaultCorruptionException('Migration failed');
+            }
+            // Reload from v1
+            _vaultFormatVersion = 1;
+            final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
+            payload = loaded ?? payload;
           } else {
             // Format v1: load from tree
             final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
@@ -920,15 +935,13 @@ class VaultSession extends ChangeNotifier {
           purgeExpiredTrash();
           _restartIdleLockTimer();
 
-          // M5: Init snapshot manager for v1
-          if (_vaultFormatVersion == 1) {
-            final vaultDir = await VaultPaths.vaultDirectory();
-            _snapshotManager = VaultSnapshotManager(
-              vaultDir: vaultDir,
-              deviceId: _deviceId,
-            );
-            await _snapshotManager.init();
-          }
+          // M5: Init snapshot manager for v1 (now always)
+          final vaultDir = await VaultPaths.vaultDirectory();
+          _snapshotManager = VaultSnapshotManager(
+            vaultDir: vaultDir,
+            deviceId: _deviceId,
+          );
+          await _snapshotManager.init();
 
           _rebuildSearchIndex();
           final vaultId = _vaultId;
