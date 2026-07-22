@@ -15,6 +15,7 @@ class AiProviderLauncher {
       AiProvider.quillCloud => null,
       AiProvider.openAi => null,
       AiProvider.gemini => null,
+      AiProvider.geminiNano => null,
       AiProvider.none => null,
     };
     if (path == null) return;

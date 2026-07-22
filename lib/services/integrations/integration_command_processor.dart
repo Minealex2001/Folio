@@ -56,14 +56,19 @@ class IntegrationCommandProcessor {
   }
 
   void _ensureListening() {
-    // En Windows el SDK C++ de Firestore crashea el proceso (0xE06D7363) y
-    // la API REST no permite listar subcolecciones sin regla `list` explícita.
-    // Los comandos entrantes de Slack/Teams no son funcionales en Windows de
-    // todas formas; simplemente no hacemos polling.
-    if (!folioFirestoreSupported) return;
-
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
+    // En Windows el SDK C++ de Firestore puede tumbar el proceso; usamos solo
+    // polling vía callable (Admin SDK), no list REST.
+    if (!folioFirestoreSupported) {
+      _pollTimer ??= Timer.periodic(
+        const Duration(seconds: 45),
+        (_) => unawaited(_processPending()),
+      );
+      return;
+    }
+
     if (_subscription != null) return;
 
     _subscription = FirebaseFirestore.instance
@@ -90,7 +95,6 @@ class IntegrationCommandProcessor {
       lookupAppLocalizations(_session.titleLocale ?? const Locale('es'));
 
   Future<void> _processPending() async {
-    if (!folioFirestoreSupported) return;
     if (_processing) return;
     if (_session.state != VaultFlowState.unlocked) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -99,40 +103,79 @@ class IntegrationCommandProcessor {
 
     _processing = true;
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('pendingIntegrationCommands')
-          .where('status', isEqualTo: 'pending')
-          .where('vaultId', isEqualTo: vaultId)
-          .limit(20)
-          .get();
+      if (folioFirestoreSupported) {
+        final snap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('pendingIntegrationCommands')
+            .where('status', isEqualTo: 'pending')
+            .where('vaultId', isEqualTo: vaultId)
+            .limit(20)
+            .get();
 
-      for (final doc in snap.docs) {
-        await _applyCommand(doc.id, doc.data());
+        for (final doc in snap.docs) {
+          await _applyCommand(doc.id, doc.data());
+        }
+      } else {
+        // En Windows/Linux el listado REST de Firestore suele devolver 403
+        // (PERMISSION_DENIED) aunque las reglas permitan list; usamos callable
+        // con Admin SDK (mismo patrón que el resto de Folio Cloud en desktop).
+        final pending = await _fetchPendingViaCallable(vaultId);
+        for (final item in pending) {
+          await _applyCommand(item.id, item.data);
+        }
       }
     } catch (e, st) {
-      AppLogger.error(
+      AppLogger.warn(
         'integration commands processing failed',
         tag: 'integrations',
-        error: e,
-        stackTrace: st,
+        context: {'error': '$e', 'stack': '$st'},
       );
     } finally {
       _processing = false;
     }
   }
 
+  Future<List<({String id, Map<String, dynamic> data})>> _fetchPendingViaCallable(
+    String vaultId,
+  ) async {
+    final raw = await callFolioHttpsCallable('folioListPendingIntegrationCommands', {
+      'vaultId': vaultId,
+      'limit': 20,
+    });
+    if (raw is! Map) return const [];
+    final commands = raw['commands'];
+    if (commands is! List) return const [];
+    final out = <({String id, Map<String, dynamic> data})>[];
+    for (final item in commands) {
+      if (item is! Map) continue;
+      final m = Map<String, dynamic>.from(item);
+      final id = (m['id'] as String? ?? '').trim();
+      if (id.isEmpty) continue;
+      out.add((id: id, data: m));
+    }
+    return out;
+  }
+
   Future<void> _applyCommand(String commandId, Map<String, dynamic> data) async {
     final command = (data['command'] as String? ?? '').trim();
-    if (command != 'create_task') {
-      await _ack(
-        commandId: commandId,
-        success: false,
-        errorMessage: 'unsupported_command',
-      );
-      return;
+    switch (command) {
+      case 'create_task':
+        await _applyCreateTask(commandId, data);
+      case 'list_tasks':
+        await _applyListTasks(commandId);
+      case 'complete_task':
+        await _applyCompleteTask(commandId, data);
+      default:
+        await _ack(
+          commandId: commandId,
+          success: false,
+          errorMessage: 'unsupported_command',
+        );
     }
+  }
+
+  Future<void> _applyCreateTask(String commandId, Map<String, dynamic> data) async {
     final title = (data['title'] as String? ?? '').trim();
     if (title.isEmpty || title.length > IntegrationCommandParser.maxTaskTitleLength) {
       await _ack(
@@ -155,10 +198,108 @@ class IntegrationCommandProcessor {
         );
         return;
       }
-      await _ack(commandId: commandId, success: true, taskTitle: title);
+      await _ack(
+        commandId: commandId,
+        success: true,
+        taskTitle: title,
+        responseMessage: 'Created task "$title".',
+      );
     } catch (e, st) {
       AppLogger.error(
         'integration command apply failed',
+        tag: 'integrations',
+        error: e,
+        stackTrace: st,
+      );
+      await _ack(
+        commandId: commandId,
+        success: false,
+        errorMessage: '$e',
+      );
+    }
+  }
+
+  Future<void> _applyListTasks(String commandId) async {
+    try {
+      final entries = _session
+          .collectTaskBlocks(includeSimpleTodos: false)
+          .where((e) => !e.isDone)
+          .take(10)
+          .toList(growable: false);
+      if (entries.isEmpty) {
+        await _ack(
+          commandId: commandId,
+          success: true,
+          responseMessage: 'No open tasks.',
+        );
+        return;
+      }
+      final lines = <String>[];
+      for (var i = 0; i < entries.length; i++) {
+        final e = entries[i];
+        final due = (e.dueDate ?? '').trim();
+        final dueSuffix = due.isEmpty ? '' : ' (due $due)';
+        lines.add('${i + 1}. ${e.displayTitle}$dueSuffix');
+      }
+      await _ack(
+        commandId: commandId,
+        success: true,
+        responseMessage: 'Open tasks:\n${lines.join('\n')}',
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'integration list_tasks failed',
+        tag: 'integrations',
+        error: e,
+        stackTrace: st,
+      );
+      await _ack(
+        commandId: commandId,
+        success: false,
+        errorMessage: '$e',
+      );
+    }
+  }
+
+  Future<void> _applyCompleteTask(
+    String commandId,
+    Map<String, dynamic> data,
+  ) async {
+    final title = (data['title'] as String? ?? '').trim();
+    if (title.isEmpty) {
+      await _ack(
+        commandId: commandId,
+        success: false,
+        errorMessage: 'invalid_title',
+      );
+      return;
+    }
+    try {
+      final needle = title.toLowerCase();
+      final match = _session.collectTaskBlocks(includeSimpleTodos: false).where((e) {
+        if (e.isDone) return false;
+        return e.displayTitle.toLowerCase() == needle;
+      }).firstOrNull;
+      if (match == null || match.task == null) {
+        await _ack(
+          commandId: commandId,
+          success: false,
+          errorMessage: 'task_not_found',
+          responseMessage: 'No open task titled "$title".',
+        );
+        return;
+      }
+      final updated = match.task!.copyWith(status: 'done');
+      _session.updateBlockText(match.pageId, match.blockId, updated.encode());
+      await _ack(
+        commandId: commandId,
+        success: true,
+        taskTitle: title,
+        responseMessage: 'Completed task "$title".',
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'integration complete_task failed',
         tag: 'integrations',
         error: e,
         stackTrace: st,
@@ -192,6 +333,7 @@ class IntegrationCommandProcessor {
     required bool success,
     String? taskTitle,
     String? errorMessage,
+    String? responseMessage,
   }) async {
     try {
       await callFolioHttpsCallable('folioAckIntegrationCommand', {
@@ -199,6 +341,7 @@ class IntegrationCommandProcessor {
         'success': success,
         if (taskTitle != null) 'taskTitle': taskTitle,
         if (errorMessage != null) 'errorMessage': errorMessage,
+        if (responseMessage != null) 'responseMessage': responseMessage,
       });
     } catch (e) {
       AppLogger.warn(

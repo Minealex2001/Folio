@@ -13,11 +13,20 @@ class IntegrationCommandCreateTask extends IntegrationCommandParseResult {
   final String title;
 }
 
+class IntegrationCommandListTasks extends IntegrationCommandParseResult {
+  const IntegrationCommandListTasks();
+}
+
+class IntegrationCommandCompleteTask extends IntegrationCommandParseResult {
+  const IntegrationCommandCompleteTask(this.title);
+  final String title;
+}
+
 class IntegrationCommandUnknown extends IntegrationCommandParseResult {
   const IntegrationCommandUnknown();
 }
 
-/// Normaliza y parsea texto de comando Slack/Teams.
+/// Normaliza y parsea texto de comando Slack/Teams/Discord.
 class IntegrationCommandParser {
   const IntegrationCommandParser();
 
@@ -45,6 +54,26 @@ class IntegrationCommandParser {
         return const IntegrationCommandUnknown();
       }
       return IntegrationCommandCreateTask(title);
+    }
+
+    final listTasks = RegExp(
+      r'^/folio\s+list\s+tasks\s*$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (listTasks != null) {
+      return const IntegrationCommandListTasks();
+    }
+
+    final complete = RegExp(
+      r'^/folio\s+(?:complete\s+task|done)\s+"([^"]+)"$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (complete != null) {
+      final title = complete.group(1)!.trim();
+      if (title.isEmpty || title.length > maxTaskTitleLength) {
+        return const IntegrationCommandUnknown();
+      }
+      return IntegrationCommandCompleteTask(title);
     }
 
     return const IntegrationCommandUnknown();

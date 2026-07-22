@@ -11,6 +11,8 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/discord_integration_state.dart';
+import '../models/system_media_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -23,7 +25,9 @@ import '../services/ai/ai_types.dart';
 /// Esquema 11: allowlist MCP de páginas legibles (`mcpReadablePageIds`).
 /// Esquema 12: estado de integraciones Slack y Microsoft Teams (notificaciones vía webhook).
 /// Esquema 13: integración Spotify (OAuth, reproducción, modo zen).
-const int kVaultPayloadVersion = 13;
+/// Esquema 14: integración Discord (Incoming Webhook).
+/// Esquema 15: media del sistema (SMTC / MediaSession / MPRIS).
+const int kVaultPayloadVersion = 15;
 
 class VaultPayload {
   VaultPayload({
@@ -46,6 +50,8 @@ class VaultPayload {
     SlackIntegrationState? slack,
     TeamsIntegrationState? teams,
     SpotifyIntegrationState? spotify,
+    DiscordIntegrationState? discord,
+    SystemMediaIntegrationState? systemMedia,
     Map<String, int>? pageTombstones,
     this.syncClock = 0,
     Set<String>? mcpReadablePageIds,
@@ -65,6 +71,8 @@ class VaultPayload {
        slack = slack ?? SlackIntegrationState.empty,
        teams = teams ?? TeamsIntegrationState.empty,
        spotify = spotify ?? SpotifyIntegrationState.empty,
+       discord = discord ?? DiscordIntegrationState.empty,
+       systemMedia = systemMedia ?? SystemMediaIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {},
        mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
@@ -89,6 +97,8 @@ class VaultPayload {
   final SlackIntegrationState slack;
   final TeamsIntegrationState teams;
   final SpotifyIntegrationState spotify;
+  final DiscordIntegrationState discord;
+  final SystemMediaIntegrationState systemMedia;
 
   /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
   final Map<String, int> pageTombstones;
@@ -127,6 +137,9 @@ class VaultPayload {
     if (slack.connections.isNotEmpty) 'slack': slack.toJson(),
     if (teams.connections.isNotEmpty) 'teams': teams.toJson(),
     if (spotify.connections.isNotEmpty) 'spotify': spotify.toJson(),
+    if (discord.connections.isNotEmpty) 'discord': discord.toJson(),
+    if (systemMedia.enabled || !systemMedia.zenPauseOnExit)
+      'systemMedia': systemMedia.toJson(),
     if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
     if (syncClock > 0) 'syncClock': syncClock,
     if (mcpReadablePageIds.isNotEmpty)
@@ -199,6 +212,8 @@ class VaultPayload {
     final slack = SlackIntegrationState.fromJson(j['slack']);
     final teams = TeamsIntegrationState.fromJson(j['teams']);
     final spotify = SpotifyIntegrationState.fromJson(j['spotify']);
+    final discord = DiscordIntegrationState.fromJson(j['discord']);
+    final systemMedia = SystemMediaIntegrationState.fromJson(j['systemMedia']);
     final pageTombstones = <String, int>{};
     final rawTombs = j['pageTombstones'];
     if (rawTombs is Map) {
@@ -244,6 +259,8 @@ class VaultPayload {
       slack: slack,
       teams: teams,
       spotify: spotify,
+      discord: discord,
+      systemMedia: systemMedia,
       pageTombstones: pageTombstones,
       syncClock: syncClock,
       mcpReadablePageIds: mcpReadablePageIds,

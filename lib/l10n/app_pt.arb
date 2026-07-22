@@ -1485,6 +1485,10 @@
   "updaterStartupDialogLater": "Depois",
   "updaterStartupDialogUpdateNow": "Atualizar agora",
   "updaterStartupDialogBetaNote": "Versão Beta (pré-lançamento).",
+  "updaterDownloadProgressTitle": "A transferir a atualização…",
+  "updaterDownloadProgressPercent": "{percent}%",
+  "@updaterDownloadProgressPercent": {"placeholders": {"percent": {"type": "int"}}},
+  "updaterInstallingAfterDownload": "A instalar…",
   "updaterOpenApkDownloadQuestion": "Abrir a transferência do APK agora?",
   "updaterManualCheckUnsupportedPlatform": "O atualizador integrado só está disponível no Windows e no Android.",
   "updaterManualCheckAlreadyLatest": "Já tem a versão mais recente.",
@@ -2062,6 +2066,18 @@
   "templateButtonPlaceholderText": "Texto do modelo…",
   "aiProviderOllamaName": "Ollama",
   "aiProviderLmStudioName": "LM Studio",
+  "aiProviderGeminiNano": "Gemini Nano",
+  "aiProviderGalaxyAiByGemini": "Galaxy AI by Gemini",
+  "aiOnDeviceStatusAvailable": "Pronto neste dispositivo",
+  "aiOnDeviceStatusDownloadable": "Modelo disponível para descarregar",
+  "aiOnDeviceStatusDownloading": "A descarregar o modelo…",
+  "aiOnDeviceStatusUnavailable": "Não disponível neste dispositivo",
+  "aiOnDeviceDownloadAction": "Descarregar modelo no dispositivo",
+  "aiOnDeviceDownloadProgress": "Descarregados {bytes} bytes",
+  "@aiOnDeviceDownloadProgress": {"placeholders": {"bytes": {"type": "String"}}},
+  "aiOnDeviceDownloadFailed": "Não foi possível descarregar o modelo no dispositivo: {error}",
+  "@aiOnDeviceDownloadFailed": {"placeholders": {"error": {"type": "String"}}},
+  "aiOnDeviceHeroHint": "É executado em privado no telemóvel com AICore — não consome tinta da nuvem.",
   "blockAudioEmptyHint": "Escolha um arquivo de áudio",
   "blockChildPageTitle": "Bloco de fólio",
   "blockChildPageNoLink": "Sem subfólio vinculada.",
@@ -3194,11 +3210,31 @@
   ,"spotifyPause": "Pausar"
   ,"spotifySkipNext": "Seguinte"
   ,"spotifySkipPrevious": "Anterior"
+  ,"systemMediaReadyIdle": "Pronto (media do sistema)"
+  ,"systemMediaNothingPlaying": "Nada a reproduzir de momento."
+  ,"systemMediaOpenSource": "Abrir origem"
+  ,"systemMediaInsertTrack": "Inserir faixa no folio"
+  ,"systemMediaIntegrationTitle": "Media do sistema"
+  ,"systemMediaCardSubtitle": "Controle o que está a tocar no PC ou telemóvel (YT Music, Edge, VLC…) sem OAuth."
+  ,"systemMediaConfigure": "Configurar"
+  ,"systemMediaStatusEnabled": "Ativada"
+  ,"systemMediaStatusDisabled": "Desativada"
+  ,"systemMediaUnsupportedPlatform": "Não disponível aqui"
+  ,"systemMediaUnsupportedPlatformDetail": "A media do sistema não está disponível nesta plataforma (Web e iOS não conseguem ler a reprodução de outras apps)."
+  ,"systemMediaHelp": "Lê o Now Playing do sistema operativo e usa a mesma barra que o Spotify. Ideal para apps sem API própria, como YouTube Music."
+  ,"systemMediaEnable": "Ativar media do sistema"
+  ,"systemMediaEnableHint": "Mostra e controla a faixa ativa do SO na barra da barra lateral."
+  ,"systemMediaPermissionNeeded": "No Android é necessário o acesso às notificações para ler a media de outras apps."
+  ,"systemMediaOpenPermissionSettings": "Abrir definições de permissão"
+  ,"systemMediaZenPauseOnExit": "Pausar media do sistema ao sair do modo zen"
+  ,"systemMediaZenPauseOnExitHint": "Não afeta o Spotify; apenas pausa a sessão do sistema se estiver ativa."
+  ,"systemMediaBlockEmptyHint": "Insira a faixa atual a partir da barra now playing ou do menu de blocos."
+  ,"blockTypeSystemMedia": "Faixa (media do sistema)"
   ,"spotifyBlockEmptyHint": "Cole um link do Spotify ou defina o URL no menu do bloco"
   ,"spotifyPasteUrlOption": "Leitor Spotify"
   ,"spotifyPasteUrlOptionSubtitle": "Incorporar faixa, álbum ou playlist"
   ,"blockTypeSpotify": "Spotify"
-  ,"integrationCommandsHelp": "Ligue a sua identidade Slack ou Teams ao Folio e crie tarefas com /folio create task \"Título\". Os comandos são aplicados na próxima vez que abrir o Folio."
+  ,"integrationCommandsHelp": "Ligue a sua identidade Slack ou Teams ao Folio. Comandos: /folio create task \"Título\", /folio list tasks, /folio complete task \"Título\". Aplicados na próxima vez que abrir o Folio."
   ,"integrationCommandsNeedConnection": "Adicione primeiro uma ligação para usar comandos entrantes."
   ,"integrationGenerateLinkCode": "Gerar código de ligação"
   ,"integrationLinkCodeReady": "Código de ligação (válido 15 minutos)"
@@ -3337,4 +3373,27 @@
   ,"kanbanTrelloSyncTooltip": "Sincronizar Trello (push + pull)"
   ,"kanbanTrelloError": "Erro Trello: {error}"
   ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
+  ,"discordIntegrationTitle": "Integração Discord"
+  ,"discordCardSubtitle": "Notificações de tarefas num canal Discord via webhook."
+  ,"discordConfigure": "Configurar"
+  ,"discordConnectionCount": "{count, plural, =0{Sem ligações} one{1 ligação} other{{count} ligações}}"
+  ,"@discordConnectionCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"discordConnectionsTab": "Ligações"
+  ,"discordNotificationsTab": "Notificações"
+  ,"discordNoConnections": "Ainda não há ligações Discord."
+  ,"discordAddConnection": "Adicionar ligação"
+  ,"discordConnectionLabel": "Etiqueta"
+  ,"discordWebhookUrl": "URL do webhook"
+  ,"discordRequired": "Obrigatório"
+  ,"discordInvalidWebhook": "Introduza um URL https de webhook válido"
+  ,"discordTestMessage": "Folio ligou-se a este canal Discord."
+  ,"discordNotificationsForChannel": "Eventos de notificação"
+  ,"discordNotifyStatus": "Alterações de estado"
+  ,"discordNotifyNewTask": "Novas tarefas"
+  ,"discordNotifyComment": "Novos comentários"
+  ,"taskHubExportIcs": "Exportar calendário (.ics)"
+  ,"taskHubIcsExportDone": "Calendário exportado."
+  ,"taskHubIcsExportWebUnsupported": "A exportação ICS está disponível no ambiente de trabalho."
+  ,"slackConnectWithOAuth": "Ligar com OAuth do Slack"
+  ,"teamsConnectWithOAuth": "Ligar com OAuth da Microsoft"
 }

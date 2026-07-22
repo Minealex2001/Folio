@@ -141,9 +141,15 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           // la vista previa no coincide con el texto crudo (encabezados,
           // listas, checklists, tablas…), para no dejar ver la sintaxis
           // markdown sin procesar debajo.
+          //
+          // Preview y Quill son hijos no posicionados del Stack para que la
+          // fila crezca con el más alto (evita recorte / scroll interno).
           final visibleQuillEditor = !showPreviewOverlay || showTransparentMarkdownPreview;
+          final previewAlign = isTopAlignedSlashBlock
+              ? AlignmentDirectional.topStart
+              : AlignmentDirectional.centerStart;
 
-           return Stack(
+          return Stack(
             children: [
               Offstage(
                 offstage: readOnlyMode,
@@ -155,63 +161,31 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                   ),
                 ),
               ),
-              if (showPreviewOverlay)
-                Positioned.fill(
-                  child: Stack(
-                    children: [
-                      if (showTransparentMarkdownPreview)
-                        Align(
-                          alignment: isTopAlignedSlashBlock
-                              ? AlignmentDirectional.topStart
-                              : AlignmentDirectional.centerStart,
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) => true,
-                            child: quill.QuillEditor.basic(
-                              controller: c..readOnly = true,
-                              focusNode: st._folioQuillPreviewFocusFor(block.id),
-                              scrollController:
-                                  st._folioQuillPreviewScrollFor(block.id),
-                              config: const quill.QuillEditorConfig(
-                                expands: false,
-                                padding: EdgeInsets.zero,
-                                scrollable: false,
-                                autoFocus: false,
-                                showCursor: false,
-                                enableInteractiveSelection: false,
-                              ),
-                            ),
-                          ),
-                        ),
-                      Positioned.fill(
-                        child: Align(
-                          alignment: isTopAlignedSlashBlock
-                              ? AlignmentDirectional.topStart
-                              : AlignmentDirectional.centerStart,
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) => true,
-                            child: FolioMarkdownPreview(
-                              data: ctrl.text,
-                              styleSheet: mdSheet,
-                              onFolioPageLink: st._s.selectPage,
-                              isTransparentPreview: showTransparentMarkdownPreview,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Tap en cualquier zona no-link: entrar en edición. El
-                      // editor real de abajo (visible u oculto) recibe el
-                      // mismo tap gracias al `HitTestBehavior.translucent` y
-                      // coloca el cursor ahí mismo, sin necesitar un segundo
-                      // clic.
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: () => focus.requestFocus(),
-                        ),
-                      ),
-                    ],
+              if (showPreviewOverlay) ...[
+                Align(
+                  alignment: previewAlign,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) => true,
+                    child: FolioMarkdownPreview(
+                      data: ctrl.text,
+                      styleSheet: mdSheet,
+                      onFolioPageLink: st._s.selectPage,
+                      isTransparentPreview: showTransparentMarkdownPreview,
+                    ),
                   ),
                 ),
+                // Tap en cualquier zona no-link: entrar en edición. El
+                // editor real de abajo (visible u oculto) recibe el
+                // mismo tap gracias al `HitTestBehavior.translucent` y
+                // coloca el cursor ahí mismo, sin necesitar un segundo
+                // clic.
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => focus.requestFocus(),
+                  ),
+                ),
+              ],
             ],
           );
         }()
@@ -260,16 +234,16 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
             // Mantener el TextField en el árbol (aunque sea invisible) para que
             // el FocusNode esté adjunto y un click pueda entrar en edición.
             field,
-            Positioned.fill(
-              child: Align(
-                alignment: isTopAlignedSlashBlock
-                    ? AlignmentDirectional.topStart
-                    : AlignmentDirectional.centerStart,
-                child: FolioMarkdownPreview(
-                  data: ctrl.text,
-                  styleSheet: mdSheet,
-                  onFolioPageLink: st._s.selectPage,
-                ),
+            // No usar Positioned.fill: la preview debe aportar altura al Stack
+            // para no recortar markdown más alto que el TextField.
+            Align(
+              alignment: isTopAlignedSlashBlock
+                  ? AlignmentDirectional.topStart
+                  : AlignmentDirectional.centerStart,
+              child: FolioMarkdownPreview(
+                data: ctrl.text,
+                styleSheet: mdSheet,
+                onFolioPageLink: st._s.selectPage,
               ),
             ),
           ],

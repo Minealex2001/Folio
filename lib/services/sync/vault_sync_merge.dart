@@ -13,6 +13,8 @@ import '../../models/gitlab_integration_state.dart';
 import '../../models/slack_integration_state.dart';
 import '../../models/teams_integration_state.dart';
 import '../../models/spotify_integration_state.dart';
+import '../../models/discord_integration_state.dart';
+import '../../models/system_media_integration_state.dart';
 
 /// Conflicto de un bloque concreto tras un merge a 3 vías.
 class VaultSyncBlockConflict {
@@ -76,6 +78,8 @@ class VaultSyncMergeEngine {
       'slack': payload.slack.toJson(),
       'teams': payload.teams.toJson(),
       'spotify': payload.spotify.toJson(),
+      'discord': payload.discord.toJson(),
+      'systemMedia': payload.systemMedia.toJson(),
     });
   }
 
@@ -349,6 +353,17 @@ class VaultSyncMergeEngine {
           remote: remote.spotify.connections,
           idOf: (c) => c.id,
         ),
+      ),
+      discord: DiscordIntegrationState(
+        connections: _mergeById(
+          local: local.discord.connections,
+          remote: remote.discord.connections,
+          idOf: (c) => c.id,
+        ),
+      ),
+      systemMedia: _mergeSystemMedia(
+        local: local.systemMedia,
+        remote: remote.systemMedia,
       ),
       pageTombstones: tombstones,
       syncClock: syncClock,
@@ -683,5 +698,23 @@ class VaultSyncMergeEngine {
     if (l == b) return remote;
     if (r == b) return local;
     return local;
+  }
+
+  SystemMediaIntegrationState _mergeSystemMedia({
+    required SystemMediaIntegrationState local,
+    required SystemMediaIntegrationState remote,
+  }) {
+    // Preferir remoto si habilitó; si no, conservar local.
+    if (local.enabled == remote.enabled &&
+        local.zenPauseOnExit == remote.zenPauseOnExit) {
+      return local;
+    }
+    if (remote.enabled != local.enabled) {
+      return remote;
+    }
+    return SystemMediaIntegrationState(
+      enabled: local.enabled || remote.enabled,
+      zenPauseOnExit: remote.zenPauseOnExit,
+    );
   }
 }

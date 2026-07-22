@@ -182,6 +182,9 @@ extension _SettingsPageAiSection on _SettingsPageState {
             if (value == AiProvider.quillCloud) {
               await _loadAiModels();
             }
+            if (value == AiProvider.geminiNano) {
+              await _refreshOnDeviceAiInfo(force: true);
+            }
           } catch (e) {
             if (!mounted) return;
             _snack(l10n.settingsAiProviderSwitchFailed('$e'));
@@ -193,15 +196,20 @@ extension _SettingsPageAiSection on _SettingsPageState {
             child: Text(l10n.aiProviderNone),
           ),
           if (aiLocalProvidersSupported) ...[
-            const DropdownMenuItem(
+            DropdownMenuItem(
               value: AiProvider.ollama,
-              child: Text('Ollama'),
+              child: Text(l10n.aiProviderOllamaName),
             ),
-            const DropdownMenuItem(
+            DropdownMenuItem(
               value: AiProvider.lmStudio,
-              child: Text('LM Studio'),
+              child: Text(l10n.aiProviderLmStudioName),
             ),
           ],
+          if (aiOnDeviceProviderSupported)
+            DropdownMenuItem(
+              value: AiProvider.geminiNano,
+              child: Text(_onDeviceProviderLabel(l10n)),
+            ),
           const DropdownMenuItem(
             value: AiProvider.openAi,
             child: Text('OpenAI'),
@@ -216,6 +224,72 @@ extension _SettingsPageAiSection on _SettingsPageState {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOnDeviceAiStatusTile(AppLocalizations l10n, ColorScheme scheme) {
+    final status = _onDeviceAiStatus;
+    final String statusLabel;
+    switch (status) {
+      case OnDeviceAiStatus.available:
+        statusLabel = l10n.aiOnDeviceStatusAvailable;
+      case OnDeviceAiStatus.downloadable:
+        statusLabel = l10n.aiOnDeviceStatusDownloadable;
+      case OnDeviceAiStatus.downloading:
+        statusLabel = l10n.aiOnDeviceStatusDownloading;
+      case OnDeviceAiStatus.unavailable:
+      case null:
+        statusLabel = l10n.aiOnDeviceStatusUnavailable;
+    }
+    final canDownload =
+        status == OnDeviceAiStatus.downloadable && !_onDeviceAiBusy;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          leading: Icon(
+            status == OnDeviceAiStatus.available
+                ? Icons.check_circle_outline
+                : Icons.smartphone_outlined,
+          ),
+          title: Text(_onDeviceProviderLabel(l10n)),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(statusLabel),
+              Text(
+                l10n.aiOnDeviceHeroHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              if (_onDeviceAiBusy || status == OnDeviceAiStatus.downloading) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(),
+                if (_onDeviceDownloadBytes != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      l10n.aiOnDeviceDownloadProgress(
+                        '$_onDeviceDownloadBytes',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        if (canDownload)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: FilledButton.tonalIcon(
+              onPressed: _downloadOnDeviceAiModel,
+              icon: const Icon(Icons.download_outlined),
+              label: Text(l10n.aiOnDeviceDownloadAction),
+            ),
+          ),
+      ],
     );
   }
 
@@ -395,6 +469,7 @@ extension _SettingsPageAiSection on _SettingsPageState {
         _app.aiProvider == AiProvider.lmStudio ||
         _app.aiProvider == AiProvider.openAi ||
         _app.aiProvider == AiProvider.gemini;
+    final isOnDevice = _app.aiProvider == AiProvider.geminiNano;
     final heroChips = <_SettingsInfoChip>[
       _SettingsInfoChip(
         icon: _app.aiEnabled ? Icons.check_circle_outline : Icons.pause_circle_outline,
@@ -422,6 +497,8 @@ extension _SettingsPageAiSection on _SettingsPageState {
                 ? (aiLocalProvidersSupported
                       ? l10n.settingsAiHeroQuillWithLocalAlt
                       : l10n.settingsAiHeroQuillCloudOnly)
+                : isOnDevice
+                ? l10n.aiOnDeviceHeroHint
                 : (aiLocalProvidersSupported
                       ? l10n.settingsAiHeroLocalDefault
                       : l10n.settingsAiHeroQuillMobileOnly),
@@ -474,6 +551,14 @@ extension _SettingsPageAiSection on _SettingsPageState {
                           final configured =
                               await _autoDetectAndConfigureAiProvider();
                           if (!configured) return;
+                        } else if (aiOnDeviceProviderSupported) {
+                          final selected = await _askUserProviderChoice();
+                          if (selected == null) return;
+                          await _app.setAiProvider(selected);
+                          if (selected == AiProvider.geminiNano) {
+                            await _refreshOnDeviceAiInfo(force: true);
+                          }
+                          await _saveAiFields();
                         }
                         await _app.setHasCompletedQuillSetup(true);
                       }
@@ -506,6 +591,10 @@ extension _SettingsPageAiSection on _SettingsPageState {
           ],
           const Divider(height: 1),
           _buildAiProviderDropdown(l10n),
+          if (isOnDevice) ...[
+            const Divider(height: 1),
+            _buildOnDeviceAiStatusTile(l10n, scheme),
+          ],
           if (showModelInBasic) ...[
             const Divider(height: 1),
             _buildAiModelDropdown(l10n),
@@ -567,7 +656,8 @@ extension _SettingsPageAiSection on _SettingsPageState {
                     title: l10n.settingsMcpServerTitle,
                   ),
                 if (aiLocalProvidersSupported &&
-                    _app.aiProvider != AiProvider.quillCloud) ...[
+                    _app.aiProvider != AiProvider.quillCloud &&
+                    _app.aiProvider != AiProvider.geminiNano) ...[
                   const Divider(height: 1),
                   SwitchListTile(
                     secondary: const Icon(Icons.rocket_launch_outlined),
@@ -726,6 +816,31 @@ extension _SettingsPageAiSection on _SettingsPageState {
                         ),
                       ),
                   ],
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.network_check_rounded),
+                    title: Text(l10n.aiConnectToListModels),
+                    onTap: _testAiConnection,
+                  ),
+                ],
+                if (isOnDevice) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.timer_outlined),
+                    title: Text(l10n.aiTimeoutMs),
+                    subtitle: TextField(
+                      controller: _aiTimeoutController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: '30000',
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onSubmitted: (_) => _saveAiFields(),
+                    ),
+                  ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.network_check_rounded),

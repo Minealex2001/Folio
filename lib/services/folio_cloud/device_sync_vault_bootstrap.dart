@@ -368,10 +368,13 @@ Future<bool> materializeRemoteDeviceSyncVault({
   }
   final encrypted = mode != 'plain';
 
-  late final SecretKey packKey;
+  // Clave de wire (manifiesto/blobs) ≠ clave local: el push cifra con
+  // packKeyKind=account (perfil de cuenta) cuando existe; la DEK/plain solo
+  // sirve para persistir el payload local y como fallback de wire.
+  final accountKey = await resolveAccountProfilePackKeyQuietly();
+  late final SecretKey localPackKey;
   List<int>? dekBytes;
   if (encrypted) {
-    final accountKey = await resolveAccountProfilePackKeyQuietly();
     if (accountKey == null) {
       AppLogger.warn(
         'materialize skipped: no account profile key',
@@ -401,7 +404,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
         throw StateError('invalid dek wrap length');
       }
       dekBytes = clear;
-      packKey = await VaultCrypto.dekFromBytes(clear);
+      localPackKey = await VaultCrypto.dekFromBytes(clear);
     } catch (e) {
       AppLogger.warn(
         'materialize: dek wrap decrypt failed',
@@ -413,7 +416,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
   } else {
     try {
       final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
-      packKey = await DeviceSyncKeyCache.plainPackKey(
+      localPackKey = await DeviceSyncKeyCache.plainPackKey(
         uid: uid,
         vaultId: vaultId,
         accountSecret: secret,
@@ -454,14 +457,24 @@ Future<bool> materializeRemoteDeviceSyncVault({
     }
   }
 
+  final packKeyKind = '${syncMeta?['packKeyKind'] ?? ''}'.trim();
+  final wireKeys = packKeyKind == 'vault'
+      ? <SecretKey?>[localPackKey, accountKey]
+      : <SecretKey?>[accountKey, localPackKey];
+
   late final Uint8List packBytes;
   try {
     if (isV2) {
-      final rebuilt = await pullDeviceSyncIncremental(
-        manifestStoragePath: manifestPath,
-        packKey: packKey,
+      packBytes = await _decryptDeviceSyncWirePack(
+        keys: wireKeys,
+        decryptWith: (key) async {
+          final rebuilt = await pullDeviceSyncIncremental(
+            manifestStoragePath: manifestPath,
+            packKey: key,
+          );
+          return rebuilt.packBytes;
+        },
       );
-      packBytes = rebuilt.packBytes;
     } else {
       final cipher = await folioStorageGetData(
         FirebaseStorage.instance.ref().child(packPath),
@@ -470,7 +483,11 @@ Future<bool> materializeRemoteDeviceSyncVault({
       if (cipher == null || cipher.isEmpty) {
         throw StateError('Empty sync pack');
       }
-      packBytes = await cloudPackDecryptBytes(blob: cipher, packKey: packKey);
+      packBytes = await _decryptDeviceSyncWirePack(
+        keys: wireKeys,
+        decryptWith: (key) =>
+            cloudPackDecryptBytes(blob: cipher, packKey: key),
+      );
     }
   } catch (e, st) {
     AppLogger.error(
@@ -478,7 +495,10 @@ Future<bool> materializeRemoteDeviceSyncVault({
       tag: 'cloud_sync',
       error: e,
       stackTrace: st,
-      context: {'vaultId': vaultId},
+      context: {
+        'vaultId': vaultId,
+        'packKeyKind': packKeyKind,
+      },
     );
     try {
       await VaultPaths.deleteVaultDirectory(vaultId);
@@ -490,7 +510,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
   await materializeVaultSyncPackAttachmentsForVault(vaultId, pack);
   await headless.savePayload(
     vaultId: vaultId,
-    packKey: packKey,
+    packKey: localPackKey,
     payload: pack.payload,
   );
 
@@ -514,7 +534,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
   if (encrypted && dekBytes != null) {
     await keyCache.save(vaultId, dekBytes);
   } else {
-    final raw = await packKey.extractBytes();
+    final raw = await localPackKey.extractBytes();
     await keyCache.save(vaultId, raw);
   }
 
@@ -526,7 +546,26 @@ Future<bool> materializeRemoteDeviceSyncVault({
       'pages': pack.payload.pages.length,
       'fp': remoteFp,
       'name': name,
+      'packKeyKind': packKeyKind,
     },
   );
   return true;
+}
+
+/// Igual que el pull headless: prueba claves de wire en orden hasta que el MAC
+/// cuadre (account profile vs DEK/plain local).
+Future<Uint8List> _decryptDeviceSyncWirePack({
+  required List<SecretKey?> keys,
+  required Future<Uint8List> Function(SecretKey key) decryptWith,
+}) async {
+  Object? lastError;
+  for (final key in keys) {
+    if (key == null) continue;
+    try {
+      return await decryptWith(key);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw StateError('device-sync materialize decrypt failed: $lastError');
 }

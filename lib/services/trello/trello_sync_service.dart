@@ -274,6 +274,7 @@ class TrelloSyncService {
           name: t.title.trim(),
           desc: t.description,
           idList: desiredListId,
+          due: (t.dueDate ?? '').trim().isEmpty ? null : t.dueDate!.trim(),
         );
 
         if (source != null && source.priorityLabelMappings.isNotEmpty) {
@@ -376,25 +377,67 @@ class TrelloSyncService {
   }) async {
     final checklists = await client.getCardChecklists(cardId);
     final remoteById = <String, TrelloCheckItem>{};
+    final checklistByItemId = <String, String>{};
     for (final cl in checklists) {
       for (final item in cl.checkItems) {
         final id = item.id.trim();
         if (id.isEmpty) continue;
         remoteById[id] = item;
+        checklistByItemId[id] = cl.id;
       }
     }
+
+    String? defaultChecklistId =
+        checklists.isNotEmpty ? checklists.first.id.trim() : null;
+    if ((defaultChecklistId == null || defaultChecklistId.isEmpty) &&
+        subtasks.isNotEmpty) {
+      final created = await client.createChecklist(
+        cardId: cardId,
+        name: 'Folio',
+      );
+      defaultChecklistId = created.id.trim();
+    }
+
+    final seenRemoteIds = <String>{};
     for (final sub in subtasks) {
       final id = sub.id.trim();
-      if (id.isEmpty) continue;
-      // Solo ítems importados desde Trello (id = checkItem id).
-      final remote = remoteById[id];
-      if (remote == null) continue;
+      final title = sub.title.trim();
+      if (title.isEmpty && id.isEmpty) continue;
       final wantComplete = sub.status.trim() == 'done';
-      if (wantComplete == remote.isComplete) continue;
-      await client.updateCheckItemState(
-        cardId: cardId,
-        checkItemId: id,
-        complete: wantComplete,
+      final remote = id.isEmpty ? null : remoteById[id];
+      if (remote != null) {
+        seenRemoteIds.add(id);
+        final nameChanged = title.isNotEmpty && title != remote.name.trim();
+        final stateChanged = wantComplete != remote.isComplete;
+        if (nameChanged || stateChanged) {
+          await client.updateCheckItem(
+            cardId: cardId,
+            checkItemId: id,
+            name: nameChanged ? title : null,
+            complete: stateChanged ? wantComplete : null,
+          );
+        }
+        continue;
+      }
+      if (defaultChecklistId == null || defaultChecklistId.isEmpty) continue;
+      final created = await client.createCheckItem(
+        checklistId: defaultChecklistId,
+        name: title.isEmpty ? 'Untitled' : title,
+        checked: wantComplete,
+      );
+      final newId = created.id.trim();
+      if (newId.isNotEmpty) seenRemoteIds.add(newId);
+    }
+
+    // Remotos huérfanos (estaban en Trello y ya no en Folio): borrar.
+    for (final entry in remoteById.entries) {
+      final remoteId = entry.key;
+      if (seenRemoteIds.contains(remoteId)) continue;
+      final checklistId = checklistByItemId[remoteId];
+      if (checklistId == null || checklistId.isEmpty) continue;
+      await client.deleteCheckItem(
+        checklistId: checklistId,
+        checkItemId: remoteId,
       );
     }
   }

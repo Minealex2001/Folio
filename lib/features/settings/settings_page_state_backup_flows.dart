@@ -454,13 +454,36 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         }
         return;
       }
-      final installer = await updater.downloadInstaller(result);
+      _rebuild(() {
+        _downloadingUpdate = true;
+        _installingUpdate = false;
+        _updateDownloadProgress = null;
+      });
+      final installer = await updater.downloadInstaller(
+        result,
+        onProgress: (p) {
+          if (!mounted) return;
+          _rebuild(() => _updateDownloadProgress = p);
+        },
+      );
+      if (!mounted) return;
+      _rebuild(() {
+        _installingUpdate = true;
+        _updateDownloadProgress = 1.0;
+      });
       await updater.launchInstallerAndExit(installer);
     } catch (e) {
       if (!mounted) return;
       _snack(l10n.settingsUpdateFailed('$e'));
     } finally {
-      if (mounted) _rebuild(() => _checkingUpdates = false);
+      if (mounted) {
+        _rebuild(() {
+          _checkingUpdates = false;
+          _downloadingUpdate = false;
+          _installingUpdate = false;
+          _updateDownloadProgress = null;
+        });
+      }
     }
   }
 

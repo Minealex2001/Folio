@@ -23,6 +23,22 @@ void main() {
     expect((r as IntegrationCommandLink).code, 'XY987654');
   });
 
+  test('parse list tasks command', () {
+    expect(parser.parse('/folio list tasks'), isA<IntegrationCommandListTasks>());
+  });
+
+  test('parse complete task command', () {
+    final r = parser.parse('/folio complete task "Buy milk"');
+    expect(r, isA<IntegrationCommandCompleteTask>());
+    expect((r as IntegrationCommandCompleteTask).title, 'Buy milk');
+  });
+
+  test('parse done alias', () {
+    final r = parser.parse('/folio done "Ship it"');
+    expect(r, isA<IntegrationCommandCompleteTask>());
+    expect((r as IntegrationCommandCompleteTask).title, 'Ship it');
+  });
+
   test('reject empty title', () {
     expect(parser.parse('/folio create task ""'), isA<IntegrationCommandUnknown>());
   });

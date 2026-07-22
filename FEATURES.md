@@ -1,7 +1,7 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última revisión: 2026-07-19 (sincronizado con el estado del repositorio).
+> Última revisión: 2026-07-21 (sincronizado con el estado del repositorio).
 
 ---
 
@@ -61,6 +61,7 @@ Ejemplos de UI: `Crear folio`, `Nuevo Folio`, `Libreta activa` / `Active noteboo
 29a. [Integración con Trello](#29a-integración-con-trello)
 29b. [Integración con Slack y Microsoft Teams](#29b-integración-con-slack-y-microsoft-teams)
 29c. [Integración con Spotify](#29c-integración-con-spotify)
+29d. [Media del sistema](#29d-media-del-sistema-now-playing-nativo)
 30. [Búsqueda global](#30-búsqueda-global)
 31. [Captura rápida de tarea](#31-captura-rápida-de-tarea)
 32. [Temas y apariencia](#32-temas-y-apariencia)
@@ -113,6 +114,8 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 - **Bloque sentinela**: siempre existe un párrafo vacío al final de la página para que el usuario pueda hacer clic y escribir.
 - **Integración dual**: los bloques de texto enriquecido (`paragraph`, `h1`, `h2`, `h3`, `quote`, `callout`, `bullet`, `numbered`, `todo`, `toggle`) usan un `QuillController` WYSIWYG internamente, con persistencia dual en markdown + Delta JSON (`richTextDeltaJson`).
 - **Modo solo lectura** (`readOnlyMode`): elimina controles de edición; útil para vistas de historial o publicaciones web.
+- **Acciones de fila (⋮ / asa)**: el slot de menú y el gutter de arrastre reservan tamaño fijo; en escritorio se revelan al hover con opacidad (`IgnorePointer` cuando están ocultos), sin cambiar la altura de la fila ni desplazar el texto.
+- **Vista previa sin foco**: el markdown de preview y Quill comparten un `Stack` dimensionado por el hijo más alto (sin `Positioned.fill` que recorte); `FolioMarkdownPreview` en filas del editor no usa scroll interno.
 - **Scroll TOC**: `scrollToBlock(blockId)` — desplazamiento animado con `Scrollable.ensureVisible` desde la tabla de contenidos lateral.
 - **Índice de bloques ordenado**: `_orderedListNumber()` calcula el número correlativo para listas numeradas, respetando niveles de anidación.
 
@@ -579,8 +582,18 @@ Un solo panel con tres bloques:
 | `lmStudio` | LM Studio local (**solo escritorio**) |
 | `quillCloud` | API de inferencia de Folio Cloud |
 | `openAi` / `gemini` | BYOK con API key propia |
+| `geminiNano` | Gemini Nano on-device vía AICore / ML Kit GenAI Prompt (**solo Android**) |
 
-En **web**, **Android** e **iOS** no hay Ollama/LM Studio (`aiLocalProvidersSupported == false`); Quill se activa con Folio Cloud (y opcionalmente OpenAI/Gemini con clave).
+En **web** e **iOS** no hay Ollama/LM Studio (`aiLocalProvidersSupported == false`); Quill se activa con Folio Cloud (y opcionalmente OpenAI/Gemini con clave).
+
+En **Android**, además de Cloud/BYOK, está disponible el proveedor on-device `geminiNano` (`aiOnDeviceProviderSupported`):
+
+- Requiere **minSdk 26**, app **AICore** actualizada y un dispositivo compatible (Pixel, Galaxy y otros flagships con AICore).
+- Etiqueta en Ajustes según fabricante: **Gemini Nano** (Pixel/Google u otros) o **Galaxy AI by Gemini** (Samsung). Un solo valor persistido (`geminiNano`).
+- El modelo se descarga bajo demanda (AICore); la UI muestra estado `available` / `downloadable` / `downloading` / `unavailable`.
+- Sin URL ni API key; no consume tinta de Folio Cloud.
+- Sin tool-calling nativo → Quill usa la emulación JSON existente. Contexto acotado (~12k caracteres / historial corto).
+- Código: `lib/services/ai/gemini_nano_ai_service.dart`, `on_device_ai_bridge.dart`, plugin nativo `OnDeviceAiPlugin.kt`.
 
 ### Modos de operación (`lib/session/vault_session_ai.dart`)
 
@@ -752,7 +765,7 @@ Distinta de la **copia/restauración** (reemplazo consciente): la sync automáti
 - Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`) + transporte incremental `folio_cloud_device_sync_incremental.dart`.
 - Tras persistir y **~10 s sin nuevos guardados** (idle de edición), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
 - Indicador global en el workspace (chip/icono) con sheet: estado de **todas las libretas locales**, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y acceso a conflictos pendientes. El chip muestra “Todas las libretas están sincronizadas” cuando cada libreta está al día (o sin pack en la nube); si otra libreta tiene cambios remotos más nuevos, avisa y permite abrirla.
-- Cifrado con la **DEK en memoria** (libreta ya desbloqueada) o clave derivada del vault en claro; **no pide contraseña** ni depende del restore-wrap del cloud-pack.
+- Cifrado del **wire** (manifiesto/blobs): con la **clave de perfil de cuenta** cuando existe (`packKeyKind: account`); si no, con la DEK o clave plain del vault (`packKeyKind: vault`). La **persistencia local** sigue usando la DEK (o plain). El pull/materialize prueba ambas según `packKeyKind` (misma lógica en libreta activa, headless y bootstrap de libretas remotas). **No pide contraseña** ni depende del restore-wrap del cloud-pack.
 - Otros dispositivos hacen **pull** en primer plano: libreta activa cada **~30 s** (`snapshots` o poll REST en Windows); todas las libretas cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) el pull se pausa; al recuperar foco/resumed, pull inmediato de la activa. Al cambiar de libreta: **push inmediato** de la anterior y pull inmediato de la nueva. **Push** normal tras **~10 s sin editar** (o flush al cambiar de página). Tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
 - Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución en **Ajustes → Folio Cloud** y en Ajustes → Sincronización (P2P); mismo contador `syncPendingConflicts`.
 - Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
@@ -806,7 +819,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 - Si Vercel **Deployment Protection** (SSO) está activo en Production, la app y `manifest.json` redirigen al login de Vercel; desactivar protección pública en beta/prod o limitarla a previews.
 - **PWA instalable**: `web/manifest.json` (`display: standalone`, iconos 192/512 + maskable), meta tags iOS en `index.html`, service worker de Flutter (`flutter build web` sin `--pwa-strategy=none`). En la sidebar web: botón **Instalar Folio** (prompt nativo vía `beforeinstallprompt`, o guía manual en Safari/iOS). Headers en `vercel.json` para `manifest.json` y `flutter_service_worker.js`. La instalación completa requiere HTTPS (beta/prod); en local probar con `flutter run -d chrome --release`.
 - **Sin buscador de actualizaciones** (`FolioDistribution.offersGitHubSelfUpdate == false` en web): la web se actualiza al redeploy; no hay «Buscar actualizaciones» ni chequeo al arrancar.
-- **IA como en móvil**: sin Ollama/LM Studio; Quill Cloud (y BYOK OpenAI/Gemini si se configura).
+- **IA como en móvil**: sin Ollama/LM Studio; Quill Cloud, BYOK OpenAI/Gemini y, en Android, Gemini Nano / Galaxy AI on-device.
 
 ### Facturación
 
@@ -939,9 +952,8 @@ Implementada en `lib/services/trello/` (`trello_api_client.dart`, `trello_sync_s
 
 ### Push (Folio → Trello)
 
-- Título, descripción, lista (si hay mapping) y labels de prioridad.
-- Estado de check items: las subtareas Folio cuyo `id` es un check item de Trello empujan `complete` / `incomplete`.
-- Crear/borrar check items nuevos desde Folio **no** se empuja aún.
+- Título, descripción, lista (si hay mapping), labels de prioridad y **due** de la card.
+- Checklists / check items: sync de estado y nombre; **crear** ítems nuevos en checklist «Folio» (o la primera existente); **borrar** ítems remotos huérfanos que ya no existen como subtareas locales.
 
 ### Detalle de tarea (paridad YouTrack)
 
@@ -951,45 +963,53 @@ Implementada en `lib/services/trello/` (`trello_api_client.dart`, `trello_sync_s
 
 ### Kanban: una sola integración
 
-Un bloque Kanban solo puede tener asociada **una** fuente: Jira **o** YouTrack **o** Trello. Al elegir una se limpian las demás; si hay datos legacy con varias, se normaliza (prioridad Jira → YouTrack → Trello).
+Un bloque Kanban solo puede tener asociada **una** fuente remota (Jira, YouTrack, Trello, GitHub o GitLab). Al elegir una se limpian las demás.
+
+---
+
+## 29a1. GitHub Issues y GitLab Issues
+
+Sync de **metadatos de issues** (y opcionalmente PRs/MRs como issues) hacia el Kanban: título, estado open/closed, labels. **No** sincroniza cuerpo/description en push, fechas due, assignees, subtareas, ni operaciones git (ramas/diffs). Techo de pull ~200 ítems.
 
 ---
 
 ## 29b. Integración con Slack y Microsoft Teams
 
-Implementada en `lib/services/slack/`, `lib/services/teams/`, `lib/services/integrations/` y ajustes en `lib/features/settings/slack_integration_settings.dart` / `teams_integration_settings.dart`. **Beta**, sin OAuth (Fase 1 + Fase 3).
+Implementada en `lib/services/slack/`, `lib/services/teams/`, `lib/services/integrations/` y ajustes correspondientes. **Beta** (Fase 1 webhooks + Fase 2 OAuth + Fase 3 comandos).
 
-### Notificaciones salientes (webhook)
+### Notificaciones salientes
 
-- Conexión por **Incoming Webhook URL** (Slack) o **Workflow webhook** (Teams).
-- Eventos configurables por conexión: cambio de estado de tarea, tarea nueva, comentario nuevo.
-- Estado en vault v12 (`slack` / `teams` en `VaultPayload`).
-- En **Web**, el POST al webhook usa el callable `folioIntegrationWebhookProxy` (auth Firebase + whitelist de dominios) para evitar CORS.
+- Webhook (Fase 1) o Bot API / Graph (Fase 2) según la conexión.
+- Eventos: cambio de estado, tarea nueva, comentario.
+- Cola con reintentos (backoff, máx. 3 intentos) en `IntegrationNotificationDispatcher`.
+- En **Web**, proxy `folioIntegrationWebhookProxy` (+ `folioUpsertIntegrationWebhookConnection`).
 
-### Comandos entrantes (v1, buzón)
+### OAuth (Fase 2)
 
-Requiere **sesión Firebase** (Folio Cloud) y libreta desbloqueada. No es tiempo real: el comando se encola en Firestore y se aplica al abrir/sincronizar Folio.
+- Slack: PKCE loopback `45749`, exchange `folioSlackExchangeOAuth`, botón en Ajustes.
+- Teams: PKCE loopback `45750`, exchange `folioTeamsExchangeOAuth`.
+- Secretos: `SLACK_OAUTH_*` / `TEAMS_OAUTH_*`.
+
+### Comandos entrantes
 
 | Comando | Acción |
 |---|---|
-| `/folio link CODE` | Vincula `slackUserId` / usuario Teams → cuenta Firebase + libreta activa |
-| `/folio create task "Título"` | Encola creación de bloque `task` en la bandeja de tareas |
+| `/folio link CODE` | Vincula identidad chat → Firebase + libreta |
+| `/folio create task "Título"` | Crea tarea en bandeja |
+| `/folio list tasks` | Lista hasta 10 tareas abiertas |
+| `/folio complete task "Título"` / `/folio done "…"` | Marca tarea como done |
 
-- UI: pestaña **Comandos** en el diálogo de integración (generar código de enlace, 15 min TTL).
-- **Slack:** slash command `/folio` → Cloud Function `folioSlackCommand` (firma `SLACK_SIGNING_SECRET`).
-- **Teams:** Outgoing Webhook → `folioTeamsCommand?connectionId=…` (HMAC con token guardado en la conexión).
-- Confirmación al canal vía webhook almacenado al vincular (`folioAckIntegrationCommand`).
-- **Windows:** los comandos entrantes de Slack/Teams **no aplican** en Windows (el SDK nativo de Firestore crashea con `0xE06D7363` y la API REST de Firestore no permite listar subcolecciones sin regla `list` explícita). `IntegrationCommandProcessor` no hace polling en Windows para evitar el error 403; los acks y notificaciones salientes siguen funcionando.
+- **Windows:** polling vía callable `folioListPendingIntegrationCommands` (Admin SDK) cuando el SDK nativo de Firestore no está disponible; el listado REST de la subcolección devolvía 403.
 
-### Cloud Functions relacionadas
+### Cloud Functions
 
-| Función | Tipo |
-|---|---|
-| `folioIntegrationWebhookProxy` | callable (proxy webhooks salientes Web) |
-| `folioRegisterIntegrationLinkCode` | callable |
-| `folioAckIntegrationCommand` | callable |
-| `folioSlackCommand` | HTTP (slash commands) |
-| `folioTeamsCommand` | HTTP (outgoing webhook) |
+`folioUpsertIntegrationWebhookConnection`, `folioIntegrationWebhookProxy`, `folioRegisterIntegrationLinkCode`, `folioListPendingIntegrationCommands`, `folioAckIntegrationCommand`, `folioSlackCommand`, `folioTeamsCommand`, `folioSlackExchangeOAuth`, `folioTeamsExchangeOAuth`.
+
+---
+
+## 29b1. Integración con Discord
+
+Mismo molde que Slack Fase 1: Incoming Webhook por canal, notificaciones de tarea/comentario vía `IntegrationNotificationDispatcher`, estado en vault **v14** (`discord` en `VaultPayload`). Ajustes → Integraciones → Comunicación.
 
 ---
 
@@ -1011,11 +1031,12 @@ Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integrat
 
 ### Reproducción y modo zen
 
-- **`SpotifyPlaybackController`**: polling de now playing; reproductor en el pie del sidebar con densidades `mini` / `expanded` (`workspaceSidebarSpotifyExpanded`). El **modo extendido** (sidebar y zen) muestra carátula grande, título/artista, barra de tiempo (seek), prev/play/next centrados, volumen y «Abrir en Spotify» en la cabecera (para no desalinear los controles). Visible **siempre** que haya cuenta conectada; al pulsar play sin contenido inicia la playlist de enfoque o reanuda.
-- **Color dominante de la carátula**: `spotify_art_color.dart` descarga la carátula a una miniatura 8×8 (usando el caché de imágenes de Flutter), calcula el color promedio ponderado por saturación HSL en un `Isolate` (`compute`) y aplica un boost de saturación. El color de fondo del banner (mini, expandido y zen) se actualiza con `AnimatedContainer` (600 ms, `easeOutCubic`) al cambiar de canción. El color de texto/iconos se calcula automáticamente (blanco u oscuro) para garantizar contraste sobre el fondo dominante.
-- **Animación de expansión** mini↔expandido gestionada con `AnimationController` + `AnimatedContainer`/`AnimatedSize` (`easeOutCubic`, 320 ms sidebar, 260 ms zen). El botón **Expandir** va superpuesto sobre la carátula (overlay semitransparente) y solo aparece al pasar el ratón por el card (`MouseRegion`).
-- Playlist de **enfoque** configurable por conexión; selector dedicado (`spotify_playlist_picker.dart`) con búsqueda local, paginación, portada, número de canciones y vista previa antes de confirmar; accesible desde las pestañas Reproducción y Modo zen.
-- Al entrar en **modo zen** puede iniciarse automáticamente (`zenAutoPlay`); al salir, pausa opcional (`zenPauseOnExit`). Sin playlist seleccionada, el interruptor de auto-play queda deshabilitado.
+- **`MediaPlaybackRouter`** + **`NowPlayingBar`** (alias `SpotifyNowPlayingBar`): barra unificada en el pie del sidebar y pastilla zen. Elige fuente activa entre Spotify (`SpotifyNowPlayingSource` / `SpotifyPlaybackController`) y media del sistema (`SystemMediaController`). Visible si `shouldShowBar` (cuenta Spotify conectada **o** media del sistema habilitada). Densidades `mini` / `expanded` / `zen` (`workspaceSidebarSpotifyExpanded`).
+- El **modo extendido** muestra carátula grande (URL o bytes), título/artista, barra de tiempo (seek si `canSeek`), prev/play/next, volumen solo si `canSetVolume`, abrir origen si `canOpenExternal`, e insertar bloque `systemMedia` si `canInsertBlock`.
+- **Color dominante de la carátula**: `spotify_art_color.dart` (URL o bytes) calcula el color promedio ponderado; el fondo del banner se anima al cambiar de pista.
+- **Animación de expansión** mini↔expandido con `AnimatedSize` (`easeOutCubic`). El botón **Expandir** va sobre la carátula: en escritorio overlay al hover; en Android/iOS badge siempre visible y tappable (sin hover).
+- Playlist de **enfoque** configurable por conexión Spotify; selector dedicado (`spotify_playlist_picker.dart`).
+- Al entrar en **modo zen** puede iniciarse automáticamente la playlist (`zenAutoPlay`); al salir, pausa opcional de Spotify (`zenPauseOnExit`) y, si aplica, `MediaPlaybackRouter.pauseSystemIfZenExit()` para media del sistema.
 
 ### Bloque `spotify` en folios
 
@@ -1031,6 +1052,41 @@ Implementada en `lib/services/spotify/`, `lib/features/settings/spotify_integrat
 | `folioSpotifyExchangeOAuth` | Intercambio OAuth PKCE |
 | `folioSpotifyOAuthCallback` | Redirect URI Web |
 | `folioSpotifyApiProxy` | Proxy Web API (CORS) con auth Firebase |
+
+---
+
+## 29d. Media del sistema (Now Playing nativo)
+
+Lectura y control de la sesión multimedia activa del SO (otras apps: YouTube Music, navegador, etc.), aparte de Spotify OAuth.
+
+### Windows (`GlobalSystemMediaTransportControlsSessionManager`)
+
+- Plugin en el runner: `windows/runner/system_media_plugin.{h,cpp}`, cableado en `flutter_window`. **Worker MTA** para todo GSMTC (nunca WinRT `.get()` en el hilo UI — congelaba Flutter). El UI solo entrega `MethodResult`/`EventSink` vía `PostMessage`. Listening = poll ~1s en el worker (sin callbacks WinRT cross-thread).
+- MethodChannel `folio/system_media`, EventChannel `folio/system_media_events`.
+- Snapshot: título, artista, AUMID, nombre de app (best effort), reproducción, progreso/duración, flags de control y carátula (`albumArt`, bytes, máx. 8 MB). `system_media_plugin.cpp` compila con `/EHa` (en vez de `/EHsc`) para que `catch (...)` sí atrape el access violation en `shcore.dll` (Win11) que antes podía disparar `OpenReadAsync`; la lectura de `Thumbnail` está aislada en su propio `try/catch` y degrada en silencio (sin carátula) si falla.
+- Bridge Dart: `lib/services/media/system_media_service.dart` → `SystemMediaController` / `MediaPlaybackRouter` / `NowPlayingSnapshot`.
+- La misma `NowPlayingBar` del sidebar muestra media del sistema cuando es la fuente activa; se puede insertar un bloque `systemMedia` (JSON en el texto del bloque) desde el panel expandido.
+
+### Android (`MediaSessionManager` + Notification Listener)
+
+- Plugin: `android/.../SystemMediaPlugin.kt`, registrado desde `MainActivity`.
+- Servicio mínimo `FolioMediaNotificationListener` (requerido por `getActiveSessions`); el usuario debe habilitar acceso a notificaciones.
+- `isSupported` → true; `hasPermission` / `openPermissionSettings` vía `Settings.Secure` + `ACTION_NOTIFICATION_LISTENER_SETTINGS`.
+- `getCurrent` / listening / play·pause·skip·seek best-effort desde la sesión activa (prioriza la que está en reproducción).
+
+### Linux / macOS
+
+- Linux: stub en `linux/runner/system_media_plugin.{h,cc}` con `isSupported: false` (MPRIS pendiente).
+- macOS: sin plugin nativo; Dart trata `MissingPluginException` como no soportado.
+
+### Bloque `systemMedia` en folios
+
+- Tipo en menú `/` (sección embeds); payload JSON vía `lib/services/media/system_media_block.dart`.
+- Tarjeta `FolioSystemMediaBlockCard` muestra título, artista y app de origen.
+
+### Ajustes
+
+- Tarjeta en Integraciones → Música: activar, permiso Android, pausa al salir del zen (`systemMediaZenPauseOnExit`).
 
 ---
 
@@ -1144,10 +1200,12 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 ## 35. Actualizador integrado
 
-- `lib/services/updater/`: comprueba nuevas versiones disponibles.
-- Notificación in-app cuando hay una actualización.
-- Descarga e instalación guiada (Windows: `.msix`; macOS: `.dmg`; Linux: AppImage).
-- **No aplica en web** ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`).
+- `lib/services/updater/`: comprueba nuevas versiones disponibles vía GitHub Releases.
+- Notificación in-app cuando hay una actualización (arranque y Ajustes → Acerca de).
+- **Windows** (builds GitHub/legado): descarga el instalador `.exe` con barra de progreso **inline** en Ajustes → Acerca de; verificación SHA-256; instalación silenciosa (Inno Setup). En el arranque, tras confirmar, descarga sin popup (snack de progreso).
+- **Android** (builds GitHub/legado): abre la URL del APK en el navegador/sistema.
+- **No aplica** en web ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`); en esos casos se abre la ficha de la tienda.
+- **Patch notes**: no se abren automáticamente tras actualizar. Disponibles desde Ajustes → Acerca de y la tarjeta «Novedades» del home (unread hasta abrir/descartar).
 
 ---
 
@@ -1446,7 +1504,7 @@ Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga 
 
 ### Catálogo de acciones expuestas
 
-El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`, **`get_page_content`**) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
+El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`, **`get_page_content`**, **`list_tasks`**, **`update_task`**) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
 
 A diferencia del chat interno de Quill, un cliente MCP no tiene "página actual": debe pasar siempre un `pageId` explícito en los argumentos de cada tool que lo requiera.
 
@@ -1606,7 +1664,7 @@ Revisión centrada en errores del editor de bloques, páginas y persistencia de 
 - **Backspace:** en bloques Quill usa el estado real del documento (texto plano y selección), no el `TextEditingController` espejo que puede estar desfasado; el caret tras merge se posiciona con la longitud de texto plano del bloque previo (`_blockCaretLength`).
 - **Caret tras primera palabra / centinela:** al insertar el bloque vacío final, el editor captura y restaura el offset desde Quill (no desde el controller sombra desfasado), hace flush del debounce antes de capturar, evita reconciliar el documento mientras hay foco/debounce pendiente y no devuelve el cursor al inicio si el bloque ya tiene texto.
 - **Split (Enter) y merge:** `splitBlockAtCaret` y `mergeBlockUp` limpian `richTextDeltaJson` de los bloques afectados para que el Markdown sea la fuente de verdad y no se restaure contenido obsoleto al recargar.
-- **Fuga de `FocusNode`:** el overlay de preview reutiliza un `FocusNode` cacheado por bloque (`_folioQuillPreviewFocusFor`) liberado en el teardown, en vez de crear uno nuevo en cada `build`.
+- **Preview sin segundo Quill:** la vista previa sin foco usa `FolioMarkdownPreview` sobre el editor principal (opacidad 0/1); ya no se monta un `QuillEditor`/`FocusNode` extra de solo lectura por bloque.
 
 ### Async y concurrencia
 
@@ -1680,5 +1738,9 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 - `database_block_editor.dart` y partes de `settings_page.dart` / `kanban_board_page.dart` aún usan `_t(es,en)` o ternarios manuales; migración gradual a `.arb`.
 - División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
-- Unificación de bridges `integrations_bridge` / `run2doc_bridge` / MCP (puertos ya separados: 45831 / 45832 / 45833).
+- Unificación profunda de routers HTTP de bridges (núcleo parcial en `lib/services/local_bridge/` + codec MD compartido; puertos 45831 / 45832 / 45833 siguen separados).
 - Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.
+
+### Export ICS de tareas
+
+Desde el hub de tareas de la libreta se puede exportar un calendario `.ics` (`FolioIcsExport`) con VEVENT all-day para tareas con `dueDate`/`startDate`, RRULE y VALARM opcionales.

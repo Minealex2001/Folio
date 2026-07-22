@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 
+import '../local_bridge/local_bridge_http.dart';
 import 'run2doc_markdown_codec.dart';
 
 class Run2DocClientIdentity {
@@ -479,11 +480,7 @@ class Run2DocBridgeController {
 
   Future<void> start() async {
     if (_server != null) return;
-    _server = await HttpServer.bind(
-      InternetAddress.loopbackIPv4,
-      Run2DocLaunchSession.fixedPort,
-      shared: false,
-    );
+    _server = await LocalBridgeHttp.bindLoopback(Run2DocLaunchSession.fixedPort);
     unawaited(_listen(_server!));
   }
 

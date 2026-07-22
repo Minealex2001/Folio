@@ -27,11 +27,15 @@ export {
 } from "./telemetry";
 
 export {
+  folioUpsertIntegrationWebhookConnection,
   folioIntegrationWebhookProxy,
   folioRegisterIntegrationLinkCode,
+  folioListPendingIntegrationCommands,
   folioAckIntegrationCommand,
   folioSlackCommand,
   folioTeamsCommand,
+  folioSlackExchangeOAuth,
+  folioTeamsExchangeOAuth,
 } from "./slack_teams_integration";
 
 export {

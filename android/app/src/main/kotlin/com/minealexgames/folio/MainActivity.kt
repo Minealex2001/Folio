@@ -30,6 +30,9 @@ class MainActivity : FlutterFragmentActivity() {
 				else -> result.notImplemented()
 			}
 		}
+
+		OnDeviceAiPlugin().register(flutterEngine.dartExecutor.binaryMessenger)
+		SystemMediaPlugin(applicationContext).register(flutterEngine.dartExecutor.binaryMessenger)
 	}
 
 	private fun acquireMulticastLock() {

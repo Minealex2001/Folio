@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -48,6 +49,36 @@ Future<Color?> extractSpotifyArtColor(String? url) async {
     picture.dispose();
     image.dispose();
 
+    if (byteData == null) return null;
+    return await compute(_dominantColor, byteData.buffer.asUint8List());
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Extrae color dominante desde bytes de imagen (p. ej. thumbnail SMTC).
+Future<Color?> extractArtColorFromBytes(Uint8List? bytes) async {
+  if (bytes == null || bytes.isEmpty) return null;
+  try {
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 8);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      const Rect.fromLTWH(0, 0, 8, 8),
+      Paint()..filterQuality = FilterQuality.low,
+    );
+    final picture = recorder.endRecording();
+    final thumb = await picture.toImage(8, 8);
+    final byteData =
+        await thumb.toByteData(format: ui.ImageByteFormat.rawRgba);
+    thumb.dispose();
+    picture.dispose();
+    image.dispose();
+    codec.dispose();
     if (byteData == null) return null;
     return await compute(_dominantColor, byteData.buffer.asUint8List());
   } catch (_) {

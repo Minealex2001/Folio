@@ -24,8 +24,10 @@ import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/folio_tool_registry.dart';
+import '../services/ai/gemini_nano_ai_service.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/ai/on_device_ai_bridge.dart';
 import '../services/ai/openai_compatible_ai_service.dart';
 import '../services/mcp/folio_mcp_server.dart';
 import '../services/mcp/folio_mcp_server_status.dart';
@@ -47,6 +49,7 @@ import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integration_command_processor.dart';
 import '../services/spotify/spotify_playback_controller.dart';
+import '../services/media/media_playback_router.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -326,6 +329,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
     if (widget.session.state == VaultFlowState.locked) {
       SpotifyPlaybackController.instance.detachSession();
+      MediaPlaybackRouter.instance.detachSession();
       // Device-sync sigue en segundo plano (headless) aunque la libreta esté
       // bloqueada; solo se cierra la UI del workspace.
       unawaited(_cloudSettingsSyncController?.stopWatching());
@@ -343,6 +347,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       }());
     } else if (widget.session.state == VaultFlowState.unlocked) {
       SpotifyPlaybackController.instance.attachSession(widget.session);
+      MediaPlaybackRouter.instance.attachSession(widget.session);
       // `_onSession` se dispara en CADA notificación de la sesión (cada
       // edición, no solo al desbloquear). `_syncCloudDeviceSyncLifecycle` ya
       // cachea el último `isEnabled` aplicado y no hace nada si no cambió;
@@ -424,48 +429,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           : '$appVersion+$buildNumber';
       final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
 
-      // Inicializa el marcador en instalaciones nuevas para no abrir en el primer arranque.
+      // Primera instalación: marcar como visto sin abrir.
       if (lastSeen.isEmpty) {
         await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
         return;
       }
-      if (lastSeen == versionLabel) return;
-
-      final updater = GitHubReleaseUpdater(
-        owner: widget.appSettings.updaterGithubOwner,
-        repo: widget.appSettings.updaterGithubRepo,
-      );
-      ReleaseNotesResult? release;
-      try {
-        release = await updater.fetchReleaseNotesForVersion(
-          appVersion: appVersion,
-          buildNumber: buildNumber,
-        );
-      } catch (_) {
-        release = null;
-      }
-      if (!mounted) return;
-      if (_updateDialogShown) return;
-      if (widget.session.state != VaultFlowState.unlocked) return;
-      final safeNav = _navKey.currentState;
-      if (safeNav == null || !safeNav.mounted || safeNav.canPop()) return;
-
-      _releaseNotesShownThisRun = true;
-      await safeNav.push(
-        MaterialPageRoute<void>(
-          builder: (context) {
-            return ReleaseNotesPage(
-              versionLabel: versionLabel,
-              releaseTitle: release?.releaseName,
-              releaseNotes: release?.releaseNotes ?? '',
-              publishedAt: release?.publishedAt,
-              tagName: release?.tagName,
-            );
-          },
-          settings: const RouteSettings(name: 'release_notes'),
-        ),
-      );
-      await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+      // Tras actualizar: no abrir el modal automáticamente.
+      // La tarjeta «Novedades» del home sigue indicando unread
+      // (lastSeen != versionLabel) hasta que el usuario la abra o descarte.
+      if (lastSeen != versionLabel) return;
     } finally {
       _releaseNotesCheckInProgress = false;
     }
@@ -1099,6 +1071,21 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       return;
     }
 
+    // Gemini Nano / Galaxy AI on-device (solo Android).
+    if (provider == AiProvider.geminiNano) {
+      if (aiOnDeviceProviderSupported) {
+        unawaited(OnDeviceAiBridge.getDeviceBrand());
+        widget.session.setAiService(
+          GeminiNanoAiService(
+            timeout: Duration(milliseconds: widget.appSettings.aiTimeoutMs),
+          ),
+        );
+      } else {
+        widget.session.setAiService(null);
+      }
+      return;
+    }
+
     // Local providers (Ollama / LM Studio) solo en escritorio.
     final isLocalProvider = provider == AiProvider.ollama || provider == AiProvider.lmStudio;
     if (isLocalProvider && !aiLocalProvidersSupported) {
@@ -1159,7 +1146,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           ),
         );
         break;
-      default:
+      case AiProvider.none:
+      case AiProvider.quillCloud:
+      case AiProvider.geminiNano:
         widget.session.setAiService(null);
         break;
     }
@@ -1628,6 +1617,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
           return;
         }
+        _showSnack(l10n.updaterDownloadProgressTitle);
         final installer = await updater.downloadInstaller(result);
         await updater.launchInstallerAndExit(installer);
       }

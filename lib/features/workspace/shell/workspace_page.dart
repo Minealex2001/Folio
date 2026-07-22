@@ -41,8 +41,10 @@ import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
+import '../../../services/ai/on_device_ai_bridge.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
+import '../../../services/media/media_playback_router.dart';
 import '../../../services/spotify/spotify_playback_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
@@ -285,8 +287,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
       if (conn != null && conn.zenAutoPlay && (conn.focusPlaylistUri?.isNotEmpty ?? false)) {
         unawaited(playback.startFocusPlaylist());
       }
-    } else if (conn != null && conn.zenPauseOnExit) {
-      unawaited(playback.pause());
+    } else {
+      if (conn != null && conn.zenPauseOnExit) {
+        unawaited(playback.pause());
+      }
+      unawaited(MediaPlaybackRouter.instance.pauseSystemIfZenExit());
     }
   }
 

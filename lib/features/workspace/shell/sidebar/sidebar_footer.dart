@@ -9,6 +9,7 @@ import '../../../../app/ui_tokens.dart';
 import '../../../../app/widgets/folio_dialog.dart';
 import '../../../../app/widgets/folio_feedback.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../../services/media/media_playback_router.dart';
 import '../../../../services/platform/pwa_install.dart';
 import '../../../../session/vault_session.dart';
 import '../../widgets/spotify_now_playing_bar.dart';
@@ -155,28 +156,35 @@ class SidebarFooter extends StatelessWidget {
             ],
           ),
         ),
-        if (session.spotifyConnections.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FolioSpace.sm,
-              0,
-              FolioSpace.sm,
-              FolioSpace.sm,
-            ),
-            child: SpotifyNowPlayingBar(
-              session: session,
-              density: appSettings.workspaceSidebarSpotifyExpanded
-                  ? SpotifyBarDensity.expanded
-                  : SpotifyBarDensity.mini,
-              onToggleExpanded: () {
-                final next = !appSettings.workspaceSidebarSpotifyExpanded;
-                unawaited(
-                  appSettings.setWorkspaceSidebarSpotifyExpanded(next),
-                );
-                onSpotifyExpandedChanged();
-              },
-            ),
-          ),
+        ListenableBuilder(
+          listenable: MediaPlaybackRouter.instance,
+          builder: (context, _) {
+            if (!MediaPlaybackRouter.instance.shouldShowBar) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FolioSpace.sm,
+                0,
+                FolioSpace.sm,
+                FolioSpace.sm,
+              ),
+              child: SpotifyNowPlayingBar(
+                session: session,
+                density: appSettings.workspaceSidebarSpotifyExpanded
+                    ? SpotifyBarDensity.expanded
+                    : SpotifyBarDensity.mini,
+                onToggleExpanded: () {
+                  final next = !appSettings.workspaceSidebarSpotifyExpanded;
+                  unawaited(
+                    appSettings.setWorkspaceSidebarSpotifyExpanded(next),
+                  );
+                  onSpotifyExpandedChanged();
+                },
+              ),
+            );
+          },
+        ),
       ],
     );
   }

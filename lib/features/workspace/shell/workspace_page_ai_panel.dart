@@ -388,13 +388,21 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         case AiProvider.quillCloud:
           return 'Quill Cloud';
         case AiProvider.ollama:
-          return 'Ollama';
+          return l10n.aiProviderOllamaName;
         case AiProvider.lmStudio:
-          return 'LM Studio';
+          return l10n.aiProviderLmStudioName;
         case AiProvider.openAi:
           return 'OpenAI';
         case AiProvider.gemini:
           return 'Gemini';
+        case AiProvider.geminiNano:
+          switch (OnDeviceAiBridge.cachedBrandOrDefault) {
+            case OnDeviceAiBrand.samsung:
+              return l10n.aiProviderGalaxyAiByGemini;
+            case OnDeviceAiBrand.google:
+            case OnDeviceAiBrand.other:
+              return l10n.aiProviderGeminiNano;
+          }
       }
     }
 

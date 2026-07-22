@@ -49,6 +49,8 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/system_media_integration_state.dart';
+import '../models/discord_integration_state.dart';
 import '../services/integrations/integration_notification_dispatcher.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
@@ -375,8 +377,10 @@ class VaultSession extends ChangeNotifier {
   SlackIntegrationState _slack = SlackIntegrationState.empty;
   TeamsIntegrationState _teams = TeamsIntegrationState.empty;
   SpotifyIntegrationState _spotify = SpotifyIntegrationState.empty;
+  DiscordIntegrationState _discord = DiscordIntegrationState.empty;
+  SystemMediaIntegrationState _systemMedia = SystemMediaIntegrationState.empty;
   final IntegrationNotificationDispatcher _notificationDispatcher =
-      const IntegrationNotificationDispatcher();
+      IntegrationNotificationDispatcher();
   String? _selectedPageId;
   final WorkspaceNavigationHistory _navigationHistory =
       WorkspaceNavigationHistory();
@@ -582,6 +586,9 @@ class VaultSession extends ChangeNotifier {
   List<TeamsConnection> get teamsConnections => _teams.connections;
   SpotifyIntegrationState get spotifyIntegrationState => _spotify;
   List<SpotifyConnection> get spotifyConnections => _spotify.connections;
+  DiscordIntegrationState get discordIntegrationState => _discord;
+  List<DiscordConnection> get discordConnections => _discord.connections;
+  SystemMediaIntegrationState get systemMediaIntegrationState => _systemMedia;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -1005,6 +1012,8 @@ class VaultSession extends ChangeNotifier {
     _slack = payload.slack;
     _teams = payload.teams;
     _spotify = payload.spotify;
+    _discord = payload.discord;
+    _systemMedia = payload.systemMedia;
     _pageTombstones
       ..clear()
       ..addAll(payload.pageTombstones);
@@ -1383,6 +1392,36 @@ class VaultSession extends ChangeNotifier {
     final next =
         _spotify.connections.where((c) => c.id != connectionId).toList();
     _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void updateSystemMediaIntegration(SystemMediaIntegrationState state) {
+    if (_state != VaultFlowState.unlocked) return;
+    _systemMedia = state;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertDiscordConnection(DiscordConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<DiscordConnection>.from(_discord.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _discord = DiscordIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeDiscordConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _discord.connections.where((c) => c.id != connectionId).toList();
+    _discord = DiscordIntegrationState(connections: List.unmodifiable(next));
     notifyListeners();
     scheduleSave();
   }
@@ -4322,7 +4361,9 @@ class VaultSession extends ChangeNotifier {
         blockId: blockId,
       ),
     );
-    if (_slack.connections.isNotEmpty || _teams.connections.isNotEmpty) {
+    if (_slack.connections.isNotEmpty ||
+        _teams.connections.isNotEmpty ||
+        _discord.connections.isNotEmpty) {
       final page = _pageById(pageId);
       final pageTitle = (page?.title.trim().isEmpty ?? true)
           ? _titleL10n.untitled
@@ -4334,6 +4375,7 @@ class VaultSession extends ChangeNotifier {
       _notificationDispatcher.notifyCommentAdded(
         slackConnections: _slack.connections,
         teamsConnections: _teams.connections,
+        discordConnections: _discord.connections,
         message: _titleL10n.integrationNotifyNewComment(pageTitle, snippet),
       );
     }
@@ -5152,11 +5194,14 @@ class VaultSession extends ChangeNotifier {
     final bid = '${pageId}_${_uuid.v4()}';
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.add(FolioBlock(id: bid, type: 'task', text: task.encode()));
-    if (_slack.connections.isNotEmpty || _teams.connections.isNotEmpty) {
+    if (_slack.connections.isNotEmpty ||
+        _teams.connections.isNotEmpty ||
+        _discord.connections.isNotEmpty) {
       final title = task.title.trim().isEmpty ? _titleL10n.untitled : task.title.trim();
       _notificationDispatcher.notifyTaskCreated(
         slackConnections: _slack.connections,
         teamsConnections: _teams.connections,
+        discordConnections: _discord.connections,
         message: _titleL10n.integrationNotifyNewTask(title),
       );
     }
@@ -5305,11 +5350,16 @@ class VaultSession extends ChangeNotifier {
   /// Notifica a las conexiones de Slack/Teams suscritas, en segundo plano y
   /// sin bloquear la mutación que lo disparó (ver `IntegrationNotificationDispatcher`).
   void _notifyTaskStatusChanged(String title, String status) {
-    if (_slack.connections.isEmpty && _teams.connections.isEmpty) return;
+    if (_slack.connections.isEmpty &&
+        _teams.connections.isEmpty &&
+        _discord.connections.isEmpty) {
+      return;
+    }
     final displayTitle = title.trim().isEmpty ? _titleL10n.untitled : title.trim();
     _notificationDispatcher.notifyTaskStatusChanged(
       slackConnections: _slack.connections,
       teamsConnections: _teams.connections,
+      discordConnections: _discord.connections,
       message: _titleL10n.integrationNotifyTaskMoved(displayTitle, status),
     );
   }
@@ -5742,6 +5792,8 @@ class VaultSession extends ChangeNotifier {
       slack: _slack,
       teams: _teams,
       spotify: _spotify,
+      discord: _discord,
+      systemMedia: _systemMedia,
       pageTombstones: Map<String, int>.from(_pageTombstones),
       syncClock: _syncClock,
       mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
@@ -6520,6 +6572,7 @@ class VaultSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();
     _idleLockTimer?.cancel();

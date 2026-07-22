@@ -16,7 +16,6 @@ void main() {
     final decoded = VaultPayload.decodeUtf8(payload.encodeUtf8());
 
     expect(decoded.version, kVaultPayloadVersion);
-    expect(kVaultPayloadVersion, 11);
     expect(decoded.mcpReadablePageIds, {'p1', 'p2'});
   });
 

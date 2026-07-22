@@ -144,6 +144,7 @@ class FolioMarkdownPreview extends StatelessWidget {
     this.onTapLink,
     this.onFolioPageLink,
     this.isTransparentPreview = false,
+    this.scrollable = false,
   });
 
   final String data;
@@ -156,6 +157,11 @@ class FolioMarkdownPreview extends StatelessWidget {
   final void Function(String pageId)? onFolioPageLink;
 
   final bool isTransparentPreview;
+
+  /// Si es true, envuelve el markdown en un [SingleChildScrollView] no
+  /// desplazable (p. ej. dentro de una altura fija externa). En filas del
+  /// editor debe quedar en false: el scroll lo aporta la lista de bloques.
+  final bool scrollable;
 
   static Future<void> _defaultOpenExternal(String? href) async {
     if (href == null || href.isEmpty) return;
@@ -207,38 +213,40 @@ class FolioMarkdownPreview extends StatelessWidget {
         ? _buildTransparentStyleSheet(styleSheet)
         : styleSheet;
 
+    final body = MarkdownBody(
+      data: folioSanitizeMarkdownForPreview(data),
+      styleSheet: effectiveStyleSheet,
+      shrinkWrap: true,
+      fitContent: true,
+      softLineBreak: true,
+      selectable: false,
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+      checkboxBuilder: isTransparentPreview
+          ? (bool value) => const SizedBox.shrink()
+          : null,
+      builders: {
+        'a': _FolioMarkdownAnchorBuilder(
+          onTapLink: wrappedTap,
+          onFolioPageLink: onFolioPageLink,
+          isTransparent: isTransparentPreview,
+        ),
+        'pre': FolioMermaidMarkdownBuilder(isTransparent: isTransparentPreview),
+        'blockquote': _FolioMarkdownBlockquoteBuilder(
+          styleSheet: effectiveStyleSheet,
+          onTapLink: wrappedTap,
+          onFolioPageLink: onFolioPageLink,
+          isTransparent: isTransparentPreview,
+        ),
+      },
+    );
+
+    if (!scrollable) return body;
+
     return SingleChildScrollView(
-      // Evita overflows cuando el preview se renderiza dentro de una altura fija
-      // y permite desplazar contenido largo (p. ej., tablas).
       physics: const NeverScrollableScrollPhysics(),
       primary: false,
       clipBehavior: Clip.hardEdge,
-      child: MarkdownBody(
-        data: folioSanitizeMarkdownForPreview(data),
-        styleSheet: effectiveStyleSheet,
-        shrinkWrap: true,
-        fitContent: true,
-        softLineBreak: true,
-        selectable: false,
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        checkboxBuilder: isTransparentPreview
-            ? (bool value) => const SizedBox.shrink()
-            : null,
-        builders: {
-          'a': _FolioMarkdownAnchorBuilder(
-            onTapLink: wrappedTap,
-            onFolioPageLink: onFolioPageLink,
-            isTransparent: isTransparentPreview,
-          ),
-          'pre': FolioMermaidMarkdownBuilder(isTransparent: isTransparentPreview),
-          'blockquote': _FolioMarkdownBlockquoteBuilder(
-            styleSheet: effectiveStyleSheet,
-            onTapLink: wrappedTap,
-            onFolioPageLink: onFolioPageLink,
-            isTransparent: isTransparentPreview,
-          ),
-        },
-      ),
+      child: body,
     );
   }
 }

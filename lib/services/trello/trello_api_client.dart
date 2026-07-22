@@ -379,6 +379,19 @@ class TrelloApiClient {
     return Map<String, dynamic>.from(decoded);
   }
 
+  Future<void> _delete(Uri uri) async {
+    final resp = await _http.delete(uri).timeout(_httpTimeout);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw TrelloApiException(
+        'DELETE failed',
+        statusCode: resp.statusCode,
+        body: resp.body,
+        uri: uri.toString(),
+        method: 'DELETE',
+      );
+    }
+  }
+
   Future<void> verifyConnection() async {
     await _getJson(_uri('/members/me', {'fields': 'id,username'}));
   }
@@ -477,11 +490,13 @@ class TrelloApiClient {
     required String name,
     required String desc,
     String? idList,
+    String? due,
   }) async {
     await _put(_uri('/cards/$cardId', {
       'name': name,
       'desc': desc,
       if ((idList ?? '').trim().isNotEmpty) 'idList': idList!.trim(),
+      if (due != null) 'due': due,
     }));
   }
 
@@ -505,6 +520,52 @@ class TrelloApiClient {
     await _put(_uri('/cards/$cardId/checkItem/$id', {
       'state': complete ? 'complete' : 'incomplete',
     }));
+  }
+
+  Future<void> updateCheckItem({
+    required String cardId,
+    required String checkItemId,
+    String? name,
+    bool? complete,
+  }) async {
+    final id = checkItemId.trim();
+    if (id.isEmpty) return;
+    await _put(_uri('/cards/$cardId/checkItem/$id', {
+      if (name != null) 'name': name,
+      if (complete != null) 'state': complete ? 'complete' : 'incomplete',
+    }));
+  }
+
+  Future<TrelloChecklist> createChecklist({
+    required String cardId,
+    required String name,
+  }) async {
+    final json = await _post(_uri('/checklists', {
+      'idCard': cardId,
+      'name': name,
+    }));
+    return TrelloChecklist.fromJson(json);
+  }
+
+  Future<TrelloCheckItem> createCheckItem({
+    required String checklistId,
+    required String name,
+    bool checked = false,
+  }) async {
+    final json = await _post(_uri('/checklists/$checklistId/checkItems', {
+      'name': name,
+      'checked': checked ? 'true' : 'false',
+    }));
+    return TrelloCheckItem.fromJson(json);
+  }
+
+  Future<void> deleteCheckItem({
+    required String checklistId,
+    required String checkItemId,
+  }) async {
+    final id = checkItemId.trim();
+    if (id.isEmpty) return;
+    await _delete(_uri('/checklists/$checklistId/checkItems/$id'));
   }
 
   Future<void> addComment({

@@ -46,6 +46,8 @@ bool FlutterWindow::OnCreate() {
       flutter_controller_->engine()->messenger(), GetHandle());
   system_audio_plugin_ = std::make_unique<SystemAudioPlugin>(
       flutter_controller_->engine()->messenger(), GetHandle());
+  system_media_plugin_ = std::make_unique<SystemMediaPlugin>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   smb_network_plugin_ = std::make_unique<SmbNetworkPlugin>(
       flutter_controller_->engine()->messenger());
 
@@ -84,6 +86,7 @@ void FlutterWindow::OnDestroy() {
   launch_arguments_channel_ = nullptr;
   microsoft_store_plugin_ = nullptr;
   smb_network_plugin_ = nullptr;
+  system_media_plugin_ = nullptr;
   system_audio_plugin_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -105,6 +108,13 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   const UINT k_system_audio_deferred = SystemAudioPlugin::DeferredChunkWindowMessage();
   if (message == k_system_audio_deferred && system_audio_plugin_) {
     system_audio_plugin_->ProcessDeferredChunk(lparam);
+    return 0;
+  }
+
+  const UINT k_system_media_deferred =
+      SystemMediaPlugin::DeferredInvokeWindowMessage();
+  if (message == k_system_media_deferred && system_media_plugin_) {
+    system_media_plugin_->ProcessDeferredInvoke(lparam);
     return 0;
   }
 

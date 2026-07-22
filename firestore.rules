@@ -64,9 +64,9 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // Buzón de comandos entrantes Slack/Teams (solo lectura cliente; escritura Functions).
+      // Buzón de comandos entrantes Slack/Teams (lectura cliente; escritura Functions).
       match /pendingIntegrationCommands/{commandId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow get, list: if request.auth != null && request.auth.uid == userId;
         allow write: if false;
       }
 

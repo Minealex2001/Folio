@@ -38,28 +38,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
   final Map<String, ScrollController> _quillMainScrollByBlockId = {};
-  final Map<String, ScrollController> _quillPreviewScrollByBlockId = {};
-  /// FocusNode reutilizable del overlay de preview (solo lectura). Cachearlo
-  /// evita crear uno nuevo (y filtrarlo) en cada rebuild del editor.
-  final Map<String, FocusNode> _quillPreviewFocusByBlockId = {};
-
-  ScrollController _folioQuillMainScrollFor(String blockId) =>
-      _quillMainScrollByBlockId.putIfAbsent(
-        blockId,
-        ScrollController.new,
-      );
-
-  ScrollController _folioQuillPreviewScrollFor(String blockId) =>
-      _quillPreviewScrollByBlockId.putIfAbsent(
-        blockId,
-        ScrollController.new,
-      );
-
-  FocusNode _folioQuillPreviewFocusFor(String blockId) =>
-      _quillPreviewFocusByBlockId.putIfAbsent(
-        blockId,
-        () => FocusNode(skipTraversal: true),
-      );
   final List<FocusNode> _focusNodes = [];
   final List<VoidCallback> _textListeners = [];
   final List<VoidCallback> _focusDecorListeners = [];
@@ -720,6 +698,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _quillFlushNowByBlockId[blockId]?.call();
   }
 
+  ScrollController _folioQuillMainScrollFor(String blockId) =>
+      _quillMainScrollByBlockId.putIfAbsent(
+        blockId,
+        ScrollController.new,
+      );
+
   void _disposeQuillFor(String blockId) {
     _quillDebounceByBlockId.remove(blockId)?.cancel();
     _quillPersistByBlockId.remove(blockId);
@@ -728,8 +712,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     qc?.dispose();
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
-    _quillPreviewScrollByBlockId.remove(blockId)?.dispose();
-    _quillPreviewFocusByBlockId.remove(blockId)?.dispose();
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -3696,7 +3678,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   static const _menuSlotWidth = 40.0;
   static const _menuSlotWidthPhone = 28.0;
+  /// Altura reservada del slot ⋮ para que al revelar acciones no crezca la fila.
+  static const _menuSlotHeight = 32.0;
   static const _dragGutterWidth = 22.0;
+  static const _dragGutterHeight = 32.0;
 
   /// Ancho fijo para viñeta / checkbox / hueco: alinea el texto con Notion.
   static const _markerColumnWidth = 30.0;
@@ -3730,13 +3715,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       MediaQuery.sizeOf(context).width,
     );
     final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
+    if (compactReadOnlyMobile) {
+      return const SizedBox.shrink();
+    }
     return SizedBox(
-      width: compactReadOnlyMobile
-          ? 0
-          : (androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth),
-      child: showActions
-          ? Align(alignment: Alignment.centerLeft, child: menu)
-          : null,
+      width: androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth,
+      height: _menuSlotHeight,
+      child: IgnorePointer(
+        ignoring: !showActions,
+        child: AnimatedOpacity(
+          opacity: showActions ? 1 : 0,
+          duration: FolioMotion.short2,
+          child: Align(alignment: Alignment.centerLeft, child: menu),
+        ),
+      ),
     );
   }
 
@@ -3808,14 +3800,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       sc.dispose();
     }
     _quillMainScrollByBlockId.clear();
-    for (final sc in _quillPreviewScrollByBlockId.values) {
-      sc.dispose();
-    }
-    _quillPreviewScrollByBlockId.clear();
-    for (final fn in _quillPreviewFocusByBlockId.values) {
-      fn.dispose();
-    }
-    _quillPreviewFocusByBlockId.clear();
     final n = _controllers.length;
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
@@ -3865,11 +3849,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _tailTapTransientTouchedByBlockId.clear();
     final quillIds = _quillByBlockId.keys.toList();
     for (final id in quillIds) {
-      // Evitar que Quill intente pedir teclado tras el teardown.
-      final qc = _quillByBlockId[id];
-      if (qc != null) {
-        qc.skipRequestKeyboard = true;
-      }
       // Persistir cambios pendientes ANTES de descartar el debounce para no
       // perder edición rich-text al cambiar de página o bloquear el vault.
       _flushPendingQuill(id);
@@ -3883,13 +3862,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       for (final f in focusToDispose) {
         f.dispose();
       }
+      // `_syncControllers()` / `_reorderControllersLikePage()` pueden haber
+      // corrido de forma SÍNCRONA justo después de este `_disposeControllers()`
+      // (misma pasada de `_onSession()`, p. ej. al insertar el bloque
+      // centinela tras escribir "/"). `_ensureQuillController` reutiliza el
+      // QuillController ya presente en `_quillByBlockId` cuando el blockId
+      // sigue en la página, así que ese controller (mismo objeto, con su
+      // caret) puede seguir en uso real para cuando este callback diferido
+      // se ejecuta. Si destruyéramos incondicionalmente todos los
+      // `quillIds` capturados aquí, tiraríamos también esos controllers
+      // reutilizados y perderíamos el caret (o el editor entero). Solo hay
+      // que descartar los que de verdad quedaron huérfanos: los que ya no
+      // aparecen en `_controllerBlockIds` tras la resincronización.
       for (final id in quillIds) {
+        if (_controllerBlockIds.contains(id)) continue;
+        // Evitar que Quill intente pedir teclado tras el teardown.
+        _quillByBlockId[id]?.skipRequestKeyboard = true;
         _disposeQuillFor(id);
       }
-      _quillByBlockId.clear();
-      _quillDebounceByBlockId.clear();
-      _quillPersistByBlockId.clear();
-      _quillFlushNowByBlockId.clear();
     });
   }
 
@@ -5599,11 +5589,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       tooltip: AppLocalizations.of(context).blockOptions,
       style: IconButton.styleFrom(
         visualDensity: VisualDensity.compact,
-        padding: androidPhoneLayout ? const EdgeInsets.all(4) : null,
-        minimumSize: androidPhoneLayout ? const Size(28, 28) : null,
-        tapTargetSize: androidPhoneLayout
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
+        padding: const EdgeInsets.all(4),
+        minimumSize: Size(
+          androidPhoneLayout ? 28 : _menuSlotHeight,
+          androidPhoneLayout ? 28 : _menuSlotHeight,
+        ),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
       onCanceled: () {

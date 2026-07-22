@@ -26,23 +26,34 @@ mixin _BlockRowBuild on State<BlockEditor> {
     );
     final iconColor = scheme.onSurfaceVariant.withValues(alpha: 0.85);
 
-    final dragHandle = !androidPhoneLayout && showActions
-        ? Tooltip(
-            message: AppLocalizations.of(context).dragToReorder,
-            waitDuration: const Duration(milliseconds: 400),
-            child: ReorderableDragStartListener(
-              index: index,
-              child: Semantics(
-                label: AppLocalizations.of(context).dragToReorder,
-                button: true,
-                child: BlockEditorDragHandle(iconColor: iconColor),
+    final Widget dragHandle;
+    if (androidPhoneLayout) {
+      dragHandle = const SizedBox.shrink();
+    } else {
+      dragHandle = SizedBox(
+        width: BlockEditorState._dragGutterWidth,
+        height: BlockEditorState._dragGutterHeight,
+        child: IgnorePointer(
+          ignoring: !showActions,
+          child: AnimatedOpacity(
+            opacity: showActions ? 1 : 0,
+            duration: FolioMotion.short2,
+            child: Tooltip(
+              message: AppLocalizations.of(context).dragToReorder,
+              waitDuration: const Duration(milliseconds: 400),
+              child: ReorderableDragStartListener(
+                index: index,
+                child: Semantics(
+                  label: AppLocalizations.of(context).dragToReorder,
+                  button: true,
+                  child: BlockEditorDragHandle(iconColor: iconColor),
+                ),
               ),
             ),
-          )
-        : SizedBox(
-            width: androidPhoneLayout ? 0 : BlockEditorState._dragGutterWidth,
-            height: 32,
-          );
+          ),
+        ),
+      );
+    }
 
     final theme = Theme.of(context);
     final marker = _buildBlockRowMarker(

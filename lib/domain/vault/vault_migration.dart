@@ -69,6 +69,8 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
     slack: raw.slack,
     teams: raw.teams,
     spotify: raw.spotify,
+    discord: raw.discord,
+    systemMedia: raw.systemMedia,
     pageTombstones: raw.pageTombstones,
     syncClock: raw.syncClock,
     mcpReadablePageIds: raw.mcpReadablePageIds,

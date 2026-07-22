@@ -1486,6 +1486,10 @@
   "updaterStartupDialogLater": "Geroago",
   "updaterStartupDialogUpdateNow": "Eguneratu orain",
   "updaterStartupDialogBetaNote": "Beta bertsioa (aurre-lanzamendua).",
+  "updaterDownloadProgressTitle": "Eguneratzea deskargatzen…",
+  "updaterDownloadProgressPercent": "{percent}%",
+  "@updaterDownloadProgressPercent": {"placeholders": {"percent": {"type": "int"}}},
+  "updaterInstallingAfterDownload": "Instalatzen…",
   "updaterOpenApkDownloadQuestion": "Ireki APKaren deskarga orain?",
   "updaterManualCheckUnsupportedPlatform": "Barne eguneratzailea Windows eta Android-en soilik dago erabilgarri.",
   "updaterManualCheckAlreadyLatest": "Azken bertsioa duzu jada.",
@@ -2063,6 +2067,18 @@
   "templateButtonPlaceholderText": "Txantiloiaren testua…",
   "aiProviderOllamaName": "Ollama",
   "aiProviderLmStudioName": "LM Studio",
+  "aiProviderGeminiNano": "Gemini Nano",
+  "aiProviderGalaxyAiByGemini": "Galaxy AI by Gemini",
+  "aiOnDeviceStatusAvailable": "Prest dago gailu honetan",
+  "aiOnDeviceStatusDownloadable": "Modeloa deskargatzeko erabilgarri",
+  "aiOnDeviceStatusDownloading": "Modeloa deskargatzen…",
+  "aiOnDeviceStatusUnavailable": "Ez dago erabilgarri gailu honetan",
+  "aiOnDeviceDownloadAction": "Deskargatu gailuko modeloa",
+  "aiOnDeviceDownloadProgress": "{bytes} byte deskargatuta",
+  "@aiOnDeviceDownloadProgress": {"placeholders": {"bytes": {"type": "String"}}},
+  "aiOnDeviceDownloadFailed": "Ezin izan da gailuko modeloa deskargatu: {error}",
+  "@aiOnDeviceDownloadFailed": {"placeholders": {"error": {"type": "String"}}},
+  "aiOnDeviceHeroHint": "Pribatuan exekutatzen da telefonoan AICore bidez — ez du hodeiko tintarik kontsumitzen.",
   "blockAudioEmptyHint": "Aukeratu audio-fitxategi bat",
   "blockChildPageTitle": "Folio-blokea",
   "blockChildPageNoLink": "Ez dago azpi-foliorik estekatuta.",
@@ -3195,11 +3211,31 @@
   ,"spotifyPause": "Pausatu"
   ,"spotifySkipNext": "Hurrengoa"
   ,"spotifySkipPrevious": "Aurrekoa"
+  ,"systemMediaReadyIdle": "Prest (sistemaren media)"
+  ,"systemMediaNothingPlaying": "Ez dago ezer erreproduzitzen."
+  ,"systemMediaOpenSource": "Ireki jatorria"
+  ,"systemMediaInsertTrack": "Txertatu pista folioan"
+  ,"systemMediaIntegrationTitle": "Sistemaren media"
+  ,"systemMediaCardSubtitle": "Kontrolatu PCan edo mugikorrean jotzen ari dena (YT Music, Edge, VLC…) OAuth gabe."
+  ,"systemMediaConfigure": "Konfiguratu"
+  ,"systemMediaStatusEnabled": "Aktibatuta"
+  ,"systemMediaStatusDisabled": "Desaktibatuta"
+  ,"systemMediaUnsupportedPlatform": "Ez dago erabilgarri hemen"
+  ,"systemMediaUnsupportedPlatformDetail": "Sistemaren media ez dago erabilgarri plataforma honetan (Web-ek eta iOS-ek ezin dute beste app-en erreprodukzioa irakurri)."
+  ,"systemMediaHelp": "SE-aren Now Playing irakurtzen du eta Spotify-ren barra bera erabiltzen du. Ideal API propiarik gabeko app-entzat, YouTube Music adibidez."
+  ,"systemMediaEnable": "Aktibatu sistemaren media"
+  ,"systemMediaEnableHint": "Erakutsi eta kontrolatu SE-aren pista aktiboa sidebarreko barran."
+  ,"systemMediaPermissionNeeded": "Android-en jakinarazpenetarako sarbide-baimena behar da beste app-en media irakurtzeko."
+  ,"systemMediaOpenPermissionSettings": "Ireki baimen-ezarpenak"
+  ,"systemMediaZenPauseOnExit": "Pausatu sistemaren media zen modutik ateratzean"
+  ,"systemMediaZenPauseOnExitHint": "Ez dio Spotify-ri eragiten; sistemaren saioa pausatzen du soilik aktibo badago."
+  ,"systemMediaBlockEmptyHint": "Txertatu uneko pista now playing barratik edo bloke-menutik."
+  ,"blockTypeSystemMedia": "Pista (sistemaren media)"
   ,"spotifyBlockEmptyHint": "Itsatsi Spotify esteka bat edo ezarri URLa blokearen menutik"
   ,"spotifyPasteUrlOption": "Spotify erreproduzigailua"
   ,"spotifyPasteUrlOptionSubtitle": "Txertatu abestia, albuma edo playlista"
   ,"blockTypeSpotify": "Spotify"
-  ,"integrationCommandsHelp": "Lotu zure Slack edo Teams identitatea Folio-rekin eta sortu zereginak /folio create task \"Izenburua\" erabiliz. Komandoak Folio hurrengo aldiz irekitzean aplikatuko dira."
+  ,"integrationCommandsHelp": "Lotu zure Slack edo Teams identitatea Folio-rekin. Komandoak: /folio create task \"Izenburua\", /folio list tasks, /folio complete task \"Izenburua\". Folio hurrengo aldiz irekitzean aplikatuko dira."
   ,"integrationCommandsNeedConnection": "Gehitu konexio bat lehenik sarrerako komandoak erabiltzeko."
   ,"integrationGenerateLinkCode": "Sortu lotura-kodea"
   ,"integrationLinkCodeReady": "Lotura-kodea (15 minutuz balio du)"
@@ -3338,4 +3374,27 @@
   ,"kanbanTrelloSyncTooltip": "Trello sinkronizatu (push + pull)"
   ,"kanbanTrelloError": "Trello errorea: {error}"
   ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
+  ,"discordIntegrationTitle": "Discord integrazioa"
+  ,"discordCardSubtitle": "Atazen jakinarazpenak Discord kanalera webhook bidez."
+  ,"discordConfigure": "Konfiguratu"
+  ,"discordConnectionCount": "{count, plural, =0{Konexiorik ez} one{Konexio 1} other{{count} konexio}}"
+  ,"@discordConnectionCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"discordConnectionsTab": "Konexioak"
+  ,"discordNotificationsTab": "Jakinarazpenak"
+  ,"discordNoConnections": "Oraindik ez dago Discord konexiorik."
+  ,"discordAddConnection": "Gehitu konexioa"
+  ,"discordConnectionLabel": "Etiketa"
+  ,"discordWebhookUrl": "Webhook URLa"
+  ,"discordRequired": "Beharrezkoa"
+  ,"discordInvalidWebhook": "Sartu https webhook URL balioduna"
+  ,"discordTestMessage": "Folio Discord kanal honetara konektatu da."
+  ,"discordNotificationsForChannel": "Jakinarazpen gertaerak"
+  ,"discordNotifyStatus": "Egoera aldaketak"
+  ,"discordNotifyNewTask": "Ataza berriak"
+  ,"discordNotifyComment": "Iruzkin berriak"
+  ,"taskHubExportIcs": "Esportatu egutegia (.ics)"
+  ,"taskHubIcsExportDone": "Egutegia esportatu da."
+  ,"taskHubIcsExportWebUnsupported": "ICS esportazioa mahaigainean dago erabilgarri."
+  ,"slackConnectWithOAuth": "Konektatu Slack OAuth-ekin"
+  ,"teamsConnectWithOAuth": "Konektatu Microsoft OAuth-ekin"
 }

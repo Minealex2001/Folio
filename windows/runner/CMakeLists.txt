@@ -12,6 +12,7 @@ add_executable(${BINARY_NAME} WIN32
   "microsoft_store_plugin.cpp"
   "smb_network_plugin.cpp"
   "system_audio_plugin.cpp"
+  "system_media_plugin.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -34,6 +35,19 @@ set_source_files_properties(
   "microsoft_store_plugin.cpp"
   PROPERTIES
     COMPILE_OPTIONS "/utf-8;$<$<CXX_COMPILER_ID:MSVC>:/EHsc>"
+    COMPILE_DEFINITIONS "_HAS_EXCEPTIONS=1"
+)
+
+# system_media_plugin.cpp llama a WinRT/GSMTC (broker COM de terceros) desde un
+# worker thread; algunos proveedores de sesión disparan violaciones de acceso
+# (SEH) en vez de lanzar excepciones C++. /EHsc solo captura throw C++, así que
+# un catch(...) ahí no detiene un AV y el proceso entero muere. /EHa habilita
+# que catch(...) también atrape excepciones estructuradas para degradar en vez
+# de crashear.
+set_source_files_properties(
+  "system_media_plugin.cpp"
+  PROPERTIES
+    COMPILE_OPTIONS "/utf-8;$<$<CXX_COMPILER_ID:MSVC>:/EHa>"
     COMPILE_DEFINITIONS "_HAS_EXCEPTIONS=1"
 )
 

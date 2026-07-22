@@ -8,6 +8,7 @@ import '../../app/widgets/integration_settings_widgets.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/slack_integration_state.dart';
 import '../../services/slack/slack_api_client.dart';
+import '../../services/slack/slack_auth_service.dart';
 import '../../session/vault_session.dart';
 import 'integration_commands_tab.dart';
 
@@ -103,6 +104,7 @@ class _ConnectionsTab extends StatefulWidget {
 
 class _ConnectionsTabState extends State<_ConnectionsTab> {
   bool _adding = false;
+  bool _busyOauth = false;
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +147,12 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
                 ),
         ),
         const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _busyOauth ? null : _connectOauth,
+          icon: const Icon(Icons.lock_open_rounded),
+          label: Text(l10n.slackConnectWithOAuth),
+        ),
+        const SizedBox(height: 8),
         ElevatedButton.icon(
           onPressed: () => setState(() => _adding = true),
           icon: const Icon(Icons.add_rounded),
@@ -152,6 +160,26 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
         ),
       ],
     );
+  }
+
+  Future<void> _connectOauth() async {
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busyOauth = true);
+    try {
+      final conn = await SlackAuthService().connect(label: 'Slack');
+      widget.session.upsertSlackConnection(conn);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.integrationWebhookVerifyConnected)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.integrationWebhookConnectionFailed('$e'))),
+      );
+    } finally {
+      if (mounted) setState(() => _busyOauth = false);
+    }
   }
 }
 

@@ -43,8 +43,10 @@ import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
+import '../../services/ai/gemini_nano_ai_service.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/ai/on_device_ai_bridge.dart';
 import '../../services/ai/openai_compatible_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import 'widgets/iconify_icon_browser.dart';
@@ -79,7 +81,9 @@ import 'github_integration_settings.dart';
 import 'gitlab_integration_settings.dart';
 import 'slack_integration_settings.dart';
 import 'teams_integration_settings.dart';
+import 'discord_integration_settings.dart';
 import 'spotify_integration_settings.dart';
+import 'system_media_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
@@ -475,9 +479,18 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
+  bool _downloadingUpdate = false;
+  bool _installingUpdate = false;
+  /// `null` = barra indeterminada; `0.0–1.0` = progreso determinado.
+  double? _updateDownloadProgress;
   bool _openingReleaseNotes = false;
   bool _detectingAiProvider = false;
   bool _importingCustomIcon = false;
+  OnDeviceAiBrand _onDeviceAiBrand = OnDeviceAiBrand.other;
+  OnDeviceAiStatus? _onDeviceAiStatus;
+  bool _onDeviceAiBusy = false;
+  int? _onDeviceDownloadBytes;
+  StreamSubscription<OnDeviceAiDownloadEvent>? _onDeviceDownloadSub;
   String _installedVersionLabel = '...';
   bool _folioCloudActionBusy = false;
   bool _webLinkBusy = false;
@@ -512,6 +525,7 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_refreshCloudBackupCount());
     unawaited(_loadTaskCapturePrefs());
     unawaited(_loadVaultBackupPrefs());
+    unawaited(_refreshOnDeviceAiInfo());
   }
 
   void _onCloudOrFolioChanged() {
@@ -666,6 +680,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _cloud.removeListener(_onCloudOrFolioChanged);
     _folio.removeListener(_onCloudOrFolioChanged);
+    unawaited(_onDeviceDownloadSub?.cancel() ?? Future.value());
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
@@ -5057,11 +5072,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                               selected: {
                                                 _app.updateReleaseChannel,
                                               },
-                                              onSelectionChanged: (s) {
-                                                _app.setUpdateReleaseChannel(
-                                                  s.first,
-                                                );
-                                              },
+                                              onSelectionChanged:
+                                                  _downloadingUpdate
+                                                  ? null
+                                                  : (s) {
+                                                      _app
+                                                          .setUpdateReleaseChannel(
+                                                        s.first,
+                                                      );
+                                                    },
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
@@ -5087,13 +5106,70 @@ class _SettingsPageState extends State<SettingsPage> {
                                           Icons.system_update_rounded,
                                         ),
                                         title: Text(l10n.checkUpdates),
-                                        trailing: _checkingUpdates
-                                            ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                                        trailing: _checkingUpdates &&
+                                                !_downloadingUpdate
+                                            ? const FolioLoadingIndicator(
+                                                size: FolioLoadingSize.small,
+                                              )
                                             : null,
-                                        onTap: _checkingUpdates
+                                        onTap: (_checkingUpdates ||
+                                                _downloadingUpdate)
                                             ? null
                                             : _checkUpdatesNow,
                                       ),
+                                      if (_downloadingUpdate) ...[
+                                        const Divider(height: 1),
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            16,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Text(
+                                                _installingUpdate
+                                                    ? l10n
+                                                          .updaterInstallingAfterDownload
+                                                    : l10n
+                                                          .updaterDownloadProgressTitle,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              LinearProgressIndicator(
+                                                value: _installingUpdate
+                                                    ? null
+                                                    : _updateDownloadProgress,
+                                                minHeight: 4,
+                                              ),
+                                              if (!_installingUpdate &&
+                                                  _updateDownloadProgress !=
+                                                      null) ...[
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  l10n.updaterDownloadProgressPercent(
+                                                    (_updateDownloadProgress! *
+                                                            100)
+                                                        .round(),
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ],
                                 ),
@@ -5232,6 +5308,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           session: _s,
                                                           appSettings: _app,
                                                         ),
+                                                        DiscordIntegrationCard(
+                                                          session: _s,
+                                                        ),
                                                       ],
                                                     ),
                                                     const SizedBox(height: 16),
@@ -5249,6 +5328,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     IntegrationCardsGrid(
                                                       children: [
                                                         SpotifyIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                        SystemMediaIntegrationCard(
                                                           session: _s,
                                                         ),
                                                       ],

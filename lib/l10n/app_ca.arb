@@ -1485,6 +1485,10 @@
   "updaterStartupDialogLater": "Més tard",
   "updaterStartupDialogUpdateNow": "Actualitza ara",
   "updaterStartupDialogBetaNote": "Versió Beta (pre-llançament).",
+  "updaterDownloadProgressTitle": "Descarregant l'actualització…",
+  "updaterDownloadProgressPercent": "{percent}%",
+  "@updaterDownloadProgressPercent": {"placeholders": {"percent": {"type": "int"}}},
+  "updaterInstallingAfterDownload": "S'està instal·lant…",
   "updaterOpenApkDownloadQuestion": "Vols obrir la descàrrega de l'APK ara?",
   "updaterManualCheckUnsupportedPlatform": "L'actualitzador integrat només està disponible a Windows i Android.",
   "updaterManualCheckAlreadyLatest": "Ja tens la versió més recent.",
@@ -2062,6 +2066,18 @@
   "templateButtonPlaceholderText": "Text de la plantilla…",
   "aiProviderOllamaName": "Ollama",
   "aiProviderLmStudioName": "LM Studio",
+  "aiProviderGeminiNano": "Gemini Nano",
+  "aiProviderGalaxyAiByGemini": "Galaxy AI by Gemini",
+  "aiOnDeviceStatusAvailable": "Llest en aquest dispositiu",
+  "aiOnDeviceStatusDownloadable": "Model disponible per descarregar",
+  "aiOnDeviceStatusDownloading": "S'està descarregant el model…",
+  "aiOnDeviceStatusUnavailable": "No disponible en aquest dispositiu",
+  "aiOnDeviceDownloadAction": "Descarrega el model al dispositiu",
+  "aiOnDeviceDownloadProgress": "Descarregats {bytes} bytes",
+  "@aiOnDeviceDownloadProgress": {"placeholders": {"bytes": {"type": "String"}}},
+  "aiOnDeviceDownloadFailed": "No s'ha pogut descarregar el model al dispositiu: {error}",
+  "@aiOnDeviceDownloadFailed": {"placeholders": {"error": {"type": "String"}}},
+  "aiOnDeviceHeroHint": "S'executa en privat al telèfon amb AICore — no consumeix tinta del núvol.",
   "blockAudioEmptyHint": "Tria un fitxer d'àudio",
   "blockChildPageTitle": "Bloc de fòli",
   "blockChildPageNoLink": "Sense subfòli enllaçada.",
@@ -3194,11 +3210,31 @@
   ,"spotifyPause": "Pausa"
   ,"spotifySkipNext": "Següent"
   ,"spotifySkipPrevious": "Anterior"
+  ,"systemMediaReadyIdle": "Llest (mèdia del sistema)"
+  ,"systemMediaNothingPlaying": "No hi ha res en reproducció."
+  ,"systemMediaOpenSource": "Obre l'origen"
+  ,"systemMediaInsertTrack": "Insereix la pista al folio"
+  ,"systemMediaIntegrationTitle": "Mèdia del sistema"
+  ,"systemMediaCardSubtitle": "Controla el que sona al PC o al mòbil (YT Music, Edge, VLC…) sense OAuth."
+  ,"systemMediaConfigure": "Configura"
+  ,"systemMediaStatusEnabled": "Activada"
+  ,"systemMediaStatusDisabled": "Desactivada"
+  ,"systemMediaUnsupportedPlatform": "No disponible aquí"
+  ,"systemMediaUnsupportedPlatformDetail": "La mèdia del sistema no està disponible en aquesta plataforma (Web i iOS no poden llegir la reproducció d'altres apps)."
+  ,"systemMediaHelp": "Llegeix el Now Playing del sistema operatiu i fa servir la mateixa barra que Spotify. Ideal per a apps sense API pròpia, com YouTube Music."
+  ,"systemMediaEnable": "Activa la mèdia del sistema"
+  ,"systemMediaEnableHint": "Mostra i controla la pista activa del SO a la barra del sidebar."
+  ,"systemMediaPermissionNeeded": "A Android cal el permís d'accés a notificacions per llegir la mèdia d'altres apps."
+  ,"systemMediaOpenPermissionSettings": "Obre els ajustos de permís"
+  ,"systemMediaZenPauseOnExit": "Posa en pausa la mèdia del sistema en sortir del mode zen"
+  ,"systemMediaZenPauseOnExitHint": "No afecta Spotify; només pausa la sessió del sistema si està activa."
+  ,"systemMediaBlockEmptyHint": "Insereix la pista actual des de la barra now playing o el menú de blocs."
+  ,"blockTypeSystemMedia": "Pista (mèdia del sistema)"
   ,"spotifyBlockEmptyHint": "Enganxa un enllaç de Spotify o defineix la URL des del menú del bloc"
   ,"spotifyPasteUrlOption": "Reproductor Spotify"
   ,"spotifyPasteUrlOptionSubtitle": "Incorpora cançó, àlbum o playlist"
   ,"blockTypeSpotify": "Spotify"
-  ,"integrationCommandsHelp": "Enllaça la teva identitat de Slack o Teams amb el Folio i crea tasques amb /folio create task \"Títol\". Les ordres s'apliquen la propera vegada que obris el Folio."
+  ,"integrationCommandsHelp": "Enllaça la teva identitat de Slack o Teams amb el Folio. Ordres: /folio create task \"Títol\", /folio list tasks, /folio complete task \"Títol\". S'apliquen la propera vegada que obris el Folio."
   ,"integrationCommandsNeedConnection": "Afegeix primer una connexió per usar ordres entrants."
   ,"integrationGenerateLinkCode": "Generar codi d'enllaç"
   ,"integrationLinkCodeReady": "Codi d'enllaç (vàlid 15 minuts)"
@@ -3337,4 +3373,27 @@
   ,"kanbanTrelloSyncTooltip": "Sincronitzar Trello (push + pull)"
   ,"kanbanTrelloError": "Error Trello: {error}"
   ,"@kanbanTrelloError": {"placeholders": {"error": {"type": "String"}}}
+  ,"discordIntegrationTitle": "Integració amb Discord"
+  ,"discordCardSubtitle": "Notificacions de tasques a un canal de Discord via webhook."
+  ,"discordConfigure": "Configurar"
+  ,"discordConnectionCount": "{count, plural, =0{Sense connexions} one{1 connexió} other{{count} connexions}}"
+  ,"@discordConnectionCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"discordConnectionsTab": "Connexions"
+  ,"discordNotificationsTab": "Notificacions"
+  ,"discordNoConnections": "Encara no hi ha connexions de Discord."
+  ,"discordAddConnection": "Afegeix connexió"
+  ,"discordConnectionLabel": "Etiqueta"
+  ,"discordWebhookUrl": "URL del webhook"
+  ,"discordRequired": "Obligatori"
+  ,"discordInvalidWebhook": "Introdueix un URL https de webhook vàlid"
+  ,"discordTestMessage": "Folio s'ha connectat a aquest canal de Discord."
+  ,"discordNotificationsForChannel": "Esdeveniments de notificació"
+  ,"discordNotifyStatus": "Canvis d'estat"
+  ,"discordNotifyNewTask": "Tasques noves"
+  ,"discordNotifyComment": "Comentaris nous"
+  ,"taskHubExportIcs": "Exporta calendari (.ics)"
+  ,"taskHubIcsExportDone": "Calendari exportat."
+  ,"taskHubIcsExportWebUnsupported": "L'exportació ICS està disponible a l'escriptori."
+  ,"slackConnectWithOAuth": "Connecta amb OAuth de Slack"
+  ,"teamsConnectWithOAuth": "Connecta amb OAuth de Microsoft"
 }

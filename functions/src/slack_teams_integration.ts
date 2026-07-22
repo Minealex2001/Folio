@@ -1,6 +1,7 @@
 import "./admin_init";
 import * as admin from "firebase-admin";
 import { createHmac, timingSafeEqual } from "crypto";
+import { getAuth } from "firebase-admin/auth";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 
 const db = admin.firestore();
@@ -9,7 +10,7 @@ const FieldValue = admin.firestore.FieldValue;
 const LINK_CODE_TTL_MS = 15 * 60 * 1000;
 const MAX_TASK_TITLE_LEN = 200;
 
-type IntegrationProvider = "slack" | "teams";
+type IntegrationProvider = "slack" | "teams" | "discord";
 
 function integrationWebhookHostAllowed(hostname: string): boolean {
   const h = hostname.toLowerCase();
@@ -19,6 +20,8 @@ function integrationWebhookHostAllowed(hostname: string): boolean {
   if (h.endsWith(".office.com")) return true;
   if (h.endsWith(".office365.com")) return true;
   if (h.endsWith(".webhook.office.com")) return true;
+  if (h === "discord.com" || h === "discordapp.com") return true;
+  if (h.endsWith(".discord.com") || h.endsWith(".discordapp.com")) return true;
   return false;
 }
 
@@ -36,6 +39,8 @@ function normalizeCommandText(raw: string): string {
 export type ParsedIntegrationCommand =
   | { kind: "link"; code: string }
   | { kind: "create_task"; title: string }
+  | { kind: "list_tasks" }
+  | { kind: "complete_task"; title: string }
   | { kind: "unknown" };
 
 export function parseIntegrationCommand(raw: string): ParsedIntegrationCommand {
@@ -49,6 +54,17 @@ export function parseIntegrationCommand(raw: string): ParsedIntegrationCommand {
     const title = create[1].trim();
     if (!title || title.length > MAX_TASK_TITLE_LEN) return { kind: "unknown" };
     return { kind: "create_task", title };
+  }
+  if (/^\/folio\s+list\s+tasks\s*$/i.test(text)) {
+    return { kind: "list_tasks" };
+  }
+  const complete = text.match(
+    /^\/folio\s+(?:complete\s+task|done)\s+"([^"]+)"$/i,
+  );
+  if (complete) {
+    const title = complete[1].trim();
+    if (!title || title.length > MAX_TASK_TITLE_LEN) return { kind: "unknown" };
+    return { kind: "complete_task", title };
   }
   return { kind: "unknown" };
 }
@@ -160,13 +176,16 @@ async function handleLinkCommand(
     linkedAt: FieldValue.serverTimestamp(),
   });
   await codeRef.delete();
-  return "Linked! You can now use `/folio create task \"Title\"` (or `@Folio create task \"Title\"` in Teams).";
+  return (
+    "Linked! Commands: `/folio create task \"Title\"`, `/folio list tasks`, " +
+    "`/folio complete task \"Title\"` (or `@Folio …` in Teams)."
+  );
 }
 
-async function enqueueCreateTask(
+async function enqueueCommand(
   provider: IntegrationProvider,
   externalUserId: string,
-  title: string,
+  fields: Record<string, unknown>,
 ): Promise<string> {
   const indexSnap = await resolveUserIndex(provider, externalUserId);
   if (!indexSnap) {
@@ -189,10 +208,9 @@ async function enqueueCreateTask(
     vaultId,
     connectionId: String(index.connectionId ?? "").trim(),
     webhookUrl: String(index.webhookUrl ?? "").trim(),
-    command: "create_task",
-    title,
     status: "pending",
     createdAt: FieldValue.serverTimestamp(),
+    ...fields,
   });
   return ackLatencyMessage();
 }
@@ -206,10 +224,23 @@ async function dispatchParsedCommand(
     return handleLinkCommand(provider, externalUserId, parsed.code);
   }
   if (parsed.kind === "create_task") {
-    return enqueueCreateTask(provider, externalUserId, parsed.title);
+    return enqueueCommand(provider, externalUserId, {
+      command: "create_task",
+      title: parsed.title,
+    });
+  }
+  if (parsed.kind === "list_tasks") {
+    return enqueueCommand(provider, externalUserId, { command: "list_tasks" });
+  }
+  if (parsed.kind === "complete_task") {
+    return enqueueCommand(provider, externalUserId, {
+      command: "complete_task",
+      title: parsed.title,
+    });
   }
   return (
-    "Unknown command. Supported: `/folio link CODE`, `/folio create task \"Title\"`."
+    "Unknown command. Supported: `/folio link CODE`, `/folio create task \"Title\"`, " +
+    "`/folio list tasks`, `/folio complete task \"Title\"`."
   );
 }
 
@@ -229,7 +260,7 @@ export const folioUpsertIntegrationWebhookConnection = onCall(
     if (!connectionId) {
       throw new HttpsError("invalid-argument", "missing_connection_id");
     }
-    if (provider !== "slack" && provider !== "teams") {
+    if (provider !== "slack" && provider !== "teams" && provider !== "discord") {
       throw new HttpsError("invalid-argument", "invalid_provider");
     }
     if (!webhookUrl) {
@@ -272,7 +303,7 @@ export const folioIntegrationWebhookProxy = onCall(
     const provider = String(data.provider ?? "").trim() as IntegrationProvider;
     const connectionId = String(data.connectionId ?? "").trim();
     const payload = data.payload;
-    if (provider !== "slack" && provider !== "teams") {
+    if (provider !== "slack" && provider !== "teams" && provider !== "discord") {
       throw new HttpsError("invalid-argument", "invalid_provider");
     }
     if (!connectionId || typeof payload !== "object" || payload === null) {
@@ -332,7 +363,7 @@ export const folioRegisterIntegrationLinkCode = onCall(
     if (!vaultId || !connectionId || !webhookUrl) {
       throw new HttpsError("invalid-argument", "missing_fields");
     }
-    if (provider !== "slack" && provider !== "teams") {
+    if (provider !== "slack" && provider !== "teams" && provider !== "discord") {
       throw new HttpsError("invalid-argument", "invalid_provider");
     }
     let host: string;
@@ -366,6 +397,53 @@ export const folioRegisterIntegrationLinkCode = onCall(
   },
 );
 
+/**
+ * Lista comandos pendientes del buzón (Admin SDK).
+ * Pensado para Windows/Linux, donde el listado REST de Firestore suele
+ * devolver 403 aunque las reglas permitan `list`.
+ */
+export const folioListPendingIntegrationCommands = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    const vaultId = String(data.vaultId ?? "").trim();
+    if (!vaultId) {
+      throw new HttpsError("invalid-argument", "missing_vault_id");
+    }
+    const limitRaw = Number(data.limit ?? 20);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 50)
+      : 20;
+    const snap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("pendingIntegrationCommands")
+      .where("status", "==", "pending")
+      .where("vaultId", "==", vaultId)
+      .limit(limit)
+      .get();
+    const commands = snap.docs.map((doc) => {
+      const d = doc.data() ?? {};
+      return {
+        id: doc.id,
+        provider: String(d.provider ?? ""),
+        externalUserId: String(d.externalUserId ?? ""),
+        vaultId: String(d.vaultId ?? ""),
+        connectionId: String(d.connectionId ?? ""),
+        webhookUrl: String(d.webhookUrl ?? ""),
+        command: String(d.command ?? ""),
+        title: String(d.title ?? ""),
+        status: String(d.status ?? ""),
+      };
+    });
+    return { commands };
+  },
+);
+
 export const folioAckIntegrationCommand = onCall(
   { invoker: "public" },
   async (request) => {
@@ -378,6 +456,7 @@ export const folioAckIntegrationCommand = onCall(
     const success = data.success === true;
     const taskTitle = String(data.taskTitle ?? "").trim();
     const errorMessage = String(data.errorMessage ?? "").trim();
+    const responseMessage = String(data.responseMessage ?? "").trim();
     if (!commandId) {
       throw new HttpsError("invalid-argument", "missing_command_id");
     }
@@ -396,6 +475,7 @@ export const folioAckIntegrationCommand = onCall(
     }
     const webhookUrl = String(cmd.webhookUrl ?? "").trim();
     const provider = String(cmd.provider ?? "").trim();
+    const command = String(cmd.command ?? "").trim();
     await cmdRef.set(
       {
         status: success ? "applied" : "failed",
@@ -405,9 +485,17 @@ export const folioAckIntegrationCommand = onCall(
       { merge: true },
     );
     if (webhookUrl) {
-      const text = success
-        ? `✅ Folio created task "${taskTitle || "untitled"}".`
-        : `❌ Folio could not create the task: ${errorMessage || "unknown error"}.`;
+      let text = responseMessage;
+      if (!text) {
+        if (success) {
+          text =
+            command === "create_task"
+              ? `✅ Folio created task "${taskTitle || "untitled"}".`
+              : `✅ Folio applied command "${command || "unknown"}".`;
+        } else {
+          text = `❌ Folio could not apply the command: ${errorMessage || "unknown error"}.`;
+        }
+      }
       try {
         if (provider === "teams") {
           await postWebhookJson(webhookUrl, {
@@ -516,6 +604,232 @@ export const folioTeamsCommand = onRequest(
     } catch (err) {
       console.error("folioTeamsCommand", err);
       res.status(500).json({ type: "message", text: "Internal error." });
+    }
+  },
+);
+
+function isValidSlackLoopbackRedirect(redirectUri: string): boolean {
+  try {
+    const u = new URL(redirectUri);
+    return (
+      u.protocol === "http:" &&
+      u.hostname === "127.0.0.1" &&
+      u.port === "45749" &&
+      u.pathname.endsWith("/callback")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isValidTeamsLoopbackRedirect(redirectUri: string): boolean {
+  try {
+    const u = new URL(redirectUri);
+    return (
+      u.protocol === "http:" &&
+      u.hostname === "127.0.0.1" &&
+      u.port === "45750" &&
+      u.pathname.endsWith("/callback")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function readOauthJsonBody(req: { body?: unknown }): Record<string, unknown> {
+  const raw = req.body;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw || "{}") as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return (raw ?? {}) as Record<string, unknown>;
+}
+
+/** Slack OAuth PKCE exchange. Env: SLACK_OAUTH_CLIENT_ID / SLACK_OAUTH_CLIENT_SECRET. */
+export const folioSlackExchangeOAuth = onRequest(
+  { cors: true, memory: "256MiB", invoker: "public" },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    const authHeader = String(req.headers.authorization ?? "");
+    const authMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!authMatch) {
+      res.status(401).json({ error: "missing_auth" });
+      return;
+    }
+    try {
+      await getAuth().verifyIdToken(authMatch[1]!);
+    } catch {
+      res.status(401).json({ error: "invalid_auth" });
+      return;
+    }
+    const body = readOauthJsonBody(req);
+    const grantType = String(body.grantType ?? "authorization_code").trim();
+    const clientId =
+      String(body.clientId ?? "").trim() ||
+      String(process.env.SLACK_OAUTH_CLIENT_ID ?? "").trim();
+    const clientSecret = String(process.env.SLACK_OAUTH_CLIENT_SECRET ?? "").trim();
+    if (!clientId) {
+      res.status(400).json({ error: "missing_client_id" });
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("client_id", clientId);
+    if (clientSecret) params.set("client_secret", clientSecret);
+    if (grantType === "refresh_token") {
+      const refreshToken = String(body.refreshToken ?? "").trim();
+      if (!refreshToken) {
+        res.status(400).json({ error: "missing_fields" });
+        return;
+      }
+      params.set("grant_type", "refresh_token");
+      params.set("refresh_token", refreshToken);
+    } else {
+      const code = String(body.code ?? "").trim();
+      const redirectUri = String(body.redirectUri ?? "").trim();
+      const codeVerifier = String(body.codeVerifier ?? "").trim();
+      if (!code || !redirectUri || !codeVerifier) {
+        res.status(400).json({ error: "missing_fields" });
+        return;
+      }
+      if (!isValidSlackLoopbackRedirect(redirectUri)) {
+        res.status(400).json({ error: "invalid_redirect_uri" });
+        return;
+      }
+      params.set("grant_type", "authorization_code");
+      params.set("code", code);
+      params.set("redirect_uri", redirectUri);
+      params.set("code_verifier", codeVerifier);
+    }
+    const tokenResp = await fetch("https://slack.com/api/oauth.v2.access", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const text = await tokenResp.text();
+    if (!tokenResp.ok) {
+      console.warn("folioSlackExchangeOAuth:", tokenResp.status, text);
+      res.status(502).json({ error: "slack_token_failed", detail: text.slice(0, 500) });
+      return;
+    }
+    let json: Record<string, unknown>;
+    try {
+      json = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      res.status(502).json({ error: "slack_token_invalid_json" });
+      return;
+    }
+    if (json.ok !== true) {
+      res.status(502).json({ error: "slack_oauth_denied", detail: json });
+      return;
+    }
+    res.json(json);
+  },
+);
+
+/** Teams/Graph OAuth PKCE. Env: TEAMS_OAUTH_CLIENT_ID / TEAMS_OAUTH_CLIENT_SECRET. */
+export const folioTeamsExchangeOAuth = onRequest(
+  { cors: true, memory: "256MiB", invoker: "public" },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    const authHeader = String(req.headers.authorization ?? "");
+    const authMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!authMatch) {
+      res.status(401).json({ error: "missing_auth" });
+      return;
+    }
+    try {
+      await getAuth().verifyIdToken(authMatch[1]!);
+    } catch {
+      res.status(401).json({ error: "invalid_auth" });
+      return;
+    }
+    const body = readOauthJsonBody(req);
+    const grantType = String(body.grantType ?? "authorization_code").trim();
+    const clientId =
+      String(body.clientId ?? "").trim() ||
+      String(process.env.TEAMS_OAUTH_CLIENT_ID ?? "").trim();
+    const clientSecret = String(process.env.TEAMS_OAUTH_CLIENT_SECRET ?? "").trim();
+    if (!clientId) {
+      res.status(400).json({ error: "missing_client_id" });
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("client_id", clientId);
+    if (clientSecret) params.set("client_secret", clientSecret);
+    if (grantType === "refresh_token") {
+      const refreshToken = String(body.refreshToken ?? "").trim();
+      if (!refreshToken) {
+        res.status(400).json({ error: "missing_fields" });
+        return;
+      }
+      params.set("grant_type", "refresh_token");
+      params.set("refresh_token", refreshToken);
+      params.set(
+        "scope",
+        String(body.scope ?? "openid offline_access ChannelMessage.Send"),
+      );
+    } else {
+      const code = String(body.code ?? "").trim();
+      const redirectUri = String(body.redirectUri ?? "").trim();
+      const codeVerifier = String(body.codeVerifier ?? "").trim();
+      if (!code || !redirectUri || !codeVerifier) {
+        res.status(400).json({ error: "missing_fields" });
+        return;
+      }
+      if (!isValidTeamsLoopbackRedirect(redirectUri)) {
+        res.status(400).json({ error: "invalid_redirect_uri" });
+        return;
+      }
+      params.set("grant_type", "authorization_code");
+      params.set("code", code);
+      params.set("redirect_uri", redirectUri);
+      params.set("code_verifier", codeVerifier);
+      params.set(
+        "scope",
+        String(body.scope ?? "openid offline_access ChannelMessage.Send"),
+      );
+    }
+    const tokenResp = await fetch(
+      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      },
+    );
+    const text = await tokenResp.text();
+    if (!tokenResp.ok) {
+      console.warn("folioTeamsExchangeOAuth:", tokenResp.status, text);
+      res.status(502).json({ error: "teams_token_failed", detail: text.slice(0, 500) });
+      return;
+    }
+    try {
+      res.json(JSON.parse(text));
+    } catch {
+      res.status(502).json({ error: "teams_token_invalid_json" });
     }
   },
 );

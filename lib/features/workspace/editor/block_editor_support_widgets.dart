@@ -108,7 +108,7 @@ class _BlockEditorDragHandleState extends State<BlockEditorDragHandle> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         width: 22,
-        height: 28,
+        height: 32,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: _hovered

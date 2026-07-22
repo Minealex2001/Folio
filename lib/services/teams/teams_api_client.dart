@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../../models/teams_integration_state.dart';
 import '../integrations/integration_api_exception.dart';
 import '../integrations/integration_webhook_transport.dart';
@@ -15,33 +19,43 @@ class TeamsApiException extends IntegrationApiException {
   String get exceptionName => 'TeamsApiException';
 }
 
-/// Cliente delgado sobre la URL de webhook de un Workflow de Teams ("Post to
-/// a channel when a webhook request is received" — el reemplazo actual del
-/// conector O365 ya retirado). Fase 1: sin OAuth ni Graph API; ver el plan
-/// para fases futuras.
+/// Cliente Teams: Graph channel message si hay token+ids; si no, webhook Workflow.
 class TeamsApiClient {
   TeamsApiClient({
     required TeamsConnection connection,
     IntegrationWebhookTransport? transport,
+    http.Client? httpClient,
   })  : _transport = transport ?? IntegrationWebhookTransport(),
-        _connection = connection;
+        _connection = connection,
+        _http = httpClient ?? http.Client();
 
   final IntegrationWebhookTransport _transport;
   final TeamsConnection _connection;
+  final http.Client _http;
 
   TeamsConnection get connection => _connection;
 
-  /// Registra esta conexión server-side (requerido en Web antes de poder
-  /// relayar mensajes vía folioIntegrationWebhookProxy).
-  Future<void> registerConnection() => _transport.registerConnection(
-        provider: 'teams',
-        connectionId: _connection.id,
-        webhookUrl: _connection.webhookUrl,
-      );
+  Future<void> registerConnection() async {
+    if (!_connection.hasWebhook) return;
+    await _transport.registerConnection(
+      provider: 'teams',
+      connectionId: _connection.id,
+      webhookUrl: _connection.webhookUrl,
+    );
+  }
 
-  /// Publica [text] en el canal vinculado, como una Adaptive Card mínima
-  /// (formato requerido por los webhooks de Workflows de Teams).
   Future<void> postMessage(String text) async {
+    if (_connection.hasGraphToken &&
+        _connection.teamId.trim().isNotEmpty &&
+        _connection.channelId.trim().isNotEmpty) {
+      await _postViaGraph(text);
+      return;
+    }
+    if (!_connection.hasWebhook) {
+      throw const TeamsApiException(
+        'Teams connection has neither webhook nor Graph channel',
+      );
+    }
     final payload = <String, Object?>{
       'type': 'message',
       'attachments': [
@@ -76,8 +90,32 @@ class TeamsApiClient {
     }
   }
 
-  /// Registra la conexión (si aplica) y verifica que la URL de webhook es
-  /// válida enviando un mensaje de prueba.
+  Future<void> _postViaGraph(String text) async {
+    final uri = Uri.parse(
+      'https://graph.microsoft.com/v1.0/teams/${_connection.teamId}'
+      '/channels/${_connection.channelId}/messages',
+    );
+    final res = await _http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer ${_connection.accessToken}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'body': {'contentType': 'text', 'content': text},
+      }),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw TeamsApiException(
+        'Graph channel message HTTP ${res.statusCode}',
+        statusCode: res.statusCode,
+        body: res.body,
+        uri: uri.toString(),
+        method: 'POST',
+      );
+    }
+  }
+
   Future<void> verifyConnection({required String testMessage}) async {
     await registerConnection();
     await postMessage(testMessage);

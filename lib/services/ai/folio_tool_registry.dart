@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/block.dart';
 import '../../models/folio_page.dart';
+import '../../models/folio_task_data.dart';
 import '../../session/vault_session.dart';
 import 'ai_tool.dart';
 import 'quill_tools.dart';
@@ -75,6 +76,8 @@ class FolioToolRegistry {
     _searchPagesDef,
     _listChildrenDef,
     _insertBlocksAtPositionDef,
+    _listTasksDef,
+    _updateTaskDef,
   ];
 
   Future<AiToolResult> execute(AiToolCall call) async {
@@ -128,6 +131,10 @@ class FolioToolRegistry {
           return _listChildren(call);
         case 'insert_blocks_at_position':
           return _insertBlocksAtPosition(call);
+        case 'list_tasks':
+          return _listTasks(call);
+        case 'update_task':
+          return _updateTask(call);
         default:
           return AiToolResult.error(call.id, 'Tool desconocido: ${call.name}');
       }
@@ -960,6 +967,222 @@ class FolioToolRegistry {
       }
     }
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","insertedBlockCount":${blocks.length}}');
+  }
+
+  static const _listTasksDef = AiToolDefinition(
+    name: 'list_tasks',
+    description:
+        'Lista tareas enriquecidas del vault (bloques task). Filtros opcionales '
+        'por estado, página, fechas y texto en el título.',
+    parameters: [
+      AiToolParam(
+        name: 'status',
+        type: 'string',
+        description: 'Filtrar por status: todo | in_progress | done.',
+      ),
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Solo tareas de esta página.',
+      ),
+      AiToolParam(
+        name: 'dueBefore',
+        type: 'string',
+        description: 'ISO date YYYY-MM-DD inclusive upper bound on dueDate.',
+      ),
+      AiToolParam(
+        name: 'dueAfter',
+        type: 'string',
+        description: 'ISO date YYYY-MM-DD inclusive lower bound on dueDate.',
+      ),
+      AiToolParam(
+        name: 'query',
+        type: 'string',
+        description: 'Subcadena en el título (case-insensitive).',
+      ),
+      AiToolParam(
+        name: 'limit',
+        type: 'number',
+        description: 'Máximo de resultados (default 50).',
+      ),
+    ],
+  );
+
+  Future<AiToolResult> _listTasks(AiToolCall call) async {
+    final status = (call.arguments['status'] as String?)?.trim().toLowerCase();
+    final pageId = (call.arguments['pageId'] as String?)?.trim();
+    final dueBefore = (call.arguments['dueBefore'] as String?)?.trim();
+    final dueAfter = (call.arguments['dueAfter'] as String?)?.trim();
+    final query = (call.arguments['query'] as String?)?.trim().toLowerCase();
+    final limitRaw = call.arguments['limit'];
+    final limit = limitRaw is num ? limitRaw.toInt().clamp(1, 200) : 50;
+
+    var entries = _session.collectTaskBlocks(includeSimpleTodos: false);
+    if (pageId != null && pageId.isNotEmpty) {
+      entries = entries.where((e) => e.pageId == pageId).toList();
+    }
+    if (status != null && status.isNotEmpty) {
+      entries = entries
+          .where((e) => (e.task?.status ?? '').trim().toLowerCase() == status)
+          .toList();
+    }
+    if (dueBefore != null && dueBefore.isNotEmpty) {
+      entries = entries.where((e) {
+        final d = (e.dueDate ?? '').trim();
+        return d.isNotEmpty && d.compareTo(dueBefore) <= 0;
+      }).toList();
+    }
+    if (dueAfter != null && dueAfter.isNotEmpty) {
+      entries = entries.where((e) {
+        final d = (e.dueDate ?? '').trim();
+        return d.isNotEmpty && d.compareTo(dueAfter) >= 0;
+      }).toList();
+    }
+    if (query != null && query.isNotEmpty) {
+      entries = entries
+          .where((e) => e.displayTitle.toLowerCase().contains(query))
+          .toList();
+    }
+
+    final out = <Map<String, dynamic>>[];
+    for (final e in entries.take(limit)) {
+      final page = _pageById(e.pageId);
+      if (page == null) continue;
+      if (!(await _ensureMcpReadAccess(page))) continue;
+      out.add({
+        'pageId': e.pageId,
+        'pageTitle': e.pageTitle,
+        'blockId': e.blockId,
+        'title': e.displayTitle,
+        'status': e.task?.status ?? '',
+        'dueDate': e.dueDate,
+        'startDate': e.startDate,
+        'priority': e.priority,
+        'blocked': e.isBlocked,
+      });
+    }
+    final encoded = out.map(_jsonMap).join(',');
+    return AiToolResult.ok(call.id, '{"tasks":[$encoded],"count":${out.length}}');
+  }
+
+  static const _updateTaskDef = AiToolDefinition(
+    name: 'update_task',
+    description:
+        'Actualiza campos de un bloque task existente (título, estado, fechas, '
+        'prioridad, descripción, bloqueo).',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página que contiene la tarea.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'blockId',
+        type: 'string',
+        description: 'Id del bloque task a actualizar.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'title',
+        type: 'string',
+        description: 'Nuevo título de la tarea.',
+      ),
+      AiToolParam(
+        name: 'status',
+        type: 'string',
+        description: 'Nuevo estado (p. ej. todo, doing, done).',
+      ),
+      AiToolParam(
+        name: 'dueDate',
+        type: 'string',
+        description: 'Fecha de vencimiento ISO (YYYY-MM-DD) o vacío para quitarla.',
+      ),
+      AiToolParam(
+        name: 'priority',
+        type: 'string',
+        description: 'Prioridad de la tarea.',
+      ),
+      AiToolParam(
+        name: 'description',
+        type: 'string',
+        description: 'Descripción o notas de la tarea.',
+      ),
+      AiToolParam(
+        name: 'blocked',
+        type: 'boolean',
+        description: 'Si la tarea está bloqueada.',
+      ),
+      AiToolParam(
+        name: 'blockedReason',
+        type: 'string',
+        description: 'Motivo del bloqueo.',
+      ),
+      AiToolParam(
+        name: 'columnId',
+        type: 'string',
+        description: 'Id de columna del tablero (si aplica).',
+      ),
+    ],
+  );
+
+  Future<AiToolResult> _updateTask(AiToolCall call) async {
+    final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
+    final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
+    if (pageId.isEmpty || blockId.isEmpty) {
+      return AiToolResult.error(call.id, 'pageId y blockId son obligatorios.');
+    }
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == blockId) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || block.type != 'task') {
+      return AiToolResult.error(call.id, 'Bloque task no encontrado: $blockId');
+    }
+    final current = FolioTaskData.tryParse(block.text);
+    if (current == null) {
+      return AiToolResult.error(call.id, 'No se pudo parsear la tarea.');
+    }
+    var next = current;
+    if (call.arguments.containsKey('title')) {
+      next = next.copyWith(title: '${call.arguments['title'] ?? ''}'.trim());
+    }
+    if (call.arguments.containsKey('status')) {
+      next = next.copyWith(status: '${call.arguments['status'] ?? ''}'.trim());
+    }
+    if (call.arguments.containsKey('dueDate')) {
+      final v = '${call.arguments['dueDate'] ?? ''}'.trim();
+      next = next.copyWith(dueDate: v.isEmpty ? null : v);
+    }
+    if (call.arguments.containsKey('priority')) {
+      next = next.copyWith(priority: '${call.arguments['priority'] ?? ''}'.trim());
+    }
+    if (call.arguments.containsKey('description')) {
+      next = next.copyWith(description: '${call.arguments['description'] ?? ''}');
+    }
+    if (call.arguments.containsKey('blocked')) {
+      next = next.copyWith(blocked: call.arguments['blocked'] == true);
+    }
+    if (call.arguments.containsKey('blockedReason')) {
+      next = next.copyWith(
+        blockedReason: '${call.arguments['blockedReason'] ?? ''}'.trim(),
+      );
+    }
+    if (call.arguments.containsKey('columnId')) {
+      next = next.copyWith(columnId: '${call.arguments['columnId'] ?? ''}'.trim());
+    }
+    _session.updateBlockText(pageId, blockId, next.encode());
+    return AiToolResult.ok(
+      call.id,
+      '{"pageId":"$pageId","blockId":"$blockId","updated":true}',
+    );
   }
 
   // ---------------------------------------------------------------------

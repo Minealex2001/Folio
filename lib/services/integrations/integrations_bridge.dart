@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/errors/folio_exception.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../local_bridge/local_bridge_http.dart';
 import 'integrations_markdown_codec.dart';
 
 class IntegrationsClientIdentity {
@@ -506,11 +507,7 @@ class IntegrationsBridgeController {
 
   Future<void> start() async {
     if (_server != null) return;
-    _server = await HttpServer.bind(
-      InternetAddress.loopbackIPv4,
-      _port,
-      shared: false,
-    );
+    _server = await LocalBridgeHttp.bindLoopback(_port);
     _port = _server!.port;
     unawaited(_listen(_server!));
   }

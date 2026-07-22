@@ -22,7 +22,17 @@ import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
 
-enum AiProvider { none, ollama, lmStudio, quillCloud, openAi, gemini }
+enum AiProvider {
+  none,
+  ollama,
+  lmStudio,
+  quillCloud,
+  openAi,
+  gemini,
+
+  /// Gemini Nano on-device (Android AICore / ML Kit GenAI). Solo móvil Android.
+  geminiNano,
+}
 
 /// Disposición de columnas en la pantalla de inicio del workspace.
 enum WorkspaceHomeColumnLayout { auto, single, dual }
@@ -103,6 +113,12 @@ bool get aiLocalProvidersSupported {
   if (kIsWeb) return false;
   return defaultTargetPlatform != TargetPlatform.android &&
       defaultTargetPlatform != TargetPlatform.iOS;
+}
+
+/// Gemini Nano / Galaxy AI on-device (AICore) solo en Android.
+bool get aiOnDeviceProviderSupported {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.android;
 }
 
 /// El servidor MCP local (Fase 5) necesita un socket TCP real del SO
@@ -1101,9 +1117,11 @@ class AppSettings extends ChangeNotifier {
     }
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
-    if (!aiLocalProvidersSupported &&
-        (_aiProvider == AiProvider.ollama ||
-            _aiProvider == AiProvider.lmStudio)) {
+    if ((!aiLocalProvidersSupported &&
+            (_aiProvider == AiProvider.ollama ||
+                _aiProvider == AiProvider.lmStudio)) ||
+        (!aiOnDeviceProviderSupported &&
+            _aiProvider == AiProvider.geminiNano)) {
       _aiProvider = AiProvider.none;
       await p.setString(_aiProviderKey, _aiProvider.name);
       _aiBaseUrl = defaultUrlForProvider(_aiProvider);
@@ -1454,6 +1472,10 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.gemini)) ??
               const <String>['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash'],
         ),
+        AiProvider.geminiNano: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.geminiNano)) ??
+              const <String>['gemini-nano'],
+        ),
       });
     notifyListeners();
   }
@@ -1496,6 +1518,8 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.openAi;
       case 'gemini':
         return AiProvider.gemini;
+      case 'geminiNano':
+        return AiProvider.geminiNano;
       default:
         return AiProvider.none;
     }
@@ -1635,6 +1659,7 @@ class AppSettings extends ChangeNotifier {
       case AiProvider.lmStudio:
         return defaultLmStudioUrl;
       case AiProvider.quillCloud:
+      case AiProvider.geminiNano:
         return '';
       case AiProvider.openAi:
         return 'https://api.openai.com';
@@ -1657,6 +1682,8 @@ class AppSettings extends ChangeNotifier {
         return 'gpt-4o-mini';
       case AiProvider.gemini:
         return 'gemini-1.5-flash';
+      case AiProvider.geminiNano:
+        return 'gemini-nano';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -1834,9 +1861,12 @@ class AppSettings extends ChangeNotifier {
         (value == AiProvider.ollama || value == AiProvider.lmStudio)) {
       return;
     }
+    if (!aiOnDeviceProviderSupported && value == AiProvider.geminiNano) {
+      return;
+    }
     if (_aiProvider == value) return;
     _aiProvider = value;
-    if (value == AiProvider.quillCloud) {
+    if (value == AiProvider.quillCloud || value == AiProvider.geminiNano) {
       _aiModel = defaultModelForProvider(value);
       notifyListeners();
       final p = await _prefs();

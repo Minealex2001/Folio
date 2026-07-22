@@ -1,9 +1,8 @@
 import 'dart:convert';
 
-/// Estado de la integración con Slack. Fase 1: solo conexiones vía Incoming
-/// Webhook URL (sin OAuth). Slack no tiene concepto de "tablero" que
-/// sincronizar, así que a diferencia de Jira/Trello/GitHub/GitLab este
-/// estado no tiene `sources`.
+/// Estado de la integración con Slack.
+///
+/// Fase 1: Incoming Webhook. Fase 2: OAuth bot token (campos opcionales).
 class SlackIntegrationState {
   const SlackIntegrationState({this.connections = const []});
 
@@ -34,13 +33,17 @@ class SlackIntegrationState {
   String encode() => jsonEncode(toJson());
 }
 
-/// Una conexión = un canal de Slack, identificado por su Incoming Webhook
-/// URL, con sus propios interruptores de qué eventos notificar.
 class SlackConnection {
   const SlackConnection({
     required this.id,
     required this.label,
-    required this.webhookUrl,
+    this.webhookUrl = '',
+    this.accessToken = '',
+    this.refreshToken = '',
+    this.expiresAt = '',
+    this.teamId = '',
+    this.botUserId = '',
+    this.channelId = '',
     this.notifyOnStatusChange = true,
     this.notifyOnNewTask = true,
     this.notifyOnComment = true,
@@ -49,14 +52,29 @@ class SlackConnection {
   final String id;
   final String label;
   final String webhookUrl;
+  final String accessToken;
+  final String refreshToken;
+  final String expiresAt;
+  final String teamId;
+  final String botUserId;
+  final String channelId;
   final bool notifyOnStatusChange;
   final bool notifyOnNewTask;
   final bool notifyOnComment;
 
+  bool get hasBotToken => accessToken.trim().isNotEmpty;
+  bool get hasWebhook => webhookUrl.trim().isNotEmpty;
+
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'label': label,
-        'webhookUrl': webhookUrl,
+        if (webhookUrl.trim().isNotEmpty) 'webhookUrl': webhookUrl,
+        if (accessToken.trim().isNotEmpty) 'accessToken': accessToken,
+        if (refreshToken.trim().isNotEmpty) 'refreshToken': refreshToken,
+        if (expiresAt.trim().isNotEmpty) 'expiresAt': expiresAt,
+        if (teamId.trim().isNotEmpty) 'teamId': teamId,
+        if (botUserId.trim().isNotEmpty) 'botUserId': botUserId,
+        if (channelId.trim().isNotEmpty) 'channelId': channelId,
         'notifyOnStatusChange': notifyOnStatusChange,
         'notifyOnNewTask': notifyOnNewTask,
         'notifyOnComment': notifyOnComment,
@@ -66,11 +84,19 @@ class SlackConnection {
     final id = (map['id'] as String? ?? '').trim();
     final label = (map['label'] as String? ?? '').trim();
     final webhookUrl = (map['webhookUrl'] as String? ?? '').trim();
-    if (id.isEmpty || label.isEmpty || webhookUrl.isEmpty) return null;
+    final accessToken = (map['accessToken'] as String? ?? '').trim();
+    if (id.isEmpty || label.isEmpty) return null;
+    if (webhookUrl.isEmpty && accessToken.isEmpty) return null;
     return SlackConnection(
       id: id,
       label: label,
       webhookUrl: webhookUrl,
+      accessToken: accessToken,
+      refreshToken: (map['refreshToken'] as String? ?? '').trim(),
+      expiresAt: (map['expiresAt'] as String? ?? '').trim(),
+      teamId: (map['teamId'] as String? ?? '').trim(),
+      botUserId: (map['botUserId'] as String? ?? '').trim(),
+      channelId: (map['channelId'] as String? ?? '').trim(),
       notifyOnStatusChange: map['notifyOnStatusChange'] != false,
       notifyOnNewTask: map['notifyOnNewTask'] != false,
       notifyOnComment: map['notifyOnComment'] != false,
@@ -80,6 +106,12 @@ class SlackConnection {
   SlackConnection copyWith({
     String? label,
     String? webhookUrl,
+    String? accessToken,
+    String? refreshToken,
+    String? expiresAt,
+    String? teamId,
+    String? botUserId,
+    String? channelId,
     bool? notifyOnStatusChange,
     bool? notifyOnNewTask,
     bool? notifyOnComment,
@@ -88,6 +120,12 @@ class SlackConnection {
       id: id,
       label: label ?? this.label,
       webhookUrl: webhookUrl ?? this.webhookUrl,
+      accessToken: accessToken ?? this.accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      expiresAt: expiresAt ?? this.expiresAt,
+      teamId: teamId ?? this.teamId,
+      botUserId: botUserId ?? this.botUserId,
+      channelId: channelId ?? this.channelId,
       notifyOnStatusChange: notifyOnStatusChange ?? this.notifyOnStatusChange,
       notifyOnNewTask: notifyOnNewTask ?? this.notifyOnNewTask,
       notifyOnComment: notifyOnComment ?? this.notifyOnComment,
