@@ -61,7 +61,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../widgets/spotify_now_playing_bar.dart';
-import '../widgets/meeting_note_active_bar.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
@@ -1093,6 +1092,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
       _syncCollabForSelectedPage();
+      // M5: Show migration notification if just migrated
+      _showMigrationNotificationIfNeeded();
     });
   }
 
@@ -2062,6 +2063,46 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  /// M5: Show notification if vault was just migrated from v0 to v1
+  void _showMigrationNotificationIfNeeded() {
+    if (!_s.justMigrated) return;
+
+    final l10n = AppLocalizations.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          Localizations.localeOf(context).languageCode == 'es'
+              ? 'Libreta migrada a v1 ✅'
+              : 'Vault migrated to v1 ✅',
+        ),
+        action: SnackBarAction(
+          label: Localizations.localeOf(context).languageCode == 'es'
+              ? 'Eliminar v0'
+              : 'Delete v0',
+          onPressed: () async {
+            await _s.deleteV0VaultBinary();
+            _s.resetMigrationFlag();
+            if (context.mounted) {
+              scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    Localizations.localeOf(context).languageCode == 'es'
+                        ? 'Versión anterior eliminada'
+                        : 'Legacy version deleted',
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
+        duration: const Duration(seconds: 7),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -2907,9 +2948,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 actions: appBarActions,
                 onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-        body: Stack(
-          children: [
-            WorkspaceBodyShell(
+        body: WorkspaceBodyShell(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
@@ -3028,19 +3067,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
           overlay: _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: compact ? 96 : 16,
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: MeetingNoteActiveBar(session: _s),
-                ),
-              ),
-            ),
-          ],
         ),
         floatingActionButton: compact && page != null
             ? Padding(
