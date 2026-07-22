@@ -87,7 +87,6 @@ import 'workspace_navigation_history.dart';
 import '../git/vault_format_handler.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../data/vault_local_storage.dart';
-import '../git/vault_migration_tool.dart';
 import '../git/version_info.dart';
 
 export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
@@ -883,6 +882,14 @@ class VaultSession extends ChangeNotifier {
 
     await _rp.loadFromDisk();
 
+    // M5: Initialize format handler
+    _deviceId = await _getDeviceId();
+    _formatHandler = VaultFormatHandler(
+      deviceId: _deviceId,
+      onMigrationNeeded: _triggerMigrationPrompt,
+    );
+    _vaultFormatVersion = await _formatHandler.detectFormat();
+
     final exists = await VaultPaths.vaultExists();
     if (!exists) {
       _vaultUsesEncryption = true;
@@ -895,7 +902,14 @@ class VaultSession extends ChangeNotifier {
       _vaultUsesEncryption = !plain;
       if (plain) {
         try {
-          final payload = await _repo.loadPayload(null);
+          VaultPayload payload;
+          if (_vaultFormatVersion == 0) {
+            payload = await _repo.loadPayload(null);
+          } else {
+            // Format v1: load from tree
+            final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
+            payload = loaded ?? await _repo.loadPayload(null);
+          }
           _dek = null;
           _pages = List.from(payload.pages);
           _loadRevisionsFromPayload(payload);
@@ -905,6 +919,17 @@ class VaultSession extends ChangeNotifier {
           _state = VaultFlowState.unlocked;
           purgeExpiredTrash();
           _restartIdleLockTimer();
+
+          // M5: Init snapshot manager for v1
+          if (_vaultFormatVersion == 1) {
+            final vaultDir = await VaultPaths.vaultDirectory();
+            _snapshotManager = VaultSnapshotManager(
+              vaultDir: vaultDir,
+              deviceId: _deviceId,
+            );
+            await _snapshotManager.init();
+          }
+
           _rebuildSearchIndex();
           final vaultId = _vaultId;
           if (vaultId != null) {
@@ -5695,12 +5720,23 @@ class VaultSession extends ChangeNotifier {
     if (vaultUsesEncryption && _dek == null) return;
     final ids = List<String>.from(_pageIdsPendingRevision);
     _pageIdsPendingRevision.clear();
-    for (final id in ids) {
-      final p = _pageById(id);
-      if (p != null) {
-        _appendRevisionSnapshotIfChanged(p);
+
+    if (ids.isEmpty) {
+      await persistNow();
+      return;
+    }
+
+    if (_vaultFormatVersion == 0) {
+      // Format v0: capture page revisions to memory
+      for (final id in ids) {
+        final p = _pageById(id);
+        if (p != null) {
+          _appendRevisionSnapshotIfChanged(p);
+        }
       }
     }
+    // Format v1: snapshot will be created in persistNow()
+
     await persistNow();
   }
 
@@ -5727,6 +5763,36 @@ class VaultSession extends ChangeNotifier {
     final sorted = List<FolioPageRevision>.from(list)
       ..sort((a, b) => b.savedAtMs.compareTo(a.savedAtMs));
     return sorted;
+  }
+
+  /// M5: Versions from memory (v0) or snapshots (v1)
+  Future<List<VersionInfo>> versionsForPage(String pageId) async {
+    if (_vaultFormatVersion == 0) {
+      // Format v0: return from memory
+      final list = _pageRevisions[pageId];
+      if (list == null || list.isEmpty) return [];
+      return list
+          .map((r) => VersionInfo(
+            versionId: r.revisionId,
+            timestamp: r.savedAtMs,
+            label: r.title,
+            source: 'memory',
+          ))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    } else {
+      // Format v1: return snapshots
+      final snapshots = await VaultLocalStorage.listSnapshots();
+      return snapshots
+          .map((s) => VersionInfo(
+            versionId: s.snapshotId,
+            timestamp: s.createdAtMs,
+            label: s.displayLabel,
+            source: 'snapshot',
+            deviceId: s.deviceId,
+          ))
+          .toList();
+    }
   }
 
   /// Quita una entrada del historial sin modificar el contenido actual de la página.
@@ -5774,6 +5840,49 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  /// M5: Restore from version (v0 memory or v1 snapshots)
+  Future<bool> restoreVersion(String versionId) async {
+    if (vaultUsesEncryption && _dek == null) return false;
+
+    if (_vaultFormatVersion == 0) {
+      // Format v0: restore from pageRevisions
+      final page = _pageById(_selectedPageId ?? '');
+      if (page == null) return false;
+
+      final list = _pageRevisions[page.id];
+      if (list == null) return false;
+
+      final target = list.firstWhereOrNull((r) => r.revisionId == versionId);
+      if (target == null) return false;
+
+      // Backup current state
+      final curFp = folioPageContentFingerprint(page);
+      final revs = _pageRevisions.putIfAbsent(page.id, () => []);
+      if (revs.isEmpty || revs.last.contentFingerprint() != curFp) {
+        revs.add(
+          FolioPageRevision(
+            revisionId: const Uuid().v4(),
+            savedAtMs: DateTime.now().millisecondsSinceEpoch,
+            title: page.title,
+            blocksJson: page.blocks.map((b) => b.toJson()).toList(),
+          ),
+        );
+      }
+
+      // Restore
+      page.title = target.title;
+      page.blocks = target.decodeBlocks();
+      _contentEpoch++;
+      notifyListeners();
+      await persistNow();
+      return true;
+    } else {
+      // Format v1: restore from snapshot (M2+, not in M5 alpha)
+      AppLogger.warn('Snapshot restore not yet implemented');
+      return false;
+    }
+  }
+
   VaultPayload _buildVaultPayloadForPersist() {
     final name = _vaultId == null
         ? ''
@@ -5815,8 +5924,40 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> persistNow() async {
-    await _persistence.persistNow();
+    if (_vaultFormatVersion == 0) {
+      // Format v0: persist to vault.bin (existing)
+      await _persistence.persistNow();
+    } else {
+      // Format v1: decompose to tree + create snapshot
+      try {
+        final payload = _buildVaultPayloadForPersist();
+        await VaultLocalStorage.decomposeAndStore(
+          payload,
+          deviceId: _deviceId,
+        );
+
+        // Create snapshot after persist
+        await _createVaultSnapshotSafe();
+      } catch (e) {
+        AppLogger.error('Failed to persist v1 vault: $e');
+        rethrow;
+      }
+    }
     _rebuildSearchIndex();
+  }
+
+  Future<void> _createVaultSnapshotSafe() async {
+    if (_vaultFormatVersion != 1) return;
+    try {
+      final treeDir = await VaultPaths.vaultTreeDirectory();
+      await _snapshotManager.createSnapshot(
+        treeDir: treeDir,
+        label: null, // Auto-labeled
+      );
+    } catch (e) {
+      AppLogger.warn('Snapshot creation failed: $e');
+      // Don't fail persistence
+    }
   }
 
   void _rebuildSearchIndex() {
@@ -6582,6 +6723,20 @@ class VaultSession extends ChangeNotifier {
     }
     final roots = active.where((p) => p.parentId == null).toList();
     _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
+  }
+
+  /// M5: Helpers
+  Future<String> _getDeviceId() async {
+    try {
+      return Platform.localHostname;
+    } catch (_) {
+      return 'unknown-device';
+    }
+  }
+
+  Future<void> _triggerMigrationPrompt(String vaultId) async {
+    AppLogger.info('Migration available for vault $vaultId');
+    // TODO: Show migration prompt dialog
   }
 
   @override
