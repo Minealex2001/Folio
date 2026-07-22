@@ -11,6 +11,11 @@ import '../../app/app_settings.dart';
 import '../platform/android_multicast_lock.dart';
 import 'device_sync_crypto.dart';
 import 'device_sync_models.dart';
+import '../../git/p2p_sync_packager.dart';
+import '../../git/vault_migration_tool.dart';
+import '../../data/vault_payload.dart';
+import '../../data/vault_paths.dart';
+import '../../git/vault_payload_converters.dart';
 
 class _PendingPairAck {
   _PendingPairAck({
@@ -97,6 +102,11 @@ class DeviceSyncController extends ChangeNotifier {
   SyncControllerState _state = SyncControllerState.stopped;
   SyncPairingCode? _activePairingCode;
   bool _restartingUdp = false;
+
+  // M5: Dual format support
+  int _vaultFormatVersion = 0;
+  late DualFormatVaultTransport _transport;
+  String _deviceId = 'unknown-device';
 
   SyncControllerState get state => _state;
   SyncPairingCode? get activePairingCode => _activePairingCode;
@@ -1747,5 +1757,94 @@ class DeviceSyncController extends ChangeNotifier {
     _tearDownUdpStack();
     unawaited(AndroidMulticastLock.release());
     super.dispose();
+  }
+}
+
+// M5: Dual format transport for v0 (vault.bin) and v1 (ZIP tree)
+abstract class VaultPackTransport {
+  Future<int> getFormatVersion(String vaultId);
+  Future<List<int>> packVault(String vaultId);
+  Future<VaultPayload> unpackVault(List<int> packBytes);
+}
+
+class DualFormatVaultTransport implements VaultPackTransport {
+  final String deviceId;
+
+  DualFormatVaultTransport({required this.deviceId});
+
+  @override
+  Future<int> getFormatVersion(String vaultId) async {
+    try {
+      return await VaultMigrationTool.readTreeFormatVersion();
+    } catch (_) {
+      return 0; // Default: v0
+    }
+  }
+
+  @override
+  Future<List<int>> packVault(String vaultId) async {
+    final formatVersion = await getFormatVersion(vaultId);
+
+    if (formatVersion == 0) {
+      return await _packLegacyVault();
+    } else {
+      return await _packTreeAsZip();
+    }
+  }
+
+  Future<List<int>> _packLegacyVault() async {
+    final cipherPayload = await VaultPaths.readCipherPayload();
+    return cipherPayload ?? [];
+  }
+
+  Future<List<int>> _packTreeAsZip() async {
+    final treeDir = await VaultPaths.vaultTreeDirectory();
+    final packager = P2PSyncPackager(
+      vaultId: VaultPaths.activeVaultId ?? 'unknown',
+      sourceDeviceId: deviceId,
+    );
+    return await packager.compressTreeToZip(treeDir);
+  }
+
+  @override
+  Future<VaultPayload> unpackVault(List<int> packBytes) async {
+    if (_isZipFormat(packBytes)) {
+      return await _unpackTreeFromZip(packBytes);
+    } else {
+      return await _unpackLegacyVault(packBytes);
+    }
+  }
+
+  bool _isZipFormat(List<int> bytes) {
+    return bytes.length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B;
+  }
+
+  Future<VaultPayload> _unpackTreeFromZip(List<int> zipBytes) async {
+    final packager = P2PSyncPackager(
+      vaultId: VaultPaths.activeVaultId ?? 'unknown',
+      sourceDeviceId: deviceId,
+    );
+
+    final tempDir = await packager.decompressZip(
+      zipBytes,
+      'folio_p2p_receive_',
+    );
+
+    try {
+      return await TreeToVaultPayload.compose(tempDir);
+    } finally {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    }
+  }
+
+  Future<VaultPayload> _unpackLegacyVault(List<int> cipherBytes) async {
+    // Existing code: decrypt and deserialize
+    // Note: Encryption/decryption is handled by device_sync_controller
+    // This receives already-decrypted bytes
+    return VaultPayload.fromJson(
+      jsonDecode(utf8.decode(cipherBytes)) as Map<String, dynamic>,
+    );
   }
 }
