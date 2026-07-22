@@ -25,6 +25,46 @@ const String kVaultBackupManifestFile = 'manifest.json';
 const String _vaultModePlain = 'plain';
 const String _vaultModeEncrypted = 'encrypted';
 
+/// Copia de libreta ya materializada en memoria (sin `Directory` / disco).
+///
+/// Claves posix relativas: `manifest.json`, `vault.bin`, `vault.keys`,
+/// `vault.mode`, `attachments/...`.
+class ExtractedVaultBackup {
+  ExtractedVaultBackup([Map<String, Uint8List>? files])
+      : files = files ?? <String, Uint8List>{};
+
+  final Map<String, Uint8List> files;
+
+  void put(String relativePath, Uint8List bytes) {
+    final key = relativePath.replaceAll(r'\', '/').replaceFirst(RegExp(r'^/+'), '');
+    if (key.isEmpty) return;
+    files[key] = bytes;
+  }
+
+  Uint8List? operator [](String relativePath) {
+    final key = relativePath.replaceAll(r'\', '/');
+    return files[key];
+  }
+
+  bool contains(String relativePath) =>
+      files.containsKey(relativePath.replaceAll(r'\', '/'));
+
+  String? readUtf8(String relativePath) {
+    final raw = this[relativePath];
+    if (raw == null) return null;
+    return utf8.decode(raw);
+  }
+
+  Iterable<MapEntry<String, Uint8List>> get attachmentEntries sync* {
+    const prefix = '${VaultPaths.attachmentsDirName}/';
+    for (final e in files.entries) {
+      if (e.key.startsWith(prefix) && e.key.length > prefix.length) {
+        yield e;
+      }
+    }
+  }
+}
+
 String _hexFromBytes(List<int> bytes) {
   final sb = StringBuffer();
   for (final b in bytes) {
@@ -485,6 +525,144 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
   }
 }
 
+/// Libreta sin cifrado en un árbol en memoria.
+Future<bool> isPlainExtractedBackup(ExtractedVaultBackup backup) async {
+  final mode = backup.readUtf8(VaultPaths.vaultModeFile)?.trim().toLowerCase();
+  if (mode == _vaultModePlain) return true;
+  if (backup.contains(VaultPaths.wrappedDekFile)) return false;
+  if (mode == _vaultModeEncrypted) return false;
+  final bin = backup[VaultPaths.cipherPayloadFile];
+  if (bin == null) return false;
+  try {
+    VaultPayload.decodeUtf8(bin);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Comprueba manifest y que [password] abre el payload (árbol en memoria).
+Future<void> validateImportBackup(
+  ExtractedVaultBackup backup,
+  String password,
+) async {
+  final manifestRaw = backup[kVaultBackupManifestFile];
+  if (manifestRaw == null) {
+    throw VaultBackupException(
+      'La copia no contiene manifest.json o está incompleta.',
+    );
+  }
+
+  Map<String, Object?> map;
+  try {
+    map = jsonDecode(utf8.decode(manifestRaw)) as Map<String, Object?>;
+  } catch (_) {
+    throw VaultBackupException('El manifest de la copia no es válido.');
+  }
+
+  final rawFv = map['formatVersion'];
+  final fv = rawFv is int
+      ? rawFv
+      : rawFv is num
+      ? rawFv.toInt()
+      : null;
+  if (fv != kVaultBackupFormatVersion) {
+    throw VaultBackupException(
+      'Formato de copia no compatible. Actualiza Folio o exporta de nuevo.',
+    );
+  }
+
+  final bin = backup[VaultPaths.cipherPayloadFile];
+  if (bin == null) {
+    throw VaultBackupException('Falta vault.bin en la copia.');
+  }
+
+  if (await isPlainExtractedBackup(backup)) {
+    try {
+      VaultPayload.decodeUtf8(bin);
+    } catch (_) {
+      throw VaultBackupException(
+        'El contenido de la libreta en la copia no es válido.',
+      );
+    }
+    return;
+  }
+
+  final keys = backup[VaultPaths.wrappedDekFile];
+  if (keys == null) {
+    throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+  }
+
+  try {
+    final dekBytes = await VaultCrypto.unwrapDek(
+      wrapped: keys,
+      password: password,
+    );
+    final dek = await VaultCrypto.dekFromBytes(dekBytes);
+    final clear = await VaultCrypto.decryptPayload(blob: bin, dek: dek);
+    VaultPayload.decodeUtf8(clear);
+  } on VaultCryptoException catch (e) {
+    throw VaultBackupException(e.message);
+  }
+}
+
+/// Escribe una copia en memoria a [vaultId] vía [VaultStorage] (web y nativo).
+Future<void> applyImportToVaultIdFromMemory(
+  ExtractedVaultBackup backup,
+  String vaultId,
+) async {
+  final id = vaultId.trim();
+  if (id.isEmpty) {
+    throw VaultBackupException('vaultId vacío.');
+  }
+  await VaultPaths.initVaultStorage(id);
+
+  final bin = backup[VaultPaths.cipherPayloadFile];
+  if (bin == null) {
+    throw VaultBackupException('Falta vault.bin en la copia.');
+  }
+
+  final modeRaw = backup[VaultPaths.vaultModeFile];
+  if (await isPlainExtractedBackup(backup)) {
+    await VaultStorage.instance.deleteVaultFile(id, VaultPaths.wrappedDekFile);
+    await VaultStorage.instance.writeVaultFile(
+      id,
+      VaultPaths.cipherPayloadFile,
+      bin,
+    );
+    await VaultStorage.instance.writeVaultFile(
+      id,
+      VaultPaths.vaultModeFile,
+      modeRaw ?? Uint8List.fromList(utf8.encode(_vaultModePlain)),
+    );
+  } else {
+    final keys = backup[VaultPaths.wrappedDekFile];
+    if (keys == null) {
+      throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+    }
+    await VaultStorage.instance.writeVaultFile(
+      id,
+      VaultPaths.wrappedDekFile,
+      keys,
+    );
+    await VaultStorage.instance.writeVaultFile(
+      id,
+      VaultPaths.cipherPayloadFile,
+      bin,
+    );
+    await VaultStorage.instance.writeVaultFile(
+      id,
+      VaultPaths.vaultModeFile,
+      modeRaw ?? Uint8List.fromList(utf8.encode(_vaultModeEncrypted)),
+    );
+  }
+
+  await VaultStorage.instance.clearAttachments(id);
+  for (final e in backup.attachmentEntries) {
+    await VaultStorage.instance.writeVaultFile(id, e.key, e.value);
+  }
+}
+
 /// Aplica una copia ya extraída a [vaultId] en almacenamiento web (IndexedDB).
 Future<void> _applyImportToVaultStorageFromExtractedDir(
   Directory extractedDir,
@@ -653,4 +831,22 @@ Future<void> applyImportToVaultRoot(
       }
     }
   }
+}
+
+/// Importa a un [vaultId] concreto (web y nativo) sin depender de rutas nativas.
+Future<void> applyImportToVaultId(
+  Directory extractedDir,
+  String vaultId,
+) async {
+  final id = vaultId.trim();
+  if (id.isEmpty) {
+    throw VaultBackupException('vaultId vacío.');
+  }
+  await VaultPaths.initVaultStorage(id);
+  if (kIsWeb) {
+    await _applyImportToVaultStorageFromExtractedDir(extractedDir, id);
+    return;
+  }
+  final root = await VaultPaths.vaultDirectoryForId(id);
+  await applyImportToVaultRoot(extractedDir, root);
 }

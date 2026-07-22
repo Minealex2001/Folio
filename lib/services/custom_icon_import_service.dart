@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../app/app_settings.dart' show CustomIconEntry;
 import '../core/errors/folio_exception.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'custom_icons/custom_icon_blob_store.dart';
 
 class CustomIconImportException extends FolioException {
   const CustomIconImportException(super.message);
@@ -22,6 +22,8 @@ class CustomIconImportService {
     'image/gif',
     'image/webp',
   };
+
+  CustomIconBlobStore get _store => CustomIconBlobStore.instance;
 
   Future<CustomIconEntry> importFromBytes({
     required AppLocalizations l10n,
@@ -52,13 +54,14 @@ class CustomIconImportService {
       throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
     }
     final id = _uuid.v4();
-    final file = await _createTargetFile(id, extension);
-    if (normalizedMime == 'image/svg+xml') {
-      final svg = utf8.decode(bytes, allowMalformed: true).trim();
-      await file.writeAsString(svg, flush: true);
-    } else {
-      await file.writeAsBytes(bytes, flush: true);
-    }
+    final payload = normalizedMime == 'image/svg+xml'
+        ? utf8.encode(utf8.decode(bytes, allowMalformed: true).trim())
+        : bytes;
+    final storageKey = await _store.write(
+      id: id,
+      extension: extension,
+      bytes: payload,
+    );
     return CustomIconEntry(
       id: id,
       label: _sanitizeLabel(
@@ -66,7 +69,7 @@ class CustomIconImportService {
         fallback: l10n.customIconLabelImported,
       ),
       source: source?.trim() ?? '',
-      filePath: file.path,
+      filePath: storageKey,
       mimeType: normalizedMime,
       createdAtMs: DateTime.now().millisecondsSinceEpoch,
     );
@@ -118,26 +121,29 @@ class CustomIconImportService {
     if (extension == null) {
       throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
     }
-    final file = await _createTargetFile(id, extension);
+    late final List<int> payload;
     if (mimeType == 'image/svg+xml') {
       final svg = uriData.contentAsString(encoding: utf8).trim();
       if (!svg.contains('<svg')) {
         throw CustomIconImportException(l10n.customIconImportInvalidSvg);
       }
-      final bytes = utf8.encode(svg);
-      if (bytes.length > maxBytes) {
+      payload = utf8.encode(svg);
+      if (payload.length > maxBytes) {
         throw CustomIconImportException(l10n.customIconImportSvgTooLarge);
       }
-      await file.writeAsString(svg, flush: true);
     } else {
-      final bytes = uriData.contentAsBytes();
-      if (bytes.length > maxBytes) {
+      payload = uriData.contentAsBytes();
+      if (payload.length > maxBytes) {
         throw CustomIconImportException(
           l10n.customIconImportEmbeddedImageTooLarge,
         );
       }
-      await file.writeAsBytes(bytes, flush: true);
     }
+    final storageKey = await _store.write(
+      id: id,
+      extension: extension,
+      bytes: payload,
+    );
     return CustomIconEntry(
       id: id,
       label: _sanitizeLabel(
@@ -145,7 +151,7 @@ class CustomIconImportService {
         fallback: l10n.customIconLabelDefault,
       ),
       source: source,
-      filePath: file.path,
+      filePath: storageKey,
       mimeType: mimeType,
       createdAtMs: DateTime.now().millisecondsSinceEpoch,
     );
@@ -162,15 +168,34 @@ class CustomIconImportService {
   }) async {
     // En suites con TestWidgetsFlutterBinding, el HttpClient del SDK devuelve 400
     // siempre. Esta inyección permite tests deterministas sin red real.
-    if (fetchRemote != null) {
-      final snap = await fetchRemote(uri);
-      if (snap.statusCode < 200 || snap.statusCode >= 300) {
+    try {
+      late final int statusCode;
+      late final String mimeType;
+      late final List<int> bytes;
+
+      if (fetchRemote != null) {
+        final snap = await fetchRemote(uri);
+        statusCode = snap.statusCode;
+        mimeType = (snap.contentType ?? '').toLowerCase().trim();
+        bytes = snap.bytes;
+      } else {
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 12));
+        statusCode = response.statusCode;
+        mimeType = (response.headers['content-type'] ?? '')
+            .split(';')
+            .first
+            .trim()
+            .toLowerCase();
+        bytes = response.bodyBytes;
+      }
+
+      if (statusCode < 200 || statusCode >= 300) {
         throw CustomIconImportException(
-          l10n.customIconImportDownloadFailed(snap.statusCode.toString()),
+          l10n.customIconImportDownloadFailed(statusCode.toString()),
         );
       }
-      final mimeType = (snap.contentType ?? '').toLowerCase().trim();
-      final bytes = snap.bytes;
       if (bytes.isEmpty) {
         throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
       }
@@ -183,53 +208,11 @@ class CustomIconImportService {
         throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
       }
       final id = _uuid.v4();
-      final file = await _createTargetFile(id, extension);
-      await file.writeAsBytes(bytes, flush: true);
-      return CustomIconEntry(
+      final storageKey = await _store.write(
         id: id,
-        label: _sanitizeLabel(
-          label,
-          fallback: _fallbackLabelFromUri(l10n, uri),
-        ),
-        source: uri.toString(),
-        filePath: file.path,
-        mimeType: resolvedMimeType,
-        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        extension: extension,
+        bytes: bytes,
       );
-    }
-
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 12);
-    try {
-      final request = await client.getUrl(uri);
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw CustomIconImportException(
-          l10n.customIconImportDownloadFailed(
-            response.statusCode.toString(),
-          ),
-        );
-      }
-      final contentType = response.headers.contentType;
-      final mimeType =
-          '${contentType?.primaryType ?? ''}/${contentType?.subType ?? ''}'
-              .toLowerCase()
-              .trim();
-      final bytes = <int>[];
-      await for (final chunk in response) {
-        bytes.addAll(chunk);
-        if (bytes.length > maxBytes) {
-          throw CustomIconImportException(l10n.customIconImportRemoteTooLarge);
-        }
-      }
-      final resolvedMimeType = _resolveMimeType(uri, mimeType, bytes);
-      final extension = _extensionForMimeType(resolvedMimeType);
-      if (extension == null) {
-        throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
-      }
-      final id = _uuid.v4();
-      final file = await _createTargetFile(id, extension);
-      await file.writeAsBytes(bytes, flush: true);
       return CustomIconEntry(
         id: id,
         label: _sanitizeLabel(
@@ -237,29 +220,57 @@ class CustomIconImportService {
           fallback: _fallbackLabelFromUri(l10n, uri),
         ),
         source: uri.toString(),
-        filePath: file.path,
+        filePath: storageKey,
         mimeType: resolvedMimeType,
         createdAtMs: DateTime.now().millisecondsSinceEpoch,
       );
     } on CustomIconImportException {
       rethrow;
-    } on SocketException {
+    } on TimeoutException {
       throw CustomIconImportException(l10n.customIconImportConnectFailed);
-    } on HandshakeException {
-      throw CustomIconImportException(l10n.customIconImportCertFailed);
-    } finally {
-      client.close(force: true);
+    } on http.ClientException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('certificate') ||
+          msg.contains('handshake') ||
+          msg.contains('ssl') ||
+          msg.contains('tls')) {
+        throw CustomIconImportException(l10n.customIconImportCertFailed);
+      }
+      throw CustomIconImportException(l10n.customIconImportConnectFailed);
     }
   }
 
-  Future<File> _createTargetFile(String id, String extension) async {
-    final root = await getApplicationSupportDirectory();
-    final dir = Directory(p.join(root.path, 'custom_icons'));
-    if (!dir.existsSync()) {
-      await dir.create(recursive: true);
+  /// Restaura un icono con [id] conocido (perfil Folio Cloud).
+  Future<String> writeIconBytesWithId({
+    required String id,
+    required List<int> bytes,
+    required String mimeType,
+  }) async {
+    final normalizedMime = mimeType.toLowerCase().trim();
+    final extension = _extensionForMimeType(normalizedMime);
+    if (extension == null) {
+      throw const CustomIconImportException('Unsupported icon mime');
     }
-    return File(p.join(dir.path, '$id$extension'));
+    if (bytes.isEmpty || bytes.length > maxBytes) {
+      throw const CustomIconImportException('Icon size invalid');
+    }
+    final safeId = id.trim();
+    if (safeId.isEmpty) {
+      throw const CustomIconImportException('Icon id empty');
+    }
+    final payload = normalizedMime == 'image/svg+xml'
+        ? utf8.encode(utf8.decode(bytes, allowMalformed: true).trim())
+        : bytes;
+    return _store.write(
+      id: safeId,
+      extension: extension,
+      bytes: payload,
+    );
   }
+
+  /// Deletes blob bytes for a stored icon (no-op if missing).
+  Future<void> deleteIconBytes(String storageKey) =>
+      _store.delete(storageKey);
 
   String _sanitizeLabel(String? label, {required String fallback}) {
     final trimmed = label?.trim() ?? '';

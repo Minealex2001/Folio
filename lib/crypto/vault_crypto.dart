@@ -11,17 +11,44 @@ class VaultCrypto {
   VaultCrypto._();
 
   static final _random = Random.secure();
-  static final Argon2id _argon2 = Argon2id(
+
+  /// Parámetros Argon2id "legacy" (perfil mínimo de OWASP) — usados para
+  /// desenvolver blobs creados antes de que existiera el byte de versión.
+  /// Nunca se usan para envolver nada nuevo.
+  static final Argon2id _argon2Legacy = Argon2id(
     parallelism: 1,
     memory: 19456,
     iterations: 2,
     hashLength: 32,
   );
+
+  /// Parámetros Argon2id "v1" (perfil moderado de OWASP) — usados para todo
+  /// blob nuevo desde que se introdujo el versionado del formato.
+  static final Argon2id _argon2V1 = Argon2id(
+    parallelism: 1,
+    memory: 47104,
+    iterations: 3,
+    hashLength: 32,
+  );
+
   static final AesGcm _aes = AesGcm.with256bits();
 
   static const int saltLength = 16;
   static const int dekLength = 32;
   static const int nonceLength = 12;
+
+  /// Byte de versión que antepone `wrapDek` a todo blob nuevo. Los blobs
+  /// creados antes de este cambio no llevan este byte (formato "legacy").
+  static const int _currentWrapVersion = 1;
+
+  static Argon2id _argon2ForVersion(int version) {
+    switch (version) {
+      case 1:
+        return _argon2V1;
+      default:
+        return _argon2Legacy;
+    }
+  }
 
   static Uint8List randomBytes(int n) {
     final b = Uint8List(n);
@@ -34,24 +61,34 @@ class VaultCrypto {
   static Future<SecretKey> deriveKekFromPassword({
     required String password,
     required List<int> salt,
+    int version = 0,
   }) async {
-    return _argon2.deriveKey(
+    return _argon2ForVersion(version).deriveKey(
       secretKey: SecretKey(utf8.encode(password)),
       nonce: salt,
     );
   }
 
-  /// Returns concatenation: [salt (16)][nonce (12)][ciphertext+mac] wrapping [dek].
+  /// Returns [version(1)][salt (16)][nonce (12)][ciphertext+mac] wrapping [dek].
+  /// Todo blob nuevo lleva el byte de versión y usa los parámetros Argon2id
+  /// más altos (`_argon2V1`); los blobs "legacy" (sin ese byte, de antes de
+  /// este cambio) se siguen leyendo correctamente vía `unwrapDek`, pero
+  /// nunca se vuelven a escribir con los parámetros antiguos.
   static Future<Uint8List> wrapDek({
     required List<int> dek,
     required String password,
     List<int>? salt,
   }) async {
     final s = salt != null ? Uint8List.fromList(salt) : randomBytes(saltLength);
-    final kek = await deriveKekFromPassword(password: password, salt: s);
+    final kek = await deriveKekFromPassword(
+      password: password,
+      salt: s,
+      version: _currentWrapVersion,
+    );
     final nonce = randomBytes(nonceLength);
     final box = await _aes.encrypt(dek, secretKey: kek, nonce: nonce);
     final out = BytesBuilder(copy: false);
+    out.addByte(_currentWrapVersion);
     out.add(s);
     out.add(box.nonce);
     out.add(box.cipherText);
@@ -63,15 +100,54 @@ class VaultCrypto {
     required List<int> wrapped,
     required String password,
   }) async {
-    if (wrapped.length < saltLength + nonceLength + 16) {
+    // Intenta primero el formato versionado (nuevo); si falla (MAC inválido,
+    // longitud insuficiente, etc.) cae al formato legacy (sin byte de
+    // versión, parámetros Argon2id antiguos) para no romper vaults ya
+    // existentes creados antes de este cambio.
+    try {
+      return await _unwrapDekVersioned(wrapped: wrapped, password: password);
+    } on VaultCryptoException {
+      return await _unwrapDekLegacy(wrapped: wrapped, password: password);
+    }
+  }
+
+  static Future<Uint8List> _unwrapDekVersioned({
+    required List<int> wrapped,
+    required String password,
+  }) async {
+    const headerLength = 1;
+    if (wrapped.length < headerLength + saltLength + nonceLength + 16) {
       throw VaultCryptoException('Datos de clave corruptos');
     }
-    final s = wrapped.sublist(0, saltLength);
-    final nonce = wrapped.sublist(saltLength, saltLength + nonceLength);
-    final macStart = wrapped.length - 16;
-    final cipher = wrapped.sublist(saltLength + nonceLength, macStart);
-    final mac = Mac(wrapped.sublist(macStart));
-    final kek = await deriveKekFromPassword(password: password, salt: s);
+    final version = wrapped[0];
+    if (version != _currentWrapVersion) {
+      throw VaultCryptoException('Versión de clave desconocida');
+    }
+    final body = wrapped.sublist(headerLength);
+    return _unwrapDekBody(body: body, password: password, version: version);
+  }
+
+  static Future<Uint8List> _unwrapDekLegacy({
+    required List<int> wrapped,
+    required String password,
+  }) async {
+    if (wrapped.length < saltLength + nonceLength + 16) {
+      throw VaultCryptoException('Contraseña incorrecta o datos dañados');
+    }
+    return _unwrapDekBody(body: wrapped, password: password, version: 0);
+  }
+
+  static Future<Uint8List> _unwrapDekBody({
+    required List<int> body,
+    required String password,
+    required int version,
+  }) async {
+    final s = body.sublist(0, saltLength);
+    final nonce = body.sublist(saltLength, saltLength + nonceLength);
+    final macStart = body.length - 16;
+    final cipher = body.sublist(saltLength + nonceLength, macStart);
+    final mac = Mac(body.sublist(macStart));
+    final kek = await deriveKekFromPassword(password: password, salt: s, version: version);
     try {
       final clear = await _aes.decrypt(
         SecretBox(cipher, nonce: nonce, mac: mac),

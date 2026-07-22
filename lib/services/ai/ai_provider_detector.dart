@@ -103,6 +103,7 @@ class AiProviderDetector {
       AiProvider.quillCloud => const <String>[],
       AiProvider.openAi => const <String>[],
       AiProvider.gemini => const <String>[],
+      AiProvider.geminiNano => const <String>[],
     };
 
     for (final exe in executableNames) {
@@ -134,6 +135,7 @@ class AiProviderDetector {
       AiProvider.quillCloud => const <String>[],
       AiProvider.openAi => const <String>[],
       AiProvider.gemini => const <String>[],
+      AiProvider.geminiNano => const <String>[],
     };
     for (final processName in processNames) {
       try {
@@ -179,6 +181,7 @@ class AiProviderDetector {
       AiProvider.quillCloud => const [],
       AiProvider.openAi => const [],
       AiProvider.gemini => const [],
+      AiProvider.geminiNano => const [],
     };
   }
 
@@ -205,6 +208,7 @@ class AiProviderDetector {
         case AiProvider.quillCloud:
         case AiProvider.openAi:
         case AiProvider.gemini:
+        case AiProvider.geminiNano:
           return false;
       }
     } catch (_) {

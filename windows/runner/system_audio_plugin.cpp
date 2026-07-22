@@ -196,7 +196,10 @@ flutter::EncodableList EnumerateRenderDevices() {
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
 
-SystemAudioPlugin::SystemAudioPlugin(flutter::BinaryMessenger* messenger) {
+SystemAudioPlugin::SystemAudioPlugin(flutter::BinaryMessenger* messenger, HWND hwnd)
+    : hwnd_(hwnd) {
+  DeferredChunkWindowMessage();
+
   // Method channel
   method_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "folio/system_audio",
@@ -233,6 +236,27 @@ SystemAudioPlugin::SystemAudioPlugin(flutter::BinaryMessenger* messenger) {
 
 SystemAudioPlugin::~SystemAudioPlugin() {
   StopCapture();
+}
+
+// static
+UINT SystemAudioPlugin::DeferredChunkWindowMessage() {
+  static const UINT message_id =
+      RegisterWindowMessageW(L"Folio_SystemAudio_DeferredChunk_v1");
+  return message_id;
+}
+
+void SystemAudioPlugin::ProcessDeferredChunk(LPARAM /*lparam*/) noexcept {
+  // Corre en el hilo de plataforma (invocado desde el WndProc) — único lugar
+  // donde es seguro tocar event_sink_ y emitir hacia el EventChannel.
+  std::vector<std::vector<uint8_t>> pending;
+  {
+    std::lock_guard<std::mutex> lock(chunk_queue_mutex_);
+    pending.swap(chunk_queue_);
+  }
+  if (!event_sink_) return;
+  for (auto& pcm : pending) {
+    event_sink_->Success(flutter::EncodableValue(std::move(pcm)));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -276,33 +300,99 @@ void SystemAudioPlugin::HandleMethodCall(
 
 bool SystemAudioPlugin::StartCapture(const std::string& preferred_device_id) {
   if (capturing_.load()) return true;
+  // Reap a thread from a previous attempt that already finished (e.g. init
+  // failed). This does not block: the thread only reaches this state after
+  // fully exiting CaptureThreadMain.
+  if (capture_thread_.joinable()) capture_thread_.join();
 
   selected_device_id_ = preferred_device_id;
 
-  HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) return false;
+  auto init_result = std::make_shared<std::promise<bool>>();
+  std::future<bool> init_future = init_result->get_future();
 
-  hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                        __uuidof(IMMDeviceEnumerator),
-                        reinterpret_cast<void**>(&enumerator_));
+  capture_thread_ = std::thread([this, init_result]() {
+    CaptureThreadMain(init_result);
+  });
+
+  // Bloquea hasta que el hilo termine de inicializar WASAPI (mismo perfil de
+  // latencia que antes, cuando la inicialización se hacía en línea aquí
+  // mismo). Se hace en el hilo de captura para que todos los objetos COM se
+  // creen y usen en el mismo apartment MTA correctamente inicializado.
+  try {
+    return init_future.get();
+  } catch (...) {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CaptureThreadMain — todo el ciclo de vida de WASAPI/COM vive aquí.
+// ---------------------------------------------------------------------------
+
+void SystemAudioPlugin::CaptureThreadMain(
+    std::shared_ptr<std::promise<bool>> init_result) {
+  const HRESULT com_hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  const bool com_owned = SUCCEEDED(com_hr);
+  if (FAILED(com_hr) && com_hr != RPC_E_CHANGED_MODE) {
+    init_result->set_value(false);
+    return;
+  }
+
+  WAVEFORMATEX* wfx = nullptr;
+  bool ok = false;
+  try {
+    ok = InitWasapiLoopback(&wfx);
+  } catch (...) {
+    ok = false;
+  }
+
+  if (!ok) {
+    ReleaseWasapiResources();
+    if (com_owned) CoUninitialize();
+    init_result->set_value(false);
+    return;
+  }
+
+  capturing_.store(true);
+  init_result->set_value(true);
+
+  DWORD task_index = 0;
+  HANDLE task_handle = AvSetMmThreadCharacteristics(L"Audio", &task_index);
+
+  try {
+    RunCaptureLoop(wfx);
+  } catch (...) {
+    // Degradar a "captura detenida" en vez de tumbar el proceso ante un
+    // fallo inesperado de un driver/APO de audio de terceros.
+  }
+
+  if (task_handle) AvRevertMmThreadCharacteristics(task_handle);
+  CoTaskMemFree(wfx);
+  ReleaseWasapiResources();
+  capturing_.store(false);
+  if (com_owned) CoUninitialize();
+}
+
+bool SystemAudioPlugin::InitWasapiLoopback(WAVEFORMATEX** out_format) {
+  HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                __uuidof(IMMDeviceEnumerator),
+                                reinterpret_cast<void**>(&enumerator_));
   if (FAILED(hr)) return false;
 
   // Render endpoint (default or selected) — loopback records what's playing.
   device_ = FindRenderEndpointById(enumerator_, selected_device_id_);
   if (!device_) {
     hr = enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device_);
-  } else {
-    hr = S_OK;
+    if (FAILED(hr)) return false;
   }
-  if (FAILED(hr)) { enumerator_->Release(); enumerator_ = nullptr; return false; }
 
   hr = device_->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                           reinterpret_cast<void**>(&audio_client_));
-  if (FAILED(hr)) { device_->Release(); device_ = nullptr; return false; }
+  if (FAILED(hr)) return false;
 
   WAVEFORMATEX* mix_format = nullptr;
   hr = audio_client_->GetMixFormat(&mix_format);
-  if (FAILED(hr)) { audio_client_->Release(); audio_client_ = nullptr; return false; }
+  if (FAILED(hr) || !mix_format) return false;
 
   // 200 ms buffer, loopback mode
   const REFERENCE_TIME requested_duration = 2000000;  // 200ms in 100ns units
@@ -310,118 +400,87 @@ bool SystemAudioPlugin::StartCapture(const std::string& preferred_device_id) {
       AUDCLNT_SHAREMODE_SHARED,
       AUDCLNT_STREAMFLAGS_LOOPBACK,
       requested_duration, 0, mix_format, nullptr);
-
-  if (FAILED(hr)) {
-    CoTaskMemFree(mix_format);
-    audio_client_->Release(); audio_client_ = nullptr;
-    return false;
-  }
+  if (FAILED(hr)) { CoTaskMemFree(mix_format); return false; }
 
   hr = audio_client_->GetService(__uuidof(IAudioCaptureClient),
                                   reinterpret_cast<void**>(&capture_client_));
-  if (FAILED(hr)) {
-    CoTaskMemFree(mix_format);
-    audio_client_->Release(); audio_client_ = nullptr;
-    return false;
-  }
+  if (FAILED(hr)) { CoTaskMemFree(mix_format); return false; }
 
   hr = audio_client_->Start();
-  if (FAILED(hr)) {
-    capture_client_->Release(); capture_client_ = nullptr;
-    audio_client_->Release(); audio_client_ = nullptr;
-    CoTaskMemFree(mix_format);
-    return false;
-  }
+  if (FAILED(hr)) { CoTaskMemFree(mix_format); return false; }
 
-  capturing_.store(true);
-
-  // Copy format info needed by the capture thread (CoTaskMemFree after thread starts)
-  WAVEFORMATEX fmt_copy = *mix_format;
-  // For extensible, we only need the base fields for ConvertToInt16Mono16k
-  CoTaskMemFree(mix_format);
-
-  capture_thread_ = std::thread([this, fmt_copy]() {
-    CaptureLoop();
-  });
-
-  // Store format for capture loop via lambda capture above; we need it in CaptureLoop.
-  // To pass it simply we'll store it as a member — but since we already started the thread
-  // with a copy we need a member. Let's store a simplified version.
-  // (The thread uses fmt_copy captured by value in the lambda.)
-  // NOTE: CaptureLoop() below reads audio_client_ / capture_client_ which are members.
-  //       The format is passed via the lambda copy already — but CaptureLoop's signature
-  //       doesn't take an argument. We restructure: store waveformat as member.
-  // --> waveformat already captured in lambda; see revised CaptureLoop below.
-  // This comment block is left intentionally to explain the design.
+  *out_format = mix_format;
   return true;
 }
 
 // ---------------------------------------------------------------------------
-// CaptureLoop  (runs on capture_thread_)
+// RunCaptureLoop  (runs on capture_thread_, dentro del apartment MTA propio)
 // ---------------------------------------------------------------------------
 
-void SystemAudioPlugin::CaptureLoop() {
-  // Set real-time thread priority
-  DWORD task_index = 0;
-  HANDLE task_handle = AvSetMmThreadCharacteristics(L"Audio", &task_index);
-
-  // We need the mix format here. Since StartCapture() launches the thread with a
-  // lambda that calls CaptureLoop(), but CaptureLoop doesn't receive the format,
-  // we query it again from the IAudioClient.
-  WAVEFORMATEX* wfx = nullptr;
-  audio_client_->GetMixFormat(&wfx);
-  if (!wfx) {
-    capturing_.store(false);
-    if (task_handle) AvRevertMmThreadCharacteristics(task_handle);
-    return;
-  }
-
+void SystemAudioPlugin::RunCaptureLoop(const WAVEFORMATEX* wfx) {
   while (capturing_.load()) {
     UINT32 packet_length = 0;
     HRESULT hr = capture_client_->GetNextPacketSize(&packet_length);
-    if (FAILED(hr)) break;
+    if (FAILED(hr)) return;
 
     while (packet_length > 0) {
       BYTE* data = nullptr;
       UINT32 num_frames = 0;
       DWORD flags = 0;
       hr = capture_client_->GetBuffer(&data, &num_frames, &flags, nullptr, nullptr);
-      if (FAILED(hr)) break;
+      if (FAILED(hr)) return;
 
       if (num_frames > 0 && !(flags & AUDCLNT_BUFFERFLAGS_SILENT)) {
         auto pcm = ConvertToInt16Mono16k(data, num_frames, wfx);
-        if (event_sink_ && !pcm.empty()) {
-          event_sink_->Success(
-              flutter::EncodableValue(std::vector<uint8_t>(pcm.begin(), pcm.end())));
+        if (!pcm.empty()) {
+          EnqueueChunkForUiThread(std::move(pcm));
         }
       }
 
       capture_client_->ReleaseBuffer(num_frames);
       hr = capture_client_->GetNextPacketSize(&packet_length);
-      if (FAILED(hr)) goto done;
+      if (FAILED(hr)) return;
     }
 
     Sleep(10);  // 10ms polling interval
   }
+}
 
-done:
-  CoTaskMemFree(wfx);
-  if (task_handle) AvRevertMmThreadCharacteristics(task_handle);
+void SystemAudioPlugin::EnqueueChunkForUiThread(std::vector<uint8_t> pcm) {
+  // NUNCA llamar a event_sink_->Success() desde este hilo: el motor de
+  // Flutter en Windows trata el tráfico de canal de plataforma emitido
+  // fuera del hilo de plataforma como fatal (fast-fail 0xC0000409). Se
+  // encola y se despacha vía mensaje de ventana al hilo de plataforma
+  // (ver SystemAudioPlugin::ProcessDeferredChunk).
+  {
+    std::lock_guard<std::mutex> lock(chunk_queue_mutex_);
+    chunk_queue_.push_back(std::move(pcm));
+  }
+  if (hwnd_ && IsWindow(hwnd_)) {
+    PostMessageW(hwnd_, DeferredChunkWindowMessage(), 0, 0);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // StopCapture
 // ---------------------------------------------------------------------------
 
-void SystemAudioPlugin::StopCapture() {
-  if (!capturing_.load()) return;
-  capturing_.store(false);
-
-  if (capture_thread_.joinable()) capture_thread_.join();
-
+void SystemAudioPlugin::ReleaseWasapiResources() {
   if (audio_client_) { audio_client_->Stop(); }
   if (capture_client_) { capture_client_->Release(); capture_client_ = nullptr; }
   if (audio_client_) { audio_client_->Release(); audio_client_ = nullptr; }
   if (device_) { device_->Release(); device_ = nullptr; }
   if (enumerator_) { enumerator_->Release(); enumerator_ = nullptr; }
+}
+
+void SystemAudioPlugin::StopCapture() {
+  if (!capturing_.load() && !capture_thread_.joinable()) return;
+  capturing_.store(false);
+
+  // CaptureThreadMain libera los objetos WASAPI/COM y hace CoUninitialize()
+  // antes de salir, así que aquí solo esperamos a que termine.
+  if (capture_thread_.joinable()) capture_thread_.join();
+
+  std::lock_guard<std::mutex> lock(chunk_queue_mutex_);
+  chunk_queue_.clear();
 }

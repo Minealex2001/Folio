@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart' show Locale;
@@ -42,6 +43,15 @@ import '../models/folio_canvas_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
+import '../models/trello_integration_state.dart';
+import '../models/github_integration_state.dart';
+import '../models/gitlab_integration_state.dart';
+import '../models/slack_integration_state.dart';
+import '../models/teams_integration_state.dart';
+import '../models/spotify_integration_state.dart';
+import '../models/system_media_integration_state.dart';
+import '../models/discord_integration_state.dart';
+import '../services/integrations/integration_notification_dispatcher.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -53,12 +63,27 @@ import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
+import '../services/ai/ai_app_question_detector.dart';
+import '../services/ai/ai_tool_json_emulation.dart';
+import '../services/ai/ai_tool_loop.dart';
 import '../services/ai/ai_types.dart';
+import '../services/ai/folio_docs_grounding_loader.dart';
+import '../services/ai/folio_tool_registry.dart';
+import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
+import '../services/unlock_attempt_throttle.dart';
+import '../services/folio_cloud/device_sync_key_cache.dart';
+import '../services/sync/sync_conflict_entry.dart';
+import '../services/sync/sync_conflict_store.dart';
+import '../services/sync/vault_sync_merge.dart';
+import '../services/sync/vault_sync_pack.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'workspace_navigation_history.dart';
+
+export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
 
 part 'vault_session_ai.dart';
 
@@ -106,24 +131,6 @@ class _PageUndoSnapshot {
   final String title;
   final String? emoji;
   final List<FolioBlock> blocks;
-}
-
-class SyncConflictEntry {
-  const SyncConflictEntry({
-    required this.id,
-    required this.fromPeerId,
-    required this.createdAtMs,
-    required this.remoteFingerprint,
-    required this.remoteSnapshotBytes,
-    required this.remotePageCount,
-  });
-
-  final String id;
-  final String fromPeerId;
-  final int createdAtMs;
-  final String remoteFingerprint;
-  final List<int> remoteSnapshotBytes;
-  final int remotePageCount;
 }
 
 class VaultSession extends ChangeNotifier {
@@ -182,12 +189,14 @@ class VaultSession extends ChangeNotifier {
     final active = _pages.where((p) => !p.isTrashed).toList();
     if (active.isEmpty) {
       _selectedPageId = null;
+      _navigationHistory.seed(null);
       return;
     }
     if (preferPersistedPreference) {
       final p = await SharedPreferences.getInstance();
       if (p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false) {
         _selectedPageId = null;
+        _navigationHistory.seed(null);
         return;
       }
       final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
@@ -197,12 +206,14 @@ class VaultSession extends ChangeNotifier {
             saved.isNotEmpty &&
             active.any((pg) => pg.id == saved)) {
           _selectedPageId = saved;
+          _navigationHistory.seed(saved);
           return;
         }
       }
     }
     final roots = active.where((p) => p.parentId == null).toList();
     _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
+    _navigationHistory.seed(_selectedPageId);
   }
 
   bool _isManagedAttachmentPath(String? path) {
@@ -335,6 +346,10 @@ class VaultSession extends ChangeNotifier {
   final LocalAuthentication _localAuth;
   void Function()? onPersisted;
   void Function(int pendingConflicts)? onSyncConflictCountChanged;
+  /// Antes de abandonar la libreta activa (p. ej. `switchVault`), aún desbloqueada.
+  Future<void> Function()? onBeforeLeaveVault;
+  /// Antes de cambiar de página seleccionada (había otra página abierta).
+  Future<void> Function()? onBeforeLeavePage;
   AiService? _aiService;
 
   static const _uuid = Uuid();
@@ -356,7 +371,20 @@ class VaultSession extends ChangeNotifier {
   final List<FolioPageTemplate> _pageTemplates = [];
   JiraIntegrationState _jira = JiraIntegrationState.empty;
   YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
+  TrelloIntegrationState _trello = TrelloIntegrationState.empty;
+  GitHubIntegrationState _github = GitHubIntegrationState.empty;
+  GitLabIntegrationState _gitlab = GitLabIntegrationState.empty;
+  SlackIntegrationState _slack = SlackIntegrationState.empty;
+  TeamsIntegrationState _teams = TeamsIntegrationState.empty;
+  SpotifyIntegrationState _spotify = SpotifyIntegrationState.empty;
+  DiscordIntegrationState _discord = DiscordIntegrationState.empty;
+  SystemMediaIntegrationState _systemMedia = SystemMediaIntegrationState.empty;
+  final IntegrationNotificationDispatcher _notificationDispatcher =
+      IntegrationNotificationDispatcher();
   String? _selectedPageId;
+  final WorkspaceNavigationHistory _navigationHistory =
+      WorkspaceNavigationHistory();
+  bool _applyingHistoryNavigation = false;
   Timer? _revisionIdleTimer;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
@@ -365,8 +393,14 @@ class VaultSession extends ChangeNotifier {
   late final PageTreeController _pageTree;
   late final VaultAiController _aiController;
   String _syncBaselineFingerprint = '';
+  VaultPayload? _syncBaselinePayload;
   int _syncPendingConflicts = 0;
   final List<SyncConflictEntry> _syncConflicts = [];
+  final SyncConflictStore _conflictStore = SyncConflictStore();
+  final Map<String, int> _pageTombstones = {};
+  final Set<String> _mcpReadablePageIds = {};
+  int _syncClock = 0;
+  static const VaultSyncMergeEngine _syncMerge = VaultSyncMergeEngine();
   Duration _idleLockDuration = const Duration(minutes: 15);
   bool _lockOnAppBackground = false;
   bool _vaultUsesEncryption = true;
@@ -383,6 +417,11 @@ class VaultSession extends ChangeNotifier {
   Future<List<VaultEntry>> listVaultEntries() async {
     await _registry.load();
     return _registry.vaults;
+  }
+
+  Future<bool> containsVault(String vaultId) async {
+    await _registry.load();
+    return _registry.containsVault(vaultId);
   }
 
   /// Nombre de la libreta activa para mostrar en Ajustes (p. ej. copias).
@@ -514,10 +553,11 @@ class VaultSession extends ChangeNotifier {
     return SecretKey(h2.bytes);
   }
 
-  /// Para tests que llaman a [collectTaskBlocks] sin [bootstrap].
+  /// Para tests que operan sobre el vault sin pasar por [bootstrap].
   @visibleForTesting
   void debugMarkUnlockedForTests() {
     _state = VaultFlowState.unlocked;
+    _vaultUsesEncryption = false;
   }
 
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
@@ -531,6 +571,24 @@ class VaultSession extends ChangeNotifier {
   YouTrackIntegrationState get youtrackIntegrationState => _youtrack;
   List<YouTrackConnection> get youtrackConnections => _youtrack.connections;
   List<YouTrackSource> get youtrackSources => _youtrack.sources;
+  TrelloIntegrationState get trelloIntegrationState => _trello;
+  List<TrelloConnection> get trelloConnections => _trello.connections;
+  List<TrelloSource> get trelloSources => _trello.sources;
+  GitHubIntegrationState get githubIntegrationState => _github;
+  List<GitHubConnection> get githubConnections => _github.connections;
+  List<GitHubSource> get githubSources => _github.sources;
+  GitLabIntegrationState get gitlabIntegrationState => _gitlab;
+  List<GitLabConnection> get gitlabConnections => _gitlab.connections;
+  List<GitLabSource> get gitlabSources => _gitlab.sources;
+  SlackIntegrationState get slackIntegrationState => _slack;
+  List<SlackConnection> get slackConnections => _slack.connections;
+  TeamsIntegrationState get teamsIntegrationState => _teams;
+  List<TeamsConnection> get teamsConnections => _teams.connections;
+  SpotifyIntegrationState get spotifyIntegrationState => _spotify;
+  List<SpotifyConnection> get spotifyConnections => _spotify.connections;
+  DiscordIntegrationState get discordIntegrationState => _discord;
+  List<DiscordConnection> get discordConnections => _discord.connections;
+  SystemMediaIntegrationState get systemMediaIntegrationState => _systemMedia;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -829,6 +887,7 @@ class VaultSession extends ChangeNotifier {
           _pages = List.from(payload.pages);
           _loadRevisionsFromPayload(payload);
           _ensureOrderForCurrentPages();
+          await _applySyncedDisplayName(payload.displayName);
           await _applyInitialPageSelection(preferPersistedPreference: true);
           _state = VaultFlowState.unlocked;
           purgeExpiredTrash();
@@ -947,6 +1006,21 @@ class VaultSession extends ChangeNotifier {
       ..addAll(payload.pageTemplates);
     _jira = payload.jira;
     _youtrack = payload.youtrack;
+    _trello = payload.trello;
+    _github = payload.github;
+    _gitlab = payload.gitlab;
+    _slack = payload.slack;
+    _teams = payload.teams;
+    _spotify = payload.spotify;
+    _discord = payload.discord;
+    _systemMedia = payload.systemMedia;
+    _pageTombstones
+      ..clear()
+      ..addAll(payload.pageTombstones);
+    _mcpReadablePageIds
+      ..clear()
+      ..addAll(payload.mcpReadablePageIds);
+    _syncClock = payload.syncClock;
     _resetUndoRedoState();
   }
 
@@ -1072,6 +1146,286 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void upsertTrelloConnection(TrelloConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TrelloConnection>.from(_trello.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _trello = TrelloIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _trello.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTrelloConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _trello.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _trello.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _trello = TrelloIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertTrelloSource(TrelloSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TrelloSource>.from(_trello.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _trello = TrelloIntegrationState(
+      connections: _trello.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTrelloSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _trello.sources.where((s) => s.id != sourceId).toList();
+    _trello = TrelloIntegrationState(
+      connections: _trello.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitHubConnection(GitHubConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitHubConnection>.from(_github.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _github = GitHubIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _github.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitHubConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _github.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _github.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _github = GitHubIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitHubSource(GitHubSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitHubSource>.from(_github.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _github = GitHubIntegrationState(
+      connections: _github.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitHubSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _github.sources.where((s) => s.id != sourceId).toList();
+    _github = GitHubIntegrationState(
+      connections: _github.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitLabConnection(GitLabConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitLabConnection>.from(_gitlab.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _gitlab = GitLabIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _gitlab.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitLabConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _gitlab.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _gitlab.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _gitlab = GitLabIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertGitLabSource(GitLabSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<GitLabSource>.from(_gitlab.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _gitlab = GitLabIntegrationState(
+      connections: _gitlab.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeGitLabSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _gitlab.sources.where((s) => s.id != sourceId).toList();
+    _gitlab = GitLabIntegrationState(
+      connections: _gitlab.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertSlackConnection(SlackConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<SlackConnection>.from(_slack.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _slack = SlackIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeSlackConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _slack.connections.where((c) => c.id != connectionId).toList();
+    _slack = SlackIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertTeamsConnection(TeamsConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<TeamsConnection>.from(_teams.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _teams = TeamsIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeTeamsConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _teams.connections.where((c) => c.id != connectionId).toList();
+    _teams = TeamsIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertSpotifyConnection(SpotifyConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<SpotifyConnection>.from(_spotify.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeSpotifyConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _spotify.connections.where((c) => c.id != connectionId).toList();
+    _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void updateSystemMediaIntegration(SystemMediaIntegrationState state) {
+    if (_state != VaultFlowState.unlocked) return;
+    _systemMedia = state;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertDiscordConnection(DiscordConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<DiscordConnection>.from(_discord.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _discord = DiscordIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeDiscordConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _discord.connections.where((c) => c.id != connectionId).toList();
+    _discord = DiscordIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
   String _orderKeyForParent(String? parentId) => parentId ?? '';
 
   void _ensureOrderForCurrentPages() {
@@ -1189,7 +1543,10 @@ class VaultSession extends ChangeNotifier {
     }
     _resumeVaultIdAfterNewVault = current;
     final newId = _uuid.v4();
-    await VaultPaths.vaultDirectoryForId(newId);
+    await VaultPaths.initVaultStorage(newId);
+    if (!kIsWeb) {
+      await VaultPaths.vaultDirectoryForId(newId);
+    }
     final ordinal = _registry.vaults.length + 1;
     await _registry.add(
       VaultEntry(
@@ -1230,7 +1587,34 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> switchVault(String vaultId) async {
     await _registry.load();
-    if (!_registry.containsVault(vaultId)) return;
+    if (!_registry.containsVault(vaultId)) {
+      AppLogger.warn(
+        'switchVault: vault not in registry',
+        tag: 'vault',
+        context: {'vaultId': vaultId},
+      );
+      return;
+    }
+    AppLogger.info(
+      'switchVault',
+      tag: 'vault',
+      context: {'vaultId': vaultId, 'from': _vaultId},
+    );
+    final leavingId = _vaultId;
+    if (leavingId != null &&
+        leavingId.isNotEmpty &&
+        leavingId != vaultId &&
+        _state == VaultFlowState.unlocked) {
+      try {
+        await onBeforeLeaveVault?.call();
+      } catch (e, st) {
+        AppLogger.warn(
+          'onBeforeLeaveVault failed; continuing switch',
+          tag: 'vault',
+          context: {'vaultId': leavingId, 'error': '$e', 'stack': '$st'},
+        );
+      }
+    }
     await lock();
     VaultPaths.setActiveVaultId(vaultId);
     await _registry.setActiveVaultId(vaultId);
@@ -1242,6 +1626,8 @@ class VaultSession extends ChangeNotifier {
     final id = _vaultId;
     if (id == null) return;
     await _registry.rename(id, displayName);
+    // Persistir en el payload para que el sync multi-dispositivo propague el nombre.
+    scheduleSave();
     notifyListeners();
   }
 
@@ -1302,12 +1688,10 @@ class VaultSession extends ChangeNotifier {
     String? displayName,
     bool deleteExtractedDir = false,
   }) async {
-    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     try {
       await validateImportZip(extractedDir, backupPassword);
       final newId = _uuid.v4();
-      final root = await VaultPaths.vaultDirectoryForId(newId);
-      await applyImportToVaultRoot(extractedDir, root);
+      await applyImportToVaultId(extractedDir, newId);
       await _registry.load();
       await _registry.add(
         VaultEntry(
@@ -1327,6 +1711,149 @@ class VaultSession extends ChangeNotifier {
         } catch (_) {}
       }
     }
+  }
+
+  /// Importa un cloud-pack/ZIP ya extraído usando el [cloudVaultId] remoto
+  /// (no genera un UUID nuevo). No desbloquea la libreta.
+  ///
+  /// Si [overwriteIfExists] y hay una libreta local vacía con otro id, se
+  /// elimina ese slot y se registra [cloudVaultId].
+  Future<void> importCloudVaultAsLocal({
+    required String cloudVaultId,
+    required Directory extractedDir,
+    required String password,
+    String? displayName,
+    bool overwriteIfExists = false,
+    bool setActive = false,
+  }) async {
+    final id = cloudVaultId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('cloudVaultId vacío');
+    }
+    await validateImportZip(extractedDir, password);
+    await _prepareCloudVaultSlot(
+      id: id,
+      overwriteIfExists: overwriteIfExists,
+    );
+    await applyImportToVaultId(extractedDir, id);
+    await _registerImportedCloudVault(
+      id: id,
+      displayName: displayName,
+      setActive: setActive,
+    );
+  }
+
+  /// Igual que [importCloudVaultAsLocal] con árbol en memoria (web / IndexedDB).
+  Future<void> importCloudVaultAsLocalFromMemory({
+    required String cloudVaultId,
+    required ExtractedVaultBackup backup,
+    required String password,
+    String? displayName,
+    bool overwriteIfExists = false,
+    bool setActive = false,
+  }) async {
+    final id = cloudVaultId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('cloudVaultId vacío');
+    }
+    AppLogger.info(
+      'importCloudVaultAsLocalFromMemory start',
+      tag: 'vault',
+      context: {
+        'vaultId': id,
+        'overwrite': overwriteIfExists,
+        'setActive': setActive,
+      },
+    );
+    await validateImportBackup(backup, password);
+    await _prepareCloudVaultSlot(
+      id: id,
+      overwriteIfExists: overwriteIfExists,
+    );
+    await applyImportToVaultIdFromMemory(backup, id);
+    await _registerImportedCloudVault(
+      id: id,
+      displayName: displayName,
+      setActive: setActive,
+    );
+    AppLogger.info(
+      'importCloudVaultAsLocalFromMemory ok',
+      tag: 'vault',
+      context: {'vaultId': id},
+    );
+  }
+
+  Future<void> _prepareCloudVaultSlot({
+    required String id,
+    required bool overwriteIfExists,
+  }) async {
+    await _registry.load();
+
+    final already =
+        _registry.containsVault(id) || await VaultPaths.vaultExistsForId(id);
+    if (already && !overwriteIfExists) {
+      throw StateError('La libreta $id ya existe en este dispositivo.');
+    }
+
+    if (overwriteIfExists) {
+      final activeId = VaultPaths.activeVaultId;
+      if (activeId != null &&
+          activeId != id &&
+          await isLocalVaultEmptyForCloudImport()) {
+        await VaultPaths.deleteVaultDirectory(activeId);
+        if (_registry.containsVault(activeId)) {
+          await _registry.remove(activeId);
+        }
+      }
+      if (already) {
+        await VaultPaths.deleteVaultDirectory(id);
+      }
+    }
+  }
+
+  Future<void> _registerImportedCloudVault({
+    required String id,
+    required String? displayName,
+    required bool setActive,
+  }) async {
+    if (!_registry.containsVault(id)) {
+      final ordinal = _registry.vaults.length + 1;
+      await _registry.add(
+        VaultEntry(
+          id: id,
+          displayName: displayName ?? 'Libreta $ordinal',
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    } else if (displayName != null && displayName.trim().isNotEmpty) {
+      await _registry.rename(id, displayName.trim());
+    }
+
+    if (setActive) {
+      VaultPaths.setActiveVaultId(id);
+      await _registry.setActiveVaultId(id);
+    }
+    notifyListeners();
+  }
+
+  /// Heurística 2B: slot vacío / onboarding / solo páginas starter.
+  Future<bool> isLocalVaultEmptyForCloudImport() async {
+    await _registry.load();
+    if (_state == VaultFlowState.needsOnboarding) return true;
+    final activeId = VaultPaths.activeVaultId;
+    if (activeId == null || activeId.isEmpty) return true;
+    if (!await VaultPaths.vaultExistsForId(activeId)) return true;
+    if (_state == VaultFlowState.unlocked) {
+      if (_pages.isEmpty) return true;
+      final onlyStarter = _pages.every((p) => p.id.startsWith('starter_'));
+      if (onlyStarter) {
+        // Sin adjuntos de usuario ≈ libreta recién creada con páginas iniciales.
+        return true;
+      }
+      return false;
+    }
+    // Locked / initializing: si hay payload real, no está vacía.
+    return !(await VaultPaths.vaultExists());
   }
 
   /// Importa una copia (ZIP o TAR.GZ) y **machaca** la libreta activa.
@@ -1554,6 +2081,7 @@ class VaultSession extends ChangeNotifier {
         VaultPayload(
           version: kVaultPayloadVersion,
           pages: _pages,
+          displayName: displayName ?? 'Notion importado',
           pageRevisions: const {},
           pageAcl: const {},
           localProfiles: [
@@ -1660,8 +2188,44 @@ class VaultSession extends ChangeNotifier {
       id = _uuid.v4();
       VaultPaths.setActiveVaultId(id);
     }
-    final root = await VaultPaths.vaultDirectoryForId(id);
-    await applyImportToVaultRoot(extractedDir, root);
+    await applyImportToVaultId(extractedDir, id);
+
+    if (!_registry.containsVault(id)) {
+      final ordinal = _registry.vaults.length + 1;
+      await _registry.add(
+        VaultEntry(
+          id: id,
+          displayName: 'Libreta $ordinal',
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    }
+    await _registry.setActiveVaultId(id);
+
+    final plainImported = await _repo.isPlaintextVault();
+    _vaultUsesEncryption = !plainImported;
+
+    await unlockWithPassword(backupPassword);
+    _resumeVaultIdAfterNewVault = null;
+  }
+
+  /// Onboarding por copia en memoria (cloud-pack en web / IndexedDB).
+  Future<void> completeOnboardingFromMemory(
+    ExtractedVaultBackup backup,
+    String backupPassword,
+  ) async {
+    await _registry.load();
+    if (VaultPaths.activeVaultId != null && await VaultPaths.vaultExists()) {
+      throw StateError('Ya hay datos en la libreta actual.');
+    }
+    await validateImportBackup(backup, backupPassword);
+
+    var id = VaultPaths.activeVaultId;
+    if (id == null) {
+      id = _uuid.v4();
+      VaultPaths.setActiveVaultId(id);
+    }
+    await applyImportToVaultIdFromMemory(backup, id);
 
     if (!_registry.containsVault(id)) {
       final ordinal = _registry.vaults.length + 1;
@@ -1683,6 +2247,14 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> unlockWithPassword(String password) async {
+    AppLogger.info(
+      'unlockWithPassword start',
+      tag: 'vault',
+      context: {
+        'vaultId': _vaultId,
+        'encrypted': vaultUsesEncryption,
+      },
+    );
     if (!vaultUsesEncryption) {
       _dek = null;
       try {
@@ -1690,32 +2262,71 @@ class VaultSession extends ChangeNotifier {
         _pages = List.from(payload.pages);
         _loadRevisionsFromPayload(payload);
         _ensureOrderForCurrentPages();
+        await _applySyncedDisplayName(payload.displayName);
         await _applyInitialPageSelection(preferPersistedPreference: true);
         _state = VaultFlowState.unlocked;
         purgeExpiredTrash();
         _restartIdleLockTimer();
+        await _cacheDeviceSyncKeyAfterUnlock();
+        AppLogger.info(
+          'unlockWithPassword ok (plain)',
+          tag: 'vault',
+          context: {'vaultId': _vaultId, 'pages': _pages.length},
+        );
         notifyListeners();
       } on VaultCorruptionException {
         _state = VaultFlowState.recovery;
+        AppLogger.error(
+          'unlockWithPassword recovery (plain corruption)',
+          tag: 'vault',
+          context: {'vaultId': _vaultId},
+        );
         notifyListeners();
       }
       return;
     }
+    final throttle = UnlockAttemptThrottle();
+    final vaultIdForThrottle = _vaultId ?? '';
+    final wait = await throttle.remainingWait(vaultIdForThrottle);
+    if (wait != null) {
+      throw UnlockThrottledException(wait);
+    }
     try {
-      final dek = await _repo.unlockWithPassword(password);
+      final Uint8List dek;
+      try {
+        dek = await _repo.unlockWithPassword(password);
+      } on VaultCorruptionException {
+        rethrow;
+      } catch (e) {
+        await throttle.recordFailure(vaultIdForThrottle);
+        rethrow;
+      }
+      await throttle.recordSuccess(vaultIdForThrottle);
       _dek = dek.toList();
       final payload = await _repo.loadPayload(_dek);
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
       _ensureOrderForCurrentPages();
+      await _applySyncedDisplayName(payload.displayName);
       await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
       purgeExpiredTrash();
       _restartIdleLockTimer();
+      await _cacheDeviceSyncKeyAfterUnlock();
+      AppLogger.info(
+        'unlockWithPassword ok',
+        tag: 'vault',
+        context: {'vaultId': _vaultId, 'pages': _pages.length},
+      );
       notifyListeners();
     } on VaultCorruptionException {
       _dek = null;
       _state = VaultFlowState.recovery;
+      AppLogger.error(
+        'unlockWithPassword recovery (corruption)',
+        tag: 'vault',
+        context: {'vaultId': _vaultId},
+      );
       notifyListeners();
     }
   }
@@ -1749,10 +2360,17 @@ class VaultSession extends ChangeNotifier {
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
+    await _applySyncedDisplayName(payload.displayName);
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _cacheDeviceSyncKeyAfterUnlock();
+    AppLogger.info(
+      'unlockWithDeviceAuth ok',
+      tag: 'vault',
+      context: {'vaultId': _vaultId, 'pages': _pages.length},
+    );
     notifyListeners();
   }
 
@@ -1777,11 +2395,85 @@ class VaultSession extends ChangeNotifier {
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
+    await _applySyncedDisplayName(payload.displayName);
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _cacheDeviceSyncKeyAfterUnlock();
+    AppLogger.info(
+      'unlockWithPasskey ok',
+      tag: 'vault',
+      context: {'vaultId': _vaultId, 'pages': _pages.length},
+    );
     notifyListeners();
+  }
+
+  /// Guarda DEK / clave de sync estable para device-sync en segundo plano.
+  Future<void> _cacheDeviceSyncKeyAfterUnlock() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    try {
+      final cache = DeviceSyncKeyCache();
+      if (vaultUsesEncryption) {
+        if (_dek == null || _dek!.length != VaultCrypto.dekLength) {
+          AppLogger.warn(
+            'device sync key cache skipped: missing DEK',
+            tag: 'vault',
+            context: {'vaultId': vid},
+          );
+          return;
+        }
+        await cache.save(vid, _dek!);
+      } else {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vid);
+          final key = await DeviceSyncKeyCache.plainPackKey(
+            uid: uid,
+            vaultId: vid,
+            accountSecret: secret,
+          );
+          final raw = await key.extractBytes();
+          await cache.save(vid, raw);
+        } else {
+          await cache.ensurePlainVaultSyncKey(vid);
+        }
+      }
+      AppLogger.debug(
+        'device sync key cached after unlock',
+        tag: 'vault',
+        context: {'vaultId': vid, 'encrypted': vaultUsesEncryption},
+      );
+    } catch (e, st) {
+      AppLogger.warn(
+        'device sync key cache failed after unlock',
+        tag: 'vault',
+        context: {'vaultId': vid, 'error': '$e'},
+      );
+      AppLogger.debug(
+        'device sync key cache stack',
+        tag: 'vault',
+        context: {'stack': '$st'},
+      );
+    }
+    await _restorePersistedSyncConflicts();
+  }
+
+  Future<void> _restorePersistedSyncConflicts() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    final loaded = await _conflictStore.load(vid);
+    _syncConflicts
+      ..clear()
+      ..addAll(loaded);
+    _notifySyncConflictCountChanged();
+  }
+
+  Future<void> _persistSyncConflicts() async {
+    final vid = _vaultId;
+    if (vid == null || vid.isEmpty) return;
+    await _conflictStore.save(vid, List<SyncConflictEntry>.from(_syncConflicts));
   }
 
   /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
@@ -1796,6 +2488,8 @@ class VaultSession extends ChangeNotifier {
     _pages = [];
     _pageRevisions.clear();
     _pageAcl.clear();
+    // La cola sigue en prefs; se restaura al desbloquear. No tocar AppSettings.
+    _syncConflicts.clear();
     _localProfiles
       ..clear()
       ..add(LocalProfile(id: 'local-default', name: 'Local user'));
@@ -1812,6 +2506,8 @@ class VaultSession extends ChangeNotifier {
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
     _selectedPageId = null;
+    _navigationHistory.clear();
+    _applyingHistoryNavigation = false;
   }
 
   /// Hooks que vacían a la sesión estado editable con debounce propio (p. ej.
@@ -1831,6 +2527,8 @@ class VaultSession extends ChangeNotifier {
     await _persistLastSelectedPageBeforeLock();
     // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
     await flushPendingSave();
+    // Asegura DEK en caché para sync en segundo plano tras bloquear.
+    await _cacheDeviceSyncKeyAfterUnlock();
     _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
@@ -1940,8 +2638,30 @@ class VaultSession extends ChangeNotifier {
   void selectPage(String id) {
     final page = _pageById(id);
     if (page == null || page.isTrashed) return;
+    final previousId = _selectedPageId;
+    if (previousId != null && previousId != id) {
+      unawaited(() async {
+        try {
+          await onBeforeLeavePage?.call();
+        } catch (e, st) {
+          AppLogger.warn(
+            'onBeforeLeavePage failed',
+            tag: 'workspace',
+            context: {'from': previousId, 'to': id, 'error': '$e', 'stack': '$st'},
+          );
+        }
+      }());
+    }
     touchActivity();
     _selectedPageId = id;
+    if (!_applyingHistoryNavigation) {
+      _navigationHistory.record(id);
+    }
+    AppLogger.debug(
+      'selectPage',
+      tag: 'workspace',
+      context: {'pageId': id, 'vaultId': _vaultId},
+    );
     notifyListeners();
     final requestId = ++_selectedPagePersistRequestId;
     final activeVaultId = VaultPaths.activeVaultId;
@@ -1969,7 +2689,77 @@ class VaultSession extends ChangeNotifier {
     if (_selectedPageId == null) return;
     touchActivity();
     _selectedPageId = null;
+    if (!_applyingHistoryNavigation) {
+      _navigationHistory.record(null);
+    }
     notifyListeners();
+  }
+
+  bool get canNavigateHistoryBack => _navigationHistory.canGoBack;
+
+  bool get canNavigateHistoryForward => _navigationHistory.canGoForward;
+
+  bool _isNavigationHistoryVisitValid(String? pageId) {
+    if (pageId == null) return true;
+    final page = _pageById(pageId);
+    return page != null && !page.isTrashed;
+  }
+
+  /// Aplica la entrada actual del historial sin volver a registrarla.
+  void _applyNavigationHistoryCurrent() {
+    final id = _navigationHistory.current;
+    if (id == null) {
+      if (_selectedPageId == null) return;
+      _selectedPageId = null;
+      notifyListeners();
+      return;
+    }
+    final page = _pageById(id);
+    if (page == null || page.isTrashed) return;
+    touchActivity();
+    _selectedPageId = id;
+    notifyListeners();
+    final requestId = ++_selectedPagePersistRequestId;
+    final activeVaultId = VaultPaths.activeVaultId;
+    unawaited(
+      _persistLastSelectedPageForActiveVault(
+        id,
+        vaultId: activeVaultId,
+        requestId: requestId,
+      ),
+    );
+  }
+
+  /// Retrocede en el historial de páginas/home. No cierra rutas del [Navigator].
+  bool navigateHistoryBack() {
+    if (!_navigationHistory.canGoBack) return false;
+    _applyingHistoryNavigation = true;
+    try {
+      if (!_navigationHistory.goBack(isValid: _isNavigationHistoryVisitValid)) {
+        return false;
+      }
+      _applyNavigationHistoryCurrent();
+      return true;
+    } finally {
+      _applyingHistoryNavigation = false;
+    }
+  }
+
+  /// Avanza en el historial de páginas/home.
+  bool navigateHistoryForward() {
+    if (!_navigationHistory.canGoForward) return false;
+    _applyingHistoryNavigation = true;
+    try {
+      if (!_navigationHistory.goForward(
+        isValid: _isNavigationHistoryVisitValid,
+      )) {
+        return false;
+      }
+      _applyNavigationHistoryCurrent();
+      return true;
+    } finally {
+      _applyingHistoryNavigation = false;
+    }
   }
 
   void selectAiChat(int index) {
@@ -2247,8 +3037,7 @@ class VaultSession extends ChangeNotifier {
         blocks: blocks,
       ),
     );
-    _selectedPageId = id;
-    notifyListeners();
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
     return id;
   }
@@ -2295,12 +3084,13 @@ class VaultSession extends ChangeNotifier {
     _pageOrderByParent
         .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
         .add(id);
-    _selectedPageId = id;
-    notifyListeners();
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
   }
 
-  void addFolder({String? parentId}) {
+  /// Devuelve el id de la carpeta creada (los llamadores existentes que no lo
+  /// necesitan simplemente ignoran el valor de retorno).
+  String addFolder({String? parentId}) {
     final id = _uuid.v4();
     _pages.add(
       FolioPage(
@@ -2316,6 +3106,72 @@ class VaultSession extends ChangeNotifier {
         .add(id);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
+    return id;
+  }
+
+  /// Crea una página con [id], [title] y [blocks] específicos — a diferencia
+  /// de [addPage], que siempre crea una página en blanco con título por
+  /// defecto y la selecciona. Pensado para tools de creación de contenido
+  /// del agente IA de Quill, donde el [id] ya se usó para construir los
+  /// bloques antes de llamar a este método.
+  void createPageWithId({
+    required String id,
+    required String title,
+    String? parentId,
+    required List<FolioBlock> blocks,
+  }) {
+    _pages.add(FolioPage(id: id, title: title, parentId: parentId, blocks: blocks));
+    _pageOrderByParent
+        .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
+        .add(id);
+    _mcpReadablePageIds.add(id);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+  }
+
+  /// Páginas/carpetas explícitamente autorizadas para lectura MCP.
+  Set<String> get mcpReadablePageIds => Set<String>.unmodifiable(_mcpReadablePageIds);
+
+  /// True si [pageId] está en la allowlist o algún ancestro carpeta lo está.
+  bool isMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty) return false;
+    if (_mcpReadablePageIds.contains(id)) return true;
+    var cur = _pageById(id);
+    final seen = <String>{};
+    while (cur?.parentId != null) {
+      final parentId = cur!.parentId!;
+      if (!seen.add(parentId)) break;
+      if (_mcpReadablePageIds.contains(parentId)) {
+        final parent = _pageById(parentId);
+        if (parent != null && parent.isFolder) return true;
+      }
+      cur = _pageById(parentId);
+    }
+    return false;
+  }
+
+  void grantMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty || _pageById(id) == null) return;
+    if (_mcpReadablePageIds.contains(id)) return;
+    _mcpReadablePageIds.add(id);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void revokeMcpPageReadable(String pageId) {
+    final id = pageId.trim();
+    if (id.isEmpty || !_mcpReadablePageIds.remove(id)) return;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void clearMcpReadablePages() {
+    if (_mcpReadablePageIds.isEmpty) return;
+    _mcpReadablePageIds.clear();
+    notifyListeners();
+    scheduleSave();
   }
 
   FolioMarkdownImportResult importMarkdownDocument(
@@ -3140,6 +3996,11 @@ class VaultSession extends ChangeNotifier {
   void movePageToTrash(String id) {
     if (!canMovePageToTrash(id)) return;
     final subtree = activeSubtreeIds(id);
+    AppLogger.info(
+      'movePageToTrash',
+      tag: 'workspace',
+      context: {'pageId': id, 'subtreeCount': subtree.length},
+    );
     final now = DateTime.now().toUtc();
     var selectionHit = false;
     for (final pageId in subtree) {
@@ -3181,6 +4042,11 @@ class VaultSession extends ChangeNotifier {
     if (root == null || !root.isTrashed) return;
     final subtree = _trashedSubtreeIds(id);
     if (subtree.isEmpty) return;
+    AppLogger.info(
+      'restoreFromTrash',
+      tag: 'workspace',
+      context: {'pageId': id, 'subtreeCount': subtree.length},
+    );
     for (final pageId in subtree) {
       final p = _pageById(pageId);
       if (p == null) continue;
@@ -3321,6 +4187,8 @@ class VaultSession extends ChangeNotifier {
     _pageAcl.remove(id);
     _comments.removeWhere((c) => c.pageId == id);
     _pageIdsPendingRevision.remove(id);
+    _mcpReadablePageIds.remove(id);
+    _pageTombstones[id] = DateTime.now().toUtc().millisecondsSinceEpoch;
     if (wasSelected) {
       _pickInitialSelection();
       unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
@@ -3493,6 +4361,24 @@ class VaultSession extends ChangeNotifier {
         blockId: blockId,
       ),
     );
+    if (_slack.connections.isNotEmpty ||
+        _teams.connections.isNotEmpty ||
+        _discord.connections.isNotEmpty) {
+      final page = _pageById(pageId);
+      final pageTitle = (page?.title.trim().isEmpty ?? true)
+          ? _titleL10n.untitled
+          : page!.title.trim();
+      final comment = t.trim();
+      final snippet = comment.length > 200
+          ? '${comment.substring(0, 200)}…'
+          : comment;
+      _notificationDispatcher.notifyCommentAdded(
+        slackConnections: _slack.connections,
+        teamsConnections: _teams.connections,
+        discordConnections: _discord.connections,
+        message: _titleL10n.integrationNotifyNewComment(pageTitle, snippet),
+      );
+    }
     notifyListeners();
     scheduleSave();
   }
@@ -3684,8 +4570,10 @@ class VaultSession extends ChangeNotifier {
   }
 
   bool _isDescendant({required String ancestorId, required String nodeId}) {
+    final seen = <String>{};
     var cur = _pageById(nodeId);
     while (cur != null) {
+      if (!seen.add(cur.id)) return false; // ciclo parentId
       if (cur.parentId == ancestorId) return true;
       if (cur.parentId == null) return false;
       cur = _pageById(cur.parentId!);
@@ -3708,7 +4596,7 @@ class VaultSession extends ChangeNotifier {
     }
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId);
+    scheduleSave(trackRevisionForPageId: pageId, notify: false);
   }
 
   /// Actualiza texto y Delta de un bloque de forma atómica.
@@ -3744,7 +4632,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId);
+    scheduleSave(trackRevisionForPageId: pageId, notify: false);
   }
 
   void _propagateSyncedBlockContent(
@@ -4130,6 +5018,42 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void insertBlockBefore({
+    required String pageId,
+    required String beforeBlockId,
+    required FolioBlock block,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final i = page.blocks.indexWhere((b) => b.id == beforeBlockId);
+    if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.insert(i, block);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Aplica una mutación arbitraria sobre la lista de bloques de [pageId],
+  /// preservando undo/persistencia igual que el resto de mutaciones de bloque.
+  /// Punto de extensión genérico para operaciones del agente IA (Fase 1/2 del
+  /// tool-calling de Quill) que no tienen un método dedicado (borrar bloque,
+  /// reemplazar bloque, mover dentro de la página, editar celdas de tabla...).
+  void mutatePageBlocks(
+    String pageId,
+    void Function(List<FolioBlock> blocks) mutate,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    mutate(page.blocks);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Páginas hijas directas de [pageId] (no incluye descendientes indirectos).
+  List<FolioPage> childrenOf(String pageId) =>
+      _pages.where((p) => p.parentId == pageId).toList(growable: false);
+
   void insertBlocksAfterMany({
     required String pageId,
     required String afterBlockId,
@@ -4270,6 +5194,17 @@ class VaultSession extends ChangeNotifier {
     final bid = '${pageId}_${_uuid.v4()}';
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.add(FolioBlock(id: bid, type: 'task', text: task.encode()));
+    if (_slack.connections.isNotEmpty ||
+        _teams.connections.isNotEmpty ||
+        _discord.connections.isNotEmpty) {
+      final title = task.title.trim().isEmpty ? _titleL10n.untitled : task.title.trim();
+      _notificationDispatcher.notifyTaskCreated(
+        slackConnections: _slack.connections,
+        teamsConnections: _teams.connections,
+        discordConnections: _discord.connections,
+        message: _titleL10n.integrationNotifyNewTask(title),
+      );
+    }
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
     return bid;
@@ -4391,10 +5326,12 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     if (b.type == 'todo') {
       b.checked = status == 'done';
+      _notifyTaskStatusChanged(b.text, status);
     } else if (b.type == 'task') {
       final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
       final next = t.copyWith(status: status, columnId: status);
       b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
+      _notifyTaskStatusChanged(next.title, status);
     } else {
       return;
     }
@@ -4404,10 +5341,27 @@ class VaultSession extends ChangeNotifier {
 
   FolioTaskData _markTaskNeedsPushIfJiraLinked(FolioTaskData t) {
     final ext = t.external;
-    if (ext == null || (ext.provider != 'jira' && ext.provider != 'youtrack')) return t;
+    if (ext == null || !const {'jira', 'youtrack', 'trello'}.contains(ext.provider)) return t;
     final cur = (ext.syncState ?? '').trim();
     if (cur == 'conflict') return t;
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
+  }
+
+  /// Notifica a las conexiones de Slack/Teams suscritas, en segundo plano y
+  /// sin bloquear la mutación que lo disparó (ver `IntegrationNotificationDispatcher`).
+  void _notifyTaskStatusChanged(String title, String status) {
+    if (_slack.connections.isEmpty &&
+        _teams.connections.isEmpty &&
+        _discord.connections.isEmpty) {
+      return;
+    }
+    final displayTitle = title.trim().isEmpty ? _titleL10n.untitled : title.trim();
+    _notificationDispatcher.notifyTaskStatusChanged(
+      slackConnections: _slack.connections,
+      teamsConnections: _teams.connections,
+      discordConnections: _discord.connections,
+      message: _titleL10n.integrationNotifyTaskMoved(displayTitle, status),
+    );
   }
 
   /// Primera configuración `kanban` de la página, o valores por defecto.
@@ -4432,6 +5386,7 @@ class VaultSession extends ChangeNotifier {
     final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
     final next = t.withKanbanColumn(columnId);
     b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
+    _notifyTaskStatusChanged(next.title, columnId);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -4706,7 +5661,9 @@ class VaultSession extends ChangeNotifier {
 
   /// [trackRevisionForPageId]: tras [_revisionIdleDelay] sin más cambios en esa página,
   /// se añade una entrada al historial (si el contenido difiere de la última revisión).
-  void scheduleSave({String? trackRevisionForPageId}) {
+  /// [notify]: si `false`, el llamador ya programó su propio aviso coalescido
+  /// (ver [_scheduleCoalescedTypingNotify]) y este método no debe duplicarlo.
+  void scheduleSave({String? trackRevisionForPageId, bool notify = true}) {
     if (vaultUsesEncryption && _dek == null) return;
     touchActivity();
     if (trackRevisionForPageId != null) {
@@ -4716,8 +5673,8 @@ class VaultSession extends ChangeNotifier {
         unawaited(_capturePendingRevisionsAndPersist());
       });
     }
-    _persistence.scheduleSave();
-    notifyListeners();
+    _persistence.scheduleSave(notify: notify);
+    if (notify) notifyListeners();
   }
 
   Future<void> _capturePendingRevisionsAndPersist() async {
@@ -4804,9 +5761,13 @@ class VaultSession extends ChangeNotifier {
   }
 
   VaultPayload _buildVaultPayloadForPersist() {
+    final name = _vaultId == null
+        ? ''
+        : (_registry.entryFor(_vaultId!)?.displayName ?? '').trim();
     return VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+      displayName: name,
       pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
@@ -4825,6 +5786,17 @@ class VaultSession extends ChangeNotifier {
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
       jira: _jira,
       youtrack: _youtrack,
+      trello: _trello,
+      github: _github,
+      gitlab: _gitlab,
+      slack: _slack,
+      teams: _teams,
+      spotify: _spotify,
+      discord: _discord,
+      systemMedia: _systemMedia,
+      pageTombstones: Map<String, int>.from(_pageTombstones),
+      syncClock: _syncClock,
+      mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
     );
   }
 
@@ -4850,80 +5822,91 @@ class VaultSession extends ChangeNotifier {
   Future<List<int>?> exportSyncSnapshotBytes() async {
     if (_state != VaultFlowState.unlocked) return null;
     if (vaultUsesEncryption && _dek == null) return null;
-    final payload = VaultPayload(
-      version: kVaultPayloadVersion,
-      pages: _pages,
-      pageOrderByParent: _pageOrderByParent,
-      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
-        _pageRevisions.entries.map(
-          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
-        ),
-      ),
-      pageAcl: Map<String, Map<String, String>>.fromEntries(
-        _pageAcl.entries.map(
-          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
-        ),
-      ),
-      localProfiles: List<LocalProfile>.from(_localProfiles),
-      comments: List<LocalPageComment>.from(_comments),
-      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
-      aiActiveChatIndex: _aiActiveChatIndex,
-      pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
-      jira: _jira,
-      youtrack: _youtrack,
-    );
-    return payload.encodeUtf8();
+    final payload = _buildVaultPayloadForPersist();
+    if (kIsWeb) {
+      return VaultSyncPack(
+        payload: payload,
+        attachments: const [],
+      ).encodeUtf8();
+    }
+    try {
+      final pack = await buildVaultSyncPackFromDisk(payload: payload);
+      return pack.encodeUtf8();
+    } catch (_) {
+      return VaultSyncPack(
+        payload: payload,
+        attachments: const [],
+      ).encodeUtf8();
+    }
   }
 
-  Future<bool> applySyncSnapshotBytes(
+  /// Aplica un pack/snapshot remoto con merge semántico (Cloud + P2P).
+  /// Aplica un snapshot de sync. [changed] es true solo si el merge escribió estado local.
+  Future<({bool ok, bool changed})> applySyncSnapshotBytes(
     List<int> rawBytes, [
     String fromPeerId = '',
   ]) async {
-    if (_state != VaultFlowState.unlocked) return false;
-    if (vaultUsesEncryption && _dek == null) return false;
+    if (_state != VaultFlowState.unlocked) {
+      return (ok: false, changed: false);
+    }
+    if (vaultUsesEncryption && _dek == null) {
+      return (ok: false, changed: false);
+    }
     try {
-      final localSnapshot = await exportSyncSnapshotBytes();
-      if (localSnapshot == null) return false;
-      final localFingerprint = _syncFingerprintBytes(localSnapshot);
-      final remoteFingerprint = _syncFingerprintBytes(rawBytes);
-      if (localFingerprint == remoteFingerprint) {
+      final pack = VaultSyncPack.decodeFlexible(rawBytes);
+      await materializeVaultSyncPackAttachments(pack);
+
+      final localPayload = _buildVaultPayloadForPersist();
+      final remotePayload = pack.payload;
+      final localFp = VaultSyncMergeEngine.payloadFingerprint(localPayload);
+      final remoteFp = VaultSyncMergeEngine.payloadFingerprint(remotePayload);
+      if (localFp == remoteFp) {
         if (_syncBaselineFingerprint.isEmpty) {
-          _syncBaselineFingerprint = localFingerprint;
+          _syncBaselineFingerprint = localFp;
+          _syncBaselinePayload = VaultPayload.decodeUtf8(
+            localPayload.encodeUtf8(),
+          );
         }
-        // Snapshot idéntico: confirmamos sync sin tocar estado ni persistir.
-        return true;
+        await _applySyncedDisplayName(remotePayload.displayName);
+        return (ok: true, changed: false);
       }
 
-      if (_syncBaselineFingerprint.isEmpty) {
-        _syncBaselineFingerprint = localFingerprint;
-      }
-
-      final localChanged = localFingerprint != _syncBaselineFingerprint;
-      final remoteChanged = remoteFingerprint != _syncBaselineFingerprint;
-
-      if (localChanged && remoteChanged) {
-        _registerSyncConflict(
-          fromPeerId: fromPeerId,
-          remoteFingerprint: remoteFingerprint,
-          remoteSnapshotBytes: rawBytes,
-        );
-        // Conflicto concurrente: prioriza no sobrescribir el estado local.
-        return true;
-      }
-
-      if (localChanged && !remoteChanged) {
-        // El remoto está atrasado respecto a lo local; conservar local evita rollback.
-        return true;
-      }
-
-      final payload = VaultPayload.decodeUtf8(rawBytes);
-      await _applyResolvedSyncPayload(
-        payload,
-        remoteFingerprint: remoteFingerprint,
+      final result = _syncMerge.merge(
+        local: localPayload,
+        remote: remotePayload,
+        baseline: _syncBaselinePayload,
       );
-      return true;
-    } catch (_) {
-      return false;
+
+      for (final conflict in result.blockConflicts) {
+        _registerBlockSyncConflict(
+          fromPeerId: fromPeerId,
+          conflict: conflict,
+          remoteFingerprint: remoteFp,
+          remoteSnapshotBytes: rawBytes,
+          remotePageCount: remotePayload.pages.length,
+        );
+      }
+
+      if (!result.changed && result.blockConflicts.isEmpty) {
+        return (ok: true, changed: false);
+      }
+
+      await _applyResolvedSyncPayload(
+        result.payload,
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(
+          result.payload,
+        ),
+        setAsBaseline: true,
+      );
+      return (ok: true, changed: true);
+    } catch (e, st) {
+      AppLogger.error(
+        'applySyncSnapshotBytes failed',
+        tag: 'sync',
+        error: e,
+        stackTrace: st,
+      );
+      return (ok: false, changed: false);
     }
   }
 
@@ -4931,11 +5914,13 @@ class VaultSession extends ChangeNotifier {
     final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
     if (index == -1) return;
     _syncConflicts.removeAt(index);
-    final localSnapshot = await exportSyncSnapshotBytes();
-    if (localSnapshot != null) {
-      _syncBaselineFingerprint = _syncFingerprintBytes(localSnapshot);
-    }
+    final localSnapshot = _buildVaultPayloadForPersist();
+    _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+      localSnapshot,
+    );
+    _syncBaselinePayload = VaultPayload.decodeUtf8(localSnapshot.encodeUtf8());
     _notifySyncConflictCountChanged();
+    await _persistSyncConflicts();
     notifyListeners();
   }
 
@@ -4944,13 +5929,53 @@ class VaultSession extends ChangeNotifier {
     if (index == -1) return false;
     final entry = _syncConflicts[index];
     try {
-      final payload = VaultPayload.decodeUtf8(entry.remoteSnapshotBytes);
+      if (entry.isBlockConflict &&
+          entry.remoteBlockJson != null &&
+          entry.pageId != null &&
+          entry.blockId != null) {
+        final page = _pageById(entry.pageId!);
+        if (page == null) return false;
+        final bi = page.blocks.indexWhere((b) => b.id == entry.blockId);
+        if (bi < 0) return false;
+        page.blocks[bi] = FolioBlock.fromJson(
+          Map<String, dynamic>.from(entry.remoteBlockJson!),
+        );
+        _contentEpoch++;
+        notifyListeners();
+        await _persistence.persistNowSuppressed();
+        _rebuildSearchIndex();
+        final localSnapshot = _buildVaultPayloadForPersist();
+        _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+          localSnapshot,
+        );
+        _syncBaselinePayload = VaultPayload.decodeUtf8(
+          localSnapshot.encodeUtf8(),
+        );
+        _syncConflicts.removeAt(index);
+        _notifySyncConflictCountChanged();
+        await _persistSyncConflicts();
+        notifyListeners();
+        return true;
+      }
+
+      final pack = VaultSyncPack.decodeFlexible(entry.remoteSnapshotBytes);
+      await materializeVaultSyncPackAttachments(pack);
+      final localPayload = _buildVaultPayloadForPersist();
+      final result = _syncMerge.merge(
+        local: localPayload,
+        remote: pack.payload,
+        baseline: _syncBaselinePayload,
+      );
       await _applyResolvedSyncPayload(
-        payload,
-        remoteFingerprint: entry.remoteFingerprint,
+        result.payload,
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(
+          result.payload,
+        ),
+        setAsBaseline: true,
       );
       _syncConflicts.removeAt(index);
       _notifySyncConflictCountChanged();
+      await _persistSyncConflicts();
       notifyListeners();
       return true;
     } catch (_) {
@@ -4958,25 +5983,61 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  void _registerSyncConflict({
+  /// Aplica texto fusionado (merge por hunks) al bloque en conflicto.
+  Future<bool> resolveSyncConflictWithMergedText(
+    String conflictId,
+    String mergedText,
+  ) async {
+    final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
+    if (index == -1) return false;
+    final entry = _syncConflicts[index];
+    if (!entry.isBlockConflict ||
+        entry.pageId == null ||
+        entry.blockId == null) {
+      return false;
+    }
+    try {
+      final page = _pageById(entry.pageId!);
+      if (page == null) return false;
+      final bi = page.blocks.indexWhere((b) => b.id == entry.blockId);
+      if (bi < 0) return false;
+      final current = page.blocks[bi];
+      // Preferir metadatos locales; texto fusionado; delta rich se regenera desde plain.
+      current.text = mergedText;
+      current.richTextDeltaJson = null;
+      _contentEpoch++;
+      notifyListeners();
+      await _persistence.persistNowSuppressed();
+      _rebuildSearchIndex();
+      final localSnapshot = _buildVaultPayloadForPersist();
+      _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
+        localSnapshot,
+      );
+      _syncBaselinePayload = VaultPayload.decodeUtf8(localSnapshot.encodeUtf8());
+      _syncConflicts.removeAt(index);
+      _notifySyncConflictCountChanged();
+      await _persistSyncConflicts();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _registerBlockSyncConflict({
     required String fromPeerId,
+    required VaultSyncBlockConflict conflict,
     required String remoteFingerprint,
     required List<int> remoteSnapshotBytes,
+    required int remotePageCount,
   }) {
     final existing = _syncConflicts.any(
       (entry) =>
-          entry.fromPeerId == fromPeerId &&
+          entry.pageId == conflict.pageId &&
+          entry.blockId == conflict.blockId &&
           entry.remoteFingerprint == remoteFingerprint,
     );
     if (existing) return;
-    var remotePageCount = 0;
-    try {
-      remotePageCount = VaultPayload.decodeUtf8(
-        remoteSnapshotBytes,
-      ).pages.length;
-    } catch (_) {
-      remotePageCount = 0;
-    }
     _syncConflicts.add(
       SyncConflictEntry(
         id: _uuid.v4(),
@@ -4985,15 +6046,21 @@ class VaultSession extends ChangeNotifier {
         remoteFingerprint: remoteFingerprint,
         remoteSnapshotBytes: List<int>.from(remoteSnapshotBytes),
         remotePageCount: remotePageCount,
+        pageId: conflict.pageId,
+        blockId: conflict.blockId,
+        remoteBlockJson: conflict.remoteBlock.toJson(),
+        localBlockJson: conflict.localBlock.toJson(),
       ),
     );
     _notifySyncConflictCountChanged();
+    unawaited(_persistSyncConflicts());
     notifyListeners();
   }
 
   Future<void> _applyResolvedSyncPayload(
     VaultPayload payload, {
     required String remoteFingerprint,
+    bool setAsBaseline = true,
   }) async {
     final previousSelectedPageId = _selectedPageId;
     _pages = List<FolioPage>.from(payload.pages);
@@ -5009,10 +6076,25 @@ class VaultSession extends ChangeNotifier {
       _pickInitialSelection();
       _contentEpoch++;
     }
+    await _applySyncedDisplayName(payload.displayName);
     notifyListeners();
     await _persistence.persistNowSuppressed();
     _rebuildSearchIndex();
-    _syncBaselineFingerprint = remoteFingerprint;
+    if (setAsBaseline) {
+      _syncBaselineFingerprint = remoteFingerprint;
+      _syncBaselinePayload = VaultPayload.decodeUtf8(payload.encodeUtf8());
+    }
+  }
+
+  /// Actualiza el registro local si el pack trae un nombre de libreta.
+  Future<void> _applySyncedDisplayName(String raw) async {
+    final name = raw.trim();
+    if (name.isEmpty) return;
+    final id = _vaultId;
+    if (id == null || id.isEmpty) return;
+    final current = _registry.entryFor(id)?.displayName.trim() ?? '';
+    if (current == name) return;
+    await _registry.rename(id, name);
   }
 
   void _notifySyncConflictCountChanged() {
@@ -5024,18 +6106,6 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  String _syncFingerprintBytes(List<int> data) {
-    // FNV-1a 32-bit for lightweight snapshot change detection (JS-safe).
-    var hash = 0x811c9dc5;
-    const prime = 0x01000193;
-    const mask = 0xffffffff;
-    for (final b in data) {
-      hash ^= b;
-      hash = (hash * prime) & mask;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
-  }
-
   bool _dekMatchesQuickStorage(Uint8List dek) {
     if (!vaultUsesEncryption || _dek == null) return false;
     return const ListEquality<int>().equals(dek, _dek!);
@@ -5045,10 +6115,23 @@ class VaultSession extends ChangeNotifier {
   Future<bool> verifyPasswordMatchesUnlockedSession(String password) async {
     if (_dek == null) return false;
     touchActivity();
+    final throttle = UnlockAttemptThrottle();
+    final vaultIdForThrottle = _vaultId ?? '';
+    final wait = await throttle.remainingWait(vaultIdForThrottle);
+    if (wait != null) {
+      throw UnlockThrottledException(wait);
+    }
     try {
       final dek = await _repo.unlockWithPassword(password);
-      return const ListEquality<int>().equals(dek, _dek!);
+      final matches = const ListEquality<int>().equals(dek, _dek!);
+      if (matches) {
+        await throttle.recordSuccess(vaultIdForThrottle);
+      } else {
+        await throttle.recordFailure(vaultIdForThrottle);
+      }
+      return matches;
     } catch (_) {
+      await throttle.recordFailure(vaultIdForThrottle);
       return false;
     }
   }
@@ -5218,6 +6301,8 @@ class VaultSession extends ChangeNotifier {
     final payload = VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+      displayName: (_registry.entryFor(_vaultId ?? '')?.displayName ?? '')
+          .trim(),
       pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
@@ -5233,6 +6318,9 @@ class VaultSession extends ChangeNotifier {
       comments: List<LocalPageComment>.from(_comments),
       aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
       aiActiveChatIndex: _aiActiveChatIndex,
+      pageTombstones: Map<String, int>.from(_pageTombstones),
+      syncClock: _syncClock,
+      mcpReadablePageIds: Set<String>.from(_mcpReadablePageIds),
     );
 
     final dekBytes = await _repo.encryptPlainVaultWithPassword(
@@ -5383,9 +6471,11 @@ class VaultSession extends ChangeNotifier {
     return out;
   }
 
-  void createPageFromTemplate(String sourcePageId, {String? parentId}) {
+  /// Devuelve el id de la copia creada, o `null` si [sourcePageId] no existe
+  /// (los llamadores existentes que no lo necesitan ignoran el retorno).
+  String? createPageFromTemplate(String sourcePageId, {String? parentId}) {
     final src = _pageById(sourcePageId);
-    if (src == null) return;
+    if (src == null) return null;
     final id = _uuid.v4();
     final copiedBlocks = src.blocks
         .map(
@@ -5415,9 +6505,10 @@ class VaultSession extends ChangeNotifier {
         blocks: copiedBlocks,
       ),
     );
-    _selectedPageId = id;
-    notifyListeners();
+    _mcpReadablePageIds.add(id);
+    selectPage(id);
     scheduleSave(trackRevisionForPageId: id);
+    return id;
   }
 
   String _blockSearchText(FolioBlock b) {
@@ -5481,6 +6572,7 @@ class VaultSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();
     _idleLockTimer?.cancel();

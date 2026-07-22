@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show debugPrint, immutable;
+import 'package:flutter/foundation.dart' show immutable;
 
+import '../app_logger.dart';
 import 'folio_web_portal_http_io.dart'
     if (dart.library.html) 'folio_web_portal_http_web.dart' as portal_http;
 
@@ -235,7 +236,12 @@ Future<void> linkFolioWebAccount({
       detail: e.message,
     );
   } catch (e, st) {
-    debugPrint('linkFolioWebAccount: $e\n$st');
+    AppLogger.error(
+      'linkFolioWebAccount failed',
+      tag: 'web-portal',
+      error: e,
+      stackTrace: st,
+    );
     throw FolioWebPortalException(
       FolioWebPortalErrorKind.network,
       detail: '$e',
@@ -329,7 +335,12 @@ Future<FolioWebEntitlementSnapshot> fetchFolioWebEntitlement({
       detail: e.message,
     );
   } catch (e, st) {
-    debugPrint('fetchFolioWebEntitlement: $e\n$st');
+    AppLogger.error(
+      'fetchFolioWebEntitlement failed',
+      tag: 'web-portal',
+      error: e,
+      stackTrace: st,
+    );
     throw FolioWebPortalException(
       FolioWebPortalErrorKind.network,
       detail: '$e',

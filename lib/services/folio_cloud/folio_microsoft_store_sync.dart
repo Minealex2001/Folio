@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 
+import '../app_logger.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_products.dart';
@@ -18,8 +18,10 @@ Future<void> syncFolioMicrosoftStoreEntitlementsFromDevice({
   bool force = false,
 }) async {
   if (!force && !kFolioMicrosoftStoreEntitlementsSyncEnabled) {
-    debugPrint(
-      'FolioMicrosoftStore: sync omitida (kFolioMicrosoftStoreEntitlementsSyncEnabled=false)',
+    AppLogger.debug(
+      'Microsoft Store entitlements sync skipped',
+      tag: 'store',
+      context: {'enabled': kFolioMicrosoftStoreEntitlementsSyncEnabled},
     );
     return;
   }

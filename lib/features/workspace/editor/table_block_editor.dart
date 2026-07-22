@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../l10n/generated/app_localizations.dart';
 
+import '../../../app/folio_block_controls.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_table_data.dart';
 
 /// Rejilla editable para bloques `table`; notifica JSON serializado.
@@ -13,7 +16,7 @@ class TableBlockEditor extends StatefulWidget {
     required this.scheme,
     required this.textTheme,
     this.firstCellFocusNode,
-    this.showToolbar = true,
+    this.showGutters = true,
   });
 
   final String json;
@@ -21,7 +24,8 @@ class TableBlockEditor extends StatefulWidget {
   final ColorScheme scheme;
   final TextTheme textTheme;
   final FocusNode? firstCellFocusNode;
-  final bool showToolbar;
+  /// When false, inline + gutters are hidden (read-only / unfocused).
+  final bool showGutters;
 
   @override
   State<TableBlockEditor> createState() => _TableBlockEditorState();
@@ -141,89 +145,145 @@ class _TableBlockEditorState extends State<TableBlockEditor> {
     super.dispose();
   }
 
+  Widget _buildTable(int rows, int cols) {
+    return Table(
+      defaultColumnWidth: const FlexColumnWidth(1),
+      border: TableBorder.all(
+        color: widget.scheme.outlineVariant.withValues(alpha: 0.65),
+        width: 0.5,
+      ),
+      children: List.generate(rows, (r) {
+        return TableRow(
+          children: List.generate(cols, (c) {
+            final i = r * cols + c;
+            final cellStyle = widget.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              height: 1.35,
+            );
+            final isFirst = r == 0 && c == 0;
+            final ctrl = _controllers[i];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              child: TextField(
+                controller: ctrl,
+                focusNode: isFirst ? widget.firstCellFocusNode : null,
+                maxLines: null,
+                minLines: 1,
+                style: cellStyle,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            );
+          }),
+        );
+      }),
+    );
+  }
+
+  Widget _buildCornerMenu(AppLocalizations l10n, int rows, int cols) {
+    return PopupMenuButton<String>(
+      tooltip: l10n.tableMoreActions,
+      padding: EdgeInsets.zero,
+      icon: Icon(
+        Icons.more_horiz_rounded,
+        size: 18,
+        color: widget.scheme.onSurfaceVariant,
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'paste',
+          child: Row(
+            children: [
+              const Icon(Icons.content_paste_rounded, size: 18),
+              const SizedBox(width: 8),
+              Text(l10n.tablePasteFromClipboard),
+            ],
+          ),
+        ),
+        if (rows > 1)
+          PopupMenuItem(
+            value: 'remove_row',
+            child: Row(
+              children: [
+                const Icon(Icons.remove_circle_outline_rounded, size: 18),
+                const SizedBox(width: 8),
+                Text(l10n.tableRemoveRow),
+              ],
+            ),
+          ),
+        if (cols > 1)
+          PopupMenuItem(
+            value: 'remove_col',
+            child: Row(
+              children: [
+                const Icon(Icons.view_column_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(l10n.tableRemoveColumn),
+              ],
+            ),
+          ),
+      ],
+      onSelected: (value) {
+        switch (value) {
+          case 'paste':
+            unawaited(_pasteFromClipboard());
+          case 'remove_row':
+            _mutateStructure((d) => d.removeLastRow());
+          case 'remove_col':
+            _mutateStructure((d) => d.removeLastCol());
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final rows = _data.rowCount;
     final cols = _data.cols;
+    final showGutters = widget.showGutters;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (!showGutters) {
+      return _buildTable(rows, cols);
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.showToolbar)
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OutlinedButton.icon(
-                onPressed: () => _mutateStructure((d) => d.addRow()),
-                icon: const Icon(Icons.table_rows_rounded, size: 16),
-                label: Text(l10n.tableAddRow),
-              ),
-              OutlinedButton.icon(
-                onPressed: rows > 1
-                    ? () => _mutateStructure((d) => d.removeLastRow())
-                    : null,
-                icon: const Icon(Icons.remove_rounded, size: 16),
-                label: Text(l10n.tableRemoveRow),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _mutateStructure((d) => d.addCol()),
-                icon: const Icon(Icons.view_column_rounded, size: 16),
-                label: Text(l10n.tableAddColumn),
-              ),
-              OutlinedButton.icon(
-                onPressed: cols > 1
-                    ? () => _mutateStructure((d) => d.removeLastCol())
-                    : null,
-                icon: const Icon(Icons.vertical_align_center_rounded, size: 16),
-                label: Text(l10n.tableRemoveColumn),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: _pasteFromClipboard,
-                icon: const Icon(Icons.content_paste_rounded, size: 16),
-                label: Text(l10n.tablePasteFromClipboard),
+              _buildTable(rows, cols),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FolioTableGutterButton(
+                        tooltip: l10n.tableAddRow,
+                        onPressed: () =>
+                            _mutateStructure((d) => d.addRow()),
+                      ),
+                    ),
+                  ),
+                  _buildCornerMenu(l10n, rows, cols),
+                ],
               ),
             ],
           ),
-        if (widget.showToolbar) const SizedBox(height: 8),
-        Table(
-          defaultColumnWidth: const FlexColumnWidth(1),
-          border: TableBorder.all(
-            color: widget.scheme.outlineVariant.withValues(alpha: 0.65),
-            width: 0.5,
+        ),
+        const SizedBox(width: 4),
+        Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: FolioTableGutterButton(
+            tooltip: l10n.tableAddColumn,
+            onPressed: () => _mutateStructure((d) => d.addCol()),
           ),
-          children: List.generate(rows, (r) {
-            return TableRow(
-              children: List.generate(cols, (c) {
-                final i = r * cols + c;
-                final cellStyle = widget.textTheme.bodyMedium?.copyWith(
-                  fontSize: 14,
-                  height: 1.35,
-                );
-                final isFirst = r == 0 && c == 0;
-                final ctrl = _controllers[i];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  child: TextField(
-                    controller: ctrl,
-                    focusNode: isFirst ? widget.firstCellFocusNode : null,
-                    maxLines: null,
-                    minLines: 1,
-                    style: cellStyle,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                );
-              }),
-            );
-          }),
         ),
       ],
     );

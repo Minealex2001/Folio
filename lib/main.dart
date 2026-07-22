@@ -54,19 +54,16 @@ Future<void> main() async {
                 'hasClientSecret': _hasJiraClientSecret(),
               },
             );
-            // ignore: avoid_print
-            print(
-              '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
-              'hasClientSecret=${_hasJiraClientSecret()}',
-            );
           } else {
             AppLogger.warn('local env file not found', tag: 'env');
           }
         } catch (e, st) {
-          AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
-          AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
-          // ignore: avoid_print
-          print('[folio.env] load failed error=$e');
+          AppLogger.error(
+            'local env load failed',
+            tag: 'env',
+            error: e,
+            stackTrace: st,
+          );
         }
       }
 
@@ -172,8 +169,29 @@ Future<void> main() async {
         } catch (_) {}
       }
 
-      FolioFirestoreSync.initialize();
-      final session = VaultSession(titleLocale: appSettings.locale);
+      try {
+        FolioFirestoreSync.initialize();
+      } catch (e, st) {
+        AppLogger.error(
+          'FolioFirestoreSync init failed; continuing without telemetry sync',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+      }
+
+      VaultSession session;
+      try {
+        session = VaultSession(titleLocale: appSettings.locale);
+      } catch (e, st) {
+        AppLogger.error(
+          'VaultSession construction failed; retrying with defaults',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        session = VaultSession();
+      }
       var initialLaunchArgs = const <String>[];
       try {
         initialLaunchArgs = await PlatformLaunchArguments.initialArguments();

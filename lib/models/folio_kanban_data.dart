@@ -48,6 +48,15 @@ class FolioKanbanData {
     this.youtrackSourceId,
     this.youtrackAutoImport = false,
     this.youtrackCreateIssuesOnQuickAdd = false,
+    this.trelloSourceId,
+    this.trelloAutoImport = false,
+    this.trelloCreateCardsOnQuickAdd = false,
+    this.githubSourceId,
+    this.githubAutoImport = false,
+    this.githubCreateIssuesOnQuickAdd = false,
+    this.gitlabSourceId,
+    this.gitlabAutoImport = false,
+    this.gitlabCreateIssuesOnQuickAdd = false,
     List<FolioKanbanColumnSpec>? columns,
   }) : columns = List.unmodifiable(columns ?? defaultColumns);
 
@@ -84,6 +93,36 @@ class FolioKanbanData {
   /// el tablero tiene [youtrackSourceId] configurado.
   final bool youtrackCreateIssuesOnQuickAdd;
 
+  /// Referencia a una “fuente” Trello preconfigurada en Ajustes → Integraciones.
+  final String? trelloSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar tarjetas desde Trello.
+  final bool trelloAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea una tarjeta en Trello cuando
+  /// el tablero tiene [trelloSourceId] configurado.
+  final bool trelloCreateCardsOnQuickAdd;
+
+  /// Referencia a una “fuente” GitHub preconfigurada en Ajustes → Integraciones.
+  final String? githubSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar issues/PRs desde GitHub.
+  final bool githubAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea un issue en GitHub cuando
+  /// el tablero tiene [githubSourceId] configurado.
+  final bool githubCreateIssuesOnQuickAdd;
+
+  /// Referencia a una “fuente” GitLab preconfigurada en Ajustes → Integraciones.
+  final String? gitlabSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar issues/MRs desde GitLab.
+  final bool gitlabAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea un issue en GitLab cuando
+  /// el tablero tiene [gitlabSourceId] configurado.
+  final bool gitlabCreateIssuesOnQuickAdd;
+
   static FolioKanbanData defaults() => FolioKanbanData();
 
   FolioKanbanData copyWith({
@@ -96,6 +135,15 @@ class FolioKanbanData {
     Object? youtrackSourceId = _sentinel,
     bool? youtrackAutoImport,
     bool? youtrackCreateIssuesOnQuickAdd,
+    Object? trelloSourceId = _sentinel,
+    bool? trelloAutoImport,
+    bool? trelloCreateCardsOnQuickAdd,
+    Object? githubSourceId = _sentinel,
+    bool? githubAutoImport,
+    bool? githubCreateIssuesOnQuickAdd,
+    Object? gitlabSourceId = _sentinel,
+    bool? gitlabAutoImport,
+    bool? gitlabCreateIssuesOnQuickAdd,
     List<FolioKanbanColumnSpec>? columns,
   }) {
     return FolioKanbanData(
@@ -112,6 +160,21 @@ class FolioKanbanData {
       youtrackAutoImport: youtrackAutoImport ?? this.youtrackAutoImport,
       youtrackCreateIssuesOnQuickAdd:
           youtrackCreateIssuesOnQuickAdd ?? this.youtrackCreateIssuesOnQuickAdd,
+      trelloSourceId:
+          trelloSourceId == _sentinel ? this.trelloSourceId : trelloSourceId as String?,
+      trelloAutoImport: trelloAutoImport ?? this.trelloAutoImport,
+      trelloCreateCardsOnQuickAdd:
+          trelloCreateCardsOnQuickAdd ?? this.trelloCreateCardsOnQuickAdd,
+      githubSourceId:
+          githubSourceId == _sentinel ? this.githubSourceId : githubSourceId as String?,
+      githubAutoImport: githubAutoImport ?? this.githubAutoImport,
+      githubCreateIssuesOnQuickAdd:
+          githubCreateIssuesOnQuickAdd ?? this.githubCreateIssuesOnQuickAdd,
+      gitlabSourceId:
+          gitlabSourceId == _sentinel ? this.gitlabSourceId : gitlabSourceId as String?,
+      gitlabAutoImport: gitlabAutoImport ?? this.gitlabAutoImport,
+      gitlabCreateIssuesOnQuickAdd:
+          gitlabCreateIssuesOnQuickAdd ?? this.gitlabCreateIssuesOnQuickAdd,
       columns: columns ?? this.columns,
     );
   }
@@ -128,6 +191,15 @@ class FolioKanbanData {
         if ((youtrackSourceId ?? '').trim().isNotEmpty) 'youtrackSourceId': youtrackSourceId,
         if (youtrackAutoImport) 'youtrackAutoImport': true,
         if (youtrackCreateIssuesOnQuickAdd) 'youtrackCreateIssuesOnQuickAdd': true,
+        if ((trelloSourceId ?? '').trim().isNotEmpty) 'trelloSourceId': trelloSourceId,
+        if (trelloAutoImport) 'trelloAutoImport': true,
+        if (trelloCreateCardsOnQuickAdd) 'trelloCreateCardsOnQuickAdd': true,
+        if ((githubSourceId ?? '').trim().isNotEmpty) 'githubSourceId': githubSourceId,
+        if (githubAutoImport) 'githubAutoImport': true,
+        if (githubCreateIssuesOnQuickAdd) 'githubCreateIssuesOnQuickAdd': true,
+        if ((gitlabSourceId ?? '').trim().isNotEmpty) 'gitlabSourceId': gitlabSourceId,
+        if (gitlabAutoImport) 'gitlabAutoImport': true,
+        if (gitlabCreateIssuesOnQuickAdd) 'gitlabCreateIssuesOnQuickAdd': true,
         'columns': columns.map((c) => c.toJson()).toList(),
       });
 
@@ -155,6 +227,9 @@ class FolioKanbanData {
       );
       final sourceId = (m['jiraSourceId'] as String?)?.trim();
       final ytSourceId = (m['youtrackSourceId'] as String?)?.trim();
+      final trSourceId = (m['trelloSourceId'] as String?)?.trim();
+      final ghSourceId = (m['githubSourceId'] as String?)?.trim();
+      final glSourceId = (m['gitlabSourceId'] as String?)?.trim();
       return FolioKanbanData(
         v: (m['v'] as num?)?.toInt() ?? 2,
         includeSimpleTodos: m['includeSimpleTodos'] as bool? ?? true,
@@ -167,6 +242,18 @@ class FolioKanbanData {
         youtrackAutoImport: m['youtrackAutoImport'] as bool? ?? false,
         youtrackCreateIssuesOnQuickAdd:
             m['youtrackCreateIssuesOnQuickAdd'] as bool? ?? false,
+        trelloSourceId: (trSourceId?.isEmpty ?? true) ? null : trSourceId,
+        trelloAutoImport: m['trelloAutoImport'] as bool? ?? false,
+        trelloCreateCardsOnQuickAdd:
+            m['trelloCreateCardsOnQuickAdd'] as bool? ?? false,
+        githubSourceId: (ghSourceId?.isEmpty ?? true) ? null : ghSourceId,
+        githubAutoImport: m['githubAutoImport'] as bool? ?? false,
+        githubCreateIssuesOnQuickAdd:
+            m['githubCreateIssuesOnQuickAdd'] as bool? ?? false,
+        gitlabSourceId: (glSourceId?.isEmpty ?? true) ? null : glSourceId,
+        gitlabAutoImport: m['gitlabAutoImport'] as bool? ?? false,
+        gitlabCreateIssuesOnQuickAdd:
+            m['gitlabCreateIssuesOnQuickAdd'] as bool? ?? false,
         columns: useDefaults ? defaultColumns : cols,
       );
     } catch (_) {

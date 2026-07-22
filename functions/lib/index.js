@@ -36,11 +36,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioEnsurePlainVaultSyncSecret = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsExchangeOAuth = exports.folioSlackExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioListPendingIntegrationCommands = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.folioUpsertIntegrationWebhookConnection = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
 (0, dotenv_1.config)({ path: path.resolve(__dirname, "../.env") });
+require("./admin_init");
 const admin = __importStar(require("firebase-admin"));
 const crypto_1 = require("crypto");
 const functionsV1 = __importStar(require("firebase-functions/v1"));
@@ -53,7 +55,20 @@ var telemetry_1 = require("./telemetry");
 Object.defineProperty(exports, "aggregateDailyTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateDailyTelemetryStats; } });
 Object.defineProperty(exports, "aggregateGlobalTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateGlobalTelemetryStats; } });
 Object.defineProperty(exports, "onTelemetryEventCreated", { enumerable: true, get: function () { return telemetry_1.onTelemetryEventCreated; } });
-admin.initializeApp();
+var slack_teams_integration_1 = require("./slack_teams_integration");
+Object.defineProperty(exports, "folioUpsertIntegrationWebhookConnection", { enumerable: true, get: function () { return slack_teams_integration_1.folioUpsertIntegrationWebhookConnection; } });
+Object.defineProperty(exports, "folioIntegrationWebhookProxy", { enumerable: true, get: function () { return slack_teams_integration_1.folioIntegrationWebhookProxy; } });
+Object.defineProperty(exports, "folioRegisterIntegrationLinkCode", { enumerable: true, get: function () { return slack_teams_integration_1.folioRegisterIntegrationLinkCode; } });
+Object.defineProperty(exports, "folioListPendingIntegrationCommands", { enumerable: true, get: function () { return slack_teams_integration_1.folioListPendingIntegrationCommands; } });
+Object.defineProperty(exports, "folioAckIntegrationCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioAckIntegrationCommand; } });
+Object.defineProperty(exports, "folioSlackCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioSlackCommand; } });
+Object.defineProperty(exports, "folioTeamsCommand", { enumerable: true, get: function () { return slack_teams_integration_1.folioTeamsCommand; } });
+Object.defineProperty(exports, "folioSlackExchangeOAuth", { enumerable: true, get: function () { return slack_teams_integration_1.folioSlackExchangeOAuth; } });
+Object.defineProperty(exports, "folioTeamsExchangeOAuth", { enumerable: true, get: function () { return slack_teams_integration_1.folioTeamsExchangeOAuth; } });
+var spotify_integration_1 = require("./spotify_integration");
+Object.defineProperty(exports, "folioSpotifyExchangeOAuth", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyExchangeOAuth; } });
+Object.defineProperty(exports, "folioSpotifyOAuthCallback", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyOAuthCallback; } });
+Object.defineProperty(exports, "folioSpotifyApiProxy", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyApiProxy; } });
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 /** HttpsError de 1st gen: la callable `folioCloudAiComplete` corre en CF 1st gen (no Cloud Run). */
@@ -256,7 +271,7 @@ function tokenSurchargeInk(totalTokenCount) {
     return Math.min(INK_MAX_TOKEN_SURCHARGE, Math.floor(totalTokenCount / INK_TOKENS_PER_SURCHARGE_UNIT));
 }
 function parseOpenAiSuccessResponse(raw) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     let json;
     try {
         json = JSON.parse(raw);
@@ -268,20 +283,22 @@ function parseOpenAiSuccessResponse(raw) {
         console.error("Quill Cloud API error object", json.error);
         throw new AiHttpsError("internal", "AI provider error");
     }
-    const content = (_d = (_c = (_b = json.choices) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.message) === null || _d === void 0 ? void 0 : _d.content;
+    const message = (_c = (_b = json.choices) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.message;
+    const content = message === null || message === void 0 ? void 0 : message.content;
     const text = typeof content === "string" ? content : "";
-    if (!text.trim()) {
-        const reason = (_f = (_e = json.choices) === null || _e === void 0 ? void 0 : _e[0]) === null || _f === void 0 ? void 0 : _f.finish_reason;
+    const toolCalls = normalizeOpenAiToolCalls(message === null || message === void 0 ? void 0 : message.tool_calls);
+    if (!text.trim() && !toolCalls) {
+        const reason = (_e = (_d = json.choices) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.finish_reason;
         console.warn("Quill Cloud empty model output", { reason });
         const hint = reason === "content_filter"
             ? " (contenido filtrado por políticas del proveedor)"
             : "";
         throw new AiHttpsError("internal", `Empty AI response. Try a shorter prompt.${hint}`);
     }
-    const totalTokenCount = typeof ((_g = json.usage) === null || _g === void 0 ? void 0 : _g.total_tokens) === "number"
+    const totalTokenCount = typeof ((_f = json.usage) === null || _f === void 0 ? void 0 : _f.total_tokens) === "number"
         ? json.usage.total_tokens
         : undefined;
-    return { text: text.trim(), totalTokenCount };
+    return { text: text.trim(), totalTokenCount, toolCalls };
 }
 /**
  * Inferencia Quill Cloud (chat completions; mismo path y cuerpo que APIs compatibles).
@@ -318,10 +335,35 @@ async function callOpenAiGenerate(prompt) {
 }
 function normalizeOpenAiRole(raw) {
     const r = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-    if (r === "system" || r === "user" || r === "assistant")
+    if (r === "system" || r === "user" || r === "assistant" || r === "tool")
         return r;
     return null;
 }
+function normalizeOpenAiToolCalls(raw) {
+    var _a, _b;
+    if (!Array.isArray(raw))
+        return undefined;
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object")
+            continue;
+        const c = item;
+        const id = typeof c.id === "string" ? c.id.trim() : "";
+        const name = typeof ((_a = c.function) === null || _a === void 0 ? void 0 : _a.name) === "string" ? c.function.name.trim() : "";
+        const args = typeof ((_b = c.function) === null || _b === void 0 ? void 0 : _b.arguments) === "string" ? c.function.arguments : "";
+        if (!id || !name)
+            continue;
+        out.push({ id, type: "function", function: { name, arguments: args } });
+    }
+    return out.length > 0 ? out : undefined;
+}
+/**
+ * A diferencia del resto de mensajes, los de `role: "assistant"` con
+ * `tool_calls` pueden llevar `content` vacío (el modelo no dijo nada en
+ * texto, solo pidió invocar una acción), y los de `role: "tool"` necesitan
+ * `tool_call_id` para que el proveedor los empareje con la tool call que
+ * responden — sin eso, la API de OpenAI rechaza la petición.
+ */
 function normalizeOpenAiMessages(raw) {
     if (!Array.isArray(raw))
         return [];
@@ -331,12 +373,55 @@ function normalizeOpenAiMessages(raw) {
             continue;
         const m = item;
         const role = normalizeOpenAiRole(m.role);
+        if (!role)
+            continue;
         const content = typeof m.content === "string" ? m.content.trim() : "";
-        if (!role || !content)
+        if (role === "tool") {
+            const toolCallId = typeof m.tool_call_id === "string" ? m.tool_call_id.trim() : "";
+            if (!toolCallId || !content)
+                continue;
+            out.push({ role, content, tool_call_id: toolCallId });
+            continue;
+        }
+        if (role === "assistant") {
+            const toolCalls = normalizeOpenAiToolCalls(m.tool_calls);
+            if (!content && !toolCalls)
+                continue;
+            out.push({ role, content, ...(toolCalls ? { tool_calls: toolCalls } : {}) });
+            continue;
+        }
+        if (!content)
             continue;
         out.push({ role, content });
     }
     return out;
+}
+/** Tools declaradas por el cliente (mismo formato que OpenAI-compatible local). */
+function normalizeOpenAiTools(raw) {
+    if (!Array.isArray(raw) || raw.length === 0)
+        return undefined;
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object" || Array.isArray(item))
+            continue;
+        const t = item;
+        const fn = t.function;
+        if (t.type !== "function" || !fn || typeof fn.name !== "string" || !fn.name.trim()) {
+            continue;
+        }
+        out.push(t);
+        // Límite defensivo: un catálogo desproporcionado infla el prompt y el
+        // riesgo de abuso del endpoint más de lo que cualquier turno legítimo necesita.
+        if (out.length >= 40)
+            break;
+    }
+    return out.length > 0 ? out : undefined;
+}
+function normalizeOpenAiToolChoice(raw) {
+    const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (v === "auto" || v === "none" || v === "required")
+        return v;
+    return undefined;
 }
 function normalizeOptionalString(raw, maxLen) {
     const s = typeof raw === "string" ? raw.trim() : "";
@@ -432,14 +517,16 @@ function enforceStrictObjectSchema(node) {
     return clone;
 }
 async function callOpenAiChatStructured(input) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     const key = openAiApiKey();
     if (!key) {
         throw new AiHttpsError("failed-precondition", "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor).");
     }
     const systemPrompt = ((_a = input.systemPrompt) !== null && _a !== void 0 ? _a : "").trim();
     const prompt = ((_b = input.prompt) !== null && _b !== void 0 ? _b : "").trim();
-    const normalizedMsgs = ((_c = input.messages) !== null && _c !== void 0 ? _c : []).filter((m) => m.content.trim());
+    // No filtrar por `content` a secas: un turno `assistant` de solo tool-calls
+    // tiene `content` vacío legítimamente (ya lo valida normalizeOpenAiMessages).
+    const normalizedMsgs = ((_c = input.messages) !== null && _c !== void 0 ? _c : []).filter((m) => m.content.trim() || (m.tool_calls && m.tool_calls.length > 0));
     const messages = [];
     if (systemPrompt)
         messages.push({ role: "system", content: systemPrompt });
@@ -469,6 +556,10 @@ async function callOpenAiChatStructured(input) {
                 strict: true,
             },
         };
+    }
+    if (input.tools && input.tools.length > 0) {
+        body.tools = input.tools;
+        body.tool_choice = (_g = input.toolChoice) !== null && _g !== void 0 ? _g : "auto";
     }
     let r429 = 0;
     for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
@@ -564,11 +655,12 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
     const preSnap = await ref.get();
     const preData = ((_a = preSnap.data()) !== null && _a !== void 0 ? _a : {});
     if (isFolioStaffUser(preData)) {
-        const { text } = await callOpenAiChatStructured(input);
+        const { text, toolCalls } = await callOpenAiChatStructured(input);
         const finalSnap = await ref.get();
         const inkOut = readInkBalances(((_b = finalSnap.data()) !== null && _b !== void 0 ? _b : {}));
         return {
             text,
+            toolCalls,
             ink: {
                 monthlyBalance: inkOut.monthly,
                 purchasedBalance: inkOut.purchased,
@@ -612,13 +704,14 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
         }
     });
     try {
-        const { text, totalTokenCount } = await callOpenAiChatStructured(input);
+        const { text, totalTokenCount, toolCalls } = await callOpenAiChatStructured(input);
         const extraWant = tokenSurchargeInk(totalTokenCount);
         const extraCharged = await chargeInkExtraIfPossible(uid, extraWant, allowSubscriptionInk);
         const finalSnap = await ref.get();
         const inkOut = readInkBalances(((_c = finalSnap.data()) !== null && _c !== void 0 ? _c : {}));
         return {
             text,
+            toolCalls,
             ink: {
                 monthlyBalance: inkOut.monthly,
                 purchasedBalance: inkOut.purchased,
@@ -763,10 +856,31 @@ function priceBackupStoragePackLarge(isDebug) {
 }
 /** 5 GiB base con suscripción Folio Cloud (backup). */
 const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+/** 500 MiB base para cuentas free (copias + sync; sin tinta). */
+const FREE_BACKUP_QUOTA_BYTES = 500 * 1024 * 1024;
 /** Cuota efectiva para cuentas staff (`users/{uid}.folioStaff`): sin límite práctico en servidor. */
 const FOLIO_STAFF_BACKUP_QUOTA_BYTES = Number.MAX_SAFE_INTEGER;
 function isFolioStaffUser(data) {
     return data.folioStaff === true;
+}
+/** Plan free explícito (`folioCloud.plan === "free"`). */
+function isFolioCloudFreePlan(fc) {
+    return (fc === null || fc === void 0 ? void 0 : fc.plan) === "free";
+}
+/**
+ * Suscripción de pago (Stripe/MS/familia), no el free tier.
+ * Docs legacy sin `plan` se tratan como de pago si `active` y status de suscripción real.
+ */
+function isFolioCloudPaidPlan(fc) {
+    var _a;
+    if (!fc || fc.active !== true)
+        return false;
+    if (fc.plan === "free")
+        return false;
+    if (fc.plan === "cloud")
+        return true;
+    const status = String((_a = fc.subscriptionStatus) !== null && _a !== void 0 ? _a : "");
+    return (status === "active" || status === "trialing" || status === "past_due");
 }
 const BACKUP_STORAGE_GRANT_SMALL_BYTES = 20 * 1024 * 1024 * 1024;
 const BACKUP_STORAGE_GRANT_MEDIUM_BYTES = 75 * 1024 * 1024 * 1024;
@@ -1084,11 +1198,17 @@ async function updateFolioBackupQuotaBytes(uid) {
         const subExtra = folioBackupStripeSubscriptionExtraField(data);
         const used = folioBackupUsedField(data);
         const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
-        const baseQuota = isStudent
-            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
-            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        const freePlan = isFolioCloudFreePlan(fc);
+        const baseQuota = freePlan
+            ? FREE_BACKUP_QUOTA_BYTES
+            : isStudent
+                ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+                : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        // Free: 500 MiB + compras únicas de almacenamiento; extras de suscripción solo en plan de pago.
         const quotaBytes = active && backupOk
-            ? baseQuota + purchased + subExtra
+            ? freePlan
+                ? baseQuota + purchased
+                : baseQuota + purchased + subExtra
             : 0;
         tx.set(ref, {
             folioBackup: {
@@ -1134,13 +1254,11 @@ async function recomputeEffectiveFolioCloud(uid) {
     const stripeBilling = billing.stripe;
     const msBilling = billing.microsoftStore;
     const familyOwnerUid = data.familyOwnerUid;
-    let isFamilyMemberActive = false;
     let ownerFc = null;
     if (familyOwnerUid) {
         const ownerSnap = await db.collection("users").doc(familyOwnerUid).get();
         if (ownerSnap.exists) {
             ownerFc = (_d = ownerSnap.data()) === null || _d === void 0 ? void 0 : _d.folioCloud;
-            isFamilyMemberActive = (ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.active) === true;
         }
     }
     let stripeStatus = "canceled";
@@ -1151,6 +1269,8 @@ async function recomputeEffectiveFolioCloud(uid) {
     if (familyOwnerUid) {
         stripeStatus = (_e = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionStatus) !== null && _e !== void 0 ? _e : "canceled";
         stripePriceId = (_f = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionPriceId) !== null && _f !== void 0 ? _f : undefined;
+        // Solo heredar si el dueño tiene plan de pago (no free tier).
+        const isFamilyMemberActive = isFolioCloudPaidPlan(ownerFc);
         stripeActiveFlag = isFamilyMemberActive;
         isFamily = true;
         isStudent = false;
@@ -1168,8 +1288,12 @@ async function recomputeEffectiveFolioCloud(uid) {
                 stripeStatus = String((_h = fc.subscriptionStatus) !== null && _h !== void 0 ? _h : "canceled");
                 const sp = fc.subscriptionPriceId;
                 stripePriceId = typeof sp === "string" && sp ? sp : undefined;
+                // No tratar plan free / status "free" como suscripción de pago.
                 stripeActiveFlag =
-                    Boolean(fc.active) && stripeStatus !== "canceled";
+                    Boolean(fc.active) &&
+                        stripeStatus !== "canceled" &&
+                        stripeStatus !== "free" &&
+                        fc.plan !== "free";
             }
         }
     }
@@ -1199,17 +1323,34 @@ async function recomputeEffectiveFolioCloud(uid) {
             publishWeb: false,
             realtimeCollab: false,
         };
-    const features = {
+    const paidActive = stripeActiveFlag || msMonthlyActive;
+    let features = {
         backup: stripeFeatures.backup || msFeatures.backup,
         cloudAi: stripeFeatures.cloudAi || msFeatures.cloudAi,
         publishWeb: stripeFeatures.publishWeb || msFeatures.publishWeb,
         realtimeCollab: stripeFeatures.realtimeCollab || msFeatures.realtimeCollab,
     };
-    const folioActive = stripeActiveFlag || msMonthlyActive;
+    let folioActive = paidActive;
+    let folioPlan = "cloud";
     let subscriptionStatus = stripeStatus;
     if (msMonthlyActive &&
         (!stripeActiveFlag || stripeStatus === "canceled")) {
         subscriptionStatus = "active";
+    }
+    if (!paidActive) {
+        // Free tier: copias + sync (backup), 0 tinta, sin IA ni publishWeb.
+        folioActive = true;
+        folioPlan = "free";
+        subscriptionStatus = "free";
+        features = {
+            backup: true,
+            cloudAi: false,
+            publishWeb: false,
+            realtimeCollab: false,
+        };
+    }
+    else {
+        folioPlan = "cloud";
     }
     let stripeMonthlyActive = false;
     if (stripeActiveFlag && stripe && stripePriceId) {
@@ -1229,6 +1370,7 @@ async function recomputeEffectiveFolioCloud(uid) {
         folioCloud: {
             subscriptionStatus,
             active: folioActive,
+            plan: folioPlan,
             features,
             subscriptionPriceId: stripePriceId !== null && stripePriceId !== void 0 ? stripePriceId : null,
             isFamily,
@@ -1385,16 +1527,35 @@ async function grantMicrosoftStoreConsumableInk(uid, grants) {
     for (const g of grants) {
         if (g.drops <= 0)
             continue;
-        const docId = (0, crypto_1.createHash)("sha256")
+        // Global doc id: a single real-world Store purchase can only ever be
+        // claimed once across ALL Folio accounts, not just once per account.
+        const globalDocId = (0, crypto_1.createHash)("sha256").update(g.dedupKey).digest("hex").slice(0, 64);
+        // Legacy per-uid doc id (pre-fix): kept so purchases already credited
+        // under the old scheme are never re-credited during migration.
+        const legacyDocId = (0, crypto_1.createHash)("sha256")
             .update(`${uid}:${g.dedupKey}`)
             .digest("hex")
             .slice(0, 64);
-        const doneRef = db.collection("microsoftStoreProcessedPurchases").doc(docId);
+        const globalRef = db.collection("microsoftStoreProcessedPurchases").doc(globalDocId);
+        const legacyRef = db.collection("microsoftStoreProcessedPurchases").doc(legacyDocId);
         await db.runTransaction(async (tx) => {
-            const doneSnap = await tx.get(doneRef);
-            if (doneSnap.exists)
+            const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+            if (globalSnap.exists)
+                return; // already claimed globally, by this uid or another
+            if (legacySnap.exists) {
+                // Already credited pre-migration under the old per-uid key: backfill
+                // the global marker so no account can double-claim it going
+                // forward, without incrementing the balance again.
+                tx.set(globalRef, {
+                    uid,
+                    dedupKey: g.dedupKey,
+                    drops: g.drops,
+                    processedAt: FieldValue.serverTimestamp(),
+                    migratedFromLegacy: true,
+                });
                 return;
-            tx.set(doneRef, {
+            }
+            tx.set(globalRef, {
                 uid,
                 dedupKey: g.dedupKey,
                 drops: g.drops,
@@ -1412,16 +1573,31 @@ async function grantMicrosoftStoreBackupStorage(uid, grants) {
     for (const g of grants) {
         if (g.bytes <= 0)
             continue;
-        const docId = (0, crypto_1.createHash)("sha256")
+        const globalDocId = (0, crypto_1.createHash)("sha256")
+            .update(`${g.dedupKey}:foliobackup`)
+            .digest("hex")
+            .slice(0, 64);
+        const legacyDocId = (0, crypto_1.createHash)("sha256")
             .update(`${uid}:${g.dedupKey}:foliobackup`)
             .digest("hex")
             .slice(0, 64);
-        const doneRef = db.collection("microsoftStoreProcessedBackupGrants").doc(docId);
+        const globalRef = db.collection("microsoftStoreProcessedBackupGrants").doc(globalDocId);
+        const legacyRef = db.collection("microsoftStoreProcessedBackupGrants").doc(legacyDocId);
         await db.runTransaction(async (tx) => {
-            const doneSnap = await tx.get(doneRef);
-            if (doneSnap.exists)
+            const [globalSnap, legacySnap] = await Promise.all([tx.get(globalRef), tx.get(legacyRef)]);
+            if (globalSnap.exists)
                 return;
-            tx.set(doneRef, {
+            if (legacySnap.exists) {
+                tx.set(globalRef, {
+                    uid,
+                    dedupKey: g.dedupKey,
+                    bytes: g.bytes,
+                    processedAt: FieldValue.serverTimestamp(),
+                    migratedFromLegacy: true,
+                });
+                return;
+            }
+            tx.set(globalRef, {
                 uid,
                 dedupKey: g.dedupKey,
                 bytes: g.bytes,
@@ -2388,7 +2564,14 @@ function effectiveBackupQuotaBytes(data) {
     const fc = data.folioCloud;
     const features = fc === null || fc === void 0 ? void 0 : fc.features;
     if ((fc === null || fc === void 0 ? void 0 : fc.active) === true && (features === null || features === void 0 ? void 0 : features.backup) === true) {
-        return (FOLIO_BACKUP_BASE_QUOTA_BYTES +
+        if (isFolioCloudFreePlan(fc)) {
+            return FREE_BACKUP_QUOTA_BYTES + folioBackupPurchasedField(data);
+        }
+        const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
+        const base = isStudent
+            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
+        return (base +
             folioBackupPurchasedField(data) +
             folioBackupStripeSubscriptionExtraField(data));
     }
@@ -2601,6 +2784,654 @@ exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "pub
         totalUsedBytes: newUsed + legacyBytes,
     };
 });
+// Secreto por cuenta+libreta, generado una sola vez (get-or-create) y
+// mezclado en la derivación de la clave de device-sync de libretas "en
+// claro" (sin contraseña) — ver DeviceSyncKeyCache.plainPackKey en el
+// cliente. Sin esto, esa clave era recalculable solo con uid+vaultId, que
+// ya son parte de la propia ruta de Storage/Firestore.
+exports.folioEnsurePlainVaultSyncSecret = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const ref = db
+        .collection("users")
+        .doc(uid)
+        .collection("plainVaultSyncSecrets")
+        .doc(vaultId);
+    const secretB64 = await db.runTransaction(async (tx) => {
+        var _a;
+        const snap = await tx.get(ref);
+        const existing = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.secret;
+        if (typeof existing === "string" && existing.length > 0) {
+            return existing;
+        }
+        const generated = (0, crypto_1.randomBytes)(32).toString("base64");
+        tx.set(ref, {
+            secret: generated,
+            createdAt: FieldValue.serverTimestamp(),
+        });
+        return generated;
+    });
+    return { ok: true, secret: secretB64 };
+});
+exports.folioGetDeviceSyncMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultSync")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    const formatVersion = typeof data.syncFormatVersion === "number" &&
+        Number.isFinite(data.syncFormatVersion)
+        ? Math.trunc(data.syncFormatVersion)
+        : 1;
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        syncFormatVersion: formatVersion,
+        manifestStoragePath: typeof data.manifestStoragePath === "string"
+            ? data.manifestStoragePath
+            : "",
+        manifestSizeBytes: typeof data.manifestSizeBytes === "number"
+            ? data.manifestSizeBytes
+            : 0,
+        deviceId: typeof data.deviceId === "string" ? data.deviceId : "",
+        deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
+        displayName: typeof data.displayName === "string" ? data.displayName : "",
+        vaultMode: typeof data.vaultMode === "string" ? data.vaultMode : "",
+        packKeyKind: typeof data.packKeyKind === "string" ? data.packKeyKind : "",
+        dekAccountWrapB64: typeof data.dekAccountWrapB64 === "string"
+            ? data.dekAccountWrapB64
+            : "",
+        updatedAt: (_d = data.updatedAt) !== null && _d !== void 0 ? _d : null,
+    };
+});
+function assertDeviceSyncPackStoragePath(uid, vaultId, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/vaults/${vaultId}/device-sync/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+function assertDeviceSyncManifestStoragePath(uid, vaultId, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/vaults/${vaultId}/device-sync/manifests/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "manifestStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "manifestStoragePath too long");
+    }
+    return path;
+}
+exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const formatRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.syncFormatVersion;
+    const syncFormatVersion = typeof formatRaw === "number" && Number.isFinite(formatRaw)
+        ? Math.max(1, Math.trunc(formatRaw))
+        : 1;
+    const isV2 = syncFormatVersion >= 2;
+    const fpRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    const deviceIdRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.deviceId;
+    const deviceId = typeof deviceIdRaw === "string" ? deviceIdRaw.trim().slice(0, 128) : "";
+    const deviceNameRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.deviceName;
+    const deviceName = typeof deviceNameRaw === "string"
+        ? deviceNameRaw.trim().slice(0, 120)
+        : "";
+    let packPath = "";
+    let packSize = 0;
+    let manifestPath = "";
+    let manifestSize = 0;
+    let oldPackPath = "";
+    let oldPackSize = 0;
+    let oldManifestPath = "";
+    let oldManifestSize = 0;
+    if (isV2) {
+        manifestPath = assertDeviceSyncManifestStoragePath(uid, vaultId, (_g = request.data) === null || _g === void 0 ? void 0 : _g.manifestStoragePath);
+        const manifestSizeRaw = (_h = request.data) === null || _h === void 0 ? void 0 : _h.manifestSizeBytes;
+        manifestSize =
+            typeof manifestSizeRaw === "number" && Number.isFinite(manifestSizeRaw)
+                ? Math.max(0, Math.trunc(manifestSizeRaw))
+                : 0;
+        if (manifestSize <= 0 || manifestSize > 16 * 1024 * 1024) {
+            throw new https_1.HttpsError("invalid-argument", "manifestSizeBytes invalid");
+        }
+    }
+    else {
+        packPath = assertDeviceSyncPackStoragePath(uid, vaultId, (_j = request.data) === null || _j === void 0 ? void 0 : _j.packStoragePath);
+        const packSizeRaw = (_k = request.data) === null || _k === void 0 ? void 0 : _k.packSizeBytes;
+        packSize =
+            typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+                ? Math.max(0, Math.trunc(packSizeRaw))
+                : 0;
+        if (packSize <= 0 || packSize > 80 * 1024 * 1024) {
+            throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+        }
+    }
+    // Rutas "old*" son solo para cuota/cleanup: si vienen de otra libreta o
+    // están corruptas, ignorarlas (no tumbar el finalize del pack nuevo).
+    const oldPathRaw = (_l = request.data) === null || _l === void 0 ? void 0 : _l.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        try {
+            oldPackPath = assertDeviceSyncPackStoragePath(uid, vaultId, oldPathRaw);
+            const oldSzRaw = (_m = request.data) === null || _m === void 0 ? void 0 : _m.oldPackSizeBytes;
+            oldPackSize =
+                typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                    ? Math.max(0, Math.trunc(oldSzRaw))
+                    : 0;
+        }
+        catch {
+            oldPackPath = "";
+            oldPackSize = 0;
+        }
+    }
+    const oldManifestRaw = (_o = request.data) === null || _o === void 0 ? void 0 : _o.oldManifestStoragePath;
+    if (typeof oldManifestRaw === "string" && oldManifestRaw.trim()) {
+        try {
+            oldManifestPath = assertDeviceSyncManifestStoragePath(uid, vaultId, oldManifestRaw);
+            const oldMzRaw = (_p = request.data) === null || _p === void 0 ? void 0 : _p.oldManifestSizeBytes;
+            oldManifestSize =
+                typeof oldMzRaw === "number" && Number.isFinite(oldMzRaw)
+                    ? Math.max(0, Math.trunc(oldMzRaw))
+                    : 0;
+        }
+        catch {
+            oldManifestPath = "";
+            oldManifestSize = 0;
+        }
+    }
+    const newBlobs = parseCloudPackBlobSizeList((_q = request.data) === null || _q === void 0 ? void 0 : _q.newBlobs);
+    const deleteBlobs = parseCloudPackBlobSizeList((_r = request.data) === null || _r === void 0 ? void 0 : _r.deleteBlobs);
+    if (newBlobs.length > 2000 || deleteBlobs.length > 2000) {
+        throw new https_1.HttpsError("invalid-argument", "Too many blob entries");
+    }
+    const userRef = db.collection("users").doc(uid);
+    const syncRef = userRef.collection("vaultSync").doc(vaultId);
+    const bucket = admin.storage().bucket();
+    const primaryPath = isV2 ? manifestPath : packPath;
+    const primarySize = isV2 ? manifestSize : packSize;
+    const [fileMeta] = await bucket.file(primaryPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) ||
+        metaSize <= 0 ||
+        Math.abs(metaSize - primarySize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "Sync pack/manifest not found in storage or size mismatch.");
+    }
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const { newUsed, quota, newRev } = await db.runTransaction(async (tx) => {
+        var _a, _b, _c, _d, _e, _f;
+        const [userSnap, prevSync] = await Promise.all([
+            tx.get(userRef),
+            tx.get(syncRef),
+        ]);
+        const udata = ((_a = userSnap.data()) !== null && _a !== void 0 ? _a : {});
+        const used = folioBackupUsedField(udata);
+        const quota = effectiveBackupQuotaBytes(udata);
+        let delta = primarySize - (isV2 ? oldManifestSize : oldPackSize);
+        // Migración v1→v2: restar pack monolítico antiguo.
+        if (isV2 && oldPackSize > 0)
+            delta -= oldPackSize;
+        for (const b of newBlobs)
+            delta += b.sizeBytes;
+        for (const b of deleteBlobs)
+            delta -= b.sizeBytes;
+        const newUsed = Math.max(0, used + delta);
+        if (quota > 0 && newUsed + legacyBytes > quota) {
+            throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+        }
+        const prevRev = typeof ((_b = prevSync.data()) === null || _b === void 0 ? void 0 : _b.rev) === "number"
+            ? Math.trunc(prevSync.data().rev)
+            : 0;
+        const newRev = prevRev + 1;
+        tx.update(userRef, {
+            "folioBackup.usedBytes": newUsed,
+            "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        });
+        const patch = {
+            rev: newRev,
+            contentFingerprint: fingerprint.slice(0, 200).toLowerCase(),
+            deviceId,
+            deviceName,
+            syncFormatVersion: isV2 ? 2 : 1,
+            updatedAt: FieldValue.serverTimestamp(),
+        };
+        const displayNameRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.displayName;
+        if (typeof displayNameRaw === "string" && displayNameRaw.trim()) {
+            patch.displayName = displayNameRaw.trim().slice(0, 120);
+        }
+        const vaultModeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.vaultMode;
+        if (typeof vaultModeRaw === "string" &&
+            (vaultModeRaw.trim() === "plain" || vaultModeRaw.trim() === "encrypted")) {
+            patch.vaultMode = vaultModeRaw.trim();
+        }
+        const packKeyKindRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.packKeyKind;
+        if (typeof packKeyKindRaw === "string" &&
+            (packKeyKindRaw.trim() === "account" ||
+                packKeyKindRaw.trim() === "vault")) {
+            patch.packKeyKind = packKeyKindRaw.trim();
+        }
+        const dekWrapRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.dekAccountWrapB64;
+        if (typeof dekWrapRaw === "string" && dekWrapRaw.trim()) {
+            const w = dekWrapRaw.trim();
+            // Límite razonable (~4 KiB) para DEK envuelta.
+            if (w.length <= 8192) {
+                patch.dekAccountWrapB64 = w;
+            }
+        }
+        if (isV2) {
+            patch.manifestStoragePath = manifestPath;
+            patch.manifestSizeBytes = manifestSize;
+            patch.packStoragePath = "";
+            patch.packSizeBytes = 0;
+        }
+        else {
+            patch.packStoragePath = packPath;
+            patch.packSizeBytes = packSize;
+        }
+        tx.set(syncRef, patch, { merge: true });
+        return { newUsed, quota, newRev };
+    });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    if (oldManifestPath && oldManifestPath !== manifestPath) {
+        try {
+            await bucket.file(oldManifestPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    return {
+        ok: true,
+        rev: newRev,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        totalUsedBytes: newUsed + legacyBytes,
+        syncFormatVersion: isV2 ? 2 : 1,
+    };
+});
+exports.folioListDeviceSyncVaults = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultSync")
+        .get();
+    const vaults = snap.docs.map((d) => {
+        var _a;
+        const data = ((_a = d.data()) !== null && _a !== void 0 ? _a : {});
+        const pack = typeof data.packStoragePath === "string"
+            ? data.packStoragePath.trim()
+            : "";
+        const manifest = typeof data.manifestStoragePath === "string"
+            ? data.manifestStoragePath.trim()
+            : "";
+        const fp = typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint.trim()
+            : "";
+        return {
+            vaultId: d.id,
+            displayName: typeof data.displayName === "string" ? data.displayName.trim() : "",
+            vaultMode: typeof data.vaultMode === "string" ? data.vaultMode.trim() : "",
+            rev: typeof data.rev === "number" ? Math.trunc(data.rev) : 0,
+            contentFingerprint: fp,
+            hasCloudPack: fp.length > 0 && (pack.length > 0 || manifest.length > 0),
+        };
+    });
+    vaults.sort((a, b) => a.vaultId.localeCompare(b.vaultId));
+    return { vaults };
+});
+function assertAppProfilePackPath(uid, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/app-profile/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+function assertVaultProfilePackPath(uid, vaultId, raw) {
+    const path = typeof raw === "string" ? raw.trim() : "";
+    const prefix = `users/${uid}/vault-profiles/${vaultId}/packs/`;
+    if (!path.startsWith(prefix) || path.includes("..") || !path.endsWith(".bin")) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath invalid");
+    }
+    if (path.length > 512) {
+        throw new https_1.HttpsError("invalid-argument", "packStoragePath too long");
+    }
+    return path;
+}
+exports.folioGetAppProfileMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("appProfile")
+        .doc("meta")
+        .get();
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const wrapB64 = typeof data.restoreWrapB64 === "string" ? data.restoreWrapB64.trim() : "";
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        hasRestoreWrap: wrapB64.length > 0,
+        iconIds: Array.isArray(data.iconIds) ? data.iconIds : [],
+        updatedAt: (_c = data.updatedAt) !== null && _c !== void 0 ? _c : null,
+    };
+});
+exports.folioGetAppProfileRestoreWrap = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("appProfile")
+        .doc("meta")
+        .get();
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const wrapB64 = typeof data.restoreWrapB64 === "string" ? data.restoreWrapB64.trim() : "";
+    return {
+        ok: true,
+        restoreWrapB64: wrapB64,
+    };
+});
+exports.folioFinalizeAppProfile = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const packPath = assertAppProfilePackPath(uid, (_b = request.data) === null || _b === void 0 ? void 0 : _b.packStoragePath);
+    const packSizeRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.packSizeBytes;
+    const packSize = typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+        ? Math.max(0, Math.trunc(packSizeRaw))
+        : 0;
+    if (packSize <= 0 || packSize > 16 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+    }
+    const fpRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim().toLowerCase() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    const iconIdsRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.iconIds;
+    const iconIds = [];
+    if (Array.isArray(iconIdsRaw)) {
+        for (const id of iconIdsRaw) {
+            if (typeof id !== "string")
+                continue;
+            const t = id.trim();
+            if (t && t.length <= 128 && !t.includes("/") && !t.includes("..")) {
+                iconIds.push(t);
+            }
+        }
+    }
+    if (iconIds.length > 500) {
+        throw new https_1.HttpsError("invalid-argument", "Too many iconIds");
+    }
+    let oldPackSize = 0;
+    let oldPackPath = "";
+    const oldPathRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        oldPackPath = assertAppProfilePackPath(uid, oldPathRaw);
+        const oldSzRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.oldPackSizeBytes;
+        oldPackSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const wrapB64Raw = (_h = request.data) === null || _h === void 0 ? void 0 : _h.restoreWrapB64;
+    let restoreWrapB64 = null;
+    if (wrapB64Raw != null && String(wrapB64Raw).trim() !== "") {
+        const s = String(wrapB64Raw).trim();
+        let buf;
+        try {
+            buf = Buffer.from(s, "base64");
+        }
+        catch {
+            throw new https_1.HttpsError("invalid-argument", "restoreWrapB64 invalid");
+        }
+        if (buf.length < 44 || buf.length > 4096) {
+            throw new https_1.HttpsError("invalid-argument", "restoreWrapB64 size invalid");
+        }
+        restoreWrapB64 = s;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_j = userSnap.data()) !== null && _j !== void 0 ? _j : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const delta = packSize - oldPackSize;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(packPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "App profile pack not found or size mismatch.");
+    }
+    const metaRef = userRef.collection("appProfile").doc("meta");
+    const prev = await metaRef.get();
+    const prevRev = typeof ((_k = prev.data()) === null || _k === void 0 ? void 0 : _k.rev) === "number"
+        ? Math.trunc(prev.data().rev)
+        : 0;
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    const patch = {
+        rev: prevRev + 1,
+        contentFingerprint: fingerprint.slice(0, 200),
+        packStoragePath: packPath,
+        packSizeBytes: packSize,
+        iconIds,
+        updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (restoreWrapB64 != null) {
+        patch.restoreWrapB64 = restoreWrapB64;
+    }
+    await metaRef.set(patch, { merge: true });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    return {
+        ok: true,
+        rev: prevRev + 1,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
+exports.folioGetVaultProfileMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultProfiles")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    return {
+        ok: true,
+        rev: typeof data.rev === "number" ? data.rev : 0,
+        contentFingerprint: typeof data.contentFingerprint === "string"
+            ? data.contentFingerprint
+            : "",
+        packStoragePath: typeof data.packStoragePath === "string" ? data.packStoragePath : "",
+        packSizeBytes: typeof data.packSizeBytes === "number" ? data.packSizeBytes : 0,
+        hasRestoreWrap: typeof data.restoreWrapB64 === "string" &&
+            data.restoreWrapB64.trim().length > 0,
+        updatedAt: (_d = data.updatedAt) !== null && _d !== void 0 ? _d : null,
+    };
+});
+exports.folioFinalizeVaultProfile = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const packPath = assertVaultProfilePackPath(uid, vaultId, (_c = request.data) === null || _c === void 0 ? void 0 : _c.packStoragePath);
+    const packSizeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.packSizeBytes;
+    const packSize = typeof packSizeRaw === "number" && Number.isFinite(packSizeRaw)
+        ? Math.max(0, Math.trunc(packSizeRaw))
+        : 0;
+    if (packSize <= 0 || packSize > 8 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "packSizeBytes invalid");
+    }
+    const fpRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim().toLowerCase() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/i.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    let oldPackSize = 0;
+    let oldPackPath = "";
+    const oldPathRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.oldPackStoragePath;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        oldPackPath = assertVaultProfilePackPath(uid, vaultId, oldPathRaw);
+        const oldSzRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.oldPackSizeBytes;
+        oldPackSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_h = userSnap.data()) !== null && _h !== void 0 ? _h : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const delta = packSize - oldPackSize;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(packPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - packSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "Vault profile pack not found or size mismatch.");
+    }
+    const metaRef = userRef.collection("vaultProfiles").doc(vaultId);
+    const prev = await metaRef.get();
+    const prevRev = typeof ((_j = prev.data()) === null || _j === void 0 ? void 0 : _j.rev) === "number"
+        ? Math.trunc(prev.data().rev)
+        : 0;
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    await metaRef.set({
+        rev: prevRev + 1,
+        contentFingerprint: fingerprint.slice(0, 200),
+        packStoragePath: packPath,
+        packSizeBytes: packSize,
+        updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    if (oldPackPath && oldPackPath !== packPath) {
+        try {
+            await bucket.file(oldPackPath).delete({ ignoreNotFound: true });
+        }
+        catch {
+            // ignore
+        }
+    }
+    return {
+        ok: true,
+        rev: prevRev + 1,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
 exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
@@ -2612,6 +3443,14 @@ exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: 
     const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
     const usedCloud = folioBackupUsedField(data);
     const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const fc = data.folioCloud;
+    const freePlan = isFolioCloudFreePlan(fc);
+    const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
+    const baseQuotaBytes = freePlan
+        ? FREE_BACKUP_QUOTA_BYTES
+        : isStudent
+            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
     return {
         ok: true,
         usedBytes: usedCloud + legacyBytes,
@@ -2620,7 +3459,8 @@ exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: 
         quotaBytes: effectiveBackupQuotaBytes(data),
         purchasedBytes: folioBackupPurchasedField(data),
         subscriptionExtraBytes: folioBackupStripeSubscriptionExtraField(data),
-        baseQuotaBytes: FOLIO_BACKUP_BASE_QUOTA_BYTES,
+        baseQuotaBytes,
+        plan: freePlan ? "free" : "cloud",
     };
 });
 exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
@@ -2965,11 +3805,11 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "publ
         .map((x) => x.trim())
         .filter((x) => x.length > 0);
     vaultIds.sort((a, b) => a.localeCompare(b));
-    const indexSnap = await db
-        .collection("users")
-        .doc(uid)
-        .collection("vaultBackupIndex")
-        .get();
+    const userRef = db.collection("users").doc(uid);
+    const [indexSnap, vaultBackupsSnap] = await Promise.all([
+        userRef.collection("vaultBackupIndex").get(),
+        userRef.collection("vaultBackups").get(),
+    ]);
     const nameById = new Map();
     for (const d of indexSnap.docs) {
         const data = d.data();
@@ -2977,7 +3817,25 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "publ
         if (name)
             nameById.set(d.id, name);
     }
-    const vaults = vaultIds.map((id) => {
+    // Solo libretas con copias reales (legacy backups/ o cloud-pack).
+    // Excluye las que solo tienen device-sync/ u otras carpetas no-backup.
+    const hasCloudPackMeta = new Set();
+    for (const d of vaultBackupsSnap.docs) {
+        const data = d.data();
+        const cp = typeof data.latestCloudPackSnapshotPath === "string"
+            ? data.latestCloudPackSnapshotPath.trim()
+            : "";
+        if (cp)
+            hasCloudPackMeta.add(d.id);
+    }
+    const withRealBackups = (await Promise.all(vaultIds.map(async (id) => {
+        if (hasCloudPackMeta.has(id))
+            return id;
+        if (await vaultCloudBackupHasRemainingFiles(uid, id))
+            return id;
+        return null;
+    }))).filter((id) => id != null);
+    const vaults = withRealBackups.map((id) => {
         var _a;
         return ({
             vaultId: id,
@@ -3244,7 +4102,7 @@ async function _diarizeSegmentsWithGpt(segments, inferenceApiKey) {
  * En caso de fallo de transcripción, reembolsa la tinta cobrada.
  */
 exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
@@ -3319,27 +4177,44 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
     try {
         const audioBuffer = Buffer.from(audioBase64, "base64");
         const blob = new Blob([audioBuffer], { type: "audio/wav" });
-        const form = new FormData();
-        form.append("file", blob, "chunk.wav");
-        // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
-        form.append("model", "gpt-4o-mini-transcribe");
-        if (language && language !== "auto") {
-            form.append("language", language.slice(0, 2).toLowerCase());
+        // Reintentos con backoff ante fallos transitorios del proveedor (mismo
+        // patrón que openAiFetchChatCompletion / OPENAI_MAX_429_RETRIES).
+        const maxTranscribeRetries = 2;
+        let resp;
+        let lastErrBody = "";
+        for (let attempt = 0; attempt <= maxTranscribeRetries; attempt++) {
+            const form = new FormData();
+            form.append("file", blob, "chunk.wav");
+            // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
+            form.append("model", "gpt-4o-mini-transcribe");
+            if (language && language !== "auto") {
+                form.append("language", language.slice(0, 2).toLowerCase());
+            }
+            form.append("response_format", "verbose_json");
+            resp = await fetch(openAiAudioTranscriptionsUrl(), {
+                method: "POST",
+                headers: { Authorization: `Bearer ${inferenceApiKey}` },
+                body: form,
+            });
+            if (resp.ok)
+                break;
+            const attemptStatus = resp.status;
+            lastErrBody = await resp.text().catch(() => `HTTP ${attemptStatus}`);
+            const transient = resp.status === 429 ||
+                resp.status === 502 ||
+                resp.status === 503 ||
+                resp.status === 504;
+            if (!transient || attempt === maxTranscribeRetries)
+                break;
+            await sleepMs(400 * 2 ** attempt);
         }
-        form.append("response_format", "verbose_json");
-        const resp = await fetch(openAiAudioTranscriptionsUrl(), {
-            method: "POST",
-            headers: { Authorization: `Bearer ${inferenceApiKey}` },
-            body: form,
-        });
-        if (!resp.ok) {
-            const errBody = await resp.text().catch(() => `HTTP ${resp.status}`);
-            console.error("folioCloudTranscribeChunk: transcription API error", resp.status, errBody);
-            throw new https_1.HttpsError("internal", `Transcription failed (${resp.status})`);
+        if (!resp || !resp.ok) {
+            console.error("folioCloudTranscribeChunk: transcription API error", resp === null || resp === void 0 ? void 0 : resp.status, lastErrBody);
+            throw new https_1.HttpsError("internal", `Transcription failed (${(_d = resp === null || resp === void 0 ? void 0 : resp.status) !== null && _d !== void 0 ? _d : "unknown"})`);
         }
         const verboseResult = (await resp.json());
-        const rawText = ((_d = verboseResult.text) !== null && _d !== void 0 ? _d : "").trim();
-        const segments = (_e = verboseResult.segments) !== null && _e !== void 0 ? _e : [];
+        const rawText = ((_e = verboseResult.text) !== null && _e !== void 0 ? _e : "").trim();
+        const segments = (_f = verboseResult.segments) !== null && _f !== void 0 ? _f : [];
         if (rawText.length === 0) {
             transcript = "";
         }
@@ -3368,7 +4243,7 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
     }
     // ── Leer saldos finales ───────────────────────────────────────────────────
     const finalSnap = await db.collection("users").doc(uid).get();
-    const inkOut = readInkBalances(((_f = finalSnap.data()) !== null && _f !== void 0 ? _f : {}));
+    const inkOut = readInkBalances(((_g = finalSnap.data()) !== null && _g !== void 0 ? _g : {}));
     return {
         transcript,
         ink: {
@@ -3455,6 +4330,8 @@ exports.folioCloudAiComplete = functionsV1
     const responseSchema = normalizeResponseSchema(data === null || data === void 0 ? void 0 : data.responseSchema);
     const maxTokens = normalizeClientMaxTokens(data === null || data === void 0 ? void 0 : data.maxTokens);
     const temperature = normalizeClientTemperature(data === null || data === void 0 ? void 0 : data.temperature);
+    const tools = normalizeOpenAiTools(data === null || data === void 0 ? void 0 : data.tools);
+    const toolChoice = normalizeOpenAiToolChoice(data === null || data === void 0 ? void 0 : data.toolChoice);
     if (!prompt && messages.length === 0) {
         throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
@@ -3466,6 +4343,8 @@ exports.folioCloudAiComplete = functionsV1
         responseSchema,
         maxTokens,
         temperature,
+        tools,
+        toolChoice,
     }, operationKind);
 });
 /**
@@ -3495,6 +4374,8 @@ exports.folioCloudAiCompleteHttp = functionsV1
         const responseSchema = normalizeResponseSchema(payload.responseSchema);
         const maxTokens = normalizeClientMaxTokens(payload.maxTokens);
         const temperature = normalizeClientTemperature(payload.temperature);
+        const tools = normalizeOpenAiTools(payload.tools);
+        const toolChoice = normalizeOpenAiToolChoice(payload.toolChoice);
         if (!prompt && messages.length === 0) {
             throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
         }
@@ -3506,6 +4387,8 @@ exports.folioCloudAiCompleteHttp = functionsV1
             responseSchema,
             maxTokens,
             temperature,
+            tools,
+            toolChoice,
         }, operationKind);
         res.status(200).json({ result });
     }

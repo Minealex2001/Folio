@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/gestures.dart'
+    show kBackMouseButton, kForwardMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
@@ -20,13 +23,20 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
+import '../services/ai/folio_tool_registry.dart';
+import '../services/ai/gemini_nano_ai_service.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/ai/on_device_ai_bridge.dart';
 import '../services/ai/openai_compatible_ai_service.dart';
+import '../services/mcp/folio_mcp_server.dart';
+import '../services/mcp/folio_mcp_server_status.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../services/folio_cloud/folio_cloud_device_sync.dart';
+import '../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../services/app_logger.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
@@ -37,11 +47,11 @@ import '../services/tasks/platform_notification_service.dart';
 import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
+import '../services/integrations/integration_command_processor.dart';
+import '../services/spotify/spotify_playback_controller.dart';
+import '../services/media/media_playback_router.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
-import '../services/app_store/app_store_service.dart';
-import '../services/app_store/app_extension_registry.dart';
-import '../services/app_store/integration_auth_service.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
@@ -80,6 +90,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   FolioCloudEntitlementsController? _folioCloudEntitlementsInstance;
+  FolioMcpServer? _mcpServer;
+  Future<void>? _mcpServerApplyInFlight;
 
   /// Inicialización perezosa: tras hot reload [initState] no se vuelve a llamar y un `late final` fallaría.
   FolioCloudEntitlementsController get _folioCloudEntitlements {
@@ -91,11 +103,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   DesktopIntegration? _desktop;
   late final IntegrationsBridgeController _integrationsBridge;
   late final DeviceSyncController _deviceSyncController;
+  FolioCloudDeviceSyncController? _cloudDeviceSyncController;
+  FolioCloudSettingsSyncController? _cloudSettingsSyncController;
+  bool? _lastCloudDeviceSyncShouldRun;
+  bool _appProfileRestoreDialogShown = false;
   String? _installedVersionLabel;
   var _openingByHotkey = false;
   String _desktopSettingsSignature = '';
   bool _updateDialogShown = false;
   bool _releaseNotesCheckInProgress = false;
+  /// Lifecycle Flutter: resumed vs paused/hidden/…
+  bool _lifecycleActive = true;
+  /// Foco de ventana OS (desktop). En móvil/web se mantiene true.
+  bool _windowFocused = true;
   bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
@@ -106,6 +126,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       Duration(seconds: 45);
   TaskReminderService? _taskReminderService;
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
+  late final IntegrationCommandProcessor _integrationCommandProcessor;
 
   late final FolioTelemetryNavigatorObserver _telemetryNavObserver;
   late final AppBootstrap _appBootstrap;
@@ -148,23 +169,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (!mounted) return;
     _applyAiSettings();
     _applyDeviceSyncSettings();
+    unawaited(_applyMcpServerSettings());
     _maybeLaunchAiProvider();
-    await bootstrap.runSecondaryPhase(
-      BootstrapPhase.integrations,
-      () async {
-        await IntegrationAuthService.instance.load();
-        await AppStoreService.instance.init();
-        AppExtensionRegistry.instance.loadFromInstalledApps(
-          AppStoreService.instance.installedApps,
-        );
-        AppStoreService.instance.addListener(() {
-          AppExtensionRegistry.instance.loadFromInstalledApps(
-            AppStoreService.instance.installedApps,
-          );
-        });
-      },
-    );
-    if (!mounted) return;
     await bootstrap.runSecondaryPhase(
       BootstrapPhase.desktop,
       _initDesktopIntegration,
@@ -237,10 +243,33 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       onExportSnapshot: _exportSyncSnapshot,
       onImportSnapshot: _importSyncSnapshot,
     );
+    _cloudDeviceSyncController = FolioCloudDeviceSyncController(
+      appSettings: widget.appSettings,
+      session: widget.session,
+      entitlements: _folioCloudEntitlements,
+      onEvent: _showSnack,
+    );
+    _cloudSettingsSyncController = FolioCloudSettingsSyncController(
+      appSettings: widget.appSettings,
+      entitlements: _folioCloudEntitlements,
+      onEvent: _showSnack,
+    );
+    _cloudSettingsSyncController!.addListener(_onCloudSettingsSync);
+    _integrationCommandProcessor = IntegrationCommandProcessor(
+      session: widget.session,
+      appSettings: widget.appSettings,
+    );
+    _integrationCommandProcessor.bind();
     widget.session.onSyncConflictCountChanged = (count) {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
     widget.session.onPersisted = _onVaultPersisted;
+    widget.session.onBeforeLeaveVault = () async {
+      await _cloudDeviceSyncController?.flushPushNow();
+    };
+    widget.session.onBeforeLeavePage = () async {
+      await _cloudDeviceSyncController?.flushPushIfPending();
+    };
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
@@ -260,14 +289,24 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_integrationsBridge.dispose());
+    _integrationCommandProcessor.dispose();
     widget.session.onSyncConflictCountChanged = null;
     widget.session.onPersisted = null;
+    widget.session.onBeforeLeaveVault = null;
+    widget.session.onBeforeLeavePage = null;
     _deviceSyncController.dispose();
+    unawaited(_cloudDeviceSyncController?.disposeController());
+    _cloudDeviceSyncController?.dispose();
+    _cloudSettingsSyncController?.removeListener(_onCloudSettingsSync);
+    unawaited(_cloudSettingsSyncController?.disposeController());
+    _cloudSettingsSyncController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_desktop?.dispose());
     widget.cloudAccountController.dispose();
     _folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _folioCloudEntitlementsInstance?.dispose();
+    unawaited(_mcpServer?.stop());
+    folioMcpServerStatus.value = null;
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -275,7 +314,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onSession() {
     final nextVault = widget.session.state;
-    if (_lastVaultFlowForTelemetry != nextVault) {
+    final vaultFlowChanged = _lastVaultFlowForTelemetry != nextVault;
+    if (vaultFlowChanged) {
       if (_lastVaultFlowForTelemetry != null) {
         unawaited(
           FolioTelemetry.logNavigation(
@@ -288,6 +328,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _lastVaultFlowForTelemetry = nextVault;
     }
     if (widget.session.state == VaultFlowState.locked) {
+      SpotifyPlaybackController.instance.detachSession();
+      MediaPlaybackRouter.instance.detachSession();
+      // Device-sync sigue en segundo plano (headless) aunque la libreta esté
+      // bloqueada; solo se cierra la UI del workspace.
+      unawaited(_cloudSettingsSyncController?.stopWatching());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final nav = _navKey.currentState;
         if (nav == null || !nav.mounted) return;
@@ -295,6 +340,29 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           nav.pop();
         }
       });
+      // Relanzar sync headless si estaba parado; luego rebind si cambió la activa.
+      unawaited(() async {
+        await _syncCloudDeviceSyncLifecycle(force: true);
+        await _cloudDeviceSyncController?.onActiveVaultMaybeChanged();
+      }());
+    } else if (widget.session.state == VaultFlowState.unlocked) {
+      SpotifyPlaybackController.instance.attachSession(widget.session);
+      MediaPlaybackRouter.instance.attachSession(widget.session);
+      // `_onSession` se dispara en CADA notificación de la sesión (cada
+      // edición, no solo al desbloquear). `_syncCloudDeviceSyncLifecycle` ya
+      // cachea el último `isEnabled` aplicado y no hace nada si no cambió;
+      // llamar a `ctrl.start()` a pelo aquí (como antes) reiniciaba todo el
+      // pipeline de cloud sync — incl. una subida/descarga completa — en
+      // cada tecla. `cacheKeyForActiveVault` solo debe correr una vez por
+      // desbloqueo real, no en cada notificación.
+      unawaited(() async {
+        await _syncCloudDeviceSyncLifecycle();
+        await _cloudDeviceSyncController?.onActiveVaultMaybeChanged();
+      }());
+      unawaited(_syncCloudSettingsSyncLifecycle());
+      if (vaultFlowChanged) {
+        unawaited(_cloudDeviceSyncController?.cacheKeyForActiveVault());
+      }
     }
     unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
@@ -361,48 +429,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           : '$appVersion+$buildNumber';
       final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
 
-      // Inicializa el marcador en instalaciones nuevas para no abrir en el primer arranque.
+      // Primera instalación: marcar como visto sin abrir.
       if (lastSeen.isEmpty) {
         await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
         return;
       }
-      if (lastSeen == versionLabel) return;
-
-      final updater = GitHubReleaseUpdater(
-        owner: widget.appSettings.updaterGithubOwner,
-        repo: widget.appSettings.updaterGithubRepo,
-      );
-      ReleaseNotesResult? release;
-      try {
-        release = await updater.fetchReleaseNotesForVersion(
-          appVersion: appVersion,
-          buildNumber: buildNumber,
-        );
-      } catch (_) {
-        release = null;
-      }
-      if (!mounted) return;
-      if (_updateDialogShown) return;
-      if (widget.session.state != VaultFlowState.unlocked) return;
-      final safeNav = _navKey.currentState;
-      if (safeNav == null || !safeNav.mounted || safeNav.canPop()) return;
-
-      _releaseNotesShownThisRun = true;
-      await safeNav.push(
-        MaterialPageRoute<void>(
-          builder: (context) {
-            return ReleaseNotesPage(
-              versionLabel: versionLabel,
-              releaseTitle: release?.releaseName,
-              releaseNotes: release?.releaseNotes ?? '',
-              publishedAt: release?.publishedAt,
-              tagName: release?.tagName,
-            );
-          },
-          settings: const RouteSettings(name: 'release_notes'),
-        ),
-      );
-      await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+      // Tras actualizar: no abrir el modal automáticamente.
+      // La tarjeta «Novedades» del home sigue indicando unread
+      // (lastSeen != versionLabel) hasta que el usuario la abra o descarte.
+      if (lastSeen != versionLabel) return;
     } finally {
       _releaseNotesCheckInProgress = false;
     }
@@ -445,6 +480,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onVaultPersisted() {
     _deviceSyncController.onLocalSnapshotPersisted();
+    _cloudDeviceSyncController?.onLocalSnapshotPersisted();
     unawaited(_scheduleContinuousVaultBackupAfterPersist());
   }
 
@@ -570,16 +606,16 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   Future<bool> _importSyncSnapshot(List<int> snapshot, String _) async {
     final sw = Stopwatch()..start();
     try {
-      final ok = await widget.session.applySyncSnapshotBytes(snapshot);
+      final applied = await widget.session.applySyncSnapshotBytes(snapshot);
       unawaited(
         FolioTelemetry.logSyncEvent(
           widget.appSettings,
           'device_lan_import',
-          ok,
+          applied.ok,
           durationMs: sw.elapsedMilliseconds,
         ),
       );
-      return ok;
+      return applied.ok;
     } catch (e) {
       unawaited(
         FolioTelemetry.logSyncEvent(
@@ -713,7 +749,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onFolioCloudEntitlements() {
     _applyAiSettings();
+    unawaited(_syncCloudDeviceSyncLifecycle());
+    unawaited(_syncCloudSettingsSyncLifecycle());
     if (mounted) setState(() {});
+  }
+
+  void _onCloudSettingsSync() {
+    if (_cloudSettingsSyncController?.hasRemoteProfilePromptPending == true) {
+      unawaited(_maybeShowAppProfileRestoreDialog());
+    }
   }
 
   void _onSettings() {
@@ -722,13 +766,204 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _applyDesktopSettingsIfNeeded();
+    unawaited(_applyMcpServerSettings());
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     unawaited(FolioTelemetry.onSettingsChanged(widget.appSettings));
     if (mounted) setState(() {});
   }
 
+  /// Fase 5: arranca/para el servidor MCP local según
+  /// `AppSettings.mcpServerEnabled` — nunca corre sin que el usuario lo pida
+  /// explícitamente, y nunca fuera de desktop (`mcpServerSupported`).
+  ///
+  /// Si llega otra petición mientras hay una en vuelo, se encola un reintento
+  /// al terminar (para no perder un toggle ON que coincida con un arranque).
+  bool _mcpServerApplyQueued = false;
+
+  Future<void> _applyMcpServerSettings() {
+    final inFlight = _mcpServerApplyInFlight;
+    if (inFlight != null) {
+      _mcpServerApplyQueued = true;
+      return inFlight;
+    }
+    final run = _applyMcpServerSettingsBody();
+    late final Future<void> tracked;
+    tracked = run.whenComplete(() {
+      if (identical(_mcpServerApplyInFlight, tracked)) {
+        _mcpServerApplyInFlight = null;
+      }
+      if (_mcpServerApplyQueued) {
+        _mcpServerApplyQueued = false;
+        unawaited(_applyMcpServerSettings());
+      }
+    });
+    _mcpServerApplyInFlight = tracked;
+    return tracked;
+  }
+
+  Future<void> _applyMcpServerSettingsBody() async {
+    final wantsEnabled = widget.appSettings.mcpServerEnabled && mcpServerSupported;
+    final server = _mcpServer;
+    if (!wantsEnabled) {
+      if (server != null && server.isRunning) {
+        await server.stop();
+      }
+      _mcpServer = null;
+      folioMcpServerStatus.value = null;
+      return;
+    }
+    // Sin notify: si generamos token aquí, notifyListeners reentraría en
+    // `_onSettings` → otro `_applyMcpServerSettings` y el 2º bind falla.
+    final token = await widget.appSettings.ensureMcpServerAuthToken(notify: false);
+    // Reinicia si ya corría en otro puerto/token (migración a puerto fijo).
+    if (server != null && server.isRunning) {
+      final samePort = server.port == FolioMcpServer.defaultPort;
+      final sameToken = server.authToken == token;
+      if (samePort && sameToken) {
+        folioMcpServerStatus.value = FolioMcpServerInfo(
+          port: server.port!,
+          authToken: server.authToken!,
+          isRunning: true,
+        );
+        return;
+      }
+      await server.stop();
+      _mcpServer = null;
+    }
+    final active = FolioMcpServer(
+      FolioToolRegistry(
+        widget.session,
+        onRequestMcpReadAccess: _requestMcpReadAccess,
+      ),
+      onApproveClient: _approveMcpClient,
+      isClientApproved: _isMcpClientApproved,
+      onClientObserved: _syncObservedMcpClient,
+    );
+    _mcpServer = active;
+    try {
+      final port = await active.start(
+        port: FolioMcpServer.defaultPort,
+        authToken: token,
+      );
+      folioMcpServerStatus.value = FolioMcpServerInfo(
+        port: port,
+        authToken: active.authToken!,
+        isRunning: true,
+      );
+      AppLogger.info(
+        'Servidor MCP local en ${FolioMcpServer.endpointUrl(port: port)}',
+        tag: 'mcp',
+      );
+      if (mounted) setState(() {});
+    } catch (e) {
+      _mcpServer = null;
+      // Publicamos puerto/token para copiar mcp.json, pero marcamos el fallo
+      // para que Ajustes no diga «Activo» si el bind no respondió.
+      folioMcpServerStatus.value = FolioMcpServerInfo(
+        port: FolioMcpServer.defaultPort,
+        authToken: token,
+        isRunning: false,
+        errorMessage: '$e',
+      );
+      AppLogger.error('No se pudo arrancar el servidor MCP local', tag: 'mcp', error: e);
+    }
+  }
+
   void _applyDeviceSyncSettings() {
     _deviceSyncController.refreshSettingsSnapshot();
+    unawaited(_syncCloudDeviceSyncLifecycle());
+    unawaited(_syncCloudSettingsSyncLifecycle());
+  }
+
+  /// Solo relanza/para el controlador cuando el estado efectivo
+  /// (habilitado) realmente cambia, para no reiniciar el listener de
+  /// Firestore en cada `AppSettings.notifyListeners()` ajeno (tema,
+  /// preferencias, etc.). `force` ignora la cache. El pull al volver a
+  /// primer plano lo gestiona `setAppInForeground(true)`, no este método.
+  Future<void> _syncCloudDeviceSyncLifecycle({bool force = false}) async {
+    final ctrl = _cloudDeviceSyncController;
+    if (ctrl == null) return;
+    // Sync multi-dispositivo no exige libreta desbloqueada (headless + cache DEK).
+    final shouldRun = ctrl.isEnabled;
+    if (!force && shouldRun == _lastCloudDeviceSyncShouldRun) return;
+    AppLogger.info(
+      'device sync lifecycle',
+      tag: 'cloud_sync',
+      context: {
+        'shouldRun': shouldRun,
+        'force': force,
+        'prev': _lastCloudDeviceSyncShouldRun,
+      },
+    );
+    _lastCloudDeviceSyncShouldRun = shouldRun;
+    if (shouldRun) {
+      await ctrl.start();
+    } else {
+      await ctrl.stopWatching();
+    }
+  }
+
+  Future<void> _syncCloudSettingsSyncLifecycle() async {
+    final ctrl = _cloudSettingsSyncController;
+    if (ctrl == null) return;
+    final shouldRun = ctrl.isEnabled &&
+        (widget.session.state == VaultFlowState.unlocked ||
+            FirebaseAuth.instance.currentUser != null);
+    AppLogger.debug(
+      'settings sync lifecycle',
+      tag: 'settings_sync',
+      context: {
+        'shouldRun': shouldRun,
+        'enabled': ctrl.isEnabled,
+        'vaultState': widget.session.state.name,
+      },
+    );
+    if (shouldRun) {
+      await ctrl.start();
+    } else {
+      await ctrl.stopWatching();
+    }
+  }
+
+  Future<void> _maybeShowAppProfileRestoreDialog() async {
+    final ctrl = _cloudSettingsSyncController;
+    if (ctrl == null || !ctrl.hasRemoteProfilePromptPending) return;
+    if (_appProfileRestoreDialogShown) return;
+    final navCtx = _navKey.currentContext;
+    if (navCtx == null || !navCtx.mounted) return;
+    _appProfileRestoreDialogShown = true;
+    final l10n = AppLocalizations.of(navCtx);
+    final choice = await showDialog<String>(
+      context: navCtx,
+      barrierDismissible: false,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.folioCloudAppProfileRestoreDialogTitle),
+        content: Text(l10n.folioCloudAppProfileRestoreDialogBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('fresh'),
+            child: Text(l10n.folioCloudAppProfileStartFreshAction),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop('restore'),
+            child: Text(l10n.folioCloudAppProfileRestoreAction),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'restore') {
+      final ok = await ctrl.restoreAppProfileFromCloud();
+      if (mounted) {
+        _showSnack(
+          ok
+              ? l10n.folioCloudAppProfileRestoreOk
+              : l10n.folioCloudAppProfileRestoreFail,
+        );
+      }
+    } else {
+      await ctrl.keepLocalAndPush();
+    }
+    _appProfileRestoreDialogShown = false;
   }
 
   void _applySessionSecurityPolicy() {
@@ -740,6 +975,25 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onGlobalUserActivity() {
     widget.session.touchActivity();
+  }
+
+  void _onMouseNavigationButtons(PointerDownEvent event) {
+    final back = (event.buttons & kBackMouseButton) != 0;
+    final forward = (event.buttons & kForwardMouseButton) != 0;
+    if (!back && !forward) return;
+    if (!widget.session.isUnlocked) return;
+
+    if (back) {
+      final nav = _navKey.currentState;
+      if (nav != null && nav.canPop()) {
+        nav.maybePop();
+        return;
+      }
+      widget.session.navigateHistoryBack();
+      return;
+    }
+
+    widget.session.navigateHistoryForward();
   }
 
   bool _hasEditableTextFocus() {
@@ -817,7 +1071,22 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       return;
     }
 
-    // Local providers check (Ollama and LM Studio are only supported on desktop/web)
+    // Gemini Nano / Galaxy AI on-device (solo Android).
+    if (provider == AiProvider.geminiNano) {
+      if (aiOnDeviceProviderSupported) {
+        unawaited(OnDeviceAiBridge.getDeviceBrand());
+        widget.session.setAiService(
+          GeminiNanoAiService(
+            timeout: Duration(milliseconds: widget.appSettings.aiTimeoutMs),
+          ),
+        );
+      } else {
+        widget.session.setAiService(null);
+      }
+      return;
+    }
+
+    // Local providers (Ollama / LM Studio) solo en escritorio.
     final isLocalProvider = provider == AiProvider.ollama || provider == AiProvider.lmStudio;
     if (isLocalProvider && !aiLocalProvidersSupported) {
       widget.session.setAiService(null);
@@ -877,7 +1146,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           ),
         );
         break;
-      default:
+      case AiProvider.none:
+      case AiProvider.quillCloud:
+      case AiProvider.geminiNano:
         widget.session.setAiService(null);
         break;
     }
@@ -891,10 +1162,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       onLockRequested: _handleLockRequested,
       onExitRequested: _handleExitRequested,
       labelsBuilder: _desktopLabels,
+      onWindowFocusChanged: _onDesktopWindowFocusChanged,
     );
     _desktop = desktop;
     try {
       await desktop.initialize();
+      _windowFocused = await desktop.isWindowFocused();
+      _syncCloudDeviceSyncForeground();
     } catch (e, st) {
       AppLogger.error(
         'Desktop integration init failed',
@@ -904,6 +1178,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       );
     }
     _desktopSettingsSignature = _buildDesktopSettingsSignature();
+  }
+
+  void _onDesktopWindowFocusChanged(bool focused) {
+    if (_windowFocused == focused) return;
+    _windowFocused = focused;
+    _syncCloudDeviceSyncForeground();
+  }
+
+  /// Pull activo solo con lifecycle resumed y ventana con foco (en desktop).
+  void _syncCloudDeviceSyncForeground() {
+    final foreground = _lifecycleActive && _windowFocused;
+    _cloudDeviceSyncController?.setAppInForeground(foreground);
   }
 
   Future<void> _handleOpenRequested() async {
@@ -1096,6 +1382,82 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
+  /// Igual que `_approveIntegrationsClient`/Run2Doc, pero para clientes MCP
+  /// (Fase 5): la primera vez que un cliente MCP se conecta (`initialize`),
+  /// se pide permiso explícito y la aprobación se guarda en el mismo sistema
+  /// que el resto de integraciones — así aparece y se puede revocar desde
+  /// Ajustes → Integraciones sin código nuevo en esa pantalla.
+  Future<bool> _approveMcpClient(McpClientIdentity client) async {
+    if (widget.appSettings.isIntegrationAppApproved(
+      client.appId,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
+    )) {
+      return true;
+    }
+    final ctx = _navKey.currentContext ?? context;
+    final previousApproval = widget.appSettings.integrationAppApproval(
+      client.appId,
+    );
+    final approved = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpApprovalDialog(
+        client: client,
+        previousApproval: previousApproval,
+      ),
+    );
+    if (approved == true) {
+      await widget.appSettings.approveIntegrationApp(
+        appId: client.appId,
+        appName: client.appName,
+        appVersion: client.appVersion,
+        integrationVersion: FolioMcpServer.capabilitiesVersion,
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /// Lectura MCP de una página fuera de la allowlist: el usuario puede denegar,
+  /// permitir solo esta vez, o permitir y añadir a la allowlist.
+  Future<McpReadAccessDecision> _requestMcpReadAccess(
+    String pageId,
+    String pageTitle,
+  ) async {
+    final ctx = _navKey.currentContext ?? context;
+    if (!ctx.mounted) return McpReadAccessDecision.deny;
+    final clientName =
+        _mcpServer?.connectedClient?.appName.trim().isNotEmpty == true
+        ? _mcpServer!.connectedClient!.appName.trim()
+        : 'MCP';
+    final title = pageTitle.trim().isEmpty ? pageId : pageTitle.trim();
+    final decision = await showDialog<McpReadAccessDecision>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpReadAccessDialog(
+        pageTitle: title,
+        clientName: clientName,
+      ),
+    );
+    return decision ?? McpReadAccessDecision.deny;
+  }
+
+  bool _isMcpClientApproved(McpClientIdentity client) {
+    return widget.appSettings.isIntegrationAppApproved(
+      client.appId,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
+    );
+  }
+
+  Future<void> _syncObservedMcpClient(McpClientIdentity client) {
+    return widget.appSettings.syncApprovedIntegrationAppObservation(
+      appId: client.appId,
+      appName: client.appName,
+      appVersion: client.appVersion,
+      integrationVersion: FolioMcpServer.capabilitiesVersion,
+    );
+  }
+
   Future<bool> _approveIntegrationsClient(
     IntegrationsClientIdentity client,
   ) async {
@@ -1255,6 +1617,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
           return;
         }
+        _showSnack(l10n.updaterDownloadProgressTitle);
         final installer = await updater.downloadInstaller(result);
         await updater.launchInstallerAndExit(installer);
       }
@@ -1268,11 +1631,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_maybeRunScheduledVaultBackup());
       unawaited(_folioCloudEntitlements.handleAppResumed());
+      _lifecycleActive = true;
+      // Primero foreground efectivo (lifecycle + foco ventana); luego lifecycle
+      // sin force (no reinicia push/bootstrap si ya corría).
+      _syncCloudDeviceSyncForeground();
+      unawaited(_syncCloudDeviceSyncLifecycle());
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      _lifecycleActive = false;
+      _syncCloudDeviceSyncForeground();
       widget.session.onAppBackgrounded();
       if (widget.appSettings.minimizeToTray) {
         unawaited(_desktop?.hideToTray());
@@ -1282,8 +1652,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final seed = widget.appSettings.resolveAccentSeedColor();
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) => _buildApp(context, lightDynamic),
+    );
+  }
+
+  Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
+    final seed = widget.appSettings.resolveAccentSeedColor(
+      androidDynamicAccent: androidLightDynamic?.primary,
+    );
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
@@ -1370,7 +1749,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
             },
             child: Listener(
               behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) => _onGlobalUserActivity(),
+              onPointerDown: (event) {
+                _onGlobalUserActivity();
+                _onMouseNavigationButtons(event);
+              },
               onPointerSignal: (_) => _onGlobalUserActivity(),
               onPointerPanZoomStart: (_) => _onGlobalUserActivity(),
               child: content,
@@ -1382,6 +1764,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         session: widget.session,
         appSettings: widget.appSettings,
         deviceSyncController: _deviceSyncController,
+        cloudSettingsSyncController: _cloudSettingsSyncController,
+        cloudDeviceSyncController: _cloudDeviceSyncController,
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
@@ -1772,6 +2156,525 @@ class _IntegrationApprovalDialog extends StatelessWidget {
   }
 }
 
+/// Diálogo de permiso para un cliente MCP conectando por primera vez (Fase 5)
+/// Diálogo de aprobación del cliente MCP (misma idea que el bridge de
+/// Integraciones/Run2Doc), describiendo el catálogo de tools — incluida la
+/// lectura restringida a la allowlist.
+class _McpApprovalDialog extends StatelessWidget {
+  const _McpApprovalDialog({
+    required this.client,
+    this.previousApproval,
+  });
+
+  final McpClientIdentity client;
+  final IntegrationAppApproval? previousApproval;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final isUpdate = previousApproval != null &&
+        !previousApproval!.matches(
+          integrationVersion: FolioMcpServer.capabilitiesVersion,
+        );
+    final appVersion = client.appVersion.trim().isEmpty
+        ? l10n.integrationApprovalUnknownVersion
+        : client.appVersion.trim();
+
+    Widget capabilityRow(
+      IconData icon,
+      String title,
+      String description, {
+      required Color accent,
+      bool danger = false,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: danger
+              ? scheme.errorContainer.withValues(alpha: 0.24)
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: danger
+                ? scheme.error.withValues(alpha: 0.18)
+                : scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 620,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: 0.7),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        isUpdate
+                            ? Icons.system_update_alt_rounded
+                            : Icons.dns_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isUpdate
+                                ? l10n.mcpApprovalUpdateTitle(client.appName)
+                                : l10n.mcpApprovalTitle(client.appName),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            isUpdate
+                                ? l10n.mcpApprovalUpdateBody
+                                : l10n.mcpApprovalBody(appVersion),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isUpdate) ...[
+                const SizedBox(height: 12),
+                capabilityRow(
+                  Icons.menu_book_outlined,
+                  l10n.mcpApprovalUpdateHighlightTitle,
+                  l10n.mcpApprovalUpdateHighlightDesc,
+                  accent: scheme.tertiary,
+                ),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _IntegrationApprovalChip(
+                    icon: Icons.laptop_windows_rounded,
+                    label: l10n.mcpApprovalChipLocalOnly,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.verified_user_outlined,
+                    label: l10n.mcpApprovalChipRevocable,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.key_outlined,
+                    label: l10n.mcpApprovalChipToken,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.mcpApprovalCanDoTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.edit_note_rounded,
+                l10n.mcpApprovalCanDoEdit,
+                l10n.mcpApprovalCanDoEditDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.account_tree_outlined,
+                l10n.mcpApprovalCanDoManage,
+                l10n.mcpApprovalCanDoManageDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.search_rounded,
+                l10n.mcpApprovalCanDoSearch,
+                l10n.mcpApprovalCanDoSearchDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.menu_book_outlined,
+                l10n.mcpApprovalCanDoRead,
+                l10n.mcpApprovalCanDoReadDesc,
+                accent: scheme.primary,
+              ),
+              const SizedBox(height: 8),
+              capabilityRow(
+                Icons.public_off_outlined,
+                l10n.mcpApprovalCannotLeaveMachine,
+                l10n.mcpApprovalCannotLeaveMachineDesc,
+                accent: scheme.error,
+                danger: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.mcpApprovalDeny),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(
+            isUpdate ? l10n.mcpApprovalApproveUpdate : l10n.mcpApprovalAllow,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpReadAccessDialog extends StatelessWidget {
+  const _McpReadAccessDialog({
+    required this.pageTitle,
+    required this.clientName,
+  });
+
+  final String pageTitle;
+  final String clientName;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final displayTitle = pageTitle.trim().isEmpty ? '—' : pageTitle.trim();
+
+    Widget capabilityRow(
+      IconData icon,
+      String title,
+      String description, {
+      required Color accent,
+      bool danger = false,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: danger
+              ? scheme.errorContainer.withValues(alpha: 0.24)
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: danger
+                ? scheme.error.withValues(alpha: 0.18)
+                : scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 620,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: 0.7),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpReadAccessTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.mcpReadAccessBody(clientName),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpReadAccessPageLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            displayTitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _IntegrationApprovalChip(
+                    icon: Icons.laptop_windows_rounded,
+                    label: l10n.mcpApprovalChipLocalOnly,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.playlist_add_check_rounded,
+                    label: l10n.mcpReadAccessChipAllowlist,
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.visibility_off_outlined,
+                    label: l10n.mcpReadAccessChipNoPreview,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.mcpReadAccessCanDoTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.menu_book_outlined,
+                l10n.mcpReadAccessCanDoRead,
+                l10n.mcpReadAccessCanDoReadDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.playlist_add_outlined,
+                l10n.mcpReadAccessCanDoAllowlist,
+                l10n.mcpReadAccessCanDoAllowlistDesc,
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.looks_one_outlined,
+                l10n.mcpReadAccessCanDoOnce,
+                l10n.mcpReadAccessCanDoOnceDesc,
+                accent: scheme.primary,
+              ),
+              const SizedBox(height: 8),
+              capabilityRow(
+                Icons.public_off_outlined,
+                l10n.mcpApprovalCannotLeaveMachine,
+                l10n.mcpApprovalCannotLeaveMachineDesc,
+                accent: scheme.error,
+                danger: true,
+              ),
+              capabilityRow(
+                Icons.hide_source_outlined,
+                l10n.mcpReadAccessCannotPreview,
+                l10n.mcpReadAccessCannotPreviewDesc,
+                accent: scheme.error,
+                danger: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, McpReadAccessDecision.deny),
+          child: Text(l10n.mcpReadAccessDeny),
+        ),
+        OutlinedButton(
+          onPressed: () =>
+              Navigator.pop(context, McpReadAccessDecision.allowOnce),
+          child: Text(l10n.mcpReadAccessAllowOnce),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(context, McpReadAccessDecision.allowAndRemember),
+          child: Text(l10n.mcpReadAccessAllow),
+        ),
+      ],
+    );
+  }
+}
+
 class _IntegrationApprovalChip extends StatelessWidget {
   const _IntegrationApprovalChip({required this.icon, required this.label});
 
@@ -1851,6 +2754,8 @@ class _HomeByState extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    this.cloudSettingsSyncController,
+    this.cloudDeviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -1860,6 +2765,8 @@ class _HomeByState extends StatelessWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final FolioCloudSettingsSyncController? cloudSettingsSyncController;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -1900,6 +2807,8 @@ class _HomeByState extends StatelessWidget {
           session: session,
           appSettings: appSettings,
           deviceSyncController: deviceSyncController,
+          cloudSettingsSyncController: cloudSettingsSyncController,
+          cloudDeviceSyncController: cloudDeviceSyncController,
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,

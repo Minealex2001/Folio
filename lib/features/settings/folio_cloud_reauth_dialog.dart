@@ -100,7 +100,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
         email: email,
         password: pass,
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(pass);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() {
@@ -240,7 +240,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
           child: Text(l10n.cancel),
         ),
         FilledButton(

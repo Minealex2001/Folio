@@ -22,6 +22,9 @@ class FolioTaskData {
     this.external,
     this.jira,
     this.youtrack,
+    this.trello,
+    this.github,
+    this.gitlab,
     List<FolioTaskSubtask>? subtasks,
     List<String>? tags,
     this.assignee,
@@ -152,6 +155,15 @@ class FolioTaskData {
   /// Snapshot opcional de campos YouTrack para UI rica sin refetch constante.
   final FolioYouTrackIssueSnapshot? youtrack;
 
+  /// Snapshot opcional de campos Trello para UI rica sin refetch constante.
+  final FolioTrelloCardSnapshot? trello;
+
+  /// Snapshot opcional de campos GitHub (issue o PR) para UI rica sin refetch constante.
+  final FolioGitHubIssueSnapshot? github;
+
+  /// Snapshot opcional de campos GitLab (issue o MR) para UI rica sin refetch constante.
+  final FolioGitLabIssueSnapshot? gitlab;
+
   /// Subtareas opcionales asociadas a la tarea principal.
   final List<FolioTaskSubtask> subtasks;
 
@@ -219,6 +231,9 @@ class FolioTaskData {
     external: null,
     jira: null,
     youtrack: null,
+    trello: null,
+    github: null,
+    gitlab: null,
     subtasks: const [],
     tags: const [],
     assignee: null,
@@ -251,6 +266,9 @@ class FolioTaskData {
     Object? external = _sentinel,
     Object? jira = _sentinel,
     Object? youtrack = _sentinel,
+    Object? trello = _sentinel,
+    Object? github = _sentinel,
+    Object? gitlab = _sentinel,
     Object? subtasks = _sentinel,
     Object? tags = _sentinel,
     Object? assignee = _sentinel,
@@ -294,6 +312,9 @@ class FolioTaskData {
           : external as FolioExternalTaskLink?,
       jira: jira == _sentinel ? this.jira : jira as FolioJiraIssueSnapshot?,
       youtrack: youtrack == _sentinel ? this.youtrack : youtrack as FolioYouTrackIssueSnapshot?,
+      trello: trello == _sentinel ? this.trello : trello as FolioTrelloCardSnapshot?,
+      github: github == _sentinel ? this.github : github as FolioGitHubIssueSnapshot?,
+      gitlab: gitlab == _sentinel ? this.gitlab : gitlab as FolioGitLabIssueSnapshot?,
       subtasks: subtasks == _sentinel
           ? this.subtasks
           : (subtasks as List<FolioTaskSubtask>),
@@ -393,6 +414,9 @@ class FolioTaskData {
     if (external != null) 'external': external!.toJson(),
     if (jira != null) 'jira': jira!.toJson(),
     if (youtrack != null) 'youtrack': youtrack!.toJson(),
+    if (trello != null) 'trello': trello!.toJson(),
+    if (github != null) 'github': github!.toJson(),
+    if (gitlab != null) 'gitlab': gitlab!.toJson(),
     if (subtasks.isNotEmpty)
       'subtasks': subtasks.map((s) => s.toJson()).toList(growable: false),
     if (tags.isNotEmpty) 'tags': tags.toList(growable: false),
@@ -433,6 +457,9 @@ class FolioTaskData {
       final rawExternal = m['external'];
       final rawJira = m['jira'];
       final rawYouTrack = m['youtrack'];
+      final rawTrello = m['trello'];
+      final rawGitHub = m['github'];
+      final rawGitLab = m['gitlab'];
       final subtasks = <FolioTaskSubtask>[];
       if (rawSubtasks is List) {
         for (final s in rawSubtasks) {
@@ -460,6 +487,24 @@ class FolioTaskData {
       if (rawYouTrack is Map) {
         youtrack = FolioYouTrackIssueSnapshot.tryParse(
           Map<String, dynamic>.from(rawYouTrack),
+        );
+      }
+      FolioTrelloCardSnapshot? trello;
+      if (rawTrello is Map) {
+        trello = FolioTrelloCardSnapshot.tryParse(
+          Map<String, dynamic>.from(rawTrello),
+        );
+      }
+      FolioGitHubIssueSnapshot? github;
+      if (rawGitHub is Map) {
+        github = FolioGitHubIssueSnapshot.tryParse(
+          Map<String, dynamic>.from(rawGitHub),
+        );
+      }
+      FolioGitLabIssueSnapshot? gitlab;
+      if (rawGitLab is Map) {
+        gitlab = FolioGitLabIssueSnapshot.tryParse(
+          Map<String, dynamic>.from(rawGitLab),
         );
       }
       final rawTags = m['tags'];
@@ -520,6 +565,9 @@ class FolioTaskData {
         external: external,
         jira: jira,
         youtrack: youtrack,
+        trello: trello,
+        github: github,
+        gitlab: gitlab,
         subtasks: subtasks,
         tags: tagList,
         assignee: (assigneeRaw?.isEmpty ?? true) ? null : assigneeRaw,
@@ -1052,6 +1100,257 @@ class FolioYouTrackIssueSnapshot {
       fixedInBuild: (fixedInBuild?.isEmpty ?? true) ? null : fixedInBuild,
       estimation: (estimation?.isEmpty ?? true) ? null : estimation,
       spentTime: (spentTime?.isEmpty ?? true) ? null : spentTime,
+    );
+  }
+}
+
+class FolioTrelloCardSnapshot {
+  const FolioTrelloCardSnapshot({
+    this.boardId,
+    this.boardName,
+    this.listId,
+    this.listName,
+    this.labels,
+    this.memberNames,
+    this.checklistItemCount,
+    this.checklistCheckedCount,
+    this.commentCount,
+    this.attachmentCount,
+    this.due,
+    this.shortUrl,
+  });
+
+  final String? boardId;
+  final String? boardName;
+  final String? listId;
+  final String? listName;
+  final String? labels;
+  final String? memberNames;
+  final int? checklistItemCount;
+  final int? checklistCheckedCount;
+  final int? commentCount;
+  final int? attachmentCount;
+  final String? due;
+  final String? shortUrl;
+
+  FolioTrelloCardSnapshot copyWith({
+    String? boardId,
+    String? boardName,
+    String? listId,
+    String? listName,
+    String? labels,
+    String? memberNames,
+    int? checklistItemCount,
+    int? checklistCheckedCount,
+    int? commentCount,
+    int? attachmentCount,
+    String? due,
+    String? shortUrl,
+  }) {
+    return FolioTrelloCardSnapshot(
+      boardId: boardId ?? this.boardId,
+      boardName: boardName ?? this.boardName,
+      listId: listId ?? this.listId,
+      listName: listName ?? this.listName,
+      labels: labels ?? this.labels,
+      memberNames: memberNames ?? this.memberNames,
+      checklistItemCount: checklistItemCount ?? this.checklistItemCount,
+      checklistCheckedCount: checklistCheckedCount ?? this.checklistCheckedCount,
+      commentCount: commentCount ?? this.commentCount,
+      attachmentCount: attachmentCount ?? this.attachmentCount,
+      due: due ?? this.due,
+      shortUrl: shortUrl ?? this.shortUrl,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((boardId ?? '').trim().isNotEmpty) 'boardId': boardId,
+        if ((boardName ?? '').trim().isNotEmpty) 'boardName': boardName,
+        if ((listId ?? '').trim().isNotEmpty) 'listId': listId,
+        if ((listName ?? '').trim().isNotEmpty) 'listName': listName,
+        if ((labels ?? '').trim().isNotEmpty) 'labels': labels,
+        if ((memberNames ?? '').trim().isNotEmpty) 'memberNames': memberNames,
+        if (checklistItemCount != null) 'checklistItemCount': checklistItemCount,
+        if (checklistCheckedCount != null) 'checklistCheckedCount': checklistCheckedCount,
+        if (commentCount != null) 'commentCount': commentCount,
+        if (attachmentCount != null) 'attachmentCount': attachmentCount,
+        if ((due ?? '').trim().isNotEmpty) 'due': due,
+        if ((shortUrl ?? '').trim().isNotEmpty) 'shortUrl': shortUrl,
+      };
+
+  static FolioTrelloCardSnapshot? tryParse(Map<String, dynamic> map) {
+    final boardId = (map['boardId'] as String?)?.trim();
+    final boardName = (map['boardName'] as String?)?.trim();
+    final listId = (map['listId'] as String?)?.trim();
+    final listName = (map['listName'] as String?)?.trim();
+    final labels = (map['labels'] as String?)?.trim();
+    final memberNames = (map['memberNames'] as String?)?.trim();
+    final due = (map['due'] as String?)?.trim();
+    final shortUrl = (map['shortUrl'] as String?)?.trim();
+    int? asInt(Object? v) => v is num ? v.toInt() : null;
+
+    return FolioTrelloCardSnapshot(
+      boardId: (boardId?.isEmpty ?? true) ? null : boardId,
+      boardName: (boardName?.isEmpty ?? true) ? null : boardName,
+      listId: (listId?.isEmpty ?? true) ? null : listId,
+      listName: (listName?.isEmpty ?? true) ? null : listName,
+      labels: (labels?.isEmpty ?? true) ? null : labels,
+      memberNames: (memberNames?.isEmpty ?? true) ? null : memberNames,
+      checklistItemCount: asInt(map['checklistItemCount']),
+      checklistCheckedCount: asInt(map['checklistCheckedCount']),
+      commentCount: asInt(map['commentCount']),
+      attachmentCount: asInt(map['attachmentCount']),
+      due: (due?.isEmpty ?? true) ? null : due,
+      shortUrl: (shortUrl?.isEmpty ?? true) ? null : shortUrl,
+    );
+  }
+}
+
+class FolioGitHubIssueSnapshot {
+  const FolioGitHubIssueSnapshot({
+    this.owner,
+    this.repo,
+    this.number,
+    this.isPullRequest = false,
+    this.state,
+    this.labels,
+    this.assigneeLogin,
+    this.htmlUrl,
+  });
+
+  final String? owner;
+  final String? repo;
+  final int? number;
+  final bool isPullRequest;
+
+  /// `open` | `closed`.
+  final String? state;
+  final String? labels;
+  final String? assigneeLogin;
+  final String? htmlUrl;
+
+  FolioGitHubIssueSnapshot copyWith({
+    String? owner,
+    String? repo,
+    int? number,
+    bool? isPullRequest,
+    String? state,
+    String? labels,
+    String? assigneeLogin,
+    String? htmlUrl,
+  }) {
+    return FolioGitHubIssueSnapshot(
+      owner: owner ?? this.owner,
+      repo: repo ?? this.repo,
+      number: number ?? this.number,
+      isPullRequest: isPullRequest ?? this.isPullRequest,
+      state: state ?? this.state,
+      labels: labels ?? this.labels,
+      assigneeLogin: assigneeLogin ?? this.assigneeLogin,
+      htmlUrl: htmlUrl ?? this.htmlUrl,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((owner ?? '').trim().isNotEmpty) 'owner': owner,
+        if ((repo ?? '').trim().isNotEmpty) 'repo': repo,
+        if (number != null) 'number': number,
+        if (isPullRequest) 'isPullRequest': true,
+        if ((state ?? '').trim().isNotEmpty) 'state': state,
+        if ((labels ?? '').trim().isNotEmpty) 'labels': labels,
+        if ((assigneeLogin ?? '').trim().isNotEmpty) 'assigneeLogin': assigneeLogin,
+        if ((htmlUrl ?? '').trim().isNotEmpty) 'htmlUrl': htmlUrl,
+      };
+
+  static FolioGitHubIssueSnapshot? tryParse(Map<String, dynamic> map) {
+    final owner = (map['owner'] as String?)?.trim();
+    final repo = (map['repo'] as String?)?.trim();
+    final state = (map['state'] as String?)?.trim();
+    final labels = (map['labels'] as String?)?.trim();
+    final assigneeLogin = (map['assigneeLogin'] as String?)?.trim();
+    final htmlUrl = (map['htmlUrl'] as String?)?.trim();
+    final number = map['number'];
+
+    return FolioGitHubIssueSnapshot(
+      owner: (owner?.isEmpty ?? true) ? null : owner,
+      repo: (repo?.isEmpty ?? true) ? null : repo,
+      number: number is num ? number.toInt() : null,
+      isPullRequest: map['isPullRequest'] == true,
+      state: (state?.isEmpty ?? true) ? null : state,
+      labels: (labels?.isEmpty ?? true) ? null : labels,
+      assigneeLogin: (assigneeLogin?.isEmpty ?? true) ? null : assigneeLogin,
+      htmlUrl: (htmlUrl?.isEmpty ?? true) ? null : htmlUrl,
+    );
+  }
+}
+
+class FolioGitLabIssueSnapshot {
+  const FolioGitLabIssueSnapshot({
+    this.projectPath,
+    this.iid,
+    this.isMergeRequest = false,
+    this.state,
+    this.labels,
+    this.assigneeUsername,
+    this.webUrl,
+  });
+
+  final String? projectPath;
+  final int? iid;
+  final bool isMergeRequest;
+
+  /// `opened` | `closed` | `merged` | `locked`.
+  final String? state;
+  final String? labels;
+  final String? assigneeUsername;
+  final String? webUrl;
+
+  FolioGitLabIssueSnapshot copyWith({
+    String? projectPath,
+    int? iid,
+    bool? isMergeRequest,
+    String? state,
+    String? labels,
+    String? assigneeUsername,
+    String? webUrl,
+  }) {
+    return FolioGitLabIssueSnapshot(
+      projectPath: projectPath ?? this.projectPath,
+      iid: iid ?? this.iid,
+      isMergeRequest: isMergeRequest ?? this.isMergeRequest,
+      state: state ?? this.state,
+      labels: labels ?? this.labels,
+      assigneeUsername: assigneeUsername ?? this.assigneeUsername,
+      webUrl: webUrl ?? this.webUrl,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((projectPath ?? '').trim().isNotEmpty) 'projectPath': projectPath,
+        if (iid != null) 'iid': iid,
+        if (isMergeRequest) 'isMergeRequest': true,
+        if ((state ?? '').trim().isNotEmpty) 'state': state,
+        if ((labels ?? '').trim().isNotEmpty) 'labels': labels,
+        if ((assigneeUsername ?? '').trim().isNotEmpty) 'assigneeUsername': assigneeUsername,
+        if ((webUrl ?? '').trim().isNotEmpty) 'webUrl': webUrl,
+      };
+
+  static FolioGitLabIssueSnapshot? tryParse(Map<String, dynamic> map) {
+    final projectPath = (map['projectPath'] as String?)?.trim();
+    final state = (map['state'] as String?)?.trim();
+    final labels = (map['labels'] as String?)?.trim();
+    final assigneeUsername = (map['assigneeUsername'] as String?)?.trim();
+    final webUrl = (map['webUrl'] as String?)?.trim();
+    final iid = map['iid'];
+
+    return FolioGitLabIssueSnapshot(
+      projectPath: (projectPath?.isEmpty ?? true) ? null : projectPath,
+      iid: iid is num ? iid.toInt() : null,
+      isMergeRequest: map['isMergeRequest'] == true,
+      state: (state?.isEmpty ?? true) ? null : state,
+      labels: (labels?.isEmpty ?? true) ? null : labels,
+      assigneeUsername: (assigneeUsername?.isEmpty ?? true) ? null : assigneeUsername,
+      webUrl: (webUrl?.isEmpty ?? true) ? null : webUrl,
     );
   }
 }

@@ -8,7 +8,9 @@ import 'package:passkeys/exceptions.dart';
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/ui_tokens.dart';
+import '../../data/vault_registry.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/unlock_attempt_throttle.dart';
 import '../../session/vault_session.dart';
 
 class LockScreen extends StatefulWidget {
@@ -28,10 +30,15 @@ class _LockScreenState extends State<LockScreen> {
   String? _error;
   var _quickEnabled = false;
   var _passkeyRegistered = false;
+  var _switchingVault = false;
+  List<VaultEntry> _vaults = const [];
+  String? _activeVaultId;
 
   @override
   void initState() {
     super.initState();
+    _vaults = VaultRegistry.instance.vaults;
+    _activeVaultId = VaultRegistry.instance.activeVaultId;
     _refreshFlags();
   }
 
@@ -44,6 +51,21 @@ class _LockScreenState extends State<LockScreen> {
         _passkeyRegistered = p;
       });
       await _maybeOfferInitialQuickUnlock(q, p);
+    }
+  }
+
+  Future<void> _switchVault(String vaultId) async {
+    if (vaultId == _activeVaultId || _busy || _switchingVault) return;
+    setState(() {
+      _switchingVault = true;
+      _error = null;
+    });
+    try {
+      await widget.session.switchVault(vaultId);
+    } finally {
+      if (mounted) {
+        setState(() => _switchingVault = false);
+      }
     }
   }
 
@@ -89,6 +111,12 @@ class _LockScreenState extends State<LockScreen> {
     });
     try {
       await widget.session.unlockWithPassword(_password.text);
+    } on UnlockThrottledException catch (e) {
+      final seconds = (e.retryAfter.inMilliseconds / 1000).ceil();
+      setState(() {
+        _error = '${AppLocalizations.of(context).cloudAuthErrorTooManyRequests} (${seconds}s)';
+        _busy = false;
+      });
     } catch (e) {
       setState(() {
         _error = AppLocalizations.of(context).unlockFailed;
@@ -129,6 +157,92 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
+  Widget _buildVaultSelector(BuildContext context) {
+    if (_vaults.length <= 1) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    VaultEntry? current;
+    for (final e in _vaults) {
+      if (e.id == _activeVaultId) {
+        current = e;
+        break;
+      }
+    }
+    current ??= _vaults.first;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FolioSpace.lg),
+      child: Center(
+        child: PopupMenuButton<String>(
+          enabled: !_busy && !_switchingVault,
+          tooltip: l10n.switchVaultTooltip,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FolioRadius.md),
+          ),
+          onSelected: _switchVault,
+          itemBuilder: (ctx) => [
+            for (final e in _vaults)
+              PopupMenuItem(
+                value: e.id,
+                child: ListTile(
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: Text(e.displayName),
+                  trailing: e.id == _activeVaultId
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FolioSpace.md,
+              vertical: FolioSpace.xs,
+            ),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(
+                  alpha: FolioAlpha.border,
+                ),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: FolioSpace.xs),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    current.displayName,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: FolioSpace.xs),
+                Icon(
+                  Icons.unfold_more_rounded,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -149,6 +263,7 @@ class _LockScreenState extends State<LockScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildVaultSelector(context),
               Container(
                 width: 56,
                 height: 56,

@@ -203,8 +203,45 @@ class WorkspaceBodyShell extends StatelessWidget {
       actions: actions,
       child: Shortcuts(
         shortcuts: shortcuts,
-        child: Stack(
-          clipBehavior: Clip.none,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bodyH = constraints.maxHeight;
+            final bodyW = constraints.maxWidth;
+            final dockMode = QuillChatLayout.resolve(
+              viewportWidth: bodyW,
+              splitView: false,
+            );
+            final clampedAiW = aiFloatingPanel == null
+                ? aiFloatingWidth
+                : QuillChatLayout.clampDockWidth(
+                    desired: aiFloatingWidth,
+                    availableBodyWidth: bodyW,
+                    mode: dockMode,
+                  );
+            final clampedAiH = aiFloatingPanel == null
+                ? aiFloatingHeight
+                : QuillChatLayout.clampDockHeight(
+                    desired: aiFloatingHeight,
+                    availableBodyHeight: bodyH,
+                    mode: dockMode,
+                  );
+            final clampedCollabW = collabFloatingPanel == null
+                ? collabFloatingWidth
+                : QuillChatLayout.clampDockWidth(
+                    desired: collabFloatingWidth,
+                    availableBodyWidth: bodyW,
+                    mode: dockMode,
+                  );
+            final clampedCollabH = collabFloatingPanel == null
+                ? collabFloatingHeight
+                : QuillChatLayout.clampDockHeight(
+                    desired: collabFloatingHeight,
+                    availableBodyHeight: bodyH,
+                    mode: dockMode,
+                  );
+
+            return Stack(
+          clipBehavior: Clip.hardEdge,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -262,11 +299,11 @@ class WorkspaceBodyShell extends StatelessWidget {
             if (collabFloatingPanel != null)
               Positioned(
                 right: aiFloatingPanel != null
-                    ? (FolioSpace.md + aiFloatingWidth + FolioSpace.sm)
+                    ? (FolioSpace.md + clampedAiW + FolioSpace.sm)
                     : FolioSpace.md,
                 bottom: FolioSpace.md,
-                width: collabFloatingWidth,
-                height: collabFloatingHeight,
+                width: clampedCollabW,
+                height: clampedCollabH,
                 child: collabFloatingShowResizeHandles
                     ? Material(
                         elevation: FolioElevation.menu,
@@ -348,8 +385,8 @@ class WorkspaceBodyShell extends StatelessWidget {
               Positioned(
                 right: FolioSpace.md,
                 bottom: FolioSpace.md,
-                width: aiFloatingWidth,
-                height: aiFloatingHeight,
+                width: clampedAiW,
+                height: clampedAiH,
                 child: aiFloatingShowResizeHandles
                     ? Material(
                         elevation: FolioElevation.menu,
@@ -460,6 +497,8 @@ class WorkspaceBodyShell extends StatelessWidget {
                     ),
             ),
           ],
+            );
+          },
         ),
       ),
     );

@@ -1,1 +1,21 @@
-{}
+{
+  "ca": [
+    "aiManageQuillInstructionsTooltip"
+  ],
+
+  "en": [
+    "aiManageQuillInstructionsTooltip"
+  ],
+
+  "eu": [
+    "aiManageQuillInstructionsTooltip"
+  ],
+
+  "gl": [
+    "aiManageQuillInstructionsTooltip"
+  ],
+
+  "pt": [
+    "aiManageQuillInstructionsTooltip"
+  ]
+}

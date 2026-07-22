@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/folio_block_controls.dart';
+import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_database_data.dart';
@@ -490,80 +492,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.controlsVisible) _buildTopBar(active),
+          _buildView(active, rows),
           if (widget.controlsVisible) const SizedBox(height: 8),
-          if (widget.controlsVisible)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                DropdownButton<FolioDbViewType>(
-                  value: active.type,
-                  items: FolioDbViewType.values
-                      .map(
-                        (t) => DropdownMenuItem(
-                          value: t,
-                          child: Row(
-                            children: [
-                              Icon(_viewIcon(t), size: 16),
-                              const SizedBox(width: 6),
-                              Text(_defaultViewName(t)),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (!_isEditMode) return;
-                    if (v == null) return;
-                    active.type = v;
-                    _emit();
-                    setState(() {});
-                  },
-                ),
-                if (_isEditMode)
-                  OutlinedButton.icon(
-                    onPressed: _addProperty,
-                    icon: const Icon(Icons.view_column_rounded, size: 18),
-                    label: Text(_t('Añadir propiedad', 'Add property')),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: _isEditMode
-                      ? () => _showVisiblePropertiesSheet(active)
-                      : null,
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: Text(_t('Propiedades visibles', 'Visible properties')),
-                ),
-                if (_isEditMode)
-                  FilledButton.tonalIcon(
-                    onPressed: _addRow,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text(_t('Nueva fila', 'New row')),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: () => _applyQuickFilter(active),
-                  icon: const Icon(Icons.filter_alt_outlined, size: 18),
-                  label: Text(_t('Aplicar filtro', 'Apply filter')),
-                ),
-                if (_isEditMode)
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      final first = _data.properties.firstOrNull;
-                      if (first == null) return;
-                      active.sorts = [
-                        FolioDbSortSpec(propertyId: first.id, desc: false),
-                      ];
-                      _emit();
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.sort_by_alpha_rounded, size: 18),
-                    label: Text(l10n.databaseSortAz),
-                  ),
-              ],
-            ),
-          if (widget.controlsVisible) const SizedBox(height: 8),
-          if (_isEditMode && widget.controlsVisible) _propertiesCard(),
-          if (_isEditMode && widget.controlsVisible) const SizedBox(height: 8),
           if (widget.controlsVisible)
             TextField(
               controller: _filterController,
@@ -590,9 +520,79 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               },
             ),
           if (widget.controlsVisible) const SizedBox(height: 8),
-          if (_isEditMode && widget.controlsVisible) _queryBuilderCard(active),
+          if (_isEditMode && widget.controlsVisible) _propertiesCard(),
           if (_isEditMode && widget.controlsVisible) const SizedBox(height: 8),
-          _buildView(active, rows),
+          if (_isEditMode && widget.controlsVisible) _queryBuilderCard(active),
+          if (widget.controlsVisible) const SizedBox(height: 8),
+          if (widget.controlsVisible)
+            FolioBlockToolbar(
+              children: [
+                DropdownButton<FolioDbViewType>(
+                  value: active.type,
+                  items: FolioDbViewType.values
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Row(
+                            children: [
+                              Icon(_viewIcon(t), size: 16),
+                              const SizedBox(width: 6),
+                              Text(_defaultViewName(t)),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (!_isEditMode) return;
+                    if (v == null) return;
+                    active.type = v;
+                    _emit();
+                    setState(() {});
+                  },
+                ),
+                if (_isEditMode)
+                  BlockButton.secondaryIcon(
+                    onPressed: _addProperty,
+                    icon: Icons.view_column_rounded,
+                    label: _t('Añadir propiedad', 'Add property'),
+                  ),
+                BlockButton.secondaryIcon(
+                  onPressed: _isEditMode
+                      ? () => _showVisiblePropertiesSheet(active)
+                      : null,
+                  icon: Icons.tune_rounded,
+                  label: _t('Propiedades visibles', 'Visible properties'),
+                ),
+                if (_isEditMode)
+                  BlockButton.primaryIcon(
+                    onPressed: _addRow,
+                    icon: Icons.add_rounded,
+                    label: _t('Nueva fila', 'New row'),
+                  ),
+                BlockButton.secondaryIcon(
+                  onPressed: () => _applyQuickFilter(active),
+                  icon: Icons.filter_alt_outlined,
+                  label: _t('Aplicar filtro', 'Apply filter'),
+                ),
+                if (_isEditMode)
+                  BlockButton.secondaryIcon(
+                    onPressed: () {
+                      final first = _data.properties.firstOrNull;
+                      if (first == null) return;
+                      active.sorts = [
+                        FolioDbSortSpec(propertyId: first.id, desc: false),
+                      ];
+                      _emit();
+                      setState(() {});
+                    },
+                    icon: Icons.sort_by_alpha_rounded,
+                    label: l10n.databaseSortAz,
+                  ),
+              ],
+            ),
+          if (widget.controlsVisible) const SizedBox(height: 8),
+          if (widget.controlsVisible) _buildTopBar(active),
         ],
       ),
     );
@@ -710,17 +710,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
             child: Icon(Icons.more_horiz_rounded, size: 18),
           ),
         ),
-        FilledButton.icon(
+        BlockButton.primaryIcon(
           onPressed: _isEditMode ? _addRow : null,
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: Text(_t('Nuevo', 'New')),
+          icon: Icons.add_rounded,
+          label: _t('Nuevo', 'New'),
         ),
       ],
     );
@@ -769,7 +762,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         backgroundColor: selected
             ? widget.scheme.surfaceContainerHigh
             : Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolioBlockControls.buttonRadius),
+        ),
       ),
     );
   }
@@ -1311,7 +1306,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           ),
           if (widget.aiService != null && editable)
             IconButton(
-              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+              icon: const Icon(FolioIcons.quill, size: 16),
               tooltip: _t('Generar con IA', 'Generate with AI'),
               onPressed: () => _generateAiPropertyValue(row, property),
               padding: EdgeInsets.zero,

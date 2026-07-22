@@ -29,7 +29,7 @@ class _SettingsSectionRail extends StatelessWidget {
       case _SettingsSectionId.uiWorkspace:
         return Icons.palette_outlined;
       case _SettingsSectionId.ai:
-        return Icons.psychology_outlined;
+        return FolioIcons.quillOutlined;
       case _SettingsSectionId.sync:
         return Icons.sync_rounded;
       case _SettingsSectionId.about:
@@ -190,15 +190,23 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
   String _providerLabel(AiProvider provider, AppLocalizations l10n) {
     switch (provider) {
       case AiProvider.ollama:
-        return 'Ollama';
+        return l10n.aiProviderOllamaName;
       case AiProvider.lmStudio:
-        return 'LM Studio';
+        return l10n.aiProviderLmStudioName;
       case AiProvider.quillCloud:
         return 'Quill Cloud';
       case AiProvider.openAi:
         return 'OpenAI';
       case AiProvider.gemini:
         return 'Gemini';
+      case AiProvider.geminiNano:
+        switch (OnDeviceAiBridge.cachedBrandOrDefault) {
+          case OnDeviceAiBrand.samsung:
+            return l10n.aiProviderGalaxyAiByGemini;
+          case OnDeviceAiBrand.google:
+          case OnDeviceAiBrand.other:
+            return l10n.aiProviderGeminiNano;
+        }
       case AiProvider.none:
         return l10n.aiProviderNone;
     }
@@ -229,7 +237,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         subtitle = 'Temas, atajos de teclado y más';
         break;
       case _SettingsSectionId.ai:
-        icon = Icons.psychology_outlined;
+        icon = FolioIcons.quillOutlined;
         gradientColors = const [Color(0xFF26A69A), Color(0xFF00796B)];
         subtitle = widget.app.aiEnabled
             ? 'Proveedor: ${_providerLabel(widget.app.aiProvider, widget.l10n)}'

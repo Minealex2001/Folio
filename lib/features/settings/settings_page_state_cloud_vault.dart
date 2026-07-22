@@ -3,6 +3,11 @@ part of 'settings_page.dart';
 extension _SettingsPageCloudVaultActions on _SettingsPageState {
   Future<void> _showCloudAuthDialog({required bool register}) async {
     final l10n = AppLocalizations.of(context);
+    AppLogger.info(
+      'cloud auth dialog',
+      tag: 'settings',
+      context: {'register': register},
+    );
     if (defaultTargetPlatform == TargetPlatform.windows) {
       final ok = await folioGoogleApisReachable();
       if (!ok) {
@@ -12,7 +17,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       }
     }
     if (!mounted) return;
-    await showDialog<void>(
+    final accountPassword = await showDialog<String>(
       context: context,
       builder: (ctx) => _CloudAuthDialog(
         initialRegister: register,
@@ -26,6 +31,25 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
           });
         },
       ),
+    );
+    if (!mounted) return;
+    if (accountPassword == null || accountPassword.isEmpty) {
+      AppLogger.debug('cloud auth dialog cancelled', tag: 'settings');
+      return;
+    }
+    if (!_cloud.isSignedIn) return;
+
+    AppLogger.info(
+      'cloud auth ok → import all vaults',
+      tag: 'settings',
+      context: {'uid': _cloud.user?.uid},
+    );
+    await showFolioCloudImportAllVaultsFlow(
+      context: context,
+      session: _s,
+      entitlements: _folio,
+      accountPassword: accountPassword,
+      telemetrySettings: _app,
     );
   }
 
@@ -159,7 +183,8 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     if (!_sync.isPairingModeActive) {
       _sync.generatePairingCode();
     }
-    final sharedEmojis = _sync.sharedPairingEmojisForPeer(targetPeer);
+    final sharedEmojis = await _sync.sharedPairingEmojisForPeer(targetPeer);
+    if (!mounted) return;
     if (sharedEmojis.isEmpty) {
       _snack(AppLocalizations.of(context).settingsPairingSameEmojisBothDevices);
       return;
@@ -227,118 +252,14 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     _snack(AppLocalizations.of(context).settingsDeviceRevokedSnack);
   }
 
-  String _formatSyncConflictTimestamp(int ms) {
-    final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${two(at.day)}/${two(at.month)} ${two(at.hour)}:${two(at.minute)}';
-  }
-
   Future<void> _showSyncConflictsDialog() async {
-    final l10nConf = AppLocalizations.of(context);
-    final ok = await _verifyVaultIdentity(
-      title: Text(l10nConf.vaultIdentitySyncTitle),
-      body: Text(l10nConf.vaultIdentitySyncBody),
-    );
-    if (!ok || !mounted) return;
-    await showDialog<void>(
+    if (!mounted) return;
+    await showSyncConflictMergeSheet(
       context: context,
-      builder: (ctx) {
-        final l10nC = AppLocalizations.of(ctx);
-        return FolioDialog(
-          title: Text(l10nC.settingsResolveConflictsTitle),
-          content: SizedBox(
-            width: 560,
-            child: ListenableBuilder(
-              listenable: _s,
-              builder: (context, _) {
-                final conflicts = _s.syncConflicts;
-                if (conflicts.isEmpty) {
-                  return Text(l10nC.settingsNoPendingConflicts);
-                }
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: conflicts.map((conflict) {
-                      final subtitle = l10nC.settingsSyncConflictCardSubtitle(
-                        conflict.fromPeerId,
-                        conflict.remotePageCount,
-                        _formatSyncConflictTimestamp(conflict.createdAtMs),
-                      );
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l10nC.settingsSyncConflictHeading,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(subtitle),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () async {
-                                    final loc = AppLocalizations.of(context);
-                                    await _s.resolveSyncConflictKeepLocal(
-                                      conflict.id,
-                                    );
-                                    if (!mounted) return;
-                                    _snack(loc.settingsLocalVersionKeptSnack);
-                                  },
-                                  child: Text(l10nC.settingsKeepLocal),
-                                ),
-                                const SizedBox(width: 8),
-                                FilledButton.tonal(
-                                  onPressed: () async {
-                                    final loc = AppLocalizations.of(context);
-                                    final ok = await _s
-                                        .resolveSyncConflictAcceptRemote(
-                                          conflict.id,
-                                        );
-                                    if (!mounted) return;
-                                    _snack(
-                                      ok
-                                          ? loc.settingsRemoteVersionAppliedSnack
-                                          : loc.settingsCouldNotApplyRemoteSnack,
-                                    );
-                                  },
-                                  child: Text(l10nC.settingsAcceptRemote),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(l10nC.settingsClose),
-            ),
-          ],
-        );
+      session: _s,
+      onOpenPage: (pageId) {
+        _s.selectPage(pageId);
+        if (mounted) Navigator.of(context).maybePop();
       },
     );
   }
@@ -382,10 +303,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
   Future<void> _removeCustomIcon(CustomIconEntry entry) async {
     await _app.removeCustomIcon(entry.id);
     try {
-      final file = File(entry.filePath);
-      if (file.existsSync()) {
-        await file.delete();
-      }
+      await _customIconImportService.deleteIconBytes(entry.filePath);
     } catch (_) {
       // Ignorar: la referencia ya se eliminó de ajustes.
     }

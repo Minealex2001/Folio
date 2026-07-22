@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
+import '../app_logger.dart';
 import '../folio_firestore_support.dart';
 import '../cloud_account/cloud_account_controller.dart';
 import 'folio_cloud_billing.dart';
@@ -109,9 +110,13 @@ class FolioInkSnapshot {
     final n = v.toInt();
     if (n <= 0) return 0;
     if (n > _sanityMaxMonthlyInkField) {
-      debugPrint(
-        'FolioInkSnapshot: monthlyBalance=$n parece corrupto; mostrando como '
-        '$_sanityMaxMonthlyInkField.',
+      AppLogger.warn(
+        'monthlyBalance parece corrupto; mostrando valor acotado',
+        tag: 'entitlements',
+        context: {
+          'monthlyBalance': n,
+          'cappedTo': _sanityMaxMonthlyInkField,
+        },
       );
       return _sanityMaxMonthlyInkField;
     }
@@ -181,6 +186,7 @@ class FolioCloudSnapshot {
     required this.publishWeb,
     required this.realtimeCollab,
     this.folioStaff = false,
+    this.plan,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
     this.backupPurchasedBytes = 0,
@@ -198,6 +204,10 @@ class FolioCloudSnapshot {
 
   final bool active;
   final String? subscriptionStatus;
+
+  /// `free` | `cloud` (Firestore `folioCloud.plan`); null en docs legacy.
+  final String? plan;
+
   final bool backup;
   final bool cloudAi;
   final bool publishWeb;
@@ -230,6 +240,19 @@ class FolioCloudSnapshot {
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
   FolioInkSnapshot get ink => _ink ?? FolioInkSnapshot.empty;
 
+  /// Plan free (500 MiB, backup+sync, 0 tinta).
+  bool get isFreePlan =>
+      plan == 'free' ||
+      (active &&
+          backup &&
+          !cloudAi &&
+          !publishWeb &&
+          (subscriptionStatus?.toLowerCase() == 'free'));
+
+  /// Suscripción de pago (no free tier).
+  bool get isPaidPlan =>
+      folioStaff || (active && !isFreePlan && (cloudAi || publishWeb || plan == 'cloud'));
+
   /// Alineado con reglas de Storage (`folioCloud.active` + feature o `folioStaff`).
   bool get canUseCloudBackup => folioStaff || (active && backup);
 
@@ -246,6 +269,7 @@ class FolioCloudSnapshot {
   static const FolioCloudSnapshot empty = FolioCloudSnapshot(
     active: false,
     subscriptionStatus: null,
+    plan: null,
     backup: false,
     cloudAi: false,
     publishWeb: false,
@@ -279,6 +303,7 @@ class FolioCloudSnapshot {
       return FolioCloudSnapshot(
         active: false,
         subscriptionStatus: null,
+        plan: null,
         backup: false,
         cloudAi: false,
         publishWeb: false,
@@ -303,11 +328,17 @@ class FolioCloudSnapshot {
     var active = _folioBool(m['active']);
     final statusNorm =
         m['subscriptionStatus']?.toString().trim().toLowerCase();
+    final planRaw = m['plan']?.toString().trim().toLowerCase();
+    final plan = (planRaw == 'free' || planRaw == 'cloud') ? planRaw : null;
     // Si `active` falta o quedó desincronizado pero el estado Stripe es de alta.
     if (!active &&
         (statusNorm == 'active' ||
             statusNorm == 'trialing' ||
             statusNorm == 'past_due')) {
+      active = true;
+    }
+    // Free tier: active + plan/status free.
+    if (!active && (plan == 'free' || statusNorm == 'free')) {
       active = true;
     }
     int seatsVal = 0;
@@ -322,6 +353,7 @@ class FolioCloudSnapshot {
     return FolioCloudSnapshot(
       active: active,
       subscriptionStatus: m['subscriptionStatus']?.toString(),
+      plan: plan,
       backup: f('backup'),
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),
@@ -448,7 +480,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       webPortalEntitlement = null;
       webPortalRefreshError = e;
       notifyListeners();
-      debugPrint('FolioCloudEntitlements: web portal: $e');
+      AppLogger.warn(
+        'web portal refresh failed',
+        tag: 'entitlements',
+        context: {'kind': e.kind.name, 'detail': e.detail},
+      );
     } catch (e, st) {
       if (FirebaseAuth.instance.currentUser?.uid != uid) return;
       webPortalEntitlement = null;
@@ -457,7 +493,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         detail: '$e',
       );
       notifyListeners();
-      debugPrint('FolioCloudEntitlements: web portal: $e\n$st');
+      AppLogger.error(
+        'web portal refresh failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -495,10 +536,16 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         final data = await folioFirestoreRestGetUserDoc(uid);
         if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
         return data;
-      } catch (e) {
+      } catch (e, st) {
         final canRetry = attempt < _firestoreServerFetchMaxAttempts - 1;
         if (canRetry) continue;
-        debugPrint('FolioCloudEntitlements: REST fetch users/$uid: $e');
+        AppLogger.error(
+          'REST fetch user doc failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid, 'attempt': attempt + 1},
+        );
         return null;
       }
     }
@@ -546,22 +593,29 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
                 .doc(uid)
                 .get();
             if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
-            debugPrint(
-              'FolioCloudEntitlements: server fetch falló; usando última caché local.',
+            AppLogger.warn(
+              'server fetch falló; usando última caché local',
+              tag: 'entitlements',
+              context: {'uid': uid},
             );
             return cached.data();
-          } catch (cacheErr) {
-            debugPrint(
-              'FolioCloudEntitlements: caché local también falló: $cacheErr',
+          } catch (cacheErr, cacheSt) {
+            AppLogger.error(
+              'caché local también falló',
+              tag: 'entitlements',
+              error: cacheErr,
+              stackTrace: cacheSt,
+              context: {'uid': uid},
             );
           }
         }
-        debugPrint(
-          'FolioCloudEntitlements: fetch server users/$uid: $e',
+        AppLogger.error(
+          'fetch server user doc failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: transient ? null : st,
+          context: {'uid': uid, 'transient': transient},
         );
-        if (!transient) {
-          debugPrint('$st');
-        }
         return null;
       }
     }
@@ -620,8 +674,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         ink: prev.ink,
       );
       notifyListeners();
-    } catch (e) {
-      debugPrint('FolioCloudEntitlements: backup usage callable: $e');
+    } catch (e, st) {
+      AppLogger.error(
+        'backup usage callable failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -668,8 +727,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _lastStripeSync = null;
       try {
         await syncFolioCloudSubscriptionFromStripe();
-      } catch (e) {
-        debugPrint('FolioCloudEntitlements: post-checkout Stripe sync: $e');
+      } catch (e, st) {
+        AppLogger.error(
+          'post-checkout Stripe sync failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
+        );
       }
       await refreshUserDocFromServer(
         leadingDelay: const Duration(milliseconds: 400),
@@ -681,9 +745,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _pendingMicrosoftStoreSyncOnResume = false;
       try {
         await syncFolioMicrosoftStoreEntitlementsFromDevice();
-      } catch (e) {
-        debugPrint(
-          'FolioCloudEntitlements: post-Store purchase sync: $e',
+      } catch (e, st) {
+        AppLogger.error(
+          'post-Store purchase sync failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
         );
       }
       await refreshUserDocFromServer(
@@ -745,8 +812,19 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     }
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
     if (serverData != null) {
-      debugPrint('FolioCloudEntitlements: Server user doc: $serverData');
       final parsed = FolioCloudSnapshot.fromUserDoc(serverData);
+      AppLogger.debug(
+        'Server user doc loaded',
+        tag: 'entitlements',
+        context: {
+          'uid': uid,
+          'active': parsed.active,
+          'plan': parsed.plan,
+          'subscriptionStatus': parsed.subscriptionStatus,
+          'folioStaff': parsed.folioStaff,
+          'canUseCloudBackup': parsed.canUseCloudBackup,
+        },
+      );
       snapshot = parsed;
       _serverFetchTruth = parsed;
       notifyListeners();
@@ -762,7 +840,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     unawaited(_maybeSyncStripeAfterServerRead(uid, serverData));
 
     if (_folioFirestoreUseGetPolling) {
-      _userDocPollTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      _userDocPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
         if (FirebaseAuth.instance.currentUser?.uid != uid) return;
         unawaited(refreshUserDocFromServer());
       });
@@ -792,8 +870,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
             }
           },
           onError: (Object e, StackTrace st) {
-            debugPrint('FolioCloudEntitlements: Firestore snapshots: $e');
-            debugPrint('$st');
+            AppLogger.error(
+              'Firestore snapshots failed',
+              tag: 'entitlements',
+              error: e,
+              stackTrace: st,
+              context: {'uid': uid},
+            );
           },
         );
   }
@@ -816,7 +899,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     try {
       await syncFolioCloudSubscriptionFromStripe();
     } catch (e) {
-      debugPrint('FolioCloudEntitlements: sync Stripe omitido o fallido: $e');
+      AppLogger.warn(
+        'sync Stripe omitido o fallido',
+        tag: 'entitlements',
+        context: {'error': '$e'},
+      );
     }
   }
 
@@ -828,8 +915,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     _lastStripeSync = null;
     try {
       await syncFolioCloudSubscriptionFromStripe();
-    } catch (e) {
-      debugPrint('FolioCloudEntitlements: refreshSubscriptionFromStripe: $e');
+    } catch (e, st) {
+      AppLogger.error(
+        'refreshSubscriptionFromStripe failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
     final data = await _fetchUserDocFromServerWithRetries(uid);
@@ -850,9 +942,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     if (uid == null) return;
     try {
       await syncFolioMicrosoftStoreEntitlementsFromDevice();
-    } catch (e) {
-      debugPrint(
-        'FolioCloudEntitlements: refreshMicrosoftStoreEntitlements: $e',
+    } catch (e, st) {
+      AppLogger.error(
+        'refreshMicrosoftStoreEntitlements failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
       );
       rethrow;
     }
@@ -875,10 +970,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     String? stripeErr;
     try {
       await syncFolioCloudSubscriptionFromStripe();
-    } catch (e) {
+    } catch (e, st) {
       stripeErr = '$e';
-      debugPrint(
-        'FolioCloudEntitlements: refreshFolioCloudBillingFromServers Stripe: $e',
+      AppLogger.error(
+        'refreshFolioCloudBillingFromServers Stripe failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
       );
     }
 
@@ -887,10 +985,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         FolioDistribution.showMicrosoftStoreIntegration) {
       try {
         await syncFolioMicrosoftStoreEntitlementsFromDevice();
-      } catch (e) {
+      } catch (e, st) {
         msErr = '$e';
-        debugPrint(
-          'FolioCloudEntitlements: refreshFolioCloudBillingFromServers MS: $e',
+        AppLogger.error(
+          'refreshFolioCloudBillingFromServers MS failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
         );
       }
     }
@@ -903,10 +1004,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         _serverFetchTruth = parsed;
         notifyListeners();
       } catch (e, st) {
-        debugPrint(
-          'FolioCloudEntitlements: refreshFolioCloudBillingFromServers parse: $e',
+        AppLogger.error(
+          'refreshFolioCloudBillingFromServers parse failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
         );
-        debugPrint('$st');
       }
     }
 

@@ -8,6 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart';
 
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/app_logger.dart';
 import '../ui_tokens.dart';
 import 'folio_dialog.dart';
 import 'folio_skeletons.dart';
@@ -73,7 +74,11 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
               if (mounted) setState(() => _loading = false);
             },
             onWebResourceError: (WebResourceError error) {
-              debugPrint('FolioInAppCheckoutDialog Mobile WebView Error: ${error.description}');
+              AppLogger.warn(
+                'Mobile WebView resource error',
+                tag: 'checkout',
+                context: {'description': error.description},
+              );
             },
             onUrlChange: (UrlChange change) {
               if (change.url != null) {
@@ -125,7 +130,11 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
   }
 
   void _checkUrl(String url) {
-    debugPrint('FolioInAppCheckoutDialog Navigated URL: $url');
+    AppLogger.debug(
+      'Navigated URL',
+      tag: 'checkout',
+      context: {'url': url},
+    );
     final cleanUrl = url.trim().toLowerCase();
 
     // 1. Success detection: Stripe success redirects containing session_id
@@ -134,7 +143,11 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
         cleanUrl.endsWith('/success') ||
         cleanUrl.contains('/success?') ||
         cleanUrl.contains('success=true')) {
-      debugPrint('FolioInAppCheckoutDialog: Intercepted success URL. Popping true.');
+      AppLogger.info(
+        'Intercepted success URL',
+        tag: 'checkout',
+        context: {'url': url},
+      );
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -144,7 +157,11 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
     // 2. Cancel detection: Stripe cancel redirects containing cancel keyword.
     if ((cleanUrl.contains('cancel') || cleanUrl.endsWith('/cancel')) &&
         !cleanUrl.contains('billing.stripe.com')) {
-      debugPrint('FolioInAppCheckoutDialog: Intercepted cancel URL. Popping false.');
+      AppLogger.info(
+        'Intercepted cancel URL',
+        tag: 'checkout',
+        context: {'url': url},
+      );
       if (mounted) {
         Navigator.of(context).pop(false);
       }
@@ -162,7 +179,11 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
           host == 'folio.app' ||
           host == 'www.folio.app' ||
           host == 'localhost') {
-        debugPrint('FolioInAppCheckoutDialog: Intercepted return host $host. Popping false.');
+        AppLogger.info(
+          'Intercepted return host',
+          tag: 'checkout',
+          context: {'host': host, 'url': url},
+        );
         if (mounted) {
           Navigator.of(context).pop(false);
         }

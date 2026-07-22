@@ -16,6 +16,8 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
   'file': _specialRowFile,
   'bookmark': _specialRowBookmark,
   'embed': _specialRowEmbed,
+  'spotify': _specialRowSpotify,
+  'systemMedia': _specialRowSystemMedia,
   'audio': _specialRowAudio,
   'meeting_note': _specialRowMeetingNote,
   'video': _specialRowVideo,
@@ -31,20 +33,6 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
 Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
   final builder = _specialRowBuildersByType[s.block.type];
   if (builder != null) return builder.call(s);
-
-  // Bloques de apps instaladas: tipo namespaced (ej. com.acme.chart)
-  if (s.block.type.contains('.')) {
-    return CustomAppBlockWidget(
-      block: s.block,
-      scheme: s.scheme,
-      appRegistry: AppExtensionRegistry.instance,
-      onBlockUpdated: (data) {
-        // Serializa los datos del bloque custom como JSON en el campo text
-        final encoded = const JsonEncoder().convert(data);
-        s.st.widget.session.updateBlockText(s.page.id, s.block.id, encoded);
-      },
-    );
-  }
 
   return null;
 }

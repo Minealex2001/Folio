@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Cuántas páginas recientes muestra el panel lateral (chips).
-const int kRecentPageVisitsSidebarDisplayLimit = 6;
+const int kRecentPageVisitsSidebarDisplayLimit = 4;
 
 /// Cuántas entradas se persisten y puede mostrar la pantalla de inicio.
 const int kRecentPageVisitsStorageLimit = 12;

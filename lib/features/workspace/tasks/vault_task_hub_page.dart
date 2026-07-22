@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/vault_task_list_entry.dart';
+import '../../../services/calendar/folio_ics_export.dart';
 import '../../../session/vault_session.dart';
 import 'vault_task_entry_filters.dart';
 
@@ -75,6 +79,34 @@ class _VaultTaskHubPageState extends State<VaultTaskHubPage> {
     return d.replaceFirst('T', ' ');
   }
 
+  Future<void> _exportIcs() async {
+    final l10n = AppLocalizations.of(context);
+    final entries = widget.session.collectTaskBlocks(includeSimpleTodos: false);
+    final ics = FolioIcsExport.exportTasks(entries);
+    if (kIsWeb) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.taskHubIcsExportWebUnsupported)),
+      );
+      return;
+    }
+    final destination = await FilePicker.saveFile(
+      dialogTitle: l10n.taskHubExportIcs,
+      fileName: 'folio-tasks.ics',
+      type: FileType.custom,
+      allowedExtensions: const ['ics'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    final path = destination.toLowerCase().endsWith('.ics')
+        ? destination
+        : '$destination.ics';
+    await File(path).writeAsString(ics);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.taskHubIcsExportDone)),
+    );
+  }
+
   Future<void> _openMoveTaskDialog(VaultTaskListEntry e) async {
     final l10n = AppLocalizations.of(context);
     final pages = widget.session.pages.where((p) => !p.isTrashed).toList();
@@ -127,6 +159,13 @@ class _VaultTaskHubPageState extends State<VaultTaskHubPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.taskHubTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.taskHubExportIcs,
+            icon: const Icon(Icons.calendar_month_outlined),
+            onPressed: _exportIcs,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(FolioSpace.md),

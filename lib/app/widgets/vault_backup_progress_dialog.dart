@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../data/folio_cloud_pack_format.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/app_logger.dart';
 import '../../services/vault_cloud_pack_progress.dart';
 
 /// Solo barra de progreso; mensajes van a consola con [logConsole].
@@ -22,7 +23,7 @@ class VaultBackupProgressController extends ChangeNotifier {
 
   /// Registro para desarrollo / depuración (no se muestra en la UI).
   static void logConsole(String line) {
-    debugPrint('[Folio backup] $line');
+    AppLogger.debug(line, tag: 'backup');
   }
 }
 
@@ -126,7 +127,12 @@ Future<void> showVaultBackupProgressDialog({
       await work(ctrl);
       return;
     } catch (e, st) {
-      debugPrint('Vault backup error: $e\n$st');
+      AppLogger.error(
+        'Vault backup failed',
+        tag: 'backup',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
   }
@@ -210,7 +216,12 @@ class _VaultBackupProgressOverlayBodyState
       if (!mounted) return;
       widget.onFinished(null, null);
     } catch (e, st) {
-      debugPrint('Vault backup error: $e\n$st');
+      AppLogger.error(
+        'Vault backup failed',
+        tag: 'backup',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       widget.onFinished(e, st);
     }

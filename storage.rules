@@ -54,7 +54,7 @@ service firebase.storage {
         && media.e2eV == 1;
     }
 
-    // Copias cifradas: solo suscripción Folio Cloud con feature backup (servidor escribe folioCloud).
+    // Copias cifradas: Folio Cloud con feature backup (plan free 500 MiB o suscripción de pago).
     match /users/{userId}/backups/{allPaths=**} {
       allow read, write: if request.auth != null
         && request.auth.uid == userId
@@ -70,6 +70,27 @@ service firebase.storage {
 
     // Copias incrementales (blobs + snapshots cifrados en cliente).
     match /users/{userId}/vaults/{vaultId}/cloud-packs/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudBackupOk(userId);
+    }
+
+    // Packs de sync multi-dispositivo (cifrados en cliente).
+    match /users/{userId}/vaults/{vaultId}/device-sync/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudBackupOk(userId);
+    }
+
+    // Perfil de ajustes de la app + iconos custom.
+    match /users/{userId}/app-profile/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudBackupOk(userId);
+    }
+
+    // Preferencias por libreta.
+    match /users/{userId}/vault-profiles/{vaultId}/{allPaths=**} {
       allow read, write: if request.auth != null
         && request.auth.uid == userId
         && folioCloudBackupOk(userId);
@@ -95,11 +116,16 @@ service firebase.storage {
         && request.resource.size < 1 * 1024 * 1024;
     }
 
-    // Adjuntos multimedia cifrados E2E por sala.
+    // Adjuntos multimedia cifrados E2E por sala. Solo `create` (no `update`):
+    // cada subida usa un mediaId nuevo generado por el cliente, así que un
+    // miembro nunca debería poder sobrescribir el blob ya subido por otro.
     match /collab-media-e2e/{roomId}/{mediaId} {
-      allow write: if collabMember(roomId)
+      allow create: if collabMember(roomId)
+        && resource == null
         && request.resource.size > 0
         && request.resource.size <= 80 * 1024 * 1024;
+
+      allow update: if false;
 
       allow read: if collabMember(roomId)
         && collabMediaVisible(roomId, mediaId);

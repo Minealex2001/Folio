@@ -6,19 +6,20 @@
 #
 # Acciones (-Action):
 #   menu        Mostrar el menú interactivo (por defecto sin argumentos).
-#   build-all   Compilar todo localmente (Windows ZIP + MSIX + APK + Linux) sin publicar.
-#   release     Compilar instalador Windows y publicar RELEASE estable en GitHub.
-#   prerelease  Compilar instalador Windows y publicar PRE-RELEASE (canal Beta) en GitHub.
+#   build-all   Compilar todo localmente (Windows + MSIX + APK + Linux + macOS si aplica) sin publicar.
+#   release     Compilar TODAS las formas de distribucion posibles y publicar RELEASE estable en GitHub.
+#   prerelease  Igual que release, pero como PRE-RELEASE (canal Beta).
 #   installer   Generar solo el instalador Windows (.exe) sin publicar.
 #   windows     Compilar solo Windows (canal GitHub) -> ZIP.
 #   store       Compilar solo Windows (Microsoft Store) -> MSIX.
-#   android     Compilar solo Android (APK).
-#   linux       Compilar solo Linux (bundle -> ZIP).
-#   notes       Publicar release "solo notas" (changelog) sin adjuntar instalador.
+#   android     Compilar solo Android (APK + AAB).
+#   linux       Compilar solo Linux (bundle -> ZIP; nativo o via WSL).
+#   macos       Compilar solo macOS (.app -> ZIP; solo en macOS).
+#   notes       Publicar release "solo notas" (changelog) sin adjuntar artefactos.
 #   clean       Ejecutar flutter clean.
 param(
     # Accion a ejecutar. Vacio = menu interactivo (o build-all si se usa modo no interactivo/CI).
-    [ValidateSet('', 'menu', 'build-all', 'release', 'prerelease', 'installer', 'windows', 'store', 'android', 'linux', 'notes', 'clean')]
+    [ValidateSet('', 'menu', 'build-all', 'release', 'prerelease', 'installer', 'windows', 'store', 'android', 'linux', 'macos', 'notes', 'clean')]
     [string] $Action = '',
     # Carpeta de salida (por defecto [repo]/Output).
     [string] $Output = '',
@@ -29,12 +30,15 @@ param(
     # Builds APK pensados para Google Play.
     [string] $DistributionAndroid = 'play_store',
     [string] $DistributionLinux = 'github',
+    [string] $DistributionMacOS = 'github',
     # Omitir segundo build Windows + MSIX (p. ej. sin certificado / solo GitHub).
     [switch] $SkipMicrosoftStore,
     # CI Windows no tiene Android SDK por defecto: usar en GitHub Actions y ejecutar APK en otro job.
     [switch] $SkipAndroid,
-    # Solo en maquinas Linux/WSL; en Windows omitir o usar job ubuntu.
+    # Solo en maquinas Linux/WSL; en Windows se intenta WSL si esta disponible.
     [switch] $SkipLinux,
+    # Solo en macOS (no hay cross-compile desde Windows/Linux).
+    [switch] $SkipMacOS,
     # Origen de MS_STORE_* para --dart-define (por defecto functions/.env).
     [string] $MicrosoftStoreEnvFile = '',
     # Ejecutar 'flutter clean' antes de compilar (evita caches CMake obsoletas al mover el repo).
@@ -51,6 +55,10 @@ param(
     [switch] $DraftRelease,
     # Nueva version para pubspec.yaml antes de compilar (p. ej. 1.3.0 o 1.3.0+12). Vacio = mantener.
     [string] $BumpVersion = '',
+    # Notas Markdown de la release (inline). Si vacio y no hay -ReleaseNotesFile, en modo interactivo se pueden pegar.
+    [string] $ReleaseNotes = '',
+    # Ruta a un .md con las notas de la release (prioridad sobre -ReleaseNotes).
+    [string] $ReleaseNotesFile = '',
     # No pedir confirmaciones interactivas en flujos de publicacion.
     [switch] $Yes
 )
@@ -287,6 +295,90 @@ function Copy-LinuxBundleZip {
     Write-Host "[ok] ZIP Linux: $zipPath" -ForegroundColor Green
 }
 
+function Copy-MacOSAppZip {
+    $products = Join-Path $RepoRoot 'build\macos\Build\Products\Release'
+    if (-not (Test-Path -LiteralPath $products)) {
+        Write-Warning "No se encontro $products ; se omite ZIP macOS."
+        return
+    }
+    $app = Get-ChildItem -LiteralPath $products -Filter '*.app' -Directory -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $app) {
+        Write-Warning "No hay .app en $products ; se omite ZIP macOS."
+        return
+    }
+    $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
+    $zipPath = Join-Path $OutputDir "Folio-macOS-GitHub-${verSafe}.zip"
+    if (Test-Path -LiteralPath $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+    Compress-Archive -Path $app.FullName -DestinationPath $zipPath -Force
+    Write-Host "[ok] ZIP macOS: $zipPath" -ForegroundColor Green
+}
+
+# Artefactos conocidos en Output/ para adjuntar a una release de GitHub
+# (solo la version actual de pubspec, para no subir restos de builds anteriores).
+function Get-OutputReleaseAssets {
+    if (-not (Test-Path -LiteralPath $OutputDir)) {
+        return @()
+    }
+    $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
+    $semver = Get-PubspecSemver
+    $patterns = @(
+        "Folio-Setup-$semver.exe",
+        "Folio-Windows-GitHub-$verSafe.zip",
+        "Folio-MicrosoftStore-$verSafe.msix",
+        "Folio-Android-PlayStore-$verSafe.apk",
+        "Folio-Android-PlayStore-$verSafe.aab",
+        "Folio-Linux-GitHub-$verSafe.zip",
+        "Folio-macOS-GitHub-$verSafe.zip"
+    )
+    $files = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $patterns) {
+        $path = Join-Path $OutputDir $name
+        if (Test-Path -LiteralPath $path) {
+            $files.Add($path)
+        }
+    }
+    return $files.ToArray()
+}
+
+function Test-IsLinuxHost {
+    if ($IsLinux) { return $true }
+    if ($env:WSL_DISTRO_NAME) { return $true }
+    if ($env:LSB_RELEASE) { return $true }
+    return $false
+}
+
+function Test-IsMacOSHost {
+    if ($IsMacOS) { return $true }
+    if ($env:OSTYPE -match 'darwin') { return $true }
+    return $false
+}
+
+function Test-WslAvailable {
+    $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
+    if (-not $wsl) { return $false }
+    & wsl.exe -e true *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# E:\Repos\Folio -> /mnt/e/Repos/Folio
+function ConvertTo-WslPath([string] $windowsPath) {
+    $resolved = $windowsPath
+    try {
+        $resolved = (Resolve-Path -LiteralPath $windowsPath).Path
+    } catch {
+        # usar tal cual
+    }
+    if ($resolved -match '^([A-Za-z]):\\(.*)$') {
+        $drive = $Matches[1].ToLower()
+        $rest = ($Matches[2] -replace '\\', '/')
+        return "/mnt/$drive/$rest"
+    }
+    return ($resolved -replace '\\', '/')
+}
+
 # ---------------------------------------------------------------------------
 # Builds por plataforma
 # ---------------------------------------------------------------------------
@@ -345,8 +437,8 @@ function Build-Android {
     Copy-AndroidAab
 }
 
-function Build-Linux {
-    Write-Host "`n[linux] Compilando Linux (Release)..." -ForegroundColor Cyan
+function Build-LinuxNative {
+    Write-Host "`n[linux] Compilando Linux nativo (Release)..." -ForegroundColor Cyan
     $linuxArgs = Merge-FlutterDartDefines @('build', 'linux', '--release') @(
         (Get-FolioDistributionArg $DistributionLinux)
     )
@@ -354,6 +446,107 @@ function Build-Linux {
     Assert-LastExitCode 'flutter build linux'
     Write-Host 'Linux listo.' -ForegroundColor Green
     Copy-LinuxBundleZip
+}
+
+# Compila Linux dentro de WSL (Flutter + deps GTK deben estar instalados en la distro).
+function Build-LinuxViaWsl {
+    Write-Host "`n[linux] Compilando Linux via WSL (Release)..." -ForegroundColor Cyan
+    $wslRoot = ConvertTo-WslPath $RepoRoot
+    $wslOut = ConvertTo-WslPath $OutputDir
+    $distDefine = ''
+    if (-not [string]::IsNullOrWhiteSpace($DistributionLinux)) {
+        $distDefine = "--dart-define=FOLIO_DISTRIBUTION=$($DistributionLinux.Trim())"
+    }
+    $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
+    $zipName = "Folio-Linux-GitHub-${verSafe}.zip"
+    $shPathWin = Join-Path $env:TEMP 'folio_build_linux_wsl.sh'
+    $shContent = @"
+#!/usr/bin/env bash
+set -euo pipefail
+cd '$wslRoot'
+if ! command -v flutter >/dev/null 2>&1; then
+  echo 'WSL: flutter no esta en PATH. Instala Flutter en la distro o usa el job ubuntu de CI.' >&2
+  exit 127
+fi
+if ! command -v zip >/dev/null 2>&1; then
+  echo 'WSL: zip no esta instalado (sudo apt install zip).' >&2
+  exit 127
+fi
+flutter pub get
+flutter build linux --release $distDefine
+mkdir -p '$wslOut'
+rm -f '$wslOut/$zipName'
+(cd build/linux/x64/release && zip -r '$wslOut/$zipName' bundle)
+echo "ZIP Linux (WSL): $wslOut/$zipName"
+"@
+    # LF endings for bash
+    [System.IO.File]::WriteAllText($shPathWin, ($shContent -replace "`r`n", "`n"))
+    $shPathWsl = ConvertTo-WslPath $shPathWin
+    & wsl.exe -e bash $shPathWsl
+    if ($LASTEXITCODE -ne 0) {
+        throw "Fallo build Linux via WSL (codigo $LASTEXITCODE)."
+    }
+    $zipPath = Join-Path $OutputDir $zipName
+    if (Test-Path -LiteralPath $zipPath) {
+        Write-Host "[ok] ZIP Linux (WSL): $zipPath" -ForegroundColor Green
+    } else {
+        throw "WSL termino OK pero no se encontro $zipPath"
+    }
+}
+
+# Intenta Linux nativo; si estamos en Windows, prueba WSL. Best-effort si -BestEffort.
+function Build-Linux {
+    param([switch] $BestEffort)
+    try {
+        if (Test-IsLinuxHost) {
+            Build-LinuxNative
+            return
+        }
+        if (Test-WslAvailable) {
+            Build-LinuxViaWsl
+            return
+        }
+        $msg = 'Omitiendo Linux: no hay entorno Linux/WSL. Usa WSL (Ubuntu) o el job linux del workflow folio-build-all.'
+        if ($BestEffort) {
+            Write-Host "`n[warn] $msg" -ForegroundColor Magenta
+            return
+        }
+        throw $msg
+    } catch {
+        if ($BestEffort) {
+            Write-Host "`n[warn] Linux no compilado: $($_.Exception.Message)" -ForegroundColor Magenta
+            return
+        }
+        throw
+    }
+}
+
+function Build-MacOS {
+    param([switch] $BestEffort)
+    if (-not (Test-IsMacOSHost)) {
+        $msg = 'Omitiendo macOS: solo se puede compilar en un host macOS (no hay cross-compile). Usa el job macos del workflow folio-build-all.'
+        if ($BestEffort) {
+            Write-Host "`n[warn] $msg" -ForegroundColor Magenta
+            return
+        }
+        throw $msg
+    }
+    try {
+        Write-Host "`n[macos] Compilando macOS (Release)..." -ForegroundColor Cyan
+        $macArgs = Merge-FlutterDartDefines @('build', 'macos', '--release') @(
+            (Get-FolioDistributionArg $DistributionMacOS)
+        )
+        & flutter @macArgs
+        Assert-LastExitCode 'flutter build macos'
+        Write-Host 'macOS listo.' -ForegroundColor Green
+        Copy-MacOSAppZip
+    } catch {
+        if ($BestEffort) {
+            Write-Host "`n[warn] macOS no compilado: $($_.Exception.Message)" -ForegroundColor Magenta
+            return
+        }
+        throw
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -522,10 +715,65 @@ function Assert-GhReady {
     }
 }
 
+# Resuelve el cuerpo Markdown de la release.
+# Prioridad: -ReleaseNotesFile > -ReleaseNotes > pegado interactivo > $null (= --generate-notes).
+# Devuelve $null para autogenerar con gh, o un string Markdown.
+function Resolve-ReleaseNotes {
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseNotesFile)) {
+        $path = $ReleaseNotesFile.Trim()
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "No se encontro el archivo de notas: $path"
+        }
+        $full = (Resolve-Path -LiteralPath $path).Path
+        Write-Host "[release] Notas desde archivo: $full" -ForegroundColor Gray
+        return [System.IO.File]::ReadAllText($full, [System.Text.UTF8Encoding]::new($false))
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) {
+        Write-Host "[release] Notas desde -ReleaseNotes" -ForegroundColor Gray
+        return $ReleaseNotes
+    }
+
+    # CI / -Yes: sin prompt, autogenerar.
+    if ($Yes -or $NonInteractive) {
+        return $null
+    }
+
+    Write-Host ""
+    Write-Host "Notas de la release (Markdown):" -ForegroundColor Yellow
+    Write-Host "  - Pulsa Enter en la primera linea para generar notas automaticamente (gh --generate-notes)." -ForegroundColor Gray
+    Write-Host "  - O pega el Markdown y termina con una linea que diga solo: END" -ForegroundColor Gray
+    Write-Host ""
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $first = $true
+    while ($true) {
+        $line = Read-Host
+        if ($first -and [string]::IsNullOrWhiteSpace($line)) {
+            Write-Host "[release] Sin notas pegadas; se usara --generate-notes." -ForegroundColor Gray
+            return $null
+        }
+        $first = $false
+        if ($line -eq 'END') { break }
+        [void]$lines.Add($line)
+    }
+
+    $body = ($lines -join "`n").TrimEnd()
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        Write-Host "[release] Notas vacias; se usara --generate-notes." -ForegroundColor Gray
+        return $null
+    }
+
+    Write-Host ("[release] Notas Markdown recibidas ({0} caracteres)." -f $body.Length) -ForegroundColor Gray
+    return $body
+}
+
 function Publish-Release {
     param(
         [Parameter(Mandatory)] [string] $Tag,
         [string] $InstallerPath = '',
+        [string[]] $AssetPaths = @(),
+        [string] $NotesBody = '',
         [switch] $AsPreRelease,
         [switch] $AsDraft
     )
@@ -539,22 +787,59 @@ function Publish-Release {
 
     $target = Resolve-ReleaseTarget
 
-    $ghArgs = [System.Collections.Generic.List[string]]::new()
-    $ghArgs.Add('release'); $ghArgs.Add('create'); $ghArgs.Add($Tag)
+    $assets = [System.Collections.Generic.List[string]]::new()
     if (-not [string]::IsNullOrWhiteSpace($InstallerPath)) {
-        $ghArgs.Add($InstallerPath)
+        $assets.Add($InstallerPath)
     }
-    $ghArgs.Add('--target'); $ghArgs.Add($target)
-    $ghArgs.Add('--title'); $ghArgs.Add($Tag)
-    $ghArgs.Add('--generate-notes')
-    if ($AsPreRelease) { $ghArgs.Add('--prerelease') }
-    if ($AsDraft) { $ghArgs.Add('--draft') }
+    foreach ($a in @($AssetPaths)) {
+        if ([string]::IsNullOrWhiteSpace($a)) { continue }
+        if (-not (Test-Path -LiteralPath $a)) {
+            Write-Warning "Asset no encontrado, se omite: $a"
+            continue
+        }
+        if (-not ($assets -contains $a)) {
+            $assets.Add($a)
+        }
+    }
 
-    $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
-    Write-Host "`n[release] Publicando $kind '$Tag' en GitHub..." -ForegroundColor Cyan
-    & gh @ghArgs
-    Assert-LastExitCode 'gh release create'
-    Write-Host "Publicado: $Tag" -ForegroundColor Green
+    $notesFile = $null
+    try {
+        $ghArgs = [System.Collections.Generic.List[string]]::new()
+        $ghArgs.Add('release'); $ghArgs.Add('create'); $ghArgs.Add($Tag)
+        foreach ($a in $assets) {
+            $ghArgs.Add($a)
+        }
+        $ghArgs.Add('--target'); $ghArgs.Add($target)
+        $ghArgs.Add('--title'); $ghArgs.Add($Tag)
+
+        if (-not [string]::IsNullOrWhiteSpace($NotesBody)) {
+            $notesFile = Join-Path ([System.IO.Path]::GetTempPath()) ("folio-release-notes-" + [guid]::NewGuid().ToString('N') + '.md')
+            [System.IO.File]::WriteAllText($notesFile, $NotesBody, [System.Text.UTF8Encoding]::new($false))
+            $ghArgs.Add('--notes-file'); $ghArgs.Add($notesFile)
+        } else {
+            $ghArgs.Add('--generate-notes')
+        }
+
+        if ($AsPreRelease) { $ghArgs.Add('--prerelease') }
+        if ($AsDraft) { $ghArgs.Add('--draft') }
+
+        $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
+        $notesMode = if (-not [string]::IsNullOrWhiteSpace($NotesBody)) { 'Markdown pegado/archivo' } else { 'autogeneradas (gh)' }
+        Write-Host "`n[release] Publicando $kind '$Tag' en GitHub..." -ForegroundColor Cyan
+        Write-Host "  Target : $target" -ForegroundColor Gray
+        Write-Host "  Notas  : $notesMode" -ForegroundColor Gray
+        Write-Host "  Assets : $($assets.Count)" -ForegroundColor Gray
+        foreach ($a in $assets) {
+            Write-Host "    - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+        }
+        & gh @ghArgs
+        Assert-LastExitCode 'gh release create'
+        Write-Host "Publicado: $Tag" -ForegroundColor Green
+    } finally {
+        if ($notesFile -and (Test-Path -LiteralPath $notesFile)) {
+            Remove-Item -LiteralPath $notesFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Confirm-Action([string] $message) {
@@ -563,7 +848,8 @@ function Confirm-Action([string] $message) {
     return ($answer -match '^(s|si|y|yes)$')
 }
 
-# Flujo completo de publicacion (release o pre-release).
+# Flujo completo de publicacion (release o pre-release):
+# compila todas las formas de distribucion posibles y las adjunta a la release.
 function Invoke-PublishFlow {
     param([switch] $AsPreRelease)
 
@@ -580,28 +866,45 @@ function Invoke-PublishFlow {
     Write-Host "  Version pubspec : $(Get-PubspecVersionRaw)" -ForegroundColor Gray
     Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
     Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
+    Write-Host "  Artefactos      : instalador + ZIP Windows + MSIX + APK/AAB + Linux/macOS (si aplica)" -ForegroundColor Gray
     Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 
-    if (-not (Confirm-Action "Compilar instalador y publicar $tag ?")) {
+    if (-not (Confirm-Action "Compilar todas las formas posibles y publicar $tag ?")) {
         Write-Host "Cancelado." -ForegroundColor Yellow
         return
     }
 
+    # Pedir notas antes del build largo (pegar Markdown o Enter = autogenerar).
+    $notesBody = Resolve-ReleaseNotes
+    if ($null -eq $notesBody) { $notesBody = '' }
+
     Assert-GhReady
-    if ($Clean) { Invoke-FlutterClean }
-    Invoke-FlutterPubGet
-    # No capturar la salida por stream: 'flutter'/'ISCC' contaminarian el valor de retorno.
-    # La ruta del instalador es determinista (Folio-Setup-<semver>.exe en Output).
-    Build-WindowsInstaller -ForceRebuild:$Clean
+
+    # Misma matriz que build-all; Linux/macOS en best-effort fuera de su host.
+    Invoke-BuildAll -RequireInstaller
+
+    $assets = Get-OutputReleaseAssets
     $installer = Join-Path $OutputDir ("Folio-Setup-" + (Get-PubspecSemver) + ".exe")
     if (-not (Test-Path -LiteralPath $installer)) {
-        throw "No se encontro el instalador esperado: $installer"
+        throw "No se encontro el instalador obligatorio: $installer"
     }
-    Publish-Release -Tag $tag -InstallerPath $installer -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
+    if ($assets.Count -eq 0) {
+        $assets = @($installer)
+    }
+
+    Write-Host "`nArtefactos a publicar ($($assets.Count)):" -ForegroundColor Cyan
+    foreach ($a in $assets) {
+        Write-Host "  - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+    }
+
+    Publish-Release -Tag $tag -AssetPaths $assets -NotesBody $notesBody -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
 }
 
 # Flujo compilar todo localmente (comportamiento legado).
+# -RequireInstaller: falla si no hay Inno Setup (necesario para publicar).
 function Invoke-BuildAll {
+    param([switch] $RequireInstaller)
+
     if ($Clean) { Invoke-FlutterClean }
     Invoke-FlutterPubGet
 
@@ -621,11 +924,15 @@ function Invoke-BuildAll {
 
     if ($SkipLinux) {
         Write-Host "`n[skip] Omitido: Linux (-SkipLinux)." -ForegroundColor Magenta
-    } elseif ($IsLinux -or $env:LSB_RELEASE -or $env:WSL_DISTRO_NAME) {
-        Build-Linux
     } else {
-        Write-Host "`n[warn] Omitiendo Linux: no se detecto entorno Linux/WSL." -ForegroundColor Magenta
-        Write-Host "Pista: para compilar Linux desde Windows, usa WSL (Ubuntu/Debian)." -ForegroundColor Gray
+        # En Windows: intenta WSL; en Linux: nativo. Si no hay entorno, solo avisa.
+        Build-Linux -BestEffort
+    }
+
+    if ($SkipMacOS) {
+        Write-Host "`n[skip] Omitido: macOS (-SkipMacOS)." -ForegroundColor Magenta
+    } else {
+        Build-MacOS -BestEffort
     }
 
     # Generar instalador de Windows
@@ -633,6 +940,8 @@ function Invoke-BuildAll {
     $iscc = Find-Iscc
     if ($iscc) {
         Build-WindowsInstaller -ForceRebuild:$false
+    } elseif ($RequireInstaller) {
+        throw "No se encontro ISCC.exe (Inno Setup). Instalalo con 'winget install JRSoftware.InnoSetup'."
     } else {
         Write-Host "[warn] No se encontro Inno Setup (iscc.exe). Omitiendo instalador." -ForegroundColor Magenta
         Write-Host "Instala Inno Setup desde: https://jrsoftware.org/isdl.php" -ForegroundColor Gray
@@ -651,21 +960,22 @@ function Show-Menu {
     Write-Host ("  Version actual (pubspec.yaml): {0}" -f (Get-PubspecVersionRaw)) -ForegroundColor Gray
     Write-Host ""
     Write-Host "  PUBLICAR" -ForegroundColor Yellow
-    Write-Host "   1) Publicar RELEASE estable en GitHub (instalador .exe + tag)"
-    Write-Host "   2) Publicar PRE-RELEASE / Beta en GitHub (instalador .exe + tag)"
-    Write-Host "   3) Publicar solo notas (changelog) sin instalador"
+    Write-Host "   1) Publicar RELEASE estable en GitHub (todos los artefactos posibles)"
+    Write-Host "   2) Publicar PRE-RELEASE / Beta en GitHub (todos los artefactos posibles)"
+    Write-Host "   3) Publicar solo notas (changelog) sin artefactos"
     Write-Host ""
     Write-Host "  COMPILAR (local, sin publicar)" -ForegroundColor Yellow
-    Write-Host "   4) Compilar TODO (Windows ZIP + MSIX + APK + AAB + Linux + Instalador)"
+    Write-Host "   4) Compilar TODO (Windows ZIP + MSIX + APK + AAB + Linux + macOS + Instalador)"
     Write-Host "   5) Generar solo instalador Windows (.exe)"
     Write-Host "   6) Windows (canal GitHub) -> ZIP"
     Write-Host "   7) Windows (Microsoft Store) -> MSIX"
     Write-Host "   8) Android (APK + AAB)"
-    Write-Host "   9) Linux (bundle -> ZIP)"
+    Write-Host "   9) Linux (bundle -> ZIP; nativo o WSL)"
+    Write-Host "  10) macOS (.app -> ZIP; solo en Mac)"
     Write-Host ""
     Write-Host "  MANTENIMIENTO" -ForegroundColor Yellow
-    Write-Host "  10) flutter clean"
-    Write-Host "  11) Cambiar version en pubspec.yaml"
+    Write-Host "  11) flutter clean"
+    Write-Host "  12) Cambiar version en pubspec.yaml"
     Write-Host ""
     Write-Host "   0) Salir"
     Write-Host ""
@@ -680,8 +990,9 @@ function Show-Menu {
         '7' { return 'store' }
         '8' { return 'android' }
         '9' { return 'linux' }
-        '10' { return 'clean' }
-        '11' { return 'bump' }
+        '10' { return 'macos' }
+        '11' { return 'clean' }
+        '12' { return 'bump' }
         '0' { return 'exit' }
         default {
             Write-Host "Opcion no valida." -ForegroundColor Red
@@ -721,11 +1032,18 @@ function Invoke-FolioAction([string] $act) {
             Invoke-FlutterPubGet
             Build-Linux
         }
+        'macos' {
+            if ($Clean) { Invoke-FlutterClean }
+            Invoke-FlutterPubGet
+            Build-MacOS
+        }
         'notes' {
             $semver = Get-PubspecSemver
             $tag = if ([string]::IsNullOrWhiteSpace($ReleaseTag)) { "v$semver" } else { $ReleaseTag.Trim() }
             if (Confirm-Action "Publicar release solo-notas '$tag' ?") {
-                Publish-Release -Tag $tag -AsPreRelease:$PreRelease -AsDraft:$DraftRelease
+                $notesBody = Resolve-ReleaseNotes
+                if ($null -eq $notesBody) { $notesBody = '' }
+                Publish-Release -Tag $tag -NotesBody $notesBody -AsPreRelease:$PreRelease -AsDraft:$DraftRelease
             } else {
                 Write-Host "Cancelado." -ForegroundColor Yellow
             }
@@ -750,7 +1068,7 @@ Write-Host "Folio - build & release" -ForegroundColor Cyan
 Write-Host "Salida: $OutputDir" -ForegroundColor Gray
 
 # Invocacion no interactiva (CI / parametros directos)?
-$legacyInvocation = $SkipAndroid -or $SkipLinux -or $SkipMicrosoftStore -or $NonInteractive
+$legacyInvocation = $SkipAndroid -or $SkipLinux -or $SkipMacOS -or $SkipMicrosoftStore -or $NonInteractive
 
 if ([string]::IsNullOrWhiteSpace($Action)) {
     if ($legacyInvocation) {

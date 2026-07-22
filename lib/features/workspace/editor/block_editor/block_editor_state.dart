@@ -23,6 +23,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   static const _uuid = Uuid();
   final List<TextEditingController> _controllers = [];
   final Map<String, quill.QuillController> _quillByBlockId = {};
+  /// Marca (por identidad, sin retener referencias fuertes) qué
+  /// `QuillController`s ya fueron destruidos por el callback diferido de
+  /// `_disposeControllers()`. Llamadas ANIDADAS a `_disposeControllers()`
+  /// (misma pasada síncrona de `_onSession()`) pueden capturar el MISMO
+  /// controller huérfano más de una vez si aún no ha sido reemplazado en
+  /// `_quillByBlockId` entre una captura y la siguiente; sin esta guarda,
+  /// los callbacks diferidos correspondientes intentarían llamar
+  /// `dispose()` dos veces sobre el mismo objeto, lo que revienta con
+  /// "A QuillController was used after being disposed". `Expando` usa
+  /// referencias débiles a la clave, así que no impide que el controller
+  /// se recolecte normalmente una vez destruido.
+  static final Expando<bool> _quillDisposedByUs = Expando<bool>();
   final Map<String, Timer> _quillDebounceByBlockId = {};
   /// Persistencia inmediata (texto + Delta) del bloque WYSIWYG a la sesión.
   /// Se usa para vaciar cambios pendientes antes de descartar el debounce
@@ -30,32 +42,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final Map<String, void Function()> _quillPersistByBlockId = {};
   final Map<String, void Function()> _quillFlushNowByBlockId = {};
   Timer? _quillCopilotProbeTimer;
+  String? _quillCopilotSuggestionBlockId;
+  String? _quillCopilotSuggestionText;
+  OverlayEntry? _quillCopilotOverlayEntry;
+  bool _quillCopilotOverlayPostFrameScheduled = false;
   final Map<String, String> _quillLastMdByBlockId = {};
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
   final Map<String, ScrollController> _quillMainScrollByBlockId = {};
-  final Map<String, ScrollController> _quillPreviewScrollByBlockId = {};
-  /// FocusNode reutilizable del overlay de preview (solo lectura). Cachearlo
-  /// evita crear uno nuevo (y filtrarlo) en cada rebuild del editor.
-  final Map<String, FocusNode> _quillPreviewFocusByBlockId = {};
-
-  ScrollController _folioQuillMainScrollFor(String blockId) =>
-      _quillMainScrollByBlockId.putIfAbsent(
-        blockId,
-        ScrollController.new,
-      );
-
-  ScrollController _folioQuillPreviewScrollFor(String blockId) =>
-      _quillPreviewScrollByBlockId.putIfAbsent(
-        blockId,
-        ScrollController.new,
-      );
-
-  FocusNode _folioQuillPreviewFocusFor(String blockId) =>
-      _quillPreviewFocusByBlockId.putIfAbsent(
-        blockId,
-        () => FocusNode(skipTraversal: true),
-      );
   final List<FocusNode> _focusNodes = [];
   final List<VoidCallback> _textListeners = [];
   final List<VoidCallback> _focusDecorListeners = [];
@@ -384,6 +378,146 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     overlayState.insert(_formatToolbarOverlayEntry!);
   }
 
+  void _removeQuillCopilotOverlay() {
+    _quillCopilotOverlayEntry?.remove();
+    _quillCopilotOverlayEntry = null;
+  }
+
+  void _scheduleQuillCopilotOverlayUpdate() {
+    if (_quillCopilotOverlayPostFrameScheduled) return;
+    _quillCopilotOverlayPostFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quillCopilotOverlayPostFrameScheduled = false;
+      if (!mounted) return;
+      _updateQuillCopilotOverlay();
+    });
+  }
+
+  void _updateQuillCopilotOverlay() {
+    if (!mounted || widget.readOnlyMode) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    final bid = _quillCopilotSuggestionBlockId;
+    final suggestion = _quillCopilotSuggestionText;
+    if (bid == null || suggestion == null || suggestion.isEmpty) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final page = _s.selectedPage;
+    if (page == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == bid) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || !_stylableBlockTypes.contains(block.type)) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    if (_slashBlockId == bid || _mentionBlockId == bid) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final idx = _controllerBlockIds.indexOf(bid);
+    if (idx < 0 || idx >= _focusNodes.length) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    if (!_focusNodes[idx].hasFocus) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final qc = _quillByBlockId[bid];
+    if (qc == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final hostKey = _formatToolbarHostKeys[bid];
+    final hostCtx = hostKey?.currentContext;
+    if (hostCtx == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+    final raw = _findQuillRawEditorState(hostCtx);
+    if (raw == null) {
+      _removeQuillCopilotOverlay();
+      return;
+    }
+
+    final renderEditor = raw.renderEditor;
+    final localRect = renderEditor.getLocalRectForCaret(qc.selection.extent);
+    final globalPoint = renderEditor.localToGlobal(localRect.topRight);
+
+    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlayState == null) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    final baseStyle = _styleFor(block.type, Theme.of(context).textTheme);
+    final media = MediaQuery.sizeOf(context);
+    final maxW = math.max(40.0, media.width - globalPoint.dx - 8.0);
+
+    _quillCopilotOverlayEntry?.remove();
+    _quillCopilotOverlayEntry = OverlayEntry(
+      builder: (overlayCtx) {
+        return Stack(
+          children: [
+            Positioned(
+              left: globalPoint.dx,
+              top: globalPoint.dy,
+              width: maxW,
+              child: IgnorePointer(
+                child: Text(
+                  suggestion,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: baseStyle.copyWith(
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    overlayState.insert(_quillCopilotOverlayEntry!);
+  }
+
+  KeyEventResult? _handleQuillCopilotTabKey(String blockId, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.tab) return null;
+    if (event is! KeyDownEvent) return null;
+    if (_quillCopilotSuggestionBlockId != blockId) return null;
+    final suggestion = _quillCopilotSuggestionText;
+    if (suggestion == null || suggestion.isEmpty) return null;
+    final qc = _quillByBlockId[blockId];
+    if (qc == null) return null;
+
+    final offset = qc.selection.baseOffset;
+    _quillCopilotSuggestionBlockId = null;
+    _quillCopilotSuggestionText = null;
+    _removeQuillCopilotOverlay();
+
+    qc.replaceText(offset, 0, suggestion, null);
+    qc.updateSelection(
+      TextSelection.collapsed(offset: offset + suggestion.length),
+      quill.ChangeSource.local,
+    );
+    _quillFlushNowByBlockId[blockId]?.call();
+    _scheduleQuillCopilotProbe(blockId);
+    return KeyEventResult.handled;
+  }
+
   quill.QuillController _ensureQuillController({
     required String pageId,
     required FolioBlock block,
@@ -407,6 +541,39 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final qc = quill.QuillController(
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
+      config: quill.QuillControllerConfig(
+        clipboardConfig: quill.QuillClipboardConfig(
+          onClipboardPaste: () async {
+            if (!mounted) return false;
+            final page = _s.selectedPage;
+            if (page == null) return false;
+            final idx = page.blocks.indexWhere((x) => x.id == block.id);
+            if (idx < 0 || idx >= _controllers.length) return false;
+            final data = await Clipboard.getData(Clipboard.kTextPlain);
+            final raw = data?.text;
+            if (raw == null) return false;
+            if (_singleHttpUrlTrimmed(raw) != null) {
+              await _handleClipboardPaste(
+                page,
+                block.id,
+                idx,
+                _controllers[idx],
+              );
+              return true;
+            }
+            if (raw.contains('\n') && _containsMarkdownBlockSyntax(raw)) {
+              await _handleClipboardPaste(
+                page,
+                block.id,
+                idx,
+                _controllers[idx],
+              );
+              return true;
+            }
+            return false;
+          },
+        ),
+      ),
     );
     // Persiste texto + Delta a la sesión sin tocar los TextEditingController.
     // Seguro de invocar durante el teardown de controllers.
@@ -425,12 +592,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     void flushNow() {
       if (!mounted) return;
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
-      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
       final caret = qc.selection.baseOffset;
+      final idx = _controllerBlockIds.indexOf(block.id);
+      if (!_ignoreShortcuts &&
+          idx >= 0 &&
+          _tryQuillMarkdownShortcuts(
+            pageId: pageId,
+            blockId: block.id,
+            md: md,
+            plain: qc.document.toPlainText(),
+            caretPlain: caret,
+            index: idx,
+          )) {
+        return;
+      }
+      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
       _quillLastMdByBlockId[block.id] = md;
       _runWithShortcutsIgnored(() {
         _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
-        final idx = _controllerBlockIds.indexOf(block.id);
         if (idx >= 0 && idx < _controllers.length) {
           final safe = caret.clamp(0, md.length);
           _controllers[idx].value = TextEditingValue(
@@ -475,6 +654,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           flushNow();
         },
       );
+      if (_quillCopilotSuggestionBlockId != null) {
+        _quillCopilotSuggestionBlockId = null;
+        _quillCopilotSuggestionText = null;
+        _scheduleQuillCopilotOverlayUpdate();
+      }
       _scheduleQuillCopilotProbe(block.id);
     }
 
@@ -526,16 +710,27 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _quillFlushNowByBlockId[blockId]?.call();
   }
 
+  ScrollController _folioQuillMainScrollFor(String blockId) =>
+      _quillMainScrollByBlockId.putIfAbsent(
+        blockId,
+        ScrollController.new,
+      );
+
   void _disposeQuillFor(String blockId) {
     _quillDebounceByBlockId.remove(blockId)?.cancel();
     _quillPersistByBlockId.remove(blockId);
     _quillFlushNowByBlockId.remove(blockId);
     final qc = _quillByBlockId.remove(blockId);
-    qc?.dispose();
+    // Ver el comentario junto a `_quillDisposedByUs`: este mismo objeto
+    // puede haber sido ya destruido por el callback diferido de
+    // `_disposeControllers()` (u otra ruta), así que evitamos el doble
+    // `dispose()` sobre la misma instancia.
+    if (qc != null && _quillDisposedByUs[qc] != true) {
+      _quillDisposedByUs[qc] = true;
+      qc.dispose();
+    }
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
-    _quillPreviewScrollByBlockId.remove(blockId)?.dispose();
-    _quillPreviewFocusByBlockId.remove(blockId)?.dispose();
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -552,6 +747,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (_isTrailingSentinel(last)) return true;
 
     _ensuringTrailingSentinel = true;
+    // Si quien nos llamó ya dejó un foco pendiente explícito (p. ej.
+    // `_tryInsertNewBlockFromCurrentCaret` tras un Enter/Ctrl+Enter, que ya
+    // decidió a qué bloque debe ir el cursor tras la inserción/split), NO lo
+    // sobrescribimos con nuestra propia detección de "¿qué bloque tiene
+    // foco AHORA MISMO?". En ese punto el traspaso de foco de esa acción
+    // explícita normalmente todavía no se ha aplicado (se aplica en un
+    // postFrame vía `_finalizePendingEditorFocus`), así que el FocusNode
+    // que detectaríamos como "enfocado" aquí sigue siendo el bloque VIEJO
+    // que el usuario está abandonando, no el destino real. Pisar el
+    // pending-focus en ese caso hace que `_finalizePendingEditorFocus`
+    // reposicione el cursor (y dispare un flush espurio que puede pisar el
+    // modelo) sobre el bloque equivocado.
+    final hasExplicitPendingFocus =
+        _pendingFocusIndex != null || _pendingFocusBlockId != null;
     String? focusId;
     int? focusOff;
     for (
@@ -570,11 +779,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (focusId == null &&
         _stylableBlockTypes.contains(last.type) &&
         last.text.trim().isNotEmpty) {
-      _flushPendingQuill(last.id);
-      focusId = last.id;
-      focusOff = _liveCaretPlainOffset(last.id);
+      // No secuestrar este bloque como "destino de foco a restaurar" si
+      // ahora mismo tiene una selección de rango activa en su
+      // QuillController (p. ej. la selección que respalda la barra de
+      // formato flotante). `_finalizePendingEditorFocus` colapsaría esa
+      // selección a un único punto para "restaurar" el cursor, destruyendo
+      // una selección real que nadie pidió mover solo porque tuvimos que
+      // insertar un bloque centinela en segundo plano.
+      final lastQc = _quillByBlockId[last.id];
+      final lastHasActiveRangeSelection =
+          lastQc != null &&
+          lastQc.selection.isValid &&
+          !lastQc.selection.isCollapsed;
+      if (!lastHasActiveRangeSelection) {
+        _flushPendingQuill(last.id);
+        focusId = last.id;
+        focusOff = _liveCaretPlainOffset(last.id);
+      }
     }
-    if (focusId != null) {
+    if (focusId != null && !hasExplicitPendingFocus) {
       _pendingFocusBlockId = focusId;
       _pendingCursorOffset = focusOff ?? 0;
     }
@@ -642,49 +865,57 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return (block.imageWidth ?? 1.0).clamp(0.2, 1.0);
   }
 
+  void _setBlockImageWidth(FolioPage page, FolioBlock block, double width) {
+    _s.setBlockImageWidth(page.id, block.id, width);
+  }
+
   void _nudgeImageWidth(FolioPage page, FolioBlock block, double delta) {
     final next = (_imageWidthFor(block) + delta).clamp(0.2, 1.0);
     _s.setBlockImageWidth(page.id, block.id, next);
   }
 
-  Widget _blockMediaWidthToolbar(
-    FolioPage page,
-    FolioBlock block,
-    ThemeData theme,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          FilledButton.tonalIcon(
-            onPressed: () => _nudgeImageWidth(page, block, -0.1),
-            icon: const Icon(Icons.remove, size: 16),
-            label: Text(l10n.blockSizeSmaller),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: () => _nudgeImageWidth(page, block, 0.1),
-            icon: const Icon(Icons.add, size: 16),
-            label: Text(l10n.blockSizeLarger),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.5),
-            child: Text(l10n.blockSizeHalf),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.75),
-            child: Text(l10n.blockSizeThreeQuarter),
-          ),
-          OutlinedButton(
-            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 1.0),
-            child: Text(l10n.blockSizeFull),
-          ),
-        ],
-      ),
+  Widget _wrapResizableBlockMedia({
+    required FolioPage page,
+    required FolioBlock block,
+    required bool enabled,
+    required double maxAvailableWidth,
+    required Widget child,
+  }) {
+    return FolioBlockResizeHandle(
+      widthFactor: _imageWidthFor(block),
+      maxAvailableWidth: maxAvailableWidth,
+      enabled: enabled,
+      onWidthChanged: (w) => _setBlockImageWidth(page, block, w),
+      child: child,
     );
+  }
+
+  static const Set<String> _clipboardPasteTextTypes = {
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'toggle',
+    'quote',
+    'callout',
+  };
+
+  static const Set<String> _clipboardPasteUrlBlockTypes = {
+    'bookmark',
+    'embed',
+    'spotify',
+    'image',
+    'video',
+    'file',
+    'audio',
+  };
+
+  bool _shouldConsumePasteKey(String blockType) {
+    return _clipboardPasteTextTypes.contains(blockType) ||
+        _clipboardPasteUrlBlockTypes.contains(blockType);
   }
 
   // ignore: unused_element
@@ -839,14 +1070,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final p = _s.selectedPage;
       if (p == null) return;
       final idx = p.blocks.indexWhere((x) => x.id == blockId);
-      if (idx < 0 || idx >= _controllers.length) return;
+      if (idx < 0) return;
+      final block = p.blocks[idx];
+      final isStylable = _stylableBlockTypes.contains(block.type);
 
-      final ctrl = _controllers[idx];
-      if (ctrl is! CopilotTextEditingController) return;
+      final quill.QuillController? qc = isStylable ? _quillByBlockId[blockId] : null;
+      final CopilotTextEditingController? ctrl =
+          !isStylable && idx < _controllers.length
+              ? (_controllers[idx] is CopilotTextEditingController
+                  ? _controllers[idx] as CopilotTextEditingController
+                  : null)
+              : null;
+      if (isStylable ? qc == null : ctrl == null) return;
 
-      final text = ctrl.text;
-      final selection = ctrl.selection;
-      if (!selection.isValid || !selection.isCollapsed || selection.end != text.length) return;
+      final text = isStylable ? qc!.document.toPlainText() : ctrl!.text;
+      final selection = isStylable ? qc!.selection : ctrl!.selection;
+      // El texto del bloque (o `Document.toPlainText()`) puede traer un
+      // salto de línea final; el cursor "al final" se sitúa antes de ese
+      // carácter, no después.
+      final effectiveLength = text.endsWith('\n') ? text.length - 1 : text.length;
+      if (!selection.isValid || !selection.isCollapsed || selection.end != effectiveLength) return;
       if (text.trim().isEmpty) return;
 
       try {
@@ -865,8 +1108,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           ),
         );
         final suggestionText = response.text.trim();
-        if (suggestionText.isNotEmpty && mounted) {
-          if (ctrl.text == text && ctrl.selection == selection) {
+        if (suggestionText.isEmpty || !mounted) return;
+
+        if (isStylable) {
+          final currentText = qc!.document.toPlainText();
+          if (currentText == text && qc.selection == selection) {
+            setState(() {
+              _quillCopilotSuggestionBlockId = blockId;
+              _quillCopilotSuggestionText = suggestionText;
+            });
+            _scheduleQuillCopilotOverlayUpdate();
+          }
+        } else {
+          if (ctrl!.text == text && ctrl.selection == selection) {
             setState(() {
               ctrl.suggestion = suggestionText;
             });
@@ -1152,25 +1406,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }),
     );
 
-    // Slash commands de apps instaladas
-    final appSlashCmds = AppExtensionRegistry.instance.registeredSlashCommands;
-    filtered.addAll(
-      appSlashCmds.where((a) {
-        if (normalized.isEmpty) return true;
-        return a.key.contains(normalized) ||
-            a.label.toLowerCase().contains(normalized) ||
-            a.hint.toLowerCase().contains(normalized);
-      }),
-    );
-
     if (filtered.length < 2) return filtered;
     final catalogIndex = {
       for (var i = 0; i < blockTypeTemplates.length; i++)
         blockTypeTemplates[i].key: i,
       for (var i = 0; i < inline.length; i++)
         inline[i].key: blockTypeTemplates.length + i,
-      for (var i = 0; i < appSlashCmds.length; i++)
-        appSlashCmds[i].key: blockTypeTemplates.length + inline.length + i,
     };
     filtered.sort((a, b) {
       final aScore = _slashRecentByType[a.key] ?? 0;
@@ -1328,7 +1569,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (raw == null) return;
     final url = _singleHttpUrlTrimmed(raw);
     if (url != null) {
-      final mode = await showPasteUrlOptionsSheet(context);
+      final mode = await showPasteUrlOptionsSheet(context, pastedUrl: url);
       if (!mounted || mode == null) return;
       await _applyPasteUrlMode(page, blockId, index, ctrl, url, mode);
       return;
@@ -1384,6 +1625,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         unawaited(_refreshBookmarkTitleIfEmpty(page.id, blockId, url));
         if (mounted) setState(() {});
         break;
+      case FolioPasteUrlMode.spotify:
+        _ignoreShortcuts = true;
+        _s.changeBlockType(page.id, blockId, 'spotify');
+        _s.updateBlockUrl(page.id, blockId, url);
+        _s.updateBlockText(page.id, blockId, '');
+        if (index < _controllers.length) {
+          _controllers[index].value = const TextEditingValue(
+            text: '',
+            selection: TextSelection.collapsed(offset: 0),
+          );
+        }
+        _ignoreShortcuts = false;
+        unawaited(_refreshSpotifyTitleIfEmpty(page.id, blockId, url));
+        if (mounted) setState(() {});
+        break;
       case FolioPasteUrlMode.vaultMention:
         final title = await fetchLinkTitleForMention(url);
         if (!mounted) return;
@@ -1394,6 +1650,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         folioApplyLink(ctrl, label, url);
         break;
     }
+  }
+
+  Future<void> _refreshSpotifyTitleIfEmpty(
+    String pageId,
+    String blockId,
+    String url,
+  ) async {
+    final p = _s.selectedPage;
+    if (p == null || p.id != pageId) return;
+    final b = p.blocks.cast<FolioBlock?>().firstWhere(
+          (x) => x?.id == blockId,
+          orElse: () => null,
+        );
+    if (b == null || b.type != 'spotify') return;
+    if ((b.text ?? '').trim().isNotEmpty) return;
+    final meta = await fetchSpotifyOEmbed(url);
+    if (!mounted || meta?.title == null || meta!.title!.isEmpty) return;
+    _s.updateBlockText(pageId, blockId, meta.title!);
+    if (mounted) setState(() {});
   }
 
   Future<void> _refreshBookmarkTitleIfEmpty(
@@ -1525,6 +1800,61 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final u = c.text.trim();
       if (u.isEmpty) return;
       _s.updateBlockUrl(pageId, blockId, u);
+      if (mounted) setState(() {});
+    } finally {
+      final ctrl = c;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ctrl.dispose();
+      });
+    }
+  }
+
+  Future<void> _editSpotifyUrlDialog(
+    String pageId,
+    String blockId,
+    int index,
+  ) async {
+    final p = _s.selectedPage;
+    if (p == null) return;
+    FolioBlock? b;
+    for (final x in p.blocks) {
+      if (x.id == blockId) {
+        b = x;
+        break;
+      }
+    }
+    if (b == null || b.type != 'spotify') return;
+    final c = TextEditingController(text: b.url ?? '');
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => FolioDialog(
+          title: Text(AppLocalizations.of(context).urlLabel),
+          content: TextField(
+            controller: c,
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context).urlHint,
+            ),
+            keyboardType: TextInputType.url,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(AppLocalizations.of(context).insert),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      final u = c.text.trim();
+      if (u.isEmpty) return;
+      _s.updateBlockUrl(pageId, blockId, u);
+      unawaited(_refreshSpotifyTitleIfEmpty(pageId, blockId, u));
       if (mounted) setState(() {});
     } finally {
       final ctrl = c;
@@ -1697,6 +2027,207 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return s.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trimRight();
   }
 
+  /// Quill / el codec suelen dejar un `\n` final de bloque; los atajos
+  /// comparan contra `- ` / `* ` / etc. sin ese newline.
+  static String _stripTrailingQuillNewline(String s) {
+    if (s.endsWith('\r\n')) return s.substring(0, s.length - 2);
+    if (s.endsWith('\n')) return s.substring(0, s.length - 1);
+    return s;
+  }
+
+  static const _markdownShortcutBlockTypes = {
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'toggle',
+    'quote',
+    'callout',
+  };
+
+  /// Atajos markdown desde el flush Quill (bloque entero o línea del caret).
+  bool _tryQuillMarkdownShortcuts({
+    required String pageId,
+    required String blockId,
+    required String md,
+    required String plain,
+    required int caretPlain,
+    required int index,
+  }) {
+    final pg = _s.selectedPage;
+    if (pg == null || pg.id != pageId) return false;
+    final bi = pg.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return false;
+    if (!_markdownShortcutBlockTypes.contains(pg.blocks[bi].type)) {
+      return false;
+    }
+
+    final normalized = _stripTrailingQuillNewline(md);
+    if (_tryMarkdownShortcut(pageId, blockId, normalized, index)) {
+      _replaceQuillMarkdown(blockId, '', caret: 0);
+      if (_slashBlockId == blockId) {
+        _dismissInlineSlash(clearTypedCommand: false);
+      }
+      if (_mentionBlockId == blockId) {
+        _dismissInlineMention();
+      }
+      return true;
+    }
+    return _tryQuillLineListShortcut(
+      pageId: pageId,
+      blockId: blockId,
+      md: md,
+      plain: plain,
+      caretPlain: caretPlain,
+      index: index,
+    );
+  }
+
+  /// Si la línea del caret es exactamente `- ` / `* ` / `[] `, parte el bloque
+  /// y crea un `bullet`/`todo` Folio (1 ítem = 1 bloque).
+  bool _tryQuillLineListShortcut({
+    required String pageId,
+    required String blockId,
+    required String md,
+    required String plain,
+    required int caretPlain,
+    required int index,
+  }) {
+    final pg = _s.selectedPage;
+    if (pg == null || pg.id != pageId) return false;
+    final bi = pg.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return false;
+    final cur = pg.blocks[bi];
+    if (!_markdownShortcutBlockTypes.contains(cur.type)) return false;
+
+    final mdNorm = _stripTrailingQuillNewline(md).replaceAll('\r\n', '\n');
+    final plainNorm =
+        _stripTrailingQuillNewline(plain).replaceAll('\r\n', '\n');
+    if (!mdNorm.contains('\n')) return false;
+
+    final plainLines = plainNorm.split('\n');
+    if (plainLines.isEmpty) return false;
+    var remaining = caretPlain.clamp(0, plainNorm.length);
+    var lineIdx = 0;
+    for (; lineIdx < plainLines.length; lineIdx++) {
+      final len = plainLines[lineIdx].length;
+      if (remaining <= len) break;
+      remaining -= len + 1;
+    }
+    if (lineIdx >= plainLines.length) {
+      lineIdx = plainLines.length - 1;
+    }
+
+    final mdLines = mdNorm.split('\n');
+    if (lineIdx >= mdLines.length) return false;
+    final line = mdLines[lineIdx];
+
+    String? listType;
+    if (line == '- ' || line == '* ') {
+      listType = 'bullet';
+    } else if (line == '[] ' || line == '[ ] ') {
+      listType = 'todo';
+    }
+    if (listType == null) return false;
+
+    final before = mdLines.sublist(0, lineIdx).join('\n');
+    final after = lineIdx + 1 < mdLines.length
+        ? mdLines.sublist(lineIdx + 1).join('\n')
+        : '';
+
+    _ignoreShortcuts = true;
+
+    if (before.isEmpty) {
+      _pendingFocusBlockId = blockId;
+      _pendingCursorOffset = 0;
+      _s.changeBlockType(pageId, blockId, listType);
+      _s.updateBlockTextFull(pageId, blockId, '', null);
+      _replaceQuillMarkdown(blockId, '', caret: 0);
+      if (index < _controllers.length) {
+        _controllers[index].value = const TextEditingValue(
+          text: '',
+          selection: TextSelection.collapsed(offset: 0),
+        );
+      }
+      if (after.isNotEmpty) {
+        final afterId = '${pageId}_${_uuid.v4()}';
+        _s.insertBlockAfter(
+          pageId: pageId,
+          afterBlockId: blockId,
+          block: FolioBlock(id: afterId, type: 'paragraph', text: after),
+        );
+      }
+    } else {
+      final listId = '${pageId}_${_uuid.v4()}';
+      _pendingFocusBlockId = listId;
+      _pendingCursorOffset = 0;
+      _s.updateBlockTextFull(pageId, blockId, before, null);
+      _replaceQuillMarkdown(blockId, before, caret: before.length);
+      if (index < _controllers.length) {
+        _controllers[index].value = TextEditingValue(
+          text: before,
+          selection: TextSelection.collapsed(offset: before.length),
+        );
+      }
+      _s.insertBlockAfter(
+        pageId: pageId,
+        afterBlockId: blockId,
+        block: FolioBlock(
+          id: listId,
+          type: listType,
+          text: '',
+          checked: listType == 'todo' ? false : null,
+          depth: cur.depth,
+          appearance: cur.appearance,
+        ),
+      );
+      if (after.isNotEmpty) {
+        final afterId = '${pageId}_${_uuid.v4()}';
+        _s.insertBlockAfter(
+          pageId: pageId,
+          afterBlockId: listId,
+          block: FolioBlock(id: afterId, type: 'paragraph', text: after),
+        );
+      }
+    }
+
+    _ignoreShortcuts = false;
+    if (_slashBlockId == blockId) {
+      _dismissInlineSlash(clearTypedCommand: false);
+    }
+    if (_mentionBlockId == blockId) {
+      _dismissInlineMention();
+    }
+    return true;
+  }
+
+  /// Sustituye el documento Quill tras un atajo sin reentrar en conversiones.
+  void _replaceQuillMarkdown(String blockId, String md, {int? caret}) {
+    final existing = _quillByBlockId[blockId];
+    if (existing == null) {
+      _quillLastMdByBlockId[blockId] = md;
+      return;
+    }
+    _quillDebounceByBlockId[blockId]?.cancel();
+    _quillDebounceByBlockId.remove(blockId);
+    final wasIgnoring = _ignoreShortcuts;
+    _ignoreShortcuts = true;
+    existing.document = FolioMarkdownQuillCodec.markdownToDocument(md);
+    _quillLastMdByBlockId[blockId] = md;
+    var plain = existing.document.toPlainText();
+    var maxOff = plain.length;
+    if (plain.endsWith('\n') && maxOff > 0) maxOff -= 1;
+    final off = (caret ?? 0).clamp(0, maxOff);
+    existing.updateSelection(
+      TextSelection.collapsed(offset: off),
+      quill.ChangeSource.local,
+    );
+    _ignoreShortcuts = wasIgnoring;
+  }
+
   /// `#` / `##` solos (o solo con espacios): el markdown no pinta texto y el
   /// campo con color transparente parece “vacío”; no usar vista previa aún.
   static bool _isIncompleteAtxHeadingLine(String text) {
@@ -1758,7 +2289,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final oldSel = qc.selection;
       qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
       _quillLastMdByBlockId[b.id] = b.text;
-      _quillDebounceByBlockId[b.id]?.cancel();
       final newPlain = qc.document.toPlainText();
       if (newPlain == oldPlain && oldSel.isValid) {
         qc.updateSelection(oldSel, quill.ChangeSource.remote);
@@ -1779,6 +2309,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           quill.ChangeSource.remote,
         );
       }
+      // Cancelar el debounce DESPUÉS de reasignar documento/selección: ambas
+      // operaciones notifican al listener del controller, que re-arma el
+      // debounce de persistencia en cada notificación (ver el mismo patrón
+      // y explicación en `_syncControllers`). Cancelar antes dejaría vivo un
+      // temporizador re-armado por `updateSelection` que, al expirar,
+      // reescribiría en el modelo un markdown derivado de este resync
+      // remoto, pisando cambios reales posteriores.
+      _quillDebounceByBlockId[b.id]?.cancel();
     }
   }
 
@@ -1846,20 +2384,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     String text,
     int index,
   ) {
+    // Quill deja `\n` final; el camino TextField no. Normalizar antes de comparar.
+    final normalized = _stripTrailingQuillNewline(text);
     String? type;
     var replacement = '';
-    final fenceLang = folioParseMarkdownCodeFenceShortcut(text);
+    final fenceLang = folioParseMarkdownCodeFenceShortcut(normalized);
 
     // No convertir con `# ` / `## ` / `### ` + espacio: pierde el foco y
     // impide escribir “# Título” en la misma línea. Usa /h1 o pega “# Texto”.
-    if (text == '- ' || text == '* ') {
+    if (normalized == '- ' || normalized == '* ') {
       type = 'bullet';
-    } else if (text == '[] ' || text == '[ ] ') {
+    } else if (normalized == '[] ' || normalized == '[ ] ') {
       type = 'todo';
     } else if (fenceLang != null) {
       type = 'code';
-    } else if (!text.contains('\n') && !text.contains('\r')) {
-      final m = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(text);
+    } else if (!normalized.contains('\n') && !normalized.contains('\r')) {
+      final m = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(normalized);
       if (m != null) {
         final n = m.group(1)!.length;
         final body = m.group(2)!.trim();
@@ -1883,7 +2423,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _s.setBlockCodeLanguage(pageId, blockId, fenceLang);
       _pendingCursorOffset = 0;
     }
-    _s.updateBlockText(pageId, blockId, replacement);
+    // Limpiar Delta: el markdown `replacement` es la fuente de verdad.
+    _s.updateBlockTextFull(pageId, blockId, replacement, null);
     if (index < _controllers.length) {
       _controllers[index].value = TextEditingValue(
         text: replacement,
@@ -2718,11 +3259,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               AppLocalizations.of(context).noImageHint,
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
             ),
-            TextButton.icon(
+            BlockButton.primaryIcon(
               onPressed: () =>
                   unawaited(_pickImageForBlock(page.id, block.id, index)),
-              icon: const Icon(Icons.upload_rounded, size: 20),
-              label: Text(AppLocalizations.of(context).chooseImage),
+              icon: Icons.upload_rounded,
+              label: AppLocalizations.of(context).chooseImage,
             ),
           ],
         ),
@@ -2746,8 +3287,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (showControls)
-                _blockMediaWidthToolbar(page, block, Theme.of(context)),
               _buildCollabUploadProgressBadge(
                 block.id,
                 Theme.of(context),
@@ -2763,59 +3302,54 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                     alignment: Alignment.centerLeft,
                     child: SizedBox(
                       width: targetW,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 380),
-                          child: bytes == null
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    AppLocalizations.of(context).fileNotFound,
-                                    style: TextStyle(
-                                      color: scheme.error,
-                                      fontSize: 13,
+                      child: _wrapResizableBlockMedia(
+                        page: page,
+                        block: block,
+                        enabled: showControls,
+                        maxAvailableWidth: maxW,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 380),
+                            child: bytes == null
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
                                     ),
-                                  ),
-                                )
-                              : Image.memory(
-                                  bytes,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        child: Text(
-                                          AppLocalizations.of(
-                                            context,
-                                          ).couldNotLoadImage,
-                                          style: TextStyle(
-                                            color: scheme.error,
-                                            fontSize: 13,
+                                    child: Text(
+                                      AppLocalizations.of(context).fileNotFound,
+                                      style: TextStyle(
+                                        color: scheme.error,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  )
+                                : Image.memory(
+                                    bytes,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).couldNotLoadImage,
+                                            style: TextStyle(
+                                              color: scheme.error,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                ),
+                                  ),
+                          ),
                         ),
                       ),
                     ),
                   );
                 },
               ),
-              if (showControls)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Ancho: ${(widthFactor * 100).round()}%',
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
             ],
           );
         },
@@ -2847,8 +3381,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (showControls)
-              _blockMediaWidthToolbar(page, block, Theme.of(context)),
             _buildCollabUploadProgressBadge(
               block.id,
               Theme.of(context),
@@ -2864,66 +3396,61 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                   alignment: Alignment.centerLeft,
                   child: SizedBox(
                     width: targetW,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 380),
-                        child: isRemote
-                            ? Image.network(
-                                rel,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).couldNotLoadImage,
-                                        style: TextStyle(
-                                          color: scheme.error,
-                                          fontSize: 13,
+                    child: _wrapResizableBlockMedia(
+                      page: page,
+                      block: block,
+                      enabled: showControls,
+                      maxAvailableWidth: maxW,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 380),
+                          child: isRemote
+                              ? Image.network(
+                                  rel,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).couldNotLoadImage,
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                              )
-                            : Image.file(
-                                file!,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).couldNotLoadImage,
-                                        style: TextStyle(
-                                          color: scheme.error,
-                                          fontSize: 13,
+                                )
+                              : Image.file(
+                                  file!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).couldNotLoadImage,
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                              ),
+                                ),
+                        ),
                       ),
                     ),
                   ),
                 );
               },
             ),
-            if (showControls)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Ancho: ${(widthFactor * 100).round()}%',
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -3205,7 +3732,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   static const _menuSlotWidth = 40.0;
   static const _menuSlotWidthPhone = 28.0;
+  /// Altura reservada del slot ⋮ para que al revelar acciones no crezca la fila.
+  static const _menuSlotHeight = 32.0;
   static const _dragGutterWidth = 22.0;
+  static const _dragGutterHeight = 32.0;
 
   /// Ancho fijo para viñeta / checkbox / hueco: alinea el texto con Notion.
   static const _markerColumnWidth = 30.0;
@@ -3239,13 +3769,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       MediaQuery.sizeOf(context).width,
     );
     final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
+    if (compactReadOnlyMobile) {
+      return const SizedBox.shrink();
+    }
     return SizedBox(
-      width: compactReadOnlyMobile
-          ? 0
-          : (androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth),
-      child: showActions
-          ? Align(alignment: Alignment.centerLeft, child: menu)
-          : null,
+      width: androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth,
+      height: _menuSlotHeight,
+      child: IgnorePointer(
+        ignoring: !showActions,
+        child: AnimatedOpacity(
+          opacity: showActions ? 1 : 0,
+          duration: FolioMotion.short2,
+          child: Align(alignment: Alignment.centerLeft, child: menu),
+        ),
+      ),
     );
   }
 
@@ -3299,6 +3836,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _quillCopilotProbeTimer?.cancel();
     _blockListScrollController.removeListener(_scheduleFormatToolbarOverlayUpdate);
     _removeFormatToolbarOverlay();
+    _removeQuillCopilotOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -3316,14 +3854,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       sc.dispose();
     }
     _quillMainScrollByBlockId.clear();
-    for (final sc in _quillPreviewScrollByBlockId.values) {
-      sc.dispose();
-    }
-    _quillPreviewScrollByBlockId.clear();
-    for (final fn in _quillPreviewFocusByBlockId.values) {
-      fn.dispose();
-    }
-    _quillPreviewFocusByBlockId.clear();
     final n = _controllers.length;
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
@@ -3372,12 +3902,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _blockScrollKeys.clear();
     _tailTapTransientTouchedByBlockId.clear();
     final quillIds = _quillByBlockId.keys.toList();
+    // Capturamos las INSTANCIAS (no solo los ids) tal como estaban en el
+    // momento de este `_disposeControllers()`. Es la única forma fiable de
+    // saber, cuando el callback diferido corra, si el controller que
+    // íbamos a destruir sigue siendo el mismo objeto en uso (reutilizado) o
+    // uno distinto: comparar por id no basta (ver comentario más abajo).
+    final capturedQuillControllers = <String, quill.QuillController>{
+      for (final id in quillIds) id: _quillByBlockId[id]!,
+    };
     for (final id in quillIds) {
-      // Evitar que Quill intente pedir teclado tras el teardown.
-      final qc = _quillByBlockId[id];
-      if (qc != null) {
-        qc.skipRequestKeyboard = true;
-      }
       // Persistir cambios pendientes ANTES de descartar el debounce para no
       // perder edición rich-text al cambiar de página o bloquear el vault.
       _flushPendingQuill(id);
@@ -3391,13 +3924,70 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       for (final f in focusToDispose) {
         f.dispose();
       }
-      for (final id in quillIds) {
-        _disposeQuillFor(id);
+      // `_syncControllers()` / `_reorderControllersLikePage()` pueden haber
+      // corrido de forma SÍNCRONA justo después de este `_disposeControllers()`
+      // (misma pasada de `_onSession()`, p. ej. al insertar el bloque
+      // centinela tras escribir "/"). `_ensureQuillController` reutiliza el
+      // QuillController ya presente en `_quillByBlockId` cuando el blockId
+      // sigue en la página, así que ese controller (mismo objeto, con su
+      // caret) puede seguir en uso real para cuando este callback diferido
+      // se ejecuta. Si destruyéramos incondicionalmente todos los
+      // `quillIds` capturados aquí, tiraríamos también esos controllers
+      // reutilizados y perderíamos el caret (o el editor entero).
+      //
+      // Pero comprobar solo la presencia del id (en `_controllerBlockIds` o
+      // en `_quillByBlockId`) es demasiado laxo: un id puede seguir
+      // "presente" mientras que el objeto que hay detrás ya es OTRO
+      // controller (p. ej. porque el bloque fue realmente recreado, o
+      // porque `_disposeQuillForBlocksNoLongerStylable` lo soltó y luego se
+      // volvió a crear uno nuevo dentro de la misma pasada síncrona). Tratar
+      // ese caso como "reutilizado" deja vivo el controller VIEJO (fugado,
+      // nunca destruido) mientras el nuevo controller sigue operando sobre
+      // datos que ya no reflejan la última resincronización con el modelo,
+      // lo que produce corrupción de contenido (p. ej. texto duplicado o con
+      // saltos de línea de más) en vez de pérdida de caret.
+      //
+      // La señal correcta es la identidad del objeto: solo saltamos el
+      // dispose si `_quillByBlockId[id]` sigue siendo LITERALMENTE la misma
+      // instancia que capturamos aquí. Si es `null` (huérfano) o una
+      // instancia distinta (recreado), el controller VIEJO capturado ya no
+      // es alcanzable desde `_quillByBlockId` y debe destruirse usando nustra
+      // referencia capturada directamente (nunca mediante un lookup en vivo,
+      // que en el caso "recreado" borraría por error el controller nuevo).
+      for (final entry in capturedQuillControllers.entries) {
+        final id = entry.key;
+        final captured = entry.value;
+        final current = _quillByBlockId[id];
+        if (identical(current, captured)) continue;
+        // Otra llamada anidada a `_disposeControllers()` puede haber
+        // capturado este MISMO controller huérfano (si aún no había sido
+        // reemplazado en `_quillByBlockId` en ese momento) y ya haberlo
+        // destruido en su propio callback diferido. Llamar `dispose()` dos
+        // veces sobre el mismo `QuillController` revienta con "used after
+        // being disposed", así que verificamos la marca antes de tocarlo.
+        if (_quillDisposedByUs[captured] == true) continue;
+        _quillDisposedByUs[captured] = true;
+        // Evitar que Quill intente pedir teclado tras el teardown.
+        captured.skipRequestKeyboard = true;
+        captured.dispose();
+        if (current == null) {
+          // Huérfano de verdad: nadie volvió a crear un controller para este
+          // id, así que los mapas auxiliares todavía pertenecen al
+          // controller viejo (ya destruido) y hay que soltarlos aquí
+          // (replica lo que hace `_disposeQuillFor`, sin tocar
+          // `_quillByBlockId`, que ya no contiene esta entrada).
+          _quillDebounceByBlockId.remove(id)?.cancel();
+          _quillPersistByBlockId.remove(id);
+          _quillFlushNowByBlockId.remove(id);
+          _quillLastMdByBlockId.remove(id);
+        }
+        // Si `current` no es nulo pero tampoco es idéntico, el id fue
+        // recreado con OTRO controller dentro de esta misma pasada síncrona;
+        // ese controller nuevo ya es dueño de todos los mapas auxiliares
+        // (los sobrescribió `_ensureQuillController` al crearlo), así que no
+        // los tocamos: solo nos limitamos a destruir la instancia vieja
+        // capturada, que ya hicimos arriba.
       }
-      _quillByBlockId.clear();
-      _quillDebounceByBlockId.clear();
-      _quillPersistByBlockId.clear();
-      _quillFlushNowByBlockId.clear();
     });
   }
 
@@ -3629,6 +4219,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _pendingCursorOffset = null;
     _pendingFocusBlockId = null;
 
+    // `_disposeControllers()` resetea incondicionalmente cierto estado de UI
+    // puramente transitorio (barra de formato flotante activa, menú "..."
+    // abierto) pensado para un teardown real (cambio de página / dispose).
+    // Pero `_syncControllers()` también se dispara por una resincronización
+    // dentro de la MISMA página (p. ej. reentrada síncrona desde
+    // `_ensureTrailingSentinel` al insertar el bloque centinela). En ese
+    // caso los bloques referenciados por este estado pueden seguir
+    // existiendo tal cual tras el resync, y perderlo hace desaparecer p. ej.
+    // la barra de formato aunque la selección subyacente del QuillController
+    // reutilizado siga intacta (nada vuelve a disparar su listener para
+    // recalcularlo, ya que la selección en sí no cambió). Lo capturamos
+    // aquí y lo restauramos abajo si el bloque sigue en la página.
+    final preservedSelectionActiveBlockId = _selectionActiveBlockId;
+    final preservedMenuOpenBlockId = _menuOpenBlockId;
+
     _disposeControllers();
     if (page == null) {
       _boundPageId = null;
@@ -3656,7 +4261,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             final oldSel = qc.selection;
             qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
             _quillLastMdByBlockId[bid] = b.text;
-            _quillDebounceByBlockId[bid]?.cancel();
             final newPlain = qc.document.toPlainText();
             if (newPlain == oldPlain && oldSel.isValid) {
               qc.updateSelection(oldSel, quill.ChangeSource.remote);
@@ -3668,6 +4272,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                 quill.ChangeSource.remote,
               );
             }
+            // Cancelar el debounce DESPUÉS de `updateSelection`: tanto la
+            // asignación de `qc.document` como `updateSelection` notifican al
+            // listener del controller, que re-arma el debounce de
+            // persistencia en cada notificación. Si cancelamos antes de
+            // `updateSelection`, el temporizador que esta última rearma
+            // sobrevive y, cuando expira (p. ej. durante `pumpAndSettle`),
+            // vuelve a escribir en el modelo un markdown derivado del propio
+            // documento recién resincronizado — pisando cualquier mutación
+            // "real" del modelo (como un split de bloque) que haya ocurrido
+            // justo después de este resync remoto. Cancelar al final evita
+            // ese eco espurio hacia la sesión.
+            _quillDebounceByBlockId[bid]?.cancel();
           }
         }
       }
@@ -3710,19 +4326,31 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _syncBlockTextFromController(pid, bid, c.text, idx);
         _scheduleQuillCopilotProbe(bid);
 
-        // Rastrear si este bloque tiene selección de texto activa.
-        final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
-        final wasActive = _selectionActiveBlockId == bid;
-        if (hasSelection && !wasActive) {
-          _selectionActiveBlockId = bid;
-          setState(() {});
-          _scheduleFormatToolbarOverlayUpdate();
-        } else if (!hasSelection && wasActive) {
-          _selectionActiveBlockId = null;
-          setState(() {});
-          _scheduleFormatToolbarOverlayUpdate();
-        } else if (hasSelection && wasActive) {
-          _scheduleFormatToolbarOverlayUpdate();
+        // Rastrear si este bloque tiene selección de texto activa. Para
+        // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
+        // no en este `TextEditingController` (un espejo interno que
+        // `flushNow()` resincroniza con selección colapsada tras cada
+        // debounce); ese `listener()` de Quill ya mantiene
+        // `_selectionActiveBlockId` para esos bloques. Si este listener
+        // también escribiera ahí, un flush puramente programático (p. ej.
+        // disparado por `_ensureTrailingSentinel` al insertar el bloque
+        // centinela) borraría por error una selección de formato que sigue
+        // viva en el Quill controller, ocultando la barra de formato
+        // flotante sin que el usuario haya deseleccionado nada.
+        if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
+          final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
+          final wasActive = _selectionActiveBlockId == bid;
+          if (hasSelection && !wasActive) {
+            _selectionActiveBlockId = bid;
+            setState(() {});
+            _scheduleFormatToolbarOverlayUpdate();
+          } else if (!hasSelection && wasActive) {
+            _selectionActiveBlockId = null;
+            setState(() {});
+            _scheduleFormatToolbarOverlayUpdate();
+          } else if (hasSelection && wasActive) {
+            _scheduleFormatToolbarOverlayUpdate();
+          }
         }
       }
 
@@ -3747,6 +4375,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           if (_selectionActiveBlockId == bid) {
             _selectionActiveBlockId = null;
             _scheduleFormatToolbarOverlayUpdate();
+          }
+          // Ocultar la sugerencia de Quill Copilot al perder foco (si era
+          // este bloque el que la tenía pendiente).
+          if (_quillCopilotSuggestionBlockId == bid) {
+            _quillCopilotSuggestionBlockId = null;
+            _quillCopilotSuggestionText = null;
+            _scheduleQuillCopilotOverlayUpdate();
           }
           // Flush inmediato de WYSIWYG al perder foco.
           if (_stylableBlockTypes.contains(b.type)) {
@@ -3874,6 +4509,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       } else if (idxToFocus < page.blocks.length) {
         _pendingFocusBlockId = page.blocks[idxToFocus].id;
       }
+    }
+
+    // Restaurar el estado de UI transitorio capturado arriba, solo si el
+    // bloque al que apuntaba sigue existiendo en la página resincronizada.
+    // Si el bloque desapareció (se borró, se fusionó con otro, etc.), lo
+    // dejamos en null: eso sí es un teardown real para ese bloque.
+    if (preservedSelectionActiveBlockId != null &&
+        _controllerBlockIds.contains(preservedSelectionActiveBlockId)) {
+      _selectionActiveBlockId = preservedSelectionActiveBlockId;
+      _scheduleFormatToolbarOverlayUpdate();
+    }
+    if (preservedMenuOpenBlockId != null &&
+        _controllerBlockIds.contains(preservedMenuOpenBlockId)) {
+      _menuOpenBlockId = preservedMenuOpenBlockId;
     }
   }
 
@@ -4263,19 +4912,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         (HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed)) {
       final bt0 = page.blocks[index].type;
-      const pasteTypes = {
-        'paragraph',
-        'h1',
-        'h2',
-        'h3',
-        'bullet',
-        'numbered',
-        'todo',
-        'toggle',
-        'quote',
-        'callout',
-      };
-      if (pasteTypes.contains(bt0)) {
+      if (_shouldConsumePasteKey(bt0)) {
         unawaited(_handleClipboardPaste(page, blockId, index, ctrl));
         return KeyEventResult.handled;
       }
@@ -5112,11 +5749,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       tooltip: AppLocalizations.of(context).blockOptions,
       style: IconButton.styleFrom(
         visualDensity: VisualDensity.compact,
-        padding: androidPhoneLayout ? const EdgeInsets.all(4) : null,
-        minimumSize: androidPhoneLayout ? const Size(28, 28) : null,
-        tapTargetSize: androidPhoneLayout
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
+        padding: const EdgeInsets.all(4),
+        minimumSize: Size(
+          androidPhoneLayout ? 28 : _menuSlotHeight,
+          androidPhoneLayout ? 28 : _menuSlotHeight,
+        ),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
       onCanceled: () {
@@ -5422,6 +6060,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _controllers[j].clear();
         _ignoreShortcuts = false;
       }
+      if (mounted) setState(() {});
+    } else if (v == 'spotify_set_url') {
+      unawaited(_editSpotifyUrlDialog(page.id, b.id, index));
+    } else if (v == 'spotify_clear') {
+      _clearBlockUrl(page.id, b.id);
+      _s.updateBlockText(page.id, b.id, '');
       if (mounted) setState(() {});
     } else if (v == 'table_row_add') {
       _mutateTable(page.id, b.id, index, (d) => d.addRow());
@@ -5858,6 +6502,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           item(
             ctx,
             value: 'embed_clear',
+            icon: Icons.delete_outline_rounded,
+            label: AppLocalizations.of(ctx).embedRemove,
+          ),
+      ],
+      if (b.type == 'spotify') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'spotify_set_url',
+          icon: Icons.music_note_rounded,
+          label: AppLocalizations.of(ctx).embedSetUrl,
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'spotify_clear',
             icon: Icons.delete_outline_rounded,
             label: AppLocalizations.of(ctx).embedRemove,
           ),

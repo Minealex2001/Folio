@@ -36,8 +36,8 @@ android {
 
     defaultConfig {
         applicationId = "com.minealexgames.folio"
-        // local_auth y passkeys requieren API 23 como mínimo.
-        minSdk = flutter.minSdkVersion
+        // ML Kit GenAI Prompt (Gemini Nano) requiere API 26+.
+        minSdk = maxOf(26, flutter.minSdkVersion)
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -75,4 +75,9 @@ tasks.withType<JavaCompile>().configureEach {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Gemini Nano on-device via AICore (ML Kit GenAI Prompt API).
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
 }

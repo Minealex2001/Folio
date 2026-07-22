@@ -232,7 +232,13 @@ class GitHubReleaseUpdater {
     return null;
   }
 
-  Future<File> downloadInstaller(UpdateCheckResult update) async {
+  /// Descarga el instalador con progreso opcional [onProgress] (0.0–1.0).
+  /// Si la respuesta no incluye Content-Length, no se llama a [onProgress]
+  /// hasta completar (la UI puede mostrar barra indeterminada).
+  Future<File> downloadInstaller(
+    UpdateCheckResult update, {
+    void Function(double progress)? onProgress,
+  }) async {
     if (!update.hasUpdate) {
       throw StateError('No hay actualización disponible para descargar.');
     }
@@ -241,24 +247,61 @@ class GitHubReleaseUpdater {
     final installerPath = p.join(tempDir.path, safeName);
     final file = File(installerPath);
     final uri = Uri.parse(update.installerUrl!);
-    final response = await _httpClient
-        .get(uri, headers: _headers())
+
+    final request = http.Request('GET', uri);
+    request.headers.addAll(_headers());
+    final streamed = await _httpClient
+        .send(request)
         .timeout(_downloadTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
       throw HttpException(
-        'Error al descargar instalador: HTTP ${response.statusCode}',
+        'Error al descargar instalador: HTTP ${streamed.statusCode}',
         uri: uri,
       );
     }
-    // Integridad: verificar SHA-256 contra el digest publicado por GitHub
-    // antes de escribir/ejecutar nada.
+
+    final total = streamed.contentLength ?? 0;
+    var received = 0;
+    IOSink? sink;
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+      sink = file.openWrite();
+      await for (final chunk in streamed.stream.timeout(_downloadTimeout)) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0) {
+          onProgress?.call((received / total).clamp(0.0, 1.0));
+        }
+      }
+      await sink.flush();
+    } catch (_) {
+      await sink?.close();
+      sink = null;
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    } finally {
+      await sink?.close();
+    }
+    onProgress?.call(1.0);
+
+    // Integridad: verificar SHA-256 del fichero antes de ejecutarlo.
     final expected = (update.installerSha256 ?? '').trim().toLowerCase();
     if (expected.isNotEmpty) {
-      final hash = await Sha256().hash(response.bodyBytes);
+      final bytes = await file.readAsBytes();
+      final hash = await Sha256().hash(bytes);
       final actual = hash.bytes
           .map((b) => b.toRadixString(16).padLeft(2, '0'))
           .join();
       if (actual != expected) {
+        try {
+          await file.delete();
+        } catch (_) {}
         throw UpdateIntegrityException(
           'El instalador descargado no coincide con el checksum SHA-256 '
           'publicado (esperado $expected, obtenido $actual). '
@@ -272,7 +315,6 @@ class GitHubReleaseUpdater {
         context: {'asset': safeName},
       );
     }
-    await file.writeAsBytes(response.bodyBytes, flush: true);
     return file;
   }
 

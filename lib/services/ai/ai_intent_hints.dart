@@ -72,6 +72,10 @@ class AiIntentHints {
         'nueva nota',
         'crea un documento',
         'nuevo documento',
+        'crea un folio',
+        'nuevo folio',
+        'genera un folio',
+        'crear un folio',
         'desde cero',
       ],
       subpage: [
@@ -85,6 +89,10 @@ class AiIntentHints {
         'debajo de esta pagina',
         'en esta pagina',
         'bajo esta pagina',
+        'subfolio',
+        'dentro de este folio',
+        'en este folio',
+        'bajo este folio',
       ],
     },
     'en': {

@@ -165,20 +165,20 @@ class FolioTelemetry {
     AppSettings settings,
     String featureName,
   ) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     final name = featureName.trim();
     if (name.isEmpty) return;
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'feature_used',
-        parameters: {
-          'feature': name.length > 40 ? name.substring(0, 40) : name,
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'feature_used',
+          parameters: {
+            'feature': name.length > 40 ? name.substring(0, 40) : name,
+          },
+        );
+      }
       // También registrar en Firestore para análisis más detallado
       _logEventToFirestore(
         FeatureEvent(
@@ -205,19 +205,19 @@ class FolioTelemetry {
     String contentType, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'content_action',
-        parameters: {
-          'action': action.trim(),
-          'content_type': contentType.trim(),
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'content_action',
+          parameters: {
+            'action': action.trim(),
+            'content_type': contentType.trim(),
+          },
+        );
+      }
       _logEventToFirestore(
         ContentActionEvent(
           id: const Uuid().v4(),
@@ -236,19 +236,19 @@ class FolioTelemetry {
     String fromScreen,
     String toScreen,
   ) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'screen_view',
-        parameters: {
-          'screen_class': toScreen.trim(),
-          'from_screen': fromScreen.trim(),
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'screen_view',
+          parameters: {
+            'screen_class': toScreen.trim(),
+            'from_screen': fromScreen.trim(),
+          },
+        );
+      }
       _logEventToFirestore(
         NavigationEvent(
           id: const Uuid().v4(),
@@ -267,20 +267,20 @@ class FolioTelemetry {
     int resultCount, {
     int? durationMs,
   }) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'search',
-        parameters: {
-          'search_term': queryType.trim(),
-          'result_count': resultCount,
-          'duration_ms': ?durationMs,
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'search',
+          parameters: {
+            'search_term': queryType.trim(),
+            'result_count': resultCount,
+            'duration_ms': ?durationMs,
+          },
+        );
+      }
       _logEventToFirestore(
         SearchEvent(
           id: const Uuid().v4(),
@@ -301,22 +301,22 @@ class FolioTelemetry {
     String? errorMessage,
     int? durationMs,
   }) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'sync_event',
-        parameters: {
-          'sync_type': syncType.trim(),
-          'success': success,
-          if (errorMessage != null && errorMessage.isNotEmpty)
-            'error': errorMessage,
-          'duration_ms': ?durationMs,
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'sync_event',
+          parameters: {
+            'sync_type': syncType.trim(),
+            'success': success,
+            if (errorMessage != null && errorMessage.isNotEmpty)
+              'error': errorMessage,
+            'duration_ms': ?durationMs,
+          },
+        );
+      }
       _logEventToFirestore(
         SyncEvent(
           id: const Uuid().v4(),
@@ -337,19 +337,19 @@ class FolioTelemetry {
     int durationMs, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'performance',
-        parameters: {
-          'operation': operationName.trim(),
-          'duration_ms': durationMs,
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'performance',
+          parameters: {
+            'operation': operationName.trim(),
+            'duration_ms': durationMs,
+          },
+        );
+      }
       _logEventToFirestore(
         PerformanceEvent(
           id: const Uuid().v4(),
@@ -369,24 +369,26 @@ class FolioTelemetry {
     String context, {
     StackTrace? stackTrace,
   }) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
       final errorType = exception.runtimeType.toString();
       final errorMsg = exception.toString();
 
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'app_error',
-        parameters: {
-          'error_type': errorType.length > 100
-              ? errorType.substring(0, 100)
-              : errorType,
-          'context': context.length > 100 ? context.substring(0, 100) : context,
-        },
-      );
+      if (_canUseFirebaseAnalytics) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'app_error',
+          parameters: {
+            'error_type': errorType.length > 100
+                ? errorType.substring(0, 100)
+                : errorType,
+            'context': context.length > 100
+                ? context.substring(0, 100)
+                : context,
+          },
+        );
+      }
       _logEventToFirestore(
         ErrorEvent(
           id: const Uuid().v4(),
@@ -407,29 +409,29 @@ class FolioTelemetry {
     AppSettings settings,
     Map<String, dynamic> stats,
   ) async {
-    if (!_canUseFirebaseAnalytics ||
-        !settings.telemetryEnabled ||
-        Firebase.apps.isEmpty) {
+    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
       return;
     }
     try {
-      // Enviar solo subset de stats a Firebase Analytics (límite de propiedades)
-      final analyticsStats = <String, Object>{};
-      var count = 0;
-      for (final entry in stats.entries) {
-        if (count >= 10) break; // Máximo 10 propiedades
-        if (entry.value is int ||
-            entry.value is String ||
-            entry.value is bool) {
-          analyticsStats[entry.key] = entry.value as Object;
-          count++;
+      if (_canUseFirebaseAnalytics) {
+        // Enviar solo subset de stats a Firebase Analytics (límite de propiedades)
+        final analyticsStats = <String, Object>{};
+        var count = 0;
+        for (final entry in stats.entries) {
+          if (count >= 10) break; // Máximo 10 propiedades
+          if (entry.value is int ||
+              entry.value is String ||
+              entry.value is bool) {
+            analyticsStats[entry.key] = entry.value as Object;
+            count++;
+          }
         }
-      }
 
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'usage_stats',
-        parameters: analyticsStats,
-      );
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'usage_stats',
+          parameters: analyticsStats,
+        );
+      }
       _logEventToFirestore(
         UsageStatsEvent(
           id: const Uuid().v4(),

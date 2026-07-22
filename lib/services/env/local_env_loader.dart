@@ -28,8 +28,6 @@ class LocalEnvLoader {
       return const LocalEnvLoadResult(loaded: false);
     }
 
-    // ignore: avoid_print
-    print('[folio.env] probe start cwd=${Directory.current.path} script=${Platform.script}');
     AppLogger.info(
       'dotenv probe start',
       tag: 'env',
@@ -46,12 +44,18 @@ class LocalEnvLoader {
       try {
         final raw = await fromCwd.readAsString();
         LocalEnv.setAll(parseDotEnv(raw));
-        // ignore: avoid_print
-        print('[folio.env] loaded from cwd path=${fromCwd.path}');
+        AppLogger.info(
+          'dotenv loaded from cwd',
+          tag: 'env',
+          context: {'path': fromCwd.path},
+        );
         return LocalEnvLoadResult(loaded: true, path: fromCwd.path);
       } catch (e) {
-        // ignore: avoid_print
-        print('[folio.env] load error from cwd path=${fromCwd.path} error=$e');
+        AppLogger.warn(
+          'dotenv load failed from cwd',
+          tag: 'env',
+          context: {'path': fromCwd.path, 'error': '$e'},
+        );
         return LocalEnvLoadResult(loaded: false, path: fromCwd.path, error: e);
       }
     }
@@ -65,12 +69,18 @@ class LocalEnvLoader {
         try {
           final raw = await fromScript.readAsString();
           LocalEnv.setAll(parseDotEnv(raw));
-          // ignore: avoid_print
-          print('[folio.env] loaded from scriptDir path=${fromScript.path}');
+          AppLogger.info(
+            'dotenv loaded from scriptDir',
+            tag: 'env',
+            context: {'path': fromScript.path},
+          );
           return LocalEnvLoadResult(loaded: true, path: fromScript.path);
         } catch (e) {
-          // ignore: avoid_print
-          print('[folio.env] load error from scriptDir path=${fromScript.path} error=$e');
+          AppLogger.warn(
+            'dotenv load failed from scriptDir',
+            tag: 'env',
+            context: {'path': fromScript.path, 'error': '$e'},
+          );
           return LocalEnvLoadResult(loaded: false, path: fromScript.path, error: e);
         }
       }
@@ -106,12 +116,18 @@ class LocalEnvLoader {
         try {
           final raw = await f.readAsString();
           LocalEnv.setAll(parseDotEnv(raw));
-          // ignore: avoid_print
-          print('[folio.env] loaded from user candidate path=${f.path}');
+          AppLogger.info(
+            'dotenv loaded from user candidate',
+            tag: 'env',
+            context: {'path': f.path},
+          );
           return LocalEnvLoadResult(loaded: true, path: f.path);
         } catch (e) {
-          // ignore: avoid_print
-          print('[folio.env] load error from user candidate path=${f.path} error=$e');
+          AppLogger.warn(
+            'dotenv load failed from user candidate',
+            tag: 'env',
+            context: {'path': f.path, 'error': '$e'},
+          );
           return LocalEnvLoadResult(loaded: false, path: f.path, error: e);
         }
       }
@@ -132,12 +148,18 @@ class LocalEnvLoader {
             try {
               final raw = await candidate.readAsString();
               LocalEnv.setAll(parseDotEnv(raw));
-              // ignore: avoid_print
-              print('[folio.env] loaded from pubspec root path=${candidate.path}');
+              AppLogger.info(
+                'dotenv loaded from pubspec root',
+                tag: 'env',
+                context: {'path': candidate.path},
+              );
               return LocalEnvLoadResult(loaded: true, path: candidate.path);
             } catch (e) {
-              // ignore: avoid_print
-              print('[folio.env] load error from pubspec root path=${candidate.path} error=$e');
+              AppLogger.warn(
+                'dotenv load failed from pubspec root',
+                tag: 'env',
+                context: {'path': candidate.path, 'error': '$e'},
+              );
               return LocalEnvLoadResult(loaded: false, path: candidate.path, error: e);
             }
           }
@@ -149,8 +171,7 @@ class LocalEnvLoader {
       }
     }
 
-    // ignore: avoid_print
-    print('[folio.env] not found');
+    AppLogger.warn('dotenv file not found', tag: 'env');
     return const LocalEnvLoadResult(loaded: false);
   }
 

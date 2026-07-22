@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 
 import '../app/app_settings.dart';
 import '../data/vault_backup.dart';
@@ -9,6 +8,7 @@ import 'backup_destinations/backup_export_runner.dart';
 import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_pack_sync.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
+import 'app_logger.dart';
 import 'secure_credential_storage.dart';
 import 'vault_pack/vault_pack_destinations.dart';
 import 'vault_pack/vault_pack_sync.dart';
@@ -104,7 +104,11 @@ Future<void> runScheduledFolderVaultExport({
         entitlementSnapshot: folioEntitlements.snapshot,
       );
     } catch (e) {
-      debugPrint('Folio scheduled backup cloud index: $e');
+      AppLogger.warn(
+        'Scheduled backup cloud index update failed',
+        tag: 'backup',
+        context: {'error': '$e'},
+      );
     }
   }
 

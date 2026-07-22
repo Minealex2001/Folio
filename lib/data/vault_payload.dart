@@ -5,6 +5,14 @@ import '../models/folio_page_revision.dart';
 import '../models/folio_page_template.dart';
 import '../models/jira_integration_state.dart';
 import '../models/youtrack_integration_state.dart';
+import '../models/trello_integration_state.dart';
+import '../models/github_integration_state.dart';
+import '../models/gitlab_integration_state.dart';
+import '../models/slack_integration_state.dart';
+import '../models/teams_integration_state.dart';
+import '../models/spotify_integration_state.dart';
+import '../models/discord_integration_state.dart';
+import '../models/system_media_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -12,12 +20,20 @@ import '../services/ai/ai_types.dart';
 /// Esquema 6: orden persistido del árbol de páginas (sidebar) por `parentId`.
 /// Esquema 7: estado de integraciones nativas (Jira).
 /// Esquema 8: papelera de páginas (`FolioPage.trashedAt`).
-const int kVaultPayloadVersion = 8;
+/// Esquema 9: tombstones de sync multi-dispositivo + `syncClock`.
+/// Esquema 10: `displayName` de la libreta (sync multi-dispositivo).
+/// Esquema 11: allowlist MCP de páginas legibles (`mcpReadablePageIds`).
+/// Esquema 12: estado de integraciones Slack y Microsoft Teams (notificaciones vía webhook).
+/// Esquema 13: integración Spotify (OAuth, reproducción, modo zen).
+/// Esquema 14: integración Discord (Incoming Webhook).
+/// Esquema 15: media del sistema (SMTC / MediaSession / MPRIS).
+const int kVaultPayloadVersion = 15;
 
 class VaultPayload {
   VaultPayload({
     this.version = kVaultPayloadVersion,
     required this.pages,
+    this.displayName = '',
     Map<String, List<String>>? pageOrderByParent,
     Map<String, List<FolioPageRevision>>? pageRevisions,
     Map<String, Map<String, String>>? pageAcl,
@@ -28,6 +44,17 @@ class VaultPayload {
     List<FolioPageTemplate>? pageTemplates,
     JiraIntegrationState? jira,
     YouTrackIntegrationState? youtrack,
+    TrelloIntegrationState? trello,
+    GitHubIntegrationState? github,
+    GitLabIntegrationState? gitlab,
+    SlackIntegrationState? slack,
+    TeamsIntegrationState? teams,
+    SpotifyIntegrationState? spotify,
+    DiscordIntegrationState? discord,
+    SystemMediaIntegrationState? systemMedia,
+    Map<String, int>? pageTombstones,
+    this.syncClock = 0,
+    Set<String>? mcpReadablePageIds,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        pageOrderByParent = pageOrderByParent ?? {},
@@ -37,10 +64,22 @@ class VaultPayload {
        aiActiveChatIndex = aiActiveChatIndex ?? 0,
        pageTemplates = pageTemplates ?? const [],
        jira = jira ?? JiraIntegrationState.empty,
-       youtrack = youtrack ?? YouTrackIntegrationState.empty;
+       youtrack = youtrack ?? YouTrackIntegrationState.empty,
+       trello = trello ?? TrelloIntegrationState.empty,
+       github = github ?? GitHubIntegrationState.empty,
+       gitlab = gitlab ?? GitLabIntegrationState.empty,
+       slack = slack ?? SlackIntegrationState.empty,
+       teams = teams ?? TeamsIntegrationState.empty,
+       spotify = spotify ?? SpotifyIntegrationState.empty,
+       discord = discord ?? DiscordIntegrationState.empty,
+       systemMedia = systemMedia ?? SystemMediaIntegrationState.empty,
+       pageTombstones = pageTombstones ?? const {},
+       mcpReadablePageIds = Set<String>.of(mcpReadablePageIds ?? const <String>{});
 
   final int version;
   final List<FolioPage> pages;
+  /// Nombre visible de la libreta (sincronizado entre dispositivos).
+  final String displayName;
   /// Orden del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
   final Map<String, List<String>> pageOrderByParent;
   final Map<String, List<FolioPageRevision>> pageRevisions;
@@ -52,10 +91,29 @@ class VaultPayload {
   final List<FolioPageTemplate> pageTemplates;
   final JiraIntegrationState jira;
   final YouTrackIntegrationState youtrack;
+  final TrelloIntegrationState trello;
+  final GitHubIntegrationState github;
+  final GitLabIntegrationState gitlab;
+  final SlackIntegrationState slack;
+  final TeamsIntegrationState teams;
+  final SpotifyIntegrationState spotify;
+  final DiscordIntegrationState discord;
+  final SystemMediaIntegrationState systemMedia;
+
+  /// Páginas borradas definitivamente: `pageId` → epoch ms UTC del tombstone.
+  final Map<String, int> pageTombstones;
+
+  /// Reloj monótono de sync (Lamport ligero) para ordenar revisiones de pack.
+  final int syncClock;
+
+  /// Ids de páginas/carpetas que el servidor MCP puede leer (allowlist).
+  /// Si una carpeta está en el set, sus descendientes también son legibles.
+  final Set<String> mcpReadablePageIds;
 
   Map<String, dynamic> toJson() => {
     'version': version,
     'pages': pages.map((p) => p.toJson()).toList(),
+    if (displayName.trim().isNotEmpty) 'displayName': displayName.trim(),
     if (pageOrderByParent.isNotEmpty) 'pageOrderByParent': pageOrderByParent,
     'pageRevisions': pageRevisions.map(
       (k, v) => MapEntry(k, v.map((r) => r.toJson()).toList()),
@@ -68,7 +126,24 @@ class VaultPayload {
     if (pageTemplates.isNotEmpty)
       'pageTemplates': pageTemplates.map((t) => t.toJson()).toList(),
     if (jira.connections.isNotEmpty || jira.sources.isNotEmpty) 'jira': jira.toJson(),
-    if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty) 'youtrack': youtrack.toJson(),
+    if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty)
+      'youtrack': youtrack.toJson(),
+    if (trello.connections.isNotEmpty || trello.sources.isNotEmpty)
+      'trello': trello.toJson(),
+    if (github.connections.isNotEmpty || github.sources.isNotEmpty)
+      'github': github.toJson(),
+    if (gitlab.connections.isNotEmpty || gitlab.sources.isNotEmpty)
+      'gitlab': gitlab.toJson(),
+    if (slack.connections.isNotEmpty) 'slack': slack.toJson(),
+    if (teams.connections.isNotEmpty) 'teams': teams.toJson(),
+    if (spotify.connections.isNotEmpty) 'spotify': spotify.toJson(),
+    if (discord.connections.isNotEmpty) 'discord': discord.toJson(),
+    if (systemMedia.enabled || !systemMedia.zenPauseOnExit)
+      'systemMedia': systemMedia.toJson(),
+    if (pageTombstones.isNotEmpty) 'pageTombstones': pageTombstones,
+    if (syncClock > 0) 'syncClock': syncClock,
+    if (mcpReadablePageIds.isNotEmpty)
+      'mcpReadablePageIds': mcpReadablePageIds.toList(growable: false),
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -131,9 +206,43 @@ class VaultPayload {
         .toList();
     final jira = JiraIntegrationState.fromJson(j['jira']);
     final youtrack = YouTrackIntegrationState.fromJson(j['youtrack']);
+    final trello = TrelloIntegrationState.fromJson(j['trello']);
+    final github = GitHubIntegrationState.fromJson(j['github']);
+    final gitlab = GitLabIntegrationState.fromJson(j['gitlab']);
+    final slack = SlackIntegrationState.fromJson(j['slack']);
+    final teams = TeamsIntegrationState.fromJson(j['teams']);
+    final spotify = SpotifyIntegrationState.fromJson(j['spotify']);
+    final discord = DiscordIntegrationState.fromJson(j['discord']);
+    final systemMedia = SystemMediaIntegrationState.fromJson(j['systemMedia']);
+    final pageTombstones = <String, int>{};
+    final rawTombs = j['pageTombstones'];
+    if (rawTombs is Map) {
+      for (final e in rawTombs.entries) {
+        final key = '${e.key}'.trim();
+        if (key.isEmpty) continue;
+        final v = e.value;
+        if (v is num) {
+          pageTombstones[key] = v.toInt();
+        } else if (v is String) {
+          final parsed = int.tryParse(v);
+          if (parsed != null) pageTombstones[key] = parsed;
+        }
+      }
+    }
+    final syncClock = (j['syncClock'] as num?)?.toInt() ?? 0;
+    final displayName = '${j['displayName'] ?? ''}'.trim();
+    final mcpReadablePageIds = <String>{};
+    final rawMcpReadable = j['mcpReadablePageIds'];
+    if (rawMcpReadable is List) {
+      for (final e in rawMcpReadable) {
+        final id = '$e'.trim();
+        if (id.isNotEmpty) mcpReadablePageIds.add(id);
+      }
+    }
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
+      displayName: displayName,
       pageOrderByParent: pageOrderByParent,
       pageRevisions: pageRevisions,
       pageAcl: acl,
@@ -144,6 +253,17 @@ class VaultPayload {
       pageTemplates: templates,
       jira: jira,
       youtrack: youtrack,
+      trello: trello,
+      github: github,
+      gitlab: gitlab,
+      slack: slack,
+      teams: teams,
+      spotify: spotify,
+      discord: discord,
+      systemMedia: systemMedia,
+      pageTombstones: pageTombstones,
+      syncClock: syncClock,
+      mcpReadablePageIds: mcpReadablePageIds,
     );
   }
 

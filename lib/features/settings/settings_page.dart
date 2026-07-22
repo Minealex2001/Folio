@@ -14,7 +14,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../services/mcp/folio_mcp_server.dart';
+import '../../services/mcp/folio_mcp_server_status.dart';
 import '../../models/quill_system_prompt.dart';
+import '../../models/folio_page.dart';
 import '../../app/folio_build_flags.dart';
 import '../../app/folio_distribution.dart';
 import '../../app/folio_store_listing.dart';
@@ -27,6 +30,8 @@ import '../../app/widgets/vault_backup_progress_dialog.dart';
 import '../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/folio_error_card.dart';
+import '../../app/widgets/integration_settings_widgets.dart';
+import '../../app/widgets/web_desktop_only_notice.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -38,8 +43,10 @@ import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
+import '../../services/ai/gemini_nano_ai_service.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/ai/on_device_ai_bridge.dart';
 import '../../services/ai/openai_compatible_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import 'widgets/iconify_icon_browser.dart';
@@ -52,6 +59,8 @@ import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_device_sync.dart';
+import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
@@ -64,13 +73,24 @@ import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import '../release_notes/release_notes_page.dart';
+import '../sync/sync_conflict_merge_sheet.dart';
 import 'jira_integration_settings.dart';
 import 'youtrack_integration_settings.dart';
+import 'trello_integration_settings.dart';
+import 'github_integration_settings.dart';
+import 'gitlab_integration_settings.dart';
+import 'slack_integration_settings.dart';
+import 'teams_integration_settings.dart';
+import 'discord_integration_settings.dart';
+import 'spotify_integration_settings.dart';
+import 'system_media_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
+import 'folio_cloud_import_all_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
+import '../../services/app_logger.dart';
 import '../../services/platform/browser_file_download.dart';
 import '../../services/secure_credential_storage.dart';
 import '../../services/backup_destinations/backup_export_runner.dart';
@@ -79,9 +99,6 @@ import 'folio_cloud_backups_sheet.dart';
 import 'remote_backup_config_dialog.dart';
 import 'remote_backup_restore_dialog.dart';
 import 'remote_backup_export_destination_dialog.dart';
-import '../../services/app_store/app_store_service.dart';
-import '../../services/app_store/folio_built_in_apps.dart';
-import '../app_store/app_store_screen.dart';
 import 'widgets/telemetry_sent_data_widget.dart';
 import '../telemetry_dashboard/telemetry_dashboard_page.dart';
 import '../../services/folio_firestore_sync.dart';
@@ -90,6 +107,7 @@ part 'settings_page_widgets.dart';
 part 'settings_page_dialogs.dart';
 part 'settings_page_panels.dart';
 part 'settings_page_folio_cloud.dart';
+part 'settings_page_ai_section.dart';
 part 'settings_page_state_backup_flows.dart';
 part 'settings_page_state_folio_cloud.dart';
 part 'settings_page_state_ai.dart';
@@ -134,6 +152,8 @@ class SettingsPage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    this.cloudSettingsSyncController,
+    this.cloudDeviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     this.initialSection,
@@ -142,6 +162,8 @@ class SettingsPage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final FolioCloudSettingsSyncController? cloudSettingsSyncController;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final String? initialSection;
@@ -157,6 +179,289 @@ class _SettingsPageState extends State<SettingsPage> {
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
+
+  /// Fase 5: toggle del servidor MCP local (desktop-only). Muestra el
+  /// puerto/token en ejecución vía `folioMcpServerStatus` (el servidor en sí
+  /// vive en `_FolioAppState`, no aquí, para sobrevivir a esta pantalla).
+  Widget _buildMcpServerToggle(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ValueListenableBuilder<FolioMcpServerInfo?>(
+      valueListenable: folioMcpServerStatus,
+      builder: (context, info, _) {
+        final enabled = _app.mcpServerEnabled;
+        final endpoint = FolioMcpServer.endpointUrl(
+          port: info?.port ?? FolioMcpServer.defaultPort,
+        );
+        final token = (info?.authToken ?? _app.mcpServerAuthToken).trim();
+        final showDetails = enabled && token.isNotEmpty;
+        final isRunning = info?.isRunning == true;
+        final startError = info?.errorMessage?.trim();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.dns_outlined),
+              title: Text(l10n.settingsMcpServerTitle),
+              subtitle: Text(l10n.settingsMcpServerSubtitle),
+              value: enabled,
+              onChanged: (v) async {
+                await _app.setMcpServerEnabled(v);
+                if (mounted) setState(() {});
+              },
+            ),
+            if (showDetails) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: SelectableText(
+                  isRunning
+                      ? l10n.settingsMcpServerRunningDetails(endpoint, token)
+                      : l10n.settingsMcpServerFailedDetails(
+                          endpoint,
+                          token,
+                          (startError == null || startError.isEmpty)
+                              ? l10n.settingsMcpServerFailedUnknown
+                              : startError,
+                        ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isRunning
+                        ? null
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  l10n.settingsMcpClaudeCustomConnectorHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _copyMcpClientConfig(
+                        context,
+                        json: FolioMcpServer.cursorClientConfigJson(
+                          endpoint: endpoint,
+                          authToken: token,
+                        ),
+                        snackMessage: l10n.settingsMcpCopyCursorConfigDone,
+                      ),
+                      icon: const Icon(Icons.content_copy_outlined, size: 18),
+                      label: Text(l10n.settingsMcpCopyCursorConfig),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _copyMcpClientConfig(
+                        context,
+                        json: FolioMcpServer.claudeDesktopClientConfigJson(
+                          endpoint: endpoint,
+                          authToken: token,
+                        ),
+                        snackMessage: l10n.settingsMcpCopyClaudeConfigDone,
+                      ),
+                      icon: const Icon(Icons.content_copy_outlined, size: 18),
+                      label: Text(l10n.settingsMcpCopyClaudeConfig),
+                    ),
+                  ],
+                ),
+              ),
+              _buildMcpAllowlistSection(context, l10n),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMcpAllowlistSection(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    final ids = _s.mcpReadablePageIds.toList()..sort();
+    final scheme = Theme.of(context).colorScheme;
+    final candidates = _s.pages
+        .where((p) => !p.isTrashed && !_s.mcpReadablePageIds.contains(p.id))
+        .toList()
+      ..sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.settingsMcpAllowlistTitle,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (ids.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    _s.clearMcpReadablePages();
+                    setState(() {});
+                  },
+                  child: Text(l10n.settingsMcpAllowlistClear),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: candidates.isEmpty
+                  ? null
+                  : () => unawaited(_showMcpAllowlistAddDialog(context, l10n)),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(l10n.settingsMcpAllowlistAdd),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (ids.isEmpty)
+            Text(
+              l10n.settingsMcpAllowlistEmpty,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...ids.map((id) {
+              FolioPage? page;
+              for (final p in _s.pages) {
+                if (p.id == id) {
+                  page = p;
+                  break;
+                }
+              }
+              final title = page == null
+                  ? id
+                  : (page.title.trim().isEmpty ? id : page.title);
+              final isFolder = page?.isFolder == true;
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  isFolder ? Icons.folder_outlined : Icons.description_outlined,
+                  size: 20,
+                ),
+                title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: isFolder
+                    ? Text(l10n.settingsMcpAllowlistFolderBadge)
+                    : Text(id, maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: TextButton(
+                  onPressed: () {
+                    _s.revokeMcpPageReadable(id);
+                    setState(() {});
+                  },
+                  child: Text(l10n.settingsMcpAllowlistRemove),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showMcpAllowlistAddDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
+    final candidates = _s.pages
+        .where((p) => !p.isTrashed && !_s.mcpReadablePageIds.contains(p.id))
+        .toList()
+      ..sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
+    if (candidates.isEmpty) {
+      _snack(l10n.settingsMcpAllowlistNoneToAdd);
+      return;
+    }
+    final selectedId = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return FolioDialog(
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.settingsMcpAllowlistAddTitle,
+                  style: Theme.of(dialogContext).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: candidates.length,
+                    itemBuilder: (ctx, i) {
+                      final page = candidates[i];
+                      final title = page.title.trim().isEmpty
+                          ? page.id
+                          : page.title.trim();
+                      return ListTile(
+                        leading: Icon(
+                          page.isFolder
+                              ? Icons.folder_outlined
+                              : Icons.description_outlined,
+                          size: 20,
+                        ),
+                        title: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: page.isFolder
+                            ? Text(l10n.settingsMcpAllowlistFolderBadge)
+                            : null,
+                        onTap: () => Navigator.pop(dialogContext, page.id),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancel),
+            ),
+          ],
+        );
+      },
+    );
+    if (selectedId == null || selectedId.isEmpty) return;
+    _s.grantMcpPageReadable(selectedId);
+    if (!mounted) return;
+    setState(() {});
+    _snack(l10n.mcpSharePageEnabledSnack);
+  }
+
+  Future<void> _copyMcpClientConfig(
+    BuildContext context, {
+    required String json,
+    required String snackMessage,
+  }) async {
+    await Clipboard.setData(ClipboardData(text: json));
+    if (!context.mounted) return;
+    _snack(snackMessage);
+  }
+
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
@@ -174,9 +479,18 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
+  bool _downloadingUpdate = false;
+  bool _installingUpdate = false;
+  /// `null` = barra indeterminada; `0.0–1.0` = progreso determinado.
+  double? _updateDownloadProgress;
   bool _openingReleaseNotes = false;
   bool _detectingAiProvider = false;
   bool _importingCustomIcon = false;
+  OnDeviceAiBrand _onDeviceAiBrand = OnDeviceAiBrand.other;
+  OnDeviceAiStatus? _onDeviceAiStatus;
+  bool _onDeviceAiBusy = false;
+  int? _onDeviceDownloadBytes;
+  StreamSubscription<OnDeviceAiDownloadEvent>? _onDeviceDownloadSub;
   String _installedVersionLabel = '...';
   bool _folioCloudActionBusy = false;
   bool _webLinkBusy = false;
@@ -211,6 +525,7 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_refreshCloudBackupCount());
     unawaited(_loadTaskCapturePrefs());
     unawaited(_loadVaultBackupPrefs());
+    unawaited(_refreshOnDeviceAiInfo());
   }
 
   void _onCloudOrFolioChanged() {
@@ -365,6 +680,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _cloud.removeListener(_onCloudOrFolioChanged);
     _folio.removeListener(_onCloudOrFolioChanged);
+    unawaited(_onDeviceDownloadSub?.cancel() ?? Future.value());
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
@@ -439,12 +755,11 @@ class _SettingsPageState extends State<SettingsPage> {
         id: _SettingsSectionId.sync,
         label: l10n.settingsSectionDeviceSyncNav,
       ),
+      _SettingsSectionNavItem(
+        id: _SettingsSectionId.integrations,
+        label: l10n.integrations,
+      ),
       _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
-      if (showDesktopOnlySections)
-        _SettingsSectionNavItem(
-          id: _SettingsSectionId.integrations,
-          label: l10n.integrations,
-        ),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -1463,6 +1778,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                       listenable: Listenable.merge([
                                         _cloud,
                                         _folio,
+                                        _app,
+                                        if (widget.cloudDeviceSyncController !=
+                                            null)
+                                          widget.cloudDeviceSyncController!,
                                       ]),
                                       builder: (context, _) {
                                         if (!_folio.isAvailable) {
@@ -1523,6 +1842,48 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _openFolioCloudBackupsDialog,
                                           onPublishedPages:
                                               _openPublishedPagesDialog,
+                                          cloudDeviceSyncEnabled:
+                                              _app.cloudDeviceSyncEnabled,
+                                          cloudDeviceSyncController:
+                                              widget.cloudDeviceSyncController,
+                                          onCloudDeviceSyncChanged: (v) {
+                                            AppLogger.info(
+                                              'cloud device sync toggled',
+                                              tag: 'settings',
+                                              context: {'enabled': v},
+                                            );
+                                            unawaited(
+                                              _app.setCloudDeviceSyncEnabled(v),
+                                            );
+                                          },
+                                          cloudAppProfileSyncEnabled:
+                                              _app.cloudAppProfileSyncEnabled,
+                                          onCloudAppProfileSyncChanged: (v) {
+                                            AppLogger.info(
+                                              'cloud app profile sync toggled',
+                                              tag: 'settings',
+                                              context: {'enabled': v},
+                                            );
+                                            unawaited(
+                                              _app.setCloudAppProfileSyncEnabled(
+                                                v,
+                                              ),
+                                            );
+                                          },
+                                          onUploadAppProfile: () {
+                                            unawaited(
+                                              _uploadAppProfileFromSettings(),
+                                            );
+                                          },
+                                          onRestoreAppProfile: () {
+                                            unawaited(
+                                              _restoreAppProfileFromSettings(),
+                                            );
+                                          },
+                                          pendingSyncConflicts:
+                                              _app.syncPendingConflicts,
+                                          onResolveSyncConflicts:
+                                              _showSyncConflictsDialog,
                                           onSubscribeFamily: () =>
                                               _openFolioCheckout(
                                                 FolioCheckoutKind
@@ -1584,43 +1945,52 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const Divider(height: 1),
                                     if (_s.vaultUsesEncryption) ...[
-                                      ListTile(
-                                        leading: const Icon(Icons.fingerprint),
-                                        title: Text(l10n.quickUnlockTitle),
-                                        subtitle: Text(
-                                          _quickEnabled
-                                              ? l10n.active
-                                              : l10n.inactive,
-                                        ),
-                                        trailing: _quickEnabled
-                                            ? TextButton(
-                                                onPressed: () async {
-                                                  await _s.disableQuickUnlock();
-                                                  await _refreshSecurityFlags();
-                                                  _snack(
-                                                    l10n.quickUnlockDisabledSnack,
-                                                  );
-                                                },
-                                                child: Text(l10n.remove),
-                                              )
-                                            : FilledButton.tonal(
-                                                onPressed: () async {
-                                                  try {
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.fingerprint,
+                                          title: l10n.quickUnlockTitle,
+                                        )
+                                      else
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.fingerprint,
+                                          ),
+                                          title: Text(l10n.quickUnlockTitle),
+                                          subtitle: Text(
+                                            _quickEnabled
+                                                ? l10n.active
+                                                : l10n.inactive,
+                                          ),
+                                          trailing: _quickEnabled
+                                              ? TextButton(
+                                                  onPressed: () async {
                                                     await _s
-                                                        .enableDeviceQuickUnlock();
+                                                        .disableQuickUnlock();
                                                     await _refreshSecurityFlags();
                                                     _snack(
-                                                      l10n.quickUnlockEnabledSnack,
+                                                      l10n.quickUnlockDisabledSnack,
                                                     );
-                                                  } catch (e) {
-                                                    _snack(
-                                                      '${l10n.quickUnlockEnableFailed} $e',
-                                                    );
-                                                  }
-                                                },
-                                                child: Text(l10n.enable),
-                                              ),
-                                      ),
+                                                  },
+                                                  child: Text(l10n.remove),
+                                                )
+                                              : FilledButton.tonal(
+                                                  onPressed: () async {
+                                                    try {
+                                                      await _s
+                                                          .enableDeviceQuickUnlock();
+                                                      await _refreshSecurityFlags();
+                                                      _snack(
+                                                        l10n.quickUnlockEnabledSnack,
+                                                      );
+                                                    } catch (e) {
+                                                      _snack(
+                                                        '${l10n.quickUnlockEnableFailed} $e',
+                                                      );
+                                                    }
+                                                  },
+                                                  child: Text(l10n.enable),
+                                                ),
+                                        ),
                                       const Divider(height: 1),
                                       ListTile(
                                         leading: const Icon(Icons.key_rounded),
@@ -2262,6 +2632,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ? _runBackupNowToScheduledFolder
                                             : null,
                                       ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.settings_backup_restore_outlined,
+                                      ),
+                                      title: Text(
+                                        l10n.folioCloudVaultProfileRestore,
+                                      ),
+                                      enabled:
+                                          widget.cloudSettingsSyncController !=
+                                              null &&
+                                          _app.cloudAppProfileSyncEnabled &&
+                                          _folio.snapshot.canUseCloudBackup,
+                                      onTap: () {
+                                        unawaited(
+                                          _restoreVaultProfileFromSettings(),
+                                        );
+                                      },
+                                    ),
                                     const Divider(height: 1),
                                     _SettingsSubsectionTitle(
                                       title: l10n.settingsSubsectionDrive,
@@ -2608,7 +2996,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                             value: FolioAccentColorMode
                                                 .followSystem,
                                             label: Text(
-                                              l10n.settingsAccentFollowSystem,
+                                              FolioAdaptive
+                                                  .currentPlatformName(),
                                             ),
                                             icon: const Icon(
                                               Icons.palette_outlined,
@@ -2801,33 +3190,33 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                       onTap: _reportBugFlow,
                                     ),
-                                    const Divider(height: 1),
-                                    SwitchListTile(
-                                      secondary: const Icon(
-                                        Icons.desktop_windows,
+                                    if (!kIsWeb &&
+                                        defaultTargetPlatform ==
+                                            TargetPlatform.windows) ...[
+                                      const Divider(height: 1),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.desktop_windows,
+                                        ),
+                                        title: Text(
+                                          l10n.settingsWindowsScaleFollowTitle,
+                                        ),
+                                        subtitle: Text(
+                                          l10n
+                                              .settingsWindowsScaleFollowSubtitle,
+                                        ),
+                                        value:
+                                            _app.uiScaleMode ==
+                                            UiScaleMode.followWindows,
+                                        onChanged: (value) {
+                                          _app.setUiScaleMode(
+                                            value
+                                                ? UiScaleMode.followWindows
+                                                : UiScaleMode.manual,
+                                          );
+                                        },
                                       ),
-                                      title: Text(
-                                        l10n.settingsWindowsScaleFollowTitle,
-                                      ),
-                                      subtitle: Text(
-                                        l10n.settingsWindowsScaleFollowSubtitle,
-                                      ),
-                                      value:
-                                          _app.uiScaleMode ==
-                                          UiScaleMode.followWindows,
-                                      onChanged:
-                                          !kIsWeb &&
-                                              defaultTargetPlatform ==
-                                                  TargetPlatform.windows
-                                          ? (value) {
-                                              _app.setUiScaleMode(
-                                                value
-                                                    ? UiScaleMode.followWindows
-                                                    : UiScaleMode.manual,
-                                              );
-                                            }
-                                          : null,
-                                    ),
+                                    ],
                                     const Divider(height: 1),
                                     ListTile(
                                       leading: const Icon(
@@ -3562,168 +3951,186 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ],
                                       ),
                                       const Divider(height: 1),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          12,
-                                          16,
-                                          12,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Icon(
-                                                  Icons.keyboard_rounded,
-                                                  color:
-                                                      scheme.onSurfaceVariant,
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        l10n.globalSearchHotkey,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleMedium
-                                                            ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.keyboard_rounded,
+                                          title: l10n.globalSearchHotkey,
+                                        )
+                                      else
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            12,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Icon(
+                                                    Icons.keyboard_rounded,
+                                                    color:
+                                                        scheme.onSurfaceVariant,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          l10n.globalSearchHotkey,
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .titleMedium
+                                                              ?.copyWith(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          _app.enableGlobalSearchHotkey
+                                                              ? l10n.hotkeyCombination
+                                                              : l10n.inactive,
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                color: scheme
+                                                                    .onSurfaceVariant,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Switch(
+                                                    value: _app
+                                                        .enableGlobalSearchHotkey,
+                                                    onChanged: _app
+                                                        .setEnableGlobalSearchHotkey,
+                                                  ),
+                                                ],
+                                              ),
+                                              if (_app
+                                                  .enableGlobalSearchHotkey) ...[
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  l10n.hotkeyCombination,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .labelLarge
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        _app.enableGlobalSearchHotkey
-                                                            ? l10n.hotkeyCombination
-                                                            : l10n.inactive,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: scheme
-                                                                  .onSurfaceVariant,
-                                                            ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                      color:
+                                                          scheme.outlineVariant,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: DropdownButton<String>(
+                                                    isExpanded: true,
+                                                    value:
+                                                        _app.globalSearchHotkey,
+                                                    underline:
+                                                        const SizedBox.shrink(),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    items: [
+                                                      DropdownMenuItem(
+                                                        value: 'Alt+Space',
+                                                        child: Text(
+                                                          l10n.hotkeyAltSpace,
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+Space',
+                                                        child: Text(
+                                                          l10n.hotkeyCtrlShiftSpace,
+                                                        ),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+K',
+                                                        child: Text(
+                                                          l10n.hotkeyCtrlShiftK,
+                                                        ),
+                                                      ),
+                                                      const DropdownMenuItem(
+                                                        value: 'Ctrl+Shift+F',
+                                                        child: Text(
+                                                          'Ctrl + Shift + F',
+                                                        ),
+                                                      ),
+                                                      const DropdownMenuItem(
+                                                        value: 'Ctrl+Alt+Space',
+                                                        child: Text(
+                                                          'Ctrl + Alt + Space',
+                                                        ),
                                                       ),
                                                     ],
+                                                    onChanged: (value) {
+                                                      if (value != null) {
+                                                        _app.setGlobalSearchHotkey(
+                                                          value,
+                                                        );
+                                                      }
+                                                    },
                                                   ),
-                                                ),
-                                                Switch(
-                                                  value: _app
-                                                      .enableGlobalSearchHotkey,
-                                                  onChanged: _app
-                                                      .setEnableGlobalSearchHotkey,
                                                 ),
                                               ],
-                                            ),
-                                            if (_app
-                                                .enableGlobalSearchHotkey) ...[
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                l10n.hotkeyCombination,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .labelLarge
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color:
-                                                        scheme.outlineVariant,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: DropdownButton<String>(
-                                                  isExpanded: true,
-                                                  value:
-                                                      _app.globalSearchHotkey,
-                                                  underline:
-                                                      const SizedBox.shrink(),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  items: [
-                                                    DropdownMenuItem(
-                                                      value: 'Alt+Space',
-                                                      child: Text(
-                                                        l10n.hotkeyAltSpace,
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+Space',
-                                                      child: Text(
-                                                        l10n.hotkeyCtrlShiftSpace,
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+K',
-                                                      child: Text(
-                                                        l10n.hotkeyCtrlShiftK,
-                                                      ),
-                                                    ),
-                                                    const DropdownMenuItem(
-                                                      value: 'Ctrl+Shift+F',
-                                                      child: Text(
-                                                        'Ctrl + Shift + F',
-                                                      ),
-                                                    ),
-                                                    const DropdownMenuItem(
-                                                      value: 'Ctrl+Alt+Space',
-                                                      child: Text(
-                                                        'Ctrl + Alt + Space',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  onChanged: (value) {
-                                                    if (value != null) {
-                                                      _app.setGlobalSearchHotkey(
-                                                        value,
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              ),
                                             ],
-                                          ],
+                                          ),
                                         ),
-                                      ),
                                       const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.minimize_outlined,
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.minimize_outlined,
+                                          title: l10n.minimizeToTray,
+                                        )
+                                      else
+                                        SwitchListTile(
+                                          secondary: const Icon(
+                                            Icons.minimize_outlined,
+                                          ),
+                                          title: Text(l10n.minimizeToTray),
+                                          value: _app.minimizeToTray,
+                                          onChanged: _app.setMinimizeToTray,
                                         ),
-                                        title: Text(l10n.minimizeToTray),
-                                        value: _app.minimizeToTray,
-                                        onChanged: _app.setMinimizeToTray,
-                                      ),
                                       const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.close_rounded,
+                                      if (kIsWeb)
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.close_rounded,
+                                          title: l10n.closeToTray,
+                                        )
+                                      else
+                                        SwitchListTile(
+                                          secondary: const Icon(
+                                            Icons.close_rounded,
+                                          ),
+                                          title: Text(l10n.closeToTray),
+                                          value: _app.closeToTray,
+                                          onChanged: _app.setCloseToTray,
                                         ),
-                                        title: Text(l10n.closeToTray),
-                                        value: _app.closeToTray,
-                                        onChanged: _app.setCloseToTray,
-                                      ),
                                       if (!kIsWeb &&
                                           defaultTargetPlatform ==
                                               TargetPlatform.windows) ...[
@@ -3757,6 +4164,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                           value: _app.launchAtStartupEnabled,
                                           onChanged:
                                               _app.setLaunchAtStartupEnabled,
+                                        ),
+                                      ] else if (kIsWeb) ...[
+                                        const Divider(height: 1),
+                                        WebDesktopOnlyNotice(
+                                          icon: Icons.rocket_launch_outlined,
+                                          title: l10n.settingsLaunchAtStartup,
                                         ),
                                       ],
                                       const Divider(height: 1),
@@ -4158,897 +4571,16 @@ class _SettingsPageState extends State<SettingsPage> {
                               maintainState: false,
                               child: KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.ai),
-                                child: _SettingsPanel(
-                                  margin: const EdgeInsets.only(bottom: 24),
-                                  child: Column(
-                                    children: [
-                                      _SettingsPanelHeroCard(
-                                        icon: Icons.smart_toy_outlined,
-                                        title: l10n.ai,
-                                        description:
-                                            _app.aiProvider ==
-                                                AiProvider.quillCloud
-                                            ? (aiLocalProvidersSupported
-                                                  ? l10n.settingsAiHeroQuillWithLocalAlt
-                                                  : l10n.settingsAiHeroQuillCloudOnly)
-                                            : (aiLocalProvidersSupported
-                                                  ? l10n.settingsAiHeroLocalDefault
-                                                  : l10n.settingsAiHeroQuillMobileOnly),
-                                        chips:
-                                            _app.aiProvider ==
-                                                AiProvider.quillCloud
-                                            ? [
-                                                _SettingsInfoChip(
-                                                  icon: Icons.cloud_outlined,
-                                                  label:
-                                                      l10n.settingsAiChipCloud,
-                                                ),
-                                                _SettingsInfoChip(
-                                                  icon: Icons.hub_outlined,
-                                                  label: l10n.aiProviderLabel,
-                                                ),
-                                              ]
-                                            : [
-                                                _SettingsInfoChip(
-                                                  icon: Icons.hub_outlined,
-                                                  label: l10n.aiProviderLabel,
-                                                ),
-                                                if (aiLocalProvidersSupported) ...[
-                                                  _SettingsInfoChip(
-                                                    icon: Icons
-                                                        .psychology_outlined,
-                                                    label: l10n.aiModel,
-                                                  ),
-                                                  _SettingsInfoChip(
-                                                    icon: Icons
-                                                        .assistant_navigation,
-                                                    label: l10n
-                                                        .aiSetupAssistantTitle,
-                                                  ),
-                                                ],
-                                              ],
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          12,
-                                          16,
-                                          12,
-                                        ),
-                                        child: Builder(
-                                          builder: (context) {
-                                            final theme = Theme.of(context);
-                                            return Container(
-                                              padding: const EdgeInsets.all(14),
-                                              decoration: BoxDecoration(
-                                                color: scheme
-                                                    .surfaceContainerHighest
-                                                    .withValues(alpha: 0.55),
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                                border: Border.all(
-                                                  color: scheme.outlineVariant
-                                                      .withValues(alpha: 0.45),
-                                                ),
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons
-                                                            .compare_arrows_rounded,
-                                                        color: scheme.primary,
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                      Expanded(
-                                                        child: Text(
-                                                          l10n.aiCompareCloudVsLocalTitle,
-                                                          style: theme
-                                                              .textTheme
-                                                              .titleSmall
-                                                              ?.copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  LayoutBuilder(
-                                                    builder: (context, constraints) {
-                                                      final narrow =
-                                                          constraints.maxWidth <
-                                                          560;
-                                                      Widget card({
-                                                        required IconData icon,
-                                                        required String title,
-                                                        required List<String>
-                                                        bullets,
-                                                      }) {
-                                                        return Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                12,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: scheme
-                                                                .surface
-                                                                .withValues(
-                                                                  alpha: 0.9,
-                                                                ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  16,
-                                                                ),
-                                                            border: Border.all(
-                                                              color: scheme
-                                                                  .outlineVariant
-                                                                  .withValues(
-                                                                    alpha: 0.35,
-                                                                  ),
-                                                            ),
-                                                          ),
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .stretch,
-                                                            children: [
-                                                              Row(
-                                                                children: [
-                                                                  Icon(
-                                                                    icon,
-                                                                    color: scheme
-                                                                        .primary,
-                                                                  ),
-                                                                  const SizedBox(
-                                                                    width: 8,
-                                                                  ),
-                                                                  Expanded(
-                                                                    child: Text(
-                                                                      title,
-                                                                      style: theme
-                                                                          .textTheme
-                                                                          .labelLarge
-                                                                          ?.copyWith(
-                                                                            fontWeight:
-                                                                                FontWeight.w800,
-                                                                          ),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 8,
-                                                              ),
-                                                              ...bullets.map(
-                                                                (b) => Padding(
-                                                                  padding:
-                                                                      const EdgeInsets.only(
-                                                                        bottom:
-                                                                            4,
-                                                                      ),
-                                                                  child: Text(
-                                                                    '• $b',
-                                                                    style: theme
-                                                                        .textTheme
-                                                                        .bodySmall
-                                                                        ?.copyWith(
-                                                                          color:
-                                                                              scheme.onSurfaceVariant,
-                                                                          height:
-                                                                              1.35,
-                                                                        ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                      }
-
-                                                      final cloudCard = card(
-                                                        icon: Icons
-                                                            .cloud_outlined,
-                                                        title: l10n
-                                                            .aiCompareCloudTitle,
-                                                        bullets: [
-                                                          l10n.aiCompareCloudBulletNoSetup,
-                                                          l10n.aiCompareCloudBulletNeedsSub,
-                                                          l10n.aiCompareCloudBulletInk,
-                                                        ],
-                                                      );
-                                                      final localCard = card(
-                                                        icon: Icons
-                                                            .computer_outlined,
-                                                        title: l10n
-                                                            .aiCompareLocalTitle,
-                                                        bullets: [
-                                                          l10n.aiCompareLocalBulletPrivacy,
-                                                          l10n.aiCompareLocalBulletNoInk,
-                                                          l10n.aiCompareLocalBulletSetup,
-                                                        ],
-                                                      );
-
-                                                      if (!aiLocalProvidersSupported) {
-                                                        return cloudCard;
-                                                      }
-                                                      if (narrow) {
-                                                        return Column(
-                                                          children: [
-                                                            cloudCard,
-                                                            const SizedBox(
-                                                              height: 10,
-                                                            ),
-                                                            localCard,
-                                                          ],
-                                                        );
-                                                      }
-                                                      return Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: cloudCard,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 10,
-                                                          ),
-                                                          Expanded(
-                                                            child: localCard,
-                                                          ),
-                                                        ],
-                                                      );
-                                                    },
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.smart_toy_outlined,
-                                        ),
-                                        title: Text(l10n.aiEnableToggleTitle),
-                                        subtitle: Text(
-                                          _app.aiEnabled
-                                              ? l10n.active
-                                              : l10n.inactive,
-                                        ),
-                                        value: _app.aiEnabled,
-                                        onChanged: _detectingAiProvider
-                                            ? null
-                                            : (v) async {
-                                                if (v && !_app.aiEnabled) {
-                                                  final confirmed =
-                                                      await _confirmAiBetaEnable();
-                                                  if (!confirmed) return;
-                                                  final acceptedScope =
-                                                      await _confirmQuillGlobalScopeIfNeeded();
-                                                  if (!acceptedScope) return;
-                                                  if (!_app
-                                                      .hasCompletedQuillSetup) {
-                                                    if (aiLocalProvidersSupported) {
-                                                      final configured =
-                                                          await _autoDetectAndConfigureAiProvider();
-                                                      if (!configured) return;
-                                                    }
-                                                    await _app
-                                                        .setHasCompletedQuillSetup(
-                                                          true,
-                                                        );
-                                                  }
-                                                  await _saveAiFields();
-                                                  await _app.setAiEnabled(true);
-                                                  return;
-                                                }
-                                                await _saveAiFields();
-                                                await _app.setAiEnabled(v);
-                                              },
-                                      ),
-                                      if (_detectingAiProvider)
-                                        const Padding(
-                                          padding: EdgeInsets.fromLTRB(
-                                            16,
-                                            0,
-                                            16,
-                                            12,
-                                          ),
-                                          child: LinearProgressIndicator(),
-                                        ),
-                                      if (aiLocalProvidersSupported &&
-                                          (_app.aiProvider == AiProvider.ollama ||
-                                              _app.aiProvider == AiProvider.lmStudio)) ...[
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.assistant_navigation,
-                                          ),
-                                          title: Text(
-                                            l10n.aiSetupAssistantTitle,
-                                          ),
-                                          subtitle: Text(
-                                            l10n.aiSetupAssistantSubtitle,
-                                          ),
-                                          trailing: const Icon(
-                                            Icons.chevron_right_rounded,
-                                          ),
-                                          onTap: _detectingAiProvider
-                                              ? null
-                                              : _autoDetectAndConfigureAiProvider,
-                                        ),
-                                      ],
-                                      const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.psychology_outlined,
-                                        ),
-                                        title: Text(l10n.aiAlwaysShowThought),
-                                        subtitle: Text(
-                                          l10n.aiAlwaysShowThoughtHint,
-                                        ),
-                                        value: _app.aiAlwaysShowThought,
-                                        onChanged: _app.aiEnabled
-                                            ? _app.setAiAlwaysShowThought
-                                            : null,
-                                      ),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.view_column_outlined,
-                                        ),
-                                        title: Text(
-                                          l10n.settingsAiChatSplitViewTitle,
-                                        ),
-                                        subtitle: Text(
-                                          l10n.settingsAiChatSplitViewSubtitle,
-                                        ),
-                                        value: _app.aiChatSplitView,
-                                        onChanged: _app.aiEnabled
-                                            ? (v) async {
-                                                await _app.setAiChatSplitView(
-                                                  v,
-                                                );
-                                                if (mounted) setState(() {});
-                                              }
-                                            : null,
-                                      ),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.auto_fix_high_outlined,
-                                        ),
-                                        title: Text(
-                                          l10n
-                                              .settingsAiQuillCopilotExperimentalTitle,
-                                        ),
-                                        subtitle: Text(
-                                          l10n
-                                              .settingsAiQuillCopilotExperimentalSubtitle,
-                                        ),
-                                        value:
-                                            _app.aiQuillCopilotExperimental,
-                                        onChanged: _app.aiEnabled
-                                            ? (v) async {
-                                                await _app
-                                                    .setAiQuillCopilotExperimental(
-                                                      v,
-                                                    );
-                                                if (mounted) setState(() {});
-                                              }
-                                            : null,
-                                      ),
-                                      if (aiLocalProvidersSupported &&
-                                          _app.aiProvider !=
-                                              AiProvider.quillCloud) ...[
-                                        const Divider(height: 1),
-                                        SwitchListTile(
-                                          secondary: const Icon(
-                                            Icons.rocket_launch_outlined,
-                                          ),
-                                          title: Text(
-                                            l10n.aiLaunchProviderWithApp,
-                                          ),
-                                          subtitle: Text(
-                                            l10n.aiLaunchProviderWithAppHint,
-                                          ),
-                                          value: _app.aiLaunchProviderWithApp,
-                                          onChanged: _app.aiEnabled
-                                              ? (v) async {
-                                                  await _app
-                                                      .setAiLaunchProviderWithApp(
-                                                        v,
-                                                      );
-                                                }
-                                              : null,
-                                        ),
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.memory_outlined,
-                                          ),
-                                          title: Text(
-                                            l10n.aiContextWindowTokens,
-                                          ),
-                                          subtitle: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                l10n.aiContextWindowTokensHint,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              TextField(
-                                                controller:
-                                                    _aiContextWindowController,
-                                                enabled: _app.aiEnabled,
-                                                keyboardType:
-                                                    TextInputType.number,
-                                                decoration:
-                                                    const InputDecoration(
-                                                      hintText: '131072',
-                                                      border: InputBorder.none,
-                                                      enabledBorder:
-                                                          InputBorder.none,
-                                                      focusedBorder:
-                                                          InputBorder.none,
-                                                      contentPadding:
-                                                          EdgeInsets.zero,
-                                                    ),
-                                                onSubmitted: (_) =>
-                                                    _saveAiFields(),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox.shrink(),
-                                      const Divider(height: 1),
-                                      ListTile(
-                                        leading: const Icon(Icons.hub_outlined),
-                                        title: Text(l10n.aiProviderLabel),
-                                        trailing: DropdownButton<AiProvider>(
-                                          value: _app.aiProvider,
-                                          underline: const SizedBox.shrink(),
-                                          onChanged: (value) async {
-                                            if (value == null) return;
-                                            if (value ==
-                                                AiProvider.quillCloud) {
-                                              if (!_folio.isAvailable) {
-                                                _snack(
-                                                  l10n.settingsAiSnackFirebaseUnavailableBuild,
-                                                );
-                                                return;
-                                              }
-                                              if (!_cloud.isSignedIn) {
-                                                _snack(
-                                                  l10n.settingsAiSnackSignInCloudAccount,
-                                                );
-                                                return;
-                                              }
-                                              if (!_folio
-                                                  .snapshot
-                                                  .canUseCloudAi) {
-                                                _snack(
-                                                  l10n.aiProviderFolioCloudBlockedSnack,
-                                                );
-                                                return;
-                                              }
-                                            }
-                                            try {
-                                              await _app.setAiProvider(value);
-                                              if (!mounted) return;
-                                              setState(() {
-                                                _availableModels = _app
-                                                    .cachedAiModelsFor(value);
-                                              });
-                                              if (_availableModels.isNotEmpty &&
-                                                  !_availableModels.contains(
-                                                    _app.aiModel,
-                                                  )) {
-                                                await _app.setAiModel(
-                                                  _availableModels.first,
-                                                );
-                                              }
-                                              _aiBaseUrlController.text = _app
-                                                  .defaultUrlForProvider(value);
-                                              await _saveAiFields();
-                                              if (value ==
-                                                  AiProvider.quillCloud) {
-                                                await _loadAiModels();
-                                              }
-                                            } catch (e) {
-                                              if (!mounted) return;
-                                              _snack(
-                                                l10n.settingsAiProviderSwitchFailed(
-                                                  '$e',
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          items: [
-                                            DropdownMenuItem(
-                                              value: AiProvider.none,
-                                              child: Text(l10n.aiProviderNone),
-                                            ),
-                                            if (aiLocalProvidersSupported) ...[
-                                              DropdownMenuItem(
-                                                value: AiProvider.ollama,
-                                                child: Text('Ollama'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: AiProvider.lmStudio,
-                                                child: Text('LM Studio'),
-                                              ),
-                                            ],
-                                            DropdownMenuItem(
-                                              value: AiProvider.openAi,
-                                              child: const Text('OpenAI'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: AiProvider.gemini,
-                                              child: const Text('Gemini'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: AiProvider.quillCloud,
-                                              child: const Text('Quill Cloud'),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (_app.aiProvider == AiProvider.ollama ||
-                                          _app.aiProvider == AiProvider.lmStudio ||
-                                          _app.aiProvider == AiProvider.openAi ||
-                                          _app.aiProvider == AiProvider.gemini) ...[
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.link_rounded,
-                                          ),
-                                          title: Text(l10n.aiEndpoint),
-                                          subtitle: TextField(
-                                            controller: _aiBaseUrlController,
-                                            decoration: const InputDecoration(
-                                              hintText:
-                                                  'http://127.0.0.1:11434',
-                                              border: InputBorder.none,
-                                              enabledBorder: InputBorder.none,
-                                              focusedBorder: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            onSubmitted: (_) => _saveAiFields(),
-                                          ),
-                                        ),
-                                        if (_app.aiProvider == AiProvider.openAi ||
-                                            _app.aiProvider == AiProvider.gemini) ...[
-                                          const Divider(height: 1),
-                                          ListTile(
-                                            leading: const Icon(
-                                              Icons.key_rounded,
-                                            ),
-                                            title: const Text('Clave API (API Key)'),
-                                            subtitle: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                TextField(
-                                                  controller: _aiApiKeyController,
-                                                  obscureText: true,
-                                                  decoration: const InputDecoration(
-                                                    hintText: 'Ingresa tu API Key',
-                                                    border: InputBorder.none,
-                                                    enabledBorder: InputBorder.none,
-                                                    focusedBorder: InputBorder.none,
-                                                    contentPadding: EdgeInsets.zero,
-                                                  ),
-                                                  onSubmitted: (_) => _saveAiFields(),
-                                                ),
-                                                if (_app.aiProvider == AiProvider.gemini)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 4, bottom: 4),
-                                                    child: Text(
-                                                      'Consigue tu clave API en aistudio.google.com',
-                                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                        color: scheme.primary,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                if (_app.aiProvider == AiProvider.openAi)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 4, bottom: 4),
-                                                    child: Text(
-                                                      'Consigue tu clave API en platform.openai.com',
-                                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                        color: scheme.primary,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.psychology_alt_outlined,
-                                          ),
-                                          title: Text(l10n.aiModel),
-                                          subtitle: _loadingModels
-                                              ? const Padding(
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: 8,
-                                                  ),
-                                                  child:
-                                                      LinearProgressIndicator(),
-                                                )
-                                              : DropdownButton<String>(
-                                                  value:
-                                                      _availableModels.contains(
-                                                        _app.aiModel,
-                                                      )
-                                                      ? _app.aiModel
-                                                      : null,
-                                                  hint: Text(
-                                                    l10n.aiConnectToListModels,
-                                                  ),
-                                                  isExpanded: true,
-                                                  underline:
-                                                      const SizedBox.shrink(),
-                                                  onChanged:
-                                                      _availableModels.isEmpty
-                                                      ? null
-                                                      : (value) {
-                                                          if (value != null) {
-                                                            _app.setAiModel(
-                                                              value,
-                                                            );
-                                                          }
-                                                        },
-                                                  items: _availableModels
-                                                      .map(
-                                                        (m) =>
-                                                            DropdownMenuItem<
-                                                              String
-                                                            >(
-                                                              value: m,
-                                                              child: Text(m),
-                                                            ),
-                                                      )
-                                                      .toList(),
-                                                ),
-                                        ),
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.timer_outlined,
-                                          ),
-                                          title: Text(l10n.aiTimeoutMs),
-                                          subtitle: TextField(
-                                            controller: _aiTimeoutController,
-                                            keyboardType: TextInputType.number,
-                                            decoration: const InputDecoration(
-                                              hintText: '30000',
-                                              border: InputBorder.none,
-                                              enabledBorder: InputBorder.none,
-                                              focusedBorder: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            onSubmitted: (_) => _saveAiFields(),
-                                          ),
-                                        ),
-                                        if (_app.aiProvider == AiProvider.ollama ||
-                                            _app.aiProvider == AiProvider.lmStudio) ...[
-                                          const Divider(height: 1),
-                                          SwitchListTile(
-                                            secondary: const Icon(
-                                              Icons.public_outlined,
-                                            ),
-                                            title: Text(
-                                              l10n.aiAllowRemoteEndpoint,
-                                            ),
-                                            subtitle: Text(
-                                              _app.aiEndpointMode ==
-                                                      AiEndpointMode.allowRemote
-                                                  ? l10n.aiAllowRemoteEndpointAllowed
-                                                  : l10n.aiAllowRemoteEndpointLocalhostOnly,
-                                            ),
-                                            value:
-                                                _app.aiEndpointMode ==
-                                                AiEndpointMode.allowRemote,
-                                            onChanged: (v) async {
-                                              await _app.setAiEndpointMode(
-                                                v
-                                                    ? AiEndpointMode.allowRemote
-                                                    : AiEndpointMode
-                                                          .localhostOnly,
-                                              );
-                                              if (v) {
-                                                await _confirmRemoteEndpointIfNeeded();
-                                              }
-                                            },
-                                          ),
-                                          if (_app.aiEndpointMode ==
-                                                  AiEndpointMode.allowRemote &&
-                                              !_app.aiRemoteEndpointConfirmed)
-                                            Padding(
-                                              padding: const EdgeInsets.fromLTRB(
-                                                16,
-                                                0,
-                                                16,
-                                                16,
-                                              ),
-                                              child: Text(
-                                                l10n.aiAllowRemoteEndpointNotConfirmed,
-                                                style: TextStyle(
-                                                  color: Colors.orange,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                        const Divider(height: 1),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.network_check_rounded,
-                                          ),
-                                          title: Text(
-                                            l10n.aiConnectToListModels,
-                                          ),
-                                          onTap: _testAiConnection,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                child: _buildAiSettingsSection(
+                                  l10n: l10n,
+                                  scheme: scheme,
+                                  aiLocalProvidersSupported:
+                                      aiLocalProvidersSupported,
+                                  mcpServerSupported: mcpServerSupported,
                                 ),
                               ),
                             ),
                           ],
-
-                          // ─── Quill Instructions Section ───
-                          Visibility(
-                            visible: activeSection == _SettingsSectionId.ai,
-                            maintainState: false,
-                            child: _SettingsPanel(
-                              margin: const EdgeInsets.only(top: 16, bottom: 24),
-                              child: StatefulBuilder(
-                                builder: (context, setInnerState) {
-                                  final prompts = _app.quillSystemPrompts;
-                                  final theme = Theme.of(context);
-                                  final scheme = Theme.of(context).colorScheme;
-                                  final isEs = Localizations.localeOf(context).languageCode == 'es';
-                                  final l10n = AppLocalizations.of(context);
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.psychology_alt_outlined),
-                                        title: Text(isEs ? 'Instrucciones de Quill' : 'Quill Instructions'),
-                                        subtitle: Text(
-                                          isEs
-                                              ? 'Crea instrucciones personalizadas para que Quill las use automáticamente'
-                                              : 'Create custom instructions for Quill to use automatically',
-                                        ),
-                                        trailing: FilledButton.tonalIcon(
-                                          icon: const Icon(Icons.add, size: 16),
-                                          label: Text(isEs ? 'Nueva' : 'New'),
-                                          onPressed: () async {
-                                            await _showEditQuillPromptDialog(null);
-                                            setInnerState(() {});
-                                          },
-                                        ),
-                                      ),
-                                      const Divider(height: 1),
-                                      ...prompts.map((item) {
-                                        return Column(
-                                          children: [
-                                            ListTile(
-                                              leading: Icon(
-                                                item.isSystemDefault
-                                                    ? Icons.auto_awesome_rounded
-                                                    : Icons.notes_rounded,
-                                                color: item.isSystemDefault
-                                                    ? scheme.primary
-                                                    : scheme.onSurfaceVariant,
-                                                size: 20,
-                                              ),
-                                              title: Text(
-                                                item.name,
-                                                style: theme.textTheme.titleSmall?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              subtitle: Text(
-                                                item.prompt,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: theme.textTheme.bodySmall?.copyWith(
-                                                  color: scheme.onSurfaceVariant,
-                                                ),
-                                              ),
-                                              trailing: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      item.isSystemDefault
-                                                          ? Icons.visibility_outlined
-                                                          : Icons.edit_outlined,
-                                                      size: 20,
-                                                    ),
-                                                    tooltip: item.isSystemDefault
-                                                        ? (isEs ? 'Ver' : 'View')
-                                                        : (isEs ? 'Editar' : 'Edit'),
-                                                    onPressed: () async {
-                                                      await _showEditQuillPromptDialog(
-                                                        item,
-                                                        readOnly: item.isSystemDefault,
-                                                      );
-                                                      setInnerState(() {});
-                                                    },
-                                                  ),
-                                                  if (!item.isSystemDefault)
-                                                    IconButton(
-                                                      icon: Icon(
-                                                        Icons.delete_outline_rounded,
-                                                        size: 20,
-                                                        color: scheme.error,
-                                                      ),
-                                                      tooltip: isEs ? 'Eliminar' : 'Delete',
-                                                      onPressed: () async {
-                                                        final confirm = await showDialog<bool>(
-                                                          context: context,
-                                                          builder: (ctx) => FolioDialog(
-                                                            title: Text(isEs
-                                                                ? '¿Eliminar instrucciones?'
-                                                                : 'Delete instructions?'),
-                                                            content: Text(isEs
-                                                                ? '¿Estás seguro de que quieres eliminar "${item.name}"?'
-                                                                : 'Are you sure you want to delete "${item.name}"?'),
-                                                            actions: [
-                                                              TextButton(
-                                                                onPressed: () => Navigator.pop(ctx, false),
-                                                                child: Text(l10n.cancel),
-                                                              ),
-                                                              FilledButton(
-                                                                onPressed: () => Navigator.pop(ctx, true),
-                                                                style: FilledButton.styleFrom(
-                                                                  backgroundColor: scheme.error,
-                                                                  foregroundColor: scheme.onError,
-                                                                ),
-                                                                child: Text(l10n.delete),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                        if (confirm == true) {
-                                                          await _app.deleteQuillSystemPrompt(item.id);
-                                                          setInnerState(() {});
-                                                          if (mounted) setState(() {});
-                                                        }
-                                                      },
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            const Divider(height: 1),
-                                          ],
-                                        );
-                                      }),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
 
                           Visibility(
                             visible: activeSection == _SettingsSectionId.sync,
@@ -5289,17 +4821,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                               ..._sync.discoveredPeers.map((
                                                 peer,
                                               ) {
-                                                final hasActiveCode =
-                                                    (peer.pairingCode ?? '')
-                                                        .trim()
-                                                        .isNotEmpty;
-                                                final pairingReady =
-                                                    _sync.isPairingModeActive &&
-                                                    hasActiveCode;
-                                                final subtitle = pairingReady
+                                                // El código de emparejamiento del
+                                                // peer ya no viaja en el "hello"
+                                                // (se pide cifrado y bajo demanda
+                                                // al intentar vincular), así que
+                                                // ya no podemos saber de antemano
+                                                // si el otro dispositivo tiene un
+                                                // código activo sin sondearlo.
+                                                final subtitle =
+                                                    _sync.isPairingModeActive
                                                     ? l10n.settingsSyncPeerReadyToLink
-                                                    : hasActiveCode
-                                                    ? l10n.settingsSyncPeerOtherInPairingMode
                                                     : l10n.settingsSyncPeerDetectedLan;
                                                 return Container(
                                                   margin: const EdgeInsets.only(
@@ -5331,8 +4862,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     subtitle: Text(subtitle),
                                                     trailing: FilledButton.tonal(
                                                       onPressed:
-                                                          _app.syncEnabled &&
-                                                              pairingReady
+                                                          _app.syncEnabled
                                                           ? () =>
                                                                 _submitPairingCodeDialog(
                                                                   peer: peer,
@@ -5542,11 +5072,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                               selected: {
                                                 _app.updateReleaseChannel,
                                               },
-                                              onSelectionChanged: (s) {
-                                                _app.setUpdateReleaseChannel(
-                                                  s.first,
-                                                );
-                                              },
+                                              onSelectionChanged:
+                                                  _downloadingUpdate
+                                                  ? null
+                                                  : (s) {
+                                                      _app
+                                                          .setUpdateReleaseChannel(
+                                                        s.first,
+                                                      );
+                                                    },
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
@@ -5572,13 +5106,70 @@ class _SettingsPageState extends State<SettingsPage> {
                                           Icons.system_update_rounded,
                                         ),
                                         title: Text(l10n.checkUpdates),
-                                        trailing: _checkingUpdates
-                                            ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                                        trailing: _checkingUpdates &&
+                                                !_downloadingUpdate
+                                            ? const FolioLoadingIndicator(
+                                                size: FolioLoadingSize.small,
+                                              )
                                             : null,
-                                        onTap: _checkingUpdates
+                                        onTap: (_checkingUpdates ||
+                                                _downloadingUpdate)
                                             ? null
                                             : _checkUpdatesNow,
                                       ),
+                                      if (_downloadingUpdate) ...[
+                                        const Divider(height: 1),
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            16,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Text(
+                                                _installingUpdate
+                                                    ? l10n
+                                                          .updaterInstallingAfterDownload
+                                                    : l10n
+                                                          .updaterDownloadProgressTitle,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              LinearProgressIndicator(
+                                                value: _installingUpdate
+                                                    ? null
+                                                    : _updateDownloadProgress,
+                                                minHeight: 4,
+                                              ),
+                                              if (!_installingUpdate &&
+                                                  _updateDownloadProgress !=
+                                                      null) ...[
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  l10n.updaterDownloadProgressPercent(
+                                                    (_updateDownloadProgress! *
+                                                            100)
+                                                        .round(),
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ],
                                 ),
@@ -5586,8 +5177,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
 
-                          if (showDesktopOnlySections) ...[
-                            Visibility(
+                          Visibility(
                               visible: activeSection == _SettingsSectionId.integrations,
                               maintainState: false,
                               child: KeyedSubtree(
@@ -5597,52 +5187,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                       CrossAxisAlignment.stretch,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _SettingsPanel(
-                                      margin: const EdgeInsets.only(bottom: 24),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          ListenableBuilder(
-                                            listenable:
-                                                AppStoreService.instance,
-                                            builder: (context, _) {
-                                              final installed = AppStoreService
-                                                  .instance
-                                                  .installedApps;
-                                              return ListTile(
-                                                leading: const Icon(
-                                                  Icons.extension_outlined,
-                                                ),
-                                                title: const Text(
-                                                  'Tienda de Apps',
-                                                ),
-                                                subtitle: Text(
-                                                  installed.isEmpty
-                                                      ? 'Sin apps instaladas'
-                                                      : '${installed.length} app${installed.length == 1 ? '' : 's'} instalada${installed.length == 1 ? '' : 's'}',
-                                                ),
-                                                trailing: FilledButton.tonal(
-                                                  onPressed: () {
-                                                    Navigator.of(
-                                                      context,
-                                                    ).push<void>(
-                                                      MaterialPageRoute<void>(
-                                                        builder: (_) =>
-                                                            const AppStoreScreen(),
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: const Text(
-                                                    'Abrir tienda',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                     _SettingsPanel(
                                       margin: const EdgeInsets.only(bottom: 24),
                                       child: Column(
@@ -5687,69 +5231,113 @@ class _SettingsPageState extends State<SettingsPage> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                ListenableBuilder(
-                                                  listenable:
-                                                      AppStoreService.instance,
-                                                  builder: (context, _) {
-                                                    final jiraInstalled =
-                                                        AppStoreService.instance
-                                                            .isInstalled(
-                                                              FolioBuiltInApps
-                                                                  .jiraId,
-                                                            );
-                                                    final youtrackInstalled =
-                                                        AppStoreService.instance
-                                                            .isInstalled(
-                                                              FolioBuiltInApps
-                                                                  .youtrackId,
-                                                            );
-                                                    if (!jiraInstalled &&
-                                                        !youtrackInstalled) {
-                                                      return const SizedBox.shrink();
-                                                    }
-                                                    return Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      l10n.settingsIntegrationsProjectManagementTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    IntegrationCardsGrid(
                                                       children: [
-                                                        Text(
-                                                          l10n.settingsIntegrationsNativeTitle,
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .titleSmall
-                                                              ?.copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800,
-                                                              ),
+                                                        JiraIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
                                                         ),
-                                                        const SizedBox(
-                                                          height: 10,
+                                                        YouTrackIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
                                                         ),
-                                                        if (jiraInstalled) ...[
-                                                          JiraIntegrationCard(
-                                                            session: _s,
-                                                            appSettings: _app,
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                        ],
-                                                        if (youtrackInstalled) ...[
-                                                          YouTrackIntegrationCard(
-                                                            session: _s,
-                                                            appSettings: _app,
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                        ],
-                                                        const SizedBox(
-                                                          height: 8,
+                                                        TrelloIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
                                                         ),
                                                       ],
-                                                    );
-                                                  },
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsDevelopmentTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        GitHubIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        GitLabIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsCommunicationTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        SlackIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        TeamsIntegrationCard(
+                                                          session: _s,
+                                                          appSettings: _app,
+                                                        ),
+                                                        DiscordIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      l10n.settingsIntegrationsMusicTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    IntegrationCardsGrid(
+                                                      children: [
+                                                        SpotifyIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                        SystemMediaIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    const SizedBox(height: 8),
+                                                  ],
                                                 ),
                                                 Row(
                                                   children: [
@@ -5885,7 +5473,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                          ],
                           ],
                           const SizedBox(height: 24),
                         ],

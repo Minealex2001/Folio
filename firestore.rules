@@ -45,6 +45,40 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
+
+      // Señal de sync multi-dispositivo (lectura cliente; escritura solo Functions).
+      match /vaultSync/{vaultId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Perfil de ajustes de la app (cuenta).
+      match /appProfile/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Preferencias por libreta.
+      match /vaultProfiles/{vaultId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Buzón de comandos entrantes Slack/Teams (lectura cliente; escritura Functions).
+      match /pendingIntegrationCommands/{commandId} {
+        allow get, list: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Secreto por cuenta+libreta para derivar la clave de device-sync de
+      // libretas "en claro" (sin contraseña) — mezclado junto a uid+vaultId
+      // en vez de depender solo de esos identificadores públicos. Solo
+      // legible por el propio dueño; escrito únicamente por
+      // folioEnsurePlainVaultSyncSecret (Admin SDK).
+      match /plainVaultSyncSecrets/{vaultId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // Familias: lectura permitida para el dueño o miembros del grupo
@@ -68,6 +102,21 @@ service cloud.firestore {
 
     // Idempotencia consumibles Microsoft Store (solo backend).
     match /microsoftStoreProcessedPurchases/{docId} {
+      allow read, write: if false;
+    }
+
+    // Códigos temporales de vinculación Slack/Teams (solo Functions).
+    match /integrationLinkCodes/{code} {
+      allow read, write: if false;
+    }
+
+    // Índice externo (slackUserId/teamsUserId) → cuenta Folio (solo Functions).
+    match /integrationUserIndex/{docId} {
+      allow read, write: if false;
+    }
+
+    // Tokens HMAC de Outgoing Webhook de Teams por conexión (solo Functions).
+    match /teamsWebhookEndpoints/{connectionId} {
       allow read, write: if false;
     }
 
@@ -302,8 +351,26 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
 
       match /events/{eventId} {
+        function analyticsEventCreateOk() {
+          let d = request.resource.data;
+          let allowedTypes = [
+            'featureOpened', 'contentAction', 'navigation', 'search',
+            'sync', 'performance', 'error', 'usageStats'
+          ];
+          return d.keys().hasAll(['id', 'timestamp', 'type', 'userId', 'appVersion', 'buildNumber'])
+            && d.id is string && d.id.size() <= 200
+            && d.timestamp is timestamp
+            && d.type is string && d.type in allowedTypes
+            && d.userId is string && d.userId == userId
+            && d.appVersion is string && d.appVersion.size() <= 64
+            && d.buildNumber is string && d.buildNumber.size() <= 64
+            && (!('errorMessage' in d) || (d.errorMessage is string && d.errorMessage.size() <= 4000))
+            && (!('stackTrace' in d) || (d.stackTrace is string && d.stackTrace.size() <= 4000))
+            && (!('context' in d) || (d.context is string && d.context.size() <= 4000));
+        }
+
         allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
-        allow create: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && analyticsEventCreateOk();
         allow update, delete: if false;
       }
 

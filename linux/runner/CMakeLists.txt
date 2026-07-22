@@ -10,6 +10,7 @@ add_executable(${BINARY_NAME}
   "main.cc"
   "my_application.cc"
   "system_audio_plugin.cc"
+  "system_media_plugin.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 

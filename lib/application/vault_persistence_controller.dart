@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/app_logger.dart';
 import '../data/vault_payload.dart';
 
 /// Estado visible del guardado en disco.
@@ -51,16 +52,22 @@ class VaultPersistenceController extends ChangeNotifier {
       try {
         hook();
       } catch (e) {
-        debugPrint('[vault] pending flush hook failed: $e');
+        AppLogger.warn(
+          'Pending flush hook failed',
+          tag: 'vault',
+          context: {'error': '$e'},
+        );
       }
     }
   }
 
-  void scheduleSave() {
+  /// [notify]: si `false`, el llamador ya se encarga de notificar (p. ej. vía
+  /// un coalescing propio); se omite este `notifyListeners` para no duplicar.
+  void scheduleSave({bool notify = true}) {
     if (!_canPersist()) return;
     _saveDebounce?.cancel();
     _status = SaveStatus.pending;
-    notifyListeners();
+    if (notify) notifyListeners();
     _saveDebounce = Timer(_debounce, () {
       _saveDebounce = null;
       unawaited(persistNow());
@@ -109,8 +116,15 @@ class VaultPersistenceController extends ChangeNotifier {
       await _savePayload(_buildPayload());
       persisted = true;
       _status = SaveStatus.saved;
-    } catch (e) {
+      AppLogger.debug('persist ok', tag: 'persistence');
+    } catch (e, st) {
       _status = SaveStatus.error;
+      AppLogger.error(
+        'persist failed',
+        tag: 'persistence',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     } finally {
       _persistDepth--;
@@ -121,7 +135,13 @@ class VaultPersistenceController extends ChangeNotifier {
     if (persisted && _suppressPersistedCallbackDepth == 0) {
       try {
         onPersisted?.call();
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.warn(
+          'onPersisted callback failed',
+          tag: 'persistence',
+          context: {'error': '$e'},
+        );
+      }
     }
   }
 

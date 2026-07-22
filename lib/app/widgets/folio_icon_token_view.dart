@@ -1,12 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../services/custom_icons/custom_icon_blob_store.dart';
 import '../app_settings.dart';
-import 'folio_icon_token_file_io.dart'
-    if (dart.library.html) 'folio_icon_token_file_web.dart';
 
 class FolioIconTokenView extends StatelessWidget {
   const FolioIconTokenView({
@@ -27,7 +25,6 @@ class FolioIconTokenView extends StatelessWidget {
     final raw = token?.trim();
     final customIcon = appSettings.customIconForToken(raw);
     if (customIcon != null) {
-      if (kIsWeb) return _fallback(); // Custom file icons not supported on web
       return _buildFileIcon(customIcon.filePath, customIcon.isSvg);
     }
     final text = (raw == null || raw.isEmpty) ? fallbackText : raw;
@@ -40,14 +37,15 @@ class FolioIconTokenView extends StatelessWidget {
     );
   }
 
-  Widget _buildFileIcon(String filePath, bool isSvg) {
-    return FutureBuilder<Uint8List>(
-      future: readIconFileBytes(filePath),
+  Widget _buildFileIcon(String storageKey, bool isSvg) {
+    return FutureBuilder<Uint8List?>(
+      future: CustomIconBlobStore.instance.read(storageKey),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return _fallback();
+        final data = snapshot.data;
+        if (data == null || data.isEmpty) return _fallback();
         if (isSvg) {
           return SvgPicture.memory(
-            snapshot.data!,
+            data,
             width: size,
             height: size,
             fit: BoxFit.contain,
@@ -55,7 +53,7 @@ class FolioIconTokenView extends StatelessWidget {
           );
         }
         return Image.memory(
-          snapshot.data!,
+          data,
           width: size,
           height: size,
           fit: BoxFit.contain,

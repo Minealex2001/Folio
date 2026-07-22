@@ -320,10 +320,15 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
 
     final micDeviceId = widget.appSettings.meetingNoteMicDeviceId.trim();
     final systemDeviceId = widget.appSettings.meetingNoteSystemDeviceId.trim();
-    final ok = await AudioMixerService.instance.start(
-      micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
-      systemOutputDeviceId: systemDeviceId.isEmpty ? null : systemDeviceId,
-    );
+    bool ok;
+    try {
+      ok = await AudioMixerService.instance.start(
+        micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
+        systemOutputDeviceId: systemDeviceId.isEmpty ? null : systemDeviceId,
+      );
+    } catch (_) {
+      ok = false;
+    }
     if (!ok) {
       if (!mounted) return;
       setState(() {

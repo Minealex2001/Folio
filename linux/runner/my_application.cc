@@ -7,6 +7,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "system_audio_plugin.h"
+#include "system_media_plugin.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -76,6 +77,7 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
   system_audio_plugin_register_with_messenger(fl_engine_get_binary_messenger(fl_view_get_engine(view)));
+  system_media_plugin_register_with_messenger(fl_engine_get_binary_messenger(fl_view_get_engine(view)));
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

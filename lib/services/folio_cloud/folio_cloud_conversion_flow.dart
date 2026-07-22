@@ -47,7 +47,7 @@ class FolioCloudConversionFlow {
     if (cloud.isSignedIn) return true;
     if (!await ensureReachable(context, l10n)) return false;
     if (!context.mounted) return false;
-    final ok = await showDialog<bool>(
+    final password = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => CloudSignInDialog(
@@ -56,7 +56,7 @@ class FolioCloudConversionFlow {
         onAuthError: onAuthError,
       ),
     );
-    return ok == true && cloud.isSignedIn;
+    return password != null && password.isNotEmpty && cloud.isSignedIn;
   }
 
   Future<bool> openMonthlyCheckout(
@@ -121,14 +121,14 @@ class FolioCloudConversionFlow {
     required AppLocalizations l10n,
     required String Function(String code) onAuthError,
   }) async {
-    if (folio.snapshot.active) return true;
+    if (folio.snapshot.isPaidPlan) return true;
     final signedIn = await signInIfNeeded(
       context,
       l10n: l10n,
       onAuthError: onAuthError,
     );
     if (!signedIn || !context.mounted) return false;
-    if (folio.snapshot.active) return true;
+    if (folio.snapshot.isPaidPlan) return true;
     return openMonthlyCheckout(context, l10n: l10n);
   }
 }

@@ -26,7 +26,7 @@ class VaultAiController extends ChangeNotifier {
     _threads = List<AiChatThreadData>.from(threads);
     if (_threads.isEmpty) {
       _threads = [
-        AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: const []),
+        AiChatThreadData(id: 'chat_0', title: 'Note 1', messages: const []),
       ];
     }
     _activeIndex = activeIndex.clamp(0, _threads.length - 1);
@@ -52,7 +52,7 @@ class VaultAiController extends ChangeNotifier {
     _threads = List<AiChatThreadData>.from(threads);
     if (_threads.isEmpty) {
       _threads = [
-        AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: const []),
+        AiChatThreadData(id: 'chat_0', title: 'Note 1', messages: const []),
       ];
     }
     _activeIndex = (activeIndex ?? _activeIndex).clamp(0, _threads.length - 1);

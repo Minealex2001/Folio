@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart'
@@ -12,6 +13,7 @@ import 'package:system_theme/system_theme.dart';
 import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
+import 'ui_tokens.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/quill_system_prompt.dart';
@@ -20,7 +22,17 @@ import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
 
-enum AiProvider { none, ollama, lmStudio, quillCloud, openAi, gemini }
+enum AiProvider {
+  none,
+  ollama,
+  lmStudio,
+  quillCloud,
+  openAi,
+  gemini,
+
+  /// Gemini Nano on-device (Android AICore / ML Kit GenAI). Solo móvil Android.
+  geminiNano,
+}
 
 /// Disposición de columnas en la pantalla de inicio del workspace.
 enum WorkspaceHomeColumnLayout { auto, single, dual }
@@ -95,11 +107,28 @@ WorkspaceHomeColumnLayout _parseWorkspaceHomeColumnLayout(String? raw) {
   }
 }
 
-/// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
+/// Ollama y LM Studio solo en escritorio; en web/Android/iOS Quill usa Folio Cloud
+/// (y BYOK OpenAI/Gemini si el usuario los configura).
 bool get aiLocalProvidersSupported {
-  if (kIsWeb) return true;
+  if (kIsWeb) return false;
   return defaultTargetPlatform != TargetPlatform.android &&
       defaultTargetPlatform != TargetPlatform.iOS;
+}
+
+/// Gemini Nano / Galaxy AI on-device (AICore) solo en Android.
+bool get aiOnDeviceProviderSupported {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.android;
+}
+
+/// El servidor MCP local (Fase 5) necesita un socket TCP real del SO
+/// (`dart:io.HttpServer`), así que a diferencia de [aiLocalProvidersSupported]
+/// no aplica a web ni a móvil — solo desktop.
+bool get mcpServerSupported {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
 }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
@@ -328,6 +357,45 @@ class VaultBackupPrefs {
       retentionCount: retentionCount ?? this.retentionCount,
     );
   }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'enabled': enabled,
+        'folderEnabled': folderEnabled,
+        'intervalMinutes': intervalMinutes,
+        'directory': directory,
+        'lastMs': lastMs,
+        'alsoCloud': alsoCloud,
+        'folderRequiresAuth': folderRequiresAuth,
+        'folderUsername': folderUsername,
+        'folderDomain': folderDomain,
+        'webdavEnabled': webdavEnabled,
+        'webdavBaseUrl': webdavBaseUrl,
+        'webdavRemotePath': webdavRemotePath,
+        'webdavUsername': webdavUsername,
+        'retentionCount': retentionCount,
+      };
+
+  factory VaultBackupPrefs.fromJson(Map? raw) {
+    if (raw == null) return VaultBackupPrefs.defaults;
+    return VaultBackupPrefs(
+      enabled: raw['enabled'] == true,
+      folderEnabled: raw['folderEnabled'] == true,
+      intervalMinutes: (raw['intervalMinutes'] as num?)?.toInt() ??
+          AppSettings.defaultScheduledVaultBackupIntervalMinutes,
+      directory: (raw['directory'] as String? ?? '').trim(),
+      lastMs: (raw['lastMs'] as num?)?.toInt() ?? 0,
+      alsoCloud: raw['alsoCloud'] == true,
+      folderRequiresAuth: raw['folderRequiresAuth'] == true,
+      folderUsername: (raw['folderUsername'] as String? ?? '').trim(),
+      folderDomain: (raw['folderDomain'] as String? ?? '').trim(),
+      webdavEnabled: raw['webdavEnabled'] == true,
+      webdavBaseUrl: (raw['webdavBaseUrl'] as String? ?? '').trim(),
+      webdavRemotePath:
+          (raw['webdavRemotePath'] as String? ?? '/folio-backups').trim(),
+      webdavUsername: (raw['webdavUsername'] as String? ?? '').trim(),
+      retentionCount: (raw['retentionCount'] as num?)?.toInt() ?? 10,
+    );
+  }
 }
 
 /// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar la libreta.
@@ -369,6 +437,9 @@ class AppSettings extends ChangeNotifier {
   static const _aiRemoteEndpointConfirmedKey =
       'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
+  static const _quillToolCallingEnabledKey = 'folio_quill_tool_calling_enabled';
+  static const _mcpServerEnabledKey = 'folio_mcp_server_enabled';
+  static const _mcpServerAuthTokenKey = 'folio_mcp_server_auth_token';
   static const _aiLaunchProviderWithAppKey =
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
@@ -402,6 +473,8 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_show_recent_pages';
   static const _workspaceSidebarRecentPagesCollapsedKey =
       'folio_workspace_sidebar_recent_pages_collapsed';
+  static const _workspaceSidebarSpotifyExpandedKey =
+      'folio_workspace_sidebar_spotify_expanded';
   static const _workspaceSidebarCollapsedPagesPrefix =
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
@@ -457,6 +530,15 @@ class AppSettings extends ChangeNotifier {
   static const _syncDeviceNameKey = 'folio_device_sync_device_name';
   static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
   static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
+  static const _cloudDeviceSyncEnabledKey = 'folio_cloud_device_sync_enabled';
+  static const _cloudAppProfileSyncEnabledKey =
+      'folio_cloud_app_profile_sync_enabled';
+  static const _cloudAppProfileAckUidKey =
+      'folio_cloud_app_profile_ack_uid';
+  static const _cloudAppProfileAckFpKey =
+      'folio_cloud_app_profile_ack_fp';
+  static const _cloudAppProfileAckUpdatedAtMsKey =
+      'folio_cloud_app_profile_ack_updated_at_ms';
   static const _recentSearchQueriesKey = 'folio_recent_search_queries_v1';
   static const _scheduledVaultBackupEnabledKey =
       'folio_scheduled_vault_backup_enabled';
@@ -566,12 +648,12 @@ class AppSettings extends ChangeNotifier {
   static const double minWorkspaceSidebarWidth = 300;
   static const double maxWorkspaceSidebarWidth = 480;
   static const double defaultWorkspaceSidebarWidth = 320;
-  static const double minAiChatPanelWidth = 280;
-  static const double maxAiChatPanelWidth = 720;
-  static const double defaultAiChatPanelWidth = 360;
-  static const double minAiChatPanelHeight = 320;
-  static const double maxAiChatPanelHeight = 1000;
-  static const double defaultAiChatPanelHeight = 520;
+  static const double minAiChatPanelWidth = QuillChatLayout.absoluteMinWidth;
+  static const double maxAiChatPanelWidth = QuillChatLayout.absoluteMaxWidth;
+  static const double defaultAiChatPanelWidth = 380;
+  static const double minAiChatPanelHeight = QuillChatLayout.absoluteMinHeight;
+  static const double maxAiChatPanelHeight = QuillChatLayout.absoluteMaxHeight;
+  static const double defaultAiChatPanelHeight = 560;
   static const String defaultUpdaterGithubOwner = 'Minealex2001';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
@@ -614,6 +696,19 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode _aiEndpointMode = AiEndpointMode.localhostOnly;
   bool _aiRemoteEndpointConfirmed = false;
   bool _aiAlwaysShowThought = false;
+  /// Flag de dogfood/rollout del bucle de tool-calling real de Quill
+  /// (`runToolLoop` + `FolioToolRegistry`), detrás del cual convive con el
+  /// camino JSON legado de `agentChatWithAi`. Default `true`: el camino
+  /// recomendado (alineado con MCP); se puede desactivar en Ajustes.
+  bool _quillToolCallingEnabled = true;
+  /// Fase 5: servidor MCP local (desktop-only) que expone el catálogo de
+  /// acciones de Quill a clientes MCP externos (Claude Desktop, Claude Code...).
+  /// Default `false`: opt-in explícito, nunca arranca un servidor local sin
+  /// que el usuario lo pida.
+  bool _mcpServerEnabled = false;
+  /// Token Bearer persistente del servidor MCP (mismo valor entre arranques
+  /// para que `mcp.json` de Cursor no haya que regenerarlo cada vez).
+  String _mcpServerAuthToken = '';
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
   String _aiApiKey = '';
@@ -635,7 +730,8 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
   bool _workspaceSidebarShowRecentPages = true;
-  bool _workspaceSidebarRecentPagesCollapsed = false;
+  bool _workspaceSidebarRecentPagesCollapsed = true;
+  bool _workspaceSidebarSpotifyExpanded = false;
   bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
@@ -680,6 +776,11 @@ class AppSettings extends ChangeNotifier {
   String _syncDeviceName = '';
   int _syncPendingConflicts = 0;
   int _syncLastSuccessMs = 0;
+  bool _cloudDeviceSyncEnabled = true;
+  bool _cloudAppProfileSyncEnabled = true;
+  String _cloudAppProfileAckUid = '';
+  String _cloudAppProfileAckFingerprint = '';
+  int _cloudAppProfileAckUpdatedAtMs = 0;
   List<String> _recentSearchQueries = const [];
   bool _scheduledVaultBackupEnabled = false;
   int _scheduledVaultBackupIntervalMinutes =
@@ -703,9 +804,20 @@ class AppSettings extends ChangeNotifier {
   bool get oledThemeEnabled => _oledThemeEnabled;
 
   /// Semilla de color para temas claro/oscuro (Material 3).
-  Color resolveAccentSeedColor() {
+  ///
+  /// [androidDynamicAccent] es el color de acento de Material You obtenido en
+  /// tiempo de ejecución (vía `dynamic_color`) en Android 12+. `system_theme`
+  /// solo puede leer el acento estático heredado en Android, no el color
+  /// dinámico basado en el fondo de pantalla, así que se prioriza este valor
+  /// cuando está disponible.
+  Color resolveAccentSeedColor({Color? androidDynamicAccent}) {
     switch (_accentColorMode) {
       case FolioAccentColorMode.followSystem:
+        if (!kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            androidDynamicAccent != null) {
+          return androidDynamicAccent;
+        }
         return SystemTheme.accentColor.accent;
       case FolioAccentColorMode.folioDefault:
         return const Color(0xFF455A64);
@@ -739,6 +851,9 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode get aiEndpointMode => _aiEndpointMode;
   bool get aiRemoteEndpointConfirmed => _aiRemoteEndpointConfirmed;
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
+  bool get quillToolCallingEnabled => _quillToolCallingEnabled;
+  bool get mcpServerEnabled => _mcpServerEnabled;
+  String get mcpServerAuthToken => _mcpServerAuthToken;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
   String get aiApiKey => _aiApiKey;
@@ -766,6 +881,7 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
   bool get workspaceSidebarShowRecentPages => _workspaceSidebarShowRecentPages;
   bool get workspaceSidebarRecentPagesCollapsed => _workspaceSidebarRecentPagesCollapsed;
+  bool get workspaceSidebarSpotifyExpanded => _workspaceSidebarSpotifyExpanded;
   bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
@@ -824,6 +940,13 @@ class AppSettings extends ChangeNotifier {
       _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
   int get syncPendingConflicts => _syncPendingConflicts;
   int get syncLastSuccessMs => _syncLastSuccessMs;
+  bool get cloudDeviceSyncEnabled => _cloudDeviceSyncEnabled;
+  bool get cloudAppProfileSyncEnabled => _cloudAppProfileSyncEnabled;
+
+  /// Último perfil de ajustes de la cuenta ya ofrecido/aceptado en este dispositivo.
+  String get cloudAppProfileAckUid => _cloudAppProfileAckUid;
+  String get cloudAppProfileAckFingerprint => _cloudAppProfileAckFingerprint;
+  int get cloudAppProfileAckUpdatedAtMs => _cloudAppProfileAckUpdatedAtMs;
   List<String> get recentSearchQueries =>
       List.unmodifiable(_recentSearchQueries);
   bool get scheduledVaultBackupEnabled => _scheduledVaultBackupEnabled;
@@ -877,6 +1000,10 @@ class AppSettings extends ChangeNotifier {
   }
 
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
+  Map<String, List<CustomIconEntry>> get integrationCustomIconsByApp =>
+      Map<String, List<CustomIconEntry>>.unmodifiable(
+        _integrationCustomIconsByApp,
+      );
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
     if (key.isEmpty) return const <CustomIconEntry>[];
@@ -885,6 +1012,44 @@ class AppSettings extends ChangeNotifier {
 
   List<IntegrationAppApproval> get approvedIntegrationAppApprovals =>
       _approvedIntegrationApps.values.toList(growable: false);
+
+  /// Expuesto para backup de perfil de cuenta (sin device-local).
+  bool get betaBannerDismissed => _betaBannerDismissed;
+
+  String exportInAppShortcutsJson() =>
+      serializeShortcutOverrides(_inAppShortcuts);
+
+  Future<void> applyInAppShortcutsJson(String json) async {
+    _inAppShortcuts = parseShortcutOverrides(json, defaultShortcutMap());
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_inAppShortcutsKey, serializeShortcutOverrides(_inAppShortcuts));
+  }
+
+  Future<void> replaceRecentSearchQueries(List<String> queries) async {
+    _recentSearchQueries = _sanitizeRecentSearchList(queries);
+    notifyListeners();
+    final p = await _prefs();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  /// Notifica a Folio Cloud settings sync que el perfil de app cambió.
+  VoidCallback? onAppProfileChanged;
+  void Function(String vaultId)? onVaultProfileChanged;
+
+  void notifyAppProfileChanged() {
+    try {
+      onAppProfileChanged?.call();
+    } catch (_) {}
+  }
+
+  void notifyVaultProfileChanged(String vaultId) {
+    final vid = vaultId.trim();
+    if (vid.isEmpty) return;
+    try {
+      onVaultProfileChanged?.call(vid);
+    } catch (_) {}
+  }
   Map<String, String> get approvedIntegrationApps {
     final mapped = <String, String>{};
     for (final entry in _approvedIntegrationApps.entries) {
@@ -952,9 +1117,11 @@ class AppSettings extends ChangeNotifier {
     }
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
-    if (!aiLocalProvidersSupported &&
-        (_aiProvider == AiProvider.ollama ||
-            _aiProvider == AiProvider.lmStudio)) {
+    if ((!aiLocalProvidersSupported &&
+            (_aiProvider == AiProvider.ollama ||
+                _aiProvider == AiProvider.lmStudio)) ||
+        (!aiOnDeviceProviderSupported &&
+            _aiProvider == AiProvider.geminiNano)) {
       _aiProvider = AiProvider.none;
       await p.setString(_aiProviderKey, _aiProvider.name);
       _aiBaseUrl = defaultUrlForProvider(_aiProvider);
@@ -972,6 +1139,9 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
+    _quillToolCallingEnabled = p.getBool(_quillToolCallingEnabledKey) ?? true;
+    _mcpServerEnabled = p.getBool(_mcpServerEnabledKey) ?? false;
+    _mcpServerAuthToken = p.getString(_mcpServerAuthTokenKey) ?? '';
     _aiLaunchProviderWithApp = p.getBool(_aiLaunchProviderWithAppKey) ?? false;
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
@@ -1060,7 +1230,9 @@ class AppSettings extends ChangeNotifier {
     _workspaceSidebarShowRecentPages =
         p.getBool(_workspaceSidebarShowRecentPagesKey) ?? true;
     _workspaceSidebarRecentPagesCollapsed =
-        p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? false;
+        p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? true;
+    _workspaceSidebarSpotifyExpanded =
+        p.getBool(_workspaceSidebarSpotifyExpandedKey) ?? false;
     _workspaceOpenToHome =
         p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
@@ -1134,6 +1306,15 @@ class AppSettings extends ChangeNotifier {
       999,
     );
     _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
+    _cloudDeviceSyncEnabled = p.getBool(_cloudDeviceSyncEnabledKey) ?? true;
+    _cloudAppProfileSyncEnabled =
+        p.getBool(_cloudAppProfileSyncEnabledKey) ?? true;
+    _cloudAppProfileAckUid =
+        (p.getString(_cloudAppProfileAckUidKey) ?? '').trim();
+    _cloudAppProfileAckFingerprint =
+        (p.getString(_cloudAppProfileAckFpKey) ?? '').trim();
+    _cloudAppProfileAckUpdatedAtMs =
+        p.getInt(_cloudAppProfileAckUpdatedAtMsKey) ?? 0;
     _recentSearchQueries = _sanitizeRecentSearchList(
       p.getStringList(_recentSearchQueriesKey),
     );
@@ -1291,6 +1472,10 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.gemini)) ??
               const <String>['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash'],
         ),
+        AiProvider.geminiNano: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.geminiNano)) ??
+              const <String>['gemini-nano'],
+        ),
       });
     notifyListeners();
   }
@@ -1333,6 +1518,8 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.openAi;
       case 'gemini':
         return AiProvider.gemini;
+      case 'geminiNano':
+        return AiProvider.geminiNano;
       default:
         return AiProvider.none;
     }
@@ -1472,6 +1659,7 @@ class AppSettings extends ChangeNotifier {
       case AiProvider.lmStudio:
         return defaultLmStudioUrl;
       case AiProvider.quillCloud:
+      case AiProvider.geminiNano:
         return '';
       case AiProvider.openAi:
         return 'https://api.openai.com';
@@ -1494,6 +1682,8 @@ class AppSettings extends ChangeNotifier {
         return 'gpt-4o-mini';
       case AiProvider.gemini:
         return 'gemini-1.5-flash';
+      case AiProvider.geminiNano:
+        return 'gemini-nano';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -1671,9 +1861,12 @@ class AppSettings extends ChangeNotifier {
         (value == AiProvider.ollama || value == AiProvider.lmStudio)) {
       return;
     }
+    if (!aiOnDeviceProviderSupported && value == AiProvider.geminiNano) {
+      return;
+    }
     if (_aiProvider == value) return;
     _aiProvider = value;
-    if (value == AiProvider.quillCloud) {
+    if (value == AiProvider.quillCloud || value == AiProvider.geminiNano) {
       _aiModel = defaultModelForProvider(value);
       notifyListeners();
       final p = await _prefs();
@@ -1821,6 +2014,54 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_aiAlwaysShowThoughtKey, value);
+  }
+
+  Future<void> setQuillToolCallingEnabled(bool value) async {
+    if (_quillToolCallingEnabled == value) return;
+    _quillToolCallingEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_quillToolCallingEnabledKey, value);
+  }
+
+  Future<void> setMcpServerEnabled(bool value) async {
+    if (_mcpServerEnabled == value) return;
+    _mcpServerEnabled = value;
+    if (value) {
+      // Genera el token antes del notify para que Ajustes pueda mostrarlo
+      // en el mismo frame (sin esperar al bind del socket).
+      await ensureMcpServerAuthToken(notify: false);
+    }
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_mcpServerEnabledKey, value);
+  }
+
+  /// Garantiza un token MCP persistente. Si aún no hay, genera uno y lo guarda.
+  /// [notify] = false evita reentrar en listeners (p. ej. al arrancar el servidor).
+  Future<String> ensureMcpServerAuthToken({bool notify = true}) async {
+    if (_mcpServerAuthToken.trim().isNotEmpty) return _mcpServerAuthToken;
+    final rnd = Random.secure();
+    final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
+    final token = base64Url.encode(bytes);
+    _mcpServerAuthToken = token;
+    if (notify) notifyListeners();
+    final p = await _prefs();
+    await p.setString(_mcpServerAuthTokenKey, token);
+    return token;
+  }
+
+  Future<void> setMcpServerAuthToken(String value) async {
+    final trimmed = value.trim();
+    if (_mcpServerAuthToken == trimmed) return;
+    _mcpServerAuthToken = trimmed;
+    notifyListeners();
+    final p = await _prefs();
+    if (trimmed.isEmpty) {
+      await p.remove(_mcpServerAuthTokenKey);
+    } else {
+      await p.setString(_mcpServerAuthTokenKey, trimmed);
+    }
   }
 
   Future<void> setAiLaunchProviderWithApp(bool value) async {
@@ -1986,6 +2227,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceSidebarRecentPagesCollapsedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarSpotifyExpanded(bool value) async {
+    if (_workspaceSidebarSpotifyExpanded == value) return;
+    _workspaceSidebarSpotifyExpanded = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarSpotifyExpandedKey, value);
   }
 
   Future<void> setAiChatPanelCollapsed(bool value) async {
@@ -2225,6 +2474,46 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_syncEnabledKey, value);
+  }
+
+  Future<void> setCloudDeviceSyncEnabled(bool value) async {
+    if (_cloudDeviceSyncEnabled == value) return;
+    _cloudDeviceSyncEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_cloudDeviceSyncEnabledKey, value);
+  }
+
+  Future<void> setCloudAppProfileSyncEnabled(bool value) async {
+    if (_cloudAppProfileSyncEnabled == value) return;
+    _cloudAppProfileSyncEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_cloudAppProfileSyncEnabledKey, value);
+  }
+
+  /// Marca el perfil remoto como ya visto (no volver a preguntar si no cambia).
+  Future<void> setCloudAppProfileAcknowledged({
+    required String uid,
+    required String fingerprint,
+    int updatedAtMs = 0,
+  }) async {
+    final safeUid = uid.trim();
+    final safeFp = fingerprint.trim();
+    final safeMs = updatedAtMs < 0 ? 0 : updatedAtMs;
+    if (safeUid.isEmpty || safeFp.isEmpty) return;
+    if (_cloudAppProfileAckUid == safeUid &&
+        _cloudAppProfileAckFingerprint == safeFp &&
+        _cloudAppProfileAckUpdatedAtMs == safeMs) {
+      return;
+    }
+    _cloudAppProfileAckUid = safeUid;
+    _cloudAppProfileAckFingerprint = safeFp;
+    _cloudAppProfileAckUpdatedAtMs = safeMs;
+    final p = await _prefs();
+    await p.setString(_cloudAppProfileAckUidKey, safeUid);
+    await p.setString(_cloudAppProfileAckFpKey, safeFp);
+    await p.setInt(_cloudAppProfileAckUpdatedAtMsKey, safeMs);
   }
 
   Future<void> setSyncRelayEnabled(bool value) async {
@@ -2915,6 +3204,7 @@ class AppSettings extends ChangeNotifier {
     final p = await _prefs();
     await _writeVaultBackupPrefs(p, vid, prefs);
     notifyListeners();
+    notifyVaultProfileChanged(vid);
   }
 
   Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {

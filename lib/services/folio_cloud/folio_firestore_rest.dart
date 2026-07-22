@@ -82,6 +82,65 @@ Future<Map<String, dynamic>?> folioFirestoreRestGetDocument(
   return null;
 }
 
+/// Lista documentos de una colección por REST (sin SDK nativo).
+///
+/// [collectionPath] p. ej. `users/{uid}/pendingIntegrationCommands`.
+/// Devuelve pares `(documentId, fields)` decodificados.
+Future<List<({String id, Map<String, dynamic> data})>>
+    folioFirestoreRestListDocuments(
+  String collectionPath, {
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  if (kIsWeb) return const [];
+  if (Firebase.apps.isEmpty) return const [];
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return const [];
+
+  final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
+  final uri = Uri.parse(
+    'https://firestore.googleapis.com/v1/projects/$projectId/databases/'
+    '(default)/documents/$collectionPath',
+  );
+
+  for (var attempt = 0; attempt < 2; attempt++) {
+    final idToken = await user.getIdToken(attempt > 0);
+    if (idToken == null || idToken.isEmpty) return const [];
+
+    final http.Response res;
+    try {
+      res = await http
+          .get(uri, headers: {'Authorization': 'Bearer $idToken'})
+          .timeout(timeout);
+    } on TimeoutException {
+      rethrow;
+    }
+
+    if (res.statusCode == 404) return const [];
+    if (res.statusCode == 401 && attempt == 0) continue;
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw FolioFirestoreRestException(res.statusCode, res.body);
+    }
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is! Map) return const [];
+    final docs = decoded['documents'];
+    if (docs is! List) return const [];
+
+    final out = <({String id, Map<String, dynamic> data})>[];
+    for (final doc in docs) {
+      if (doc is! Map) continue;
+      final name = doc['name']?.toString() ?? '';
+      final id = name.contains('/') ? name.split('/').last : name;
+      if (id.isEmpty) continue;
+      final fields = doc['fields'];
+      if (fields is! Map) continue;
+      out.add((id: id, data: _decodeFirestoreFields(fields)));
+    }
+    return out;
+  }
+  return const [];
+}
+
 /// Atajo para `users/{uid}` (derechos Folio Cloud, tinta, copias).
 Future<Map<String, dynamic>?> folioFirestoreRestGetUserDoc(String uid) {
   return folioFirestoreRestGetDocument('users/$uid');

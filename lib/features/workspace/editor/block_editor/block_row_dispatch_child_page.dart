@@ -76,7 +76,7 @@ Widget? _specialRowChildPage(_BlockRowScope s) {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      FilledButton.tonal(
+                      BlockButton.primaryIcon(
                         onPressed: () {
                           st._s.createChildPageLinkedToBlock(
                             pageId: page.id,
@@ -84,9 +84,10 @@ Widget? _specialRowChildPage(_BlockRowScope s) {
                           );
                           st._blockRowSetState(() {});
                         },
-                        child: Text(l10n.blockActionCreateSubpage),
+                        icon: Icons.add_rounded,
+                        label: l10n.blockActionCreateSubpage,
                       ),
-                      OutlinedButton(
+                      BlockButton.secondaryIcon(
                         onPressed: () async {
                           final picked = await st._pickPageForChildBlock(
                             context,
@@ -97,7 +98,8 @@ Widget? _specialRowChildPage(_BlockRowScope s) {
                             st._blockRowSetState(() {});
                           }
                         },
-                        child: Text(l10n.blockActionLinkPage),
+                        icon: Icons.link_rounded,
+                        label: l10n.blockActionLinkPage,
                       ),
                     ],
                   ),

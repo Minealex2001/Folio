@@ -21,7 +21,6 @@ Widget? _specialRowBookmark(_BlockRowScope s) {
   final readOnlyMode = s.readOnlyMode;
   final url = (block.url ?? '').trim();
   final host = Uri.tryParse(url)?.host ?? '';
-  final wf = st._imageWidthFor(block);
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
     child: Row(
@@ -31,130 +30,103 @@ Widget? _specialRowBookmark(_BlockRowScope s) {
         dragHandle,
         marker,
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final maxW = constraints.maxWidth;
-              final targetW = (maxW * wf).clamp(120.0, maxW);
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                  width: targetW,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(
+                  alpha: 0.5,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (host.isNotEmpty)
+                  Text(
+                    host,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                if (host.isNotEmpty) const SizedBox(height: 6),
+                TextField(
+                  controller: ctrl,
+                  focusNode: focus,
+                  readOnly: readOnlyMode,
+                  showCursor: !readOnlyMode,
+                  maxLines: null,
+                  minLines: 1,
+                  style: theme.textTheme.titleSmall,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: AppLocalizations.of(
+                      context,
+                    ).bookmarkTitleHint,
+                  ),
+                ),
+                if (url.isEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    AppLocalizations.of(context).bookmarkBlockHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    url,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      if (showActions)
-                        st._blockMediaWidthToolbar(page, block, theme),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest.withValues(
-                            alpha: 0.35,
+                      MetaData(
+                        metaData: folioInteractiveMetaDataTag,
+                        behavior: HitTestBehavior.translucent,
+                        child: BlockButton.primaryIcon(
+                          onPressed: () => unawaited(
+                            st._openBlockUrlExternal(block.url),
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: scheme.outlineVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
+                          icon: Icons.open_in_new_rounded,
+                          label: AppLocalizations.of(
+                            context,
+                          ).bookmarkOpenLink,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (host.isNotEmpty)
-                              Text(
-                                host,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            if (host.isNotEmpty) const SizedBox(height: 6),
-                            TextField(
-                              controller: ctrl,
-                              focusNode: focus,
-                              readOnly: readOnlyMode,
-                              showCursor: !readOnlyMode,
-                              maxLines: null,
-                              minLines: 1,
-                              style: theme.textTheme.titleSmall,
-                              decoration: InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                ).bookmarkTitleHint,
-                              ),
+                      ),
+                      MetaData(
+                        metaData: folioInteractiveMetaDataTag,
+                        behavior: HitTestBehavior.translucent,
+                        child: BlockButton.secondary(
+                          onPressed: () => unawaited(
+                            st._editBookmarkUrlDialog(
+                              page.id,
+                              block.id,
+                              index,
                             ),
-                            if (url.isEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).bookmarkBlockHint,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ] else ...[
-                              const SizedBox(height: 8),
-                              SelectableText(
-                                url,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: scheme.primary,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  MetaData(
-                                    metaData: folioInteractiveMetaDataTag,
-                                    behavior: HitTestBehavior.translucent,
-                                    child: FilledButton.tonalIcon(
-                                      onPressed: () => unawaited(
-                                        st._openBlockUrlExternal(block.url),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.open_in_new_rounded,
-                                        size: 18,
-                                      ),
-                                      label: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).bookmarkOpenLink,
-                                      ),
-                                    ),
-                                  ),
-                                  MetaData(
-                                    metaData: folioInteractiveMetaDataTag,
-                                    behavior: HitTestBehavior.translucent,
-                                    child: OutlinedButton(
-                                      onPressed: () => unawaited(
-                                        st._editBookmarkUrlDialog(
-                                          page.id,
-                                          block.id,
-                                          index,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        ).bookmarkSetUrl,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
+                          ),
+                          child: Text(
+                            AppLocalizations.of(
+                              context,
+                            ).bookmarkSetUrl,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              );
-            },
+                ],
+              ],
+            ),
           ),
         ),
       ],

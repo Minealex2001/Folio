@@ -52,6 +52,7 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
   return VaultPayload(
     version: kVaultPayloadVersion,
     pages: pages,
+    displayName: raw.displayName,
     pageOrderByParent: pageOrder,
     pageRevisions: pageRevisions,
     pageAcl: pageAcl,
@@ -62,6 +63,17 @@ VaultPayload migrateVaultPayload(VaultPayload raw) {
     pageTemplates: pageTemplates,
     jira: jira,
     youtrack: youtrack,
+    trello: raw.trello,
+    github: raw.github,
+    gitlab: raw.gitlab,
+    slack: raw.slack,
+    teams: raw.teams,
+    spotify: raw.spotify,
+    discord: raw.discord,
+    systemMedia: raw.systemMedia,
+    pageTombstones: raw.pageTombstones,
+    syncClock: raw.syncClock,
+    mcpReadablePageIds: raw.mcpReadablePageIds,
   );
 }
 

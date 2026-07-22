@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/web_desktop_only_notice.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/backup_destinations/local_folder_destination.dart';
@@ -267,7 +269,13 @@ class _RemoteBackupConfigDialogState extends State<RemoteBackupConfigDialog>
               child: TabBarView(
                 controller: _tabs,
                 children: [
-                  _folderTab(l10n, scheme),
+                  if (kIsWeb)
+                    WebDesktopOnlyNotice(
+                      icon: Icons.folder_outlined,
+                      title: l10n.remoteBackupTabFolder,
+                    )
+                  else
+                    _folderTab(l10n, scheme),
                   _webdavTab(l10n, scheme),
                 ],
               ),

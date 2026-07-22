@@ -442,6 +442,8 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
         );
       } catch (_) {}
       String? restoreWrapPassword;
+      // El envoltorio de recuperación se toma de vault.keys (cifrada) o se
+      // genera vacío (en claro); no hace falta pedir contraseña al subir.
       try {
         final raw = await callFolioHttpsCallable(
           'folioGetLatestCloudPackMeta',
@@ -450,25 +452,22 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
         final latest = raw is Map ? raw['latest'] : null;
         final hasRestoreWrap =
             latest is Map && latest['hasRestoreWrap'] == true;
-        if (!hasRestoreWrap && mounted) {
+        // Solo en libreta en claro sin wrap: opcional contraseña de recuperación.
+        if (!hasRestoreWrap &&
+            !_s.vaultUsesEncryption &&
+            mounted) {
           final l10nDlg = AppLocalizations.of(context);
-          final encrypted = _s.vaultUsesEncryption;
           final pwd = await showDialog<String?>(
             context: context,
-            barrierDismissible: false,
+            barrierDismissible: true,
             builder: (ctx) => _CloudPackWrapPasswordDialog(
               l10n: l10nDlg,
-              encrypted: encrypted,
+              encrypted: false,
             ),
           );
-          if (pwd == null) return false;
-          if (encrypted && pwd.isEmpty) {
-            if (mounted) {
-              _snack(l10n.settingsCloudBackupWrapPasswordRequired);
-            }
-            return false;
+          if (pwd != null && pwd.trim().isNotEmpty) {
+            restoreWrapPassword = pwd.trim();
           }
-          restoreWrapPassword = pwd.isEmpty ? null : pwd;
         }
       } catch (_) {
         // Si falla el meta, uploadOpenVaultCloudPack volverá a comprobar.
@@ -722,5 +721,78 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     final m = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');
     return 'folio-libreta-$y-$m-$day.folio.zip';
+  }
+
+  Future<void> _uploadAppProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final ok = await ctrl.pushAppProfileNow(notifyUser: true);
+    if (!mounted) return;
+    if (ok) {
+      _snack(l10n.folioCloudAppProfilePushOk);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
+  }
+
+  Future<void> _restoreAppProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final ok = await ctrl.restoreAppProfileFromCloud();
+    if (!mounted) return;
+    if (ok) {
+      _snack(l10n.folioCloudAppProfileRestoreOk);
+    } else if (ctrl.lastError == 'empty_cloud_profile') {
+      _snack(l10n.folioCloudAppProfileEmptyCloud);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
+  }
+
+  Future<void> _restoreVaultProfileFromSettings() async {
+    final ctrl = widget.cloudSettingsSyncController;
+    final l10n = AppLocalizations.of(context);
+    if (ctrl == null) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin controlador)');
+      return;
+    }
+    final vaultId = _s.activeVaultId ?? VaultPaths.activeVaultId ?? '';
+    if (vaultId.isEmpty) {
+      _snack('${l10n.folioCloudAppProfileRestoreFail} (sin vaultId)');
+      return;
+    }
+    final ok = await ctrl.restoreVaultProfileFromCloud(vaultId);
+    if (!mounted) return;
+    if (ok) {
+      await _loadVaultBackupPrefs();
+      _snack(l10n.folioCloudAppProfileRestoreOk);
+    } else if (ctrl.lastError == 'empty_cloud_vault_profile') {
+      _snack(l10n.folioCloudAppProfileEmptyCloud);
+    } else {
+      final detail = ctrl.lastError;
+      _snack(
+        detail == null || detail.isEmpty
+            ? l10n.folioCloudAppProfileRestoreFail
+            : '${l10n.folioCloudAppProfileRestoreFail}\n$detail',
+      );
+    }
   }
 }

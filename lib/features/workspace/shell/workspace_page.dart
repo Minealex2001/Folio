@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -28,6 +29,7 @@ import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
 import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
+import '../../../desktop/desktop_window_fullscreen.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
@@ -35,25 +37,35 @@ import '../../../models/folio_columns_data.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
+import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
+import '../../../services/ai/on_device_ai_bridge.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
+import '../../../services/media/media_playback_router.dart';
+import '../../../services/spotify/spotify_playback_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/folio_cloud/folio_cloud_device_sync.dart';
+import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
+import '../../sync/cloud_device_sync_status_button.dart';
+import '../../sync/sync_conflict_merge_sheet.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
 import '../../../services/device_sync/device_sync_controller.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
+import '../widgets/spotify_now_playing_bar.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
 import 'ai_chat_reply_skeleton.dart';
+import 'ai_tool_activity_indicator.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/block_editor_support_widgets.dart';
@@ -65,10 +77,9 @@ import '../history/page_outline_panel.dart';
 import '../history/backlinks_panel.dart';
 import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
-import 'save_status_chip.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
-import '../tasks/task_quick_add_dialog.dart';
+import '../tasks/task_details_panel.dart';
 import '../tasks/vault_task_hub_page.dart';
 import '../templates/template_gallery_page.dart';
 import '../drive/drive_page.dart';
@@ -92,6 +103,8 @@ class WorkspacePage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    this.cloudSettingsSyncController,
+    this.cloudDeviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -101,6 +114,8 @@ class WorkspacePage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final FolioCloudSettingsSyncController? cloudSettingsSyncController;
+  final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -150,12 +165,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
   OverlayEntry? _aiContextMenuOverlay;
   String _aiContextQuery = '';
   bool _aiContextMenuPinned = false;
+  final TextEditingController _aiContextMenuSearchController =
+      TextEditingController();
   _AiContextMenuView _aiContextMenuView = _AiContextMenuView.root;
   List<String> _aiAttachmentPaths = [];
   final Map<String, _MeetingNoteAiPayload> _aiMeetingPayloads = {};
   final Map<String, String> _aiMeetingTranscripts = {};
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
+  String? _aiToolActivityLabel;
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
   double _aiPanelWidth = 360;
@@ -166,6 +184,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _collabSheetOpen = false;
   int _collabUnreadCount = 0;
   bool _zenMode = false;
+  /// Pantalla completa OS desacoplada del modo zen (solo escritorio).
+  bool _zenOsFullscreen = false;
+  final Set<String> _dismissedSyncRemoteBanners = {};
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
@@ -241,17 +262,58 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(fn);
   }
 
+  bool get _supportsOsFullscreen =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  void _toggleZenMode() {
+    final entering = !_zenMode;
+    setState(() {
+      _zenMode = entering;
+      if (_zenMode) {
+        _sidebarPeek = false;
+        if (_supportsOsFullscreen) _zenOsFullscreen = true;
+      } else {
+        _zenOsFullscreen = false;
+      }
+    });
+    if (_supportsOsFullscreen) {
+      unawaited(
+        DesktopWindowFullscreen.instance.setFullScreen(entering),
+      );
+    }
+    final playback = SpotifyPlaybackController.instance;
+    final conn = _s.spotifyConnections.isNotEmpty ? _s.spotifyConnections.first : null;
+    if (entering) {
+      if (conn != null && conn.zenAutoPlay && (conn.focusPlaylistUri?.isNotEmpty ?? false)) {
+        unawaited(playback.startFocusPlaylist());
+      }
+    } else {
+      if (conn != null && conn.zenPauseOnExit) {
+        unawaited(playback.pause());
+      }
+      unawaited(MediaPlaybackRouter.instance.pauseSystemIfZenExit());
+    }
+  }
+
+  void _toggleZenOsFullscreen() {
+    if (!_zenMode || !_supportsOsFullscreen) return;
+    final next = !_zenOsFullscreen;
+    setState(() => _zenOsFullscreen = next);
+    unawaited(DesktopWindowFullscreen.instance.setFullScreen(next));
+  }
+
+  void _onOsFullscreenChanged(bool fullScreen) {
+    if (!mounted || !_zenMode) return;
+    if (_zenOsFullscreen == fullScreen) return;
+    setState(() => _zenOsFullscreen = fullScreen);
+  }
+
   void _applyAiChatPanelCollapsed(bool collapsed) {
     if (!mounted) return;
     if (_aiPanelCollapsed != collapsed) {
       setState(() => _aiPanelCollapsed = collapsed);
     }
     unawaited(widget.appSettings.setAiChatPanelCollapsed(collapsed));
-  }
-
-  String _t(String es, String en) {
-    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
-    return lang.startsWith('es') ? es : en;
   }
 
   int _inkCostForOperationKind(String kind) {
@@ -584,8 +646,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
             children: [
               if (!isUser)
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   margin: const EdgeInsets.only(right: 12, top: 4),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -597,7 +659,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    FolioIcons.quill,
                     size: 16,
                     color: scheme.onSecondaryContainer,
                   ),
@@ -736,6 +798,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             );
                           },
                         ),
+                        if (!isUser &&
+                            message.toolErrors != null &&
+                            message.toolErrors!.isNotEmpty)
+                          ...message.toolErrors!.map(
+                            (err) => AiToolErrorChip(message: err, colorScheme: scheme),
+                          ),
                         if (!isUser) ...[
                           const SizedBox(height: 12),
                           Row(
@@ -1009,6 +1077,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.addListener(_onSession);
     widget.appSettings.addListener(_onAppSettings);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
+    if (_supportsOsFullscreen) {
+      DesktopWindowFullscreen.instance.addListener(_onOsFullscreenChanged);
+    }
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
@@ -1030,6 +1101,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _hideAiContextMenu();
     _draftSaveTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
+    if (_supportsOsFullscreen) {
+      DesktopWindowFullscreen.instance.removeListener(_onOsFullscreenChanged);
+      if (_zenOsFullscreen) {
+        unawaited(DesktopWindowFullscreen.instance.setFullScreen(false));
+      }
+    }
     widget.appSettings.removeListener(_onAppSettings);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
@@ -1042,6 +1119,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputFocusNode.dispose();
     _aiThreadSearchController.dispose();
     _aiChatScrollController.dispose();
+    _aiContextMenuSearchController.dispose();
     super.dispose();
   }
 
@@ -1301,10 +1379,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       (
         activator: const SingleActivator(LogicalKeyboardKey.f11),
         action: () {
-          setState(() {
-            _zenMode = !_zenMode;
-            if (_zenMode) _sidebarPeek = false;
-          });
+          _toggleZenMode();
         },
       ),
     ];
@@ -1486,7 +1561,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     borderRadius: BorderRadius.circular(FolioRadius.lg),
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    FolioIcons.quill,
                     color: scheme.onPrimaryContainer,
                   ),
                 ),
@@ -1593,6 +1668,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           deviceSyncController: widget.deviceSyncController,
+          cloudSettingsSyncController: widget.cloudSettingsSyncController,
+          cloudDeviceSyncController: widget.cloudDeviceSyncController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
           initialSection: initialSection,
@@ -1607,6 +1684,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         settings: const RouteSettings(name: 'graph_view'),
         builder: (_) => GraphViewScreen(
           session: _s,
+          appSettings: widget.appSettings,
           onOpenPage: _s.selectPage,
         ),
       ),
@@ -1743,6 +1821,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  Future<void> _openSyncConflicts({String? filterPageId}) {
+    return showSyncConflictMergeSheet(
+      context: context,
+      session: _s,
+      filterPageId: filterPageId,
+      onOpenPage: (pageId) => _s.selectPage(pageId),
+    );
+  }
+
   List<String> _buildPagePathSegments(FolioPage? page) {
     if (page == null) return const <String>[];
     final byId = <String, FolioPage>{for (final p in _s.pages) p.id: p};
@@ -1838,8 +1925,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     try {
       widget.deviceSyncController.refreshSettingsSnapshot();
       widget.deviceSyncController.onLocalSnapshotPersisted();
+      unawaited(widget.cloudDeviceSyncController?.syncNow());
       if (mounted) {
-        _snack('Sincronización forzada iniciada.');
+        final l10n = AppLocalizations.of(context);
+        _snack(l10n.folioCloudDeviceSyncNowOk);
       }
     } catch (e) {
       if (mounted) {
@@ -1854,15 +1943,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
         .toList();
     if (kanbanPages.isEmpty) return;
 
-    if (kanbanPages.length == 1) {
-      final pid = kanbanPages.single.id;
-      await showTaskQuickAddDialog(
+    Future<void> createOnPage(String pageId) async {
+      final page = _s.pages.where((p) => p.id == pageId).firstOrNull;
+      if (page == null) return;
+      final kanbanBlock = page.blocks.where((b) => b.type == 'kanban').firstOrNull;
+      await createTaskDraftAndOpenDetails(
         context: context,
         session: _s,
-        appSettings: widget.appSettings,
-        targetPageId: pid,
-        kanbanColumns: _s.kanbanDataForPage(pid).columns,
+        pageId: pageId,
+        afterBlockId: kanbanBlock?.id,
+        selectPage: true,
       );
+    }
+
+    if (kanbanPages.length == 1) {
+      await createOnPage(kanbanPages.single.id);
     } else {
       final l10n = AppLocalizations.of(context);
       final selected = await showModalBottomSheet<String>(
@@ -1943,13 +2038,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         },
       );
       if (selected != null && mounted) {
-        await showTaskQuickAddDialog(
-          context: context,
-          session: _s,
-          appSettings: widget.appSettings,
-          targetPageId: selected,
-          kanbanColumns: _s.kanbanDataForPage(selected).columns,
-        );
+        await createOnPage(selected);
       }
     }
     if (mounted) setState(() {});
@@ -2136,8 +2225,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   ? l10n.hideComments
                   : l10n.showComments,
               icon: widget.appSettings.workspaceCommentsVisible
-                  ? Icons.chat_bubble_rounded
-                  : Icons.chat_bubble_outline_rounded,
+                  ? FolioIcons.quill
+                  : FolioIcons.quillOutlined,
               onPressed: () async {
                 await widget.appSettings.setWorkspaceCommentsVisible(
                   !widget.appSettings.workspaceCommentsVisible,
@@ -2181,15 +2270,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
           _WorkspaceActionEntry(
             id: 'zen_mode',
             label: _zenMode ? l10n.zenModeExit : l10n.zenModeEnter,
-            icon: _zenMode
-                ? Icons.fullscreen_exit_rounded
-                : Icons.self_improvement_rounded,
-            onPressed: () {
-              setState(() {
-                _zenMode = !_zenMode;
-                if (_zenMode) _sidebarPeek = false;
-              });
-            },
+            icon: Icons.self_improvement_rounded,
+            onPressed: _toggleZenMode,
             forcePrimary: true,
           ),
           _WorkspaceActionEntry(
@@ -2358,9 +2440,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ];
 
         widgets.add(
-          ListenableBuilder(
-            listenable: _s.persistence,
-            builder: (context, _) => SaveStatusChip(status: _s.saveStatus),
+          CloudDeviceSyncStatusButton(
+            saveStatus: _s.saveStatus,
+            saveListenable: _s.persistence,
+            controller: widget.cloudDeviceSyncController,
+            pendingConflicts: widget.appSettings.syncPendingConflicts,
+            onOpenConflicts: () => unawaited(_openSyncConflicts()),
+            onOpenVault: (entry) async {
+              try {
+                await _s.switchVault(entry.id);
+              } catch (e) {
+                if (mounted) {
+                  _snack('$e', error: true);
+                }
+              }
+            },
           ),
         );
         return widgets;
@@ -2541,7 +2635,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
-      editorMaxWidth: _zenMode ? 740.0 : widget.appSettings.editorContentWidth,
+      editorMaxWidth: showKanbanBoard || showDrivePage || showCanvasPage
+          ? double.infinity
+          : (_zenMode ? 740.0 : widget.appSettings.editorContentWidth),
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
           _s.updatePageTitleLive(page.id, value);
@@ -2550,6 +2646,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
       onOpenSettings: _openSettings,
+      onOpenSyncConflicts: () => unawaited(_openSyncConflicts()),
       onOpenGraph: _openGraphView,
       onOpenTemplateGallery: _openTemplateGalleryFromHome,
       onLockVault: () => unawaited(_s.lock()),
@@ -2644,55 +2741,121 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ],
       );
     }
-    final editorContent = editorWithPanels;
+    var editorContent = editorWithPanels;
+    if (page != null && !_dismissedSyncRemoteBanners.contains(page.id)) {
+      final remoteRevCount = _s
+          .revisionsForPage(page.id)
+          .where((r) => r.revisionId.startsWith('sync_remote_'))
+          .length;
+      final pageConflicts = _s.syncConflicts
+          .where((c) => c.pageId == page.id)
+          .length;
+      if (remoteRevCount > 0 || pageConflicts > 0) {
+        editorContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SyncRemoteRevisionBanner(
+              remoteRevisionCount: remoteRevCount,
+              pageConflictCount: pageConflicts,
+              onOpenHistory: _openPageHistoryScreen,
+              onReviewConflicts: pageConflicts > 0
+                  ? () => unawaited(_openSyncConflicts(filterPageId: page.id))
+                  : null,
+              onDismiss: () {
+                setState(() => _dismissedSyncRemoteBanners.add(page.id));
+              },
+            ),
+            Expanded(child: editorWithPanels),
+          ],
+        );
+      }
+    }
     final useSplitAi =
         useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
-    final Widget shellEditorBody;
+    Widget shellEditorBody;
     if (_zenMode) {
+      Widget zenChromeButton({
+        required String tooltip,
+        required IconData icon,
+        required VoidCallback onPressed,
+      }) {
+        return Material(
+          color: scheme.surface.withValues(alpha: 0.72),
+          elevation: 1,
+          shadowColor: scheme.shadow.withValues(alpha: 0.2),
+          shape: const CircleBorder(),
+          child: IconButton(
+            tooltip: tooltip,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(icon, size: 18),
+            onPressed: onPressed,
+          ),
+        );
+      }
+
       shellEditorBody = Stack(
         children: [
           editorContent,
+          // Controles zen: fullscreen OS (desktop) + salir del modo zen.
           Positioned(
-            top: 8,
+            top: 10,
             right: 12,
             child: SafeArea(
-              child: AnimatedOpacity(
-                opacity: 0.85,
-                duration: const Duration(milliseconds: 200),
-                child: FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_supportsOsFullscreen) ...[
+                    zenChromeButton(
+                      tooltip: _zenOsFullscreen
+                          ? l10n.zenFullscreenExit
+                          : l10n.zenFullscreenEnter,
+                      icon: _zenOsFullscreen
+                          ? Icons.fullscreen_exit_rounded
+                          : Icons.fullscreen_rounded,
+                      onPressed: _toggleZenOsFullscreen,
                     ),
+                    const SizedBox(width: 8),
+                  ],
+                  zenChromeButton(
+                    tooltip: l10n.zenModeExit,
+                    icon: Icons.self_improvement_rounded,
+                    onPressed: _toggleZenMode,
                   ),
-                  onPressed: () => setState(() => _zenMode = false),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.fullscreen_exit_rounded, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        l10n.zenModeExit,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ),
           ),
+          // Spotify: pastilla flotante pequeña, no barra a ancho completo.
+          if (_s.spotifyConnections.isNotEmpty)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: SafeArea(
+                child: SpotifyNowPlayingBar(
+                  session: _s,
+                  density: SpotifyBarDensity.zen,
+                  opacity: 0.92,
+                ),
+              ),
+            ),
         ],
       );
     } else if (useSplitAi) {
+      final splitMode = QuillChatLayout.resolve(
+        viewportWidth: width,
+        splitView: true,
+      );
+      final splitWidth = _aiPanelWidth.clamp(
+        QuillChatLayout.minWidth(splitMode),
+        QuillChatLayout.maxWidth(width, splitMode),
+      );
       shellEditorBody = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(flex: 3, child: editorContent),
           const VerticalDivider(width: 1),
           SizedBox(
-            width: _aiPanelWidth.clamp(280.0, 520.0),
+            width: splitWidth,
             child: Material(
               color: scheme.surfaceContainerLow,
               child: _aiPanelCollapsed
@@ -2705,6 +2868,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } else {
       shellEditorBody = editorContent;
     }
+    final aiDockMode = QuillChatLayout.resolve(
+      viewportWidth: width,
+      splitView: false,
+    );
+    final aiDockBodyH = (height - (compact ? 60.0 : 64.0)).clamp(120.0, height);
+    final aiDockDisplayH = _aiPanelCollapsed
+        ? 56.0
+        : QuillChatLayout.clampDockHeight(
+            desired: _aiPanelHeight,
+            availableBodyHeight: aiDockBodyH,
+            mode: aiDockMode,
+          );
+
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2773,13 +2949,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     : _buildAiPanel(context))
               : null,
           aiFloatingWidth: _aiPanelCollapsed ? 56 : _aiPanelWidth,
-          aiFloatingHeight: _aiPanelCollapsed ? 56 : _aiPanelHeight,
+          aiFloatingHeight: aiDockDisplayH,
           aiFloatingShowResizeHandles: useDesktopAiDock && !_aiPanelCollapsed,
           onResizeAiPanelWidth: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
-                  final maxW = (width * 0.5).clamp(300.0, 720.0);
+                  final mode = QuillChatLayout.resolve(
+                    viewportWidth: width,
+                    splitView: false,
+                  );
+                  final maxW = QuillChatLayout.maxWidth(width, mode);
+                  final minW = QuillChatLayout.minWidth(mode);
                   setState(() {
-                    _aiPanelWidth = (_aiPanelWidth - d).clamp(280.0, maxW);
+                    _aiPanelWidth = (_aiPanelWidth - d).clamp(minW, maxW);
                   });
                   unawaited(
                     widget.appSettings.setAiChatPanelWidth(_aiPanelWidth),
@@ -2788,11 +2969,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
               : null,
           onResizeAiPanelHeight: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
+                  final mode = QuillChatLayout.resolve(
+                    viewportWidth: width,
+                    splitView: false,
+                  );
+                  // Altura del body ≈ ventana − AppBar (el dock vive bajo el toolbar).
+                  final appBarH = compact ? 60.0 : 64.0;
+                  final bodyH = (height - appBarH).clamp(120.0, height);
+                  final maxH = QuillChatLayout.maxDockHeightForBody(bodyH);
+                  final modeMax = QuillChatLayout.maxHeight(bodyH, mode);
+                  final cap = modeMax < maxH ? modeMax : maxH;
+                  final minH = QuillChatLayout.minHeight(mode) <= cap
+                      ? QuillChatLayout.minHeight(mode)
+                      : 56.0;
                   setState(() {
-                    _aiPanelHeight = (_aiPanelHeight + d).clamp(
-                      320.0,
-                      height * 0.85,
-                    );
+                    _aiPanelHeight = (_aiPanelHeight + d).clamp(minH, cap);
                   });
                   unawaited(
                     widget.appSettings.setAiChatPanelHeight(_aiPanelHeight),

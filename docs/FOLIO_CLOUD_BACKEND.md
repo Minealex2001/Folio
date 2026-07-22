@@ -19,6 +19,8 @@ Como refuerzo para escritorio, también existe `folioCloudAiCompleteHttp` (HTTP 
 
 Stripe y la Tienda pueden convivir: el estado **por canal** vive en `users/{uid}.billing.stripe` y `users/{uid}.billing.microsoftStore`; la vista efectiva que leen las reglas (`folioCloud`, `ink`, índice) la calcula **`recomputeEffectiveFolioCloud`** tras webhooks Stripe o la callable **`validateMicrosoftStoreEntitlements`**.
 
+Sin suscripción de pago, `recomputeEffectiveFolioCloud` otorga el **plan free**: `folioCloud.plan = "free"`, `active = true`, `features.backup = true` (resto false), `folioBackup.quotaBytes = 500 MiB`, `ink.monthlyBalance = 0`. Con suscripción: `plan = "cloud"`, cuota base 5 GiB (15 GiB estudiante) + extras, refill de tinta mensual como antes.
+
 ### Partner Center y Azure AD
 
 1. Crea en Partner Center la **suscripción mensual** y los **consumibles** de tinta (mismos importes lógicos que en Stripe).
@@ -65,6 +67,33 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 - **`users/{uid}/backups/**`** y **`users/{uid}/vaults/{vaultId}/backups/**` / **`cloud-packs/**`**: escritura solo si `folioCloud.active` y `folioCloud.features.backup` (reglas en [`storage.rules`](../storage.rules)). En **Windows/Linux** el cliente no puede listar con `listAll()` (SDK C++ devuelve vacío); la app usa la callable **`folioListVaultBackups`**, que lista con Admin SDK (misma condición de plan en servidor). Para borrar el cloud-pack incremental: **`folioDeleteVaultCloudPack`**. Para borrar un archivo legacy: **`folioDeleteVaultLegacyBackup`**. Si la libreta se queda sin copias, ambas purgan Storage + índice + meta (`vaultRemoved: true`).
 - **`published/{uid}/**`**: lectura pública; escritura solo con `features.publishWeb`. El índice Firestore `publishedPages` exige lo mismo (solo cliente con plan; el HTML sigue en Storage).
 
+### Storage CORS (web / Vercel)
+
+En el navegador, `getData` / download URLs / subidas del SDK hacen `fetch` cross-origin a `firebasestorage.googleapis.com`. Sin CORS en el bucket, el browser bloquea aunque la respuesta sea 200 (típico: `[settings_sync] restore FAILED`).
+
+Configuración en repo: [`storage-cors.json`](../storage-cors.json). Orígenes canónicos:
+
+- `https://foliobeta.minealexgames.com` (beta)
+- `https://folio.minealexgames.com` (producción)
+- `http://localhost` / `http://127.0.0.1` (sin puerto)
+- `*` — necesario para Flutter web local (`http://localhost:<puerto>` cambia en cada `flutter run`; GCS exige coincidencia exacta del `Origin`)
+
+La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); CORS no sustituye las reglas. `*` solo evita el bloqueo del browser.
+
+Aplicar o actualizar (PowerShell, proyecto `folio-minealexgames`):
+
+```powershell
+gcloud config set project folio-minealexgames
+gcloud storage buckets update gs://folio-minealexgames.firebasestorage.app --cors-file=storage-cors.json
+gcloud storage buckets describe gs://folio-minealexgames.firebasestorage.app --format="default(cors_config)"
+```
+
+La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); CORS solo habilita el origen del browser. Los previews `*.vercel.app` **no** están en la allowlist: usar los dominios MineAlex.
+
+**Auth:** en Firebase Console → Authentication → Settings → Authorized domains deben figurar `foliobeta.minealexgames.com` y `folio.minealexgames.com` (además de `localhost` y `*.firebaseapp.com` / `*.web.app`).
+
+**Vercel Deployment Protection:** si beta/prod redirigen a login de Vercel (`vercel.com/sso-api`), el PWA/`manifest.json` y el acceso público fallan. Desactivar protección en Production (o limitar a Previews) en el dashboard del proyecto Vercel; no se arregla con CORS del bucket.
+
 ## Flujos en la app (cliente)
 
 - **Suscripción mensual Folio Cloud** (Stripe → webhook → `users/{uid}.folioCloud`): activa las tres capacidades que el backend expone como `features`: `backup`, `cloudAi`, `publishWeb` (ver `folioCloudFeaturesFromPriceId` en Functions).
@@ -72,6 +101,13 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 - **Copia programada local**: si el usuario activa “Subir también a Folio Cloud” y tiene sesión Firebase + `canUseCloudBackup`, tras un backup programado exitoso se sube el mismo ZIP con `uploadEncryptedBackupFile`.
 - **Publicación web**: desde el workspace, “Publicar en la web” exporta la página actual a HTML (Markdown → HTML simple) y llama a `publishHtmlPage`; en Ajustes hay listado de `publishedPages`, enlace y borrado (Storage + Firestore).
 - **IA en nube**: `folioCloudAiComplete` acepta **suscripción con `cloudAi`** o **solo tinta comprada** (sin suscripción); el cliente elige Folio Cloud cuando `canUseCloudAi` (misma regla en UI). Si **Quill Cloud** devuelve **401/403/429** (clave, cuota o facturación), el error es del **proveedor de inferencia de Quill Cloud**, no de las gotas Folio en Firestore. Mensajes técnicos del upstream pueden aparecer en el detalle del error. En el cliente, valores de `ink` absurdamente altos en Firestore se **acotan solo para mostrar** en la UI; conviene corregir el documento `users/{uid}` si fue un error de datos.
+
+### Device sync (contenido de libreta)
+
+- Storage: `users/{uid}/vaults/{vaultId}/device-sync/` (`packs/` v1 monolítico, `blobs/` + `manifests/` v2 incremental). Reglas: `folioCloudBackupOk`.
+- Firestore señal: `users/{uid}/vaultSync/{vaultId}` con `rev`, `contentFingerprint`, `deviceId`, `syncFormatVersion` (1|2), `packStoragePath` o `manifestStoragePath`.
+- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v2 acepta `newBlobs`/`deleteBlobs`/`manifestStoragePath`; migra desde pack v1 restando `oldPackSizeBytes` de la cuota).
+- Cuota: cuenta en `folioBackup.usedBytes` (misma bolsa que cloud-pack).
 
 ## Gotas y Quill en nube
 

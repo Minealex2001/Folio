@@ -30,6 +30,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
     this.onOpenSettings,
+    this.onOpenSyncConflicts,
     this.onOpenGraph,
     this.onOpenTemplateGallery,
     this.onLockVault,
@@ -63,6 +64,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenSyncConflicts;
   final VoidCallback? onOpenGraph;
   final VoidCallback? onOpenTemplateGallery;
   final VoidCallback? onLockVault;
@@ -140,6 +142,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                     onOpenTaskInPage: onOpenTaskInPage,
                     onAskAiAboutUpcomingTasks: onAskAiAboutUpcomingTasks,
                     onOpenSettings: onOpenSettings,
+                    onOpenSyncConflicts: onOpenSyncConflicts,
                     onOpenGraph: onOpenGraph,
                     onOpenTemplateGallery: onOpenTemplateGallery,
                     onLockVault: onLockVault,

@@ -344,7 +344,7 @@ class _SettingsOverviewBanner extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     
-    final isPremium = entitlements.snapshot.active;
+    final isPremium = entitlements.snapshot.isPaidPlan;
     final subLabel = isPremium 
         ? (Localizations.localeOf(context).languageCode == 'es' ? 'Premium' : 'Premium') 
         : (Localizations.localeOf(context).languageCode == 'es' ? 'Gratuito' : 'Free');

@@ -37,28 +37,6 @@ extension _SettingsPageAiActions on _SettingsPageState {
     await _refreshReleaseReadiness();
   }
 
-  Future<bool> _confirmAiBetaEnable() async {
-    final l10n = AppLocalizations.of(context);
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => FolioDialog(
-        title: Text(l10n.aiBetaEnableTitle),
-        content: Text(l10n.aiBetaEnableBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.aiBetaEnableConfirm),
-          ),
-        ],
-      ),
-    );
-    return go == true;
-  }
-
   Future<bool> _confirmQuillGlobalScopeIfNeeded() async {
     if (_app.hasAcceptedQuillGlobalScope) return true;
     final l10n = AppLocalizations.of(context);
@@ -89,17 +67,83 @@ extension _SettingsPageAiActions on _SettingsPageState {
   String _providerLabel(AiProvider provider, AppLocalizations l10n) {
     switch (provider) {
       case AiProvider.ollama:
-        return 'Ollama';
+        return l10n.aiProviderOllamaName;
       case AiProvider.lmStudio:
-        return 'LM Studio';
+        return l10n.aiProviderLmStudioName;
       case AiProvider.quillCloud:
         return 'Quill Cloud';
       case AiProvider.openAi:
         return 'OpenAI';
       case AiProvider.gemini:
         return 'Gemini';
+      case AiProvider.geminiNano:
+        return _onDeviceProviderLabel(l10n);
       case AiProvider.none:
         return l10n.aiProviderNone;
+    }
+  }
+
+  String _onDeviceProviderLabel(AppLocalizations l10n) {
+    switch (_onDeviceAiBrand) {
+      case OnDeviceAiBrand.samsung:
+        return l10n.aiProviderGalaxyAiByGemini;
+      case OnDeviceAiBrand.google:
+      case OnDeviceAiBrand.other:
+        return l10n.aiProviderGeminiNano;
+    }
+  }
+
+  Future<void> _refreshOnDeviceAiInfo({bool force = false}) async {
+    if (!aiOnDeviceProviderSupported) return;
+    try {
+      final brand = await OnDeviceAiBridge.getDeviceBrand(force: force);
+      final status = await OnDeviceAiBridge.checkStatus(force: force);
+      if (!mounted) return;
+      _rebuild(() {
+        _onDeviceAiBrand = brand;
+        _onDeviceAiStatus = status;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _rebuild(() {
+        _onDeviceAiStatus = OnDeviceAiStatus.unavailable;
+      });
+    }
+  }
+
+  Future<void> _downloadOnDeviceAiModel() async {
+    if (_onDeviceAiBusy) return;
+    final l10n = AppLocalizations.of(context);
+    _rebuild(() {
+      _onDeviceAiBusy = true;
+      _onDeviceAiStatus = OnDeviceAiStatus.downloading;
+      _onDeviceDownloadBytes = null;
+    });
+    await _onDeviceDownloadSub?.cancel();
+    _onDeviceDownloadSub = OnDeviceAiBridge.downloadEvents().listen((event) {
+      if (!mounted) return;
+      if (event.phase == 'progress' || event.phase == 'started') {
+        _rebuild(() => _onDeviceDownloadBytes = event.bytesDownloaded);
+      }
+    });
+    try {
+      final status = await OnDeviceAiBridge.download();
+      if (!mounted) return;
+      _rebuild(() {
+        _onDeviceAiStatus = status;
+        _onDeviceAiBusy = false;
+      });
+      _snack(l10n.aiOnDeviceStatusAvailable);
+    } catch (e) {
+      if (!mounted) return;
+      _rebuild(() {
+        _onDeviceAiBusy = false;
+        _onDeviceAiStatus = OnDeviceAiStatus.downloadable;
+      });
+      _snack(l10n.aiOnDeviceDownloadFailed('$e'));
+    } finally {
+      await _onDeviceDownloadSub?.cancel();
+      _onDeviceDownloadSub = null;
     }
   }
 
@@ -115,6 +159,12 @@ extension _SettingsPageAiActions on _SettingsPageState {
           children: [
             Text(l10n.aiSetupChooseProviderBody),
             const SizedBox(height: 12),
+            if (aiOnDeviceProviderSupported)
+              ListTile(
+                leading: const Icon(Icons.phone_android_outlined),
+                title: Text(_onDeviceProviderLabel(l10n)),
+                onTap: () => Navigator.pop(ctx, AiProvider.geminiNano),
+              ),
             ListTile(
               leading: const Icon(Icons.cloud_outlined),
               title: Text(_providerLabel(AiProvider.quillCloud, l10n)),
@@ -134,16 +184,18 @@ extension _SettingsPageAiActions on _SettingsPageState {
                 Navigator.pop(ctx, AiProvider.quillCloud);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.hub_outlined),
-              title: const Text('Ollama'),
-              onTap: () => Navigator.pop(ctx, AiProvider.ollama),
-            ),
-            ListTile(
-              leading: const Icon(Icons.hub_outlined),
-              title: const Text('LM Studio'),
-              onTap: () => Navigator.pop(ctx, AiProvider.lmStudio),
-            ),
+            if (aiLocalProvidersSupported) ...[
+              ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: Text(l10n.aiProviderOllamaName),
+                onTap: () => Navigator.pop(ctx, AiProvider.ollama),
+              ),
+              ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: Text(l10n.aiProviderLmStudioName),
+                onTap: () => Navigator.pop(ctx, AiProvider.lmStudio),
+              ),
+            ],
             ListTile(
               leading: const Icon(Icons.rocket_launch_outlined),
               title: const Text('OpenAI'),
@@ -203,6 +255,20 @@ extension _SettingsPageAiActions on _SettingsPageState {
           _snack(
             l10nDone.aiProviderAutoConfigured(
               _providerLabel(AiProvider.quillCloud, l10nDone),
+            ),
+          );
+        }
+        return true;
+      }
+      if (selectedProvider == AiProvider.geminiNano) {
+        await _app.setAiProvider(AiProvider.geminiNano);
+        await _refreshOnDeviceAiInfo(force: true);
+        await _saveAiFields();
+        if (mounted) {
+          final l10nDone = AppLocalizations.of(context);
+          _snack(
+            l10nDone.aiProviderAutoConfigured(
+              _providerLabel(AiProvider.geminiNano, l10nDone),
             ),
           );
         }
@@ -268,6 +334,14 @@ extension _SettingsPageAiActions on _SettingsPageState {
     switch (_app.aiProvider) {
       case AiProvider.quillCloud:
         return FolioCloudAiService(entitlements: _folio);
+      case AiProvider.geminiNano:
+        return GeminiNanoAiService(
+          timeout: Duration(
+            milliseconds: (int.tryParse(_aiTimeoutController.text.trim()) ??
+                    _app.aiTimeoutMs)
+                .clamp(3000, 120000),
+          ),
+        );
       case AiProvider.none:
         throw StateError('Selecciona un proveedor IA primero.');
       case AiProvider.ollama:
@@ -309,6 +383,7 @@ extension _SettingsPageAiActions on _SettingsPageState {
         );
       case AiProvider.none:
       case AiProvider.quillCloud:
+      case AiProvider.geminiNano:
         throw StateError(
           lookupAppLocalizations(
             _app.locale ?? const Locale('es'),

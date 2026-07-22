@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/services.dart' show PlatformException;
 
 import '../../firebase_options.dart';
+import '../app_logger.dart';
 import 'folio_cloud_callable_post.dart'
     if (dart.library.html) 'folio_cloud_callable_post_stub.dart'
     as callable_post;
@@ -57,23 +58,66 @@ Future<dynamic> callFolioHttpsCallable(
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }
+  AppLogger.debug(
+    'callable call',
+    tag: 'cloud_sync',
+    context: {
+      'name': name,
+      'viaHttp': folioHttpsCallableUsesHttp,
+    },
+  );
   if (folioHttpsCallableUsesHttp) {
-    return _callFolioHttpsViaHttp(name, parameters);
+    try {
+      final result = await _callFolioHttpsViaHttp(name, parameters);
+      AppLogger.debug(
+        'callable ok',
+        tag: 'cloud_sync',
+        context: {'name': name, 'viaHttp': true},
+      );
+      return result;
+    } catch (e, st) {
+      AppLogger.error(
+        'callable failed',
+        tag: 'cloud_sync',
+        error: e,
+        stackTrace: st,
+        context: {'name': name, 'viaHttp': true},
+      );
+      rethrow;
+    }
   }
   try {
     final callable = _folioFunctions.httpsCallable(name);
     final res = await callable
         .call(parameters)
         .timeout(const Duration(seconds: 120));
+    AppLogger.debug(
+      'callable ok',
+      tag: 'cloud_sync',
+      context: {'name': name, 'viaHttp': false},
+    );
     return res.data;
   } on TimeoutException catch (e) {
+    AppLogger.error(
+      'callable timeout',
+      tag: 'cloud_sync',
+      error: e,
+      context: {'name': name},
+    );
     throw FirebaseFunctionsException(
       message: 'Cloud Functions request timed out: $e',
       code: 'deadline-exceeded',
     );
   } on StateError {
     rethrow;
-  } on FirebaseFunctionsException {
+  } on FirebaseFunctionsException catch (e, st) {
+    AppLogger.error(
+      'callable failed',
+      tag: 'cloud_sync',
+      error: e,
+      stackTrace: st,
+      context: {'name': name, 'code': e.code},
+    );
     rethrow;
   } on FirebaseException catch (e) {
     final c = e.code.toLowerCase();
@@ -85,6 +129,12 @@ Future<dynamic> callFolioHttpsCallable(
       'cancelled',
     };
     if (networkish.contains(c)) {
+      AppLogger.error(
+        'callable network error',
+        tag: 'cloud_sync',
+        error: e,
+        context: {'name': name, 'code': c},
+      );
       throw FirebaseFunctionsException(
         message: e.message ?? e.toString(),
         code: c == 'deadline-exceeded' ? 'deadline-exceeded' : 'unavailable',
@@ -92,6 +142,12 @@ Future<dynamic> callFolioHttpsCallable(
     }
     rethrow;
   } on PlatformException catch (e) {
+    AppLogger.error(
+      'callable platform error',
+      tag: 'cloud_sync',
+      error: e,
+      context: {'name': name},
+    );
     throw FirebaseFunctionsException(
       message: e.message ?? e.toString(),
       code: 'unavailable',
@@ -170,7 +226,7 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
             'No se pudo usar Folio Cloud: el servicio en la nube rechazó la '
             'conexión (401). Folio Cloud solo está disponible con suscripción '
             'activa e inicio de sesión en tu cuenta en Ajustes. Comprueba plan, '
-            'tinta e «IA en la nube». Si ya estás suscrito y el fallo continúa, '
+            'tinta e «Quill Cloud». Si ya estás suscrito y el fallo continúa, '
             'contacta con soporte de Folio.',
         code: 'permission-denied',
       );

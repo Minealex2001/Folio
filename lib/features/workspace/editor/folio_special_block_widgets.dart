@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/folio_block_controls.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../history/page_outline.dart';
@@ -233,8 +234,6 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
         Row(
           children: [
             IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               onPressed: () {
                 widget.session.setBlockExpanded(
                   widget.pageId,
@@ -389,9 +388,9 @@ class FolioBreadcrumbBlockBody extends StatelessWidget {
             ),
           TextButton(
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: const Size(32, 32),
+              tapTargetSize: MaterialTapTargetSize.padded,
             ),
             onPressed: () => session.selectPage(ordered[i].id),
             child: Text(
@@ -765,13 +764,17 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                     )
                     .toList(),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: FolioBlockControls.buttonPadding,
                   decoration: BoxDecoration(
                     color: widget.scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(FolioRadius.xl),
+                    borderRadius: BorderRadius.circular(
+                      FolioBlockControls.buttonRadius,
+                    ),
+                    border: Border.all(
+                      color: widget.scheme.outlineVariant.withValues(
+                        alpha: FolioAlpha.border,
+                      ),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -963,52 +966,6 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: (_editing || widget.showActions)
-                ? Row(
-                    key: const ValueKey('columns_toolbar'),
-                    children: [
-                      Text(
-                        _l10n.columnListColumnsTitle,
-                        style: widget.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (!_editing)
-                        FilledButton.tonalIcon(
-                          onPressed: () => _setEditing(true),
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: Text(_l10n.columnListEdit),
-                        )
-                      else ...[
-                        if (_data.columns.length < 3)
-                          FilledButton.tonalIcon(
-                            onPressed: _addColumn,
-                            icon: const Icon(
-                              Icons.view_week_outlined,
-                              size: 18,
-                            ),
-                            label: Text(_l10n.columnListAddColumn),
-                          ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
-                            _setEditing(false);
-                          },
-                          icon: const Icon(Icons.check_rounded, size: 18),
-                          label: Text(_l10n.columnListDone),
-                        ),
-                      ],
-                    ],
-                  )
-                : const SizedBox.shrink(
-                    key: ValueKey('columns_toolbar_hidden'),
-                  ),
-          ),
-          if (_editing || widget.showActions) const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1070,10 +1027,10 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                               ),
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: FilledButton.tonalIcon(
+                                child: BlockButton.primaryIcon(
                                   onPressed: () => _addBlock(i),
-                                  icon: const Icon(Icons.add_rounded, size: 18),
-                                  label: Text(_l10n.columnListAddBlock),
+                                  icon: Icons.add_rounded,
+                                  label: _l10n.columnListAddBlock,
                                 ),
                               ),
                             ],
@@ -1084,6 +1041,33 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
               ],
             ],
           ),
+          if (_editing || widget.showActions)
+            FolioBlockToolbar(
+              children: [
+                if (!_editing)
+                  BlockButton.primaryIcon(
+                    onPressed: () => _setEditing(true),
+                    icon: Icons.edit_outlined,
+                    label: _l10n.columnListEdit,
+                  )
+                else ...[
+                  if (_data.columns.length < 3)
+                    BlockButton.primaryIcon(
+                      onPressed: _addColumn,
+                      icon: Icons.view_week_outlined,
+                      label: _l10n.columnListAddColumn,
+                    ),
+                  BlockButton.secondaryIcon(
+                    onPressed: () {
+                      FocusScope.of(context).unfocus();
+                      _setEditing(false);
+                    },
+                    icon: Icons.check_rounded,
+                    label: _l10n.columnListDone,
+                  ),
+                ],
+              ],
+            ),
         ],
       ),
     );
@@ -1113,17 +1097,15 @@ class FolioTemplateButtonBlockBody extends StatelessWidget {
         FolioTemplateButtonData.defaultNew();
     return Align(
       alignment: Alignment.centerLeft,
-      child: FilledButton.tonalIcon(
+      child: BlockButton.primaryIcon(
         onPressed: () => session.insertTemplateFromButton(
           pageId: pageId,
           templateBlockId: block.id,
         ),
-        icon: const Icon(Icons.post_add_rounded),
-        label: Text(
-          data.label.isEmpty
-              ? AppLocalizations.of(context).templateButtonDefaultLabel
-              : data.label,
-        ),
+        icon: Icons.post_add_rounded,
+        label: data.label.isEmpty
+            ? AppLocalizations.of(context).templateButtonDefaultLabel
+            : data.label,
       ),
     );
   }
@@ -1195,10 +1177,22 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   }
 
   void _emit(FolioTaskData updated) {
+    var next = updated;
+    final ext = next.external;
+    if (ext != null &&
+        (ext.provider == 'jira' ||
+            ext.provider == 'youtrack' ||
+            ext.provider == 'trello')) {
+      final cur = (ext.syncState ?? '').trim();
+      if (cur != 'conflict') {
+        next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
+      }
+    }
+    setState(() => _data = next);
     widget.session.updateBlockText(
       widget.pageId,
       widget.block.id,
-      updated.encode(),
+      next.encode(),
     );
   }
 
@@ -1650,10 +1644,10 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
               ),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton.icon(
+              child: BlockButton.tertiaryIcon(
                 onPressed: _addSubtask,
-                icon: const Icon(Icons.add_task_rounded, size: 16),
-                label: Text(l10n.taskAddSubtask),
+                icon: Icons.add_task_rounded,
+                label: l10n.taskAddSubtask,
               ),
             ),
           ],

@@ -10,6 +10,15 @@ class FolioRadius {
   static const double xxl = 32;
 }
 
+/// Iconos de marca Folio reutilizados en la UI.
+class FolioIcons {
+  /// Quill: pluma de escribir (feather / quill).
+  static const IconData quill = Icons.history_edu_rounded;
+
+  /// Variante outlined de [quill] para rails y list tiles.
+  static const IconData quillOutlined = Icons.history_edu_outlined;
+}
+
 class FolioSpace {
   static const double xxs = 4;
   static const double xs = 8;
@@ -67,6 +76,149 @@ class FolioDesktop {
   static const double pageMaxWidth = 1440;
 }
 
+/// Modo de presentación del panel de chat Quill según viewport y ajustes.
+enum QuillChatLayoutMode {
+  mobile,
+  dockNarrow,
+  dockWide,
+  split,
+}
+
+/// Límites y defaults del panel Quill conscientes del tamaño de ventana.
+class QuillChatLayout {
+  static const double dockWideBreakpoint = 1280;
+
+  static const double absoluteMinWidth = 280;
+  static const double absoluteMaxWidth = 720;
+  static const double absoluteMinHeight = 320;
+  static const double absoluteMaxHeight = 1000;
+
+  static QuillChatLayoutMode resolve({
+    required double viewportWidth,
+    required bool splitView,
+    bool forceMobile = false,
+  }) {
+    if (forceMobile || viewportWidth < FolioDesktop.compactBreakpoint) {
+      return QuillChatLayoutMode.mobile;
+    }
+    if (splitView) return QuillChatLayoutMode.split;
+    if (viewportWidth < dockWideBreakpoint) {
+      return QuillChatLayoutMode.dockNarrow;
+    }
+    return QuillChatLayoutMode.dockWide;
+  }
+
+  static double minWidth(QuillChatLayoutMode mode) => switch (mode) {
+    QuillChatLayoutMode.mobile => absoluteMinWidth,
+    QuillChatLayoutMode.dockNarrow => 300,
+    QuillChatLayoutMode.dockWide => 340,
+    QuillChatLayoutMode.split => 320,
+  };
+
+  static double maxWidth(double viewportWidth, QuillChatLayoutMode mode) {
+    final relative = switch (mode) {
+      QuillChatLayoutMode.mobile => viewportWidth,
+      QuillChatLayoutMode.dockNarrow =>
+        (viewportWidth * 0.42).clamp(0.0, 420.0),
+      QuillChatLayoutMode.dockWide =>
+        (viewportWidth * 0.45).clamp(0.0, 560.0),
+      QuillChatLayoutMode.split => (viewportWidth * 0.40).clamp(0.0, 480.0),
+    };
+    return relative.clamp(minWidth(mode), absoluteMaxWidth).toDouble();
+  }
+
+  static double minHeight(QuillChatLayoutMode mode) => switch (mode) {
+    QuillChatLayoutMode.mobile => absoluteMinHeight,
+    QuillChatLayoutMode.dockNarrow => 360,
+    QuillChatLayoutMode.dockWide => 400,
+    QuillChatLayoutMode.split => absoluteMinHeight,
+  };
+
+  static double maxHeight(double viewportHeight, QuillChatLayoutMode mode) {
+    final relative = switch (mode) {
+      QuillChatLayoutMode.mobile => viewportHeight * 0.95,
+      QuillChatLayoutMode.dockNarrow =>
+        (viewportHeight * 0.80).clamp(0.0, 640.0),
+      QuillChatLayoutMode.dockWide =>
+        (viewportHeight * 0.85).clamp(0.0, 780.0),
+      QuillChatLayoutMode.split => viewportHeight,
+    };
+    return relative.clamp(minHeight(mode), absoluteMaxHeight).toDouble();
+  }
+
+  /// Altura máxima del dock dentro del *body* del workspace (bajo el AppBar).
+  /// [availableBodyHeight] es la altura del [Stack] del shell, no de la ventana.
+  static double maxDockHeightForBody(
+    double availableBodyHeight, {
+    double bottomMargin = FolioSpace.md,
+    double topGap = FolioSpace.sm,
+  }) {
+    final fit = availableBodyHeight - bottomMargin - topGap;
+    return fit.clamp(56.0, absoluteMaxHeight).toDouble();
+  }
+
+  /// Acota el tamaño del dock al área disponible del body.
+  static double clampDockHeight({
+    required double desired,
+    required double availableBodyHeight,
+    required QuillChatLayoutMode mode,
+  }) {
+    final maxFit = maxDockHeightForBody(availableBodyHeight);
+    final modeMax = maxHeight(availableBodyHeight, mode);
+    final maxH = modeMax < maxFit ? modeMax : maxFit;
+    // FAB colapsado (~56): no forzar el mínimo del modo (360/400).
+    if (desired <= 64) {
+      return desired.clamp(56.0, maxH).toDouble();
+    }
+    final minH = minHeight(mode) <= maxH ? minHeight(mode) : 56.0;
+    return desired.clamp(minH, maxH).toDouble();
+  }
+
+  static double clampDockWidth({
+    required double desired,
+    required double availableBodyWidth,
+    required QuillChatLayoutMode mode,
+  }) {
+    final maxFit = (availableBodyWidth - FolioSpace.md * 2)
+        .clamp(56.0, absoluteMaxWidth)
+        .toDouble();
+    final modeMax = maxWidth(availableBodyWidth, mode);
+    final maxW = modeMax < maxFit ? modeMax : maxFit;
+    if (desired <= 64) {
+      return desired.clamp(56.0, maxW).toDouble();
+    }
+    final minW = minWidth(mode) <= maxW ? minWidth(mode) : 56.0;
+    return desired.clamp(minW, maxW).toDouble();
+  }
+
+  static double defaultWidth(double viewportWidth, QuillChatLayoutMode mode) {
+    final preferred = switch (mode) {
+      QuillChatLayoutMode.mobile => viewportWidth,
+      QuillChatLayoutMode.dockNarrow => 340.0,
+      QuillChatLayoutMode.dockWide => 380.0,
+      QuillChatLayoutMode.split => 360.0,
+    };
+    return preferred
+        .clamp(minWidth(mode), maxWidth(viewportWidth, mode))
+        .toDouble();
+  }
+
+  static double defaultHeight(double viewportHeight, QuillChatLayoutMode mode) {
+    final preferred = switch (mode) {
+      QuillChatLayoutMode.mobile => viewportHeight * 0.92,
+      QuillChatLayoutMode.dockNarrow => 480.0,
+      QuillChatLayoutMode.dockWide => 560.0,
+      QuillChatLayoutMode.split => maxHeight(viewportHeight, mode),
+    };
+    return preferred
+        .clamp(minHeight(mode), maxHeight(viewportHeight, mode))
+        .toDouble();
+  }
+
+  static bool useFlatChrome(QuillChatLayoutMode mode) =>
+      mode == QuillChatLayoutMode.split || mode == QuillChatLayoutMode.mobile;
+}
+
 /// Umbrales de ancho específicos del panel lateral del workspace (no del
 /// ancho de ventana completa — para eso usar [FolioDesktop]).
 class FolioSidebar {
@@ -75,9 +227,15 @@ class FolioSidebar {
   /// overflow.
   static const double collapseThreshold = 32;
 
-  /// Ancho mínimo de una fila de página para mostrar sus acciones hover
-  /// inline (renombrar, mover, borrar, ...) sin que se produzca overflow.
+  /// Ancho mínimo de una fila de página para mostrar sus acciones inline
+  /// (menú ⋯: renombrar, mover, borrar, …) sin overflow. En móvil/web el menú
+  /// se muestra siempre; en escritorio nativo, al hover.
   static const double tileActionsMinWidth = 200;
+
+  /// Ancho reservado para la zona de acciones inline (+ y ⋯) en cada fila del
+  /// árbol. Se reserva siempre (aunque las acciones estén ocultas por opacidad)
+  /// para evitar layout shift al hover en escritorio.
+  static const double tileActionsSlotWidth = 72;
 }
 
 class FolioAdaptive {
@@ -103,5 +261,25 @@ class FolioAdaptive {
   static bool shouldUseMobileWorkspace(double width) {
     return defaultTargetPlatform == TargetPlatform.android &&
         !isAndroidDesktopLikeWidth(width);
+  }
+
+  /// Nombre del sistema operativo actual (nombre de marca, no traducible),
+  /// para etiquetas como "seguir acento del sistema". `defaultTargetPlatform`
+  /// ya refleja el SO real también en web (se infiere del user agent).
+  static String currentPlatformName() {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.fuchsia:
+        return 'Fuchsia';
+    }
   }
 }

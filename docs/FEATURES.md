@@ -91,6 +91,15 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 - **Scroll TOC**: `scrollToBlock(blockId)` — desplazamiento animado con `Scrollable.ensureVisible` desde la tabla de contenidos lateral.
 - **Índice de bloques ordenado**: `_orderedListNumber()` calcula el número correlativo para listas numeradas, respetando niveles de anidación.
 
+### Controles de bloque (UI compacta estilo Notion)
+
+Implementados en `lib/app/folio_block_controls.dart`:
+
+- **`BlockButton`**: botones compactos (`primary` / `secondary` / `tertiary` / `destructive`) con radio 12px, distintos del tema pill global de diálogos.
+- **`FolioBlockToolbar`**: barra de acciones externa que va **debajo** del contenido del bloque (database, columnas, etc.).
+- **`FolioTableGutterButton`**: botones `+` integrados en la rejilla de tablas (gutter derecho para columna, inferior para fila; menú en esquina para pegar/eliminar).
+- **`FolioBlockResizeHandle`**: asa en la esquina inferior derecha para redimensionar media con `imageWidth` arrastrando horizontalmente (imagen, video, embed, file, spotify). El arrastre usa el ancho completo de la fila como referencia. `bookmark` ocupa siempre el ancho completo (sin asa). Sustituye la antigua toolbar de presets de ancho.
+
 ---
 
 ## 3. Tipos de bloque
@@ -135,8 +144,10 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- **Ancho completo**: en vista tablero (y también Drive/Canvas dedicados) el contenido ignora `editorContentWidth` y usa todo el ancho del panel; las columnas Kanban reparten el espacio disponible (mín. 260 px; scroll horizontal si no caben).
+- **Creación de tareas**: «Añadir tarea» y el «+» de columna crean un borrador local (`FolioTaskData.defaults`) y abren el mismo panel/sheet de detalle que al editar una tarjeta (`task_details_panel.dart`); no hay diálogos de creación aparte.
 - Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
-- El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task`, desplegable en el panel de detalle del tablero y lista desplegable en la captura rápida cuando se conoce la página destino; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
+- El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task` y desplegable en el panel de detalle; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
 - Tarjetas **bloqueadas** (`FolioTaskData.blocked`): título en **rojo** y **tachado** en las vistas del tablero (columnas, lista, cuadrícula y línea de tiempo), en el hub global de tareas, en el bloque dentro del editor y en el campo título del detalle; no se pueden arrastrar entre columnas mientras siguen bloqueadas.
 - Varias instancias del bloque en la misma página: aviso `kanbanMultipleBlocksSnack` (se usa el primero).
 
@@ -251,7 +262,7 @@ Se activa escribiendo `/` en un bloque de texto compatible.
 
 ## 9. Atajos Markdown inline
 
-Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShortcut`):
+Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShortcut`), también en el camino WYSIWYG (Quill) al hacer flush del documento:
 
 | Escritura | Resultado |
 |---|---|
@@ -263,6 +274,8 @@ Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShor
 | `### Texto` | Convierte a bloque `h3` |
 
 > Los encabezados con solo `# ` (sin texto) no se convierten para evitar perder el foco mientras se escribe.
+>
+> Si `- ` / `* ` / `[] ` se escriben en una **línea nueva** dentro de un párrafo (p. ej. tras `Shift+Enter`), Folio parte el bloque: el texto anterior permanece y se inserta un bloque `bullet`/`todo` debajo (modelo 1 ítem = 1 bloque). Así no quedan listas markdown “falsas” dentro de un solo párrafo.
 
 ---
 
@@ -282,6 +295,15 @@ Aplicados automáticamente al escribir en bloques compatibles (`_tryMarkdownShor
 | `Ctrl+W` | Cerrar página |
 
 Todos son remapeables por el usuario.
+
+### Historial de navegación (botones 4/5 del ratón)
+
+En escritorio, los botones laterales del ratón (atrás / adelante) navegan como en un navegador:
+
+- **Atrás (botón 4)**: si hay una pantalla apilada (ajustes, grafo, galería de plantillas, etc.), la cierra (`Navigator.maybePop`). Si no, vuelve a la página o Home visitado anteriormente.
+- **Adelante (botón 5)**: avanza en el historial de páginas/Home (no reabre rutas `push`).
+- El historial vive en `WorkspaceNavigationHistory` (`lib/session/workspace_navigation_history.dart`), enganchado a `VaultSession.selectPage` / `clearSelectedPage`. Se inicializa al desbloquear y se vacía al bloquear o cambiar de libreta.
+- `Alt+[` / `Alt+]` siguen siendo página adyacente en la lista, no historial.
 
 ---
 
@@ -406,16 +428,15 @@ El selector se presenta como un bottom sheet con preview en tiempo real y botón
 
 ## 18. Redimensionado de imágenes
 
-- Factor de ancho: 20%–100% en pasos de 10% (`_nudgeImageWidth`, delta ±0,1).
-- Botones rápidos: «Más pequeño», «Más grande», «50%», «75%», «100%».
-- El factor se persiste en `block.imageWidth` (rango 0,2–1,0).
-- Los controles se muestran como toolbar por encima de la imagen cuando el bloque está activo.
+- Factor de ancho: 20%–100% (`imageWidth` en el bloque, rango 0,2–1,0).
+- Redimensionar: arrastrar el asa inferior derecha en bloques de media (`FolioBlockResizeHandle`).
+- Atajos del menú contextual: «Más pequeño» / «Más grande» (±10%), «50%», «75%», «100%».
 
 ---
 
 ## 19. Pegado inteligente de URLs
 
-Al pegar (`Ctrl+V`) una URL en un bloque de texto, se muestra un bottom sheet con opciones:
+Al pegar (`Ctrl+V`) una URL en un bloque de texto (WYSIWYG vía Quill), en bloques de media vacíos (embed, spotify, imagen, etc.) o en un marcador, se muestra un bottom sheet con opciones:
 
 | Modo (`FolioPasteUrlMode`) | Comportamiento |
 |---|---|
@@ -488,7 +509,7 @@ Implementado en `lib/services/collab/collab_session_controller.dart`.
 
 ## 22. Sincronización P2P entre dispositivos
 
-Implementado en `lib/services/device_sync/device_sync_controller.dart`.
+Implementado en `lib/services/device_sync/device_sync_controller.dart`. El merge lógico es compartido con Folio Cloud (`lib/services/sync/vault_sync_merge.dart`).
 
 ### Protocolo de red
 
@@ -503,10 +524,10 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 ### Características
 
 - **Emparejamiento**: handshake de petición/aceptación bilateral; los peers emparejados se persisten en `SharedPreferences`.
-- **Relay opcional**: `syncRelayEnabled` permite atravesar NATs cuando el multicast no funciona.
-- **Snapshot export/import**: la sincronización transfiere snapshots completos de la libreta.
-- **Detección de conflictos**: fingerprint de base + detección de cambio concurrente (local y remoto modificaron desde el mismo baseline).  
-  - Si hay conflicto: no sobrescribir local → registrar en `syncPendingConflicts` → confirmar sync para evitar reintentos.
+- **Relay opcional**: `syncRelayEnabled` permite atravesar NATs cuando el multicast no funciona (flag de UI; el relay en sí no está implementado — la sync por internet va por Folio Cloud).
+- **Pack de sync**: export/import usa `folio.sync.pack.v1` (`VaultSyncPack`): payload lógico + adjuntos content-addressed bajo `attachments/`.
+- **Merge semántico (página/bloque)**: `VaultSyncMergeEngine` hace unión a 3 vías (local · remoto · baseline). Páginas/bloques distintos se conservan; el mismo bloque editado en ambos lados genera conflicto **granular** (se mantiene local, el remoto se guarda en historial/revisión). Tombstones de páginas borradas evitan resucitar contenido.
+- **Resolución de conflictos**: UI tipo merge de Git (`SyncConflictMergeSheet`) con título de página legible, diff por hunks (tu versión / la otra / ambas), aplicar merge, mantener local o aceptar remoto. Acceso desde el chip de sync, banner del editor, Home y Ajustes (misma UI). La cola de conflictos se persiste por libreta (`SyncConflictStore`) y se restaura al desbloquear; el contador `syncPendingConflicts` se alinea con la cola real.
 - **Peers estables**: la última IP conocida de un peer se conserva incluso si el discovery falla (redes con multicast inestable).
 - Supresión de callback `onPersisted` durante `applySyncSnapshotBytes` para evitar bucles push↔import.
 
@@ -514,14 +535,27 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 
 ## 23. Asistente IA Quill
 
+Quill es una función **estable** (fuera de beta): el panel de chat ya no muestra badge BETA y activar la IA en Ajustes no pide confirmación de fase beta. Sigue haciendo falta el aviso de alcance global (Quill es un ajuste de la app, no solo de la libreta actual).
+
+### Ajustes → IA (orden)
+
+Un solo panel con tres bloques:
+
+1. **Básico** — hero con estado real (activo/proveedor/modelo), comparativa Cloud vs local (abierta si aún no hay setup; colapsable si ya hay), activar IA, proveedor y modelo.
+2. **Experiencia Quill** — pensamiento, vista dividida, Copilot experimental e instrucciones personalizadas.
+3. **Avanzado** (colapsado) — MCP local, ventana de contexto, endpoint, API key, timeout y listado de modelos.
+
 ### Proveedores (`AiProvider`)
 
 | Proveedor | Descripción |
 |---|---|
 | `none` | Sin IA |
-| `ollama` | Servidor Ollama local |
-| `lmStudio` | LM Studio local |
+| `ollama` | Servidor Ollama local (**solo escritorio**) |
+| `lmStudio` | LM Studio local (**solo escritorio**) |
 | `quillCloud` | API de inferencia de Folio Cloud |
+| `openAi` / `gemini` | BYOK con API key propia |
+
+En **web**, **Android** e **iOS** no hay Ollama/LM Studio (`aiLocalProvidersSupported == false`); Quill se activa con Folio Cloud (y opcionalmente OpenAI/Gemini con clave).
 
 ### Modos de operación (`lib/session/vault_session_ai.dart`)
 
@@ -532,44 +566,47 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 | `append_current` | Añade el resultado al final de la página |
 | `replace_current` | Reemplaza el contenido de la página |
 | `edit_current` | Edita secciones específicas de la página |
-| `create_page` | Crea una nueva página con el resultado |
+| `create_page` | Crea una nueva página **con bloques de contenido ya redactados** (no solo el título) |
+
+Si el modelo elige `create_page` sin contenido útil, Folio hace fallback a `generateStandalonePageWithAi` (generador dedicado con reintento) en lugar de dejar una página vacía. Frases tipo «créame una página…» se detectan como intención de creación (incluidos clíticos `crearme` / `créame`).
+
+### Tool-calling (recomendado)
+
+- Ajuste **`quillToolCallingEnabled`** (default **activado**): usa `runToolLoop` + `FolioToolRegistry` (mismas acciones que el MCP local).
+- Con el flag desactivado, Quill usa el JSON legado (`mode`/`reply`/`blocks`).
+- La tool `create_page` **rechaza** `blocks` vacío; el modelo debe rellenar contenido (p. ej. `mermaid` si piden diagramas).
+- Las respuestas de chat son **completas por defecto**; breves solo si el usuario pide «corto»/«breve».
+- **Paridad con MCP**: el bucle admite hasta **8** pasos (create + reintentos + cierre). El system prompt pide actuar como agente (preferir tools, no páginas solo-título). Si `create_page` deja pocos bloques útiles (&lt;4), Quill rellena con `generateContentWithAi` sobre esa página.
 
 ### Interfaz de chat (panel Quill)
 
-Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje y aplicación de snapshots en `lib/features/workspace/shell/workspace_page.dart`.
+Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje en `workspace_page.dart`. Límites adaptativos: `QuillChatLayout` en `lib/app/ui_tokens.dart` (`mobile` / `dockNarrow` / `dockWide` / `split`).
 
 #### Cabecera y modo de panel
 
-- **Cabecera densa**: título del hilo + subtítulo de contexto (página actual, *N* páginas o contexto desactivado) sin reservar filas extra para proveedor/tinta en la barra principal.
-- Menú **«⋮»** abre una **hoja inferior** con el proveedor activo (local vs nube) y, si aplica Folio Cloud, **tinta restante**, desglose mensual vs comprada, **coste estimado** de la siguiente respuesta y atajo a comprar tinta cuando el saldo está vacío.
-- En **dock ancho**, botón de **vista dividida** (`aiChatSplitView` en ajustes): alterna entre panel lateral acoplado al editor y panel tipo lateral clásico (tooltip `aiChatSplitViewTooltip`).
-- **Móvil**: el chat abre en **`DraggableScrollableSheet`** (~92% altura inicial, redimensionable); al cerrar, **FAB** compacto para volver a mostrar el panel.
+- **Cabecera fina**: avatar + título del hilo + subtítulo de contexto; acciones (ajustes, menú, split, cerrar) en iconos compactos. Sin gradiente/badge pesado.
+- Mini barra de **tokens / tinta** siempre visible bajo la cabecera.
+- Menú **«⋮»** abre hoja con proveedor e ink (Folio Cloud).
+- **Layout adaptativo**: dock estrecho (&lt;1280), dock amplio (≥1280), split (borde plano, sin sombra) y móvil (`DraggableScrollableSheet` ~0.55–0.95). El dock se **acota siempre al body** del workspace (bajo el AppBar): no puede crecer por encima del toolbar; el botón cerrar permanece accesible.
 
 #### Hilos de conversación
 
-- **Búsqueda** en línea que filtra por título; la misma consulta alimenta la fila de **chips** horizontales (acceso rápido) y el listado del modal.
-- Botón de **lista** abre **bottom sheet** con lista vertical scrollable, altura acotada (~55% pantalla), campo de búsqueda y estado vacío localizado si no hay coincidencias.
-- **Renombrar**, **eliminar** el hilo activo y **Nuevo chat** se deshabilitan mientras `_aiChatBusy` para evitar carreras con la generación en curso.
+- Fila compacta: selector del hilo activo (abre sheet con búsqueda) + renombrar / eliminar / **Nuevo chat**.
+- El sheet de hilos (`workspace_page_ai_threads.dart`) conserva búsqueda y lista vertical.
 
 #### Lista de mensajes
 
-- Burbujas diferenciadas usuario/asistente; **marca de tiempo** en mensajes del asistente.
-- **Razonamiento vs respuesta final**: si el contenido separa *thought* y cuerpo, bloque plegable etiquetado (`aiAgentThought`) con el razonamiento; debajo, divisor y cuerpo. Ajuste **`aiAlwaysShowThought`** para forzar el razonamiento siempre expandido.
-- **Typewriter** en respuestas nuevas del asistente (velocidad adaptada a la longitud); la animación se limita al hilo actual y a mensajes recién añadidos.
-- **Mientras genera** (`_aiChatBusy`): al final del listado, fila con la misma jerarquía visual que una respuesta (avatar + burbuja) rellenada con **`FolioAiChatReplySkeleton`** (varias barras redondeadas y **shimmer** vía `ShaderMask`); accesibilidad con `Semantics` y `aiTypingSemantics` (live region). No se muestran los puntos clásicos del indicador de escritura en esa fila.
-- **Menú «⋮»** en respuestas del asistente: copiar solo el **cuerpo** visible, copiar **JSON estructurado** del `agentApplySnapshot` si existe, copiar **mensaje completo**.
-- **Pulgares útil / no útil**: valores `helpful` y `not_helpful` en `AiChatMessage.feedback` (`lib/services/ai/ai_types.dart`), persistidos con `VaultSession.updateMessageInActiveAiChat`. La UI usa solo ese campo (sin mapa local por índice), de modo que el voto **no se arrastra** al cambiar de hilo; el panel hace `setState` cuando el **fingerprint** de feedbacks del hilo activo cambia.
-- Respuestas con **snapshot de agente** (`blocks` / `operations`): botones para **aplicar** a la página abierta (p. ej. insertar al final, reemplazar, ejecutar operaciones) según el flujo en sesión.
+- Burbujas unificadas (avatar 28 px, `FolioRadius.lg`); typing/tool activity alineados.
+- **Razonamiento**, typewriter, shimmer, feedback y snapshots de agente: sin cambios de comportamiento.
 
 #### Compositor
 
-- **`ExpansionTile`** «Contexto de esta pregunta» (título y subtítulo localizados): al expandir, **uso del contexto** respecto a la ventana de tokens (barra + resumen + tooltip), **chips `@`**, adjuntos, texto de **atajos** (`Enter` envía, `Ctrl+Enter` nueva línea).
-- Con **`_aiChatBusy`**: campo de entrada en **solo lectura**, envío deshabilitado o sustituido por indicador de ocupación para evitar doble envío.
-- Menú **`@`** con **navegación por teclado** cuando el overlay está abierto (`↑` / `↓` / `Enter` / `Esc`).
+- Fila compacta **siempre visible** (sin `ExpansionTile`): chips de tokens de la última respuesta, tinta restante y coste estimado; chips horizontales de contexto/`@`/adjuntos (o hint `aiContextComposerHelper`).
+- El icono de marca de Quill es una **pluma** (`FolioIcons.quill` / `history_edu`) en chat, ajustes, onboarding, home y toolbar «Ask Quill».
 
 #### Estado vacío y datos auxiliares
 
-- Pantalla sin mensajes: icono, **`aiChatEmptyHint`** y botón **`aiChatEmptyFocusComposer`** que enfoca el compositor.
+- Pantalla sin mensajes: icono, **`aiChatEmptyHint`** y botón **`aiChatEmptyFocusComposer`**.
 - Tras cada respuesta: **`AiTokenUsage`** cuando el backend lo devuelve.
 - **Adjuntos**: `AiFileAttachment` (nombre, MIME, contenido).
 
@@ -665,25 +702,66 @@ Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo
 
 ### Entitlements (`folioCloud.features`)
 
-El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas que la app y las reglas usan como contrato:
+El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas que la app y las reglas usan como contrato. **Toda cuenta Firebase** recibe además un **plan free** (`folioCloud.plan = "free"`) sin suscripción de pago:
+
+| Plan | `plan` | Cuota copias | Features | Tinta mensual |
+|------|--------|--------------|----------|---------------|
+| Gratuito (cuenta) | `free` | **500 MiB** | `backup` (+ sync multi-dispositivo); sin `cloudAi` / `publishWeb` / `realtimeCollab` | **0** |
+| Folio Cloud de pago | `cloud` | 5 GiB (15 GiB estudiante) + extras «Biblioteca» | según precio | 500 (1000 estudiante) |
+
+Al suscribirse, los 500 MiB se **sustituyen** por la cuota del plan de pago (no se suman).
 
 | Flag | Rol |
 |------|-----|
-| `backup` | Copias ZIP **cifradas** en Storage bajo `users/{uid}/backups/**` |
+| `backup` | Copias ZIP **cifradas** en Storage bajo `users/{uid}/backups/**` y **sync multi-dispositivo** (packs en `device-sync/`) |
 | `cloudAi` | IA hospedada en Cloud Functions (claves del proveedor solo en servidor); consumo con **Ink** |
 | `publishWeb` | HTML público en `published/{uid}/**` + índice Firestore `publishedPages` |
 | `realtimeCollab` | Colaboración en vivo (salas Firestore, subida de medios colaborativos) cuando el plan lo incluye |
 
-Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
+Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `isFreePlan`, `isPaidPlan`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
+
+### Sincronización multi-dispositivo (casi en tiempo real)
+
+Distinta de la **copia/restauración** (reemplazo consciente): la sync automática **siempre hace merge** con el mismo motor que P2P.
+
+- Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`) + transporte incremental `folio_cloud_device_sync_incremental.dart`.
+- Tras persistir y **~10 s sin nuevos guardados** (idle de edición), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
+- Indicador unificado en el workspace (una sola nube): **guardado local** + **sync Folio Cloud**. Al pulsarlo, sheet con estado en este dispositivo, todas las libretas, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y conflictos pendientes. El nombre visible de cada libreta viaja en el pack (`VaultPayload.displayName`) y se aplica al registro local tras el merge.
+- **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro usan clave determinista por cuenta+vaultId. **Pull** de la libreta activa cada **~30 s** en primer plano (listener Firestore o poll); **todas las libretas** cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) se pausa el poll y el listener; al volver a ser la ventana activa / resumed, pull inmediato de la activa. Al cambiar de libreta activa, **push inmediato** de la que se abandona (aún desbloqueada) y **pull inmediato** de la nueva. El **push** normal espera **~10 s de inactividad** tras el último guardado local (el usuario dejó de editar); al cambiar de página, si había push pendiente, se hace flush.
+- Cifrado del **pack en la nube** con la clave de perfil de cuenta Folio Cloud (todos los dispositivos firmados pueden bajarlo). La DEK de cada libreta viaja en `dekAccountWrapB64` / `dek.accountwrap` para materializar sin desbloquear. Compat: packs antiguos cifrados con DEK de libreta se siguen pudiendo leer si hay clave local o wrap.
+- Al desbloquear/cachear DEK se sube el bootstrap de inmediato (no espera al debounce del push).
+- Otros dispositivos escuchan el doc (`snapshots`) en primer plano o, en **Windows** (sin Firestore nativo), hacen **polling REST ~30 s** de la activa solo en primer plano; tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
+- Conflictos de bloque: se conserva lo local; lo remoto va a revisiones `sync_remote_*` (historial de página + banner en el editor). Resolución con merge por hunks desde el chip de sync, banner del editor, Home o **Ajustes → Folio Cloud** / Sincronización (P2P); cola persistente por libreta y mismo contador `syncPendingConflicts`.
+- Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
+- Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (v1 pack o v2 manifiesto + `newBlobs`/`deleteBlobs`). Al finalizar, `oldPackStoragePath` / `oldManifestStoragePath` inválidos o de otra libreta se **ignoran** (no fallan el push); el cliente solo envía rutas que pertenecen al `vaultId` actual (evita el error al sincronizar una libreta recién creada en la web tras otra activa). Antes de omitir la subida de un blob por caché, **comprueba que exista** en Storage; si falta, lo re-sube. No borra blobs obsoletos al instante (evita 404 en pulls concurrentes); ante pull 404 repara con push local.
+
+### Perfil de ajustes (cuenta + libreta)
+
+Backup cifrado de **preferencias** (no del contenido de la libreta), separado en dos capas:
+
+| Capa | Alcance | Storage / Firestore |
+|------|---------|---------------------|
+| **Perfil de app** | Tema, IA, atajos, iconos custom, layout, telemetría, integraciones… | `users/{uid}/app-profile/` + `users/{uid}/appProfile/meta` |
+| **Perfil por libreta** | Copias programadas, onboarding home, contraseñas de backup (en ciphertext) | `users/{uid}/vault-profiles/{vaultId}/` + `users/{uid}/vaultProfiles/{vaultId}` |
+
+- Cliente: `lib/services/folio_cloud/folio_cloud_settings_sync.dart` (`FolioCloudSettingsSyncController`), formato `lib/data/folio_settings_profile_format.dart`, builder/applier en `lib/services/settings/`.
+- Pack AES-GCM (mismo patrón que cloud-pack); clave de perfil de app independiente del vault; iconos custom como blobs en `app-profile/icons/{iconId}`.
+- **Clave canónica de cuenta**: al push/pull se prioriza el `restoreWrapB64` del servidor sobre la caché local (evita packs cifrados con clave huérfana tras carreras multi-dispositivo). Si el MAC falla tras adoptar el wrap, se corta el auto-reintento y se ofrece el diálogo restaurar / empezar de nuevo; «empezar de nuevo» (`keepLocalAndPush`) **reescribe** pack + wrap alineados.
+- Excluye estado local al dispositivo (`syncDeviceId`, `syncLastSuccessMs`, `syncPendingConflicts`, `lockScreenAutoQuickUnlockDone`).
+- Toggle `AppSettings.cloudAppProfileSyncEnabled`; al detectar perfil remoto tras login: diálogo restaurar / empezar de nuevo **solo si el fingerprint/`updatedAt` remoto no coinciden con el último perfil ya reconocido en este dispositivo** (persistido en prefs); si el local ya coincide con la nube, no se pregunta. Ajustes → Folio Cloud (subir/restaurar) y Ajustes → Libreta (restaurar prefs de la libreta).
+- Callables: `folioGetAppProfileMeta`, `folioGetAppProfileRestoreWrap`, `folioFinalizeAppProfile`, `folioGetVaultProfileMeta`, `folioFinalizeVaultProfile` (cuota `folioBackup.usedBytes`, entitlement `canUseCloudBackup`).
 
 ### Copia cifrada en la nube
 
 - Subida manual y **gestión** (listar / importar / descargar legacy / borrar) desde Ajustes en un panel tipo papelera; **restauración** también desde onboarding o flujos de copia.
 - Se pueden borrar tanto archivos **legacy** (ZIP/TAR.GZ) como la copia **incremental** (cloud-pack) de una libreta. El borrado del cloud-pack usa **`folioDeleteVaultCloudPack`**; el legacy, **`folioDeleteVaultLegacyBackup`**. Si tras borrar no queda ninguna copia, se **elimina por completo** la presencia de esa libreta en Folio Cloud (Storage bajo `vaults/{vaultId}/`, índice `vaultBackupIndex` y meta `vaultBackups`).
-- Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo).
+- Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo). El envoltorio de recuperación del cloud-pack se toma de `vault.keys` (libreta cifrada) o se genera automáticamente (libreta en claro); **no se pide contraseña** en la copia programada ni en la sync.
 - En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
 - Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
-- **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
+- **`folioListBackupVaults`** solo incluye libretas con copias reales (`backups/` legacy o `cloud-packs/` / meta de cloud-pack); **no** lista las que solo tienen sync multi-dispositivo (`device-sync/`), que va por separado.
+- **Cuota de almacenamiento** de copias: **500 MiB** en plan free; con suscripción base **5 GiB** (estudiante **15 GiB**) y ampliaciones («Biblioteca» pequeña/mediana/grande). Catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
+- **Importar todas al iniciar sesión** (onboarding «desde Folio Cloud» o Ajustes → cuenta): aviso, descarga e importa todas las libretas con cloud-pack conservando el `vaultId` remoto. Si la libreta local está vacía, la primera ocupa ese slot; si tiene contenido, se conserva y todas se añaden. La contraseña de la **cuenta** se usa solo como `restorePassword` del envoltorio; el desbloqueo habitual sigue siendo la master de cada libreta. Fallback: pedir master de esa libreta si no coincide. Cliente: `folio_cloud_import_all_vaults.dart` + `folio_cloud_import_all_dialog.dart`. La descarga va a memoria (`ExtractedVaultBackup` / `downloadCloudPackToMemoryForRestore`) para funcionar también en web.
+- **Multi-libreta en web**: IndexedDB admite varias libretas; `prepareNewVault` / cambiar libreta / `importCloudVaultAsLocalFromMemory` e importar-todas desde Folio Cloud no dependen de `Directory` nativo. El import ZIP local y Notion siguen siendo solo escritorio (aviso en onboarding web).
 
 ### IA en la nube
 
@@ -696,6 +774,16 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 ### Publicación web
 
 - Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
+
+### Cliente web (Vercel / dominios MineAlex)
+
+- Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción).
+- Lecturas/escrituras de Firebase Storage desde el browser requieren CORS en el bucket (`storage-cors.json` → `gs://folio-minealexgames.firebasestorage.app`). Incluye `*` para que `flutter run -d chrome` (`localhost:<puerto>`) no falle; las reglas Auth siguen protegiendo objetos. Detalle: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) («Storage CORS»).
+- Esos mismos hosts deben estar en Firebase Auth → Authorized domains.
+- Si Vercel **Deployment Protection** (SSO) está activo en Production, la app y `manifest.json` redirigen al login de Vercel; desactivar protección pública en beta/prod o limitarla a previews.
+- **PWA instalable**: `web/manifest.json` (`display: standalone`, iconos 192/512 + maskable), meta tags iOS en `index.html`, service worker de Flutter (`flutter build web` sin `--pwa-strategy=none`). En la sidebar web: botón **Instalar Folio** (prompt nativo vía `beforeinstallprompt`, o guía manual en Safari/iOS). Headers en `vercel.json` para `manifest.json` y `flutter_service_worker.js`. La instalación completa requiere HTTPS (beta/prod); en local probar con `flutter run -d chrome --release`.
+- **Sin buscador de actualizaciones** (`FolioDistribution.offersGitHubSelfUpdate == false` en web): la web se actualiza al redeploy; no hay «Buscar actualizaciones» ni chequeo al arrancar.
+- **IA como en móvil**: sin Ollama/LM Studio; Quill Cloud (y BYOK OpenAI/Gemini si se configura).
 
 ### Facturación
 
@@ -719,6 +807,7 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 | Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements` |
 | Copias / vault / almacenamiento | `folioListVaultBackups`, `folioDeleteVaultCloudPack`, `folioDeleteVaultLegacyBackup`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
 | Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack`, `folioDeleteVaultCloudPack` |
+| Sync multi-dispositivo | `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync`, `folioListDeviceSyncVaults` |
 | IA | `folioCloudAiComplete`, `folioCloudAiCompleteHttp`, `folioCloudAiPricing`, `folioCloudTranscribeChunk` |
 | Operaciones | `monthlyInkRefill` (programada) |
 | Otras HTTP | `folioJiraExchangeOAuth`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
@@ -807,13 +896,9 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 
 ## 31. Captura rápida de tarea
 
-- Atajo por defecto: `Ctrl+Shift+T`.
-- Diálogo de captura (`task_quick_add_dialog.dart`) integrado con **`TaskQuickCaptureParser`** (`lib/services/tasks/task_quick_capture_parser.dart`): título, prioridad heurística, estado, fecha/hora y etiquetas sin escribir JSON a mano.
-- **Fechas**: `due: YYYY-MM-DD` / `vence:` / `para:`; expresiones relativas **`hoy` / `today`**, **`mañana` / `tomorrow`**, **`pasado mañana`**, **`esta semana` / `this week`**, **`próxima semana` / `next week`**; hora en 12 h/24 h (`@ 3pm`, `14:30`) que se anexa a la fecha ISO como sufijo `T…`.
-- **Prioridad**: `!!` → `highest`; palabras tipo `p1`, `urgente`, `high`, `p2`, `p3`, `baja`, etc.
-- **Estado**: frases `en progreso` / `in progress` / `doing` / `wip` → `in_progress`.
-- **`#etiquetas`** en línea → campo `tags` de `FolioTaskData`.
-- **Alias de página**: sufijo `#slug` o `@slug` al final de la línea, resuelto contra un mapa de alias → **destino distinto** (`targetPageIdFromAlias`) para crear la tarea en otra página sin abrirla.
+- Atajo por defecto: `Ctrl+Shift+T` (también desde el sidebar).
+- Flujo unificado con el detalle de tarea: se crea un **borrador** en la página Kanban destino y se abre el panel/sheet `task_details_panel.dart` (el mismo que al editar una tarjeta). Si hay varios tableros Kanban, primero se elige la página destino.
+- El parser NLP **`TaskQuickCaptureParser`** (`lib/services/tasks/task_quick_capture_parser.dart`) sigue disponible en el código (fechas relativas, prioridad, estado, `#etiquetas`, alias de página) para usos futuros; ya no es el diálogo principal de captura.
 - Servicios en `lib/services/tasks/`: recordatorios, notificaciones de escritorio (ver abajo), tests del parser y de recurrencia.
 
 ### Recordatorios y notificaciones
@@ -856,6 +941,10 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 - `FolioRadius`: radios de esquinas consistentes.
 - `FolioSpace`: espaciados estándar.
 - `FolioMotion`: duraciones y curvas de animación.
+
+### Banner DEBUG de Flutter
+
+- El `MaterialApp` de Folio desactiva `debugShowCheckedModeBanner` para no mostrar la cinta «DEBUG» en builds de depuración.
 
 ---
 
@@ -908,6 +997,7 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 - `lib/services/updater/`: comprueba nuevas versiones disponibles.
 - Notificación in-app cuando hay una actualización.
 - Descarga e instalación guiada (Windows: `.msix`; macOS: `.dmg`; Linux: AppImage).
+- **No aplica en web** ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`).
 
 ---
 
@@ -915,7 +1005,11 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 - URL de reporte: `kFolioBugReportUrl`.
 - Flags de build: `folio_build_flags` (debug/profile/release, plataforma, versión).
-- Log estructurado: `AppLogger` (`lib/services/app_logger.dart`).
+- Log estructurado unificado: `AppLogger` (`lib/services/app_logger.dart`).
+  - Destinos: terminal (`debugPrint`, visible en `flutter run`), DevTools (`dart:developer` log) y archivo `folio.log` (sink no-web; entra en reportes de diagnóstico).
+  - Niveles: `debug` / `info` / `warn` / `error`. Tags: `folio.<tag>` (p. ej. `bootstrap`, `env`, `vault`, `cloud_sync`, `settings_sync`, `auth`, `onboarding`, `workspace`, `settings`, `persistence`, `entitlements`, `checkout`, `backup`, `smb`, `web-portal`, `store`).
+  - Contexto opcional JSON (`context:`) con ids, conteos y códigos — nunca contraseñas, claves, tokens ni contenido de páginas.
+  - Migración: residuales `debugPrint`/`print` de sync cloud, entitlements, env, checkout, backups, vault, SMB, portal web y Store unificados en `AppLogger`.
 - Historial de sesiones IA y gestión de hilos persistida localmente.
 - Telemetría opcional (Analytics / eventos con sesión Cloud): ver `docs/TELEMETRY.md`; desactivable en Ajustes → Privacidad.
 
@@ -923,7 +1017,7 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 ## 37. Modo zen / escritura sin distracciones
 
-Implementado en `lib/features/workspace/shell/workspace_page.dart`.
+Implementado en `lib/features/workspace/shell/workspace_page.dart` y `lib/desktop/desktop_window_fullscreen.dart`.
 
 - **Activación**: atajo `F11` (hotkey hardware en `_onHardwareKeyEvent`) o botón de la barra de herramientas del editor (`id: 'zen_mode'`).
 - **Efecto sobre la interfaz**:
@@ -932,8 +1026,9 @@ Implementado en `lib/features/workspace/shell/workspace_page.dart`.
   - Oculta el panel flotante de IA y el de colaboración.
   - Fija el ancho del contenido del editor a 740 px centrado.
   - Colapsa el sidebar (`effectiveSidebarW` devuelve 0.0).
-- **Salida**: botón semitransparente superpuesto sobre el editor (`Icons.fullscreen_exit_rounded`) que llama a `setState(() => _zenMode = false)`; también disponible volviendo a pulsar `F11`.
-- **Estado**: `bool _zenMode = false` en `_WorkspacePageState`.
+- **Pantalla completa OS (escritorio)**: al entrar en zen, la ventana pasa a fullscreen vía `window_manager` (`DesktopWindowFullscreen`). El estado `_zenOsFullscreen` es independiente de `_zenMode`: en el overlay se puede salir o volver a entrar en fullscreen sin abandonar el modo zen. Al salir del zen (o al disponer la página) se restaura la ventana. Escape u otras salidas nativas sincronizan el icono vía `onWindowLeaveFullScreen` / `onWindowEnterFullScreen` sin forzar la salida del zen. En web/móvil el zen es solo UI (sin fullscreen OS).
+- **Salida del zen**: botón del overlay (`Icons.self_improvement_rounded`) o volver a pulsar `F11` / toolbar; restaura UI y fullscreen OS.
+- **Estado**: `bool _zenMode` y `bool _zenOsFullscreen` en `_WorkspacePageState`.
 
 ---
 
@@ -966,19 +1061,24 @@ Implementado en `lib/models/block.dart`, `lib/session/vault_session.dart` y `lib
 
 ## 39. Vista de grafo
 
-Implementado en `lib/features/workspace/graph/graph_view_screen.dart`.
+Implementado en `lib/features/workspace/graph/graph_view_screen.dart` y `lib/features/workspace/graph/graph_model.dart`.
 
 - **Acceso**: botón en la barra de herramientas del workspace (`id: 'graph_view'`) → `Navigator.push` a `GraphViewScreen`.
-- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring = 0.04, damping = 0.85, gravedad central = 0.015.
+- **Relaciones incluidas**:
+  - **Enlaces** (`GraphEdgeKind.link`): menciones `@`, URIs `folio://open/<id>` y bloques `child_page` (vía `backlinkPagesFor`).
+  - **Jerarquía** (`GraphEdgeKind.hierarchy`): relación carpeta/folio del sidebar (`parentId` → hijo).
+- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring enlace = 0.04, spring jerarquía = 0.08, damping = 0.85, gravedad central = 0.015.
 - **Renderizado**:
-  - Nodos como círculos con etiqueta de título de página; tamaño proporcional a backlinks.
-  - Aristas mediante `CustomPainter` (`_EdgePainter`) con líneas semitransparentes.
+  - Nodos de folio como círculos; nodos de carpeta (`isFolder`) como rectángulos redondeados con icono.
+  - Aristas de enlace: línea sólida (`outlineVariant`).
+  - Aristas de jerarquía: línea discontinua (`outline` con opacidad reducida).
+  - Leyenda compacta en el AppBar (`graphViewLegendLink`, `graphViewLegendHierarchy`).
   - `InteractiveViewer` para zoom y paneo libre.
 - **Interacción**:
   - Hover sobre nodo: resalte visual (`_hoveredNodeId`).
   - Tap en nodo: `Navigator.pop()` + `onOpenPage(pageId)` para navegar a la página.
-- **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar.
-- **Estado vacío**: mensaje `graphViewEmpty` cuando no hay páginas con relaciones.
+- **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar; cuenta como conectado cualquier nodo con arista de enlace o jerarquía.
+- **Estado vacío**: mensaje `graphViewEmpty` cuando no hay relaciones entre folios ni carpetas.
 
 ---
 
@@ -1094,7 +1194,7 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 ### Modelo y persistencia
 
 - Campo `FolioPage.trashedAt` (ISO-8601 UTC; ausente = página activa).
-- Esquema de vault **v8** (`kVaultPayloadVersion` en `vault_payload.dart`).
+- Esquema de vault **v10** (`kVaultPayloadVersion` en `vault_payload.dart`): incluye `displayName` de la libreta para que el sync multi-dispositivo (y P2P) propague renombres entre dispositivos. El sidebar tolera ciclos `parentId`/orden tras un merge (rompe ciclos, limita profundidad, no repite nodos).
 - Las páginas en papelera siguen en el blob del vault (bloques, revisiones, ACL, comentarios y adjuntos se conservan hasta el borrado definitivo).
 
 ### Comportamiento (`VaultSession`)
@@ -1112,10 +1212,124 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 ### UI
 
+- Menú **⋯** de cada página/carpeta en el sidebar (`_SidebarTile`): emoji, mover, renombrar, plantilla, borrar. En escritorio nativo se revela al hover; en móvil/web queda **siempre visible** (no depende de hover).
 - Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
 - Entrada fija **Papelera** en el pie del sidebar (`showPageTrashSheet` en `page_trash_sheet.dart`): restaurar, eliminar definitivamente, vaciar, con aviso de retención 30 días.
 - Badge de conteo cuando hay elementos en papelera.
 
+---
+
+## 45. Servidor MCP local de Folio
+
+Folio puede exponer el mismo catálogo de acciones que usa Quill internamente (crear/editar páginas, gestionar libretas, buscar, etc.) a clientes MCP externos — Claude Desktop, Claude Code, Cursor, o cualquier otro cliente que hable el [Model Context Protocol](https://modelcontextprotocol.io) — para que puedan leer y gestionar tu libreta directamente, no solo el chat de Quill dentro de la app.
+
+Es una capacidad **desactivada por defecto y solo disponible en desktop** (Windows/Mac/Linux; no aplica a web ni móvil, porque necesita abrir un socket TCP real del sistema operativo).
+
+### Cómo activarlo
+
+1. Ajustes → sección de IA → interruptor **«Servidor MCP local (beta)»**.
+2. Al activarlo, Folio arranca un servidor HTTP en `127.0.0.1:45833` (puerto **fijo**, distinto de Integraciones `45831` y Run2Doc `45832`) y usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
+3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45833/mcp`), necesarios para configurar el cliente MCP externo. Solo se muestra «Activo» si el `bind` del puerto tuvo éxito.
+4. Al desactivarlo (o cerrar Folio), el servidor se detiene — el token guardado sigue válido la próxima vez que se active.
+
+### Configuración en Cursor (`mcp.json`)
+
+En **Ajustes → IA**, con el servidor activo:
+
+- **«Copiar config de Cursor»** — JSON con `url` + `Authorization` (HTTP local; Cursor lo admite).
+- **«Copiar JSON de Claude Desktop»** — JSON stdio vía `npx mcp-remote` + `--allow-http` para pegar en `%APPDATA%\Claude\claude_desktop_config.json` (requiere Node.js/npx).
+
+**Importante — «Conector personalizado» de Claude:** ese formulario (Settings → Connectors → Add custom connector) conecta desde **los servidores de Anthropic**, no desde tu PC. Exige una URL **HTTPS pública**; `http(s)://127.0.0.1` **no funciona** (Anthropic no puede alcanzar tu máquina). El MCP de Folio es deliberadamente solo loopback, así que **no se puede configurar ahí**. Para Claude Desktop en el mismo equipo, usa el JSON de desarrollador (`claude_desktop_config.json`), no el conector personalizado.
+
+Pégalo en `~/.cursor/mcp.json` / `%APPDATA%\Claude\claude_desktop_config.json`, fusionando con otros `mcpServers` si ya existen.
+
+Ejemplo Cursor:
+
+```json
+{
+  "mcpServers": {
+    "folio": {
+      "url": "http://127.0.0.1:45833/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+Ejemplo Claude Desktop (puente HTTP→stdio):
+
+```json
+{
+  "mcpServers": {
+    "folio": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "http://127.0.0.1:45833/mcp",
+        "--allow-http",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga MCP en el cliente.
+
+### Protocolo y transporte
+
+- JSON-RPC 2.0 sobre Streamable HTTP local (endpoint único `POST /mcp`): métodos `initialize`, `tools/list`, `tools/call`, `ping`, y notificaciones sin respuesta (`notifications/initialized`).
+- Respuestas JSON (`application/json`); `GET`/`DELETE` responden `405` (sin SSE). Tras `initialize` se envía `Mcp-Session-Id`.
+- Versiones de protocolo negociadas: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25` (preferida `2025-03-26`).
+- Toda petición requiere la cabecera `Authorization: Bearer <token>`; sin ella, o con un token distinto, el servidor responde `401` y un error JSON-RPC `-32001`.
+- El servidor **solo** bindea a `127.0.0.1` (loopback) — nunca escucha en una interfaz de red. Valida `Origin` si viene presente (solo localhost / 127.0.0.1).
+
+### Catálogo de acciones expuestas
+
+El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`, **`get_page_content`**) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
+
+A diferencia del chat interno de Quill, un cliente MCP no tiene "página actual": debe pasar siempre un `pageId` explícito en los argumentos de cada tool que lo requiera.
+
+### Lectura de páginas (`get_page_content`) y allowlist
+
+Los clientes MCP pueden leer el contenido completo de una página con `get_page_content` (metadatos + bloques con `id`, necesarios para `edit_page_blocks`). Quill interno usa el mismo tool **sin** restricciones de allowlist.
+
+**Privacidad (allowlist por libreta, vault schema v11 `mcpReadablePageIds`):**
+
+- Solo se devuelve el contenido de páginas en la allowlist (o descendientes de una **carpeta** allowlisteada).
+- Si un cliente MCP pide una página fuera de la allowlist, Folio muestra un diálogo: **Denegar**, **Permitir solo esta vez** (sin guardar) o **Permitir y recordar** (añade a la allowlist).
+- Las páginas creadas/duplicadas vía tools se añaden automáticamente a la allowlist (el agente puede releer lo que escribió).
+- `search_pages` vía MCP sigue pudiendo listar coincidencias por título, pero **omite el snippet** si la página no es legible (`contentReadable: false`); también incluye `blockId` cuando hay coincidencia de contenido.
+- Minimización: no se envía `richTextDeltaJson` ni apariencia; en bloques `image`/`file`/`audio`/`video` las rutas locales se sustituyen por `[local-attachment]`.
+- Gestión manual: en Ajustes → IA → Servidor MCP puedes **añadir** páginas/carpetas a la allowlist, quitarlas o vaciarla. La primera lectura vía MCP también puede añadir una página al aprobar el diálogo.
+
+### Permisos: aprobación como con cualquier otra integración
+
+El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuario lo aprueba explícitamente** — mismo mecanismo de permisos que ya usan los demás puentes locales de Folio (el bridge de Integraciones y Run2Doc):
+
+1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar, **leer páginas autorizadas**) y qué no (el servidor nunca escucha fuera de este equipo).
+2. Si el usuario deniega, la conexión falla con un error MCP (`-32001`) y no se guarda nada.
+3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>` y `integrationVersion` = **`FolioMcpServer.capabilitiesVersion`**, hoy `"2"`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar **mientras la versión de capacidades coincida**.
+4. Si se llama a cualquier tool antes de `initialize`, o el cliente identificado no está aprobado, el servidor responde con un error MCP (`-32002` sin `initialize`, `-32001` sin aprobar) en vez de ejecutar la acción.
+5. **Re-aprobación por cambio de capacidades:** al subir `capabilitiesVersion` (p. ej. al añadir lectura de páginas), las aprobaciones antiguas dejan de valer. Al reconectar, Folio muestra el diálogo de actualización explicando la novedad (lectura con allowlist) y pide autorizar de nuevo.
+
+**Revocar el acceso:** como cualquier otra integración aprobada, los clientes MCP aprobados aparecen en **Ajustes → Integraciones**, junto a Run2Doc y el resto de apps aprobadas, con un botón para revocar el acceso en cualquier momento. Revocar borra la aprobación guardada; la próxima vez que ese cliente se conecte, tendrá que pedir permiso de nuevo.
+
+### Seguridad — resumen
+
+- Apagado por defecto (opt-in explícito).
+- Solo loopback, nunca red.
+- Puerto fijo `45833` (Integraciones `45831`, Run2Doc `45832`); token Bearer persistente (no rota en cada arranque).
+- Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
+- Lectura de contenido acotada a la allowlist MCP de la libreta (más confirmación la primera vez); escritura/gestión siguen el catálogo completo una vez el cliente está aprobado.
+- Revocar el cliente o vaciar la allowlist corta el acceso a contenido ya autorizado.
 ---
 
 ## Apéndice: configuración persistida (`AppSettings`)
@@ -1133,8 +1347,14 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 | `syncDeviceName` | String | Nombre del dispositivo en la red |
 | `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
+| `cloudDeviceSyncEnabled` | bool | Sync multi-dispositivo vía Folio Cloud |
+| `cloudAppProfileSyncEnabled` | bool | Sync/backup del perfil de ajustes (app + libreta) vía Folio Cloud |
+| `cloudAppProfileAckUid` / `AckFingerprint` / `AckUpdatedAtMs` | string/int | Último perfil de cuenta ya ofrecido/aceptado (evita repetir el diálogo si no cambió) |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
 | `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
+| `quillToolCallingEnabled` | bool | Bucle de tool-calling de Quill (default `true`; se puede desactivar en Ajustes; sección 23) |
+| `mcpServerEnabled` | bool | Servidor MCP local activado (sección 45); desktop-only |
+| `mcpServerAuthToken` | String | Token Bearer persistente del servidor MCP local (sección 45) |
 
 ---
 
@@ -1149,18 +1369,21 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 `builld_all.ps1` se rehízo con un **menú interactivo** (además del modo directo por parámetros para CI). Al ejecutarlo sin argumentos (`.\builld_all.ps1`) muestra un menú con:
 
-- **Publicar RELEASE estable** en GitHub: compila el instalador Windows (`Folio-Setup-<semver>.exe` vía Inno Setup) y ejecuta `gh release create v<semver>` con `--generate-notes`.
-- **Publicar PRE-RELEASE / Beta**: igual, pero con `--prerelease` (alimenta el canal Beta del updater, ver [RELEASES.md](RELEASES.md)).
-- **Publicar solo notas** (changelog) sin adjuntar instalador.
-- **Compilar TODO** (Windows ZIP + MSIX + APK + Linux), o cada plataforma por separado.
+- **Publicar RELEASE / PRE-RELEASE**: compila **todas las formas de distribución posibles** en el host (instalador Windows `.exe`, ZIP portable Windows, MSIX Store, APK + AAB Android, ZIP Linux nativo o vía WSL, ZIP macOS solo en Mac) y las adjunta a `gh release create` (estable o `--prerelease` para el canal Beta; ver [RELEASES.md](RELEASES.md)). Antes de publicar se pueden **pegar notas Markdown** (terminar con `END`) o usar Enter para `--generate-notes`; también `-ReleaseNotes` / `-ReleaseNotesFile`.
+- **Publicar solo notas** (changelog) sin adjuntar artefactos (mismas opciones de Markdown).
+- **Compilar TODO** o cada plataforma por separado (incluye acción `macos`).
 - **Generar solo el instalador Windows** (`.exe`).
 - **Mantenimiento**: `flutter clean` y cambio de versión en `pubspec.yaml`.
 
 Detalles de implementación:
 
-- **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
+- **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
 - **Instalador dinámico:** genera un `.iss` temporal con rutas absolutas al `Release` actual y `OutputDir`, evitando las rutas fijas obsoletas. Requiere `ISCC.exe` (Inno Setup); localizado por PATH o rutas por defecto.
-- **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget`, `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`. El `target_commitish` se **autodetecta** (rama actual si existe en `origin`, o rama por defecto del remoto → `main`) para evitar el error `Invalid target_commitish` cuando la rama por defecto no es `master`.
+- **Publicación multi-asset:** `Publish-Release` adjunta todos los artefactos de la versión actual en `Output/` (no solo el instalador). El instalador `.exe` sigue siendo obligatorio para release/prerelease.
+- **Notas Markdown:** `Resolve-ReleaseNotes` prioriza `-ReleaseNotesFile`, luego `-ReleaseNotes`, luego pegado interactivo (línea `END`); si no hay cuerpo, usa `--generate-notes`. El Markdown se escribe a un temporal UTF-8 y se pasa a `gh release create --notes-file`.
+- **Linux:** en host Linux compila nativo; en Windows intenta **WSL** (Flutter + `zip` + deps GTK en la distro). Si no hay entorno, avisa y continúa (best-effort en `build-all` / publish).
+- **macOS:** solo en host Darwin (`flutter build macos` → ZIP del `.app`). Desde Windows/Linux se omite con aviso; el workflow CI tiene job `macos-latest`.
+- **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`. El `target_commitish` se **autodetecta** (rama actual si existe en `origin`, o rama por defecto del remoto → `main`) para evitar el error `Invalid target_commitish` cuando la rama por defecto no es `master`.
 - **Robustez de caché:** opción `-Clean` / entrada de menú para `flutter clean` (resuelve el error de `CMakeCache.txt` cuando el repo se mueve de carpeta).
 - **Codificación:** el script se mantiene en ASCII para evitar fallos de parseo entre Windows PowerShell 5.1 (ANSI) y PowerShell 7 (UTF-8).
 - **`installer.iss`:** se corrigieron las rutas absolutas obsoletas (`E:\Folio-1\...`) por rutas relativas al repositorio.
@@ -1203,7 +1426,7 @@ En Windows, con el engine de Flutter 3.44 y el SDK C++ de Firebase, la app crash
 
 - **Callables IA (móvil/macOS):** timeout de 120 s en `folio_cloud_callable.dart` con mapeo a `deadline-exceeded`.
 - **Cloud-pack:** rollback de snapshot y blobs nuevos si falla `folioFinalizeCloudPack`.
-- **Logging:** `catch` silenciosos sustituidos por `AppLogger` en cloud-pack sync, backup metadata y entitlements.
+- **Logging:** `AppLogger` unificado (terminal + DevTools + `folio.log`); migración de `debugPrint`/`print`; hitos en auth, vault unlock/key cache, sync incremental/headless, import-all, onboarding, workspace y settings.
 - **IA cloud:** errores no tipados preservan el mensaje real antes de mapear a `unavailable`.
 - **Entitlements:** cancelación serializada del listener de documento por UID (`await _docSub?.cancel()`).
 - **Backup:** comprobación de existencia del archivo antes de `putFile`.
@@ -1305,5 +1528,5 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 - `database_block_editor.dart` y partes de `settings_page.dart` / `kanban_board_page.dart` aún usan `_t(es,en)` o ternarios manuales; migración gradual a `.arb`.
 - División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
-- Unificación de bridges `integrations_bridge` / `run2doc_bridge` (puertos ya separados: 45831 / 45832).
+- Unificación de bridges `integrations_bridge` / `run2doc_bridge` / MCP (puertos ya separados: 45831 / 45832 / 45833).
 - Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.

@@ -1,4 +1,4 @@
-﻿/// Placeholders de secretos locales (OAuth Jira, integración, etc.).
+/// Placeholders de secretos locales (OAuth Jira, integración, etc.).
 ///
 /// **Este archivo SÍ está versionado en git, con valores vacíos.** No lo
 /// edites con valores reales y luego hagas commit — usa `--dart-define` al
@@ -14,6 +14,9 @@ abstract final class FolioLocalSecrets {
   static const String folioIntegrationSecret = '';
   /// Id de producto Partner Center / enlace apps.microsoft.com/detail/…
   static const String microsoftStoreListingProductId = '';
+  static const String spotifyOAuthClientId = '931f461da7fe4c31872c1d09277329f9';
+  static const String slackOAuthClientId = '';
+  static const String teamsOAuthClientId = '';
 
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {
@@ -26,6 +29,12 @@ abstract final class FolioLocalSecrets {
         return folioIntegrationSecret.trim();
       case 'FOLIO_MS_STORE_LISTING_PRODUCT_ID':
         return microsoftStoreListingProductId.trim();
+      case 'SPOTIFY_OAUTH_CLIENT_ID':
+        return spotifyOAuthClientId.trim();
+      case 'SLACK_OAUTH_CLIENT_ID':
+        return slackOAuthClientId.trim();
+      case 'TEAMS_OAUTH_CLIENT_ID':
+        return teamsOAuthClientId.trim();
       default:
         return '';
     }
