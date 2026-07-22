@@ -62,9 +62,9 @@ Además del CI, puedes compilar y publicar desde tu máquina con el menú intera
 .\builld_all.ps1
 ```
 
-- **Opción 1 (RELEASE estable):** compila **todas** las formas de distribución posibles en el host (instalador `.exe`, ZIP Windows, MSIX, APK/AAB, Linux vía WSL si aplica, macOS solo en Mac) y ejecuta `gh release create v<semver> ... --generate-notes` adjuntando todos los assets.
-- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta).
-- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar artefactos.
+- **Opción 1 (RELEASE estable):** compila **todas** las formas de distribución posibles en el host (instalador `.exe`, ZIP Windows, MSIX, APK/AAB, Linux vía WSL si aplica, macOS solo en Mac) y ejecuta `gh release create v<semver> ...` adjuntando todos los assets. Antes de publicar pide pegar **notas Markdown** (o Enter para `--generate-notes`).
+- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta); mismas opciones de notas Markdown.
+- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar artefactos (también admite Markdown pegado o archivo).
 
 Modo directo (sin menú), útil para automatizar:
 
@@ -75,11 +75,17 @@ Modo directo (sin menú), útil para automatizar:
 # Pre-release subiendo antes la versión
 .\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes
 
+# Notas Markdown desde archivo (release o prerelease)
+.\builld_all.ps1 -Action release -Yes -ReleaseNotesFile .\CHANGELOG-release.md
+.\builld_all.ps1 -Action prerelease -Yes -ReleaseNotes "## Beta`n`n- Fix X"
+
 # Solo plataformas Windows (omitir Android/Linux/macOS)
 .\builld_all.ps1 -Action release -Yes -SkipAndroid -SkipLinux -SkipMacOS
 ```
 
-Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`.
+Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`.
+
+> **Notas Markdown:** en modo interactivo (menú 1/2/3), pega el cuerpo y termina con una línea `END`; Enter vacío en la primera línea usa `--generate-notes`. Con `-Yes` / `-NonInteractive` sin `-ReleaseNotes`/`-ReleaseNotesFile` también se autogeneran. El script pasa el Markdown a `gh` vía `--notes-file` (archivo temporal UTF-8).
 
 > El `target_commitish` se resuelve automáticamente: si omites `-ReleaseTarget`, el script usa la rama actual (si existe en `origin`) o la rama por defecto del remoto (`main`). GitHub crea el tag apuntando al **último commit de esa rama en el remoto**, así que empuja tus cambios antes de publicar.
 

@@ -55,6 +55,10 @@ param(
     [switch] $DraftRelease,
     # Nueva version para pubspec.yaml antes de compilar (p. ej. 1.3.0 o 1.3.0+12). Vacio = mantener.
     [string] $BumpVersion = '',
+    # Notas Markdown de la release (inline). Si vacio y no hay -ReleaseNotesFile, en modo interactivo se pueden pegar.
+    [string] $ReleaseNotes = '',
+    # Ruta a un .md con las notas de la release (prioridad sobre -ReleaseNotes).
+    [string] $ReleaseNotesFile = '',
     # No pedir confirmaciones interactivas en flujos de publicacion.
     [switch] $Yes
 )
@@ -711,11 +715,65 @@ function Assert-GhReady {
     }
 }
 
+# Resuelve el cuerpo Markdown de la release.
+# Prioridad: -ReleaseNotesFile > -ReleaseNotes > pegado interactivo > $null (= --generate-notes).
+# Devuelve $null para autogenerar con gh, o un string Markdown.
+function Resolve-ReleaseNotes {
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseNotesFile)) {
+        $path = $ReleaseNotesFile.Trim()
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "No se encontro el archivo de notas: $path"
+        }
+        $full = (Resolve-Path -LiteralPath $path).Path
+        Write-Host "[release] Notas desde archivo: $full" -ForegroundColor Gray
+        return [System.IO.File]::ReadAllText($full, [System.Text.UTF8Encoding]::new($false))
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseNotes)) {
+        Write-Host "[release] Notas desde -ReleaseNotes" -ForegroundColor Gray
+        return $ReleaseNotes
+    }
+
+    # CI / -Yes: sin prompt, autogenerar.
+    if ($Yes -or $NonInteractive) {
+        return $null
+    }
+
+    Write-Host ""
+    Write-Host "Notas de la release (Markdown):" -ForegroundColor Yellow
+    Write-Host "  - Pulsa Enter en la primera linea para generar notas automaticamente (gh --generate-notes)." -ForegroundColor Gray
+    Write-Host "  - O pega el Markdown y termina con una linea que diga solo: END" -ForegroundColor Gray
+    Write-Host ""
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $first = $true
+    while ($true) {
+        $line = Read-Host
+        if ($first -and [string]::IsNullOrWhiteSpace($line)) {
+            Write-Host "[release] Sin notas pegadas; se usara --generate-notes." -ForegroundColor Gray
+            return $null
+        }
+        $first = $false
+        if ($line -eq 'END') { break }
+        [void]$lines.Add($line)
+    }
+
+    $body = ($lines -join "`n").TrimEnd()
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        Write-Host "[release] Notas vacias; se usara --generate-notes." -ForegroundColor Gray
+        return $null
+    }
+
+    Write-Host ("[release] Notas Markdown recibidas ({0} caracteres)." -f $body.Length) -ForegroundColor Gray
+    return $body
+}
+
 function Publish-Release {
     param(
         [Parameter(Mandatory)] [string] $Tag,
         [string] $InstallerPath = '',
         [string[]] $AssetPaths = @(),
+        [string] $NotesBody = '',
         [switch] $AsPreRelease,
         [switch] $AsDraft
     )
@@ -744,27 +802,44 @@ function Publish-Release {
         }
     }
 
-    $ghArgs = [System.Collections.Generic.List[string]]::new()
-    $ghArgs.Add('release'); $ghArgs.Add('create'); $ghArgs.Add($Tag)
-    foreach ($a in $assets) {
-        $ghArgs.Add($a)
-    }
-    $ghArgs.Add('--target'); $ghArgs.Add($target)
-    $ghArgs.Add('--title'); $ghArgs.Add($Tag)
-    $ghArgs.Add('--generate-notes')
-    if ($AsPreRelease) { $ghArgs.Add('--prerelease') }
-    if ($AsDraft) { $ghArgs.Add('--draft') }
+    $notesFile = $null
+    try {
+        $ghArgs = [System.Collections.Generic.List[string]]::new()
+        $ghArgs.Add('release'); $ghArgs.Add('create'); $ghArgs.Add($Tag)
+        foreach ($a in $assets) {
+            $ghArgs.Add($a)
+        }
+        $ghArgs.Add('--target'); $ghArgs.Add($target)
+        $ghArgs.Add('--title'); $ghArgs.Add($Tag)
 
-    $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
-    Write-Host "`n[release] Publicando $kind '$Tag' en GitHub..." -ForegroundColor Cyan
-    Write-Host "  Target : $target" -ForegroundColor Gray
-    Write-Host "  Assets : $($assets.Count)" -ForegroundColor Gray
-    foreach ($a in $assets) {
-        Write-Host "    - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+        if (-not [string]::IsNullOrWhiteSpace($NotesBody)) {
+            $notesFile = Join-Path ([System.IO.Path]::GetTempPath()) ("folio-release-notes-" + [guid]::NewGuid().ToString('N') + '.md')
+            [System.IO.File]::WriteAllText($notesFile, $NotesBody, [System.Text.UTF8Encoding]::new($false))
+            $ghArgs.Add('--notes-file'); $ghArgs.Add($notesFile)
+        } else {
+            $ghArgs.Add('--generate-notes')
+        }
+
+        if ($AsPreRelease) { $ghArgs.Add('--prerelease') }
+        if ($AsDraft) { $ghArgs.Add('--draft') }
+
+        $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
+        $notesMode = if (-not [string]::IsNullOrWhiteSpace($NotesBody)) { 'Markdown pegado/archivo' } else { 'autogeneradas (gh)' }
+        Write-Host "`n[release] Publicando $kind '$Tag' en GitHub..." -ForegroundColor Cyan
+        Write-Host "  Target : $target" -ForegroundColor Gray
+        Write-Host "  Notas  : $notesMode" -ForegroundColor Gray
+        Write-Host "  Assets : $($assets.Count)" -ForegroundColor Gray
+        foreach ($a in $assets) {
+            Write-Host "    - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+        }
+        & gh @ghArgs
+        Assert-LastExitCode 'gh release create'
+        Write-Host "Publicado: $Tag" -ForegroundColor Green
+    } finally {
+        if ($notesFile -and (Test-Path -LiteralPath $notesFile)) {
+            Remove-Item -LiteralPath $notesFile -Force -ErrorAction SilentlyContinue
+        }
     }
-    & gh @ghArgs
-    Assert-LastExitCode 'gh release create'
-    Write-Host "Publicado: $Tag" -ForegroundColor Green
 }
 
 function Confirm-Action([string] $message) {
@@ -799,6 +874,10 @@ function Invoke-PublishFlow {
         return
     }
 
+    # Pedir notas antes del build largo (pegar Markdown o Enter = autogenerar).
+    $notesBody = Resolve-ReleaseNotes
+    if ($null -eq $notesBody) { $notesBody = '' }
+
     Assert-GhReady
 
     # Misma matriz que build-all; Linux/macOS en best-effort fuera de su host.
@@ -818,7 +897,7 @@ function Invoke-PublishFlow {
         Write-Host "  - $(Split-Path $a -Leaf)" -ForegroundColor Gray
     }
 
-    Publish-Release -Tag $tag -AssetPaths $assets -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
+    Publish-Release -Tag $tag -AssetPaths $assets -NotesBody $notesBody -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
 }
 
 # Flujo compilar todo localmente (comportamiento legado).
@@ -962,7 +1041,9 @@ function Invoke-FolioAction([string] $act) {
             $semver = Get-PubspecSemver
             $tag = if ([string]::IsNullOrWhiteSpace($ReleaseTag)) { "v$semver" } else { $ReleaseTag.Trim() }
             if (Confirm-Action "Publicar release solo-notas '$tag' ?") {
-                Publish-Release -Tag $tag -AsPreRelease:$PreRelease -AsDraft:$DraftRelease
+                $notesBody = Resolve-ReleaseNotes
+                if ($null -eq $notesBody) { $notesBody = '' }
+                Publish-Release -Tag $tag -NotesBody $notesBody -AsPreRelease:$PreRelease -AsDraft:$DraftRelease
             } else {
                 Write-Host "Cancelado." -ForegroundColor Yellow
             }

@@ -1369,8 +1369,8 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 
 `builld_all.ps1` se rehízo con un **menú interactivo** (además del modo directo por parámetros para CI). Al ejecutarlo sin argumentos (`.\builld_all.ps1`) muestra un menú con:
 
-- **Publicar RELEASE / PRE-RELEASE**: compila **todas las formas de distribución posibles** en el host (instalador Windows `.exe`, ZIP portable Windows, MSIX Store, APK + AAB Android, ZIP Linux nativo o vía WSL, ZIP macOS solo en Mac) y las adjunta a `gh release create` (estable o `--prerelease` para el canal Beta; ver [RELEASES.md](RELEASES.md)).
-- **Publicar solo notas** (changelog) sin adjuntar artefactos.
+- **Publicar RELEASE / PRE-RELEASE**: compila **todas las formas de distribución posibles** en el host (instalador Windows `.exe`, ZIP portable Windows, MSIX Store, APK + AAB Android, ZIP Linux nativo o vía WSL, ZIP macOS solo en Mac) y las adjunta a `gh release create` (estable o `--prerelease` para el canal Beta; ver [RELEASES.md](RELEASES.md)). Antes de publicar se pueden **pegar notas Markdown** (terminar con `END`) o usar Enter para `--generate-notes`; también `-ReleaseNotes` / `-ReleaseNotesFile`.
+- **Publicar solo notas** (changelog) sin adjuntar artefactos (mismas opciones de Markdown).
 - **Compilar TODO** o cada plataforma por separado (incluye acción `macos`).
 - **Generar solo el instalador Windows** (`.exe`).
 - **Mantenimiento**: `flutter clean` y cambio de versión en `pubspec.yaml`.
@@ -1380,9 +1380,10 @@ Detalles de implementación:
 - **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
 - **Instalador dinámico:** genera un `.iss` temporal con rutas absolutas al `Release` actual y `OutputDir`, evitando las rutas fijas obsoletas. Requiere `ISCC.exe` (Inno Setup); localizado por PATH o rutas por defecto.
 - **Publicación multi-asset:** `Publish-Release` adjunta todos los artefactos de la versión actual en `Output/` (no solo el instalador). El instalador `.exe` sigue siendo obligatorio para release/prerelease.
+- **Notas Markdown:** `Resolve-ReleaseNotes` prioriza `-ReleaseNotesFile`, luego `-ReleaseNotes`, luego pegado interactivo (línea `END`); si no hay cuerpo, usa `--generate-notes`. El Markdown se escribe a un temporal UTF-8 y se pasa a `gh release create --notes-file`.
 - **Linux:** en host Linux compila nativo; en Windows intenta **WSL** (Flutter + `zip` + deps GTK en la distro). Si no hay entorno, avisa y continúa (best-effort en `build-all` / publish).
 - **macOS:** solo en host Darwin (`flutter build macos` → ZIP del `.app`). Desde Windows/Linux se omite con aviso; el workflow CI tiene job `macos-latest`.
-- **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget`, `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`. El `target_commitish` se **autodetecta** (rama actual si existe en `origin`, o rama por defecto del remoto → `main`) para evitar el error `Invalid target_commitish` cuando la rama por defecto no es `master`.
+- **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`. El `target_commitish` se **autodetecta** (rama actual si existe en `origin`, o rama por defecto del remoto → `main`) para evitar el error `Invalid target_commitish` cuando la rama por defecto no es `master`.
 - **Robustez de caché:** opción `-Clean` / entrada de menú para `flutter clean` (resuelve el error de `CMakeCache.txt` cuando el repo se mueve de carpeta).
 - **Codificación:** el script se mantiene en ASCII para evitar fallos de parseo entre Windows PowerShell 5.1 (ANSI) y PowerShell 7 (UTF-8).
 - **`installer.iss`:** se corrigieron las rutas absolutas obsoletas (`E:\Folio-1\...`) por rutas relativas al repositorio.
