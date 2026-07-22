@@ -2065,7 +2065,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   /// M5: Show notification if vault was just migrated from v0 to v1
   void _showMigrationNotificationIfNeeded() {
-    AppLogger.info('Migration check: justMigrated=${_s.justMigrated}, format=${_s.vaultFormatVersion}');
     if (!_s.justMigrated) return;
 
     final isSpanish = Localizations.localeOf(context).languageCode == 'es';
