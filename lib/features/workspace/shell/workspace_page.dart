@@ -2063,17 +2063,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  /// M5: Show notification if vault was just migrated from v0 to v1 and has files to delete
+  /// M5: Show notification if vault was just migrated from v0 to v1
   void _showMigrationNotificationIfNeeded() {
-    AppLogger.info('Migration check: justMigrated=${_s.justMigrated}, hasV0Files=${_s.hasV0FilesToDelete}, format=${_s.vaultFormatVersion}');
-
-    // Only show if migrated AND has v0 files to delete
-    if (!_s.justMigrated || !_s.hasV0FilesToDelete) {
-      if (_s.justMigrated) {
-        _s.resetMigrationFlag(); // Clear flag if no files to delete
-      }
-      return;
-    }
+    AppLogger.info('Migration check: justMigrated=${_s.justMigrated}, format=${_s.vaultFormatVersion}');
+    if (!_s.justMigrated) return;
 
     final isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -2082,23 +2075,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
       SnackBar(
         content: Text(
           isSpanish
-              ? 'Libreta migrada a v1. ¿Eliminar versión anterior?'
-              : 'Vault migrated to v1. Delete legacy version?',
+              ? 'Libreta migrada a v1 ✅'
+              : 'Vault migrated to v1 ✅',
         ),
         action: SnackBarAction(
           label: isSpanish
-              ? 'Eliminar'
-              : 'Delete',
+              ? 'Eliminar v0'
+              : 'Delete v0',
           onPressed: () async {
-            final success = await _s.deleteV0VaultBinary();
+            await _s.deleteV0VaultBinary();
             _s.resetMigrationFlag();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    success
-                        ? (isSpanish ? 'Versión v0 eliminada ✅' : 'Legacy version deleted ✅')
-                        : (isSpanish ? 'No se pudo eliminar' : 'Could not delete'),
+                    isSpanish
+                        ? 'Versión anterior eliminada'
+                        : 'Legacy version deleted',
                   ),
                   duration: const Duration(seconds: 2),
                 ),
@@ -2106,7 +2099,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             }
           },
         ),
-        duration: const Duration(seconds: 10),
+        duration: const Duration(seconds: 7),
       ),
     );
   }
