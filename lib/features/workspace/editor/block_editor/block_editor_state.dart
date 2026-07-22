@@ -23,6 +23,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   static const _uuid = Uuid();
   final List<TextEditingController> _controllers = [];
   final Map<String, quill.QuillController> _quillByBlockId = {};
+  /// Marca (por identidad, sin retener referencias fuertes) qué
+  /// `QuillController`s ya fueron destruidos por el callback diferido de
+  /// `_disposeControllers()`. Llamadas ANIDADAS a `_disposeControllers()`
+  /// (misma pasada síncrona de `_onSession()`) pueden capturar el MISMO
+  /// controller huérfano más de una vez si aún no ha sido reemplazado en
+  /// `_quillByBlockId` entre una captura y la siguiente; sin esta guarda,
+  /// los callbacks diferidos correspondientes intentarían llamar
+  /// `dispose()` dos veces sobre el mismo objeto, lo que revienta con
+  /// "A QuillController was used after being disposed". `Expando` usa
+  /// referencias débiles a la clave, así que no impide que el controller
+  /// se recolecte normalmente una vez destruido.
+  static final Expando<bool> _quillDisposedByUs = Expando<bool>();
   final Map<String, Timer> _quillDebounceByBlockId = {};
   /// Persistencia inmediata (texto + Delta) del bloque WYSIWYG a la sesión.
   /// Se usa para vaciar cambios pendientes antes de descartar el debounce
@@ -709,7 +721,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _quillPersistByBlockId.remove(blockId);
     _quillFlushNowByBlockId.remove(blockId);
     final qc = _quillByBlockId.remove(blockId);
-    qc?.dispose();
+    // Ver el comentario junto a `_quillDisposedByUs`: este mismo objeto
+    // puede haber sido ya destruido por el callback diferido de
+    // `_disposeControllers()` (u otra ruta), así que evitamos el doble
+    // `dispose()` sobre la misma instancia.
+    if (qc != null && _quillDisposedByUs[qc] != true) {
+      _quillDisposedByUs[qc] = true;
+      qc.dispose();
+    }
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
   }
@@ -728,6 +747,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (_isTrailingSentinel(last)) return true;
 
     _ensuringTrailingSentinel = true;
+    // Si quien nos llamó ya dejó un foco pendiente explícito (p. ej.
+    // `_tryInsertNewBlockFromCurrentCaret` tras un Enter/Ctrl+Enter, que ya
+    // decidió a qué bloque debe ir el cursor tras la inserción/split), NO lo
+    // sobrescribimos con nuestra propia detección de "¿qué bloque tiene
+    // foco AHORA MISMO?". En ese punto el traspaso de foco de esa acción
+    // explícita normalmente todavía no se ha aplicado (se aplica en un
+    // postFrame vía `_finalizePendingEditorFocus`), así que el FocusNode
+    // que detectaríamos como "enfocado" aquí sigue siendo el bloque VIEJO
+    // que el usuario está abandonando, no el destino real. Pisar el
+    // pending-focus en ese caso hace que `_finalizePendingEditorFocus`
+    // reposicione el cursor (y dispare un flush espurio que puede pisar el
+    // modelo) sobre el bloque equivocado.
+    final hasExplicitPendingFocus =
+        _pendingFocusIndex != null || _pendingFocusBlockId != null;
     String? focusId;
     int? focusOff;
     for (
@@ -746,11 +779,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (focusId == null &&
         _stylableBlockTypes.contains(last.type) &&
         last.text.trim().isNotEmpty) {
-      _flushPendingQuill(last.id);
-      focusId = last.id;
-      focusOff = _liveCaretPlainOffset(last.id);
+      // No secuestrar este bloque como "destino de foco a restaurar" si
+      // ahora mismo tiene una selección de rango activa en su
+      // QuillController (p. ej. la selección que respalda la barra de
+      // formato flotante). `_finalizePendingEditorFocus` colapsaría esa
+      // selección a un único punto para "restaurar" el cursor, destruyendo
+      // una selección real que nadie pidió mover solo porque tuvimos que
+      // insertar un bloque centinela en segundo plano.
+      final lastQc = _quillByBlockId[last.id];
+      final lastHasActiveRangeSelection =
+          lastQc != null &&
+          lastQc.selection.isValid &&
+          !lastQc.selection.isCollapsed;
+      if (!lastHasActiveRangeSelection) {
+        _flushPendingQuill(last.id);
+        focusId = last.id;
+        focusOff = _liveCaretPlainOffset(last.id);
+      }
     }
-    if (focusId != null) {
+    if (focusId != null && !hasExplicitPendingFocus) {
       _pendingFocusBlockId = focusId;
       _pendingCursorOffset = focusOff ?? 0;
     }
@@ -2242,7 +2289,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final oldSel = qc.selection;
       qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
       _quillLastMdByBlockId[b.id] = b.text;
-      _quillDebounceByBlockId[b.id]?.cancel();
       final newPlain = qc.document.toPlainText();
       if (newPlain == oldPlain && oldSel.isValid) {
         qc.updateSelection(oldSel, quill.ChangeSource.remote);
@@ -2263,6 +2309,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           quill.ChangeSource.remote,
         );
       }
+      // Cancelar el debounce DESPUÉS de reasignar documento/selección: ambas
+      // operaciones notifican al listener del controller, que re-arma el
+      // debounce de persistencia en cada notificación (ver el mismo patrón
+      // y explicación en `_syncControllers`). Cancelar antes dejaría vivo un
+      // temporizador re-armado por `updateSelection` que, al expirar,
+      // reescribiría en el modelo un markdown derivado de este resync
+      // remoto, pisando cambios reales posteriores.
+      _quillDebounceByBlockId[b.id]?.cancel();
     }
   }
 
@@ -3848,6 +3902,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _blockScrollKeys.clear();
     _tailTapTransientTouchedByBlockId.clear();
     final quillIds = _quillByBlockId.keys.toList();
+    // Capturamos las INSTANCIAS (no solo los ids) tal como estaban en el
+    // momento de este `_disposeControllers()`. Es la única forma fiable de
+    // saber, cuando el callback diferido corra, si el controller que
+    // íbamos a destruir sigue siendo el mismo objeto en uso (reutilizado) o
+    // uno distinto: comparar por id no basta (ver comentario más abajo).
+    final capturedQuillControllers = <String, quill.QuillController>{
+      for (final id in quillIds) id: _quillByBlockId[id]!,
+    };
     for (final id in quillIds) {
       // Persistir cambios pendientes ANTES de descartar el debounce para no
       // perder edición rich-text al cambiar de página o bloquear el vault.
@@ -3871,14 +3933,60 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       // caret) puede seguir en uso real para cuando este callback diferido
       // se ejecuta. Si destruyéramos incondicionalmente todos los
       // `quillIds` capturados aquí, tiraríamos también esos controllers
-      // reutilizados y perderíamos el caret (o el editor entero). Solo hay
-      // que descartar los que de verdad quedaron huérfanos: los que ya no
-      // aparecen en `_controllerBlockIds` tras la resincronización.
-      for (final id in quillIds) {
-        if (_controllerBlockIds.contains(id)) continue;
+      // reutilizados y perderíamos el caret (o el editor entero).
+      //
+      // Pero comprobar solo la presencia del id (en `_controllerBlockIds` o
+      // en `_quillByBlockId`) es demasiado laxo: un id puede seguir
+      // "presente" mientras que el objeto que hay detrás ya es OTRO
+      // controller (p. ej. porque el bloque fue realmente recreado, o
+      // porque `_disposeQuillForBlocksNoLongerStylable` lo soltó y luego se
+      // volvió a crear uno nuevo dentro de la misma pasada síncrona). Tratar
+      // ese caso como "reutilizado" deja vivo el controller VIEJO (fugado,
+      // nunca destruido) mientras el nuevo controller sigue operando sobre
+      // datos que ya no reflejan la última resincronización con el modelo,
+      // lo que produce corrupción de contenido (p. ej. texto duplicado o con
+      // saltos de línea de más) en vez de pérdida de caret.
+      //
+      // La señal correcta es la identidad del objeto: solo saltamos el
+      // dispose si `_quillByBlockId[id]` sigue siendo LITERALMENTE la misma
+      // instancia que capturamos aquí. Si es `null` (huérfano) o una
+      // instancia distinta (recreado), el controller VIEJO capturado ya no
+      // es alcanzable desde `_quillByBlockId` y debe destruirse usando nustra
+      // referencia capturada directamente (nunca mediante un lookup en vivo,
+      // que en el caso "recreado" borraría por error el controller nuevo).
+      for (final entry in capturedQuillControllers.entries) {
+        final id = entry.key;
+        final captured = entry.value;
+        final current = _quillByBlockId[id];
+        if (identical(current, captured)) continue;
+        // Otra llamada anidada a `_disposeControllers()` puede haber
+        // capturado este MISMO controller huérfano (si aún no había sido
+        // reemplazado en `_quillByBlockId` en ese momento) y ya haberlo
+        // destruido en su propio callback diferido. Llamar `dispose()` dos
+        // veces sobre el mismo `QuillController` revienta con "used after
+        // being disposed", así que verificamos la marca antes de tocarlo.
+        if (_quillDisposedByUs[captured] == true) continue;
+        _quillDisposedByUs[captured] = true;
         // Evitar que Quill intente pedir teclado tras el teardown.
-        _quillByBlockId[id]?.skipRequestKeyboard = true;
-        _disposeQuillFor(id);
+        captured.skipRequestKeyboard = true;
+        captured.dispose();
+        if (current == null) {
+          // Huérfano de verdad: nadie volvió a crear un controller para este
+          // id, así que los mapas auxiliares todavía pertenecen al
+          // controller viejo (ya destruido) y hay que soltarlos aquí
+          // (replica lo que hace `_disposeQuillFor`, sin tocar
+          // `_quillByBlockId`, que ya no contiene esta entrada).
+          _quillDebounceByBlockId.remove(id)?.cancel();
+          _quillPersistByBlockId.remove(id);
+          _quillFlushNowByBlockId.remove(id);
+          _quillLastMdByBlockId.remove(id);
+        }
+        // Si `current` no es nulo pero tampoco es idéntico, el id fue
+        // recreado con OTRO controller dentro de esta misma pasada síncrona;
+        // ese controller nuevo ya es dueño de todos los mapas auxiliares
+        // (los sobrescribió `_ensureQuillController` al crearlo), así que no
+        // los tocamos: solo nos limitamos a destruir la instancia vieja
+        // capturada, que ya hicimos arriba.
       }
     });
   }
@@ -4111,6 +4219,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _pendingCursorOffset = null;
     _pendingFocusBlockId = null;
 
+    // `_disposeControllers()` resetea incondicionalmente cierto estado de UI
+    // puramente transitorio (barra de formato flotante activa, menú "..."
+    // abierto) pensado para un teardown real (cambio de página / dispose).
+    // Pero `_syncControllers()` también se dispara por una resincronización
+    // dentro de la MISMA página (p. ej. reentrada síncrona desde
+    // `_ensureTrailingSentinel` al insertar el bloque centinela). En ese
+    // caso los bloques referenciados por este estado pueden seguir
+    // existiendo tal cual tras el resync, y perderlo hace desaparecer p. ej.
+    // la barra de formato aunque la selección subyacente del QuillController
+    // reutilizado siga intacta (nada vuelve a disparar su listener para
+    // recalcularlo, ya que la selección en sí no cambió). Lo capturamos
+    // aquí y lo restauramos abajo si el bloque sigue en la página.
+    final preservedSelectionActiveBlockId = _selectionActiveBlockId;
+    final preservedMenuOpenBlockId = _menuOpenBlockId;
+
     _disposeControllers();
     if (page == null) {
       _boundPageId = null;
@@ -4138,7 +4261,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             final oldSel = qc.selection;
             qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
             _quillLastMdByBlockId[bid] = b.text;
-            _quillDebounceByBlockId[bid]?.cancel();
             final newPlain = qc.document.toPlainText();
             if (newPlain == oldPlain && oldSel.isValid) {
               qc.updateSelection(oldSel, quill.ChangeSource.remote);
@@ -4150,6 +4272,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                 quill.ChangeSource.remote,
               );
             }
+            // Cancelar el debounce DESPUÉS de `updateSelection`: tanto la
+            // asignación de `qc.document` como `updateSelection` notifican al
+            // listener del controller, que re-arma el debounce de
+            // persistencia en cada notificación. Si cancelamos antes de
+            // `updateSelection`, el temporizador que esta última rearma
+            // sobrevive y, cuando expira (p. ej. durante `pumpAndSettle`),
+            // vuelve a escribir en el modelo un markdown derivado del propio
+            // documento recién resincronizado — pisando cualquier mutación
+            // "real" del modelo (como un split de bloque) que haya ocurrido
+            // justo después de este resync remoto. Cancelar al final evita
+            // ese eco espurio hacia la sesión.
+            _quillDebounceByBlockId[bid]?.cancel();
           }
         }
       }
@@ -4192,19 +4326,31 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _syncBlockTextFromController(pid, bid, c.text, idx);
         _scheduleQuillCopilotProbe(bid);
 
-        // Rastrear si este bloque tiene selección de texto activa.
-        final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
-        final wasActive = _selectionActiveBlockId == bid;
-        if (hasSelection && !wasActive) {
-          _selectionActiveBlockId = bid;
-          setState(() {});
-          _scheduleFormatToolbarOverlayUpdate();
-        } else if (!hasSelection && wasActive) {
-          _selectionActiveBlockId = null;
-          setState(() {});
-          _scheduleFormatToolbarOverlayUpdate();
-        } else if (hasSelection && wasActive) {
-          _scheduleFormatToolbarOverlayUpdate();
+        // Rastrear si este bloque tiene selección de texto activa. Para
+        // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
+        // no en este `TextEditingController` (un espejo interno que
+        // `flushNow()` resincroniza con selección colapsada tras cada
+        // debounce); ese `listener()` de Quill ya mantiene
+        // `_selectionActiveBlockId` para esos bloques. Si este listener
+        // también escribiera ahí, un flush puramente programático (p. ej.
+        // disparado por `_ensureTrailingSentinel` al insertar el bloque
+        // centinela) borraría por error una selección de formato que sigue
+        // viva en el Quill controller, ocultando la barra de formato
+        // flotante sin que el usuario haya deseleccionado nada.
+        if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
+          final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
+          final wasActive = _selectionActiveBlockId == bid;
+          if (hasSelection && !wasActive) {
+            _selectionActiveBlockId = bid;
+            setState(() {});
+            _scheduleFormatToolbarOverlayUpdate();
+          } else if (!hasSelection && wasActive) {
+            _selectionActiveBlockId = null;
+            setState(() {});
+            _scheduleFormatToolbarOverlayUpdate();
+          } else if (hasSelection && wasActive) {
+            _scheduleFormatToolbarOverlayUpdate();
+          }
         }
       }
 
@@ -4363,6 +4509,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       } else if (idxToFocus < page.blocks.length) {
         _pendingFocusBlockId = page.blocks[idxToFocus].id;
       }
+    }
+
+    // Restaurar el estado de UI transitorio capturado arriba, solo si el
+    // bloque al que apuntaba sigue existiendo en la página resincronizada.
+    // Si el bloque desapareció (se borró, se fusionó con otro, etc.), lo
+    // dejamos en null: eso sí es un teardown real para ese bloque.
+    if (preservedSelectionActiveBlockId != null &&
+        _controllerBlockIds.contains(preservedSelectionActiveBlockId)) {
+      _selectionActiveBlockId = preservedSelectionActiveBlockId;
+      _scheduleFormatToolbarOverlayUpdate();
+    }
+    if (preservedMenuOpenBlockId != null &&
+        _controllerBlockIds.contains(preservedMenuOpenBlockId)) {
+      _menuOpenBlockId = preservedMenuOpenBlockId;
     }
   }
 
