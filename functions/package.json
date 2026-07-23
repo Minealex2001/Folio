@@ -5,8 +5,12 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "deploy": "firebase deploy --only functions --project production",
+    "deploy:staging": "firebase deploy --only functions --project staging",
+    "deploy:staging:backend": "firebase deploy --only functions,firestore:rules,storage --project staging",
+    "deploy:production": "firebase deploy --only functions --project production",
+    "logs": "firebase functions:log --project production",
+    "logs:staging": "firebase functions:log --project staging"
   },
   "engines": {
     "node": "22"

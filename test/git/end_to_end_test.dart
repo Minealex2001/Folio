@@ -63,15 +63,9 @@ void main() {
       loaded.pages[0].title = 'Modified Title';
       loaded.pages[0].blocks[0].text = 'Modified content';
 
-      // Persist (v0: no-op for this test, actual persistence in vault_session)
-      await handler.persistPayload(
-        format,
-        loaded,
-      );
-
-      // Get versions (v0: would come from _pageRevisions)
-      final versions = await handler.getVersions(format);
-      // In v0, versions come from memory, not stored yet
+      // v0 persistence/versions viven en vault_session.dart (pageRevisions
+      // en memoria), no en VaultFormatHandler — no hay nada que probar aquí
+      // más allá de la detección de formato ya verificada arriba.
 
       // Format stats
       final stats = await handler.formatStats(format);

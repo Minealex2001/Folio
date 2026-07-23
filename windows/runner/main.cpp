@@ -200,9 +200,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
   std::vector<std::string> launch_arguments = GetCommandLineArguments();
 
-  FlutterWindow window(project, std::move(launch_arguments));
+  FlutterWindow window(project, std::move(launch_arguments), meeting_worker);
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(meeting_worker ? 1 : 1280, meeting_worker ? 1 : 720);
+  // Avoid 1x1 surfaces: Impeller/ANGLE have crashed with ACCESS_VIOLATION.
+  Win32Window::Size size(meeting_worker ? 320 : 1280,
+                         meeting_worker ? 240 : 720);
   const wchar_t* window_title =
       meeting_worker ? L"Folio Meeting Worker" : kFolioWindowTitle;
   if (!window.Create(window_title, origin, size)) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -59,7 +60,10 @@ Future<VaultPackUploadResult> uploadOpenVaultPack({
   rep(VaultCloudPackProgressStep.persisting, 0.04);
   await session.persistNow();
   rep(VaultCloudPackProgressStep.fingerprinting, 0.07);
-  final contentFp = await computeVaultCloudPackContentFingerprint();
+  final vaultBinBytes = await session.vaultBinEquivalentBytes();
+  final contentFp = await computeVaultCloudPackContentFingerprint(
+    vaultBinBytes: vaultBinBytes,
+  );
 
   rep(VaultCloudPackProgressStep.fetchingMeta, 0.09);
   final latest = await transport.readMeta();
@@ -98,6 +102,7 @@ Future<VaultPackUploadResult> uploadOpenVaultPack({
   final built = await buildVaultPackSnapshot(
     packKey: packKey,
     contentFingerprint: contentFp,
+    vaultBinBytes: vaultBinBytes,
   );
   final blobs = built.blobs;
   final snapClear = built.manifest;
@@ -182,6 +187,7 @@ Future<VaultPackUploadResult> uploadOpenVaultPack({
   );
 
   rep(VaultCloudPackProgressStep.complete, 1.0);
+  unawaited(session.cleanupV0AfterSuccessfulSync());
   return VaultPackUploadResult(
     skippedUpToDate: false,
     contentFingerprint: contentFp,

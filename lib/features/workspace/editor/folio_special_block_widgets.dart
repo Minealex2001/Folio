@@ -35,42 +35,101 @@ class FolioAudioBlockPlayer extends StatefulWidget {
 }
 
 class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer? _player;
   var _playing = false;
+  var _preparing = true;
+  var _loadFailed = false;
   Duration _pos = Duration.zero;
   Duration _dur = Duration.zero;
   Timer? _progressTimer;
+  var _prepareGen = 0;
+  var _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    _prepare();
+    _player = AudioPlayer();
+    unawaited(_prepare());
+  }
+
+  @override
+  void didUpdateWidget(covariant FolioAudioBlockPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.path != widget.file.path) {
+      unawaited(_prepare());
+    }
   }
 
   Future<void> _prepare() async {
-    await _player.setSource(DeviceFileSource(widget.file.path));
-    final duration = await _player.getDuration();
-    if (mounted && duration != null) {
-      setState(() => _dur = duration);
+    final gen = ++_prepareGen;
+    final player = _player;
+    if (player == null) return;
+
+    setState(() {
+      _preparing = true;
+      _loadFailed = false;
+      _playing = false;
+      _pos = Duration.zero;
+      _dur = Duration.zero;
+    });
+    _stopPollingProgress();
+
+    final path = widget.file.path;
+    try {
+      if (!await File(path).exists()) {
+        if (!_disposed && mounted && gen == _prepareGen) {
+          setState(() {
+            _preparing = false;
+            _loadFailed = true;
+          });
+        }
+        return;
+      }
+
+      await player.setSource(DeviceFileSource(path));
+      if (_disposed || gen != _prepareGen) return;
+
+      final duration = await player.getDuration();
+      if (_disposed || !mounted || gen != _prepareGen) return;
+      setState(() {
+        _preparing = false;
+        if (duration != null) _dur = duration;
+      });
+    } catch (_) {
+      // audioplayers puede lanzar StateError("No element") si el stream
+      // prepared se cierra (dispose / timeout) sin emitir true.
+      if (_disposed || gen != _prepareGen) return;
+      if (mounted) {
+        setState(() {
+          _preparing = false;
+          _loadFailed = true;
+        });
+      }
     }
   }
 
   void _startPollingProgress() {
     _progressTimer?.cancel();
+    final player = _player;
+    if (player == null) return;
     _progressTimer = Timer.periodic(const Duration(milliseconds: 250), (
       _,
     ) async {
-      final pos = await _player.getCurrentPosition();
-      final dur = await _player.getDuration();
-      if (!mounted) return;
-      setState(() {
-        if (pos != null) _pos = pos;
-        if (dur != null) _dur = dur;
-        if (_dur > Duration.zero && _pos >= _dur) {
-          _playing = false;
-          _progressTimer?.cancel();
-        }
-      });
+      try {
+        final pos = await player.getCurrentPosition();
+        final dur = await player.getDuration();
+        if (!mounted || _disposed) return;
+        setState(() {
+          if (pos != null) _pos = pos;
+          if (dur != null) _dur = dur;
+          if (_dur > Duration.zero && _pos >= _dur) {
+            _playing = false;
+            _progressTimer?.cancel();
+          }
+        });
+      } catch (_) {
+        _stopPollingProgress();
+      }
     });
   }
 
@@ -81,33 +140,91 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
 
   @override
   void dispose() {
+    _disposed = true;
+    _prepareGen++;
     _stopPollingProgress();
-    unawaited(_player.dispose());
+    final player = _player;
+    _player = null;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
     super.dispose();
+  }
+
+  Future<void> _togglePlay() async {
+    final player = _player;
+    if (player == null || _loadFailed || _preparing) return;
+    final l10n = AppLocalizations.of(context);
+    try {
+      if (_playing) {
+        await player.pause();
+        _stopPollingProgress();
+        if (mounted) setState(() => _playing = false);
+      } else {
+        if (_pos == Duration.zero) {
+          await player.play(DeviceFileSource(widget.file.path));
+        } else {
+          await player.resume();
+        }
+        _startPollingProgress();
+        if (mounted) setState(() => _playing = true);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _playing = false;
+        _loadFailed = true;
+      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(l10n.audioBlockLoadError)),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+
+    if (_loadFailed) {
+      return Row(
+        children: [
+          Icon(
+            Icons.audio_file_rounded,
+            color: widget.scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.audioBlockLoadError,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: widget.scheme.error,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.retry,
+            onPressed: () => unawaited(_prepare()),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         IconButton.filledTonal(
-          onPressed: () async {
-            if (_playing) {
-              await _player.pause();
-              _stopPollingProgress();
-              if (mounted) setState(() => _playing = false);
-            } else {
-              if (_pos == Duration.zero) {
-                await _player.play(DeviceFileSource(widget.file.path));
-              } else {
-                await _player.resume();
-              }
-              _startPollingProgress();
-              if (mounted) setState(() => _playing = true);
-            }
-          },
-          icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+          onPressed: (_preparing || _loadFailed) ? null : _togglePlay,
+          icon: _preparing
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: widget.scheme.primary,
+                  ),
+                )
+              : Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
         ),
         Expanded(
           child: Column(
@@ -126,7 +243,11 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
                       .toDouble(),
                   max: _dur.inMilliseconds.toDouble(),
                   onChanged: (v) async {
-                    await _player.seek(Duration(milliseconds: v.round()));
+                    final player = _player;
+                    if (player == null) return;
+                    try {
+                      await player.seek(Duration(milliseconds: v.round()));
+                    } catch (_) {}
                   },
                 ),
             ],

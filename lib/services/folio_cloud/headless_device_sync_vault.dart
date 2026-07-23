@@ -1,10 +1,14 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:path/path.dart' as p;
 
 import '../../crypto/vault_crypto.dart';
 import '../../data/storage/vault_storage.dart';
+import '../../data/vault_local_storage.dart';
 import '../../data/vault_payload.dart';
 import '../../data/vault_paths.dart';
 import '../../data/vault_registry.dart';
@@ -108,7 +112,56 @@ class HeadlessDeviceSyncVault {
     return null;
   }
 
+  /// Versión de formato en disco (`vault.format`). En web el canónico sigue
+  /// siendo `vault.bin` (el árbol v1 es nativo).
+  Future<int> _formatVersion(String vaultId) async {
+    if (kIsWeb) return 0;
+    try {
+      final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+      final marker = File(p.join(dir.path, 'vault.format'));
+      if (marker.existsSync()) {
+        return int.tryParse((await marker.readAsString()).trim()) ?? 0;
+      }
+      // Marker ausente: si ya hay árbol v1, no tratar como v0 (vault.bin puede
+      // estar vacío tras migrar y provocaba "install remote" destructivo).
+      final treeJson = File(p.join(dir.path, 'repo', 'tree.json'));
+      if (treeJson.existsSync()) return 1;
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<VaultPayload?> loadPayload(String vaultId, SecretKey packKey) async {
+    final format = await _formatVersion(vaultId);
+    if (format >= 1) {
+      // v1: el árbol `repo/` es canónico. NO leer `vault.bin` (queda obsoleto
+      // tras migrar/editar) — eso hacía que dispositivos bloqueados empujaran
+      // snapshots viejos y "pesaran" de más en la nube.
+      try {
+        final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+        final fromTree = await VaultLocalStorage.loadFromTreeAt(dir);
+        if (fromTree == null) {
+          AppLogger.debug(
+            'headless loadPayload: v1 sin árbol',
+            tag: 'cloud_sync',
+            context: {'vaultId': vaultId},
+          );
+          return null;
+        }
+        return _withRegistryDisplayName(vaultId, fromTree);
+      } catch (e, st) {
+        AppLogger.error(
+          'headless loadPayload v1 tree failed',
+          tag: 'cloud_sync',
+          error: e,
+          stackTrace: st,
+          context: {'vaultId': vaultId},
+        );
+        return null;
+      }
+    }
+
     final cipher = await VaultStorage.instance.readVaultFile(
       vaultId,
       VaultPaths.cipherPayloadFile,
@@ -193,6 +246,12 @@ class HeadlessDeviceSyncVault {
       },
     );
     await _applyDisplayNameToRegistry(vaultId, payload.displayName);
+    final format = await _formatVersion(vaultId);
+    if (format >= 1) {
+      final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+      await VaultLocalStorage.decomposeAndStoreAt(dir, payload);
+      return;
+    }
     final plain = payload.encodeUtf8();
     if (await isPlain(vaultId)) {
       await VaultStorage.instance.writeVaultFile(
@@ -220,6 +279,18 @@ class HeadlessDeviceSyncVault {
     return Uint8List.fromList(pack.encodeUtf8());
   }
 
+  /// True si en disco hay árbol v1 con páginas (aunque loadPayload falle).
+  Future<bool> _diskTreeHasPages(String vaultId) async {
+    if (kIsWeb) return false;
+    try {
+      final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+      final treeDir = Directory(p.join(dir.path, 'repo'));
+      return VaultLocalStorage.countPageDirs(treeDir) > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Merge remoto sobre disco. Devuelve si cambió el contenido local.
   Future<({bool ok, bool changed, String? fingerprint})> applyRemotePack({
     required String vaultId,
@@ -232,6 +303,26 @@ class HeadlessDeviceSyncVault {
       await materializeVaultSyncPackAttachmentsForVault(vaultId, pack);
       final local = await loadPayload(vaultId, packKey);
       if (local == null) {
+        // No instalar remoto vacío / no pisar un árbol local que load no vio
+        // (p. ej. race repo.tmp, vault.bin vacío tras migrar a v1).
+        final remotePages = pack.payload.pages.length;
+        final diskHasPages = await _diskTreeHasPages(vaultId);
+        if (remotePages == 0) {
+          AppLogger.warn(
+            'headless applyRemotePack skipped: remote empty and no local',
+            tag: 'cloud_sync',
+            context: {'vaultId': vaultId, 'diskHasPages': diskHasPages},
+          );
+          return (ok: true, changed: false, fingerprint: null);
+        }
+        if (diskHasPages) {
+          AppLogger.warn(
+            'headless applyRemotePack skipped: loadPayload null but repo has pages',
+            tag: 'cloud_sync',
+            context: {'vaultId': vaultId, 'remotePages': remotePages},
+          );
+          return (ok: false, changed: false, fingerprint: null);
+        }
         // Primera materialización / libreta vacía: instalar remoto tal cual.
         await savePayload(
           vaultId: vaultId,
@@ -245,6 +336,22 @@ class HeadlessDeviceSyncVault {
           context: {'vaultId': vaultId},
         );
         return (ok: true, changed: true, fingerprint: outFp);
+      }
+      // No dejar que un remoto vacío borre contenido local vía merge/save.
+      if (local.pages.isNotEmpty && pack.payload.pages.isEmpty) {
+        AppLogger.warn(
+          'headless applyRemotePack skipped: refuse empty remote over local pages',
+          tag: 'cloud_sync',
+          context: {
+            'vaultId': vaultId,
+            'localPages': local.pages.length,
+          },
+        );
+        return (
+          ok: true,
+          changed: false,
+          fingerprint: VaultSyncMergeEngine.payloadFingerprint(local),
+        );
       }
       final localFp = VaultSyncMergeEngine.payloadFingerprint(local);
       final remoteFp = VaultSyncMergeEngine.payloadFingerprint(pack.payload);

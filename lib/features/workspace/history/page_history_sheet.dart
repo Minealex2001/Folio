@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../git/version_info.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_page_revision.dart';
@@ -47,7 +50,7 @@ void openPageHistoryScreen({
   );
 }
 
-class PageHistoryScreen extends StatelessWidget {
+class PageHistoryScreen extends StatefulWidget {
   const PageHistoryScreen({
     super.key,
     required this.session,
@@ -59,7 +62,59 @@ class PageHistoryScreen extends StatelessWidget {
   final FolioPage page;
   final bool embedded;
 
-  static String _formatRevisionTimestamp(int savedAtMs) {
+  @override
+  State<PageHistoryScreen> createState() => _PageHistoryScreenState();
+}
+
+class _PageHistoryScreenState extends State<PageHistoryScreen> {
+  List<VersionInfo> _versions = const [];
+  Map<String, FolioPageRevision> _legacyById = const {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSessionChanged);
+    unawaited(_reload());
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    unawaited(_reload());
+  }
+
+  Future<void> _reload() async {
+    final versions = await widget.session.versionsForPage(widget.page.id);
+    // Contenido por versión para diffs (v0 memoria o v1 extract de snapshot).
+    final byId = <String, FolioPageRevision>{};
+    if (widget.session.vaultFormatVersion == 0) {
+      for (final r in widget.session.revisionsForPage(widget.page.id)) {
+        byId[r.revisionId] = r;
+      }
+    } else {
+      for (final v in versions) {
+        final rev = await widget.session.pageContentAtVersion(
+          widget.page.id,
+          v.versionId,
+        );
+        if (rev != null) byId[v.versionId] = rev;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _versions = versions;
+      _legacyById = byId;
+      _loading = false;
+    });
+  }
+
+  static String _formatTimestamp(int savedAtMs) {
     final d = DateTime.fromMillisecondsSinceEpoch(savedAtMs);
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(d.day)}/${two(d.month)}/${d.year} · ${two(d.hour)}:${two(d.minute)}';
@@ -67,7 +122,7 @@ class PageHistoryScreen extends StatelessWidget {
 
   Future<void> _confirmRestore(
     BuildContext screenContext,
-    FolioPageRevision rev,
+    VersionInfo version,
   ) async {
     final l10n = AppLocalizations.of(screenContext);
     final ok = await FolioDialog.confirm(
@@ -81,13 +136,23 @@ class PageHistoryScreen extends StatelessWidget {
       confirmLabel: l10n.restore,
     );
     if (ok != true || !screenContext.mounted) return;
-    session.restorePageRevision(page.id, rev.revisionId);
-    if (screenContext.mounted) Navigator.pop(screenContext);
+    final success = await widget.session.restoreVersion(
+      widget.page.id,
+      version.versionId,
+    );
+    if (!screenContext.mounted) return;
+    if (success) {
+      Navigator.pop(screenContext);
+    } else {
+      ScaffoldMessenger.of(screenContext).showSnackBar(
+        SnackBar(content: Text(l10n.restoreVersionFailed)),
+      );
+    }
   }
 
   Future<void> _confirmDelete(
     BuildContext screenContext,
-    FolioPageRevision rev,
+    VersionInfo version,
   ) async {
     final l10n = AppLocalizations.of(screenContext);
     final scheme = Theme.of(screenContext).colorScheme;
@@ -100,7 +165,8 @@ class PageHistoryScreen extends StatelessWidget {
       destructive: true,
     );
     if (ok != true || !screenContext.mounted) return;
-    session.deletePageRevision(page.id, rev.revisionId);
+    await widget.session.deleteVersion(widget.page.id, version.versionId);
+    if (mounted) await _reload();
   }
 
   @override
@@ -110,105 +176,104 @@ class PageHistoryScreen extends StatelessWidget {
     final scheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final body = AnimatedBuilder(
-        animation: session,
-        builder: (context, _) {
-          final items = session.revisionsForPage(page.id);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: _HistoryHeaderCard(
-                  scheme: scheme,
-                  textTheme: textTheme,
-                  versionCount: items.length,
-                ),
-              ),
-              Expanded(
-                child: items.isEmpty
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 400),
-                          child: Padding(
-                            padding: const EdgeInsets.all(36),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(22),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: scheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.65),
-                                  ),
-                                  child: Icon(
-                                    Icons.layers_outlined,
-                                    size: 40,
-                                    color: scheme.onSurfaceVariant.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
+    final Widget body;
+    if (_loading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else {
+      final items = _versions;
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: _HistoryHeaderCard(
+              scheme: scheme,
+              textTheme: textTheme,
+              versionCount: items.length,
+            ),
+          ),
+          Expanded(
+            child: items.isEmpty
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Padding(
+                        padding: const EdgeInsets.all(36),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(22),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.65),
+                              ),
+                              child: Icon(
+                                Icons.layers_outlined,
+                                size: 40,
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
                                 ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  l10n.noVersionsYet,
-                                  style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  l10n.historyAppearsHint,
-                                  textAlign: TextAlign.center,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      )
-                    : Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 720),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                            itemCount: items.length,
-                            separatorBuilder: (context, _) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, i) {
-                              final rev = items[i];
-                              final older = i + 1 < items.length
-                                  ? items[i + 1]
-                                  : null;
-                              final indexLabel = items.length - i;
-                              return _RevisionCard(
-                                rev: rev,
-                                older: older,
-                                indexLabel: indexLabel,
-                                timestamp: _formatRevisionTimestamp(
-                                  rev.savedAtMs,
-                                ),
-                                scheme: scheme,
-                                textTheme: textTheme,
-                                onRestore: () => _confirmRestore(context, rev),
-                                onDelete: () => _confirmDelete(context, rev),
-                              );
-                            },
-                          ),
+                            const SizedBox(height: 20),
+                            Text(
+                              l10n.noVersionsYet,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.historyAppearsHint,
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-              ),
-            ],
-          );
-        },
+                    ),
+                  )
+                : Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        itemCount: items.length,
+                        separatorBuilder: (context, _) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, i) {
+                          final version = items[i];
+                          final olderRevision = i + 1 < items.length
+                              ? _legacyById[items[i + 1].versionId]
+                              : null;
+                          final indexLabel = items.length - i;
+                          return _VersionCard(
+                            version: version,
+                            legacyRevision: _legacyById[version.versionId],
+                            olderLegacyRevision: olderRevision,
+                            indexLabel: indexLabel,
+                            timestamp: _formatTimestamp(version.timestamp),
+                            scheme: scheme,
+                            textTheme: textTheme,
+                            onRestore: () => _confirmRestore(context, version),
+                            onDelete: () => _confirmDelete(context, version),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       );
+    }
 
-    if (embedded) {
+    if (widget.embedded) {
       return Material(
         color: scheme.surface,
         child: Column(
@@ -231,7 +296,9 @@ class PageHistoryScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          page.title.isEmpty ? l10n.untitledFallback : page.title,
+                          widget.page.title.isEmpty
+                              ? l10n.untitledFallback
+                              : widget.page.title,
                           style: textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
@@ -269,7 +336,7 @@ class PageHistoryScreen extends StatelessWidget {
           children: [
             Text(l10n.pageHistoryTitle),
             Text(
-              page.title.isEmpty ? l10n.untitledFallback : page.title,
+              widget.page.title.isEmpty ? l10n.untitledFallback : widget.page.title,
               style: textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
@@ -416,10 +483,11 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _RevisionCard extends StatelessWidget {
-  const _RevisionCard({
-    required this.rev,
-    required this.older,
+class _VersionCard extends StatelessWidget {
+  const _VersionCard({
+    required this.version,
+    required this.legacyRevision,
+    required this.olderLegacyRevision,
     required this.indexLabel,
     required this.timestamp,
     required this.scheme,
@@ -428,8 +496,9 @@ class _RevisionCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final FolioPageRevision rev;
-  final FolioPageRevision? older;
+  final VersionInfo version;
+  final FolioPageRevision? legacyRevision;
+  final FolioPageRevision? olderLegacyRevision;
   final int indexLabel;
   final String timestamp;
   final ColorScheme scheme;
@@ -439,6 +508,11 @@ class _RevisionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final title = legacyRevision != null && legacyRevision!.title.isNotEmpty
+        ? legacyRevision!.title
+        : version.label;
+
     return Material(
       color: scheme.surfaceContainerLow.withValues(alpha: 0.65),
       elevation: 0,
@@ -451,7 +525,7 @@ class _RevisionCard extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          key: ValueKey(rev.revisionId),
+          key: ValueKey(version.versionId),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           leading: SizedBox(
@@ -481,9 +555,7 @@ class _RevisionCard extends StatelessWidget {
             ),
           ),
           title: Text(
-            rev.title.isEmpty
-                ? AppLocalizations.of(context).untitledFallback
-                : rev.title,
+            title.isEmpty ? l10n.untitledFallback : title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.titleSmall?.copyWith(
@@ -508,6 +580,25 @@ class _RevisionCard extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (version.isSnapshot) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.cloud_outlined,
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 3),
+                  Flexible(
+                    child: Text(
+                      version.deviceId ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -535,13 +626,11 @@ class _RevisionCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          older == null
-                              ? AppLocalizations.of(
-                                  context,
-                                ).changesFromEmptyStart
-                              : AppLocalizations.of(
-                                  context,
-                                ).comparedWithPrevious,
+                          legacyRevision == null
+                              ? l10n.versionSnapshotNoDiffHint
+                              : olderLegacyRevision == null
+                                  ? l10n.changesFromEmptyStart
+                                  : l10n.comparedWithPrevious,
                           style: textTheme.labelLarge?.copyWith(
                             color: scheme.onSurface,
                             fontWeight: FontWeight.w600,
@@ -550,8 +639,13 @@ class _RevisionCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  PageRevisionDiffView(newer: rev, older: older),
+                  if (legacyRevision != null) ...[
+                    const SizedBox(height: 12),
+                    PageRevisionDiffView(
+                      newer: legacyRevision!,
+                      older: olderLegacyRevision,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -562,7 +656,7 @@ class _RevisionCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                    label: Text(AppLocalizations.of(context).delete),
+                    label: Text(l10n.delete),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: scheme.error,
                       side: BorderSide(
@@ -577,7 +671,7 @@ class _RevisionCard extends StatelessWidget {
                   child: FilledButton.tonalIcon(
                     onPressed: onRestore,
                     icon: const Icon(Icons.restore_rounded, size: 20),
-                    label: Text(AppLocalizations.of(context).restore),
+                    label: Text(l10n.restore),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),

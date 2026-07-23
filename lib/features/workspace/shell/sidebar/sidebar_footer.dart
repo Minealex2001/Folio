@@ -10,9 +10,11 @@ import '../../../../app/widgets/folio_dialog.dart';
 import '../../../../app/widgets/folio_feedback.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../../services/media/media_playback_router.dart';
+import '../../../../services/meeting_note_session_controller.dart';
 import '../../../../services/platform/pwa_install.dart';
 import '../../../../session/vault_session.dart';
 import '../../widgets/spotify_now_playing_bar.dart';
+import '../../widgets/meeting_note_active_bar.dart';
 import '../page_trash_sheet.dart';
 
 class SidebarFooter extends StatelessWidget {
@@ -155,6 +157,23 @@ class SidebarFooter extends StatelessWidget {
               ],
             ],
           ),
+        ),
+        ListenableBuilder(
+          listenable: MeetingNoteSessionController.instance,
+          builder: (context, _) {
+            if (!MeetingNoteSessionController.instance.isActive) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FolioSpace.sm,
+                0,
+                FolioSpace.sm,
+                FolioSpace.sm,
+              ),
+              child: MeetingNoteActiveBar(session: session),
+            );
+          },
         ),
         ListenableBuilder(
           listenable: MediaPlaybackRouter.instance,

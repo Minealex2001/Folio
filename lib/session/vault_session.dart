@@ -86,9 +86,11 @@ import '../l10n/generated/app_localizations.dart';
 import 'workspace_navigation_history.dart';
 // M5: Format handler
 import '../git/vault_format_handler.dart';
+import '../git/vault_snapshot.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../data/vault_local_storage.dart';
 import '../git/vault_migration_tool.dart';
+import '../git/vault_integrity.dart';
 import '../git/version_info.dart';
 
 export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
@@ -394,8 +396,12 @@ class VaultSession extends ChangeNotifier {
       WorkspaceNavigationHistory();
   bool _applyingHistoryNavigation = false;
   Timer? _revisionIdleTimer;
+  Timer? _v1TreeSaveTimer;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
+  /// Soft-hide de snapshots por página: pageId → set de snapshotIds ocultos.
+  final Map<String, Set<String>> _hiddenVersionsByPage = {};
+  bool _hiddenVersionsLoaded = false;
   late final VaultPersistenceController _persistence;
   final VaultSearchIndex _searchIndex = VaultSearchIndex();
   late final PageTreeController _pageTree;
@@ -419,6 +425,8 @@ class VaultSession extends ChangeNotifier {
   late VaultSnapshotManager _snapshotManager;
   String _deviceId = 'unknown-device';
   bool _justMigrated = false; // Marks if v0→v1 migration just happened
+  bool _hasV0FilesToDelete = false; // vault.bin still on disk after migrating
+  bool _formatHandlerInitialized = false; // Guards lazy init of the fields above
 
   /// Tras "Añadir libreta", se restaura al cancelar onboarding.
   String? _resumeVaultIdAfterNewVault;
@@ -456,17 +464,54 @@ class VaultSession extends ChangeNotifier {
   /// M5: Check if vault was just migrated (for UI notification)
   bool get justMigrated => _justMigrated;
 
+  /// M5: Check if the legacy vault.bin is still on disk after migrating
+  /// (only true if there's actually something to clean up).
+  bool get hasV0FilesToDelete => _hasV0FilesToDelete;
+
   /// M5: Reset migration flag after showing notification
   void resetMigrationFlag() {
     _justMigrated = false;
+    _hasV0FilesToDelete = false;
+  }
+
+  /// M5: Tras una sincronización (nube o P2P) que subió con éxito la libreta
+  /// ya en v1 **y** con marker `vault.v1-verified`, borra el `vault.bin` legacy
+  /// si sigue en disco. Nunca se borra en el mismo turno que la migración.
+  /// Sobrevive a reinicios: no depende solo del flag en memoria.
+  Future<void> cleanupV0AfterSuccessfulSync() async {
+    if (_vaultFormatVersion != 1) return;
+    final binExists = await VaultPaths.cipherPayloadExists();
+    if (!binExists) {
+      if (_hasV0FilesToDelete) resetMigrationFlag();
+      return;
+    }
+    if (!await VaultMigrationTool.isV1Verified()) {
+      AppLogger.info(
+        'v0 vault.bin conservado: v1 aún no verificado en disco',
+      );
+      return;
+    }
+    final deleted = await deleteV0VaultBinary();
+    if (deleted) {
+      AppLogger.info('v0 vault.bin eliminado tras sync exitoso de v1');
+      resetMigrationFlag();
+    }
   }
 
   /// M5: Delete legacy v0 vault.bin after successful migration
   Future<bool> deleteV0VaultBinary() async {
     try {
       final vaultId = _vaultId;
-      if (vaultId == null || vaultId.isEmpty) return false;
+      if (vaultId == null || vaultId.isEmpty) {
+        AppLogger.error('Cannot delete v0: no active vault ID');
+        return false;
+      }
       await VaultStorage.instance.deleteVaultFile(vaultId, 'vault.bin');
+      final stillExists = await VaultPaths.cipherPayloadExists();
+      if (stillExists) {
+        AppLogger.warn('vault.bin still exists after delete attempt');
+        return false;
+      }
       AppLogger.info('Deleted legacy v0 vault.bin');
       return true;
     } catch (e) {
@@ -480,8 +525,12 @@ class VaultSession extends ChangeNotifier {
   /// Tras dejar de editar, se crea una entrada de historial (además del guardado rápido).
   static const Duration _revisionIdleDelay = Duration(milliseconds: 2500);
 
+  /// Debounce del árbol v1 (equivalente al de [_persistence] en v0).
+  static const Duration _v1TreeSaveDebounce = Duration(milliseconds: 450);
+
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
-  bool get hasPendingDiskSave => _persistence.hasPendingDiskSave;
+  bool get hasPendingDiskSave =>
+      _persistence.hasPendingDiskSave || (_v1TreeSaveTimer?.isActive ?? false);
 
   /// Escritura cifrada de la libreta en curso (puede anidarse si varias rutas llaman a [persistNow]).
   bool get isPersistingToDisk => _persistence.isPersistingToDisk;
@@ -571,7 +620,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Clave AES-GCM para blobs y snapshots de copia incremental en la nube.
-  /// Libreta cifrada: usa la DEK en memoria. En claro: derivada de `vault.bin`.
+  /// Libreta cifrada: usa la DEK en memoria. En claro: derivada del contenido
+  /// actual (equivalente a `vault.bin`), sin depender de que ese archivo siga
+  /// existiendo en disco (v1 no lo mantiene).
   Future<SecretKey> cloudPackEncryptionKey() async {
     if (!isUnlocked) {
       throw StateError('La libreta debe estar desbloqueada.');
@@ -582,15 +633,32 @@ class VaultSession extends ChangeNotifier {
       }
       return VaultCrypto.dekFromBytes(_dek!);
     }
-    final bytes = await VaultPaths.readCipherPayload();
-    if (bytes == null) {
-      throw StateError('No hay libreta.');
-    }
+    final bytes = await vaultBinEquivalentBytes();
     final h = await Sha256().hash(bytes);
     final h2 = await Sha256().hash(
       Uint8List.fromList(utf8.encode('FolioCloudPackPlainV1') + h.bytes),
     );
     return SecretKey(h2.bytes);
+  }
+
+  /// M5: Bytes equivalentes a lo que `vault.bin` contendría para el estado
+  /// actual en memoria (payload serializado, cifrado con la DEK si la libreta
+  /// usa cifrado). Funciona igual en v0 y v1, y no depende de que el archivo
+  /// `vault.bin` siga existiendo en disco (v1 deja de mantenerlo tras migrar).
+  /// Usado por todo el pipeline de copias/sync en la nube en vez de leer el
+  /// archivo legacy directamente.
+  Future<Uint8List> vaultBinEquivalentBytes() async {
+    if (!isUnlocked) {
+      throw StateError('La libreta debe estar desbloqueada.');
+    }
+    final payload = _buildVaultPayloadForPersist();
+    final plainBytes = Uint8List.fromList(payload.encodeUtf8());
+    if (!vaultUsesEncryption) return plainBytes;
+    if (_dek == null) {
+      throw StateError('La libreta cifrada debe tener la DEK en memoria.');
+    }
+    final dek = await VaultCrypto.dekFromBytes(_dek!);
+    return VaultCrypto.encryptPayload(plain: plainBytes, dek: dek);
   }
 
   /// Para tests que operan sobre el vault sin pasar por [bootstrap].
@@ -910,13 +978,13 @@ class VaultSession extends ChangeNotifier {
 
     await _rp.loadFromDisk();
 
-    // M5: Initialize format handler
-    _deviceId = await _getDeviceId();
-    _formatHandler = VaultFormatHandler(
-      deviceId: _deviceId,
-      onMigrationNeeded: _triggerMigrationPrompt,
-    );
-    _vaultFormatVersion = await _formatHandler.detectFormat();
+    // M5: (Re)detect format for the (possibly new) active vault. Forzamos
+    // una detección fresca aquí porque bootstrap() puede correr para una
+    // libreta distinta a la de la última vez (p. ej. tras switchVault()).
+    _formatHandlerInitialized = false;
+    _hiddenVersionsLoaded = false;
+    _hiddenVersionsByPage.clear();
+    await _ensureFormatHandlerReady();
 
     final exists = await VaultPaths.vaultExists();
     if (!exists) {
@@ -926,34 +994,22 @@ class VaultSession extends ChangeNotifier {
       _selectedPageId = null;
       _state = VaultFlowState.needsOnboarding;
     } else {
-      final plain = await _repo.isPlaintextVault();
+      bool plain;
+      try {
+        plain = await _repo.isPlaintextVault();
+      } catch (e) {
+        AppLogger.error('isPlaintextVault failed: $e');
+        _dek = null;
+        _pages = [];
+        _selectedPageId = null;
+        _state = VaultFlowState.recovery;
+        notifyListeners();
+        return;
+      }
       _vaultUsesEncryption = !plain;
       if (plain) {
         try {
-          VaultPayload payload;
-          if (_vaultFormatVersion == 0) {
-            // Beta: MANDATORY migration v0 → v1
-            payload = await _repo.loadPayload(null);
-            AppLogger.info('Auto-migrating v0 → v1 (mandatory for Beta)');
-            final migrationResult = await VaultMigrationTool.migrateVault(
-              payload: payload,
-              deviceId: _deviceId,
-            );
-            if (!migrationResult.success) {
-              AppLogger.error('Migration failed: ${migrationResult.error}');
-              throw VaultCorruptionException('Migration failed');
-            }
-            // Mark migration successful
-            _justMigrated = true;
-            // Reload from v1
-            _vaultFormatVersion = 1;
-            final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
-            payload = loaded ?? payload;
-          } else {
-            // Format v1: load from tree
-            final loaded = await _formatHandler.loadPayload(_vaultFormatVersion);
-            payload = loaded ?? await _repo.loadPayload(null);
-          }
+          final payload = await _ensureV1AndLoad(() => _repo.loadPayload(null));
           _dek = null;
           _pages = List.from(payload.pages);
           _loadRevisionsFromPayload(payload);
@@ -965,12 +1021,7 @@ class VaultSession extends ChangeNotifier {
           _restartIdleLockTimer();
 
           // M5: Init snapshot manager for v1 (now always)
-          final vaultDir = await VaultPaths.vaultDirectory();
-          _snapshotManager = VaultSnapshotManager(
-            vaultDir: vaultDir,
-            deviceId: _deviceId,
-          );
-          await _snapshotManager.init();
+          await _initSnapshotManager();
 
           _rebuildSearchIndex();
           final vaultId = _vaultId;
@@ -978,6 +1029,15 @@ class VaultSession extends ChangeNotifier {
             unawaited(_searchIndex.loadFromVault(vaultId));
           }
         } on VaultCorruptionException {
+          _dek = null;
+          _pages = [];
+          _selectedPageId = null;
+          _state = VaultFlowState.recovery;
+        } catch (e, st) {
+          // Cualquier otro error (p. ej. StateError de vault.bin no
+          // encontrado durante la migración) no debe dejar la app colgada
+          // en VaultFlowState.initializing.
+          AppLogger.error('bootstrap: unexpected error loading vault: $e\n$st');
           _dek = null;
           _pages = [];
           _selectedPageId = null;
@@ -995,6 +1055,22 @@ class VaultSession extends ChangeNotifier {
   Future<bool> restoreVaultFromLocalBackup() async {
     final ok = await _repo.restoreCipherPayloadFromLocalBackup();
     if (!ok) return false;
+    await bootstrap();
+    return _state != VaultFlowState.recovery;
+  }
+
+  /// True si hay `vault.bin.pre-migration` (backup previo a migrar a v1).
+  Future<bool> hasPreMigrationBackup() =>
+      VaultMigrationTool.hasPreMigrationBackup();
+
+  /// Restaura desde `vault.bin.pre-migration` (rollback de migración) y rearranca.
+  Future<bool> restoreVaultFromPreMigrationBackup() async {
+    final ok = await VaultMigrationTool.rollbackMigration();
+    if (!ok) return false;
+    _formatHandlerInitialized = false;
+    _vaultFormatVersion = 0;
+    _hasV0FilesToDelete = false;
+    _justMigrated = false;
     await bootstrap();
     return _state != VaultFlowState.recovery;
   }
@@ -1610,8 +1686,20 @@ class VaultSession extends ChangeNotifier {
     purgeExpiredTrash();
     _restartIdleLockTimer();
     _resumeVaultIdAfterNewVault = null;
+
+    // M5: las libretas nuevas nacen directamente en v1 (Beta: sin v0 previo
+    // que migrar, no tiene sentido crearlas en el formato legacy).
+    await _ensureFormatHandlerReady();
+    _vaultFormatVersion = 1;
+    await _initSnapshotManager();
+
     notifyListeners();
     await persistNow();
+    await VaultMigrationTool.writeTreeFormatVersion(1);
+    final fp = VaultIntegrity.fingerprintPages(
+      _buildVaultPayloadForPersist(),
+    );
+    await VaultMigrationTool.writeV1VerifiedMarker(fp);
   }
 
   /// Añade una libreta vacía y pasa a onboarding (el usuario debe completar contraseña o import).
@@ -1731,7 +1819,10 @@ class VaultSession extends ChangeNotifier {
   Future<void> exportVaultBackup(String zipPath) async {
     if (kIsWeb) throw UnsupportedError('Backup not available on web');
     await persistNow();
-    await exportVaultZip(File(zipPath));
+    await exportVaultZip(
+      File(zipPath),
+      vaultBinBytes: await vaultBinEquivalentBytes(),
+    );
   }
 
   /// Importa el ZIP como **libreta nueva**; la libreta activa no se modifica.
@@ -2096,7 +2187,9 @@ class VaultSession extends ChangeNotifier {
     // Volcar cambios pendientes para que el backup pre-import los incluya.
     await flushPendingSave();
     try {
-      await createPreImportBackupZip();
+      await createPreImportBackupZip(
+        vaultBinBytes: await vaultBinEquivalentBytes(),
+      );
     } catch (e) {
       AppLogger.warn(
         'No se pudo crear el backup pre-import',
@@ -2338,7 +2431,7 @@ class VaultSession extends ChangeNotifier {
     if (!vaultUsesEncryption) {
       _dek = null;
       try {
-        final payload = await _repo.loadPayload(null);
+        final payload = await _ensureV1AndLoad(() => _repo.loadPayload(null));
         _pages = List.from(payload.pages);
         _loadRevisionsFromPayload(payload);
         _ensureOrderForCurrentPages();
@@ -2347,6 +2440,7 @@ class VaultSession extends ChangeNotifier {
         _state = VaultFlowState.unlocked;
         purgeExpiredTrash();
         _restartIdleLockTimer();
+        await _initSnapshotManager();
         await _cacheDeviceSyncKeyAfterUnlock();
         AppLogger.info(
           'unlockWithPassword ok (plain)',
@@ -2383,7 +2477,7 @@ class VaultSession extends ChangeNotifier {
       }
       await throttle.recordSuccess(vaultIdForThrottle);
       _dek = dek.toList();
-      final payload = await _repo.loadPayload(_dek);
+      final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
       _ensureOrderForCurrentPages();
@@ -2392,6 +2486,7 @@ class VaultSession extends ChangeNotifier {
       _state = VaultFlowState.unlocked;
       purgeExpiredTrash();
       _restartIdleLockTimer();
+      await _initSnapshotManager();
       await _cacheDeviceSyncKeyAfterUnlock();
       AppLogger.info(
         'unlockWithPassword ok',
@@ -2436,7 +2531,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _dek = dek.toList();
-    final payload = await _repo.loadPayload(_dek);
+    final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
@@ -2445,6 +2540,7 @@ class VaultSession extends ChangeNotifier {
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _initSnapshotManager();
     await _cacheDeviceSyncKeyAfterUnlock();
     AppLogger.info(
       'unlockWithDeviceAuth ok',
@@ -2471,7 +2567,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _dek = dek.toList();
-    final payload = await _repo.loadPayload(_dek);
+    final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
@@ -2480,6 +2576,7 @@ class VaultSession extends ChangeNotifier {
     _state = VaultFlowState.unlocked;
     purgeExpiredTrash();
     _restartIdleLockTimer();
+    await _initSnapshotManager();
     await _cacheDeviceSyncKeyAfterUnlock();
     AppLogger.info(
       'unlockWithPasskey ok',
@@ -2600,7 +2697,23 @@ class VaultSession extends ChangeNotifier {
     _persistence.removePendingFlushHook(hook);
   }
 
-  Future<void> flushPendingSave() => _persistence.flushPendingSave();
+  Future<void> flushPendingSave() async {
+    if (_vaultFormatVersion == 1) {
+      _v1TreeSaveTimer?.cancel();
+      _v1TreeSaveTimer = null;
+      // También vaciar revisiones pendientes (idle) si las hay.
+      if (_pageIdsPendingRevision.isNotEmpty ||
+          (_revisionIdleTimer?.isActive ?? false)) {
+        _revisionIdleTimer?.cancel();
+        _revisionIdleTimer = null;
+        await _capturePendingRevisionsAndPersist();
+      } else {
+        await persistNow();
+      }
+      return;
+    }
+    await _persistence.flushPendingSave();
+  }
 
   Future<void> lock() async {
     if (!vaultUsesEncryption) return;
@@ -5754,14 +5867,33 @@ class VaultSession extends ChangeNotifier {
         unawaited(_capturePendingRevisionsAndPersist());
       });
     }
-    _persistence.scheduleSave(notify: notify);
+    if (_vaultFormatVersion == 0) {
+      _persistence.scheduleSave(notify: notify);
+    } else {
+      // v1: solo árbol en repo/; no escribir vault.bin.
+      _scheduleV1TreeSave(notify: notify);
+    }
     if (notify) notifyListeners();
+  }
+
+  void _scheduleV1TreeSave({bool notify = true}) {
+    _v1TreeSaveTimer?.cancel();
+    if (notify) {
+      // Alinea el indicador de guardado con el flujo v0.
+      // status se actualiza en persistNow vía notifyListeners del session.
+    }
+    _v1TreeSaveTimer = Timer(_v1TreeSaveDebounce, () {
+      _v1TreeSaveTimer = null;
+      unawaited(persistNow());
+    });
   }
 
   Future<void> _capturePendingRevisionsAndPersist() async {
     if (vaultUsesEncryption && _dek == null) return;
     final ids = List<String>.from(_pageIdsPendingRevision);
     _pageIdsPendingRevision.clear();
+    _v1TreeSaveTimer?.cancel();
+    _v1TreeSaveTimer = null;
 
     if (ids.isEmpty) {
       await persistNow();
@@ -5771,15 +5903,29 @@ class VaultSession extends ChangeNotifier {
     if (_vaultFormatVersion == 0) {
       // Format v0: capture page revisions to memory
       for (final id in ids) {
-        final p = _pageById(id);
-        if (p != null) {
-          _appendRevisionSnapshotIfChanged(p);
+        final page = _pageById(id);
+        if (page != null) {
+          _appendRevisionSnapshotIfChanged(page);
         }
       }
+      await persistNow();
+      return;
     }
-    // Format v1: snapshot will be created in persistNow()
 
+    // Format v1: persist tree, then one snapshot if page content changed.
     await persistNow();
+    String? label;
+    for (final id in ids) {
+      final page = _pageById(id);
+      if (page != null && page.title.trim().isNotEmpty) {
+        label = page.title.trim();
+        break;
+      }
+    }
+    await _createVaultSnapshotSafe(
+      label: label,
+      pageIdsForDedupe: ids,
+    );
   }
 
   void _appendRevisionSnapshotIfChanged(FolioPage page) {
@@ -5823,18 +5969,127 @@ class VaultSession extends ChangeNotifier {
           .toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     } else {
-      // Format v1: return snapshots
-      final snapshots = await VaultLocalStorage.listSnapshots();
-      return snapshots
-          .map((s) => VersionInfo(
+      await _ensureHiddenVersionsLoaded();
+      final hidden = _hiddenVersionsByPage[pageId] ?? const <String>{};
+      // Format v1: los snapshots son de toda la libreta (como un commit),
+      // pero solo nos interesan aquí los que realmente cambiaron ESTA
+      // página (estilo `git log -- <path>`): comparamos el hash de sus
+      // archivos entre snapshots consecutivos en vez de listarlos todos.
+      final snapshots = await _snapshotManager.listSnapshots(); // más recientes primero
+      if (snapshots.isEmpty) return [];
+
+      final metaPath = _pageTreePath(pageId, 'meta.json');
+      final blocksPath = _pageTreePath(pageId, 'blocks.jsonl');
+
+      String? hashOf(VaultSnapshot s, String path) {
+        for (final f in s.fileManifest) {
+          if (f.path == path) return f.sha256;
+        }
+        return null;
+      }
+
+      final relevant = <VersionInfo>[];
+      String? prevMeta;
+      String? prevBlocks;
+      var prevExisted = false;
+      // De más antiguo a más reciente, para poder comparar "vs el anterior".
+      for (final s in snapshots.reversed) {
+        if (hidden.contains(s.snapshotId)) {
+          prevMeta = hashOf(s, metaPath);
+          prevBlocks = hashOf(s, blocksPath);
+          prevExisted = prevMeta != null;
+          continue;
+        }
+        final meta = hashOf(s, metaPath);
+        final blocks = hashOf(s, blocksPath);
+        final existsNow = meta != null;
+        final changed = existsNow &&
+            (!prevExisted || meta != prevMeta || blocks != prevBlocks);
+        if (changed) {
+          final title = await _pageTitleFromSnapshot(s.snapshotId, pageId) ??
+              s.label;
+          relevant.add(VersionInfo(
             versionId: s.snapshotId,
             timestamp: s.createdAtMs,
-            label: s.displayLabel,
+            label: (title != null && title.trim().isNotEmpty) ? title.trim() : '',
             source: 'snapshot',
             deviceId: s.deviceId,
-          ))
-          .toList();
+          ));
+        }
+        prevMeta = meta;
+        prevBlocks = blocks;
+        prevExisted = existsNow;
+      }
+      return relevant.reversed.toList(); // más recientes primero
     }
+  }
+
+  /// Contenido de una página en un snapshot (para diffs v1).
+  Future<FolioPageRevision?> pageContentAtVersion(
+    String pageId,
+    String versionId,
+  ) async {
+    if (_vaultFormatVersion != 1) {
+      final list = _pageRevisions[pageId];
+      return list?.firstWhereOrNull((r) => r.revisionId == versionId);
+    }
+    try {
+      final metaPath = _pageTreePath(pageId, 'meta.json');
+      final blocksPath = _pageTreePath(pageId, 'blocks.jsonl');
+      final files = await _snapshotManager.extractFilesFromSnapshot(
+        versionId,
+        {metaPath, blocksPath},
+      );
+      final metaBytes = files[metaPath];
+      if (metaBytes == null) return null;
+      final meta = jsonDecode(utf8.decode(metaBytes)) as Map<String, dynamic>;
+      final blocksJson = <Map<String, dynamic>>[];
+      final blocksBytes = files[blocksPath];
+      if (blocksBytes != null) {
+        for (final line in utf8.decode(blocksBytes).split('\n')) {
+          if (line.trim().isEmpty) continue;
+          try {
+            blocksJson.add(Map<String, dynamic>.from(jsonDecode(line) as Map));
+          } catch (_) {}
+        }
+      }
+      final snap = await _snapshotManager.getSnapshot(versionId);
+      return FolioPageRevision(
+        revisionId: versionId,
+        savedAtMs: snap?.createdAtMs ?? 0,
+        title: (meta['title'] as String?) ?? '',
+        blocksJson: blocksJson,
+      );
+    } catch (e) {
+      AppLogger.warn('pageContentAtVersion failed: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _pageTitleFromSnapshot(
+    String snapshotId,
+    String pageId,
+  ) async {
+    try {
+      final metaPath = _pageTreePath(pageId, 'meta.json');
+      final files = await _snapshotManager.extractFilesFromSnapshot(
+        snapshotId,
+        {metaPath},
+      );
+      final bytes = files[metaPath];
+      if (bytes == null) return null;
+      final meta = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+      return meta['title'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// M5: Ruta relativa dentro del árbol v1 para un archivo de página
+  /// concreto (mismo esquema que `VaultPayloadToTree`: `pages/<id[0:2]>/<id>/`).
+  String _pageTreePath(String pageId, String fileName) {
+    final prefix = pageId.length >= 2 ? pageId.substring(0, 2) : 'xx';
+    return 'pages/$prefix/$pageId/$fileName';
   }
 
   /// Quita una entrada del historial sin modificar el contenido actual de la página.
@@ -5850,6 +6105,62 @@ class VaultSession extends ChangeNotifier {
     if (list.length == before) return;
     notifyListeners();
     scheduleSave();
+  }
+
+  /// M5: Elimina una entrada del historial unificado (revisión v0 en memoria
+  /// o soft-hide de snapshot v1 para esa página), sin modificar el contenido
+  /// actual ni borrar el snapshot global de la libreta.
+  Future<bool> deleteVersion(String pageId, String versionId) async {
+    if (vaultUsesEncryption && _dek == null) return false;
+    if (_vaultFormatVersion == 0) {
+      deletePageRevision(pageId, versionId);
+      return true;
+    }
+    try {
+      await _ensureHiddenVersionsLoaded();
+      final set = _hiddenVersionsByPage.putIfAbsent(pageId, () => <String>{});
+      set.add(versionId);
+      await _persistHiddenVersions();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      AppLogger.error('Failed to hide snapshot for page: $e');
+      return false;
+    }
+  }
+
+  Future<void> _ensureHiddenVersionsLoaded() async {
+    if (_hiddenVersionsLoaded) return;
+    _hiddenVersionsLoaded = true;
+    try {
+      final treeDir = await VaultPaths.vaultTreeDirectory();
+      final file = File(p.join(treeDir.path, 'vault', 'hidden_versions.json'));
+      if (!file.existsSync()) return;
+      final raw = jsonDecode(await file.readAsString());
+      if (raw is! Map) return;
+      _hiddenVersionsByPage.clear();
+      for (final entry in raw.entries) {
+        final list = entry.value;
+        if (list is List) {
+          _hiddenVersionsByPage['${entry.key}'] =
+              list.map((e) => '$e').toSet();
+        }
+      }
+    } catch (e) {
+      AppLogger.warn('Failed to load hidden_versions.json: $e');
+    }
+  }
+
+  Future<void> _persistHiddenVersions() async {
+    final treeDir = await VaultPaths.vaultTreeDirectory();
+    final vaultMetaDir = Directory(p.join(treeDir.path, 'vault'));
+    await vaultMetaDir.create(recursive: true);
+    final file = File(p.join(vaultMetaDir.path, 'hidden_versions.json'));
+    final json = <String, List<String>>{
+      for (final e in _hiddenVersionsByPage.entries)
+        if (e.value.isNotEmpty) e.key: e.value.toList()..sort(),
+    };
+    await file.writeAsString(jsonEncode(json), flush: true);
   }
 
   /// Añade una copia de seguridad del estado actual y restaura [revisionId].
@@ -5882,46 +6193,90 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
-  /// M5: Restore from version (v0 memory or v1 snapshots)
-  Future<bool> restoreVersion(String versionId) async {
+  /// M5: Restore from version (v0 memory or v1 snapshots).
+  /// Restaura meta completa (title, emoji, tags, properties, blocks) de [pageId].
+  Future<bool> restoreVersion(String pageId, String versionId) async {
     if (vaultUsesEncryption && _dek == null) return false;
 
     if (_vaultFormatVersion == 0) {
-      // Format v0: restore from pageRevisions
-      final page = _pageById(_selectedPageId ?? '');
-      if (page == null) return false;
-
-      final list = _pageRevisions[page.id];
-      if (list == null) return false;
-
-      final target = list.firstWhereOrNull((r) => r.revisionId == versionId);
-      if (target == null) return false;
-
-      // Backup current state
-      final curFp = folioPageContentFingerprint(page);
-      final revs = _pageRevisions.putIfAbsent(page.id, () => []);
-      if (revs.isEmpty || revs.last.contentFingerprint() != curFp) {
-        revs.add(
-          FolioPageRevision(
-            revisionId: const Uuid().v4(),
-            savedAtMs: DateTime.now().millisecondsSinceEpoch,
-            title: page.title,
-            blocksJson: page.blocks.map((b) => b.toJson()).toList(),
-          ),
-        );
-      }
-
-      // Restore
-      page.title = target.title;
-      page.blocks = target.decodeBlocks();
-      _contentEpoch++;
-      notifyListeners();
-      await persistNow();
-      return true;
+      restorePageRevision(pageId, versionId);
+      return _pageById(pageId) != null;
     } else {
-      // Format v1: restore from snapshot (M2+, not in M5 alpha)
-      AppLogger.warn('Snapshot restore not yet implemented');
-      return false;
+      // Format v1: restaura SOLO la página indicada desde el snapshot
+      // (estilo `git checkout <rev> -- <path>`), no la libreta entera.
+      try {
+        final page = _pageById(pageId);
+        if (page == null) return false;
+
+        final metaPath = _pageTreePath(page.id, 'meta.json');
+        final blocksPath = _pageTreePath(page.id, 'blocks.jsonl');
+        final files = await _snapshotManager.extractFilesFromSnapshot(
+          versionId,
+          {metaPath, blocksPath},
+        );
+        final metaBytes = files[metaPath];
+        if (metaBytes == null) return false; // la página no existía en ese snapshot
+
+        final meta = jsonDecode(utf8.decode(metaBytes)) as Map<String, dynamic>;
+        final blocks = <FolioBlock>[];
+        final blocksBytes = files[blocksPath];
+        if (blocksBytes != null) {
+          for (final line in utf8.decode(blocksBytes).split('\n')) {
+            if (line.trim().isEmpty) continue;
+            try {
+              blocks.add(
+                FolioBlock.fromJson(
+                  Map<String, dynamic>.from(jsonDecode(line)),
+                ),
+              );
+            } catch (_) {
+              // línea corrupta: se descarta, igual que en TreeToVaultPayload
+            }
+          }
+        }
+
+        // Snapshot de seguridad del estado actual antes de sobreescribir.
+        await _createVaultSnapshotSafe(
+          label: page.title.trim().isNotEmpty ? page.title.trim() : null,
+          pageIdsForDedupe: [page.id],
+        );
+
+        page.title = (meta['title'] as String?) ?? page.title;
+        final emojiRaw = meta['emoji'] as String?;
+        page.emoji = (emojiRaw == null || emojiRaw.trim().isEmpty)
+            ? null
+            : emojiRaw.trim();
+        page.tags = ((meta['tags'] ?? []) as List).cast<String>();
+        page.properties = (meta['properties'] as List<dynamic>?)
+                ?.whereType<Map>()
+                .map(
+                  (e) => FolioPageProperty.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList() ??
+            [];
+        if (meta['lastImportInfo'] != null) {
+          final raw = meta['lastImportInfo'];
+          if (raw is Map) {
+            page.lastImportInfo =
+                FolioPageImportInfo.fromJson(Map<String, dynamic>.from(raw));
+          }
+        }
+        page.blocks = blocks;
+        _contentEpoch++;
+        _rebuildSearchIndex();
+        notifyListeners();
+        await persistNow();
+        await _createVaultSnapshotSafe(
+          label: page.title.trim().isNotEmpty ? page.title.trim() : null,
+          pageIdsForDedupe: [page.id],
+        );
+        return true;
+      } catch (e) {
+        AppLogger.error('Snapshot restore failed: $e');
+        return false;
+      }
     }
   }
 
@@ -5970,16 +6325,29 @@ class VaultSession extends ChangeNotifier {
       // Format v0: persist to vault.bin (existing)
       await _persistence.persistNow();
     } else {
-      // Format v1: decompose to tree + create snapshot
+      // Format v1: solo árbol en repo/ (sin snapshot automático ni vault.bin).
       try {
+        _v1TreeSaveTimer?.cancel();
+        _v1TreeSaveTimer = null;
         final payload = _buildVaultPayloadForPersist();
-        await VaultLocalStorage.decomposeAndStore(
-          payload,
-          deviceId: _deviceId,
-        );
-
-        // Create snapshot after persist
-        await _createVaultSnapshotSafe();
+        // Defensa: no persistir 0 páginas sobre un árbol que aún tiene datos
+        // (p. ej. tras unlock fallido / carrera con sync headless).
+        if (payload.pages.isEmpty) {
+          final treeDir = await VaultPaths.vaultTreeDirectory();
+          final onDisk = VaultLocalStorage.countPageDirs(treeDir);
+          if (onDisk > 0) {
+            AppLogger.error(
+              'Blocked v1 persist of empty session over non-empty tree',
+              context: {'onDiskPages': onDisk},
+            );
+            return;
+          }
+        }
+        await VaultLocalStorage.decomposeAndStore(payload);
+        // Nunca borrar vault.bin aquí: solo tras sync/verificación
+        // (cleanupV0AfterSuccessfulSync).
+      } on VaultEmptyOverwriteException catch (e) {
+        AppLogger.error('Blocked empty vault tree overwrite: $e');
       } catch (e) {
         AppLogger.error('Failed to persist v1 vault: $e');
         rethrow;
@@ -5988,13 +6356,46 @@ class VaultSession extends ChangeNotifier {
     _rebuildSearchIndex();
   }
 
-  Future<void> _createVaultSnapshotSafe() async {
+  /// Persistencia inmediata respetando formato: v0 puede suprimir `onPersisted`
+  /// (evitar bucles de sync); v1 siempre escribe solo el árbol.
+  Future<void> _persistNowRespectingFormat({
+    bool suppressPersistedCallback = false,
+  }) async {
+    if (_vaultFormatVersion == 0) {
+      if (suppressPersistedCallback) {
+        await _persistence.persistNowSuppressed();
+      } else {
+        await _persistence.persistNow();
+      }
+      return;
+    }
+    await persistNow();
+  }
+
+  /// Crea un snapshot del árbol si el contenido relevante cambió respecto
+  /// al último (dedupe por hash). [label] suele ser el título de la página.
+  Future<void> _createVaultSnapshotSafe({
+    String? label,
+    List<String>? pageIdsForDedupe,
+  }) async {
     if (_vaultFormatVersion != 1) return;
     try {
       final treeDir = await VaultPaths.vaultTreeDirectory();
+      if (pageIdsForDedupe != null && pageIdsForDedupe.isNotEmpty) {
+        final paths = <String>{};
+        for (final id in pageIdsForDedupe) {
+          paths.add(_pageTreePath(id, 'meta.json'));
+          paths.add(_pageTreePath(id, 'blocks.jsonl'));
+        }
+        if (await _snapshotManager.arePathsIdenticalToLatest(treeDir, paths)) {
+          return;
+        }
+      } else if (await _snapshotManager.isTreeIdenticalToLatest(treeDir)) {
+        return;
+      }
       await _snapshotManager.createSnapshot(
         treeDir: treeDir,
-        label: null, // Auto-labeled
+        label: label,
       );
     } catch (e) {
       AppLogger.warn('Snapshot creation failed: $e');
@@ -6139,7 +6540,7 @@ class VaultSession extends ChangeNotifier {
         );
         _contentEpoch++;
         notifyListeners();
-        await _persistence.persistNowSuppressed();
+        await _persistNowRespectingFormat(suppressPersistedCallback: true);
         _rebuildSearchIndex();
         final localSnapshot = _buildVaultPayloadForPersist();
         _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
@@ -6204,7 +6605,7 @@ class VaultSession extends ChangeNotifier {
       current.richTextDeltaJson = null;
       _contentEpoch++;
       notifyListeners();
-      await _persistence.persistNowSuppressed();
+      await _persistNowRespectingFormat(suppressPersistedCallback: true);
       _rebuildSearchIndex();
       final localSnapshot = _buildVaultPayloadForPersist();
       _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(
@@ -6275,7 +6676,7 @@ class VaultSession extends ChangeNotifier {
     }
     await _applySyncedDisplayName(payload.displayName);
     notifyListeners();
-    await _persistence.persistNowSuppressed();
+    await _persistNowRespectingFormat(suppressPersistedCallback: true);
     _rebuildSearchIndex();
     if (setAsBaseline) {
       _syncBaselineFingerprint = remoteFingerprint;
@@ -6781,12 +7182,96 @@ class VaultSession extends ChangeNotifier {
     // TODO: Show migration prompt dialog
   }
 
+  /// M5: Inicializa `_formatHandler`/`_deviceId`/`_vaultFormatVersion` para la
+  /// libreta activa si aún no se ha hecho en esta sesión. Es idempotente y
+  /// segura de llamar desde cualquier punto de entrada (bootstrap, unlock,
+  /// creación de libreta nueva) sin depender de que otro método ya la haya
+  /// inicializado antes — evita `LateInitializationError` en flujos que no
+  /// pasan por [bootstrap] primero (p. ej. onboarding con una libreta nueva).
+  Future<void> _ensureFormatHandlerReady() async {
+    if (_formatHandlerInitialized) return;
+    _deviceId = await _getDeviceId();
+    _formatHandler = VaultFormatHandler(
+      deviceId: _deviceId,
+      onMigrationNeeded: _triggerMigrationPrompt,
+    );
+    _vaultFormatVersion = await _formatHandler.detectFormat();
+    _formatHandlerInitialized = true;
+  }
+
+  /// M5: Garantiza que la libreta activa esté en formato v1, migrando desde
+  /// v0 si hace falta (migración obligatoria en Beta). Se llama tanto desde
+  /// [bootstrap] (libretas en claro) como desde los métodos de desbloqueo de
+  /// libretas cifradas, para que la migración se aplique sin importar el modo
+  /// de la libreta. [loadV0Payload] solo se invoca si realmente hace falta el
+  /// payload v0 (evita cargarlo dos veces cuando el árbol v1 ya es válido).
+  Future<VaultPayload> _ensureV1AndLoad(
+    Future<VaultPayload> Function() loadV0Payload,
+  ) async {
+    await _ensureFormatHandlerReady();
+    if (_vaultFormatVersion == 1) {
+      try {
+        final loaded = await _formatHandler.loadPayload(1);
+        if (loaded != null) return loaded;
+      } on VaultCorruptionException {
+        rethrow;
+      }
+      // Formato marcado v1 pero el árbol no carga: no usar vault.bin obsoleto
+      // en silencio (riesgo NTTData). Ir a recovery; la UI ofrece
+      // `.pre-migration` / `.bak` si existen.
+      final hasPre = await VaultMigrationTool.hasPreMigrationBackup();
+      throw VaultCorruptionException(
+        hasPre
+            ? 'v1 tree unreadable; pre-migration backup available'
+            : 'v1 tree unreadable; no usable page tree on disk',
+      );
+    }
+
+    final v0Payload = await loadV0Payload();
+    AppLogger.info('Auto-migrating v0 → v1 (mandatory for Beta)');
+    final migrationResult = await VaultMigrationTool.migrateVault(
+      payload: v0Payload,
+      deviceId: _deviceId,
+    );
+    if (!migrationResult.success) {
+      AppLogger.error('Migration failed: ${migrationResult.error}');
+      throw VaultCorruptionException(
+        'Migration failed: ${migrationResult.error ?? migrationResult.message}',
+      );
+    }
+    AppLogger.info(
+      'Migration OK fingerprint=${migrationResult.contentFingerprint}',
+    );
+    _justMigrated = true;
+    // Conservar vault.bin hasta sync/verificación externa.
+    _hasV0FilesToDelete = await VaultPaths.cipherPayloadExists();
+    _vaultFormatVersion = 1;
+    final loaded = await _formatHandler.loadPayload(1);
+    if (loaded == null) {
+      throw VaultCorruptionException(
+        'Migration reported success but v1 tree could not be loaded',
+      );
+    }
+    return loaded;
+  }
+
+  /// M5: Inicializa el gestor de snapshots para la libreta activa (v1).
+  Future<void> _initSnapshotManager() async {
+    final vaultDir = await VaultPaths.vaultDirectory();
+    _snapshotManager = VaultSnapshotManager(
+      vaultDir: vaultDir,
+      deviceId: _deviceId,
+    );
+    await _snapshotManager.init();
+  }
+
   @override
   void dispose() {
     unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
     _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();
+    _v1TreeSaveTimer?.cancel();
     _idleLockTimer?.cancel();
     super.dispose();
   }

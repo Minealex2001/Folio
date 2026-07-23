@@ -86,7 +86,10 @@ Future<String?> uploadOpenVaultCloudPack({
   rep(VaultCloudPackProgressStep.persisting, 0.04);
   await session.persistNow();
   rep(VaultCloudPackProgressStep.fingerprinting, 0.07);
-  final contentFp = await computeVaultCloudPackContentFingerprint();
+  final vaultBinBytes = await session.vaultBinEquivalentBytes();
+  final contentFp = await computeVaultCloudPackContentFingerprint(
+    vaultBinBytes: vaultBinBytes,
+  );
 
   rep(VaultCloudPackProgressStep.fetchingMeta, 0.09);
   final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
@@ -182,6 +185,7 @@ Future<String?> uploadOpenVaultCloudPack({
   final built = await buildVaultPackSnapshot(
     packKey: packKey,
     contentFingerprint: contentFp,
+    vaultBinBytes: vaultBinBytes,
   );
   final items = built.manifest.items;
   final snapClear = built.manifest;
@@ -335,6 +339,7 @@ Future<String?> uploadOpenVaultCloudPack({
     true,
     durationMs: sw.elapsedMilliseconds,
   );
+  unawaited(session.cleanupV0AfterSuccessfulSync());
   return url;
   } catch (e) {
     _logSyncTelemetry(

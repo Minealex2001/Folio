@@ -5,12 +5,13 @@
 
 import 'dart:io';
 import 'dart:convert';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import 'package:cryptography/cryptography.dart';
 
 import 'vault_snapshot.dart';
-import 'vault_payload_converters.dart';
-import '../data/vault_payload.dart';
+import 'p2p_sync_packager.dart';
 
 class VaultSnapshotManager {
   final Directory vaultDir;
@@ -110,14 +111,76 @@ class VaultSnapshotManager {
     }
   }
 
-  /// Restaura un snapshot anterior a un directorio de árbol.
-  /// Esto extrae el snapshot comprimido y lo devuelve como árbol.
-  Future<bool> restoreSnapshot(String snapshotId, Directory targetTreeDir) async {
+  /// Extrae únicamente [relativePaths] (rutas dentro del árbol, p. ej.
+  /// `pages/ab/abc123/meta.json`) desde el .zip de un snapshot, sin
+  /// descomprimir el árbol completo. Usado para restaurar/comparar una sola
+  /// página en vez de la libreta entera (estilo `git show <rev>:<path>`).
+  Future<Map<String, List<int>>> extractFilesFromSnapshot(
+    String snapshotId,
+    Set<String> relativePaths,
+  ) async {
+    final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
+    if (!zipFile.existsSync()) return {};
+    final zipBytes = await zipFile.readAsBytes();
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    final result = <String, List<int>>{};
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      if (relativePaths.contains(file.name)) {
+        result[file.name] = file.content as List<int>;
+      }
+    }
+    return result;
+  }
+
+  /// Restaura un snapshot anterior a [targetTreeDir].
+  /// Descomprime el .zip del snapshot y reemplaza el contenido de
+  /// [targetTreeDir] con el árbol restaurado.
+  Future<bool> restoreSnapshot(
+    String snapshotId,
+    Directory targetTreeDir,
+  ) async {
     await init();
 
-    // Por ahora, retorna false (implementación completa en M2+)
-    // Placeholder para futuro: descomprimir y copiar el árbol.
-    return false;
+    final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
+    if (!zipFile.existsSync()) return false;
+
+    try {
+      final zipBytes = await zipFile.readAsBytes();
+      final packager = P2PSyncPackager(
+        vaultId: p.basename(vaultDir.path),
+        sourceDeviceId: deviceId,
+      );
+      final extractedDir = await packager.decompressZip(
+        zipBytes,
+        'folio_snapshot_restore_',
+      );
+
+      try {
+        if (targetTreeDir.existsSync()) {
+          await targetTreeDir.delete(recursive: true);
+        }
+        await targetTreeDir.create(recursive: true);
+        await for (final entity in extractedDir.list(recursive: true)) {
+          final relativePath =
+              p.relative(entity.path, from: extractedDir.path);
+          final destPath = p.join(targetTreeDir.path, relativePath);
+          if (entity is Directory) {
+            await Directory(destPath).create(recursive: true);
+          } else if (entity is File) {
+            await Directory(p.dirname(destPath)).create(recursive: true);
+            await entity.copy(destPath);
+          }
+        }
+        return true;
+      } finally {
+        if (extractedDir.existsSync()) {
+          await extractedDir.delete(recursive: true);
+        }
+      }
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Elimina un snapshot (metadatos + archivo comprimido).
@@ -129,6 +192,47 @@ class VaultSnapshotManager {
 
     if (metadataFile.existsSync()) await metadataFile.delete();
     if (treeFile.existsSync()) await treeFile.delete();
+  }
+
+  /// True si el árbol actual coincide (path→sha256) con el snapshot más reciente.
+  Future<bool> isTreeIdenticalToLatest(Directory treeDir) async {
+    final snapshots = await listSnapshots();
+    if (snapshots.isEmpty) return false;
+    final latest = snapshots.first;
+    final current = await _buildFileManifest(treeDir);
+    if (current.length != latest.fileManifest.length) return false;
+    final latestByPath = {
+      for (final e in latest.fileManifest) e.path: e.sha256,
+    };
+    for (final e in current) {
+      if (latestByPath[e.path] != e.sha256) return false;
+    }
+    return true;
+  }
+
+  /// True si los [relativePaths] del árbol coinciden con el snapshot más reciente.
+  Future<bool> arePathsIdenticalToLatest(
+    Directory treeDir,
+    Set<String> relativePaths,
+  ) async {
+    if (relativePaths.isEmpty) return true;
+    final snapshots = await listSnapshots();
+    if (snapshots.isEmpty) return false;
+    final latest = snapshots.first;
+    final latestByPath = {
+      for (final e in latest.fileManifest) e.path: e.sha256,
+    };
+    for (final path in relativePaths) {
+      final file = File(p.join(treeDir.path, path));
+      if (!file.existsSync()) {
+        if (latestByPath.containsKey(path)) return false;
+        continue;
+      }
+      final bytes = await file.readAsBytes();
+      final sha = await _computeSha256(bytes);
+      if (latestByPath[path] != sha) return false;
+    }
+    return true;
   }
 
   /// Construye el manifest de archivos recursivamente desde [treeDir].
@@ -153,7 +257,7 @@ class VaultSnapshotManager {
         final relativePath =
             p.relative(item.path, from: baseDir.path).replaceAll('\\', '/');
         final bytes = await item.readAsBytes();
-        final sha256 = _computeSha256(bytes);
+        final sha256 = await _computeSha256(bytes);
 
         entries.add(FileManifestEntry(
           path: relativePath,
@@ -166,20 +270,25 @@ class VaultSnapshotManager {
     }
   }
 
-  /// Placeholder: computa SHA-256 de bytes.
-  /// (Usar cryptography package en impl final)
-  String _computeSha256(List<int> bytes) {
-    // TODO: implementar SHA-256 real usando cryptography package
-    // Por ahora, retorna placeholder
-    return 'sha256_placeholder_${bytes.length}';
+  /// Computa el SHA-256 real de [bytes] (hex, 64 caracteres).
+  Future<String> _computeSha256(List<int> bytes) async {
+    final digest = await Sha256().hash(bytes);
+    return digest.bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
   }
 
-  /// Placeholder: comprime y almacena el árbol como ZIP.
+  /// Comprime el árbol a ZIP y lo guarda en <versions>/<snapshotId>.zip.
   Future<void> _compressAndStoreTreeSnapshot(
     String snapshotId,
     Directory treeDir,
   ) async {
-    // TODO: implementar compresión ZIP del árbol
-    // Por ahora, es un no-op
+    final packager = P2PSyncPackager(
+      vaultId: p.basename(vaultDir.path),
+      sourceDeviceId: deviceId,
+    );
+    final zipBytes = await packager.compressTreeToZip(treeDir);
+    final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
+    await zipFile.writeAsBytes(zipBytes, flush: true);
   }
 }

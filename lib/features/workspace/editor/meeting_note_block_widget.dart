@@ -727,7 +727,12 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (file != null) FolioAudioBlockPlayer(file: file, scheme: widget.scheme),
+        if (file != null)
+          FolioAudioBlockPlayer(
+            key: ValueKey(file.path),
+            file: file,
+            scheme: widget.scheme,
+          ),
         if (file != null) const SizedBox(height: 10),
         if (transcript.isNotEmpty) ...[
           Text(

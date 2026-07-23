@@ -1937,6 +1937,32 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                       ],
                                     ),
+                                    ListTile(
+                                      dense: true,
+                                      leading: const Icon(
+                                        Icons.storage_rounded,
+                                      ),
+                                      title: Text(
+                                        Localizations.localeOf(
+                                                  context,
+                                                ).languageCode ==
+                                                'es'
+                                            ? 'Versión de la libreta'
+                                            : 'Vault format',
+                                      ),
+                                      trailing: Text(
+                                        _s.vaultFormatVersion == 0
+                                            ? 'v0 (Legacy)'
+                                            : 'v1 (Tree)',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
                                     const Divider(height: 1),
                                     _SettingsSubsectionTitle(
                                       title: l10n.security,

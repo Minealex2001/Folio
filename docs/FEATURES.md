@@ -378,9 +378,15 @@ El selector se presenta como un bottom sheet con preview en tiempo real y botón
 ## 15. Historial de versiones por página
 
 - `PageHistoryScreen` (`lib/features/workspace/history/page_history_sheet.dart`).
-- Lista de revisiones con timestamps.
-- **Vista diff**: `PageRevisionDiffView` muestra los cambios entre la versión seleccionada y la actual.
-- **Restauración**: diálogo de confirmación antes de revertir.
+- **Formato v1 (canónico local):** la libreta vive en `<vault>/repo/` (árbol) + `<vault>/versions/` (snapshots). Tras migrar o crear una libreta nueva se escribe `vault.format=1` y `vault.v1-verified` (fingerprint de páginas/bloques). **`vault.bin` no se borra en el mismo turno que la migración**: se conserva (y se crea `vault.bin.pre-migration`) hasta un sync/backup externo exitoso (`cleanupV0AfterSuccessfulSync`). Los backups/cloud pueden usar bytes equivalentes al blob como formato de intercambio.
+- **Integridad anti-pérdida:** la migración escribe en `repo.tmp/`, hace round-trip `compose` + comparación de fingerprints (páginas/bloques, incl. `kanban`/`task`), y solo entonces hace swap a `repo/` y escribe el marker. Una línea malformada en `blocks.jsonl` **aborta** la carga (no se omiten bloques en silencio). Persistencia v1 también usa staging `repo.tmp` → swap.
+- **Recuperación:** si el árbol v1 no carga, la app entra en `RecoveryScreen` (no cae en silencio a un `vault.bin` obsoleto). Si existe `vault.bin.pre-migration`, se ofrece restaurarlo (rollback); también `.bak`, ZIP de backup y exportación de emergencia. Rollback vía `VaultMigrationTool.rollbackMigration`.
+- **v0 (legacy):** revisiones en memoria (`pageRevisions`) dentro del payload monolítico; la migración a v1 es obligatoria en Beta y **materializa cada revisión** como snapshot (antigua → reciente) más un snapshot del estado actual.
+- Lista filtrada por página (estilo `git log -- path`): solo snapshots cuyo `meta.json`/`blocks.jsonl` de esa página cambió.
+- **Un snapshot por cambio real** tras idle de edición (dedupe por hash); el guardado rápido del árbol no crea versiones. Labels desde el título en `meta.json`.
+- **Vista diff:** `PageRevisionDiffView` compara la versión con la anterior (también en v1, extrayendo la página del zip del snapshot).
+- **Restauración** `restoreVersion(pageId, versionId)`: meta completa (título, emoji, tags, properties, bloques) sin tocar otras páginas.
+- **Borrar versión** en v1: soft-hide por página en `repo/vault/hidden_versions.json` (no borra el snapshot global de la libreta).
 - Presentación adaptativa: diálogo 760×720 px en escritorio, ruta de pantalla completa en móvil.
 
 ---
@@ -473,6 +479,8 @@ Bloque `meeting_note` implementado en `lib/features/workspace/editor/meeting_not
 
 ### Funcionalidades avanzadas
 
+- **Proceso aparte (worker)**: captura, mezcla, Whisper y diarización corren en un proceso OS distinto (`--meeting-worker`, IPC TCP localhost). Así un OOM o crash del pipeline no tumba Folio. Cliente: `MeetingNoteSessionController`.
+- **Navegación en segundo plano**: al cambiar de página la sesión sigue; barra en el footer del sidebar (`MeetingNoteActiveBar`, mismo estilo que media) visible solo mientras hay grabación/procesado.
 - **Diarización** (`DiarizationService`): diferenciación de hablantes.
 - **Mezcla de audio** (`AudioMixerService`): mezcla micrófono + audio del sistema.
 - **Audio del sistema** (`SystemAudioService`): captura del audio de la pantalla.
@@ -695,6 +703,13 @@ Ambos pueden combinarse con la copia programada en **Folio Cloud** (suscripción
 
 Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo de la app —caja fuerte, editor, sincronización local entre dispositivos, IA local— funciona **sin** Folio Cloud; si Firebase no arranca o no hay proyecto configurado, estas rutas quedan deshabilitadas. Resumen orientado a producto: [README.md](../README.md) («Building without Folio Cloud»); despliegue y secretos: [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md).
 
+### Entorno staging (no producción)
+
+- Proyecto Firebase **`folio-staging-minealex`** (alias `staging` en `.firebaserc`). Producción sigue siendo `folio-minealexgames`.
+- Deploy backend a staging: `npm run deploy:staging:backend` desde `functions/` (Functions + reglas Firestore/Storage). Producción: `npm run deploy:production`.
+- Cliente de prueba: `flutter run --dart-define=FOLIO_FIREBASE_ENV=staging` (usa [`lib/firebase_options_staging.dart`](../lib/firebase_options_staging.dart)).
+- Guía: [FOLIO_CLOUD_STAGING.md](FOLIO_CLOUD_STAGING.md).
+
 ### Cuenta y autoridad en servidor
 
 - **Sesión Folio Cloud** = usuario **Firebase Auth**.
@@ -727,7 +742,7 @@ Distinta de la **copia/restauración** (reemplazo consciente): la sync automáti
 - Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`) + transporte incremental `folio_cloud_device_sync_incremental.dart`.
 - Tras persistir y **~10 s sin nuevos guardados** (idle de edición), sube **blobs content-addressed** (payload + adjuntos) a `users/{uid}/vaults/{vaultId}/device-sync/blobs/` y un **manifiesto cifrado** en `device-sync/manifests/`; finaliza con **`folioFinalizeDeviceSync`** (`syncFormatVersion: 2`, señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Compat: packs monolíticos v1 en `device-sync/packs/` se siguen pudiendo **descargar**; el siguiente push migra a v2.
 - Indicador unificado en el workspace (una sola nube): **guardado local** + **sync Folio Cloud**. Al pulsarlo, sheet con estado en este dispositivo, todas las libretas, error, progreso por blobs, **Sincronizar ahora** (`syncNow()`), y conflictos pendientes. El nombre visible de cada libreta viaja en el pack (`VaultPayload.displayName`) y se aplica al registro local tras el merge.
-- **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro usan clave determinista por cuenta+vaultId. **Pull** de la libreta activa cada **~30 s** en primer plano (listener Firestore o poll); **todas las libretas** cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) se pausa el poll y el listener; al volver a ser la ventana activa / resumed, pull inmediato de la activa. Al cambiar de libreta activa, **push inmediato** de la que se abandona (aún desbloqueada) y **pull inmediato** de la nueva. El **push** normal espera **~10 s de inactividad** tras el último guardado local (el usuario dejó de editar); al cambiar de página, si había push pendiente, se hace flush.
+- **No exige libreta desbloqueada** para sincronizar: con la UI en bloqueo se usa sync **headless** sobre disco (`HeadlessDeviceSyncVault` vía `VaultStorage`, también en web). En formato **v1** el headless lee/escribe el árbol `repo/` (canónico); **no** usa `vault.bin` residual (quedaría obsoleto tras migrar/editar y provocaría que un dispositivo bloqueado empujara un snapshot viejo). La DEK (o clave estable de vault en claro) se cachea en almacén seguro tras el primer desbloqueo / al bloquear (`DeviceSyncKeyCache`); las libretas en claro usan clave determinista por cuenta+vaultId. **Pull** de la libreta activa cada **~30 s** en primer plano (listener Firestore o poll); **todas las libretas** cada **~15 min**. En segundo plano (app pausada **o ventana sin foco** en desktop) se pausa el poll y el listener; al volver a ser la ventana activa / resumed, pull inmediato de la activa. Al cambiar de libreta activa, **push inmediato** de la que se abandona (aún desbloqueada) y **pull inmediato** de la nueva. El **push** normal espera **~10 s de inactividad** tras el último guardado local (el usuario dejó de editar); al cambiar de página, si había push pendiente, se hace flush.
 - Cifrado del **pack en la nube** con la clave de perfil de cuenta Folio Cloud (todos los dispositivos firmados pueden bajarlo). La DEK de cada libreta viaja en `dekAccountWrapB64` / `dek.accountwrap` para materializar sin desbloquear. Compat: packs antiguos cifrados con DEK de libreta se siguen pudiendo leer si hay clave local o wrap.
 - Al desbloquear/cachear DEK se sube el bootstrap de inmediato (no espera al debounce del push).
 - Otros dispositivos escuchan el doc (`snapshots`) en primer plano o, en **Windows** (sin Firestore nativo), hacen **polling REST ~30 s** de la activa solo en primer plano; tras un push propio hay burst 1/2/4 s. Linux/macOS/móvil usan snapshots.
@@ -840,6 +855,12 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 ### Onboarding seguro
 
 - Durante el onboarding se puede elegir cifrado + contraseña.
+
+### Recuperación NTTData (2026-07-23) y anti-wipe del árbol v1
+
+- **Incidente:** la UI mostró 0 folios en NTTData aunque `vault.bin.bak` conservaba ~30 páginas (p. ej. Tareas con kanban). El sync headless trató la libreta como vacía (`loadPayload empty` vía `vault.bin` obsoleto tras migrar a v1), instaló remoto y el cliente llegó a **pushear 0 páginas** a device-sync. Una instancia Debug abierta volvió a persistir `repo/tree.json = {}` tras una recuperación manual.
+- **Recuperación:** `test/recovery/recover_nttdata_from_bak_test.dart` con `FOLIO_RECOVERY_APPLY=1` restaura desde `vault.bin.bak` (no borra `.bak`). Congelar copias en `Documents\FolioRecovery\`.
+- **Blindaje:** `VaultLocalStorage.decomposeAndStoreAt` rechaza sustituir un `repo/` con páginas por un payload vacío; `persistNow` (v1) no escribe sesión vacía sobre árbol no vacío; `HeadlessDeviceSyncVault.applyRemotePack` no instala remoto vacío ni pisa un árbol local si `loadPayload` falla pero hay páginas en disco; `_formatVersion` infiere v1 si existe `repo/tree.json` aunque falte el marker.
 
 ---
 
@@ -1459,7 +1480,7 @@ Revisión centrada en errores del editor de bloques, páginas y persistencia de 
 ### Async y concurrencia
 
 - Comprobaciones `mounted` tras `await` en pegado de tabla, picker de emoji del callout y `catch` de subida cloud de notas de reunión.
-- Transcripción de reuniones: los chunks de audio se procesan en serie (`_chunkChain`) para no mezclar la transcripción fuera de orden.
+- Transcripción de reuniones: los chunks de audio se procesan en serie (`_chunkChain` en el worker) para no mezclar la transcripción fuera de orden.
 
 ### Robustez del modelo
 

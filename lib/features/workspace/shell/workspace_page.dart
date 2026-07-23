@@ -2063,34 +2063,35 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  /// M5: Show notification if vault was just migrated from v0 to v1
+  /// M5: Show notification if vault was just migrated from v0 to v1 and
+  /// there's an actual legacy vault.bin left on disk to clean up.
   void _showMigrationNotificationIfNeeded() {
     if (!_s.justMigrated) return;
 
-    final isSpanish = Localizations.localeOf(context).languageCode == 'es';
+    if (!_s.hasV0FilesToDelete) {
+      // Se migró pero no queda nada que limpiar: no hay nada que notificar.
+      _s.resetMigrationFlag();
+      return;
+    }
+
+    final l10n = AppLocalizations.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     scaffoldMessenger.showSnackBar(
       SnackBar(
-        content: Text(
-          isSpanish
-              ? 'Libreta migrada a v1 ✅'
-              : 'Vault migrated to v1 ✅',
-        ),
+        content: Text(l10n.vaultMigratedDeleteLegacyPrompt),
         action: SnackBarAction(
-          label: isSpanish
-              ? 'Eliminar v0'
-              : 'Delete v0',
+          label: l10n.delete,
           onPressed: () async {
-            await _s.deleteV0VaultBinary();
+            final success = await _s.deleteV0VaultBinary();
             _s.resetMigrationFlag();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    isSpanish
-                        ? 'Versión anterior eliminada'
-                        : 'Legacy version deleted',
+                    success
+                        ? l10n.vaultLegacyDeletedSuccess
+                        : l10n.vaultLegacyDeleteFailed,
                   ),
                   duration: const Duration(seconds: 2),
                 ),
@@ -2098,7 +2099,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             }
           },
         ),
-        duration: const Duration(seconds: 7),
+        duration: const Duration(seconds: 10),
       ),
     );
   }

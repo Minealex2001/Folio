@@ -42,7 +42,8 @@ Sin suscripción de pago, `recomputeEffectiveFolioCloud` otorga el **plan free**
 
 ### Despliegue
 
-- Despliega reglas Firestore (colección `microsoftStoreProcessedPurchases`) y la nueva función: `firebase deploy --only functions:validateMicrosoftStoreEntitlements,firestore:rules` (ajusta al pipeline habitual).
+- **Staging (no producción):** proyecto `folio-staging-minealex`, alias `staging`. Guía: [FOLIO_CLOUD_STAGING.md](FOLIO_CLOUD_STAGING.md). Ejemplo: `firebase deploy --only functions,firestore:rules,storage --project staging`.
+- Despliega reglas Firestore (colección `microsoftStoreProcessedPurchases`) y la nueva función: `firebase deploy --only functions:validateMicrosoftStoreEntitlements,firestore:rules --project production` (ajusta al pipeline habitual).
 
 ### Aviso: 401 con página HTML «Error 401 (Unauthorized)»
 

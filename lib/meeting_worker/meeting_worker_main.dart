@@ -1,9 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/widgets.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'meeting_worker_host.dart';
 import 'meeting_worker_protocol.dart';
@@ -12,43 +10,59 @@ import 'meeting_worker_protocol.dart';
 Future<void> runMeetingWorker(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.macOS)) {
-    try {
-      await windowManager.ensureInitialized();
-      await windowManager.setPreventClose(false);
-      await windowManager.setSkipTaskbar(true);
-      await windowManager.setTitle('Folio Meeting Worker');
-      // Ocultar lo antes posible para no mostrar una segunda ventana.
-      await windowManager.hide();
-    } catch (_) {
-      // Sin window_manager (p.ej. tests) seguimos con el host IPC.
-    }
-  }
-
   final port = MeetingWorkerProtocol.parseIpcPort(args);
   if (port == null || port <= 0 || port > 65535) {
     stderr.writeln('folio meeting worker: missing or invalid --ipc-port');
-    exitCode = 2;
-    return;
+    exit(2);
   }
 
-  Socket? socket;
-  try {
-    socket = await Socket.connect(
-      InternetAddress.loopbackIPv4,
-      port,
-      timeout: const Duration(seconds: 15),
+  // runApp mantiene vivo el engine/plugins (record, system_audio). Sin esto,
+  // el embedder de Windows puede tumbar el proceso al forzar el primer frame.
+  runApp(_MeetingWorkerApp(port: port));
+}
+
+class _MeetingWorkerApp extends StatefulWidget {
+  const _MeetingWorkerApp({required this.port});
+
+  final int port;
+
+  @override
+  State<_MeetingWorkerApp> createState() => _MeetingWorkerAppState();
+}
+
+class _MeetingWorkerAppState extends State<_MeetingWorkerApp> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_run());
+  }
+
+  Future<void> _run() async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        widget.port,
+        timeout: const Duration(seconds: 30),
+      );
+      final host = MeetingWorkerHost(socket: socket);
+      await host.run();
+      exit(0);
+    } catch (e, st) {
+      stderr.writeln('folio meeting worker failed: $e');
+      stderr.writeln('$st');
+      try {
+        await socket?.close();
+      } catch (_) {}
+      exit(3);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Directionality(
+      textDirection: TextDirection.ltr,
+      child: SizedBox.shrink(),
     );
-  } catch (e) {
-    stderr.writeln('folio meeting worker: failed to connect IPC: $e');
-    exitCode = 3;
-    return;
   }
-
-  final host = MeetingWorkerHost(socket: socket);
-  await host.run();
-  exit(0);
 }

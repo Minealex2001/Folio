@@ -79,6 +79,12 @@ Future<String> _sha256FileHex(File f) async {
   return _hexFromBytes(hash.bytes);
 }
 
+Future<String> _sha256BytesHex(List<int> bytes) async {
+  final algo = Sha256();
+  final hash = await algo.hash(bytes);
+  return _hexFromBytes(hash.bytes);
+}
+
 class VaultCloudBackupFingerprint {
   const VaultCloudBackupFingerprint({
     required this.fingerprint,
@@ -93,25 +99,26 @@ class VaultCloudBackupFingerprint {
 
 /// Calcula un fingerprint estable del contenido de la libreta activa, pensado para
 /// deduplicar copias en la nube. Incluye:
-/// - `vault.bin` (siempre)
+/// - `vault.bin` equivalente (siempre) — [vaultBinBytes] viene del estado en
+///   memoria (`VaultSession.vaultBinEquivalentBytes()`), no del archivo en
+///   disco: funciona igual en v0 y v1, sin depender de que `vault.bin` siga
+///   existiendo tras migrar.
 /// - `vault.keys` (si existe)
 /// - Resumen rápido de adjuntos: ruta relativa + tamaño + mtime (no hash por archivo).
 ///
 /// También devuelve el desglose aproximado de tamaño (vault vs adjuntos).
-Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
+Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint({
+  required Uint8List vaultBinBytes,
+}) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
-  if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay libreta para exportar.');
-  }
 
   final parts = <String>[];
   int vaultBytes = 0;
   int attachmentsBytes = 0;
 
-  final cipherHash = await _sha256FileHex(cipher);
-  final cipherLen = await cipher.length();
+  final cipherHash = await _sha256BytesHex(vaultBinBytes);
+  final cipherLen = vaultBinBytes.length;
   vaultBytes += cipherLen;
   parts.add('vault.bin:$cipherHash:$cipherLen');
 
@@ -161,17 +168,19 @@ Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
 
 /// Fingerprint por **contenido** (SHA-256 de cada archivo) para cloud-packs
 /// incrementales; evita falsos positivos con `mtime` al deduplicar blobs.
-Future<String> computeVaultCloudPackContentFingerprint() async {
+///
+/// [vaultBinBytes] viene del estado en memoria
+/// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
+/// disco: funciona igual en v0 y v1.
+Future<String> computeVaultCloudPackContentFingerprint({
+  required Uint8List vaultBinBytes,
+}) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
-  if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay libreta para exportar.');
-  }
 
   final parts = <String>[];
-  final cipherHash = await _sha256FileHex(cipher);
-  final cipherLen = await cipher.length();
+  final cipherHash = await _sha256BytesHex(vaultBinBytes);
+  final cipherLen = vaultBinBytes.length;
   parts.add('vault.bin:$cipherHash:$cipherLen');
 
   if (wrapped.existsSync()) {
@@ -274,7 +283,9 @@ Future<bool> isPlainBackupArchive(File archiveFile) async {
 }
 
 /// Crea una copia ZIP automática antes de operaciones destructivas de importación.
-Future<String> createPreImportBackupZip() async {
+Future<String> createPreImportBackupZip({
+  required Uint8List vaultBinBytes,
+}) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final vaultDir = await VaultPaths.vaultDirectory();
   final backupsDir = Directory(p.join(vaultDir.path, 'backups'));
@@ -285,21 +296,25 @@ Future<String> createPreImportBackupZip() async {
     backupsDir.path,
     'pre_import_${DateTime.now().millisecondsSinceEpoch}.zip',
   );
-  await exportVaultZip(File(path));
+  await exportVaultZip(File(path), vaultBinBytes: vaultBinBytes);
   return path;
 }
 
 /// Crea un ZIP con `manifest.json`, `vault.bin`, opcionalmente `vault.keys` y `vault.mode`,
 /// y `attachments/` (solo lectura en disco). Libretas en texto plano no tienen `vault.keys`.
-Future<void> exportVaultZip(File destination) async {
+///
+/// [vaultBinBytes] viene del estado en memoria
+/// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
+/// disco: el ZIP exportado refleja el contenido actual sin importar si la
+/// libreta está en formato v0 o v1.
+Future<void> exportVaultZip(
+  File destination, {
+  required Uint8List vaultBinBytes,
+}) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
   final plain = _modeFileIsPlain(modeFile);
-  if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay libreta para exportar.');
-  }
   if (!plain && !wrapped.existsSync()) {
     throw VaultBackupException('No hay libreta para exportar.');
   }
@@ -323,10 +338,8 @@ Future<void> exportVaultZip(File destination) async {
         ZipFileEncoder.store,
       );
     }
-    await encoder.addFile(
-      cipher,
-      VaultPaths.cipherPayloadFile,
-      ZipFileEncoder.store,
+    encoder.addArchiveFile(
+      ArchiveFile.bytes(VaultPaths.cipherPayloadFile, vaultBinBytes),
     );
     if (modeFile.existsSync()) {
       await encoder.addFile(
@@ -361,16 +374,18 @@ Future<void> exportVaultZip(File destination) async {
 }
 
 /// Crea un TAR.GZ con el mismo contenido que [exportVaultZip], pensado para copias en la nube.
-/// Se genera sin cargar el vault completo en memoria (streaming desde disco).
-Future<void> exportVaultTarGz(File destination) async {
+///
+/// [vaultBinBytes] viene del estado en memoria
+/// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
+/// disco: funciona igual en v0 y v1.
+Future<void> exportVaultTarGz(
+  File destination, {
+  required Uint8List vaultBinBytes,
+}) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
   final plain = _modeFileIsPlain(modeFile);
-  if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay libreta para exportar.');
-  }
   if (!plain && !wrapped.existsSync()) {
     throw VaultBackupException('No hay libreta para exportar.');
   }
@@ -385,6 +400,8 @@ Future<void> exportVaultTarGz(File destination) async {
   final tarPath = p.join(tmpDir.path, 'vault.tar');
   final manifestFile = File(p.join(tmpDir.path, kVaultBackupManifestFile));
   await manifestFile.writeAsString(manifest, flush: true);
+  final cipherFile = File(p.join(tmpDir.path, VaultPaths.cipherPayloadFile));
+  await cipherFile.writeAsBytes(vaultBinBytes, flush: true);
 
   final encoder = TarFileEncoder();
   encoder.create(tarPath);
@@ -393,7 +410,7 @@ Future<void> exportVaultTarGz(File destination) async {
     if (!plain) {
       await encoder.addFile(wrapped, VaultPaths.wrappedDekFile);
     }
-    await encoder.addFile(cipher, VaultPaths.cipherPayloadFile);
+    await encoder.addFile(cipherFile, VaultPaths.cipherPayloadFile);
     if (modeFile.existsSync()) {
       await encoder.addFile(modeFile, VaultPaths.vaultModeFile);
     }

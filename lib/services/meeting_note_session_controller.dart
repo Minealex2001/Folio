@@ -10,13 +10,14 @@ import 'package:uuid/uuid.dart';
 
 import '../app/app_settings.dart';
 import '../data/vault_paths.dart';
+import '../meeting_worker/meeting_worker_host.dart';
 import '../meeting_worker/meeting_worker_protocol.dart';
 import '../session/vault_session.dart';
+import 'app_logger.dart';
 import 'folio_cloud/folio_cloud_callable.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 import 'meeting_note_transcript_merge.dart';
 import 'system_audio_service.dart';
-import 'transcription_hardware_profile.dart';
 
 enum MeetingNoteSessionState {
   idle,
@@ -61,10 +62,13 @@ class MeetingNoteSessionController extends ChangeNotifier {
   Socket? _client;
   Process? _workerProcess;
   StreamSubscription<List<int>>? _clientSub;
-  StreamSubscription<List<int>>? _workerStderrSub;
+  StreamSubscription<String>? _workerStderrSub;
   final _lineBuffer = StringBuffer();
   Completer<void>? _readyCompleter;
   Completer<Map<String, dynamic>>? _stoppedCompleter;
+  bool _workerShutdownExpected = false;
+  final StringBuffer _workerStderr = StringBuffer();
+  bool _inProcessMode = false;
 
   VaultSession? _session;
   AppSettings? _appSettings;
@@ -173,8 +177,28 @@ class MeetingNoteSessionController extends ChangeNotifier {
         'sessionId': const Uuid().v4(),
       });
     } catch (e) {
+      AppLogger.warn(
+        'External meeting worker failed; falling back in-process',
+        tag: 'meeting',
+        context: {'error': '$e'},
+      );
       await _teardownWorker();
-      _failIdle('worker_start', '$e');
+      try {
+        await _ensureInProcessWorkerConnected();
+        _send({
+          'type': MeetingWorkerCmd.start,
+          'micDeviceId': appSettings.meetingNoteMicDeviceId.trim(),
+          'systemDeviceId': appSettings.meetingNoteSystemDeviceId.trim(),
+          'modelId': modelId,
+          'language': languageCode,
+          'runLocalWhisper': runLocalWhisper,
+          'saveCloudChunks': saveCloudChunks,
+          'sessionId': const Uuid().v4(),
+        });
+      } catch (e2) {
+        await _teardownWorker();
+        _failIdle('worker_start', '$e2');
+      }
     }
   }
 
@@ -230,7 +254,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
       final vault = await VaultPaths.vaultDirectory();
       final relative = p
           .relative(wavPath, from: vault.path)
-          .replaceAll(r'\', '/');
+          .replaceAll('\\', '/');
 
       session.updateBlockUrl(pageId, blockId, relative);
       session.updateBlockText(pageId, blockId, _transcript);
@@ -238,6 +262,9 @@ class MeetingNoteSessionController extends ChangeNotifier {
 
       final shouldCloud =
           _saveCloudChunks && _pendingCloudChunks.isNotEmpty;
+      try {
+        _send({'type': MeetingWorkerCmd.shutdown});
+      } catch (_) {}
       await _teardownWorker();
 
       if (shouldCloud) {
@@ -298,8 +325,156 @@ class MeetingNoteSessionController extends ChangeNotifier {
   Future<void> _ensureWorkerConnected() async {
     if (_client != null) return;
 
-    _server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    _inProcessMode = false;
+    await _bindIpcServer();
+
     final port = _server!.port;
+    final exe = Platform.resolvedExecutable;
+    final workDir = File(exe).parent.path;
+    AppLogger.info(
+      'Starting meeting worker',
+      tag: 'meeting',
+      context: {'exe': exe, 'workDir': workDir, 'port': '$port'},
+    );
+    _workerStderr.clear();
+    final process = await Process.start(
+      exe,
+      [
+        MeetingWorkerProtocol.flagMeetingWorker,
+        '${MeetingWorkerProtocol.flagIpcPort}=$port',
+      ],
+      mode: ProcessStartMode.normal,
+      workingDirectory: workDir,
+    );
+    _workerProcess = process;
+    _workerStderrSub = process.stderr
+        .transform(utf8.decoder)
+        .listen((chunk) {
+      _workerStderr.write(chunk);
+      AppLogger.warn(
+        'meeting worker stderr',
+        tag: 'meeting',
+        context: {'chunk': chunk},
+      );
+    });
+    unawaited(
+      process.stdout.transform(utf8.decoder).forEach((chunk) {
+        AppLogger.info(
+          'meeting worker stdout',
+          tag: 'meeting',
+          context: {'chunk': chunk},
+        );
+      }),
+    );
+
+    _workerShutdownExpected = false;
+    unawaited(
+      process.exitCode.then((code) {
+        if (_workerShutdownExpected) {
+          unawaited(_teardownWorker(alreadyDead: true));
+          return;
+        }
+        final stderrTail = _workerStderr.toString().trim();
+        final detail = stderrTail.isEmpty
+            ? 'exit $code (0x${(code & 0xffffffff).toRadixString(16)})'
+            : 'exit $code (0x${(code & 0xffffffff).toRadixString(16)}): $stderrTail';
+        AppLogger.error(
+          'Meeting worker exited unexpectedly',
+          tag: 'meeting',
+          context: {'detail': detail},
+        );
+        if (_readyCompleter != null && !(_readyCompleter!.isCompleted)) {
+          _readyCompleter!.completeError(
+            StateError('Meeting worker exited early ($detail)'),
+          );
+        }
+        if (isActive) {
+          _runtimeErrorCode = 'worker_crashed';
+          _runtimeErrorDetail = detail;
+          _state = MeetingNoteSessionState.idle;
+          notifyListeners();
+        }
+        unawaited(_teardownWorker(alreadyDead: true));
+      }),
+    );
+
+    await _readyCompleter!.future.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        throw TimeoutException('Meeting worker ready timeout');
+      },
+    );
+  }
+
+  /// Mismo protocolo IPC, pero el host vive en el isolate de Folio.
+  /// Se usa si el proceso externo crashea (p.ej. ACCESS_VIOLATION en Windows).
+  Future<void> _ensureInProcessWorkerConnected() async {
+    if (_client != null) return;
+
+    _inProcessMode = true;
+    final accepted = Completer<void>();
+    _server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    _readyCompleter = Completer<void>();
+    final port = _server!.port;
+
+    _server!.listen((socket) {
+      if (_client != null) {
+        socket.destroy();
+        return;
+      }
+      _client = socket;
+      _lineBuffer.clear();
+      _clientSub = socket.listen(
+        _onClientData,
+        onDone: _onWorkerDisconnected,
+        onError: (_) => _onWorkerDisconnected(),
+        cancelOnError: true,
+      );
+      if (!accepted.isCompleted) accepted.complete();
+    });
+
+    AppLogger.info(
+      'Starting in-process meeting worker host',
+      tag: 'meeting',
+      context: {'port': '$port'},
+    );
+
+    final hostSocket = await Socket.connect(
+      InternetAddress.loopbackIPv4,
+      port,
+      timeout: const Duration(seconds: 5),
+    );
+    await accepted.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        throw TimeoutException('In-process meeting IPC accept timeout');
+      },
+    );
+
+    unawaited(
+      MeetingWorkerHost(socket: hostSocket).run().catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        AppLogger.error(
+          'In-process meeting host failed',
+          tag: 'meeting',
+          error: e,
+          stackTrace: st,
+        );
+      }),
+    );
+
+    await _readyCompleter!.future.timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        throw TimeoutException('In-process meeting worker ready timeout');
+      },
+    );
+  }
+
+  Future<void> _bindIpcServer() async {
+    _server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     _readyCompleter = Completer<void>();
 
     _server!.listen((socket) {
@@ -316,43 +491,6 @@ class MeetingNoteSessionController extends ChangeNotifier {
         cancelOnError: true,
       );
     });
-
-    final exe = Platform.resolvedExecutable;
-    final process = await Process.start(
-      exe,
-      [
-        MeetingWorkerProtocol.flagMeetingWorker,
-        '${MeetingWorkerProtocol.flagIpcPort}=$port',
-      ],
-      mode: ProcessStartMode.normal,
-      workingDirectory: Directory.current.path,
-    );
-    _workerProcess = process;
-    _workerStderrSub = process.stderr.listen((_) {});
-
-    unawaited(
-      process.exitCode.then((code) {
-        if (_readyCompleter != null && !(_readyCompleter!.isCompleted)) {
-          _readyCompleter!.completeError(
-            StateError('Meeting worker exited early ($code)'),
-          );
-        }
-        if (isActive) {
-          _runtimeErrorCode = 'worker_crashed';
-          _runtimeErrorDetail = 'exit $code';
-          _state = MeetingNoteSessionState.idle;
-          notifyListeners();
-        }
-        unawaited(_teardownWorker(alreadyDead: true));
-      }),
-    );
-
-    await _readyCompleter!.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {
-        throw TimeoutException('Meeting worker ready timeout');
-      },
-    );
   }
 
   void _onClientData(List<int> data) {
@@ -609,6 +747,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
   }
 
   Future<void> _teardownWorker({bool alreadyDead = false}) async {
+    _workerShutdownExpected = true;
     await _clientSub?.cancel();
     _clientSub = null;
     try {
@@ -619,7 +758,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
     await _workerStderrSub?.cancel();
     _workerStderrSub = null;
 
-    if (!alreadyDead) {
+    if (!alreadyDead && !_inProcessMode) {
       final proc = _workerProcess;
       if (proc != null) {
         try {
@@ -628,6 +767,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
       }
     }
     _workerProcess = null;
+    _inProcessMode = false;
 
     try {
       await _server?.close();
@@ -638,7 +778,3 @@ class MeetingNoteSessionController extends ChangeNotifier {
     _lineBuffer.clear();
   }
 }
-
-/// Snapshot de hardware usado al decidir Whisper local (reexport útil en UI).
-TranscriptionHardwareSnapshot meetingNoteHardwareSnapshot() =>
-    TranscriptionHardwareProfile.loadCached();

@@ -20,8 +20,10 @@
 class FlutterWindow : public Win32Window {
  public:
   // Creates a new FlutterWindow hosting a Flutter view running |project|.
+  // If |meeting_worker| is true, the window stays hidden (no Show on first frame).
   FlutterWindow(const flutter::DartProject& project,
-                std::vector<std::string> launch_arguments);
+                std::vector<std::string> launch_arguments,
+                bool meeting_worker = false);
   virtual ~FlutterWindow();
 
  protected:
@@ -39,6 +41,7 @@ class FlutterWindow : public Win32Window {
   flutter::DartProject project_;
   std::vector<std::string> launch_arguments_;
   std::vector<std::string> pending_launch_arguments_;
+  bool meeting_worker_ = false;
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;

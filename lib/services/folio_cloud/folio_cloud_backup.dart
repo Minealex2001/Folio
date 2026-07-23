@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -110,7 +111,10 @@ Future<String> uploadOpenVaultEncryptedToCloud({
   if (FirebaseAuth.instance.currentUser == null) {
     throw StateError('Not signed in');
   }
-  final fp = await computeVaultCloudBackupFingerprint();
+  final vaultBinBytes = await session.vaultBinEquivalentBytes();
+  final fp = await computeVaultCloudBackupFingerprint(
+    vaultBinBytes: vaultBinBytes,
+  );
   final latest = await _getLatestBackupMeta(vaultId: vaultId);
   final latestFp = latest?['fingerprint']?.toString().trim() ?? '';
   if (latestFp.isNotEmpty && latestFp == fp.fingerprint) {
@@ -128,7 +132,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
   final tmp = Directory.systemTemp.createTempSync('folio_cloud_up_');
   final tgzFile = File(p.join(tmp.path, 'vault.tar.gz'));
   try {
-    await exportVaultTarGz(tgzFile);
+    await exportVaultTarGz(tgzFile, vaultBinBytes: vaultBinBytes);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw StateError('Not signed in');
     final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
@@ -155,6 +159,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
         context: {'vaultId': vaultId, 'error': '$e'},
       );
     }
+    unawaited(session.cleanupV0AfterSuccessfulSync());
     return await ref.getDownloadURL();
   } finally {
     try {

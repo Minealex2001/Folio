@@ -19,8 +19,11 @@ constexpr ULONG_PTR kFolioLaunchArgsCopyDataId = 0x464F4C49;
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project,
-                             std::vector<std::string> launch_arguments)
-    : project_(project), launch_arguments_(std::move(launch_arguments)) {}
+                             std::vector<std::string> launch_arguments,
+                             bool meeting_worker)
+    : project_(project),
+      launch_arguments_(std::move(launch_arguments)),
+      meeting_worker_(meeting_worker) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -70,14 +73,24 @@ bool FlutterWindow::OnCreate() {
       });
   FlushPendingLaunchArguments();
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  if (meeting_worker_) {
+    // Keep the helper process invisible; showing a tiny / headless surface has
+    // caused ACCESS_VIOLATION crashes in the Flutter Windows embedder.
+    LONG_PTR ex_style = ::GetWindowLongPtr(GetHandle(), GWL_EXSTYLE);
+    ::SetWindowLongPtr(GetHandle(), GWL_EXSTYLE,
+                       ex_style | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+    ::ShowWindow(GetHandle(), SW_HIDE);
+    // Do not ForceRedraw: avoids creating a GPU surface for a hidden worker.
+  } else {
+    flutter_controller_->engine()->SetNextFrameCallback([&]() {
+      this->Show();
+    });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
-  flutter_controller_->ForceRedraw();
+    // Flutter can complete the first frame before the "show window" callback is
+    // registered. The following call ensures a frame is pending to ensure the
+    // window is shown. It is a no-op if the first frame hasn't completed yet.
+    flutter_controller_->ForceRedraw();
+  }
 
   return true;
 }

@@ -26,6 +26,18 @@ class RecoveryScreen extends StatefulWidget {
 class _RecoveryScreenState extends State<RecoveryScreen> {
   var _busy = false;
   String? _status;
+  var _hasPreMigration = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPreMigrationFlag();
+  }
+
+  Future<void> _refreshPreMigrationFlag() async {
+    final has = await widget.session.hasPreMigrationBackup();
+    if (mounted) setState(() => _hasPreMigration = has);
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
@@ -40,7 +52,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
         setState(() => _status = '$e');
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        await _refreshPreMigrationFlag();
+      }
     }
   }
 
@@ -85,6 +100,24 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                     ),
                   ],
                   const SizedBox(height: 24),
+                  if (_hasPreMigration) ...[
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                              final ok = await widget.session
+                                  .restoreVaultFromPreMigrationBackup();
+                              if (!ok && mounted) {
+                                setState(
+                                  () => _status =
+                                      l10n.vaultRecoveryRestorePreMigrationFail,
+                                );
+                              }
+                            }),
+                      child: Text(l10n.vaultRecoveryRestorePreMigration),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   FilledButton(
                     onPressed: _busy
                         ? null

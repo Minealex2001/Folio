@@ -15,7 +15,7 @@ import 'app/app_settings.dart';
 import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
-import 'firebase_options.dart';
+import 'config/folio_firebase_env.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/folio_diagnostic_reporter.dart';
@@ -126,7 +126,14 @@ Future<void> main(List<String> args) async {
           FirebaseAuthPlatform.disableIdTokenChannelOnWindows = true;
         }
         await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
+          options: FolioFirebaseEnv.options,
+        );
+        AppLogger.info(
+          'Firebase initialized (${FolioFirebaseEnv.label})',
+          tag: 'firebase',
+          context: {
+            'projectId': FolioFirebaseEnv.options.projectId,
+          },
         );
 
         // Parche de seguridad adicional: si algún código sigue usando el plugin

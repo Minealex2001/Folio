@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/vault_payload.dart';
 import 'package:folio/models/folio_page.dart';
 import 'package:folio/models/block.dart';
+import 'package:folio/models/folio_page_import_info.dart';
+import 'package:folio/models/page_property.dart';
 import 'package:folio/git/vault_payload_converters.dart';
 import 'package:path/path.dart' as p;
 
@@ -126,6 +128,46 @@ void main() {
 
       // Should still create tree structure
       expect(File(p.join(treeDir.path, 'tree.json')).existsSync(), isTrue);
+    });
+
+    test('round-trip preserves properties, tombstones and syncClock', () async {
+      final originalPayload = VaultPayload(
+        pages: [
+          FolioPage(
+            id: 'prop1',
+            title: 'With props',
+            blocks: [
+              FolioBlock(id: 'b1', type: 'paragraph', text: 'x'),
+            ],
+            properties: [
+              FolioPageProperty(
+                id: 'st',
+                name: 'Status',
+                type: PagePropertyType.status,
+                value: 'Done',
+              ),
+            ],
+            lastImportInfo: FolioPageImportInfo(
+              clientAppId: 'c',
+              clientAppName: 'Client',
+              importedAtMs: 1,
+              importMode: 'newPage',
+            ),
+          ),
+        ],
+        displayName: 'Props Vault',
+        pageTombstones: {'deleted': 99},
+        syncClock: 7,
+      );
+
+      final treeDir = Directory(p.join(tempDir.path, 'tree'));
+      await VaultPayloadToTree.decompose(originalPayload, treeDir);
+      final recomposed = await TreeToVaultPayload.compose(treeDir);
+
+      expect(recomposed.syncClock, equals(7));
+      expect(recomposed.pageTombstones['deleted'], equals(99));
+      expect(recomposed.pages[0].properties.first.value, equals('Done'));
+      expect(recomposed.pages[0].lastImportInfo?.clientAppId, equals('c'));
     });
   });
 }

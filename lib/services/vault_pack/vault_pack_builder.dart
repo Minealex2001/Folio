@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
@@ -21,18 +22,20 @@ class VaultPackPreparedBlob {
 }
 
 /// Construye la lista de blobs cifrados + manifiesto de snapshot a partir
-/// de la libreta abierta en disco.
+/// de la libreta abierta.
+///
+/// [vaultBinBytes] viene del estado en memoria
+/// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
+/// disco: funciona igual en v0 y v1, sin depender de que ese archivo siga
+/// existiendo tras migrar.
 Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manifest})>
     buildVaultPackSnapshot({
   required SecretKey packKey,
   required String contentFingerprint,
+  required Uint8List vaultBinBytes,
 }) async {
   final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
-  if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay libreta para exportar.');
-  }
   final plain = _modeFileIsPlain(modeFile);
   if (!plain && !wrapped.existsSync()) {
     throw VaultBackupException('No hay libreta para exportar.');
@@ -101,7 +104,7 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
 
   await addBlob(
     role: FolioCloudPackBlobRole.vaultBin,
-    plainBytes: await cipher.readAsBytes(),
+    plainBytes: vaultBinBytes,
   );
 
   if (modeFile.existsSync()) {

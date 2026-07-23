@@ -509,19 +509,24 @@
   "linkTip": "Link",
   "pageHistoryTitle": "Version history",
   "restoreVersionTitle": "Restore version",
-  "restoreVersionBody": "The page title and content will be replaced with this version. The current state will be saved first in history.",
+  "restoreVersionBody": "The page title, icon, tags, properties and content will be replaced with this version. The current state will be saved first in history.",
   "restore": "Restore",
-  "deleteVersionTitle": "Delete version",
-  "deleteVersionBody": "This entry will be removed from history. Current page text does not change.",
+  "deleteVersionTitle": "Hide version",
+  "deleteVersionBody": "This entry will be hidden from this page's history. Other pages that share the same notebook snapshot are unaffected. Current page text does not change.",
   "noVersionsYet": "No versions yet",
   "historyAppearsHint": "After you stop typing for a few seconds, change history will appear here.",
   "versionControl": "Version control",
-  "historyHeaderBody": "The notebook saves quickly; history adds an entry when you stop editing and content changed.",
+  "historyHeaderBody": "The notebook saves the file tree quickly; history adds a snapshot when you stop editing and the page content changed.",
   "versionsCount": "{count} {count, plural, one {version} other {versions}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Untitled",
   "comparedWithPrevious": "Compared with previous version",
   "changesFromEmptyStart": "Changes from empty start",
+  "versionSnapshotNoDiffHint": "Could not load page content for this snapshot.",
+  "restoreVersionFailed": "Could not restore this version.",
+  "vaultMigratedDeleteLegacyPrompt": "Vault migrated to v1. Delete the legacy version?",
+  "vaultLegacyDeletedSuccess": "Legacy version deleted",
+  "vaultLegacyDeleteFailed": "Could not delete",
   "contentLabel": "Content",
   "titleLabelSimple": "Title",
   "emptyValue": "(empty)",
@@ -1996,6 +2001,7 @@
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
   ,"blockActionChooseAudio": "Choose audio…"
+  ,"audioBlockLoadError": "Could not load the audio."
   ,"blockActionCreateSubpage": "Create subpage"
   ,"blockActionLinkPage": "Link page…"
   ,"defaultNewPageTitle": "New page"
@@ -2971,6 +2977,8 @@
   "vaultRecoveryBody": "The active notebook could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.",
   "vaultRecoveryRestoreBak": "Restore local copy (.bak)",
   "vaultRecoveryRestoreBakFail": "No valid .bak copy or restore failed.",
+  "vaultRecoveryRestorePreMigration": "Restore pre-migration copy",
+  "vaultRecoveryRestorePreMigrationFail": "No valid pre-migration copy or restore failed.",
   "vaultRecoveryRestoreZip": "Restore from backup file",
   "vaultRecoveryExportEmergency": "Export emergency backup",
   "vaultRecoveryExportOk": "Backup saved: {path}",

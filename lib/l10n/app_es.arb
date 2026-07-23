@@ -509,19 +509,24 @@
   "linkTip": "Enlace",
   "pageHistoryTitle": "Historial de versiones",
   "restoreVersionTitle": "Restaurar versión",
-  "restoreVersionBody": "Se sustituirá el título y el contenido de el folio por esta versión. El estado actual se guardará antes en el historial.",
+  "restoreVersionBody": "Se sustituirán el título, icono, etiquetas, propiedades y contenido de el folio por esta versión. El estado actual se guardará antes en el historial.",
   "restore": "Restaurar",
-  "deleteVersionTitle": "Borrar versión",
-  "deleteVersionBody": "Esta entrada desaparecerá del historial. El texto actual de el folio no cambia.",
+  "deleteVersionTitle": "Ocultar versión",
+  "deleteVersionBody": "Esta entrada se ocultará del historial de esta página. Otras páginas que compartan el mismo snapshot de la libreta no se ven afectadas. El texto actual de el folio no cambia.",
   "noVersionsYet": "Sin versiones todavía",
   "historyAppearsHint": "Cuando dejes de escribir unos segundos, aquí aparecerá el historial de cambios.",
   "versionControl": "Control de versiones",
-  "historyHeaderBody": "La libreta se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.",
+  "historyHeaderBody": "La libreta guarda el árbol de archivos con rapidez; el historial añade un snapshot cuando dejas de editar y el contenido de la página cambió.",
   "versionsCount": "{count} {count, plural, one {versión} other {versiones}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Sin título",
   "comparedWithPrevious": "Comparado con la versión anterior",
   "changesFromEmptyStart": "Cambios desde el inicio vacío",
+  "versionSnapshotNoDiffHint": "No se pudo cargar el contenido de esta página en el snapshot.",
+  "restoreVersionFailed": "No se pudo restaurar esta versión.",
+  "vaultMigratedDeleteLegacyPrompt": "Libreta migrada a v1. ¿Eliminar la versión anterior?",
+  "vaultLegacyDeletedSuccess": "Versión anterior eliminada",
+  "vaultLegacyDeleteFailed": "No se pudo eliminar",
   "contentLabel": "Contenido",
   "titleLabelSimple": "Título",
   "emptyValue": "(vacío)",
@@ -1994,6 +1999,7 @@
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
   ,"blockActionChooseAudio": "Elegir audio…"
+  ,"audioBlockLoadError": "No se pudo cargar el audio."
   ,"blockActionCreateSubpage": "Crear subfolio"
   ,"blockActionLinkPage": "Enlazar folio…"
   ,"defaultNewPageTitle": "Nuevo Folio"
@@ -2968,6 +2974,8 @@
   "vaultRecoveryBody": "No se pudo leer la libreta activa. Puedes intentar restaurar una copia local, importar un backup o exportar lo que quede en disco.",
   "vaultRecoveryRestoreBak": "Restaurar copia local (.bak)",
   "vaultRecoveryRestoreBakFail": "No hay copia .bak válida o la restauración falló.",
+  "vaultRecoveryRestorePreMigration": "Restaurar copia previa a la migración",
+  "vaultRecoveryRestorePreMigrationFail": "No hay copia pre-migración válida o la restauración falló.",
   "vaultRecoveryRestoreZip": "Restaurar desde archivo de copia",
   "vaultRecoveryExportEmergency": "Exportar copia de emergencia",
   "vaultRecoveryExportOk": "Copia guardada: {path}",

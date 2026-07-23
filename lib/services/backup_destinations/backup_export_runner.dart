@@ -112,10 +112,11 @@ class BackupExportRunner {
       throw VaultBackupException('La libreta debe estar desbloqueada.');
     }
     await session.persistNow();
+    final vaultBinBytes = await session.vaultBinEquivalentBytes();
     final tempDir = await Directory.systemTemp.createTemp('folio_backup_');
     final fileName = scheduledVaultBackupFileName();
     final zipPath = p.join(tempDir.path, fileName);
-    await exportVaultZip(File(zipPath));
+    await exportVaultZip(File(zipPath), vaultBinBytes: vaultBinBytes);
     return File(zipPath);
   }
 

@@ -1,6 +1,9 @@
 {
   "projects": {
-    "folio": "folio-minealexgames"
+    "default": "folio-minealexgames",
+    "folio": "folio-minealexgames",
+    "production": "folio-minealexgames",
+    "staging": "folio-staging-minealex"
   },
   "targets": {},
   "etags": {}

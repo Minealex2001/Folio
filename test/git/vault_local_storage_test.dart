@@ -29,7 +29,7 @@ void main() {
       }
     });
 
-    test('decomposeAndStore creates tree and snapshot', () async {
+    test('decompose creates tree structure without snapshot', () async {
       final payload = VaultPayload(
         pages: [
           FolioPage(
@@ -104,6 +104,36 @@ void main() {
       expect(recomposed.pages[0].tags, contains('important'));
     });
 
+    test('decomposeAndStoreAt refuses empty overwrite of non-empty tree', () async {
+      final vaultDir = Directory(tempDir.path);
+      final treeDir = Directory(p.join(tempDir.path, 'repo'));
+      final full = VaultPayload(
+        pages: [
+          FolioPage(
+            id: 'keep-me',
+            title: 'Keep',
+            blocks: [FolioBlock(id: 'b1', type: 'paragraph', text: 'x')],
+          ),
+        ],
+        displayName: 'V',
+        pageOrderByParent: {
+          '': ['keep-me'],
+        },
+      );
+      await VaultPayloadToTree.decompose(full, treeDir);
+      expect(VaultLocalStorage.countPageDirs(treeDir), 1);
+
+      await expectLater(
+        VaultLocalStorage.decomposeAndStoreAt(
+          vaultDir,
+          VaultPayload(pages: [], displayName: 'V'),
+        ),
+        throwsA(isA<VaultEmptyOverwriteException>()),
+      );
+      expect(VaultLocalStorage.countPageDirs(treeDir), 1);
+      expect(File(p.join(treeDir.path, 'tree.json')).existsSync(), isTrue);
+    });
+
     test('vault_snapshot_manager creates snapshots with metadata', () async {
       // Test VaultSnapshotManager directly (doesn't require VaultPaths setup)
       final vaultDir = Directory(tempDir.path);
@@ -138,6 +168,82 @@ void main() {
       expect(snapshot.label, equals('Test snapshot'));
       expect(snapshot.deviceId, equals('test-device'));
       expect(snapshot.treeFormatVersion, equals(1));
+
+      // Los hashes del manifest deben ser SHA-256 reales (64 hex chars),
+      // no el placeholder antiguo.
+      expect(snapshot.fileManifest, isNotEmpty);
+      for (final entry in snapshot.fileManifest) {
+        expect(entry.sha256, hasLength(64));
+        expect(RegExp(r'^[0-9a-f]{64}$').hasMatch(entry.sha256), isTrue);
+      }
+
+      // El snapshot debe haber escrito un .zip real con contenido.
+      final zipFile = File(
+        p.join(tempDir.path, 'versions', '${snapshot.snapshotId}.zip'),
+      );
+      expect(zipFile.existsSync(), isTrue);
+      expect(zipFile.lengthSync(), greaterThan(0));
+    });
+
+    test('restoreSnapshot restores tree content from a real snapshot', () async {
+      final vaultDir = Directory(tempDir.path);
+      final treeDir = Directory(p.join(tempDir.path, 'repo'));
+
+      final payload = VaultPayload(
+        pages: [
+          FolioPage(
+            id: 'restore-page',
+            title: 'Before restore',
+            blocks: [
+              FolioBlock(id: 'b1', type: 'paragraph', text: 'original content'),
+            ],
+          ),
+        ],
+        displayName: 'Restore Test Vault',
+      );
+
+      await VaultPayloadToTree.decompose(payload, treeDir);
+
+      final manager = VaultSnapshotManager(
+        vaultDir: vaultDir,
+        deviceId: 'test-device',
+      );
+      final snapshot = await manager.createSnapshot(
+        treeDir: treeDir,
+        label: 'Before edit',
+      );
+
+      // Simula una edición posterior modificando el árbol en disco.
+      final editedPayload = VaultPayload(
+        pages: [
+          FolioPage(
+            id: 'restore-page',
+            title: 'After edit',
+            blocks: [
+              FolioBlock(id: 'b1', type: 'paragraph', text: 'edited content'),
+            ],
+          ),
+        ],
+        displayName: 'Restore Test Vault',
+      );
+      await VaultPayloadToTree.decompose(editedPayload, treeDir);
+
+      final editedRecomposed = await TreeToVaultPayload.compose(treeDir);
+      expect(editedRecomposed.pages[0].title, equals('After edit'));
+
+      // Restaura el snapshot anterior y confirma que el contenido vuelve.
+      final restored = await manager.restoreSnapshot(
+        snapshot.snapshotId,
+        treeDir,
+      );
+      expect(restored, isTrue);
+
+      final restoredPayload = await TreeToVaultPayload.compose(treeDir);
+      expect(restoredPayload.pages[0].title, equals('Before restore'));
+      expect(
+        restoredPayload.pages[0].blocks[0].text,
+        equals('original content'),
+      );
     });
   });
 }

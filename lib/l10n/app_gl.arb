@@ -399,6 +399,15 @@
   "meetingNoteTranscriptionTitle": "Transcrición",
   "meetingNoteNoTranscription": "Non hai transcrición dispoñible.",
   "meetingNoteNewRecording": "Nova gravación",
+  "meetingNoteWorkerError": "Erro do proceso de reunión: {detail}",
+  "@meetingNoteWorkerError": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "meetingNoteAnotherSessionActive": "Xa hai unha reunión en curso. Detena antes de iniciar outra.",
+  "meetingNoteActiveBarTitle": "Reunión en curso",
+  "meetingNoteActiveBarGoTo": "Ir á reunión",
   "meetingNoteSettingsSection": "Nota de reunión (audio)",
   "meetingNoteSettingsDescription": "Estes dispositivos úsanse por defecto ao gravar unha nota de reunión.",
   "meetingNoteSettingsMicrophone": "Microfón",
@@ -502,19 +511,24 @@
   "linkTip": "Ligazón",
   "pageHistoryTitle": "Historial de versións",
   "restoreVersionTitle": "Restaurar versión",
-  "restoreVersionBody": "O título e o contido da folio substituiranse por esta versión. [cite: 38] O estado actual gardarase primeiro no historial.",
+  "restoreVersionBody": "O título, a icona, as etiquetas, as propiedades e o contido da folio substituiranse por esta versión. O estado actual gardarase primeiro no historial.",
   "restore": "Restaurar",
-  "deleteVersionTitle": "Eliminar versión",
-  "deleteVersionBody": "Esta entrada eliminarase do historial. [cite: 39] O texto actual da folio non cambia.",
+  "deleteVersionTitle": "Ocultar versión",
+  "deleteVersionBody": "Esta entrada ocultarase do historial desta páxina. Outras páxinas que compartan o mesmo snapshot da caderno non se ven afectadas. O texto actual da folio non cambia.",
   "noVersionsYet": "Aínda sen versións",
   "historyAppearsHint": "Despois de deixar de escribir uns segundos, o historial de cambios aparecerá aquí.",
   "versionControl": "Control de versións",
-  "historyHeaderBody": "A caderno gárdase rapidamente; [cite: 40] o historial engade unha entrada cando deixas de editar e o contido cambiou.",
+  "historyHeaderBody": "A caderno garda a árbore de ficheiros rapidamente; o historial engade un snapshot cando deixas de editar e o contido da páxina cambiou.",
   "versionsCount": "{count} {count, plural, one {versión} other {versións}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Sen título",
   "comparedWithPrevious": "Comparado coa versión anterior",
   "changesFromEmptyStart": "Cambios dende o inicio baleiro",
+  "versionSnapshotNoDiffHint": "Non se puido cargar o contido desta páxina no snapshot.",
+  "restoreVersionFailed": "Non se puido restaurar esta versión.",
+  "vaultMigratedDeleteLegacyPrompt": "Caderno migrado a v1. Eliminar a versión anterior?",
+  "vaultLegacyDeletedSuccess": "Versión anterior eliminada",
+  "vaultLegacyDeleteFailed": "Non se puido eliminar",
   "contentLabel": "Contido",
   "titleLabelSimple": "Título",
   "emptyValue": "(baleiro)",
@@ -1988,6 +2002,7 @@
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
   ,"blockActionChooseAudio": "Escoller audio…"
+  ,"audioBlockLoadError": "Non se puido cargar o audio."
   ,"blockActionCreateSubpage": "Crear subfolio"
   ,"blockActionLinkPage": "Ligar folio…"
   ,"defaultNewPageTitle": "Novo folio"
@@ -2965,6 +2980,8 @@
   "vaultRecoveryBody": "Non foi posible ler o caderno activo. Podes tentar restaurar unha copia local, importar un backup ou exportar o que quede no disco.",
   "vaultRecoveryRestoreBak": "Restaurar copia local (.bak)",
   "vaultRecoveryRestoreBakFail": "Non hai copia .bak válida ou a restauración fallou.",
+  "vaultRecoveryRestorePreMigration": "Restaurar copia previa á migración",
+  "vaultRecoveryRestorePreMigrationFail": "Non hai copia pre-migración válida ou a restauración fallou.",
   "vaultRecoveryRestoreZip": "Restaurar desde ficheiro de copia",
   "vaultRecoveryExportEmergency": "Exportar copia de emerxencia",
   "vaultRecoveryExportOk": "Copia gardada: {path}",

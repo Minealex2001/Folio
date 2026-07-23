@@ -1,25 +1,21 @@
-/// Herramienta de migración: convierte vaults del formato viejo al nuevo (M2).
+/// Herramienta de migración: convierte vaults del formato viejo al nuevo.
 ///
-/// Responsabilidades:
-/// - Detectar vaults sin migrar (sin árbol en <vault>/repo/)
-/// - Migrar VaultPayload monolítico → árbol + snapshots
-/// - Preservar pageRevisions como snapshots iniciales
-/// - Coordinar multi-dispositivo via treeFormatVersion marker
-///
-/// Seguridad:
-/// - Backups pre-migración de vault.bin/vault.keys
-/// - Marker atómico (compare-and-swap en Firestore/local)
-/// - Rollback si falla
+/// Invariantes de seguridad:
+/// - Backup real `vault.bin.pre-migration` antes de tocar el árbol
+/// - Escritura en `repo.tmp/` + verificación round-trip antes del swap
+/// - Marker `vault.format` sin tragarse errores
+/// - No borra `vault.bin` (lo hace la sesión tras sync/verificación)
 
 import 'dart:io';
-import 'dart:convert';
 
 import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 
+import '../core/errors/vault_corruption_exception.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_paths.dart';
-import '../data/vault_local_storage.dart';
+import '../models/folio_page.dart';
+import '../models/folio_page_revision.dart';
+import 'vault_integrity.dart';
 import 'vault_payload_converters.dart';
 import 'vault_snapshot_manager.dart';
 
@@ -31,6 +27,7 @@ class VaultMigrationResult {
     required this.filesCreated,
     required this.snapshotsCreated,
     this.error,
+    this.contentFingerprint,
   });
 
   final bool success;
@@ -39,10 +36,14 @@ class VaultMigrationResult {
   final int filesCreated;
   final int snapshotsCreated;
   final String? error;
+  final String? contentFingerprint;
 }
 
 class VaultMigrationTool {
   VaultMigrationTool._();
+
+  static const String preMigrationBinSuffix = '.pre-migration';
+  static const String v1VerifiedFile = 'vault.v1-verified';
 
   /// Detecta si una libreta está migrada (tiene árbol).
   static Future<bool> isMigrated() async {
@@ -56,18 +57,11 @@ class VaultMigrationTool {
   }
 
   /// Migra una libreta del formato viejo al nuevo.
-  /// Requiere que el VaultPayload esté cargado en memoria.
-  ///
-  /// Flujo:
-  /// 1. Crear backup pre-migración (vault.bin.pre-migration)
-  /// 2. Descomponer VaultPayload → árbol
-  /// 3. Convertir pageRevisions → snapshots
-  /// 4. Crear snapshot inicial del estado actual
-  /// 5. Escribir marker treeFormatVersion=1
   static Future<VaultMigrationResult> migrateVault({
     required VaultPayload payload,
     required String deviceId,
   }) async {
+    Directory? tmpDir;
     try {
       final vaultId = VaultPaths.activeVaultId;
       if (vaultId == null || vaultId.isEmpty) {
@@ -81,47 +75,80 @@ class VaultMigrationTool {
         );
       }
 
-      // 1. Backup pre-migración
-      await _createPreMigrationBackup(vaultId);
-
-      // 2. Descomponer al árbol
       final vaultDir = await VaultPaths.vaultDirectory();
-      final treeDir = await VaultPaths.vaultTreeDirectory();
+      await _createPreMigrationBackup(vaultDir);
 
-      await VaultPayloadToTree.decompose(payload, treeDir);
-      final filesCreated = await _countFilesInDirectory(treeDir);
+      tmpDir = Directory(p.join(vaultDir.path, 'repo.tmp'));
+      if (tmpDir.existsSync()) {
+        await tmpDir.delete(recursive: true);
+      }
+      await tmpDir.create(recursive: true);
 
-      // 3-4. Convertir pageRevisions → snapshots
+      // Estado actual → tmp + verificación obligatoria
+      await VaultPayloadToTree.decompose(payload, tmpDir);
+      await _verifyRoundTrip(payload, tmpDir);
+
       final snapshotManager = VaultSnapshotManager(
         vaultDir: vaultDir,
         deviceId: deviceId,
       );
+      await snapshotManager.init();
 
-      int snapshotsCreated = 0;
+      var snapshotsCreated = 0;
+      String? parentSnapshotId;
 
-      // Crear snapshots para cada revisión de página (si existen)
-      final pageRevisions = payload.pageRevisions;
-      if (pageRevisions.isNotEmpty) {
-        for (final pageId in pageRevisions.keys) {
-          final revisions = pageRevisions[pageId];
-          if (revisions != null && revisions.isNotEmpty) {
-            // Por ahora, crear un snapshot único por página
-            // (M2+ puede ser más sofisticado)
-            snapshotsCreated++;
-          }
+      final pagesById = {for (final page in payload.pages) page.id: page};
+      for (final entry in payload.pageRevisions.entries) {
+        final currentPage = pagesById[entry.key];
+        if (currentPage == null) continue;
+
+        final revisions = List<FolioPageRevision>.from(entry.value)
+          ..sort((a, b) => a.savedAtMs.compareTo(b.savedAtMs));
+        for (final revision in revisions) {
+          final pageAtRevision = FolioPage(
+            id: currentPage.id,
+            title: revision.title,
+            emoji: currentPage.emoji,
+            parentId: currentPage.parentId,
+            isFolder: currentPage.isFolder,
+            trashedAt: currentPage.trashedAt,
+            collabRoomId: currentPage.collabRoomId,
+            lastImportInfo: currentPage.lastImportInfo,
+            blocks: revision.decodeBlocks(),
+            properties: List.from(currentPage.properties),
+            tags: List.from(currentPage.tags),
+          );
+          await VaultPayloadToTree.writePageFiles(tmpDir, pageAtRevision);
+          final snap = await snapshotManager.createSnapshot(
+            treeDir: tmpDir,
+            label: revision.title.isNotEmpty ? revision.title : null,
+            parentSnapshotId: parentSnapshotId,
+          );
+          parentSnapshotId = snap.snapshotId;
+          snapshotsCreated++;
         }
       }
 
-      // Crear snapshot inicial del estado actual
-      final initialSnapshot = await snapshotManager.createSnapshot(
-        treeDir: treeDir,
-        label: 'Initial migration snapshot',
-        parentSnapshotId: null,
+      // Restaurar estado actual y verificar de nuevo
+      await VaultPayloadToTree.decompose(payload, tmpDir);
+      await _verifyRoundTrip(payload, tmpDir);
+
+      await snapshotManager.createSnapshot(
+        treeDir: tmpDir,
+        label: null,
+        parentSnapshotId: parentSnapshotId,
       );
       snapshotsCreated += 1;
 
-      // 5. Escribir marker de formato
-      await _writeTreeFormatMarker(vaultId, 1);
+      final filesCreated = await _countFilesInDirectory(tmpDir);
+      final fingerprint = VaultIntegrity.fingerprintPages(payload);
+
+      // Swap atómico repo.tmp → repo
+      await _swapTmpToRepo(vaultDir, tmpDir);
+      tmpDir = null;
+
+      await writeTreeFormatVersion(1);
+      await writeV1VerifiedMarker(fingerprint);
 
       return VaultMigrationResult(
         success: true,
@@ -129,8 +156,14 @@ class VaultMigrationTool {
         message: 'Vault migrated successfully to new format',
         filesCreated: filesCreated,
         snapshotsCreated: snapshotsCreated,
+        contentFingerprint: fingerprint,
       );
     } catch (e) {
+      if (tmpDir != null && tmpDir.existsSync()) {
+        try {
+          await tmpDir.delete(recursive: true);
+        } catch (_) {}
+      }
       return VaultMigrationResult(
         success: false,
         vaultId: VaultPaths.activeVaultId ?? 'unknown',
@@ -142,30 +175,81 @@ class VaultMigrationTool {
     }
   }
 
+  static Future<void> _verifyRoundTrip(
+    VaultPayload expected,
+    Directory treeDir,
+  ) async {
+    final composed = await TreeToVaultPayload.compose(treeDir);
+    try {
+      VaultIntegrity.assertPagesMatch(expected, composed);
+    } on VaultIntegrityMismatch catch (e) {
+      throw VaultCorruptionException(
+        'Migration round-trip verification failed: $e',
+        cause: e,
+      );
+    }
+  }
+
+  static Future<void> _swapTmpToRepo(
+    Directory vaultDir,
+    Directory tmpDir,
+  ) async {
+    final repoDir = Directory(p.join(vaultDir.path, 'repo'));
+    final oldDir = Directory(p.join(vaultDir.path, 'repo.old'));
+    if (oldDir.existsSync()) {
+      await oldDir.delete(recursive: true);
+    }
+    if (repoDir.existsSync()) {
+      await repoDir.rename(oldDir.path);
+    }
+    await tmpDir.rename(repoDir.path);
+    if (oldDir.existsSync()) {
+      await oldDir.delete(recursive: true);
+    }
+  }
+
   /// Rollback de migración (restaura desde backup).
   static Future<bool> rollbackMigration() async {
     try {
       final vaultId = VaultPaths.activeVaultId;
       if (vaultId == null || vaultId.isEmpty) return false;
 
-      // 1. Restaurar vault.bin desde backup
-      final restored = await VaultPaths.restoreCipherPayloadFromBackup();
-      if (!restored) return false;
+      final vaultDir = await VaultPaths.vaultDirectory();
+      final preBin = File(
+        p.join(vaultDir.path, 'vault.bin$preMigrationBinSuffix'),
+      );
+      final liveBin = File(p.join(vaultDir.path, 'vault.bin'));
+      if (preBin.existsSync()) {
+        if (liveBin.existsSync()) await liveBin.delete();
+        await preBin.copy(liveBin.path);
+      } else {
+        final restored = await VaultPaths.restoreCipherPayloadFromBackup();
+        if (!restored) return false;
+      }
 
-      // 2. Restaurar vault.keys
-      await VaultPaths.restoreWrappedDekFromBackup();
+      final preKeys = File(
+        p.join(vaultDir.path, 'vault.keys$preMigrationBinSuffix'),
+      );
+      final liveKeys = File(p.join(vaultDir.path, 'vault.keys'));
+      if (preKeys.existsSync()) {
+        if (liveKeys.existsSync()) await liveKeys.delete();
+        await preKeys.copy(liveKeys.path);
+      } else {
+        await VaultPaths.restoreWrappedDekFromBackup();
+      }
 
-      // 3. Restaurar vault.mode
       await VaultPaths.restoreVaultModeFromBackup();
 
-      // 4. Eliminar árbol nuevo
       final treeDir = await VaultPaths.vaultTreeDirectory();
       if (treeDir.existsSync()) {
         await treeDir.delete(recursive: true);
       }
+      final tmp = Directory(p.join(vaultDir.path, 'repo.tmp'));
+      if (tmp.existsSync()) await tmp.delete(recursive: true);
 
-      // 5. Eliminar marker
-      await _writeTreeFormatMarker(vaultId, 0);
+      await writeTreeFormatVersion(0);
+      final verified = File(p.join(vaultDir.path, v1VerifiedFile));
+      if (verified.existsSync()) await verified.delete();
 
       return true;
     } catch (_) {
@@ -173,49 +257,82 @@ class VaultMigrationTool {
     }
   }
 
-  /// Cuenta recursivamente archivos creados en el árbol.
   static Future<int> _countFilesInDirectory(Directory dir) async {
-    int count = 0;
+    var count = 0;
     await for (final entity in dir.list(recursive: true)) {
       if (entity is File) count++;
     }
     return count;
   }
 
-  /// Crea backup pre-migración de archivos críticos.
-  static Future<void> _createPreMigrationBackup(String vaultId) async {
-    try {
-      // Nota: VaultPaths.writeCipherPayload ya hace rotación .bak automáticamente
-      // Aquí solo documentamos que existirá vault.bin.bak después de la próxima escritura
-      // Para una migración "limpia", el backup ya existe si se cargó la libreta normalmente
-    } catch (_) {
-      // Silently fail backup (no es crítico)
+  /// Copia atómica de vault.bin / vault.keys a `.pre-migration`.
+  static Future<void> _createPreMigrationBackup(Directory vaultDir) async {
+    final bin = File(p.join(vaultDir.path, 'vault.bin'));
+    if (!bin.existsSync()) {
+      // Libreta nueva solo-árbol o ya sin blob: no hay nada que respaldar.
+      return;
+    }
+    final dest = File(p.join(vaultDir.path, 'vault.bin$preMigrationBinSuffix'));
+    await bin.copy(dest.path);
+
+    final keys = File(p.join(vaultDir.path, 'vault.keys'));
+    if (keys.existsSync()) {
+      await keys.copy(
+        p.join(vaultDir.path, 'vault.keys$preMigrationBinSuffix'),
+      );
     }
   }
 
-  /// Escribe el marker de versión de formato.
-  /// treeFormatVersion: 0 = viejo (monolítico), 1 = nuevo (árbol)
-  ///
-  /// En M2, esto se escribiría en Firestore para cuentas sincronizadas.
-  /// Para ahora, se guarda localmente en vault.format.
-  static Future<void> _writeTreeFormatMarker(String vaultId, int version) async {
+  /// True si existe `vault.bin.pre-migration` en la libreta activa.
+  static Future<bool> hasPreMigrationBackup() async {
     try {
-      // Guardar en archivo local (M2+ lo sincronizará a Firestore)
-      final vaultDir = await VaultPaths.vaultDirectoryForId(vaultId);
-      final markerFile = File(p.join(vaultDir.path, 'vault.format'));
-      await markerFile.writeAsString(version.toString(), flush: true);
+      final vaultDir = await VaultPaths.vaultDirectory();
+      return File(
+        p.join(vaultDir.path, 'vault.bin$preMigrationBinSuffix'),
+      ).existsSync();
     } catch (_) {
-      // No es crítico si falla el marker local
+      return false;
     }
   }
 
-  /// Lee el marker de versión de formato (0 o 1).
+  /// Escribe el marker de versión de formato. Falla si no puede escribirse.
+  static Future<void> writeTreeFormatVersion(int version) async {
+    final vaultDir = await VaultPaths.vaultDirectory();
+    final markerFile = File(p.join(vaultDir.path, 'vault.format'));
+    await markerFile.writeAsString(version.toString(), flush: true);
+    final readBack = await markerFile.readAsString();
+    if (int.tryParse(readBack.trim()) != version) {
+      throw StateError('Failed to persist vault.format=$version');
+    }
+  }
+
+  static Future<void> writeV1VerifiedMarker(String fingerprint) async {
+    final vaultDir = await VaultPaths.vaultDirectory();
+    final file = File(p.join(vaultDir.path, v1VerifiedFile));
+    await file.writeAsString(
+      canonicalJson({
+        'fingerprint': fingerprint,
+        'verifiedAtMs': DateTime.now().millisecondsSinceEpoch,
+      }),
+      flush: true,
+    );
+  }
+
+  static Future<bool> isV1Verified() async {
+    try {
+      final vaultDir = await VaultPaths.vaultDirectory();
+      return File(p.join(vaultDir.path, v1VerifiedFile)).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<int> readTreeFormatVersion() async {
     try {
       final vaultDir = await VaultPaths.vaultDirectory();
       final markerFile = File(p.join(vaultDir.path, 'vault.format'));
       if (!markerFile.existsSync()) {
-        return 0; // Default: formato viejo
+        return 0;
       }
       final content = await markerFile.readAsString();
       return int.tryParse(content.trim()) ?? 0;
