@@ -252,6 +252,27 @@ class HeadlessDeviceSyncVault {
       await VaultLocalStorage.decomposeAndStoreAt(dir, payload);
       return;
     }
+    if (payload.pages.isEmpty) {
+      // Libreta aún no migrada localmente a v1 (p. ej. dispositivo que nunca
+      // se desbloqueó en UI): vault.bin no tiene ningún guard de escritura,
+      // a diferencia del árbol v1. Best-effort: si no se puede leer el
+      // contenido actual, no bloqueamos (podría ser la primera escritura).
+      int existingPages = 0;
+      try {
+        final existing = await loadPayload(vaultId, packKey);
+        existingPages = existing?.pages.length ?? 0;
+      } catch (_) {
+        existingPages = 0;
+      }
+      if (existingPages > 0) {
+        AppLogger.warn(
+          'headless savePayload (v0) skipped: refusing empty overwrite',
+          tag: 'cloud_sync',
+          context: {'vaultId': vaultId, 'existingPages': existingPages},
+        );
+        return;
+      }
+    }
     final plain = payload.encodeUtf8();
     if (await isPlain(vaultId)) {
       await VaultStorage.instance.writeVaultFile(

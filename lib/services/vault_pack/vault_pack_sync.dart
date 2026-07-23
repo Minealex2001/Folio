@@ -77,6 +77,23 @@ Future<VaultPackUploadResult> uploadOpenVaultPack({
     );
   }
 
+  // No dejar que una libreta local vacía (p. ej. estado en memoria vaciado
+  // transitoriamente) sobreescriba/rote un backup existente con contenido:
+  // este destino solo se dedupe por fingerprint, no compara "riqueza", así
+  // que una subida vacía terminaría expulsando la última copia buena tras
+  // `retentionCount` ciclos de GC.
+  if (session.pages.isEmpty && latest != null) {
+    AppLogger.error(
+      'Refusing to push an empty vault over an existing pack backup',
+      tag: 'vault-pack',
+      context: {'contentFingerprint': contentFp},
+    );
+    throw VaultBackupException(
+      'La libreta local está vacía; se rechaza subir sobre una copia '
+      'existente con contenido.',
+    );
+  }
+
   final packKey = await session.cloudPackEncryptionKey();
   rep(VaultCloudPackProgressStep.restoreWrap, 0.11);
 

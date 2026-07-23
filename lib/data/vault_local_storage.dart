@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'vault_paths.dart';
 import 'vault_payload.dart';
+import '../core/errors/vault_corruption_exception.dart';
 import '../git/vault_payload_converters.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../services/app_logger.dart';
@@ -99,13 +100,14 @@ class VaultLocalStorage {
   /// Si el árbol no existe o está incompleto (falta tree.json), retorna null.
   static Future<VaultPayload?> loadFromTree() async {
     final treeDir = await VaultPaths.vaultTreeDirectory();
-    return loadFromTreeDir(treeDir);
+    final vaultDir = await VaultPaths.vaultDirectory();
+    return _loadFromTreeDirChecked(treeDir, vaultDir);
   }
 
   /// Carga desde `<vaultDir>/repo/` (sync headless / vaultId arbitrario).
   static Future<VaultPayload?> loadFromTreeAt(Directory vaultDir) async {
     final treeDir = Directory(p.join(vaultDir.path, 'repo'));
-    return loadFromTreeDir(treeDir);
+    return _loadFromTreeDirChecked(treeDir, vaultDir);
   }
 
   static Future<VaultPayload?> loadFromTreeDir(Directory treeDir) async {
@@ -114,6 +116,53 @@ class VaultLocalStorage {
       return null;
     }
     return TreeToVaultPayload.compose(treeDir);
+  }
+
+  /// Segunda barrera de lectura: si el árbol carga 0 páginas pero el último
+  /// snapshot conocido (`versions/`) tenía páginas, no lo aceptamos como
+  /// "libreta vacía" legítima — la app no tiene ningún flujo que lleve una
+  /// libreta con contenido a 0 páginas (el guard de trash bloquea vaciar
+  /// hasta 0 páginas activas, y no existe un "vaciar libreta" explícito que
+  /// llame a `decomposeAndStoreAt(allowEmptyOverwrite: true)`). Esto cubre el
+  /// caso en que la escritura sí pasó los guards (p. ej. herramienta externa,
+  /// recuperación manual incompleta) pero el resultado en disco no es de
+  /// fiar. Una libreta genuinamente nueva sin snapshots todavía no dispara
+  /// esto (no hay snapshot previo con el que comparar).
+  static Future<VaultPayload?> _loadFromTreeDirChecked(
+    Directory treeDir,
+    Directory vaultDir,
+  ) async {
+    final payload = await loadFromTreeDir(treeDir);
+    if (payload == null || payload.pages.isNotEmpty) return payload;
+    if (await _latestSnapshotHadPages(vaultDir)) {
+      AppLogger.error(
+        'Refusing empty tree load: latest known snapshot had pages',
+        tag: 'vault',
+        context: {'vaultDir': vaultDir.path},
+      );
+      throw VaultCorruptionException(
+        'El árbol describe 0 páginas pero el último snapshot conocido '
+        'tenía contenido; no se acepta como libreta vacía legítima.',
+      );
+    }
+    return payload;
+  }
+
+  static Future<bool> _latestSnapshotHadPages(Directory vaultDir) async {
+    try {
+      final manager = VaultSnapshotManager(
+        vaultDir: vaultDir,
+        deviceId: 'read-check',
+      );
+      final snapshots = await manager.listSnapshots();
+      if (snapshots.isEmpty) return false;
+      return snapshots.first.fileManifest.any((entry) {
+        final path = entry.path.replaceAll('\\', '/');
+        return path.startsWith('pages/') && path.endsWith('meta.json');
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Guarda un snapshot del estado actual del árbol.

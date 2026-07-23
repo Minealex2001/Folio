@@ -137,6 +137,23 @@ class BackupExportRunner {
       throw VaultBackupException('No hay destino de copia configurado.');
     }
 
+    // No dejar que una libreta local vacía (p. ej. estado en memoria vaciado
+    // transitoriamente) exporte sobre destinos que ya tienen backups: a
+    // diferencia de los packs incrementales, este export no dedupe por
+    // fingerprint, así que un ZIP vacío subido aquí terminaría expulsando la
+    // última copia buena tras suficientes ciclos de `pruneOld`.
+    if (session.pages.isEmpty) {
+      for (final dest in destinations) {
+        final existing = await dest.listZipBackups();
+        if (existing.isNotEmpty) {
+          throw VaultBackupException(
+            'La libreta local está vacía; se rechaza exportar sobre backups '
+            'existentes en ${dest.label}.',
+          );
+        }
+      }
+    }
+
     final zipFile = await createVaultBackupZip(session);
     final fileName = p.basename(zipFile.path);
     try {

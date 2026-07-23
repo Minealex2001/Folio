@@ -134,8 +134,10 @@ class VaultSnapshotManager {
   }
 
   /// Restaura un snapshot anterior a [targetTreeDir].
-  /// Descomprime el .zip del snapshot y reemplaza el contenido de
-  /// [targetTreeDir] con el árbol restaurado.
+  /// Descomprime el .zip del snapshot a una carpeta de staging y solo
+  /// reemplaza [targetTreeDir] mediante un swap atómico (rename) una vez que
+  /// la copia completa tuvo éxito — si la copia falla a mitad (disco lleno,
+  /// permiso denegado), [targetTreeDir] queda intacto en vez de a medias.
   Future<bool> restoreSnapshot(
     String snapshotId,
     Directory targetTreeDir,
@@ -145,41 +147,73 @@ class VaultSnapshotManager {
     final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
     if (!zipFile.existsSync()) return false;
 
+    Directory? extractedDir;
+    Directory? stagingDir;
+    final stagingPath = p.join(
+      targetTreeDir.parent.path,
+      '${p.basename(targetTreeDir.path)}.restore-tmp',
+    );
+    final oldPath = p.join(
+      targetTreeDir.parent.path,
+      '${p.basename(targetTreeDir.path)}.restore-old',
+    );
     try {
       final zipBytes = await zipFile.readAsBytes();
       final packager = P2PSyncPackager(
         vaultId: p.basename(vaultDir.path),
         sourceDeviceId: deviceId,
       );
-      final extractedDir = await packager.decompressZip(
+      extractedDir = await packager.decompressZip(
         zipBytes,
         'folio_snapshot_restore_',
       );
 
-      try {
-        if (targetTreeDir.existsSync()) {
-          await targetTreeDir.delete(recursive: true);
-        }
-        await targetTreeDir.create(recursive: true);
-        await for (final entity in extractedDir.list(recursive: true)) {
-          final relativePath =
-              p.relative(entity.path, from: extractedDir.path);
-          final destPath = p.join(targetTreeDir.path, relativePath);
-          if (entity is Directory) {
-            await Directory(destPath).create(recursive: true);
-          } else if (entity is File) {
-            await Directory(p.dirname(destPath)).create(recursive: true);
-            await entity.copy(destPath);
-          }
-        }
-        return true;
-      } finally {
-        if (extractedDir.existsSync()) {
-          await extractedDir.delete(recursive: true);
+      // Copiar a staging en el mismo volumen que targetTreeDir (no el temp
+      // del sistema, que puede estar en otra unidad) para que el swap final
+      // por rename funcione y no toque targetTreeDir hasta tener éxito.
+      stagingDir = Directory(stagingPath);
+      if (stagingDir.existsSync()) {
+        await stagingDir.delete(recursive: true);
+      }
+      await stagingDir.create(recursive: true);
+      await for (final entity in extractedDir.list(recursive: true)) {
+        final relativePath = p.relative(entity.path, from: extractedDir.path);
+        final destPath = p.join(stagingDir.path, relativePath);
+        if (entity is Directory) {
+          await Directory(destPath).create(recursive: true);
+        } else if (entity is File) {
+          await Directory(p.dirname(destPath)).create(recursive: true);
+          await entity.copy(destPath);
         }
       }
+
+      final oldDir = Directory(oldPath);
+      if (oldDir.existsSync()) {
+        await oldDir.delete(recursive: true);
+      }
+      if (targetTreeDir.existsSync()) {
+        await targetTreeDir.rename(oldDir.path);
+      }
+      await stagingDir.rename(targetTreeDir.path);
+      stagingDir = null;
+      if (oldDir.existsSync()) {
+        await oldDir.delete(recursive: true);
+      }
+      return true;
     } catch (_) {
+      // La copia a staging falló a mitad: targetTreeDir no se tocó todavía.
+      if (stagingDir != null && stagingDir.existsSync()) {
+        try {
+          await stagingDir.delete(recursive: true);
+        } catch (_) {}
+      }
       return false;
+    } finally {
+      if (extractedDir != null && extractedDir.existsSync()) {
+        try {
+          await extractedDir.delete(recursive: true);
+        } catch (_) {}
+      }
     }
   }
 

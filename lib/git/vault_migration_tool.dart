@@ -332,12 +332,23 @@ class VaultMigrationTool {
       final vaultDir = await VaultPaths.vaultDirectory();
       final markerFile = File(p.join(vaultDir.path, 'vault.format'));
       if (!markerFile.existsSync()) {
-        return 0;
+        return _inferFormatFromTree(vaultDir);
       }
       final content = await markerFile.readAsString();
-      return int.tryParse(content.trim()) ?? 0;
+      final parsed = int.tryParse(content.trim());
+      if (parsed != null) return parsed;
+      return _inferFormatFromTree(vaultDir);
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Marker ausente/ilegible: si ya hay árbol v1, no tratarlo como v0 (mismo
+  /// fallback que `HeadlessDeviceSyncVault._formatVersion` — evita que la
+  /// sesión UI trate una libreta ya migrada como legacy tras un crash entre
+  /// el swap atómico y la escritura del marker).
+  static int _inferFormatFromTree(Directory vaultDir) {
+    final treeJson = File(p.join(vaultDir.path, 'repo', 'tree.json'));
+    return treeJson.existsSync() ? 1 : 0;
   }
 }

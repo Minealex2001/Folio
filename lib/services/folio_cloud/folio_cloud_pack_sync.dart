@@ -93,6 +93,23 @@ Future<String?> uploadOpenVaultCloudPack({
 
   rep(VaultCloudPackProgressStep.fetchingMeta, 0.09);
   final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
+
+  // No dejar que una libreta local vacía (p. ej. estado en memoria vaciado
+  // transitoriamente) sobreescriba/rote un cloud-pack existente con
+  // contenido: este destino solo dedupe por fingerprint, no compara
+  // "riqueza".
+  if (session.pages.isEmpty && latest != null) {
+    AppLogger.error(
+      'Refusing to push an empty vault over an existing cloud-pack backup',
+      tag: 'cloud-pack',
+      context: {'vaultId': vaultId},
+    );
+    throw StateError(
+      'La libreta local está vacía; se rechaza subir sobre una copia en '
+      'la nube con contenido.',
+    );
+  }
+
   final hasRestoreWrap = latest?['hasRestoreWrap'] == true;
   final pw = restoreWrapPassword?.trim() ?? '';
   final plainNeedsWrap = !session.vaultUsesEncryption && !hasRestoreWrap;

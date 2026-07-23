@@ -7,6 +7,7 @@ loadEnv({ path: path.resolve(__dirname, "../.env") });
 import "./admin_init";
 
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { createHash, randomBytes, randomInt } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
@@ -45,7 +46,6 @@ export {
 } from "./spotify_integration";
 
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
 
 /** HttpsError de 1st gen: la callable `folioCloudAiComplete` corre en CF 1st gen (no Cloud Run). */
 const AiHttpsError = functionsV1.https.HttpsError;
@@ -5743,7 +5743,7 @@ export const onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
     await ref.set({
       email: user.email ?? "",
       displayName: user.displayName ?? "",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     await recomputeEffectiveFolioCloud(uid);
   }
@@ -5761,7 +5761,7 @@ export const ensureUserDocExists = onCall(
     if (!snap.exists) {
       await ref.set({
         email: request.auth.token.email ?? "",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       await recomputeEffectiveFolioCloud(uid);
     }

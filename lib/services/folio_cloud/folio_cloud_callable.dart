@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/services.dart' show PlatformException;
 
-import '../../firebase_options.dart';
 import '../app_logger.dart';
 import 'folio_cloud_callable_post.dart'
     if (dart.library.html) 'folio_cloud_callable_post_stub.dart'
@@ -16,6 +15,15 @@ import 'folio_cloud_callable_post.dart'
 
 /// Región de despliegue de Cloud Functions (debe coincidir con `firebase deploy`).
 const String kFolioCloudFunctionsRegion = 'us-central1';
+
+/// Redirige las callables HTTP (camino Windows/Linux) al emulador local en
+/// vez de producción/staging real. Solo para tests de integración contra
+/// `firebase emulators:start` — nunca se activa en la app empaquetada.
+class FolioCloudFunctionsEmulator {
+  FolioCloudFunctionsEmulator._();
+
+  static String? hostAndPort;
+}
 
 /// `cloud_functions` no registra implementación nativa en Windows (ni en Linux en
 /// muchos builds); el SDK usa un canal Pigeon que no existe y falla en runtime.
@@ -164,10 +172,20 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
     );
   }
 
-  final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
-  final uri = Uri.parse(
-    'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/$name',
-  );
+  // Antes leía siempre `DefaultFirebaseOptions` (producción), sin importar
+  // con qué opciones se inicializó `Firebase.app()` — con
+  // `FOLIO_FIREBASE_ENV=staging` en Windows/Linux (únicas plataformas que
+  // pasan por este camino HTTP) esto hacía que TODAS las callables
+  // apuntaran silenciosamente a producción en vez de a staging.
+  final projectId = Firebase.app().options.projectId;
+  final emulatorHost = FolioCloudFunctionsEmulator.hostAndPort;
+  final uri = emulatorHost != null
+      ? Uri.parse(
+          'http://$emulatorHost/$projectId/$kFolioCloudFunctionsRegion/$name',
+        )
+      : Uri.parse(
+          'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/$name',
+        );
 
   Object? dataPayload;
   if (parameters == null) {

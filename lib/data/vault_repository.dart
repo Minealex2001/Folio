@@ -8,6 +8,7 @@ import '../domain/vault/vault_migration.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../models/folio_page.dart';
 import '../models/folio_usage_intent.dart';
+import 'vault_local_storage.dart' show VaultEmptyOverwriteException;
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 import 'vault_starter_pages.dart';
@@ -157,6 +158,15 @@ class VaultRepository {
   }
 
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
+    if (payload.pages.isEmpty) {
+      final existingPages = await _existingV0PageCount(dekBytes);
+      if (existingPages > 0) {
+        throw VaultEmptyOverwriteException(
+          'Refusing to replace vault.bin ($existingPages pages) with an '
+          'empty payload',
+        );
+      }
+    }
     if (await isPlaintextVault()) {
       await VaultPaths.writeCipherPayload(Uint8List.fromList(payload.encodeUtf8()));
       return;
@@ -170,6 +180,19 @@ class VaultRepository {
       dek: dek,
     );
     await VaultPaths.writeCipherPayload(enc);
+  }
+
+  /// Best-effort: cuenta páginas del `vault.bin` actual antes de sobrescribir
+  /// con un payload vacío. Si no se puede leer (no existe aún, corrupto, DEK
+  /// que no coincide) no bloquea el guardado — solo protege el caso claro de
+  /// "había contenido en disco, el payload entrante llega vacío".
+  Future<int> _existingV0PageCount(List<int>? dekBytes) async {
+    try {
+      final existing = await loadPayload(dekBytes);
+      return existing.pages.length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// Restaura `vault.bin` desde la copia `.bak` local. También intenta

@@ -116,6 +116,22 @@ Future<String> uploadOpenVaultEncryptedToCloud({
     vaultBinBytes: vaultBinBytes,
   );
   final latest = await _getLatestBackupMeta(vaultId: vaultId);
+
+  // No dejar que una libreta local vacía (p. ej. estado en memoria vaciado
+  // transitoriamente) sobreescriba un backup existente con contenido: este
+  // destino solo dedupe por fingerprint, no compara "riqueza".
+  if (session.pages.isEmpty && latest != null) {
+    AppLogger.error(
+      'Refusing to push an empty vault over an existing cloud backup',
+      tag: 'cloud-backup',
+      context: {'vaultId': vaultId},
+    );
+    throw StateError(
+      'La libreta local está vacía; se rechaza subir sobre una copia en '
+      'la nube con contenido.',
+    );
+  }
+
   final latestFp = latest?['fingerprint']?.toString().trim() ?? '';
   if (latestFp.isNotEmpty && latestFp == fp.fingerprint) {
     // Copia idéntica (mejor no subir otra vez).

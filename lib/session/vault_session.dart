@@ -397,6 +397,18 @@ class VaultSession extends ChangeNotifier {
   bool _applyingHistoryNavigation = false;
   Timer? _revisionIdleTimer;
   Timer? _v1TreeSaveTimer;
+  /// Mutex de escritura para `persistNow` en formato v1 (no había ninguno,
+  /// a diferencia de `VaultPersistenceController._activeWrite` en v0). Sin
+  /// esto, una llamada "suelta" (disparada por el debounce y no esperada por
+  /// nadie, `unawaited`) puede seguir en vuelo mientras `lock()`/`switchVault`
+  /// cambian la libreta activa — cuando esa llamada suelta por fin resuelve
+  /// el directorio destino, puede resolver al de la libreta *nueva* y
+  /// escribir ahí el contenido de la libreta vieja (contaminación cruzada
+  /// real, visto en producción). El mutex obliga a que cualquier llamador
+  /// (incluida la suelta) espere su turno antes de que `lock()` pueda
+  /// terminar, así que `switchVault` nunca cambia de libreta activa mientras
+  /// quede un guardado v1 pendiente de verdad en vuelo.
+  Future<void>? _v1ActiveWrite;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
   /// Soft-hide de snapshots por página: pageId → set de snapshotIds ocultos.
@@ -662,10 +674,13 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Para tests que operan sobre el vault sin pasar por [bootstrap].
+  /// [formatVersion] permite ejercitar el camino v1 (árbol) sin migrar de
+  /// verdad; por defecto se mantiene v0 para no romper llamadores existentes.
   @visibleForTesting
-  void debugMarkUnlockedForTests() {
+  void debugMarkUnlockedForTests({int formatVersion = 0}) {
     _state = VaultFlowState.unlocked;
     _vaultUsesEncryption = false;
+    _vaultFormatVersion = formatVersion;
   }
 
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
@@ -2531,23 +2546,34 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _dek = dek.toList();
-    final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
-    _pages = List.from(payload.pages);
-    _loadRevisionsFromPayload(payload);
-    _ensureOrderForCurrentPages();
-    await _applySyncedDisplayName(payload.displayName);
-    await _applyInitialPageSelection(preferPersistedPreference: true);
-    _state = VaultFlowState.unlocked;
-    purgeExpiredTrash();
-    _restartIdleLockTimer();
-    await _initSnapshotManager();
-    await _cacheDeviceSyncKeyAfterUnlock();
-    AppLogger.info(
-      'unlockWithDeviceAuth ok',
-      tag: 'vault',
-      context: {'vaultId': _vaultId, 'pages': _pages.length},
-    );
-    notifyListeners();
+    try {
+      final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
+      _pages = List.from(payload.pages);
+      _loadRevisionsFromPayload(payload);
+      _ensureOrderForCurrentPages();
+      await _applySyncedDisplayName(payload.displayName);
+      await _applyInitialPageSelection(preferPersistedPreference: true);
+      _state = VaultFlowState.unlocked;
+      purgeExpiredTrash();
+      _restartIdleLockTimer();
+      await _initSnapshotManager();
+      await _cacheDeviceSyncKeyAfterUnlock();
+      AppLogger.info(
+        'unlockWithDeviceAuth ok',
+        tag: 'vault',
+        context: {'vaultId': _vaultId, 'pages': _pages.length},
+      );
+      notifyListeners();
+    } on VaultCorruptionException {
+      _dek = null;
+      _state = VaultFlowState.recovery;
+      AppLogger.error(
+        'unlockWithDeviceAuth recovery (corruption)',
+        tag: 'vault',
+        context: {'vaultId': _vaultId},
+      );
+      notifyListeners();
+    }
   }
 
   Future<void> unlockWithPasskey() async {
@@ -2567,23 +2593,34 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _dek = dek.toList();
-    final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
-    _pages = List.from(payload.pages);
-    _loadRevisionsFromPayload(payload);
-    _ensureOrderForCurrentPages();
-    await _applySyncedDisplayName(payload.displayName);
-    await _applyInitialPageSelection(preferPersistedPreference: true);
-    _state = VaultFlowState.unlocked;
-    purgeExpiredTrash();
-    _restartIdleLockTimer();
-    await _initSnapshotManager();
-    await _cacheDeviceSyncKeyAfterUnlock();
-    AppLogger.info(
-      'unlockWithPasskey ok',
-      tag: 'vault',
-      context: {'vaultId': _vaultId, 'pages': _pages.length},
-    );
-    notifyListeners();
+    try {
+      final payload = await _ensureV1AndLoad(() => _repo.loadPayload(_dek));
+      _pages = List.from(payload.pages);
+      _loadRevisionsFromPayload(payload);
+      _ensureOrderForCurrentPages();
+      await _applySyncedDisplayName(payload.displayName);
+      await _applyInitialPageSelection(preferPersistedPreference: true);
+      _state = VaultFlowState.unlocked;
+      purgeExpiredTrash();
+      _restartIdleLockTimer();
+      await _initSnapshotManager();
+      await _cacheDeviceSyncKeyAfterUnlock();
+      AppLogger.info(
+        'unlockWithPasskey ok',
+        tag: 'vault',
+        context: {'vaultId': _vaultId, 'pages': _pages.length},
+      );
+      notifyListeners();
+    } on VaultCorruptionException {
+      _dek = null;
+      _state = VaultFlowState.recovery;
+      AppLogger.error(
+        'unlockWithPasskey recovery (corruption)',
+        tag: 'vault',
+        context: {'vaultId': _vaultId},
+      );
+      notifyListeners();
+    }
   }
 
   /// Guarda DEK / clave de sync estable para device-sync en segundo plano.
@@ -2716,11 +2753,19 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> lock() async {
+    // Vaciar SIEMPRE el guardado v1 pendiente, incluso en libretas sin
+    // cifrar: de lo contrario un guardado debounced (_v1TreeSaveTimer) de la
+    // libreta que se abandona puede completarse después de que switchVault()
+    // ya cambió el vault activo, escribiendo el contenido de la libreta vieja
+    // dentro del árbol de la libreta nueva (contaminación cruzada entre
+    // libretas). Las libretas cifradas ya quedaban cubiertas por el
+    // flushPendingSave() de más abajo; esto extiende la misma protección a
+    // las libretas en claro, para las que este método retorna antes de
+    // llegar a él.
+    await flushPendingSave();
     if (!vaultUsesEncryption) return;
     unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
     await _persistLastSelectedPageBeforeLock();
-    // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
-    await flushPendingSave();
     // Asegura DEK en caché para sync en segundo plano tras bloquear.
     await _cacheDeviceSyncKeyAfterUnlock();
     _clearVaultSessionMemory();
@@ -6325,35 +6370,55 @@ class VaultSession extends ChangeNotifier {
       // Format v0: persist to vault.bin (existing)
       await _persistence.persistNow();
     } else {
-      // Format v1: solo árbol en repo/ (sin snapshot automático ni vault.bin).
-      try {
-        _v1TreeSaveTimer?.cancel();
-        _v1TreeSaveTimer = null;
-        final payload = _buildVaultPayloadForPersist();
-        // Defensa: no persistir 0 páginas sobre un árbol que aún tiene datos
-        // (p. ej. tras unlock fallido / carrera con sync headless).
-        if (payload.pages.isEmpty) {
-          final treeDir = await VaultPaths.vaultTreeDirectory();
-          final onDisk = VaultLocalStorage.countPageDirs(treeDir);
-          if (onDisk > 0) {
-            AppLogger.error(
-              'Blocked v1 persist of empty session over non-empty tree',
-              context: {'onDiskPages': onDisk},
-            );
-            return;
-          }
+      // Mutex: si ya hay una escritura v1 en vuelo (p. ej. una llamada suelta
+      // del debounce que ya empezó), esperarla en vez de correr en paralelo
+      // sobre el mismo `repo.tmp` — ver comentario en `_v1ActiveWrite`.
+      while (_v1ActiveWrite != null) {
+        try {
+          await _v1ActiveWrite;
+        } catch (_) {
+          // El error pertenece a esa llamada; aquí solo esperamos turno.
         }
-        await VaultLocalStorage.decomposeAndStore(payload);
-        // Nunca borrar vault.bin aquí: solo tras sync/verificación
-        // (cleanupV0AfterSuccessfulSync).
-      } on VaultEmptyOverwriteException catch (e) {
-        AppLogger.error('Blocked empty vault tree overwrite: $e');
-      } catch (e) {
-        AppLogger.error('Failed to persist v1 vault: $e');
-        rethrow;
+      }
+      final write = _doPersistV1();
+      _v1ActiveWrite = write;
+      try {
+        await write;
+      } finally {
+        if (identical(_v1ActiveWrite, write)) _v1ActiveWrite = null;
       }
     }
     _rebuildSearchIndex();
+  }
+
+  Future<void> _doPersistV1() async {
+    // Format v1: solo árbol en repo/ (sin snapshot automático ni vault.bin).
+    try {
+      _v1TreeSaveTimer?.cancel();
+      _v1TreeSaveTimer = null;
+      final payload = _buildVaultPayloadForPersist();
+      // Defensa: no persistir 0 páginas sobre un árbol que aún tiene datos
+      // (p. ej. tras unlock fallido / carrera con sync headless).
+      if (payload.pages.isEmpty) {
+        final treeDir = await VaultPaths.vaultTreeDirectory();
+        final onDisk = VaultLocalStorage.countPageDirs(treeDir);
+        if (onDisk > 0) {
+          AppLogger.error(
+            'Blocked v1 persist of empty session over non-empty tree',
+            context: {'onDiskPages': onDisk},
+          );
+          return;
+        }
+      }
+      await VaultLocalStorage.decomposeAndStore(payload);
+      // Nunca borrar vault.bin aquí: solo tras sync/verificación
+      // (cleanupV0AfterSuccessfulSync).
+    } on VaultEmptyOverwriteException catch (e) {
+      AppLogger.error('Blocked empty vault tree overwrite: $e');
+    } catch (e) {
+      AppLogger.error('Failed to persist v1 vault: $e');
+      rethrow;
+    }
   }
 
   /// Persistencia inmediata respetando formato: v0 puede suprimir `onPersisted`
@@ -6469,6 +6534,21 @@ class VaultSession extends ChangeNotifier {
         return (ok: true, changed: false);
       }
 
+      // No dejar que un remoto vacío borre contenido local vía merge (mismo
+      // riesgo de wipe por sync que el camino headless, pero por la ruta de
+      // sesión desbloqueada / P2P): el merge de 3 vías infiere "borrado" de
+      // toda página ausente en remoto respecto al baseline, así que un
+      // remoto espuriamente vacío vaciaría _pages antes de persistir. Mismo
+      // guard que HeadlessDeviceSyncVault.applyRemotePack.
+      if (localPayload.pages.isNotEmpty && remotePayload.pages.isEmpty) {
+        AppLogger.warn(
+          'applySyncSnapshotBytes skipped: refuse empty remote over local pages',
+          tag: 'sync',
+          context: {'localPages': localPayload.pages.length},
+        );
+        return (ok: true, changed: false);
+      }
+
       final result = _syncMerge.merge(
         local: localPayload,
         remote: remotePayload,
@@ -6559,6 +6639,14 @@ class VaultSession extends ChangeNotifier {
       final pack = VaultSyncPack.decodeFlexible(entry.remoteSnapshotBytes);
       await materializeVaultSyncPackAttachments(pack);
       final localPayload = _buildVaultPayloadForPersist();
+      if (localPayload.pages.isNotEmpty && pack.payload.pages.isEmpty) {
+        AppLogger.warn(
+          'resolveSyncConflictAcceptRemote skipped: remote pack empty',
+          tag: 'sync',
+          context: {'localPages': localPayload.pages.length},
+        );
+        return false;
+      }
       final result = _syncMerge.merge(
         local: localPayload,
         remote: pack.payload,
@@ -7217,7 +7305,7 @@ class VaultSession extends ChangeNotifier {
         rethrow;
       }
       // Formato marcado v1 pero el árbol no carga: no usar vault.bin obsoleto
-      // en silencio (riesgo NTTData). Ir a recovery; la UI ofrece
+      // en silencio (riesgo de wipe por sync). Ir a recovery; la UI ofrece
       // `.pre-migration` / `.bak` si existen.
       final hasPre = await VaultMigrationTool.hasPreMigrationBackup();
       throw VaultCorruptionException(

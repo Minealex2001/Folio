@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 
 import '../core/errors/folio_exception.dart';
 import '../crypto/vault_crypto.dart';
+import '../git/vault_migration_tool.dart' show VaultMigrationTool;
+import 'storage/atomic_file_writer.dart';
 import 'storage/vault_storage.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
@@ -800,41 +802,53 @@ Future<void> applyImportToVaultRoot(
   final destWrapped = File(p.join(vaultRoot.path, VaultPaths.wrappedDekFile));
   final destBin = File(p.join(vaultRoot.path, VaultPaths.cipherPayloadFile));
   final destMode = File(p.join(vaultRoot.path, VaultPaths.vaultModeFile));
+  final isPlain = await _extractedBackupIsPlain(extractedDir);
+  if (!isPlain && !keysSrc.existsSync()) {
+    throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+  }
 
-  if (await _extractedBackupIsPlain(extractedDir)) {
+  // Escritura atómica (tmp + rename + rotación .bak) en vez de File.copy
+  // directo: si el proceso muere a mitad, cada archivo destino queda
+  // completo en su estado anterior, nunca a medias.
+  await AtomicFileWriter.writeAtomic(destBin, await binSrc.readAsBytes());
+  if (isPlain) {
     if (destWrapped.existsSync()) {
       await destWrapped.delete();
     }
-    await binSrc.copy(destBin.path);
-    if (modeSrc.existsSync()) {
-      await modeSrc.copy(destMode.path);
-    } else {
-      await destMode.writeAsString(_vaultModePlain, flush: true);
-    }
   } else {
-    if (!keysSrc.existsSync()) {
-      throw VaultBackupException('Falta vault.keys en la copia cifrada.');
-    }
-    await keysSrc.copy(destWrapped.path);
-    await binSrc.copy(destBin.path);
-    if (modeSrc.existsSync()) {
-      await modeSrc.copy(destMode.path);
-    } else {
-      await destMode.writeAsString(_vaultModeEncrypted, flush: true);
-    }
+    await AtomicFileWriter.writeAtomic(
+      destWrapped,
+      await keysSrc.readAsBytes(),
+    );
   }
+  final modeBytes = modeSrc.existsSync()
+      ? await modeSrc.readAsBytes()
+      : Uint8List.fromList(
+          utf8.encode(isPlain ? _vaultModePlain : _vaultModeEncrypted),
+        );
+  await AtomicFileWriter.writeAtomic(destMode, modeBytes);
+
+  // El vault.bin importado es ahora la única fuente de verdad: invalidar
+  // cualquier árbol v1 existente para que el próximo bootstrap migre desde
+  // el contenido recién importado en vez de seguir leyendo el árbol viejo.
+  // Sin esto, restaurar un backup sobre una libreta ya migrada a v1 no tenía
+  // ningún efecto visible: el marker `vault.format` seguía diciendo 1 y el
+  // bootstrap ignoraba en silencio el vault.bin recién importado.
+  await _invalidateStaleV1TreeAfterImport(vaultRoot);
 
   final attDir = Directory(
     p.join(vaultRoot.path, VaultPaths.attachmentsDirName),
   );
-  if (attDir.existsSync()) {
-    await attDir.delete(recursive: true);
-  }
-  await attDir.create(recursive: true);
-
   final attachmentsSrc = Directory(
     p.join(extractedDir.path, VaultPaths.attachmentsDirName),
   );
+  final stagingAtt = Directory(
+    p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.importing'),
+  );
+  if (stagingAtt.existsSync()) {
+    await stagingAtt.delete(recursive: true);
+  }
+  await stagingAtt.create(recursive: true);
   if (attachmentsSrc.existsSync()) {
     await for (final entity in attachmentsSrc.list(
       recursive: true,
@@ -842,12 +856,48 @@ Future<void> applyImportToVaultRoot(
     )) {
       if (entity is File) {
         final rel = p.relative(entity.path, from: attachmentsSrc.path);
-        final destPath = p.join(attDir.path, rel);
+        final destPath = p.join(stagingAtt.path, rel);
         await Directory(p.dirname(destPath)).create(recursive: true);
         await entity.copy(destPath);
       }
     }
   }
+  // Swap: la carpeta de adjuntos anterior se renombra aparte (no se borra)
+  // por si el import resulta equivocado y hay que recuperarla a mano.
+  if (attDir.existsSync()) {
+    final oldAtt = Directory(
+      p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.pre-import'),
+    );
+    if (oldAtt.existsSync()) {
+      await oldAtt.delete(recursive: true);
+    }
+    await attDir.rename(oldAtt.path);
+  }
+  await stagingAtt.rename(attDir.path);
+}
+
+/// Renombra aparte (no borra) `repo/`, `versions/` y los markers de formato
+/// v1 tras un import de `vault.bin`, para que el próximo `bootstrap()` trate
+/// la libreta como v0 recién importada y migre desde el contenido correcto.
+Future<void> _invalidateStaleV1TreeAfterImport(Directory vaultRoot) async {
+  final repoDir = Directory(p.join(vaultRoot.path, 'repo'));
+  if (repoDir.existsSync()) {
+    final backup = Directory(p.join(vaultRoot.path, 'repo.pre-import'));
+    if (backup.existsSync()) await backup.delete(recursive: true);
+    await repoDir.rename(backup.path);
+  }
+  final versionsDir = Directory(p.join(vaultRoot.path, 'versions'));
+  if (versionsDir.existsSync()) {
+    final backup = Directory(p.join(vaultRoot.path, 'versions.pre-import'));
+    if (backup.existsSync()) await backup.delete(recursive: true);
+    await versionsDir.rename(backup.path);
+  }
+  final formatMarker = File(p.join(vaultRoot.path, 'vault.format'));
+  if (formatMarker.existsSync()) await formatMarker.delete();
+  final verifiedMarker = File(
+    p.join(vaultRoot.path, VaultMigrationTool.v1VerifiedFile),
+  );
+  if (verifiedMarker.existsSync()) await verifiedMarker.delete();
 }
 
 /// Importa a un [vaultId] concreto (web y nativo) sin depender de rutas nativas.

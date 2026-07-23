@@ -57,6 +57,7 @@ class _SidebarState extends State<Sidebar> {
 
   List<VaultEntry> _vaults = [];
   var _vaultsLoading = true;
+  Set<String> _lastVaultIds = const <String>{};
   final Set<String> _collapsedPageIds = <String>{};
   // Performance: track what's visible in the sidebar to skip unnecessary rebuilds
   String _lastSidebarFingerprint = '';
@@ -87,6 +88,20 @@ class _SidebarState extends State<Sidebar> {
 
   void _onSession() {
     final currentVaultId = session.activeVaultId;
+
+    // El registro de libretas puede cambiar (borrar/añadir otra libreta desde
+    // Ajustes) sin que cambie ni una sola página de la libreta activa, así que
+    // el gate de fingerprint de más abajo (pensado solo para el contenido
+    // visible de páginas) no lo detectaría nunca. Se comprueba aparte y antes
+    // de ese gate para que el selector de libretas del sidebar no se quede
+    // mostrando libretas ya borradas.
+    final currentVaultIds = {
+      for (final e in VaultRegistry.instance.vaults) e.id,
+    };
+    if (!setEquals(currentVaultIds, _lastVaultIds)) {
+      unawaited(_reloadVaults());
+    }
+
     if (_loadedCollapsedVaultId != currentVaultId) {
       unawaited(_loadCollapsedState());
     }
@@ -230,6 +245,7 @@ class _SidebarState extends State<Sidebar> {
       setState(() {
         _vaults = list;
         _vaultsLoading = false;
+        _lastVaultIds = {for (final e in list) e.id};
       });
     }
   }

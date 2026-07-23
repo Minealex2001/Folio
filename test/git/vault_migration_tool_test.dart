@@ -7,8 +7,10 @@
 /// 4. Marker treeFormatVersion se escribe
 
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/vault_payload.dart';
+import 'package:folio/data/vault_paths.dart';
 import 'package:folio/models/folio_page.dart';
 import 'package:folio/models/block.dart';
 import 'package:folio/git/vault_migration_tool.dart';
@@ -16,6 +18,93 @@ import 'package:folio/git/vault_payload_converters.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  group('VaultMigrationTool.readTreeFormatVersion - marker vs tree.json', () {
+    late Directory mockedSupportDir;
+
+    setUp(() async {
+      mockedSupportDir = await Directory.systemTemp.createTemp(
+        'folio_format_version_',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProviderChannel, (call) async {
+            return mockedSupportDir.path;
+          });
+    });
+
+    tearDown(() async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProviderChannel, null);
+      VaultPaths.clearActiveVaultId();
+      if (mockedSupportDir.existsSync()) {
+        await mockedSupportDir.delete(recursive: true);
+      }
+    });
+
+    test('defaults to 0 when neither marker nor tree.json exist', () async {
+      const vaultId = 'format-version-none';
+      VaultPaths.setActiveVaultId(vaultId);
+      await VaultPaths.initVaultStorage(vaultId);
+
+      expect(await VaultMigrationTool.readTreeFormatVersion(), equals(0));
+    });
+
+    test('reads 1 straight from an intact marker', () async {
+      const vaultId = 'format-version-marker';
+      VaultPaths.setActiveVaultId(vaultId);
+      await VaultPaths.initVaultStorage(vaultId);
+      final vaultDir = await VaultPaths.vaultDirectory();
+      await File(
+        p.join(vaultDir.path, 'vault.format'),
+      ).writeAsString('1', flush: true);
+
+      expect(await VaultMigrationTool.readTreeFormatVersion(), equals(1));
+    });
+
+    test(
+      'falls back to repo/tree.json when marker is missing (headless/UI symmetry)',
+      () async {
+        const vaultId = 'format-version-missing-marker';
+        VaultPaths.setActiveVaultId(vaultId);
+        await VaultPaths.initVaultStorage(vaultId);
+        final vaultDir = await VaultPaths.vaultDirectory();
+        final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+        await treeDir.create(recursive: true);
+        await File(
+          p.join(treeDir.path, 'tree.json'),
+        ).writeAsString('{}', flush: true);
+        // Sin marker vault.format: antes del fix esto devolvía 0 (legacy) y
+        // la sesión UI podía intentar recargar vault.bin desatendiendo el
+        // árbol v1 ya migrado — la misma clase de bug de wipe por sync que
+        // ya se había corregido en el camino headless.
+        expect(await VaultMigrationTool.readTreeFormatVersion(), equals(1));
+      },
+    );
+
+    test(
+      'falls back to repo/tree.json when marker content is unparseable',
+      () async {
+        const vaultId = 'format-version-corrupt-marker';
+        VaultPaths.setActiveVaultId(vaultId);
+        await VaultPaths.initVaultStorage(vaultId);
+        final vaultDir = await VaultPaths.vaultDirectory();
+        await File(
+          p.join(vaultDir.path, 'vault.format'),
+        ).writeAsString('not-a-number', flush: true);
+        final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+        await treeDir.create(recursive: true);
+        await File(
+          p.join(treeDir.path, 'tree.json'),
+        ).writeAsString('{}', flush: true);
+
+        expect(await VaultMigrationTool.readTreeFormatVersion(), equals(1));
+      },
+    );
+  });
+
   group('VaultMigrationTool - M2', () {
     late Directory tempDir;
 

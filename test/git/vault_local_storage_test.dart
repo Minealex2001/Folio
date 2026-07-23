@@ -7,6 +7,7 @@
 
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/core/errors/vault_corruption_exception.dart';
 import 'package:folio/data/vault_payload.dart';
 import 'package:folio/data/vault_local_storage.dart';
 import 'package:folio/models/folio_page.dart';
@@ -245,5 +246,106 @@ void main() {
         equals('original content'),
       );
     });
+
+    test(
+      'restoreSnapshot leaves targetTreeDir untouched if staging fails mid-way',
+      () async {
+        final vaultDir = Directory(tempDir.path);
+        final treeDir = Directory(p.join(tempDir.path, 'repo'));
+
+        final payload = VaultPayload(
+          pages: [
+            FolioPage(
+              id: 'safe-page',
+              title: 'Contenido original',
+              blocks: [
+                FolioBlock(id: 'b1', type: 'paragraph', text: 'no tocar'),
+              ],
+            ),
+          ],
+        );
+        await VaultPayloadToTree.decompose(payload, treeDir);
+
+        final manager = VaultSnapshotManager(
+          vaultDir: vaultDir,
+          deviceId: 'test-device',
+        );
+        final snapshot = await manager.createSnapshot(
+          treeDir: treeDir,
+          label: 'Snapshot a restaurar',
+        );
+
+        // Bloquea la creación de la carpeta de staging: un archivo (no
+        // directorio) ocupando exactamente ese nombre hace que
+        // `stagingDir.create()` falle antes de tocar `treeDir`.
+        final blocker = File(p.join(vaultDir.path, 'repo.restore-tmp'));
+        await blocker.writeAsString('bloqueo intencional');
+
+        final restored = await manager.restoreSnapshot(
+          snapshot.snapshotId,
+          treeDir,
+        );
+        expect(restored, isFalse);
+
+        // El árbol original sigue intacto, no vacío ni a medias.
+        final stillThere = await TreeToVaultPayload.compose(treeDir);
+        expect(stillThere.pages, hasLength(1));
+        expect(stillThere.pages.first.title, equals('Contenido original'));
+      },
+    );
+
+    test(
+      'loadFromTreeAt refuses an empty tree when the latest snapshot had pages',
+      () async {
+        final vaultDir = Directory(tempDir.path);
+        final treeDir = Directory(p.join(tempDir.path, 'repo'));
+
+        final payload = VaultPayload(
+          pages: [
+            FolioPage(
+              id: 'p1',
+              title: 'Importante',
+              blocks: [FolioBlock(id: 'b1', type: 'paragraph', text: 'ok')],
+            ),
+          ],
+        );
+        await VaultPayloadToTree.decompose(payload, treeDir);
+
+        final manager = VaultSnapshotManager(
+          vaultDir: vaultDir,
+          deviceId: 'test-device',
+        );
+        await manager.createSnapshot(treeDir: treeDir, label: 'Con contenido');
+
+        // Simula que el árbol quedó vacío por una vía que no pasó por
+        // decomposeAndStoreAt (bypassea su guard a propósito para este test).
+        await VaultPayloadToTree.decompose(
+          VaultPayload(pages: const []),
+          treeDir,
+        );
+        expect(VaultLocalStorage.countPageDirs(treeDir), 0);
+
+        await expectLater(
+          VaultLocalStorage.loadFromTreeAt(vaultDir),
+          throwsA(isA<VaultCorruptionException>()),
+        );
+      },
+    );
+
+    test(
+      'loadFromTreeAt accepts a genuinely empty tree with no prior snapshots',
+      () async {
+        final vaultDir = Directory(tempDir.path);
+        final treeDir = Directory(p.join(tempDir.path, 'repo'));
+        await VaultPayloadToTree.decompose(
+          VaultPayload(pages: const []),
+          treeDir,
+        );
+
+        final loaded = await VaultLocalStorage.loadFromTreeAt(vaultDir);
+        expect(loaded, isNotNull);
+        expect(loaded!.pages, isEmpty);
+      },
+    );
   });
 }

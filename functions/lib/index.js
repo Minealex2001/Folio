@@ -44,6 +44,7 @@ const dotenv_1 = require("dotenv");
 (0, dotenv_1.config)({ path: path.resolve(__dirname, "../.env") });
 require("./admin_init");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const crypto_1 = require("crypto");
 const functionsV1 = __importStar(require("firebase-functions/v1"));
 const https_1 = require("firebase-functions/v2/https");
@@ -70,7 +71,6 @@ Object.defineProperty(exports, "folioSpotifyExchangeOAuth", { enumerable: true, 
 Object.defineProperty(exports, "folioSpotifyOAuthCallback", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyOAuthCallback; } });
 Object.defineProperty(exports, "folioSpotifyApiProxy", { enumerable: true, get: function () { return spotify_integration_1.folioSpotifyApiProxy; } });
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
 /** HttpsError de 1st gen: la callable `folioCloudAiComplete` corre en CF 1st gen (no Cloud Run). */
 const AiHttpsError = functionsV1.https.HttpsError;
 /** Suscripción Folio Cloud: 500 gotas/mes (recarga día 1 + alta). */
@@ -585,8 +585,8 @@ async function refundInkDropCharge(uid, amount) {
         return;
     const ref = db.collection("users").doc(uid);
     await ref.set({
-        "ink.purchasedBalance": FieldValue.increment(amount),
-        "ink.updatedAt": FieldValue.serverTimestamp(),
+        "ink.purchasedBalance": firestore_1.FieldValue.increment(amount),
+        "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
     }, { merge: true });
 }
 async function chargeInkExtraIfPossible(uid, extra, allowSubscriptionInk) {
@@ -613,7 +613,7 @@ async function chargeInkExtraIfPossible(uid, extra, allowSubscriptionInk) {
         tx.update(ref, {
             "ink.monthlyBalance": allowSubscriptionInk ? next.monthly : 0,
             "ink.purchasedBalance": next.purchased,
-            "ink.updatedAt": FieldValue.serverTimestamp(),
+            "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
         });
     });
     return charged;
@@ -688,7 +688,7 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
             tx.update(ref, {
                 "ink.monthlyBalance": next.monthly,
                 "ink.purchasedBalance": next.purchased,
-                "ink.updatedAt": FieldValue.serverTimestamp(),
+                "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
             });
         }
         else {
@@ -699,7 +699,7 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
             tx.update(ref, {
                 "ink.monthlyBalance": 0,
                 "ink.purchasedBalance": next.purchased,
-                "ink.updatedAt": FieldValue.serverTimestamp(),
+                "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
             });
         }
     });
@@ -1100,7 +1100,7 @@ async function recomputeStripeBackupSubscriptionExtraBytes(stripe, uid) {
         await ref.set({
             folioBackup: {
                 stripeSubscriptionExtraBytes: 0,
-                updatedAt: FieldValue.serverTimestamp(),
+                updatedAt: firestore_1.FieldValue.serverTimestamp(),
             },
         }, { merge: true });
         await updateFolioBackupQuotaBytes(uid);
@@ -1128,7 +1128,7 @@ async function recomputeStripeBackupSubscriptionExtraBytes(stripe, uid) {
     await ref.set({
         folioBackup: {
             stripeSubscriptionExtraBytes: extra,
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         },
     }, { merge: true });
     await updateFolioBackupQuotaBytes(uid);
@@ -1185,7 +1185,7 @@ async function updateFolioBackupQuotaBytes(uid) {
                     purchasedBytes: purchased,
                     usedBytes: used,
                     quotaBytes: FOLIO_STAFF_BACKUP_QUOTA_BYTES,
-                    updatedAt: FieldValue.serverTimestamp(),
+                    updatedAt: firestore_1.FieldValue.serverTimestamp(),
                 },
             }, { merge: true });
             return;
@@ -1215,7 +1215,7 @@ async function updateFolioBackupQuotaBytes(uid) {
                 purchasedBytes: purchased,
                 usedBytes: used,
                 quotaBytes,
-                updatedAt: FieldValue.serverTimestamp(),
+                updatedAt: firestore_1.FieldValue.serverTimestamp(),
             },
         }, { merge: true });
     });
@@ -1378,7 +1378,7 @@ async function recomputeEffectiveFolioCloud(uid) {
             studentVerified,
             familyOwnerUid: familyOwnerUid !== null && familyOwnerUid !== void 0 ? familyOwnerUid : null,
             familySeats,
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         },
     };
     if (email) {
@@ -1389,10 +1389,10 @@ async function recomputeEffectiveFolioCloud(uid) {
         const currentPeriodKey = monthPeriodKeyEuropeMadrid();
         const FieldPath = admin.firestore.FieldPath;
         const deleteDotted = {
-            [new FieldPath("ink.monthlyBalance")]: FieldValue.delete(),
-            [new FieldPath("ink.purchasedBalance")]: FieldValue.delete(),
-            [new FieldPath("ink.monthlyPeriodKey")]: FieldValue.delete(),
-            [new FieldPath("ink.updatedAt")]: FieldValue.delete(),
+            [new FieldPath("ink.monthlyBalance")]: firestore_1.FieldValue.delete(),
+            [new FieldPath("ink.purchasedBalance")]: firestore_1.FieldValue.delete(),
+            [new FieldPath("ink.monthlyPeriodKey")]: firestore_1.FieldValue.delete(),
+            [new FieldPath("ink.updatedAt")]: firestore_1.FieldValue.delete(),
         };
         await db.runTransaction(async (tx) => {
             var _a, _b;
@@ -1419,7 +1419,7 @@ async function recomputeEffectiveFolioCloud(uid) {
                     monthlyBalance: shouldRefill ? refillAllowance : monthlyBalance,
                     purchasedBalance,
                     monthlyPeriodKey: currentPeriodKey,
-                    updatedAt: FieldValue.serverTimestamp(),
+                    updatedAt: firestore_1.FieldValue.serverTimestamp(),
                 },
                 ...deleteDotted,
             }, { merge: true });
@@ -1439,17 +1439,17 @@ async function recomputeEffectiveFolioCloud(uid) {
         await db.collection("folioCloudSubscribers").doc(uid).set({
             subscriptionPriceId: subIndexPrice,
             microsoftStoreMonthly: msMonthlyActive,
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
     }
     else {
         await db.collection("folioCloudSubscribers").doc(uid).delete().catch(() => undefined);
         const FieldPathInactive = admin.firestore.FieldPath;
         const deleteDottedInactive = {
-            [new FieldPathInactive("ink.monthlyBalance")]: FieldValue.delete(),
-            [new FieldPathInactive("ink.purchasedBalance")]: FieldValue.delete(),
-            [new FieldPathInactive("ink.monthlyPeriodKey")]: FieldValue.delete(),
-            [new FieldPathInactive("ink.updatedAt")]: FieldValue.delete(),
+            [new FieldPathInactive("ink.monthlyBalance")]: firestore_1.FieldValue.delete(),
+            [new FieldPathInactive("ink.purchasedBalance")]: firestore_1.FieldValue.delete(),
+            [new FieldPathInactive("ink.monthlyPeriodKey")]: firestore_1.FieldValue.delete(),
+            [new FieldPathInactive("ink.updatedAt")]: firestore_1.FieldValue.delete(),
         };
         await db.runTransaction(async (tx) => {
             var _a, _b;
@@ -1463,8 +1463,8 @@ async function recomputeEffectiveFolioCloud(uid) {
                 ink: {
                     monthlyBalance: 0,
                     purchasedBalance,
-                    monthlyPeriodKey: FieldValue.delete(),
-                    updatedAt: FieldValue.serverTimestamp(),
+                    monthlyPeriodKey: firestore_1.FieldValue.delete(),
+                    updatedAt: firestore_1.FieldValue.serverTimestamp(),
                 },
                 ...deleteDottedInactive,
             }, { merge: true });
@@ -1517,7 +1517,7 @@ async function syncSubscriptionToUser(stripe, uid, status, priceId, subObj) {
                 subscriptionPriceId: priceId !== null && priceId !== void 0 ? priceId : null,
                 active,
                 familySeats,
-                updatedAt: FieldValue.serverTimestamp(),
+                updatedAt: firestore_1.FieldValue.serverTimestamp(),
             },
         },
     }, { merge: true });
@@ -1550,7 +1550,7 @@ async function grantMicrosoftStoreConsumableInk(uid, grants) {
                     uid,
                     dedupKey: g.dedupKey,
                     drops: g.drops,
-                    processedAt: FieldValue.serverTimestamp(),
+                    processedAt: firestore_1.FieldValue.serverTimestamp(),
                     migratedFromLegacy: true,
                 });
                 return;
@@ -1559,12 +1559,12 @@ async function grantMicrosoftStoreConsumableInk(uid, grants) {
                 uid,
                 dedupKey: g.dedupKey,
                 drops: g.drops,
-                processedAt: FieldValue.serverTimestamp(),
+                processedAt: firestore_1.FieldValue.serverTimestamp(),
             });
             const uref = db.collection("users").doc(uid);
             tx.set(uref, {
-                "ink.purchasedBalance": FieldValue.increment(g.drops),
-                "ink.updatedAt": FieldValue.serverTimestamp(),
+                "ink.purchasedBalance": firestore_1.FieldValue.increment(g.drops),
+                "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
             }, { merge: true });
         });
     }
@@ -1592,7 +1592,7 @@ async function grantMicrosoftStoreBackupStorage(uid, grants) {
                     uid,
                     dedupKey: g.dedupKey,
                     bytes: g.bytes,
-                    processedAt: FieldValue.serverTimestamp(),
+                    processedAt: firestore_1.FieldValue.serverTimestamp(),
                     migratedFromLegacy: true,
                 });
                 return;
@@ -1601,12 +1601,12 @@ async function grantMicrosoftStoreBackupStorage(uid, grants) {
                 uid,
                 dedupKey: g.dedupKey,
                 bytes: g.bytes,
-                processedAt: FieldValue.serverTimestamp(),
+                processedAt: firestore_1.FieldValue.serverTimestamp(),
             });
             const uref = db.collection("users").doc(uid);
             tx.set(uref, {
-                "folioBackup.purchasedBytes": FieldValue.increment(g.bytes),
-                "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+                "folioBackup.purchasedBytes": firestore_1.FieldValue.increment(g.bytes),
+                "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
             }, { merge: true });
         });
     }
@@ -1617,7 +1617,7 @@ async function isWebhookAlreadyProcessed(eventId) {
 }
 async function recordWebhookProcessed(eventId) {
     await db.collection("stripeWebhookEvents").doc(eventId).set({
-        processedAt: FieldValue.serverTimestamp(),
+        processedAt: firestore_1.FieldValue.serverTimestamp(),
     });
 }
 /**
@@ -1678,21 +1678,21 @@ async function grantPaymentCheckoutInkIfNeeded(stripe, uid, expanded) {
     const userRef = db.collection("users").doc(uid);
     if (totalAdded > 0) {
         batch.set(userRef, {
-            "ink.purchasedBalance": FieldValue.increment(totalAdded),
-            "ink.updatedAt": FieldValue.serverTimestamp(),
+            "ink.purchasedBalance": firestore_1.FieldValue.increment(totalAdded),
+            "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
     }
     if (totalBackupBytes > 0) {
         batch.set(userRef, {
-            "folioBackup.purchasedBytes": FieldValue.increment(totalBackupBytes),
-            "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+            "folioBackup.purchasedBytes": firestore_1.FieldValue.increment(totalBackupBytes),
+            "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
     }
     batch.set(doneRef, {
         uid,
         dropsAdded: totalAdded,
         backupBytesAdded: totalBackupBytes,
-        processedAt: FieldValue.serverTimestamp(),
+        processedAt: firestore_1.FieldValue.serverTimestamp(),
     });
     await batch.commit();
     if (totalBackupBytes > 0) {
@@ -1984,7 +1984,7 @@ exports.createCollabRoom = (0, https_1.onCall)({ invoker: "public" }, async (req
         }
         const key = collabJoinCodeKey(norm);
         const indexRef = db.collection("collabJoinIndex").doc(key);
-        const now = FieldValue.serverTimestamp();
+        const now = firestore_1.FieldValue.serverTimestamp();
         try {
             await db.runTransaction(async (tx) => {
                 const idxSnap = await tx.get(indexRef);
@@ -2063,9 +2063,9 @@ exports.joinCollabRoomByCode = (0, https_1.onCall)({ invoker: "public" }, async 
             throw new https_1.HttpsError("failed-precondition", "Room is full");
         }
         tx.update(roomRef, {
-            memberUids: FieldValue.arrayUnion(uid),
-            [`memberJoinedAt.${uid}`]: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
+            memberUids: firestore_1.FieldValue.arrayUnion(uid),
+            [`memberJoinedAt.${uid}`]: firestore_1.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         });
     });
     await clearCollabJoinAttempts(uid);
@@ -2171,7 +2171,7 @@ exports.commitCollabMediaUpload = (0, https_1.onCall)({ invoker: "public" }, asy
             sizeBytes,
             e2eV: 1,
             uploaderUid: uid,
-            createdAt: FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
         });
     }
     catch (e) {
@@ -2219,8 +2219,8 @@ exports.inviteCollabMember = (0, https_1.onCall)({ invoker: "public" }, async (r
             throw new https_1.HttpsError("failed-precondition", `Room has at most ${COLLAB_MAX_MEMBERS} members`);
         }
         tx.update(roomRef, {
-            memberUids: FieldValue.arrayUnion(targetUid),
-            updatedAt: FieldValue.serverTimestamp(),
+            memberUids: firestore_1.FieldValue.arrayUnion(targetUid),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         });
     });
     return { ok: true };
@@ -2257,8 +2257,8 @@ exports.removeCollabMember = (0, https_1.onCall)({ invoker: "public" }, async (r
             throw new https_1.HttpsError("invalid-argument", "Cannot remove the owner");
         }
         tx.update(roomRef, {
-            memberUids: FieldValue.arrayRemove(targetUid),
-            updatedAt: FieldValue.serverTimestamp(),
+            memberUids: firestore_1.FieldValue.arrayRemove(targetUid),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         });
     });
     return { ok: true };
@@ -2504,7 +2504,7 @@ exports.validateMicrosoftStoreEntitlements = (0, https_1.onCall)({ cors: true, i
             microsoftStore: {
                 subscriptionActive: scan.subscriptionActive,
                 subscriptionStoreProductId: scan.subscriptionStoreProductId,
-                lastValidatedAt: FieldValue.serverTimestamp(),
+                lastValidatedAt: firestore_1.FieldValue.serverTimestamp(),
                 lastItemCount: items.length,
             },
         },
@@ -2758,7 +2758,7 @@ exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "pub
     }
     await userRef.update({
         "folioBackup.usedBytes": newUsed,
-        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
     });
     const vaultBackupRef = db
         .collection("users")
@@ -2769,7 +2769,7 @@ exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "pub
         latestCloudPackSnapshotPath: snapPath,
         latestCloudPackSnapshotSizeBytes: snapSize,
         latestCloudPackContentFingerprint: fingerprint.slice(0, 200),
-        latestCloudPackUpdatedAt: FieldValue.serverTimestamp(),
+        latestCloudPackUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
     };
     if (restoreWrapB64 != null && restoreWrapKind != null) {
         vaultPatch.cloudPackRestoreWrapB64 = restoreWrapB64;
@@ -2811,7 +2811,7 @@ exports.folioEnsurePlainVaultSyncSecret = (0, https_1.onCall)({ cors: true, invo
         const generated = (0, crypto_1.randomBytes)(32).toString("base64");
         tx.set(ref, {
             secret: generated,
-            createdAt: FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
         });
         return generated;
     });
@@ -3020,7 +3020,7 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
         const newRev = prevRev + 1;
         tx.update(userRef, {
             "folioBackup.usedBytes": newUsed,
-            "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+            "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
         });
         const patch = {
             rev: newRev,
@@ -3028,7 +3028,7 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
             deviceId,
             deviceName,
             syncFormatVersion: isV2 ? 2 : 1,
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         };
         const displayNameRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.displayName;
         if (typeof displayNameRaw === "string" && displayNameRaw.trim()) {
@@ -3288,7 +3288,7 @@ exports.folioFinalizeAppProfile = (0, https_1.onCall)({ cors: true, invoker: "pu
         : 0;
     await userRef.update({
         "folioBackup.usedBytes": newUsed,
-        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
     });
     const patch = {
         rev: prevRev + 1,
@@ -3296,7 +3296,7 @@ exports.folioFinalizeAppProfile = (0, https_1.onCall)({ cors: true, invoker: "pu
         packStoragePath: packPath,
         packSizeBytes: packSize,
         iconIds,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: firestore_1.FieldValue.serverTimestamp(),
     };
     if (restoreWrapB64 != null) {
         patch.restoreWrapB64 = restoreWrapB64;
@@ -3407,14 +3407,14 @@ exports.folioFinalizeVaultProfile = (0, https_1.onCall)({ cors: true, invoker: "
         : 0;
     await userRef.update({
         "folioBackup.usedBytes": newUsed,
-        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
     });
     await metaRef.set({
         rev: prevRev + 1,
         contentFingerprint: fingerprint.slice(0, 200),
         packStoragePath: packPath,
         packSizeBytes: packSize,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: firestore_1.FieldValue.serverTimestamp(),
     }, { merge: true });
     if (oldPackPath && oldPackPath !== packPath) {
         try {
@@ -3622,16 +3622,16 @@ exports.folioDeleteVaultCloudPack = (0, https_1.onCall)({ cors: true, invoker: "
     let newUsed = Math.max(0, used - freedBytes);
     await userRef.update({
         "folioBackup.usedBytes": newUsed,
-        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
     });
     const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
     await vaultBackupRef.set({
-        latestCloudPackSnapshotPath: FieldValue.delete(),
-        latestCloudPackSnapshotSizeBytes: FieldValue.delete(),
-        latestCloudPackContentFingerprint: FieldValue.delete(),
-        latestCloudPackUpdatedAt: FieldValue.delete(),
-        cloudPackRestoreWrapB64: FieldValue.delete(),
-        cloudPackRestoreWrapKind: FieldValue.delete(),
+        latestCloudPackSnapshotPath: firestore_1.FieldValue.delete(),
+        latestCloudPackSnapshotSizeBytes: firestore_1.FieldValue.delete(),
+        latestCloudPackContentFingerprint: firestore_1.FieldValue.delete(),
+        latestCloudPackUpdatedAt: firestore_1.FieldValue.delete(),
+        cloudPackRestoreWrapB64: firestore_1.FieldValue.delete(),
+        cloudPackRestoreWrapKind: firestore_1.FieldValue.delete(),
     }, { merge: true });
     let vaultRemoved = false;
     if (errors.length === 0) {
@@ -3703,12 +3703,12 @@ exports.folioDeleteVaultLegacyBackup = (0, https_1.onCall)({ cors: true, invoker
     if (typeof vd.latestStoragePath === "string" &&
         vd.latestStoragePath.trim() === storagePath) {
         await vaultBackupRef.set({
-            latestFileName: FieldValue.delete(),
-            latestStoragePath: FieldValue.delete(),
-            latestFingerprint: FieldValue.delete(),
-            latestContainerFormat: FieldValue.delete(),
-            latestSizeBytes: FieldValue.delete(),
-            latestUpdatedAt: FieldValue.delete(),
+            latestFileName: firestore_1.FieldValue.delete(),
+            latestStoragePath: firestore_1.FieldValue.delete(),
+            latestFingerprint: firestore_1.FieldValue.delete(),
+            latestContainerFormat: firestore_1.FieldValue.delete(),
+            latestSizeBytes: firestore_1.FieldValue.delete(),
+            latestUpdatedAt: firestore_1.FieldValue.delete(),
         }, { merge: true });
     }
     let vaultRemoved = false;
@@ -3724,7 +3724,7 @@ exports.folioDeleteVaultLegacyBackup = (0, https_1.onCall)({ cors: true, invoker
             const used = folioBackupUsedField(((_f = userSnap.data()) !== null && _f !== void 0 ? _f : {}));
             await userRef.update({
                 "folioBackup.usedBytes": Math.max(0, used - purged.freedBytes),
-                "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+                "folioBackup.updatedAt": firestore_1.FieldValue.serverTimestamp(),
             });
         }
     }
@@ -3861,7 +3861,7 @@ exports.folioUpsertVaultBackupIndex = (0, https_1.onCall)({ cors: true, invoker:
         .doc(vaultId)
         .set({
         displayName: displayName.slice(0, 120),
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: firestore_1.FieldValue.serverTimestamp(),
     }, { merge: true });
     return { ok: true };
 });
@@ -3934,7 +3934,7 @@ exports.folioRecordVaultBackupMeta = (0, https_1.onCall)({ cors: true, invoker: 
     if (!fingerprint || fingerprint.length > 200) {
         throw new https_1.HttpsError("invalid-argument", "fingerprint invalid");
     }
-    const now = FieldValue.serverTimestamp();
+    const now = firestore_1.FieldValue.serverTimestamp();
     const itemRef = db
         .collection("users")
         .doc(uid)
@@ -4147,7 +4147,7 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
                     tx.update(userRef, {
                         "ink.monthlyBalance": next.monthly,
                         "ink.purchasedBalance": next.purchased,
-                        "ink.updatedAt": FieldValue.serverTimestamp(),
+                        "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
                     });
                 }
                 else {
@@ -4158,7 +4158,7 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
                     tx.update(userRef, {
                         "ink.monthlyBalance": 0,
                         "ink.purchasedBalance": next.purchased,
-                        "ink.updatedAt": FieldValue.serverTimestamp(),
+                        "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
                     });
                 }
             });
@@ -4298,7 +4298,7 @@ exports.monthlyInkRefill = (0, scheduler_1.onSchedule)({
         batch.set(ref, {
             "ink.monthlyBalance": refillAllowance,
             "ink.monthlyPeriodKey": periodKey,
-            "ink.updatedAt": FieldValue.serverTimestamp(),
+            "ink.updatedAt": firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
         n++;
         if (n >= 500) {
@@ -4602,7 +4602,7 @@ exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "25
         }
         if (!savedToYouTrack) {
             await db.collection("folio_diagnostics").add({
-                createdAt: FieldValue.serverTimestamp(),
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
                 installId,
                 kind,
                 appVersion,
@@ -4698,7 +4698,7 @@ exports.inviteFamilyMember = (0, https_1.onCall)({ invoker: "public" }, async (r
         }, { merge: true });
         tx.set(familyRef, {
             ownerUid: callerUid,
-            members: FieldValue.arrayUnion(targetUid),
+            members: firestore_1.FieldValue.arrayUnion(targetUid),
             [`membersInfo.${targetUid}`]: {
                 email: targetUser.email || email,
                 displayName: targetUser.displayName || "",
@@ -4742,11 +4742,11 @@ exports.removeFamilyMember = (0, https_1.onCall)({ invoker: "public" }, async (r
     await db.runTransaction(async (tx) => {
         const familyRef = db.collection("families").doc(familyOwnerUid);
         tx.update(familyRef, {
-            members: FieldValue.arrayRemove(memberUid),
-            [`membersInfo.${memberUid}`]: FieldValue.delete(),
+            members: firestore_1.FieldValue.arrayRemove(memberUid),
+            [`membersInfo.${memberUid}`]: firestore_1.FieldValue.delete(),
         });
         tx.update(targetRef, {
-            familyOwnerUid: FieldValue.delete(),
+            familyOwnerUid: firestore_1.FieldValue.delete(),
         });
     });
     await recomputeEffectiveFolioCloud(memberUid);
@@ -4805,7 +4805,7 @@ exports.onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
         await ref.set({
             email: (_a = user.email) !== null && _a !== void 0 ? _a : "",
             displayName: (_b = user.displayName) !== null && _b !== void 0 ? _b : "",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
         await recomputeEffectiveFolioCloud(uid);
     }
@@ -4821,7 +4821,7 @@ exports.ensureUserDocExists = (0, https_1.onCall)({ invoker: "public" }, async (
     if (!snap.exists) {
         await ref.set({
             email: (_b = request.auth.token.email) !== null && _b !== void 0 ? _b : "",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
         await recomputeEffectiveFolioCloud(uid);
     }

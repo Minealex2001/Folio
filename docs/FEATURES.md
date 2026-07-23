@@ -856,11 +856,164 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 - Durante el onboarding se puede elegir cifrado + contraseña.
 
-### Recuperación NTTData (2026-07-23) y anti-wipe del árbol v1
+### Recuperación de una libreta vaciada por sync (2026-07-23) y anti-wipe del árbol v1
 
-- **Incidente:** la UI mostró 0 folios en NTTData aunque `vault.bin.bak` conservaba ~30 páginas (p. ej. Tareas con kanban). El sync headless trató la libreta como vacía (`loadPayload empty` vía `vault.bin` obsoleto tras migrar a v1), instaló remoto y el cliente llegó a **pushear 0 páginas** a device-sync. Una instancia Debug abierta volvió a persistir `repo/tree.json = {}` tras una recuperación manual.
-- **Recuperación:** `test/recovery/recover_nttdata_from_bak_test.dart` con `FOLIO_RECOVERY_APPLY=1` restaura desde `vault.bin.bak` (no borra `.bak`). Congelar copias en `Documents\FolioRecovery\`.
+- **Incidente:** en una libreta de usuario, la UI mostró 0 folios pese a que `vault.bin.bak` conservaba ~30 páginas (p. ej. una página de tareas con kanban). El sync headless trató la libreta como vacía (`loadPayload empty` vía `vault.bin` obsoleto tras migrar a v1), instaló remoto y el cliente llegó a **pushear 0 páginas** a device-sync. Una instancia Debug abierta volvió a persistir `repo/tree.json = {}` tras una recuperación manual.
+- **Recuperación:** restauración manual desde `vault.bin.bak` (sin borrar el `.bak`) recomponiendo el árbol y regenerando snapshots por revisión; copias congeladas aparte antes de aplicar.
 - **Blindaje:** `VaultLocalStorage.decomposeAndStoreAt` rechaza sustituir un `repo/` con páginas por un payload vacío; `persistNow` (v1) no escribe sesión vacía sobre árbol no vacío; `HeadlessDeviceSyncVault.applyRemotePack` no instala remoto vacío ni pisa un árbol local si `loadPayload` falla pero hay páginas en disco; `_formatVersion` infiere v1 si existe `repo/tree.json` aunque falte el marker.
+
+### Auditoría de continuidad (2026-07-23) — huecos cerrados por rutas equivalentes
+
+Tras el blindaje anterior (headless sync), una auditoría de todos los caminos equivalentes
+encontró que **el mismo incidente era reproducible por otras dos rutas** que no tenían guard.
+Se corrigieron en esta sesión, cada una con test de regresión (fallan sin el fix, pasan con él):
+
+- **`VaultSession.applySyncSnapshotBytes`** (sync con sesión desbloqueada / LAN P2P) y
+  `resolveSyncConflictAcceptRemote`: no tenían el guard "remoto vacío sobre local no vacío"
+  que sí tenía `HeadlessDeviceSyncVault.applyRemotePack`. Un pack remoto espuriamente vacío
+  (manifiesto corrupto/incompleto, o un dispositivo con el bug antiguo) podía vaciar `_pages`
+  en memoria de inmediato (antes de persistir); el guard de `persistNow` protegía el disco,
+  pero el siguiente push automático serializaba la sesión ya vacía y sobreescribía la copia
+  buena en la nube. Ahora ambos métodos rechazan un remoto de 0 páginas cuando el local no
+  está vacío, igual que el camino headless. Test: `test/session/vault_session_sync_guard_test.dart`.
+- **`VaultSession.lock()` con libretas sin cifrar**: retornaba de inmediato
+  (`if (!vaultUsesEncryption) return;`) sin vaciar el guardado v1 pendiente
+  (`_v1TreeSaveTimer`, debounce 450 ms). Si el usuario cambiaba de libreta (`switchVault`)
+  antes de que expirara ese debounce, el guardado pendiente de la libreta abandonada podía
+  completarse después de que `VaultPaths` ya apuntara a la libreta nueva, escribiendo
+  contenido de la libreta vieja dentro del árbol de la nueva (contaminación cruzada). `lock()`
+  ahora vacía siempre el guardado pendiente antes de decidir si hay más trabajo que hacer para
+  libretas cifradas. Test: `test/session/vault_session_lock_flush_test.dart`.
+- **Asimetría headless vs sesión UI en detección de formato**: `HeadlessDeviceSyncVault._formatVersion`
+  ya caía a comprobar `repo/tree.json` si el marker `vault.format` faltaba; el camino de sesión
+  UI (`VaultMigrationTool.readTreeFormatVersion` / `VaultFormatHandler.detectFormat`) no lo
+  hacía y podía tratar una libreta ya migrada como v0 tras un crash entre el swap atómico y la
+  escritura del marker. Ahora ambos caminos comparten el mismo fallback. Test:
+  `test/git/vault_migration_tool_test.dart` (grupo "marker vs tree.json").
+- **`unlockWithDeviceAuth`/`unlockWithPasskey` sin manejo de `VaultCorruptionException`**:
+  a diferencia de `unlockWithPassword`, no llevaban a `VaultFlowState.recovery` ante un árbol
+  v1 no verificable — la excepción se propagaba sin capturar, dejando la DEK asignada sin
+  transición de estado. Ahora los tres caminos de desbloqueo comparten el mismo manejo. Test
+  ejecutado para `unlockWithDeviceAuth` (`test/session/vault_session_unlock_corruption_test.dart`);
+  `unlockWithPasskey` recibió el mismo cambio estructural pero no tiene test propio (requeriría
+  simular la ceremonia WebAuthn completa).
+
+### Segunda ronda (2026-07-23) — los 5 riesgos residuales, cerrados
+
+Los cinco caminos que la primera ronda dejó documentados-pero-sin-fix se cerraron en una
+sesión posterior, cada uno con test de regresión (fallan sin el fix, pasan con él salvo donde
+se indica lo contrario):
+
+- **Camino v0 sin guard**: `VaultRepository.savePayload` (nuevo `_existingV0PageCount`) y la
+  rama `format < 1` de `HeadlessDeviceSyncVault.savePayload` ahora rechazan sustituir un
+  `vault.bin` con páginas por un payload vacío, igual que `decomposeAndStoreAt` en v1 — best
+  effort: si no se puede leer el contenido existente (corrupto, primera escritura), no bloquea.
+  Tests: `test/data/vault_repository_empty_overwrite_test.dart`,
+  `test/services/folio_cloud/headless_device_sync_vault_v0_guard_test.dart`.
+- **Lectura de árbol vacío como válida**: `VaultLocalStorage.loadFromTree()`/`loadFromTreeAt()`
+  ahora comparan un resultado de 0 páginas contra el **último snapshot conocido** en
+  `versions/` (vía su `fileManifest`, sin descomprimir el zip) — si ese snapshot tenía páginas,
+  lanza `VaultCorruptionException` en vez de aceptar la libreta como vacía legítima. Una
+  libreta genuinamente nueva (sin snapshots todavía) no dispara esto. Test:
+  `test/git/vault_local_storage_test.dart` (grupo "loadFromTreeAt").
+- **Import/restore de backup** (`vault_backup.dart` `applyImportToVaultRoot`): escritura
+  atómica de `vault.bin`/`vault.keys`/`vault.mode` vía `AtomicFileWriter` (antes `File.copy`
+  directo) y adjuntos por staging + swap (carpeta `.importing` → rename, la anterior se
+  renombra a `.pre-import` en vez de borrarse). Además, **bug de correctness real**: el import
+  no invalidaba `repo/`/`vault.format`/`vault.v1-verified`, así que restaurar un backup sobre
+  una libreta ya migrada a v1 no tenía ningún efecto visible (el bootstrap seguía leyendo el
+  árbol viejo). Ahora `_invalidateStaleV1TreeAfterImport` renombra `repo/`→`repo.pre-import` y
+  `versions/`→`versions.pre-import` (conservados, no borrados) y borra los markers, forzando
+  una remigración desde el `vault.bin` recién importado. Test:
+  `test/data/vault_backup_import_test.dart`.
+- **Backups programados/cloud-pack** (`vault_pack_sync.dart`, `folio_cloud_pack_sync.dart`,
+  `folio_cloud_backup.dart`, `backup_export_runner.dart`): los cuatro rechazan ahora subir/
+  exportar una libreta local vacía cuando el destino ya tiene contenido (fingerprint/meta
+  previo en los tres primeros; `listZipBackups()` no vacío en el export runner). Test con
+  transporte/destino falso ejecutado para `vault_pack_sync.dart`
+  (`test/services/vault_pack/vault_pack_sync_empty_guard_test.dart`) y
+  `backup_export_runner.dart` (`test/services/backup_destinations/backup_export_runner_empty_guard_test.dart`);
+  `folio_cloud_pack_sync.dart`/`folio_cloud_backup.dart` reciben el mismo guard estructural sin
+  test propio (requeriría mockear Firebase Storage/Functions).
+- **`VaultSnapshotManager.restoreSnapshot`**: ya no borra el árbol destino antes de repoblarlo.
+  Ahora copia a una carpeta de staging en el mismo volumen (`repo.restore-tmp`) y solo hace el
+  swap atómico (`repo` → `repo.restore-old` → borrar) si la copia completa tuvo éxito; si falla
+  a mitad, el árbol destino queda intacto. Test:
+  `test/git/vault_local_storage_test.dart` ("restoreSnapshot leaves targetTreeDir untouched...").
+
+### Validación end-to-end contra Firebase real (2026-07-23)
+
+Todo lo anterior se había verificado solo con `flutter test` (directorios temporales, sin red).
+Para cerrar ese hueco (`folio-staging-minealex` no está aprovisionado: sin plan Blaze, sin
+Cloud Functions habilitadas) se montó el **emulador local de Firebase** (Auth + Firestore +
+Storage + Functions, proyecto demo `demo-folio-emulator-test`, config en `firebase.json` →
+`emulators`) y se ejercitó el pipeline real de device-sync v2 (push/pull incremental por
+blobs content-addressed + Cloud Function `folioFinalizeDeviceSync`/`folioGetDeviceSyncMeta`)
+simulando dos dispositivos sobre la misma cuenta:
+
+- `tool/verify_device_sync_against_emulator.dart` — script Dart plano (sin bindings de
+  Flutter, porque `Firebase.initializeApp()` de los plugins no funciona bajo `flutter test`:
+  falta el canal de plataforma) que habla directo por REST con los cuatro emuladores, usando
+  el mismo cifrado y las mismas rutas que la app real. Uso: arrancar
+  `firebase emulators:start --only auth,firestore,storage,functions --project demo-folio-emulator-test`
+  (requiere Java 21+; el proyecto no viene con uno instalado por defecto) y luego
+  `dart run tool/verify_device_sync_against_emulator.dart`.
+- Escenario probado: dispositivo A sube 1 página → dispositivo B la descubre
+  (`folioGetDeviceSyncMeta`) y descifra correctamente → B edita y añade una página, sube →
+  A vuelve a preguntar y descifra correctamente el contenido de B (2 páginas). Todas las
+  comprobaciones pasan contra Auth/Firestore/Storage/Functions reales (emulados), no mocks.
+- **Dos bugs reales encontrados y arreglados en el camino:**
+  1. `folio_cloud_callable.dart` (`_callFolioHttpsViaHttp`, camino Windows/Linux — el único que
+     usa protocolo HTTP directo porque `cloud_functions` no tiene implementación nativa ahí):
+     leía `DefaultFirebaseOptions.currentPlatform.projectId` (siempre producción) en vez de
+     `Firebase.app().options.projectId` — con `FOLIO_FIREBASE_ENV=staging` en Windows, **todas**
+     las callables apuntaban silenciosamente a producción en vez de a staging. Ahora usa el
+     proyecto con el que de verdad se inicializó Firebase, y admite redirigir al emulador vía
+     `FolioCloudFunctionsEmulator.hostAndPort` (solo para tests, nunca activo en la app
+     empaquetada).
+  2. `functions/src/index.ts`: `const FieldValue = admin.firestore.FieldValue;` (import estilo
+     namespace) se resolvía a `undefined` en el runtime del emulador de Functions, rompiendo
+     `folioFinalizeDeviceSync` (y, al ser una constante compartida, potencialmente cualquier
+     otra función que escribe en Firestore). Corregido usando el import modular
+     `import { FieldValue } from "firebase-admin/firestore"`. No confirmado si esto también
+     ocurría en producción real (no se pudo probar sin aprovisionar staging), pero el fix es
+     el patrón recomendado por Firebase y no tiene downside.
+
+### Incidente real en producción (2026-07-23): contaminación cruzada entre libretas
+
+Justo después de la sesión anterior, `switchVault()` (botón de cambiar de libreta en la
+barra lateral) provocó un crash real (`PathNotFoundException` al renombrar
+`repo.tmp/pages/.../blocks.jsonl.tmp`) **y contaminación cruzada de verdad**: el contenido
+de "Libreta 1" (sin cifrar) quedó escrito encima del árbol de otra libreta cifrada,
+sustituyendo su contenido real.
+
+- **Causa raíz confirmada:** `VaultSession.persistNow()` (formato v1) no tenía ningún mutex,
+  a diferencia de `VaultPersistenceController._activeWrite` en v0. El debounce de guardado
+  (`_v1TreeSaveTimer`, 450 ms) dispara `unawaited(persistNow())` — si ese timer ya se había
+  disparado (la llamada estaba "en vuelo", sin que nadie la esperara) justo cuando el usuario
+  cambiaba de libreta, `lock()`/`flushPendingSave()` solo cancelaban el timer (no-op si ya
+  disparó) y lanzaban **una segunda llamada `persistNow()` concurrente**. Dos consecuencias:
+  1. Ambas llamadas podían pisarse escribiendo/borrando `repo.tmp` a la vez → el crash
+     (`Cannot rename ... blocks.jsonl.tmp`, archivo borrado por la otra llamada a mitad).
+  2. Peor: la llamada suelta original, al resolver `VaultPaths.vaultDirectory()` de forma
+     perezosa, podía hacerlo **después** de que `switchVault()` ya hubiera cambiado
+     `VaultPaths.activeVaultId` a la libreta nueva — escribiendo el payload de la libreta
+     vieja (todavía en memoria) dentro del directorio de la libreta nueva. Esto es
+     precisamente lo que pasó: el contenido de "Libreta 1" reemplazó el árbol real de la
+     otra libreta.
+- **Recuperación aplicada:** se restauró la libreta afectada desde su último snapshot local
+  (`VaultSnapshotManager.restoreSnapshot`, ya con el swap atómico arreglado en esta misma
+  sesión) tras congelar copias de ambas carpetas de libreta. Se perdieron las ediciones
+  hechas ese mismo día después del snapshot (páginas borradas ese día reaparecieron); no se
+  perdió contenido de fondo.
+- **Blindaje:** `VaultSession._v1ActiveWrite` — mutex real (mismo patrón que
+  `VaultPersistenceController`): cualquier llamador a `persistNow()` (incluida una llamada
+  suelta previa) debe esperar su turno. Como `lock()`/`flushPendingSave()` también pasan por
+  este mutex, `switchVault()` ya no puede cambiar `VaultPaths.activeVaultId` mientras quede
+  un guardado v1 de verdad en vuelo — cierra tanto el crash de `repo.tmp` como la
+  contaminación cruzada. Tests (fallan sin el fix, reproduciendo el mismo
+  `PathAccessException` visto en producción, pasan con él):
+  `test/session/vault_session_persist_mutex_test.dart`.
 
 ---
 

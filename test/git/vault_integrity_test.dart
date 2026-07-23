@@ -75,7 +75,7 @@ void main() {
             ],
           ),
         ],
-        displayName: 'NTTData-like',
+        displayName: 'Test Vault',
         pageOrderByParent: {
           '': ['2ae38b10-bf1b-436c-94fd-5a4844196322', 'other-page'],
         },
