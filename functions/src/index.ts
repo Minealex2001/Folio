@@ -5411,6 +5411,10 @@ export const folioReportDiagnostic = onRequest(
     const channel = String(raw.channel ?? "").trim().slice(0, 64);
     const userNote = String(raw.userNote ?? "").trim().slice(0, 2000);
     const logExcerpt = String(raw.logExcerpt ?? "").trim().slice(0, 12000);
+    // Firma calculada en el cliente (tag + tipo de error + prefijo del
+    // mensaje) para deduplicar el MISMO error entre sesiones/dispositivos:
+    // en vez de crear un issue nuevo cada vez, se comenta el existente.
+    const signature = String(raw.signature ?? "").trim().slice(0, 128);
     if (!installId) {
       res.status(400).json({ error: "missing_install_id" });
       return;
@@ -5421,6 +5425,10 @@ export const folioReportDiagnostic = onRequest(
       const ytProjectId = (process.env.YOUTRACK_PROJECT_ID ?? "").trim();
 
       let savedToYouTrack = false;
+      const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+      const sigRef = signature
+        ? db.collection("folio_diagnostic_signatures").doc(signature)
+        : null;
 
       if (ytBaseUrl && ytToken && ytProjectId) {
         const cleanBaseUrl = ytBaseUrl.replace(/\/+$/, "");
@@ -5443,25 +5451,106 @@ export const folioReportDiagnostic = onRequest(
           `\`\`\``
         ].join("\n");
 
-        try {
-          const ytResponse = await fetch(`${cleanBaseUrl}/api/issues`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${ytToken}`,
-            },
-            body: JSON.stringify({
-              project: { id: ytProjectId },
-              summary,
-              description,
-            }),
-          });
+        let existingIssueId = "";
+        if (sigRef) {
+          try {
+            const sigSnap = await sigRef.get();
+            const sigData = sigSnap.data() ?? {};
+            const lastSeenAt = sigData.lastSeenAt as
+              | FirebaseFirestore.Timestamp
+              | undefined;
+            const issueId =
+              typeof sigData.youtrackIssueId === "string"
+                ? sigData.youtrackIssueId
+                : "";
+            if (
+              issueId &&
+              lastSeenAt &&
+              Date.now() - lastSeenAt.toMillis() < DEDUP_WINDOW_MS
+            ) {
+              existingIssueId = issueId;
+            }
+          } catch (sigErr) {
+            console.error("folio_diagnostic_signatures lookup failed", sigErr);
+          }
+        }
 
-          if (ytResponse.ok) {
-            savedToYouTrack = true;
+        try {
+          if (existingIssueId) {
+            const commentText = [
+              `Nueva ocurrencia — install=${installId}, ${platform} ${appVersion}, canal=${channel}.`,
+              ``,
+              `## Log Excerpt`,
+              `\`\`\``,
+              logExcerpt ? logExcerpt : `*No logs provided*`,
+              `\`\`\``
+            ].join("\n");
+            const commentResp = await fetch(
+              `${cleanBaseUrl}/api/issues/${existingIssueId}/comments`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${ytToken}`,
+                },
+                body: JSON.stringify({ text: commentText }),
+              }
+            );
+            if (commentResp.ok) {
+              savedToYouTrack = true;
+              await sigRef!.set(
+                {
+                  lastSeenAt: FieldValue.serverTimestamp(),
+                  count: FieldValue.increment(1),
+                },
+                { merge: true }
+              );
+            } else {
+              const errText = await commentResp.text();
+              console.error(
+                `YouTrack comment failed: ${commentResp.status} ${errText}`
+              );
+            }
           } else {
-            const errText = await ytResponse.text();
-            console.error(`YouTrack issue creation failed: ${ytResponse.status} ${errText}`);
+            const ytResponse = await fetch(`${cleanBaseUrl}/api/issues`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${ytToken}`,
+              },
+              body: JSON.stringify({
+                project: { id: ytProjectId },
+                summary,
+                description,
+              }),
+            });
+
+            if (ytResponse.ok) {
+              savedToYouTrack = true;
+              if (sigRef) {
+                try {
+                  const created = (await ytResponse.json()) as {
+                    id?: string;
+                  };
+                  if (created?.id) {
+                    await sigRef.set({
+                      youtrackIssueId: created.id,
+                      createdAt: FieldValue.serverTimestamp(),
+                      lastSeenAt: FieldValue.serverTimestamp(),
+                      count: 1,
+                    });
+                  }
+                } catch (parseErr) {
+                  console.error(
+                    "YouTrack issue response parse failed",
+                    parseErr
+                  );
+                }
+              }
+            } else {
+              const errText = await ytResponse.text();
+              console.error(`YouTrack issue creation failed: ${ytResponse.status} ${errText}`);
+            }
           }
         } catch (ytErr) {
           console.error("YouTrack integration error", ytErr);
@@ -5478,6 +5567,7 @@ export const folioReportDiagnostic = onRequest(
           channel,
           userNote,
           logExcerpt,
+          signature,
           telemetryEnabled: Boolean(raw.telemetryEnabled),
         });
       }

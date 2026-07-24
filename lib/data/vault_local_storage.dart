@@ -2,6 +2,7 @@
 ///
 /// Persiste de forma atómica vía `repo.tmp` → swap a `repo/`.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -22,6 +23,40 @@ class VaultEmptyOverwriteException implements Exception {
 
 class VaultLocalStorage {
   VaultLocalStorage._();
+
+  /// Serializa lecturas/escrituras del árbol por libreta (clave = ruta del
+  /// directorio de la libreta). Sin esto, la sesión activa (autosave/pull)
+  /// y el sync headless de la misma libreta pueden tocar `repo/`/`repo.tmp`
+  /// a la vez — un `loadFromTreeAt` puede leer el árbol a medio mover (0
+  /// páginas) justo cuando otro `decomposeAndStoreAt` está en el rename, y
+  /// dos escrituras concurrentes pueden pisarse el `repo.tmp` la una a la
+  /// otra. Cada vault tiene su propia cola; libretas distintas no se
+  /// bloquean entre sí.
+  static final Map<String, Future<void>> _vaultLocks = {};
+
+  static Future<T> _withVaultLock<T>(
+    String vaultDirPath,
+    Future<T> Function() action,
+  ) async {
+    final previous = _vaultLocks[vaultDirPath];
+    final completer = Completer<void>();
+    _vaultLocks[vaultDirPath] = completer.future;
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // El error pertenece a esa operación; aquí solo esperamos turno.
+      }
+    }
+    try {
+      return await action();
+    } finally {
+      completer.complete();
+      if (identical(_vaultLocks[vaultDirPath], completer.future)) {
+        _vaultLocks.remove(vaultDirPath);
+      }
+    }
+  }
 
   /// Cuentas aproximadas de páginas en `repo/pages` (meta.json).
   static int countPageDirs(Directory treeDir) {
@@ -55,45 +90,47 @@ class VaultLocalStorage {
     Directory vaultDir,
     VaultPayload payload, {
     bool allowEmptyOverwrite = false,
-  }) async {
-    final treeDir = Directory(p.join(vaultDir.path, 'repo'));
-    final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
-    if (!allowEmptyOverwrite &&
-        existingPages > 0 &&
-        payload.pages.isEmpty) {
-      AppLogger.error(
-        'Blocked empty overwrite of vault tree',
-        tag: 'vault',
-        context: {
-          'vaultDir': vaultDir.path,
-          'existingPages': existingPages,
-          'incomingPages': 0,
-        },
-      );
-      throw VaultEmptyOverwriteException(
-        'Refusing to replace repo/ with $existingPages pages by empty payload',
-      );
-    }
+  }) {
+    return _withVaultLock(vaultDir.path, () async {
+      final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+      final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
+      if (!allowEmptyOverwrite &&
+          existingPages > 0 &&
+          payload.pages.isEmpty) {
+        AppLogger.error(
+          'Blocked empty overwrite of vault tree',
+          tag: 'vault',
+          context: {
+            'vaultDir': vaultDir.path,
+            'existingPages': existingPages,
+            'incomingPages': 0,
+          },
+        );
+        throw VaultEmptyOverwriteException(
+          'Refusing to replace repo/ with $existingPages pages by empty payload',
+        );
+      }
 
-    final tmpDir = Directory(p.join(vaultDir.path, 'repo.tmp'));
+      final tmpDir = Directory(p.join(vaultDir.path, 'repo.tmp'));
 
-    if (tmpDir.existsSync()) {
-      await tmpDir.delete(recursive: true);
-    }
-    await tmpDir.create(recursive: true);
-    await VaultPayloadToTree.decompose(payload, tmpDir);
+      if (tmpDir.existsSync()) {
+        await tmpDir.delete(recursive: true);
+      }
+      await tmpDir.create(recursive: true);
+      await VaultPayloadToTree.decompose(payload, tmpDir);
 
-    final oldDir = Directory(p.join(vaultDir.path, 'repo.old'));
-    if (oldDir.existsSync()) {
-      await oldDir.delete(recursive: true);
-    }
-    if (treeDir.existsSync()) {
-      await treeDir.rename(oldDir.path);
-    }
-    await tmpDir.rename(treeDir.path);
-    if (oldDir.existsSync()) {
-      await oldDir.delete(recursive: true);
-    }
+      final oldDir = Directory(p.join(vaultDir.path, 'repo.old'));
+      if (oldDir.existsSync()) {
+        await oldDir.delete(recursive: true);
+      }
+      if (treeDir.existsSync()) {
+        await treeDir.rename(oldDir.path);
+      }
+      await tmpDir.rename(treeDir.path);
+      if (oldDir.existsSync()) {
+        await oldDir.delete(recursive: true);
+      }
+    });
   }
 
   /// Carga el árbol de archivos desde <vault>/repo/ y lo recompone en VaultPayload.
@@ -131,21 +168,23 @@ class VaultLocalStorage {
   static Future<VaultPayload?> _loadFromTreeDirChecked(
     Directory treeDir,
     Directory vaultDir,
-  ) async {
-    final payload = await loadFromTreeDir(treeDir);
-    if (payload == null || payload.pages.isNotEmpty) return payload;
-    if (await _latestSnapshotHadPages(vaultDir)) {
-      AppLogger.error(
-        'Refusing empty tree load: latest known snapshot had pages',
-        tag: 'vault',
-        context: {'vaultDir': vaultDir.path},
-      );
-      throw VaultCorruptionException(
-        'El árbol describe 0 páginas pero el último snapshot conocido '
-        'tenía contenido; no se acepta como libreta vacía legítima.',
-      );
-    }
-    return payload;
+  ) {
+    return _withVaultLock(vaultDir.path, () async {
+      final payload = await loadFromTreeDir(treeDir);
+      if (payload == null || payload.pages.isNotEmpty) return payload;
+      if (await _latestSnapshotHadPages(vaultDir)) {
+        AppLogger.error(
+          'Refusing empty tree load: latest known snapshot had pages',
+          tag: 'vault',
+          context: {'vaultDir': vaultDir.path},
+        );
+        throw VaultCorruptionException(
+          'El árbol describe 0 páginas pero el último snapshot conocido '
+          'tenía contenido; no se acepta como libreta vacía legítima.',
+        );
+      }
+      return payload;
+    });
   }
 
   static Future<bool> _latestSnapshotHadPages(Directory vaultDir) async {
@@ -161,7 +200,13 @@ class VaultLocalStorage {
         return path.startsWith('pages/') && path.endsWith('meta.json');
       });
     } catch (_) {
-      return false;
+      // Fail-closed: si no podemos verificar el histórico de snapshots (p.
+      // ej. un error de E/S transitorio en `versions/`), no asumamos que la
+      // libreta vacía es legítima — mejor un falso positivo de corrupción
+      // que aceptar un vaciado que no pudimos descartar. Una libreta
+      // genuinamente nueva sin snapshots no llega aquí (sale antes por
+      // `snapshots.isEmpty`).
+      return true;
     }
   }
 
@@ -176,45 +221,52 @@ class VaultLocalStorage {
     final vaultDir = await VaultPaths.vaultDirectory();
     final treeDir = await VaultPaths.vaultTreeDirectory();
 
-    if (!treeDir.existsSync()) {
-      throw StateError(
-        'Árbol no descompuesto; ejecuta decomposeAndStore primero',
+    return _withVaultLock(vaultDir.path, () async {
+      if (!treeDir.existsSync()) {
+        throw StateError(
+          'Árbol no descompuesto; ejecuta decomposeAndStore primero',
+        );
+      }
+
+      final manager = VaultSnapshotManager(
+        vaultDir: vaultDir,
+        deviceId: deviceId!,
       );
-    }
 
-    final manager = VaultSnapshotManager(
-      vaultDir: vaultDir,
-      deviceId: deviceId,
-    );
-
-    await manager.createSnapshot(
-      treeDir: treeDir,
-      label: label,
-      parentSnapshotId: parentSnapshotId,
-    );
+      await manager.createSnapshot(
+        treeDir: treeDir,
+        label: label,
+        parentSnapshotId: parentSnapshotId,
+      );
+    });
   }
 
   /// Obtiene lista de snapshots para el historial de versiones.
   static Future<List<SnapshotInfo>> listSnapshots() async {
     final vaultDir = await VaultPaths.vaultDirectory();
-    final manager = VaultSnapshotManager(
-      vaultDir: vaultDir,
-      deviceId: 'unknown-device',
-    );
+    return _withVaultLock(vaultDir.path, () async {
+      final manager = VaultSnapshotManager(
+        vaultDir: vaultDir,
+        deviceId: 'unknown-device',
+      );
 
-    final snapshots = await manager.listSnapshots();
-    return snapshots
-        .map(
-          (s) => SnapshotInfo(
-            snapshotId: s.snapshotId,
-            createdAtMs: s.createdAtMs,
-            label: s.label,
-            deviceId: s.deviceId,
-          ),
-        )
-        .toList();
+      final snapshots = await manager.listSnapshots();
+      return snapshots
+          .map(
+            (s) => SnapshotInfo(
+              snapshotId: s.snapshotId,
+              createdAtMs: s.createdAtMs,
+              label: s.label,
+              deviceId: s.deviceId,
+            ),
+          )
+          .toList();
+    });
   }
 
+  // TODO: cuando se implemente de verdad, debe unirse al mismo
+  // _withVaultLock(vaultDir.path, ...) que el resto de operaciones sobre el
+  // árbol de esta libreta.
   static Future<bool> restoreSnapshot(String snapshotId) async {
     return false;
   }

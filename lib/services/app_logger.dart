@@ -9,13 +9,31 @@ abstract class AppLogSink {
   Future<void> write(String line);
 }
 
+/// Se invoca en cada [AppLogger.error]. No se llama para debug/info/warn.
+typedef AppLogErrorHook =
+    void Function(
+      String tag,
+      String message,
+      Object? error,
+      StackTrace? stackTrace,
+      Map<String, Object?> context,
+    );
+
 class AppLogger {
   const AppLogger._();
 
   static AppLogSink? _sink;
+  static AppLogErrorHook? _onError;
 
   static void setSink(AppLogSink? sink) {
     _sink = sink;
+  }
+
+  /// Registra un callback para cada `error()` loggeado (fatal o no) — pensado
+  /// para enganchar el auto-report de diagnósticos sin acoplar este módulo
+  /// (bajo nivel, sin dependencias) a `FolioDiagnosticReporter`.
+  static void setOnError(AppLogErrorHook? hook) {
+    _onError = hook;
   }
 
   static void debug(
@@ -92,6 +110,16 @@ class AppLogger {
       // Fire-and-forget; los sinks deben serializar internamente.
       // ignore: discarded_futures
       sink.write('$ts $tag $line$err$st');
+    }
+
+    if (level == AppLogLevel.error) {
+      final hook = _onError;
+      if (hook != null) {
+        // No debe poder tumbar el logging si el hook falla.
+        try {
+          hook(tag, message, error, stackTrace, context);
+        } catch (_) {}
+      }
     }
   }
 

@@ -1276,7 +1276,9 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           packKey: packKey,
           remotePackBytes: plain,
         );
-        if (!applied.ok) throw StateError('headless apply failed');
+        if (!applied.ok) {
+          throw StateError('headless apply failed: vaultId=$vaultId');
+        }
         await _ackStore.saveAck(
           vaultId: vaultId,
           fingerprint: remoteFp,

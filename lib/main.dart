@@ -40,6 +40,9 @@ Future<void> main(List<String> args) async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
       if (!kIsWeb) AppLogger.setSink(await AppLogFileSink.init());
+      // Cualquier AppLogger.error(...) (crash o no) dispara un intento de
+      // auto-report — ver FolioDiagnosticReporter.maybeReportLoggedError.
+      AppLogger.setOnError(FolioDiagnosticReporter.maybeReportLoggedError);
 
       // Opcional: `.env` en disco (solo dart:io). Los secretos habituales van en
       // `lib/config/folio_local_secrets.dart` (y en web solo eso o --dart-define).
@@ -76,6 +79,7 @@ Future<void> main(List<String> args) async {
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
+        // AppLogger.setOnError ya dispara el auto-report para este error.
         AppLogger.error(
           'Flutter framework error',
           tag: 'crash',
@@ -86,22 +90,16 @@ Future<void> main(List<String> args) async {
             'context': details.context?.toDescription(),
           },
         );
-        unawaited(
-          FolioDiagnosticReporter.maybeReportCrash(
-            details.exception,
-            details.stack ?? StackTrace.empty,
-          ),
-        );
       };
 
       PlatformDispatcher.instance.onError = (error, stackTrace) {
+        // AppLogger.setOnError ya dispara el auto-report para este error.
         AppLogger.error(
           'Uncaught PlatformDispatcher error',
           tag: 'crash',
           error: error,
           stackTrace: stackTrace,
         );
-        unawaited(FolioDiagnosticReporter.maybeReportCrash(error, stackTrace));
         return true;
       };
 
@@ -227,14 +225,12 @@ Future<void> main(List<String> args) async {
       );
     },
     (error, stackTrace) {
+      // AppLogger.setOnError ya dispara el auto-report para este error.
       AppLogger.error(
         'Uncaught zoned error',
         tag: 'crash',
         error: error,
         stackTrace: stackTrace,
-      );
-      unawaited(
-        FolioDiagnosticReporter.maybeReportCrash(error, stackTrace),
       );
     },
   );

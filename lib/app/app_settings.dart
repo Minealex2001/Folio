@@ -796,7 +796,9 @@ class AppSettings extends ChangeNotifier {
   bool _meetingNoteForceLocalTranscription = false;
   bool _driveDeleteOriginalsOnUpload = false;
   bool _telemetryEnabled = true;
-  bool _autoCrashReports = false;
+  // Activado por defecto: cubre cualquier AppLogger.error(...), no solo
+  // crashes que tumban la app — ver FolioDiagnosticReporter.
+  bool _autoCrashReports = true;
   FolioAccentColorMode _accentColorMode = FolioAccentColorMode.followSystem;
   int _customAccentArgb = 0xFF455A64;
 
@@ -1366,7 +1368,7 @@ class AppSettings extends ChangeNotifier {
     _driveDeleteOriginalsOnUpload =
         p.getBool(_driveDeleteOriginalsOnUploadKey) ?? false;
     _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? true;
-    _autoCrashReports = p.getBool(_autoCrashReportsKey) ?? false;
+    _autoCrashReports = p.getBool(_autoCrashReportsKey) ?? true;
     _accentColorMode =
         _parseAccentColorMode(p.getString(_accentColorModeKey)) ??
         FolioAccentColorMode.followSystem;

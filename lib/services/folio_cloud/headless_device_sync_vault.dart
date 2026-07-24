@@ -409,6 +409,17 @@ class HeadlessDeviceSyncVault {
         },
       );
       return (ok: true, changed: result.changed, fingerprint: outFp);
+    } on VaultEmptyOverwriteException catch (e) {
+      // La propia guarda anti-vaciado nos ha protegido de una escritura
+      // vacía (p. ej. una lectura a medio mover del árbol por una carrera
+      // con la sesión activa) — esto es un rechazo benigno, no un fallo:
+      // el disco sigue intacto. No debe verse como error de sync en la UI.
+      AppLogger.warn(
+        'headless applyRemotePack skipped: local guard refused empty write',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+      return (ok: true, changed: false, fingerprint: null);
     } catch (e) {
       AppLogger.error(
         'headless applyRemotePack failed',

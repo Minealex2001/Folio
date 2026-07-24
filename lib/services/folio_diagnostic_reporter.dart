@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -14,17 +15,40 @@ import 'app_logger.dart';
 import 'folio_cloud/folio_cloud_callable.dart';
 import 'folio_telemetry.dart';
 
-/// Informes de diagnóstico (opt-in) hacia [folioReportDiagnostic] en Cloud Functions.
+/// Informes de diagnóstico hacia [folioReportDiagnostic] en Cloud Functions.
+/// Activado por defecto (`AppSettings.autoCrashReports`); cubre tanto crashes
+/// no capturados como cualquier `AppLogger.error(...)` (ver `setOnError` en
+/// app_logger.dart) — no solo lo que tumba la app.
 class FolioDiagnosticReporter {
   FolioDiagnosticReporter._();
 
   static AppSettings? _appSettings;
-  static var _autoReportsThisSession = 0;
+  /// Firmas ya reportadas en esta sesión de app — evita mandar el mismo
+  /// error repetido (p. ej. un bucle de reintento cada pocos segundos) más
+  /// de una vez. La deduplicación de verdad entre sesiones/dispositivos vive
+  /// en el servidor (`folioReportDiagnostic` comenta el issue existente en
+  /// vez de crear uno nuevo).
+  static final Set<String> _reportedSignaturesThisSession = {};
   static var _telemetryCrashLogged = false;
-  static const _maxAutoReportsPerSession = 3;
+  static const _maxAutoReportsPerSession = 25;
 
   static void bindAppSettings(AppSettings? settings) {
     _appSettings = settings;
+  }
+
+  /// Firma estable de un error para deduplicar: no es exacta (dos errores
+  /// del mismo tipo con mensajes ligeramente distintos comparten firma a
+  /// propósito), pero basta para no repetir el mismo bug una y otra vez.
+  static String signatureFor({
+    required String tag,
+    required String message,
+    Object? error,
+  }) {
+    final errorType = error?.runtimeType.toString() ?? '';
+    final normalizedMessage =
+        message.length > 60 ? message.substring(0, 60) : message;
+    final raw = '$tag|$errorType|$normalizedMessage';
+    return sha256.convert(utf8.encode(raw)).toString();
   }
 
   static Uri? _reportUri() {
@@ -59,33 +83,44 @@ class FolioDiagnosticReporter {
     }
   }
 
-  static Future<void> maybeReportCrash(
-    Object error,
-    StackTrace stackTrace,
+  /// Enganchado a `AppLogger.setOnError` — se llama para CUALQUIER
+  /// `AppLogger.error(...)`, no solo crashes que tumban la app.
+  static Future<void> maybeReportLoggedError(
+    String tag,
+    String message,
+    Object? error,
+    StackTrace? stackTrace,
+    Map<String, Object?> context,
   ) async {
     final settings = _appSettings;
     if (settings == null || !settings.autoCrashReports) return;
-    if (_autoReportsThisSession >= _maxAutoReportsPerSession) return;
-    _autoReportsThisSession++;
-    if (settings.telemetryEnabled &&
-        !_telemetryCrashLogged &&
-        _autoReportsThisSession == 1) {
+    final signature = signatureFor(tag: tag, message: message, error: error);
+    if (_reportedSignaturesThisSession.contains(signature)) return;
+    if (_reportedSignaturesThisSession.length >= _maxAutoReportsPerSession) {
+      return;
+    }
+    _reportedSignaturesThisSession.add(signature);
+    if (settings.telemetryEnabled && !_telemetryCrashLogged) {
       _telemetryCrashLogged = true;
       unawaited(
         FolioTelemetry.logError(
           settings,
-          error,
-          'auto_crash_report',
+          error ?? StateError(message),
+          'auto_error_report',
           stackTrace: stackTrace,
         ),
       );
     }
     await submit(
-      kind: 'crash',
+      kind: tag == 'crash' ? 'crash' : 'error',
       userNote: '',
       settings: settings,
       error: error,
       stackTrace: stackTrace,
+      signature: signature,
+      loggedTag: tag,
+      loggedMessage: message,
+      loggedContext: context,
     );
   }
 
@@ -95,6 +130,10 @@ class FolioDiagnosticReporter {
     required AppSettings settings,
     Object? error,
     StackTrace? stackTrace,
+    String? signature,
+    String? loggedTag,
+    String? loggedMessage,
+    Map<String, Object?>? loggedContext,
   }) async {
     final uri = _reportUri();
     if (uri == null) {
@@ -108,6 +147,12 @@ class FolioDiagnosticReporter {
       final info = await PackageInfo.fromPlatform();
       final installId = await FolioTelemetry.anonymousInstallId();
       final buf = StringBuffer();
+      if (loggedMessage != null && loggedMessage.isNotEmpty) {
+        buf.writeln('[${loggedTag ?? 'app'}] $loggedMessage');
+        if (loggedContext != null && loggedContext.isNotEmpty) {
+          buf.writeln('context: ${jsonEncode(loggedContext)}');
+        }
+      }
       if (error != null) buf.writeln(error.toString());
       if (stackTrace != null) buf.writeln(stackTrace.toString());
       final logTail = await _readLogTail();
@@ -122,6 +167,7 @@ class FolioDiagnosticReporter {
         'platform': defaultTargetPlatform.name,
         'channel': AppSettings.distributionChannelFromEnvironment.trim(),
         'telemetryEnabled': settings.telemetryEnabled,
+        if (signature != null && signature.isNotEmpty) 'signature': signature,
         'userNote': userNote.trim().length > 2000
             ? userNote.trim().substring(0, 2000)
             : userNote.trim(),
