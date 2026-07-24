@@ -412,30 +412,21 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
           ? l10n.updaterOpenApkDownloadQuestion
           : l10n.updaterStartupDialogQuestion;
       final newVer = result.releaseVersion ?? result.currentVersion;
-      final updateDialogBody =
+      final updateDialogIntro =
           '${l10n.updaterDialogLineCurrentVersion(result.currentVersion.toString())}\n'
-          '${l10n.updaterDialogLineNewVersion(newVer.toString())}$betaNote\n\n'
-          '$question';
-      final go = await showDialog<bool>(
+          '${l10n.updaterDialogLineNewVersion(newVer.toString())}$betaNote';
+      final go = await UpdateAvailableDialogContent.confirm(
         context: context,
-        builder: (ctx) => FolioDialog(
-          title: Text(
-            result.isPrerelease
-                ? l10n.updaterStartupDialogTitleBeta
-                : l10n.updaterStartupDialogTitleStable,
-          ),
-          content: Text(updateDialogBody),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l10n.updaterStartupDialogLater),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(l10n.updaterStartupDialogUpdateNow),
-            ),
-          ],
+        title: Text(
+          result.isPrerelease
+              ? l10n.updaterStartupDialogTitleBeta
+              : l10n.updaterStartupDialogTitleStable,
         ),
+        intro: updateDialogIntro,
+        releaseNotes: result.releaseNotes,
+        question: question,
+        cancelLabel: l10n.updaterStartupDialogLater,
+        confirmLabel: l10n.updaterStartupDialogUpdateNow,
       );
       if (go != true) return;
       if (defaultTargetPlatform == TargetPlatform.android) {

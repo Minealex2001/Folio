@@ -1168,10 +1168,12 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 ## 35. Actualizador integrado
 
-- `lib/services/updater/`: comprueba nuevas versiones disponibles.
-- Notificación in-app cuando hay una actualización.
-- Descarga e instalación guiada (Windows: `.msix`; macOS: `.dmg`; Linux: AppImage).
-- **No aplica en web** ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`).
+- `lib/services/updater/`: comprueba nuevas versiones en GitHub Releases (`Minealex2001/Folio`).
+- Diálogo in-app al arranque y en Ajustes → Acerca de cuando hay actualización.
+- **Patch notes antes de actualizar**: el diálogo muestra el body del release (Markdown) junto a la confirmación (`UpdateAvailableDialogContent`), para leer las novedades antes de descargar/instalar.
+- Descarga e instalación guiada (Windows: instalador Inno `.exe`; Android: abre la URL del `.apk`).
+- Canales `stable` / `beta` en Ajustes.
+- **No aplica en web** ni en builds de Microsoft Store / Play Store (`offersGitHubSelfUpdate`); en tiendas se abre la ficha correspondiente.
 
 ---
 

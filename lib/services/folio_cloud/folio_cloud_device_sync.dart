@@ -17,6 +17,7 @@ import '../app_logger.dart';
 import '../folio_firestore_support.dart';
 import '../sync/vault_sync_merge.dart';
 import '../sync/vault_sync_pack.dart';
+import 'device_sync_push_guard.dart';
 import 'device_sync_vault_bootstrap.dart';
 import 'device_sync_vault_status.dart';
 import 'device_sync_key_cache.dart';
@@ -523,8 +524,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     if (_boundVaultId != vaultId) {
       _boundVaultId = vaultId;
       _resetBoundVaultCaches();
-      await _refreshRemoteMetaOnce();
     }
+    // Comprobar el remoto justo antes de subir: si avanzó desde el último
+    // fingerprint aplicado, esto dispara un pull+merge (vía _onRemoteMeta)
+    // antes de continuar, para no pisar contenido remoto no incorporado.
+    await _refreshRemoteMetaOnce();
 
     _dirty = false;
     _pushInFlight = true;
@@ -537,6 +541,20 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
       final pack = VaultSyncPack.decodeFlexible(raw);
       final fp = VaultSyncMergeEngine.payloadFingerprintShort(pack.payload);
+
+      if (shouldSkipEmptyDeviceSyncPush(
+        payloadHasPages: pack.payload.pages.isNotEmpty,
+        hadPriorContent: _lastPushedFingerprint.isNotEmpty ||
+            _cachedRemoteBlobIds.isNotEmpty,
+      )) {
+        AppLogger.warn(
+          'push skipped: local payload empty but vault had prior content',
+          tag: 'cloud_sync',
+          context: {'vaultId': vaultId},
+        );
+        _dirty = true;
+        return;
+      }
 
       if (fp == _lastPushedFingerprint && !force) {
         return;
@@ -1311,6 +1329,18 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     final pack = VaultSyncPack.decodeFlexible(localBytes);
     final localFp =
         VaultSyncMergeEngine.payloadFingerprintShort(pack.payload);
+    if (shouldSkipEmptyDeviceSyncPush(
+      payloadHasPages: pack.payload.pages.isNotEmpty,
+      hadPriorContent: hasRemote,
+    )) {
+      AppLogger.warn(
+        'headless push skipped: local payload empty but remote has content',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId},
+      );
+      _setStatus('idle');
+      return;
+    }
     if (localFp == remoteFp && hasRemote) {
       await _ackStore.saveAck(
         vaultId: vaultId,

@@ -54,6 +54,7 @@ import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
+import '../features/release_notes/update_available_dialog_content.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
 import '../features/vault/recovery_screen.dart';
@@ -1595,17 +1596,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final betaNote = result.isPrerelease
           ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
-      final shouldInstall = await FolioDialog.confirm(
-        dialogCtx,
+      final shouldInstall = await UpdateAvailableDialogContent.confirm(
+        context: dialogCtx,
         title: Text(
           result.isPrerelease
               ? l10n.updaterStartupDialogTitleBeta
               : l10n.updaterStartupDialogTitleStable,
         ),
-        content: Text(
-          '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
-          '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
-        ),
+        intro:
+            '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote',
+        releaseNotes: result.releaseNotes,
+        question: defaultTargetPlatform == TargetPlatform.android
+            ? l10n.updaterOpenApkDownloadQuestion
+            : l10n.updaterStartupDialogQuestion,
         cancelLabel: l10n.updaterStartupDialogLater,
         confirmLabel: l10n.updaterStartupDialogUpdateNow,
       );

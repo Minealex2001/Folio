@@ -1509,6 +1509,7 @@
   ,"@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}}
   ,"updaterDialogLineNewVersion": "Nueva versión: {releaseVersion}"
   ,"@updaterDialogLineNewVersion": {"placeholders": {"releaseVersion": {}}}
+  ,"updaterDialogReleaseNotesHeading": "Novedades de esta versión"
   ,"updaterApkUrlInvalidSnack": "No se encontró URL válida del APK en el release."
   ,"updaterApkOpenFailedSnack": "No se pudo abrir la descarga del APK."
   ,"toggleTitleHint": "Título del desplegable"

@@ -1511,6 +1511,7 @@
   ,"@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}}
   ,"updaterDialogLineNewVersion": "New version: {releaseVersion}"
   ,"@updaterDialogLineNewVersion": {"placeholders": {"releaseVersion": {}}}
+  ,"updaterDialogReleaseNotesHeading": "What's new in this version"
   ,"updaterApkUrlInvalidSnack": "No valid APK URL was found in the release."
   ,"updaterApkOpenFailedSnack": "Could not open the APK download."
   ,"toggleTitleHint": "Toggle title"

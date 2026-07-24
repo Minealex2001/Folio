@@ -11,8 +11,14 @@ import 'folio_cloud_callable.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_storage_transport.dart';
 
-const int kDeviceSyncFormatVersion = 2;
-const String kDeviceSyncManifestFormat = 'folio.device.sync.manifest.v2';
+/// v3 sube cada página como blob independiente (content-addressed), igual
+/// que los adjuntos; v2 (legacy, aún leído) sube todo el payload en un único
+/// blob. `kDeviceSyncFormatVersion`/`kDeviceSyncManifestFormat` son siempre
+/// los del formato que este cliente ESCRIBE; el pull acepta ambos.
+const int kDeviceSyncFormatVersion = 3;
+const String kDeviceSyncManifestFormat = kDeviceSyncManifestFormatV3;
+const String kDeviceSyncManifestFormatV2 = 'folio.device.sync.manifest.v2';
+const String kDeviceSyncManifestFormatV3 = 'folio.device.sync.manifest.v3';
 
 typedef DeviceSyncTransferProgress = void Function(
   int completed,
@@ -70,21 +76,43 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     context: {
       'vaultId': vaultId,
       'prevBlobs': previousBlobIds.length,
+      'pages': pack.payload.pages.length,
       'attachments': pack.attachments.length,
     },
   );
-  final payloadPlain = utf8.encode(jsonEncode(pack.payload.toJson()));
-  final payloadCipher = await cloudPackEncryptPlainBlob(
-    plain: payloadPlain,
-    packKey: packKey,
-    role: 'device-sync-payload',
+  // v3: cada página es su propio blob content-addressed (como los adjuntos);
+  // el resto del payload (metadatos de libreta, integraciones, etc.) va en
+  // un único blob aparte. Así un push solo sube lo que cambió de verdad.
+  final restPlain = utf8.encode(
+    jsonEncode(pack.payload.restJsonExcludingPages()),
   );
-  final payloadBlobId = await cloudPackBlobIdFromCipherBytes(payloadCipher);
+  final restCipher = await cloudPackEncryptPlainBlob(
+    plain: restPlain,
+    packKey: packKey,
+    role: 'device-sync-vault',
+  );
+  final vaultBlobId = await cloudPackBlobIdFromCipherBytes(restCipher);
+
+  final pageEntries = <Map<String, String>>[];
+  final cipherByBlobId = <String, Uint8List>{
+    vaultBlobId: restCipher,
+  };
+
+  for (final page in pack.payload.pages) {
+    final pagePlain = utf8.encode(
+      jsonEncode(VaultPayload.pageSliceJson(page, pack.payload.comments)),
+    );
+    final pageCipher = await cloudPackEncryptPlainBlob(
+      plain: pagePlain,
+      packKey: packKey,
+      role: 'device-sync-page:${page.id}',
+    );
+    final blobId = await cloudPackBlobIdFromCipherBytes(pageCipher);
+    cipherByBlobId[blobId] = pageCipher;
+    pageEntries.add({'pageId': page.id, 'blobId': blobId});
+  }
 
   final attachmentEntries = <Map<String, String>>[];
-  final cipherByBlobId = <String, Uint8List>{
-    payloadBlobId: payloadCipher,
-  };
 
   for (final a in pack.attachments) {
     final attCipher = await cloudPackEncryptPlainBlob(
@@ -161,7 +189,8 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     'format': kDeviceSyncManifestFormat,
     'formatVersion': kDeviceSyncFormatVersion,
     'contentFingerprint': contentFingerprint,
-    'payloadBlobId': payloadBlobId,
+    'vaultBlobId': vaultBlobId,
+    'pages': pageEntries,
     'attachments': attachmentEntries,
   };
   final manifestCipher = await cloudPackEncryptBytes(
@@ -256,10 +285,27 @@ Future<Set<String>> peekDeviceSyncManifestBlobIds({
   final decoded = jsonDecode(utf8.decode(manifestPlain));
   if (decoded is! Map) return {};
   final map = Map<String, dynamic>.from(decoded);
-  if (map['format'] != kDeviceSyncManifestFormat) return {};
+  final format = map['format'];
+  if (format != kDeviceSyncManifestFormatV2 &&
+      format != kDeviceSyncManifestFormatV3) {
+    return {};
+  }
   final out = <String>{};
-  final payloadBlobId = '${map['payloadBlobId'] ?? ''}'.trim().toLowerCase();
-  if (cloudPackIsValidBlobId(payloadBlobId)) out.add(payloadBlobId);
+  if (format == kDeviceSyncManifestFormatV2) {
+    final payloadBlobId = '${map['payloadBlobId'] ?? ''}'.trim().toLowerCase();
+    if (cloudPackIsValidBlobId(payloadBlobId)) out.add(payloadBlobId);
+  } else {
+    final vaultBlobId = '${map['vaultBlobId'] ?? ''}'.trim().toLowerCase();
+    if (cloudPackIsValidBlobId(vaultBlobId)) out.add(vaultBlobId);
+    final pagesRaw = map['pages'];
+    if (pagesRaw is List) {
+      for (final item in pagesRaw) {
+        if (item is! Map) continue;
+        final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
+        if (cloudPackIsValidBlobId(blobId)) out.add(blobId);
+      }
+    }
+  }
   final attRaw = map['attachments'];
   if (attRaw is List) {
     for (final item in attRaw) {
@@ -298,12 +344,38 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     throw StateError('Invalid device-sync manifest');
   }
   final map = Map<String, dynamic>.from(decoded);
-  if (map['format'] != kDeviceSyncManifestFormat) {
-    throw StateError('Unsupported device-sync manifest format');
+  final format = map['format'];
+  final isV3 = format == kDeviceSyncManifestFormatV3;
+  final isV2 = format == kDeviceSyncManifestFormatV2;
+  if (!isV2 && !isV3) {
+    throw StateError('Unsupported device-sync manifest format: $format');
   }
-  final payloadBlobId = '${map['payloadBlobId'] ?? ''}'.trim().toLowerCase();
-  if (!cloudPackIsValidBlobId(payloadBlobId)) {
-    throw StateError('Invalid payloadBlobId');
+
+  // v2: un único blob con todo el payload. v3: un blob "resto de libreta" +
+  // un blob por página. Ambos casos se resuelven a un conjunto de blobs de
+  // contenido antes de descargar, para reutilizar el mismo downloader.
+  String payloadBlobId = '';
+  final pageSpecs = <({String pageId, String blobId})>[];
+  if (isV2) {
+    payloadBlobId = '${map['payloadBlobId'] ?? ''}'.trim().toLowerCase();
+    if (!cloudPackIsValidBlobId(payloadBlobId)) {
+      throw StateError('Invalid payloadBlobId');
+    }
+  } else {
+    payloadBlobId = '${map['vaultBlobId'] ?? ''}'.trim().toLowerCase();
+    if (!cloudPackIsValidBlobId(payloadBlobId)) {
+      throw StateError('Invalid vaultBlobId');
+    }
+    final pagesRaw = map['pages'];
+    if (pagesRaw is List) {
+      for (final item in pagesRaw) {
+        if (item is! Map) continue;
+        final pageId = '${item['pageId'] ?? ''}'.trim();
+        final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
+        if (pageId.isEmpty || !cloudPackIsValidBlobId(blobId)) continue;
+        pageSpecs.add((pageId: pageId, blobId: blobId));
+      }
+    }
   }
 
   final attRaw = map['attachments'];
@@ -319,7 +391,11 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     }
   }
 
-  final allIds = <String>{payloadBlobId, ...attSpecs.map((e) => e.blobId)};
+  final allIds = <String>{
+    payloadBlobId,
+    ...pageSpecs.map((e) => e.blobId),
+    ...attSpecs.map((e) => e.blobId),
+  };
   final total = allIds.length;
   var done = 0;
 
@@ -354,10 +430,33 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     }
   }
 
-  final payloadBytes = await downloadBlob(payloadBlobId);
-  final payloadJson = jsonDecode(utf8.decode(payloadBytes));
-  if (payloadJson is! Map) {
-    throw StateError('Invalid device-sync payload');
+  final Map<String, dynamic> payloadJson;
+  if (isV2) {
+    final payloadBytes = await downloadBlob(payloadBlobId);
+    final decodedPayload = jsonDecode(utf8.decode(payloadBytes));
+    if (decodedPayload is! Map) {
+      throw StateError('Invalid device-sync payload');
+    }
+    payloadJson = Map<String, dynamic>.from(decodedPayload);
+  } else {
+    final restBytes = await downloadBlob(payloadBlobId);
+    final decodedRest = jsonDecode(utf8.decode(restBytes));
+    if (decodedRest is! Map) {
+      throw StateError('Invalid device-sync vault blob');
+    }
+    final pageSlices = <Map<String, dynamic>>[];
+    for (final spec in pageSpecs) {
+      final pageBytes = await downloadBlob(spec.blobId);
+      final decodedSlice = jsonDecode(utf8.decode(pageBytes));
+      if (decodedSlice is! Map) {
+        throw StateError('Invalid device-sync page blob (${spec.pageId})');
+      }
+      pageSlices.add(Map<String, dynamic>.from(decodedSlice));
+    }
+    payloadJson = VaultPayload.mergeRestAndPageSlices(
+      Map<String, dynamic>.from(decodedRest),
+      pageSlices,
+    );
   }
 
   final attachments = <VaultSyncPackAttachment>[];

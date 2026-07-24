@@ -274,4 +274,55 @@ class VaultPayload {
     final map = jsonDecode(s) as Map<String, dynamic>;
     return VaultPayload.fromJson(map);
   }
+
+  /// JSON de una sola página + sus comentarios, como unidad autocontenida
+  /// para direccionar por contenido en sync incremental (cada página es su
+  /// propio blob, igual que ya se hace con los adjuntos).
+  static Map<String, dynamic> pageSliceJson(
+    FolioPage page,
+    List<LocalPageComment> allComments,
+  ) => {
+    'page': page.toJson(),
+    'comments': allComments
+        .where((c) => c.pageId == page.id)
+        .map((c) => c.toJson())
+        .toList(),
+  };
+
+  /// JSON del payload completo sin `pages` (quedan aparte, direccionadas por
+  /// contenido individualmente). Los comentarios de página van con su página
+  /// vía [pageSliceJson]; los huérfanos (pageId sin página viva) se conservan
+  /// aquí para no perderlos. Se construye a partir de [toJson] en vez de
+  /// re-listar campos a mano, para no arriesgarse a olvidar uno nuevo.
+  Map<String, dynamic> restJsonExcludingPages() {
+    final livePageIds = pages.map((p) => p.id).toSet();
+    final json = Map<String, dynamic>.from(toJson());
+    json.remove('pages');
+    json['comments'] = comments
+        .where((c) => !livePageIds.contains(c.pageId))
+        .map((c) => c.toJson())
+        .toList();
+    return json;
+  }
+
+  /// Inversa de [restJsonExcludingPages] + [pageSliceJson]: reconstruye el
+  /// JSON completo del payload a partir del "resto" y las páginas sueltas.
+  static Map<String, dynamic> mergeRestAndPageSlices(
+    Map<String, dynamic> restJson,
+    List<Map<String, dynamic>> pageSlices,
+  ) {
+    final json = Map<String, dynamic>.from(restJson);
+    final pagesJson = <dynamic>[];
+    final commentsJson = List<dynamic>.from(
+      restJson['comments'] as List? ?? const [],
+    );
+    for (final slice in pageSlices) {
+      pagesJson.add(slice['page']);
+      final sliceComments = slice['comments'];
+      if (sliceComments is List) commentsJson.addAll(sliceComments);
+    }
+    json['pages'] = pagesJson;
+    json['comments'] = commentsJson;
+    return json;
+  }
 }

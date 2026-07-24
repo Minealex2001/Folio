@@ -1513,6 +1513,7 @@
   "@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}},
   "updaterDialogLineNewVersion": "Bertsio berria: {releaseVersion}",
   "@updaterDialogLineNewVersion": {"placeholders": {"releaseVersion": {}}},
+  "updaterDialogReleaseNotesHeading": "Bertsio honen nobedadeak",
   "updaterApkUrlInvalidSnack": "Ez da baliozko APK URLrik aurkitu release-an.",
   "updaterApkOpenFailedSnack": "Ezin izan da APKaren deskarga ireki.",
   "toggleTitleHint": "Interruptorearen izenburua",

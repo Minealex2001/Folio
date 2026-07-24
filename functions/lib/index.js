@@ -2972,7 +2972,12 @@ exports.folioFinalizeDeviceSync = (0, https_1.onCall)({ cors: true, invoker: "pu
     }
     const newBlobs = parseCloudPackBlobSizeList((_q = request.data) === null || _q === void 0 ? void 0 : _q.newBlobs);
     const deleteBlobs = parseCloudPackBlobSizeList((_r = request.data) === null || _r === void 0 ? void 0 : _r.deleteBlobs);
-    if (newBlobs.length > 2000 || deleteBlobs.length > 2000) {
+    // Formato v3: cada página de la libreta sube como su propio blob (antes
+    // era un único blob para todo el payload), así que el primer push v3 de
+    // una libreta con muchas páginas puede traer una entrada de "newBlobs"
+    // por página de golpe. El límite anterior (2000) bastaba para adjuntos
+    // sueltos; se sube para no rechazar esa migración en libretas grandes.
+    if (newBlobs.length > 20000 || deleteBlobs.length > 20000) {
         throw new https_1.HttpsError("invalid-argument", "Too many blob entries");
     }
     const userRef = db.collection("users").doc(uid);
