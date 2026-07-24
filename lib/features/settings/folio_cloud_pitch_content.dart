@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/ui_tokens.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_labels.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_prices.dart';
 
 /// Contenido visual reutilizable del pitch de Folio Cloud (página o onboarding).
 class FolioCloudPitchContent extends StatefulWidget {
@@ -364,12 +366,21 @@ class _FolioCloudPitchContentState extends State<FolioCloudPitchContent>
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          l10n.folioCloudSubscribeMonthly,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.2,
-                          ),
+                        FutureBuilder<FolioCloudCatalogPricesSnapshot>(
+                          future: FolioCloudCatalogPricesService.getPricing(),
+                          builder: (context, snap) {
+                            return Text(
+                              FolioCloudCatalogLabels.subscribeMonthly(
+                                context,
+                                l10n,
+                                snap.data,
+                              ),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.2,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),

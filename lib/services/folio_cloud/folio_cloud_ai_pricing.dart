@@ -3,17 +3,18 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'folio_cloud_callable.dart';
 
 const Map<String, int> kFolioCloudInkCostFallback = <String, int>{
-  'rewrite_block': 1,
-  'summarize_selection': 1,
-  'extract_tasks': 2,
-  'summarize_page': 3,
-  'generate_insert': 5,
-  'generate_page': 8,
-  'chat_turn': 3,
-  'agent_main': 10,
-  'agent_followup': 4,
-  'edit_page_panel': 4,
-  'default': 3,
+  'rewrite_block': 3,
+  'summarize_selection': 3,
+  'extract_tasks': 6,
+  'summarize_page': 6,
+  'generate_insert': 9,
+  'generate_page': 15,
+  'chat_turn': 6,
+  'agent_main': 16,
+  'agent_followup': 9,
+  'edit_page_panel': 9,
+  'transcribe_cloud': 2,
+  'default': 6,
 };
 
 class FolioCloudAiPricingSnapshot {
@@ -36,7 +37,7 @@ class FolioCloudAiPricingSnapshot {
   final bool fromServer;
 
   int costForOperation(String operationKind) {
-    final fallbackDefault = kFolioCloudInkCostFallback['default'] ?? 3;
+    final fallbackDefault = kFolioCloudInkCostFallback['default'] ?? 6;
     return costByOperation[operationKind] ??
         costByOperation['default'] ??
         fallbackDefault;
@@ -102,7 +103,7 @@ class FolioCloudAiPricingService {
     if (parsedCosts.isEmpty) {
       parsedCosts.addAll(kFolioCloudInkCostFallback);
     } else if (!parsedCosts.containsKey('default')) {
-      parsedCosts['default'] = kFolioCloudInkCostFallback['default'] ?? 3;
+      parsedCosts['default'] = kFolioCloudInkCostFallback['default'] ?? 6;
     }
 
     return FolioCloudAiPricingSnapshot(

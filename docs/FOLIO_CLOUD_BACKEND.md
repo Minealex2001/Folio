@@ -9,7 +9,7 @@ El cliente Flutter **no es confiable**: cualquiera puede modificar el código. T
 
 ## Cliente Flutter (Windows / Linux)
 
-El paquete `cloud_functions` **no** expone en Windows (ni en Linux en muchos builds) el plugin nativo de Firebase; el canal Pigeon falla. Las callables de Folio (`createCheckoutSession`, `createBillingPortalSession`, `folioCloudAiComplete`, `folioListVaultBackups`) usan en esas plataformas el **protocolo HTTP** (`Authorization: Bearer` + ID token) con la misma URL `https://REGION-PROJECT_ID.cloudfunctions.net/NAME` que documenta Firebase; ver [callable-reference](https://firebase.google.com/docs/functions/callable-reference) y implementación en [`lib/services/folio_cloud/folio_cloud_callable.dart`](../lib/services/folio_cloud/folio_cloud_callable.dart).
+El paquete `cloud_functions` **no** expone en Windows (ni en Linux en muchos builds) el plugin nativo de Firebase; el canal Pigeon falla. Las callables de Folio (`createCheckoutSession`, `createBillingPortalSession`, `folioCloudCatalogPrices`, `folioCloudAiComplete`, `folioListVaultBackups`) usan en esas plataformas el **protocolo HTTP** (`Authorization: Bearer` + ID token) con la misma URL `https://REGION-PROJECT_ID.cloudfunctions.net/NAME` que documenta Firebase; ver [callable-reference](https://firebase.google.com/docs/functions/callable-reference) y implementación en [`lib/services/folio_cloud/folio_cloud_callable.dart`](../lib/services/folio_cloud/folio_cloud_callable.dart).
 
 **IA en nube (`folioCloudAiComplete`):** está desplegada como Cloud Function **1st gen** (`firebase-functions/v1`), es decir en la infraestructura clásica de `cloudfunctions.net`, **no** como función v2 sobre Cloud Run. Así se evita el perímetro IAM y muchos **HTTP 429** que en escritorio se confunden con límites de tinta. El resto de callables del repo siguen en **v2** (Cloud Run); para ellas aplica el aviso IAM de abajo. Si en el proyecto ya existía `folioCloudAiComplete` como v2, conviene **borrarla** (consola GCP o `firebase functions:delete folioCloudAiComplete --region us-central1` según tu flujo) y luego `firebase deploy --only functions` para que solo quede la 1st gen con el mismo nombre.
 
@@ -122,17 +122,18 @@ La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); COR
 
 | `operationKind`   | Gotas base |
 |-------------------|------------|
-| `rewrite_block`   | 1          |
-| `summarize_selection` | 1    |
-| `extract_tasks`   | 2          |
-| `summarize_page`  | 3          |
-| `generate_insert` | 5          |
-| `generate_page`   | 8          |
-| `chat_turn`       | 3          |
-| `agent_main`      | 10         |
-| `agent_followup`  | 4          |
-| `edit_page_panel` | 4          |
-| `default`         | 3          |
+| `rewrite_block`   | 3          |
+| `summarize_selection` | 3    |
+| `extract_tasks`   | 6          |
+| `summarize_page`  | 6          |
+| `generate_insert` | 9          |
+| `generate_page`   | 15         |
+| `chat_turn`       | 6          |
+| `agent_main`      | 16         |
+| `agent_followup`  | 9          |
+| `edit_page_panel` | 9          |
+| `transcribe_cloud`| 2          |
+| `default`         | 6          |
 
 - **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada). Si el **input total** (suma aproximada de `prompt` + `systemPrompt` + `messages[].content`) supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa del proveedor de **Quill Cloud**, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
 - `folioCloudAiComplete` (callable **1st gen**) exige `folioCloud.active` y `features.cloudAi`, descuenta el coste base en una transacción y llama al **endpoint de chat de Quill Cloud** (configuración vía variables de entorno en Functions). Si la IA falla después del débito, se reembolsa el **mismo** importe base (`refundInkDropCharge`). Sin tinta suficiente: `HttpsError` con código `resource-exhausted`.
@@ -142,4 +143,4 @@ La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); COR
 
 - El backend usa `POST {OPENAI_BASE_URL}/chat/completions` con `Authorization: Bearer` y cuerpo `model`, `messages`, `max_tokens`, `temperature`. La URL base y la clave se configuran en Cloud Functions (variables de entorno del proyecto).
 - Para **cobrar tinta en función del trabajo real**, se lee **`usage.total_tokens`** en la respuesta para el suplemento por tokens además del coste base por `operationKind`.
-- El modelo por defecto en código es `gpt-4o-mini`; `OPENAI_MODEL` en Functions lo sobrescribe. Opcionales: `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TEMPERATURE`.
+- El modelo de chat por defecto en código es `gpt-4o-mini`; `OPENAI_MODEL` en Functions lo sobrescribe. La transcripción usa `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`). Opcionales: `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TEMPERATURE`.

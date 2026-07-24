@@ -1327,9 +1327,12 @@
       "failed": {"type": "int"}
     }
   }
-  ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
-  ,"folioCloudSubscribeFamily": "Family Plan (€4.99 + €2.99/member/mo)"
-  ,"folioCloudSubscribeStudent": "Student Tier (€2.49/mo)"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud {price}/mo"
+  ,"@folioCloudSubscribeMonthly": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudSubscribeFamily": "Family Plan ({base} + {perMember}/member/mo)"
+  ,"@folioCloudSubscribeFamily": {"placeholders": {"base": {"type": "String"}, "perMember": {"type": "String"}}}
+  ,"folioCloudSubscribeStudent": "Student Tier ({price}/mo)"
+  ,"@folioCloudSubscribeStudent": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudPlanActiveStudent": "Student Subscription Active"
   ,"folioCloudPlanActiveFamily": "Family Subscription Active"
   ,"folioCloudPlanActiveFamilyMember": "Family Subscription (Member)"
@@ -1360,9 +1363,12 @@
   ,"folioCloudPitchGuestTeaserBody": "Optional account: see what the plan includes, then sign in when you want to subscribe."
   ,"folioCloudPitchOpenSettingsToSignIn": "Open Settings and sign in to Folio Cloud (Folio Cloud section) to subscribe."
   ,"folioCloudBuyInk": "Buy ink"
-  ,"folioCloudInkSmall": "Small ink bottle (€1.99)"
-  ,"folioCloudInkMedium": "Medium ink bottle (€4.99)"
-  ,"folioCloudInkLarge": "Large ink bottle (€9.99)"
+  ,"folioCloudInkSmall": "Small ink bottle ({price})"
+  ,"@folioCloudInkSmall": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudInkMedium": "Medium ink bottle ({price})"
+  ,"@folioCloudInkMedium": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudInkLarge": "Large ink bottle ({price})"
+  ,"@folioCloudInkLarge": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudManageSubscription": "Manage subscription"
   ,"folioCloudRefreshFromStripe": "Refresh"
   ,"folioCloudMicrosoftStoreBillingTitle": "Microsoft Store (Windows)"
@@ -1403,11 +1409,14 @@
   ,"folioCloudBackupStorageStatRemaining": "Remaining"
   ,"folioCloudBackupStorageExpansionTitle": "Extra backup storage"
   ,"folioCloudBackupStorageLibrarySmallTitle": "Small library"
-  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · €1.99/mo"
+  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · {price}/mo"
+  ,"@folioCloudBackupStorageLibrarySmallDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudBackupStorageLibraryMediumTitle": "Medium library"
-  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · €4.99/mo"
+  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · {price}/mo"
+  ,"@folioCloudBackupStorageLibraryMediumDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudBackupStorageLibraryLargeTitle": "Large library"
-  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · €9.99/mo"
+  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · {price}/mo"
+  ,"@folioCloudBackupStorageLibraryLargeDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudSubscribeBackupStorageAddon": "Subscribe"
   ,"folioCloudBackupTypeIncremental": "Incremental backup (latest)"
   ,"folioCloudBackupPackNoDownload": "Incremental backups are restored with “Import and overwrite”. There is no separate file download."
@@ -1463,7 +1472,8 @@
   ,"onboardingFolioCloudPitchForProjects": "Collaborate and publish selected pages—your full notebook stays private."
   ,"onboardingFolioCloudPitchForKnowledge": "Use Quill Cloud to organize and explore your knowledge base."
   ,"onboardingFolioCloudPitchForStudy": "Study smarter with hosted Quill and monthly ink refills."
-  ,"onboardingFolioCloudCtaSubscribe": "Subscribe — 4.99 €/month"
+  ,"onboardingFolioCloudCtaSubscribe": "Subscribe — {price}/month"
+  ,"@onboardingFolioCloudCtaSubscribe": {"placeholders": {"price": {"type": "String"}}}
   ,"onboardingFolioCloudCtaCreateAccount": "Create account and explore"
   ,"onboardingFolioCloudSkip": "Continue without cloud"
   ,"collabMenuAction": "Live collaboration"

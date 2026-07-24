@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioEnsurePlainVaultSyncSecret = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsExchangeOAuth = exports.folioSlackExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioListPendingIntegrationCommands = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.folioUpsertIntegrationWebhookConnection = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = void 0;
+exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioEnsurePlainVaultSyncSecret = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.folioCloudCatalogPrices = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsExchangeOAuth = exports.folioSlackExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioListPendingIntegrationCommands = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.folioUpsertIntegrationWebhookConnection = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -80,18 +80,18 @@ const STUDENT_BACKUP_BASE_QUOTA_BYTES = 15 * 1024 * 1024 * 1024;
 const INK_TIMEZONE = "Europe/Madrid";
 /** Coste base por tipo de operación (cliente envía `operationKind`; desconocidos → `default`). */
 const INK_COST_BY_OPERATION = {
-    rewrite_block: 1,
-    summarize_selection: 1,
-    extract_tasks: 2,
-    summarize_page: 2,
-    generate_insert: 3,
-    generate_page: 5,
-    chat_turn: 2,
-    agent_main: 6,
-    agent_followup: 3,
-    edit_page_panel: 3,
-    transcribe_cloud: 1,
-    default: 2,
+    rewrite_block: 3,
+    summarize_selection: 3,
+    extract_tasks: 6,
+    summarize_page: 6,
+    generate_insert: 9,
+    generate_page: 15,
+    chat_turn: 6,
+    agent_main: 16,
+    agent_followup: 9,
+    edit_page_panel: 9,
+    transcribe_cloud: 2,
+    default: 6,
 };
 /** Tope de gotas cobradas en una sola callable (anti-abuso). */
 const INK_MAX_PER_REQUEST = 16;
@@ -126,6 +126,10 @@ function openAiBaseUrl() {
 function openAiModel() {
     var _a;
     return ((_a = process.env.OPENAI_MODEL) === null || _a === void 0 ? void 0 : _a.trim()) || "gpt-4o-mini";
+}
+function openAiTranscribeModel() {
+    var _a;
+    return ((_a = process.env.OPENAI_TRANSCRIBE_MODEL) === null || _a === void 0 ? void 0 : _a.trim()) || "gpt-4o-transcribe";
 }
 function openAiMaxOutputTokens() {
     var _a;
@@ -1869,6 +1873,72 @@ exports.stripeWebhook = (0, https_2.onRequest)(
         console.error("Webhook handler error", e);
         res.status(500).send("Handler error");
     }
+});
+async function retrieveCatalogPriceDisplay(stripe, catalogId) {
+    const raw = catalogId.trim();
+    if (!raw)
+        return null;
+    try {
+        const priceId = await resolveCatalogIdToPriceId(stripe, raw);
+        const price = await stripe.prices.retrieve(priceId);
+        if (price.unit_amount == null || !Number.isFinite(price.unit_amount)) {
+            return null;
+        }
+        return {
+            unitAmount: price.unit_amount,
+            currency: (price.currency || "eur").toLowerCase(),
+        };
+    }
+    catch (e) {
+        console.warn("retrieveCatalogPriceDisplay", raw, e);
+        return null;
+    }
+}
+/**
+ * Importes de catálogo Stripe para la UI (sin hardcodear € en l10n).
+ * No requiere auth: solo expone unit_amount/currency de los Price IDs del servidor.
+ */
+exports.folioCloudCatalogPrices = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a;
+    const isDebug = ((_a = request.data) === null || _a === void 0 ? void 0 : _a.debug) === true;
+    const stripe = stripeClient(isDebug);
+    if (!stripe) {
+        throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
+    }
+    const entries = [
+        { key: "folio_cloud_monthly", catalogId: priceFolioCloudMonthly(isDebug) },
+        { key: "folio_family_monthly", catalogId: priceFolioCloudFamily(isDebug) },
+        {
+            key: "folio_family_member",
+            catalogId: priceFolioCloudFamilyMember(isDebug),
+        },
+        {
+            key: "folio_student_monthly",
+            catalogId: priceFolioCloudStudent(isDebug),
+        },
+        { key: "ink_small", catalogId: priceInkSmall(isDebug) },
+        { key: "ink_medium", catalogId: priceInkMedium(isDebug) },
+        { key: "ink_large", catalogId: priceInkLarge(isDebug) },
+        {
+            key: "backup_storage_pack_small",
+            catalogId: priceBackupStoragePackSmall(isDebug),
+        },
+        {
+            key: "backup_storage_pack_medium",
+            catalogId: priceBackupStoragePackMedium(isDebug),
+        },
+        {
+            key: "backup_storage_pack_large",
+            catalogId: priceBackupStoragePackLarge(isDebug),
+        },
+    ];
+    const prices = {};
+    await Promise.all(entries.map(async ({ key, catalogId }) => {
+        const display = await retrieveCatalogPriceDisplay(stripe, catalogId);
+        if (display)
+            prices[key] = display;
+    }));
+    return { prices };
 });
 /** Misma condición que Storage rules `folioCloudBackupOk` (copias en la nube). */
 async function assertFolioCloudBackupAllowed(uid) {
@@ -4101,9 +4171,10 @@ async function _diarizeSegmentsWithGpt(segments, inferenceApiKey) {
         .join("\n");
 }
 /**
- * Transcribe un fragmento de audio WAV (base64) vía gpt-4o-mini-transcribe,
+ * Transcribe un fragmento de audio WAV (base64) vía el modelo de
+ * `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`),
  * con diarización automática de hablantes usando GPT-4o-mini.
- * Si `chargeInk` es true, debita 1 gota de tinta (tranche de 5 minutos).
+ * Si `chargeInk` es true, debita tinta (`transcribe_cloud` / `inkAmount`).
  * En caso de fallo de transcripción, reembolsa la tinta cobrada.
  */
 exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
@@ -4190,8 +4261,8 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
         for (let attempt = 0; attempt <= maxTranscribeRetries; attempt++) {
             const form = new FormData();
             form.append("file", blob, "chunk.wav");
-            // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
-            form.append("model", "gpt-4o-mini-transcribe");
+            // OPENAI_TRANSCRIBE_MODEL (default gpt-4o-transcribe); soporta verbose_json
+            form.append("model", openAiTranscribeModel());
             if (language && language !== "auto") {
                 form.append("language", language.slice(0, 2).toLowerCase());
             }

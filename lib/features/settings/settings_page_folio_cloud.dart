@@ -453,7 +453,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
       return '${gb.toStringAsFixed(gb >= 100 ? 1 : 2)} GB';
     }
 
-    return Column(
+    return FutureBuilder<FolioCloudCatalogPricesSnapshot>(
+      future: FolioCloudCatalogPricesService.getPricing(),
+      builder: (context, catalogSnap) {
+        final catalog = catalogSnap.data;
+        return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Divider(height: 1),
@@ -697,7 +701,13 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           FilledButton.icon(
                             onPressed: busy ? null : onSubscribeMonthly,
                             icon: const Icon(Icons.subscriptions_outlined, size: 20),
-                            label: Text(l10n.folioCloudSubscribeMonthly),
+                            label: Text(
+                              FolioCloudCatalogLabels.subscribeMonthly(
+                                context,
+                                l10n,
+                                catalog,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -710,7 +720,13 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                           ? onSubscribeStudent
                                           : () => _showStudentVerificationDialog(context)),
                                   icon: const Icon(Icons.school_outlined, size: 20),
-                                  label: Text(l10n.folioCloudSubscribeStudent),
+                                  label: Text(
+                                    FolioCloudCatalogLabels.subscribeStudent(
+                                      context,
+                                      l10n,
+                                      catalog,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -834,19 +850,31 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   final cards = [
                     _FolioCloudInkPackCard(
                       scheme: scheme,
-                      title: l10n.folioCloudInkSmall,
+                      title: FolioCloudCatalogLabels.inkSmall(
+                        context,
+                        l10n,
+                        catalog,
+                      ),
                       drops: 300,
                       onPressed: busy ? null : onInkSmall,
                     ),
                     _FolioCloudInkPackCard(
                       scheme: scheme,
-                      title: l10n.folioCloudInkMedium,
+                      title: FolioCloudCatalogLabels.inkMedium(
+                        context,
+                        l10n,
+                        catalog,
+                      ),
                       drops: 1000,
                       onPressed: busy ? null : onInkMedium,
                     ),
                     _FolioCloudInkPackCard(
                       scheme: scheme,
-                      title: l10n.folioCloudInkLarge,
+                      title: FolioCloudCatalogLabels.inkLarge(
+                        context,
+                        l10n,
+                        catalog,
+                      ),
                       drops: 2500,
                       onPressed: busy ? null : onInkLarge,
                     ),
@@ -1140,19 +1168,31 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       _FolioCloudBackupStorageTierCard(
                         scheme: scheme,
                         title: l10n.folioCloudBackupStorageLibrarySmallTitle,
-                        detail: l10n.folioCloudBackupStorageLibrarySmallDetail,
+                        detail: FolioCloudCatalogLabels.backupStorageSmall(
+                          context,
+                          l10n,
+                          catalog,
+                        ),
                         onPressed: busy ? null : onBackupStoragePackSmall,
                       ),
                       _FolioCloudBackupStorageTierCard(
                         scheme: scheme,
                         title: l10n.folioCloudBackupStorageLibraryMediumTitle,
-                        detail: l10n.folioCloudBackupStorageLibraryMediumDetail,
+                        detail: FolioCloudCatalogLabels.backupStorageMedium(
+                          context,
+                          l10n,
+                          catalog,
+                        ),
                         onPressed: busy ? null : onBackupStoragePackMedium,
                       ),
                       _FolioCloudBackupStorageTierCard(
                         scheme: scheme,
                         title: l10n.folioCloudBackupStorageLibraryLargeTitle,
-                        detail: l10n.folioCloudBackupStorageLibraryLargeDetail,
+                        detail: FolioCloudCatalogLabels.backupStorageLarge(
+                          context,
+                          l10n,
+                          catalog,
+                        ),
                         onPressed: busy ? null : onBackupStoragePackLarge,
                       ),
                     ];
@@ -1277,6 +1317,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
+    );
+      },
     );
   }
 

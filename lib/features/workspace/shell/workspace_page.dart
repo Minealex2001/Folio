@@ -48,6 +48,8 @@ import '../../../services/media/media_playback_router.dart';
 import '../../../services/spotify/spotify_playback_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
+import '../../../services/folio_cloud/folio_cloud_catalog_labels.dart';
+import '../../../services/folio_cloud/folio_cloud_catalog_prices.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
@@ -1707,18 +1709,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openFolioCloudSubscriptionPitch() {
+  Future<void> _openFolioCloudSubscriptionPitch() async {
     if (_folioCloudCheckoutBusy) return;
     final l10n = AppLocalizations.of(context);
     final signedIn = widget.cloudAccountController.isSignedIn;
-    Navigator.of(context).push<void>(
+    final catalog = signedIn
+        ? await FolioCloudCatalogPricesService.getPricing()
+        : null;
+    if (!mounted) return;
+    final primaryLabel = signedIn
+        ? FolioCloudCatalogLabels.subscribeMonthly(context, l10n, catalog)
+        : l10n.folioCloudPitchCtaNeedAccount;
+    await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'folio_cloud_pitch'),
         builder: (ctx) => FolioCloudSubscriptionPitchPage(
           busy: _folioCloudCheckoutBusy,
-          primaryCtaLabel: signedIn
-              ? l10n.folioCloudSubscribeMonthly
-              : l10n.folioCloudPitchCtaNeedAccount,
+          primaryCtaLabel: primaryLabel,
           primaryIcon: signedIn
               ? Icons.subscriptions_outlined
               : Icons.person_add_outlined,

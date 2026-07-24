@@ -6,6 +6,8 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../models/folio_usage_intent.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_labels.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_prices.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_pitch_helpers.dart';
 import '../../services/folio_telemetry.dart';
@@ -38,6 +40,7 @@ class OnboardingCloudPitchStep extends StatefulWidget {
 
 class _OnboardingCloudPitchStepState extends State<OnboardingCloudPitchStep> {
   var _actionBusy = false;
+  FolioCloudCatalogPricesSnapshot? _catalog;
 
   FolioCloudConversionFlow get _conversion => FolioCloudConversionFlow(
         cloud: widget.cloud,
@@ -55,12 +58,25 @@ class _OnboardingCloudPitchStepState extends State<OnboardingCloudPitchStep> {
     unawaited(
       FolioTelemetry.logOnboardingCloudPitchViewed(),
     );
+    unawaited(_loadCatalog());
+  }
+
+  Future<void> _loadCatalog() async {
+    final catalog = await FolioCloudCatalogPricesService.getPricing();
+    if (!mounted) return;
+    setState(() => _catalog = catalog);
   }
 
   String _primaryCtaLabel(AppLocalizations l10n) {
     final snap = widget.folio.snapshot;
     if (snap.active) return l10n.continueAction;
-    if (widget.cloud.isSignedIn) return l10n.onboardingFolioCloudCtaSubscribe;
+    if (widget.cloud.isSignedIn) {
+      return FolioCloudCatalogLabels.onboardingSubscribe(
+        context,
+        l10n,
+        _catalog,
+      );
+    }
     return l10n.onboardingFolioCloudCtaCreateAccount;
   }
 

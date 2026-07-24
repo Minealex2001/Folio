@@ -1325,9 +1325,12 @@
       "failed": {"type": "int"}
     }
   }
-  ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
-  ,"folioCloudSubscribeFamily": "Plan Familiar (4,99 € + 2,99 €/miembro al mes)"
-  ,"folioCloudSubscribeStudent": "Tarifa Estudiante (2,49 €/mes)"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud {price}/mes"
+  ,"@folioCloudSubscribeMonthly": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudSubscribeFamily": "Plan Familiar ({base} + {perMember}/miembro al mes)"
+  ,"@folioCloudSubscribeFamily": {"placeholders": {"base": {"type": "String"}, "perMember": {"type": "String"}}}
+  ,"folioCloudSubscribeStudent": "Tarifa Estudiante ({price}/mes)"
+  ,"@folioCloudSubscribeStudent": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudPlanActiveStudent": "Suscripción de Estudiante Activa"
   ,"folioCloudPlanActiveFamily": "Suscripción Familiar Activa"
   ,"folioCloudPlanActiveFamilyMember": "Suscripción Familiar (Miembro)"
@@ -1358,9 +1361,12 @@
   ,"folioCloudPitchGuestTeaserBody": "Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte."
   ,"folioCloudPitchOpenSettingsToSignIn": "Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte."
   ,"folioCloudBuyInk": "Comprar tinta"
-  ,"folioCloudInkSmall": "Tintero pequeño (1,99 €)"
-  ,"folioCloudInkMedium": "Tintero mediano (4,99 €)"
-  ,"folioCloudInkLarge": "Tintero grande (9,99 €)"
+  ,"folioCloudInkSmall": "Tintero pequeño ({price})"
+  ,"@folioCloudInkSmall": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudInkMedium": "Tintero mediano ({price})"
+  ,"@folioCloudInkMedium": {"placeholders": {"price": {"type": "String"}}}
+  ,"folioCloudInkLarge": "Tintero grande ({price})"
+  ,"@folioCloudInkLarge": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudManageSubscription": "Gestionar suscripción"
   ,"folioCloudRefreshFromStripe": "Actualizar"
   ,"folioCloudMicrosoftStoreBillingTitle": "Microsoft Store (Windows)"
@@ -1401,11 +1407,14 @@
   ,"folioCloudBackupStorageStatRemaining": "Restante"
   ,"folioCloudBackupStorageExpansionTitle": "Ampliar almacenamiento de copias"
   ,"folioCloudBackupStorageLibrarySmallTitle": "Librería pequeña"
-  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · 1,99 €/mes"
+  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · {price}/mes"
+  ,"@folioCloudBackupStorageLibrarySmallDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudBackupStorageLibraryMediumTitle": "Librería mediana"
-  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · 4,99 €/mes"
+  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · {price}/mes"
+  ,"@folioCloudBackupStorageLibraryMediumDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudBackupStorageLibraryLargeTitle": "Librería grande"
-  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · 9,99 €/mes"
+  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · {price}/mes"
+  ,"@folioCloudBackupStorageLibraryLargeDetail": {"placeholders": {"price": {"type": "String"}}}
   ,"folioCloudSubscribeBackupStorageAddon": "Suscribirse"
   ,"folioCloudBackupTypeIncremental": "Copia incremental (última)"
   ,"folioCloudBackupPackNoDownload": "Las copias incrementales se restauran con «Importar y sobrescribir». No hay descarga de archivo aparte."
@@ -1456,7 +1465,8 @@
   ,"onboardingFolioCloudPitchForProjects": "Colabora y publica folios seleccionadas—tu libreta completa sigue siendo privada."
   ,"onboardingFolioCloudPitchForKnowledge": "Usa la Quill Cloud para organizar y explorar tu base de conocimiento."
   ,"onboardingFolioCloudPitchForStudy": "Estudia mejor con Quill hospedada y recarga mensual de tinta."
-  ,"onboardingFolioCloudCtaSubscribe": "Suscribirse — 4,99 €/mes"
+  ,"onboardingFolioCloudCtaSubscribe": "Suscribirse — {price}/mes"
+  ,"@onboardingFolioCloudCtaSubscribe": {"placeholders": {"price": {"type": "String"}}}
   ,"onboardingFolioCloudCtaCreateAccount": "Crear cuenta y explorar"
   ,"onboardingFolioCloudSkip": "Continuar sin nube"
   ,"folioCloudPitchPremiumMonthlyLabel": "Plan Premium mensual"

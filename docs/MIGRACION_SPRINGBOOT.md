@@ -282,7 +282,7 @@ CREATE TABLE vault_backup_blobs (
 
 ### 3.5 IA
 - `folioCloudAiPricing`, `folioCloudAiComplete` (v1, deliberadamente 1st-gen por temas de IAM/429 — ver docs), `folioCloudAiCompleteHttp` (fallback HTTP puro), `folioCloudTranscribeChunk`.
-- Usan **OpenAI** directamente: `gpt-4o-mini` para completado y `gpt-4o-mini-transcribe` para audio (no Whisper API clásica, aunque el código interno aún se refiere a "Whisper segments" por el formato `verbose_json`).
+- Usan **OpenAI** directamente: modelo de chat vía `OPENAI_MODEL` (default `gpt-4o-mini`) y transcripción vía `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`; no Whisper API clásica, aunque el código interno aún se refiere a "Whisper segments" por el formato `verbose_json`).
 - → Spring: un servicio que llama a la API de OpenAI con el mismo modelo; la lógica de negocio (cobro/reembolso de tinta, límites) se porta 1:1 ya que está en el mismo archivo.
 
 ### 3.6 Family sharing

@@ -58,18 +58,18 @@ const INK_TIMEZONE = "Europe/Madrid";
 
 /** Coste base por tipo de operación (cliente envía `operationKind`; desconocidos → `default`). */
 const INK_COST_BY_OPERATION: Record<string, number> = {
-  rewrite_block: 1,
-  summarize_selection: 1,
-  extract_tasks: 2,
-  summarize_page: 2,
-  generate_insert: 3,
-  generate_page: 5,
-  chat_turn: 2,
-  agent_main: 6,
-  agent_followup: 3,
-  edit_page_panel: 3,
-  transcribe_cloud: 1,
-  default: 2,
+  rewrite_block: 3,
+  summarize_selection: 3,
+  extract_tasks: 6,
+  summarize_page: 6,
+  generate_insert: 9,
+  generate_page: 15,
+  chat_turn: 6,
+  agent_main: 16,
+  agent_followup: 9,
+  edit_page_panel: 9,
+  transcribe_cloud: 2,
+  default: 6,
 };
 
 /** Tope de gotas cobradas en una sola callable (anti-abuso). */
@@ -108,6 +108,10 @@ function openAiBaseUrl(): string {
 
 function openAiModel(): string {
   return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+function openAiTranscribeModel(): string {
+  return process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || "gpt-4o-transcribe";
 }
 
 function openAiMaxOutputTokens(): number {
@@ -2215,6 +2219,89 @@ export type CheckoutKind =
   | "backup_storage_pack_small"
   | "backup_storage_pack_medium"
   | "backup_storage_pack_large";
+
+type CatalogPriceDisplay = {
+  unitAmount: number;
+  currency: string;
+};
+
+async function retrieveCatalogPriceDisplay(
+  stripe: Stripe,
+  catalogId: string
+): Promise<CatalogPriceDisplay | null> {
+  const raw = catalogId.trim();
+  if (!raw) return null;
+  try {
+    const priceId = await resolveCatalogIdToPriceId(stripe, raw);
+    const price = await stripe.prices.retrieve(priceId);
+    if (price.unit_amount == null || !Number.isFinite(price.unit_amount)) {
+      return null;
+    }
+    return {
+      unitAmount: price.unit_amount,
+      currency: (price.currency || "eur").toLowerCase(),
+    };
+  } catch (e) {
+    console.warn("retrieveCatalogPriceDisplay", raw, e);
+    return null;
+  }
+}
+
+/**
+ * Importes de catálogo Stripe para la UI (sin hardcodear € en l10n).
+ * No requiere auth: solo expone unit_amount/currency de los Price IDs del servidor.
+ */
+export const folioCloudCatalogPrices = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const isDebug = request.data?.debug === true;
+    const stripe = stripeClient(isDebug);
+    if (!stripe) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe not configured on server"
+      );
+    }
+
+    const entries: Array<{ key: string; catalogId: string }> = [
+      { key: "folio_cloud_monthly", catalogId: priceFolioCloudMonthly(isDebug) },
+      { key: "folio_family_monthly", catalogId: priceFolioCloudFamily(isDebug) },
+      {
+        key: "folio_family_member",
+        catalogId: priceFolioCloudFamilyMember(isDebug),
+      },
+      {
+        key: "folio_student_monthly",
+        catalogId: priceFolioCloudStudent(isDebug),
+      },
+      { key: "ink_small", catalogId: priceInkSmall(isDebug) },
+      { key: "ink_medium", catalogId: priceInkMedium(isDebug) },
+      { key: "ink_large", catalogId: priceInkLarge(isDebug) },
+      {
+        key: "backup_storage_pack_small",
+        catalogId: priceBackupStoragePackSmall(isDebug),
+      },
+      {
+        key: "backup_storage_pack_medium",
+        catalogId: priceBackupStoragePackMedium(isDebug),
+      },
+      {
+        key: "backup_storage_pack_large",
+        catalogId: priceBackupStoragePackLarge(isDebug),
+      },
+    ];
+
+    const prices: Record<string, CatalogPriceDisplay> = {};
+    await Promise.all(
+      entries.map(async ({ key, catalogId }) => {
+        const display = await retrieveCatalogPriceDisplay(stripe, catalogId);
+        if (display) prices[key] = display;
+      })
+    );
+
+    return { prices };
+  }
+);
 
 /** Misma condición que Storage rules `folioCloudBackupOk` (copias en la nube). */
 async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
@@ -4897,9 +4984,10 @@ async function _diarizeSegmentsWithGpt(
 }
 
 /**
- * Transcribe un fragmento de audio WAV (base64) vía gpt-4o-mini-transcribe,
+ * Transcribe un fragmento de audio WAV (base64) vía el modelo de
+ * `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`),
  * con diarización automática de hablantes usando GPT-4o-mini.
- * Si `chargeInk` es true, debita 1 gota de tinta (tranche de 5 minutos).
+ * Si `chargeInk` es true, debita tinta (`transcribe_cloud` / `inkAmount`).
  * En caso de fallo de transcripción, reembolsa la tinta cobrada.
  */
 export const folioCloudTranscribeChunk = onCall(
@@ -5004,8 +5092,8 @@ export const folioCloudTranscribeChunk = onCall(
       for (let attempt = 0; attempt <= maxTranscribeRetries; attempt++) {
         const form = new FormData();
         form.append("file", blob, "chunk.wav");
-        // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
-        form.append("model", "gpt-4o-mini-transcribe");
+        // OPENAI_TRANSCRIBE_MODEL (default gpt-4o-transcribe); soporta verbose_json
+        form.append("model", openAiTranscribeModel());
         if (language && language !== "auto") {
           form.append("language", language.slice(0, 2).toLowerCase());
         }

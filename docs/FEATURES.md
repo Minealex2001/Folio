@@ -781,10 +781,11 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 ### IA en la nube
 
 - Cliente: `lib/services/ai/folio_cloud_ai_service.dart` (`FolioCloudAiService`).
-- Callable **`folioCloudAiComplete`** (Firebase Functions **1st gen**); fallback HTTP **`folioCloudAiCompleteHttp`** cuando el protocolo callable en escritorio devuelve 401 HTML (perímetro/IAM). Tabla de costes por `operationKind`, suplementos por tamaño y tokens: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
+- Callable **`folioCloudAiComplete`** (Firebase Functions **1st gen**); fallback HTTP **`folioCloudAiCompleteHttp`** cuando el protocolo callable en escritorio devuelve 401 HTML (perímetro/IAM). Tabla de costes por `operationKind` (~3× respecto a la era GPT-4o-mini, alineada a GPT-5.4-mini), suplementos por tamaño y tokens: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
 - Uso permitido con **suscripción activa que incluya `cloudAi`** o con **tinta comprada** sin suscripción (reglas documentadas en backend).
-- **`folioCloudAiPricing`**: expone al cliente precios/costes de referencia.
-- **`folioCloudTranscribeChunk`**: transcripción por chunks (flujos de audio).
+- **`folioCloudAiPricing`**: expone al cliente precios/costes de referencia (gotas por operación).
+- **`folioCloudCatalogPrices`**: importes Stripe (`unit_amount` + `currency`) del catálogo (tinta, suscripción, librerías) para la UI; la app formatea con locale y ya no hardcodea euros en l10n.
+- **`folioCloudTranscribeChunk`**: transcripción por chunks (modelo `OPENAI_TRANSCRIBE_MODEL`, default `gpt-4o-transcribe`; coste base `transcribe_cloud` = 2 gotas).
 
 ### Publicación web
 
@@ -819,7 +820,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 | Área | Export(s) |
 |------|-----------|
 | Colaboración | `createCollabRoom`, `joinCollabRoomByCode`, `prepareCollabMediaUpload`, `commitCollabMediaUpload`, `inviteCollabMember`, `removeCollabMember`, `closeCollabRoom` |
-| Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements` |
+| Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements`, `folioCloudCatalogPrices` |
 | Copias / vault / almacenamiento | `folioListVaultBackups`, `folioDeleteVaultCloudPack`, `folioDeleteVaultLegacyBackup`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
 | Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack`, `folioDeleteVaultCloudPack` |
 | Sync multi-dispositivo | `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync`, `folioListDeviceSyncVaults` |

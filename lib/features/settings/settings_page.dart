@@ -62,6 +62,8 @@ import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_labels.dart';
+import '../../services/folio_cloud/folio_cloud_catalog_prices.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
 import '../../services/device_sync/device_sync_controller.dart';

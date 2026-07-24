@@ -129,18 +129,23 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     }
   }
 
-  void _openFolioCloudSubscriptionPitch() {
+  Future<void> _openFolioCloudSubscriptionPitch() async {
     if (_folioCloudActionBusy) return;
     final l10n = AppLocalizations.of(context);
     final signedIn = _cloud.isSignedIn;
-    Navigator.of(context).push<void>(
+    final catalog = signedIn
+        ? await FolioCloudCatalogPricesService.getPricing()
+        : null;
+    if (!mounted) return;
+    final primaryLabel = signedIn
+        ? FolioCloudCatalogLabels.subscribeMonthly(context, l10n, catalog)
+        : l10n.folioCloudPitchCtaNeedAccount;
+    await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'folio_cloud_pitch'),
         builder: (ctx) => FolioCloudSubscriptionPitchPage(
           busy: _folioCloudActionBusy,
-          primaryCtaLabel: signedIn
-              ? l10n.folioCloudSubscribeMonthly
-              : l10n.folioCloudPitchCtaNeedAccount,
+          primaryCtaLabel: primaryLabel,
           primaryIcon: signedIn
               ? Icons.subscriptions_outlined
               : Icons.person_add_outlined,
