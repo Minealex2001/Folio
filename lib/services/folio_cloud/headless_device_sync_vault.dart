@@ -12,6 +12,8 @@ import '../../data/vault_local_storage.dart';
 import '../../data/vault_payload.dart';
 import '../../data/vault_paths.dart';
 import '../../data/vault_registry.dart';
+import '../../models/folio_page.dart';
+import '../../models/local_collab.dart';
 import '../quick_unlock_storage.dart';
 import '../app_logger.dart';
 import '../sync/vault_sync_merge.dart';
@@ -247,8 +249,8 @@ class HeadlessDeviceSyncVault {
     );
     await _applyDisplayNameToRegistry(vaultId, payload.displayName);
     final format = await _formatVersion(vaultId);
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
     if (format >= 1) {
-      final dir = await VaultPaths.vaultDirectoryForId(vaultId);
       await VaultLocalStorage.decomposeAndStoreAt(dir, payload);
       return;
     }
@@ -257,6 +259,9 @@ class HeadlessDeviceSyncVault {
       // se desbloqueó en UI): vault.bin no tiene ningún guard de escritura,
       // a diferencia del árbol v1. Best-effort: si no se puede leer el
       // contenido actual, no bloqueamos (podría ser la primera escritura).
+      // Se hace ANTES del candado (loadPayload en v0 no lo toma, así que no
+      // hay riesgo de reentrada, pero sí de una ventana no atómica — igual
+      // de best-effort que antes de este cambio).
       int existingPages = 0;
       try {
         final existing = await loadPayload(vaultId, packKey);
@@ -273,21 +278,58 @@ class HeadlessDeviceSyncVault {
         return;
       }
     }
-    final plain = payload.encodeUtf8();
-    if (await isPlain(vaultId)) {
+    // Bajo el mismo candado que el árbol v1: evita que esta escritura v0
+    // corra a la vez que una migración v0→v1 o un sync v1 de esta libreta.
+    await VaultLocalStorage.runExclusive(dir.path, () async {
+      final plain = payload.encodeUtf8();
+      if (await isPlain(vaultId)) {
+        await VaultStorage.instance.writeVaultFile(
+          vaultId,
+          VaultPaths.cipherPayloadFile,
+          Uint8List.fromList(plain),
+        );
+        return;
+      }
+      final enc = await VaultCrypto.encryptPayload(plain: plain, dek: packKey);
       await VaultStorage.instance.writeVaultFile(
         vaultId,
         VaultPaths.cipherPayloadFile,
-        Uint8List.fromList(plain),
+        enc,
       );
-      return;
-    }
-    final enc = await VaultCrypto.encryptPayload(plain: plain, dek: packKey);
-    await VaultStorage.instance.writeVaultFile(
-      vaultId,
-      VaultPaths.cipherPayloadFile,
-      enc,
-    );
+    });
+  }
+
+  /// Lee solo una página del árbol v1 (`repo/pages/...`), sin recomponer la
+  /// libreta entera. Solo aplica al formato v1 en árbol — el legado v0 no
+  /// tiene granularidad de página, así que devuelve `null` para él (el
+  /// llamador debe recurrir a [loadPayload] completo en ese caso).
+  Future<FolioPage?> loadSinglePage(String vaultId, String pageId) async {
+    final format = await _formatVersion(vaultId);
+    if (format < 1) return null;
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    return VaultLocalStorage.loadPageFromTreeAt(dir, pageId);
+  }
+
+  Future<List<LocalPageComment>> loadSinglePageComments(
+    String vaultId,
+    String pageId,
+  ) async {
+    final format = await _formatVersion(vaultId);
+    if (format < 1) return const [];
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    return VaultLocalStorage.loadPageCommentsFromTreeAt(dir, pageId);
+  }
+
+  /// Escribe atómicamente solo una página en el árbol v1, sin reescribir la
+  /// libreta entera. Requiere que la libreta ya esté migrada a v1 (`repo/`
+  /// existente) — si no, lanza igual que [VaultLocalStorage.storePageAt].
+  Future<void> saveSinglePage(
+    String vaultId,
+    FolioPage page,
+    List<LocalPageComment> allComments,
+  ) async {
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    await VaultLocalStorage.storePageAt(dir, page, allComments);
   }
 
   Future<Uint8List?> exportPackBytes(String vaultId, SecretKey packKey) async {

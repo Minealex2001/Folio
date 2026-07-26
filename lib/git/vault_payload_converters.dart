@@ -46,6 +46,11 @@ dynamic _sortDeep(dynamic obj) {
   return obj;
 }
 
+Directory _pageDirIn(Directory repoDir, String pageId) {
+  final prefix = pageId.length >= 2 ? pageId.substring(0, 2) : 'xx';
+  return Directory(p.join(repoDir.path, 'pages', prefix, pageId));
+}
+
 Future<void> _writeAtomic(String path, String content) async {
   final file = File(path);
   final dir = file.parent;
@@ -356,6 +361,28 @@ class VaultPayloadToTree {
       await blocksFile.delete();
     }
   }
+
+  /// Escribe meta.json / blocks.jsonl / comments.jsonl de una sola página,
+  /// atómicamente, sin tocar el resto del árbol — para aplicar un pull/merge
+  /// incremental por página sin reescribir la libreta entera.
+  static Future<void> decomposePage(
+    Directory repoDir,
+    FolioPage page,
+    List<LocalPageComment> allComments,
+  ) async {
+    await writePageFiles(repoDir, page);
+    final pageDir = _pageDirIn(repoDir, page.id);
+    final pageComments =
+        allComments.where((c) => c.pageId == page.id).toList();
+    final commentsFile = File(p.join(pageDir.path, 'comments.jsonl'));
+    if (pageComments.isNotEmpty) {
+      final commentLines =
+          pageComments.map((c) => canonicalJson(c.toJson())).toList();
+      await _writeAtomic(commentsFile.path, '${commentLines.join('\n')}\n');
+    } else if (commentsFile.existsSync()) {
+      await commentsFile.delete();
+    }
+  }
 }
 
 /// Reconstruye VaultPayload desde el árbol de archivos.
@@ -427,42 +454,62 @@ class TreeToVaultPayload {
       if (prefixDir is! Directory) continue;
       for (final pageDir in prefixDir.listSync()) {
         if (pageDir is! Directory) continue;
-
-        final metaFile = File(p.join(pageDir.path, 'meta.json'));
-        final blocksFile = File(p.join(pageDir.path, 'blocks.jsonl'));
-        if (!metaFile.existsSync()) {
-          if (blocksFile.existsSync()) {
-            throw VaultCorruptionException(
-              'Page dir ${pageDir.path} has blocks.jsonl without meta.json',
-            );
-          }
-          continue;
-        }
-
-        final meta = jsonDecode(await metaFile.readAsString());
-        final blocks = await _readBlocksJsonl(pageDir);
-
-        pages.add(FolioPage(
-          id: meta['id'] ?? 'unknown',
-          title: meta['title'] ?? 'Untitled',
-          emoji: meta['emoji'],
-          parentId: meta['parentId'],
-          isFolder: meta['isFolder'] ?? false,
-          trashedAt: meta['trashedAt'] != null
-              ? DateTime.tryParse(meta['trashedAt'] as String)
-              : null,
-          collabRoomId: meta['collabRoomId'],
-          collabJoinCode: null,
-          lastImportInfo: meta['lastImportInfo'] != null
-              ? _jsonToImportInfo(meta['lastImportInfo'])
-              : null,
-          blocks: blocks,
-          properties: _parseProperties(meta['properties']),
-          tags: ((meta['tags'] ?? []) as List).cast<String>(),
-        ));
+        final page = await _readPageDir(pageDir);
+        if (page != null) pages.add(page);
       }
     }
     return pages;
+  }
+
+  static Future<FolioPage?> _readPageDir(Directory pageDir) async {
+    final metaFile = File(p.join(pageDir.path, 'meta.json'));
+    final blocksFile = File(p.join(pageDir.path, 'blocks.jsonl'));
+    if (!metaFile.existsSync()) {
+      if (blocksFile.existsSync()) {
+        throw VaultCorruptionException(
+          'Page dir ${pageDir.path} has blocks.jsonl without meta.json',
+        );
+      }
+      return null;
+    }
+
+    final meta = jsonDecode(await metaFile.readAsString());
+    final blocks = await _readBlocksJsonl(pageDir);
+
+    return FolioPage(
+      id: meta['id'] ?? 'unknown',
+      title: meta['title'] ?? 'Untitled',
+      emoji: meta['emoji'],
+      parentId: meta['parentId'],
+      isFolder: meta['isFolder'] ?? false,
+      trashedAt: meta['trashedAt'] != null
+          ? DateTime.tryParse(meta['trashedAt'] as String)
+          : null,
+      collabRoomId: meta['collabRoomId'],
+      collabJoinCode: null,
+      lastImportInfo: meta['lastImportInfo'] != null
+          ? _jsonToImportInfo(meta['lastImportInfo'])
+          : null,
+      blocks: blocks,
+      properties: _parseProperties(meta['properties']),
+      tags: ((meta['tags'] ?? []) as List).cast<String>(),
+    );
+  }
+
+  /// Lee una sola página (y sus comentarios) del árbol sin recorrer el resto
+  /// — para aplicar un pull/merge incremental por página.
+  static Future<FolioPage?> composePage(
+    Directory repoDir,
+    String pageId,
+  ) async {
+    return _readPageDir(_pageDirIn(repoDir, pageId));
+  }
+
+  static Future<List<LocalPageComment>> composePageComments(
+    Directory repoDir,
+    String pageId,
+  ) async {
+    return _readCommentsInDir(_pageDirIn(repoDir, pageId));
   }
 
   static Future<List<FolioBlock>> _readBlocksJsonl(Directory pageDir) async {
@@ -613,29 +660,34 @@ class TreeToVaultPayload {
       if (prefixDir is! Directory) continue;
       for (final pageDir in prefixDir.listSync()) {
         if (pageDir is! Directory) continue;
+        comments.addAll(await _readCommentsInDir(pageDir));
+      }
+    }
+    return comments;
+  }
 
-        final file = File(p.join(pageDir.path, 'comments.jsonl'));
-        if (!file.existsSync()) continue;
+  static Future<List<LocalPageComment>> _readCommentsInDir(
+    Directory pageDir,
+  ) async {
+    final comments = <LocalPageComment>[];
+    final file = File(p.join(pageDir.path, 'comments.jsonl'));
+    if (!file.existsSync()) return comments;
 
-        final lines = (await file.readAsString()).split('\n');
-        var lineNo = 0;
-        for (final line in lines) {
-          lineNo++;
-          if (line.trim().isEmpty) continue;
-          try {
-            final json = jsonDecode(line);
-            comments.add(
-              LocalPageComment.fromJson(
-                Map<String, dynamic>.from(json as Map),
-              ),
-            );
-          } catch (e) {
-            throw VaultCorruptionException(
-              'Malformed comment in ${file.path}:$lineNo',
-              cause: e,
-            );
-          }
-        }
+    final lines = (await file.readAsString()).split('\n');
+    var lineNo = 0;
+    for (final line in lines) {
+      lineNo++;
+      if (line.trim().isEmpty) continue;
+      try {
+        final json = jsonDecode(line);
+        comments.add(
+          LocalPageComment.fromJson(Map<String, dynamic>.from(json as Map)),
+        );
+      } catch (e) {
+        throw VaultCorruptionException(
+          'Malformed comment in ${file.path}:$lineNo',
+          cause: e,
+        );
       }
     }
     return comments;

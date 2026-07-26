@@ -7,9 +7,12 @@
 /// vault_local_storage.dart (`_vaultLocks`/`_withVaultLock`).
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/vault_local_storage.dart';
 import 'package:folio/data/vault_payload.dart';
+import 'package:folio/data/vault_paths.dart';
+import 'package:folio/git/vault_migration_tool.dart';
 import 'package:folio/models/block.dart';
 import 'package:folio/models/folio_page.dart';
 import 'package:path/path.dart' as p;
@@ -89,5 +92,63 @@ void main() {
 
       await bigFuture;
     });
+  });
+
+  group('VaultLocalStorage lock shared with VaultMigrationTool', () {
+    const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+    late Directory mockedSupportDir;
+
+    setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      mockedSupportDir = await Directory.systemTemp.createTemp(
+        'folio_lock_cross_migration_',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProviderChannel, (call) async {
+            return mockedSupportDir.path;
+          });
+    });
+
+    tearDown(() async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProviderChannel, null);
+      VaultPaths.clearActiveVaultId();
+      if (mockedSupportDir.existsSync()) {
+        await mockedSupportDir.delete(recursive: true);
+      }
+    });
+
+    test(
+      'migrateVault y decomposeAndStoreAt sobre la misma libreta se serializan',
+      () async {
+        const vaultId = 'lock-cross-migration-vault';
+        VaultPaths.setActiveVaultId(vaultId);
+        await VaultPaths.initVaultStorage(vaultId);
+        final vaultDir = await VaultPaths.vaultDirectory();
+
+        final migrationFuture = VaultMigrationTool.migrateVault(
+          payload: VaultPayload(pages: _makePages(300, 'mig')),
+          deviceId: 'test-device',
+        );
+
+        await VaultLocalStorage.decomposeAndStoreAt(
+          vaultDir,
+          VaultPayload(pages: _makePages(1, 'other')),
+        );
+
+        final migrationResult = await migrationFuture;
+        expect(migrationResult.success, isTrue, reason: migrationResult.error);
+
+        // Si `vault_migration_tool.dart` no compartiera el candado de
+        // `VaultLocalStorage`, ambas operaciones podrían pisarse
+        // `repo.tmp`/`repo`/`repo.old` a la vez — excepción, o un árbol a
+        // medias que no coincide con ninguna de las dos escrituras. Cuál de
+        // las dos gana no está garantizado (la migración hace trabajo async
+        // antes de pedir el candado), pero el resultado final siempre tiene
+        // que ser uno de los dos completos, nunca algo corrupto entre medias.
+        final finalTree = await VaultLocalStorage.loadFromTreeAt(vaultDir);
+        expect(finalTree!.pages.length, anyOf(1, 300));
+      },
+    );
   });
 }

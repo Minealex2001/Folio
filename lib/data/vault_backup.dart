@@ -12,6 +12,7 @@ import '../crypto/vault_crypto.dart';
 import '../git/vault_migration_tool.dart' show VaultMigrationTool;
 import 'storage/atomic_file_writer.dart';
 import 'storage/vault_storage.dart';
+import 'vault_local_storage.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 
@@ -477,8 +478,14 @@ Future<void> extractBackupArchiveToDirectory(
   }
 }
 
-/// Comprueba manifest, presencia de archivos y que la [password] abre el payload del extracto.
-Future<void> validateImportZip(Directory extractedDir, String password) async {
+/// Comprueba manifest, presencia de archivos y que la [password] abre el
+/// payload del extracto. Devuelve el payload decodificado (ya hacía falta
+/// descifrarlo/decodificarlo para validar) para que el llamador pueda
+/// comprobar, por ejemplo, si la copia está vacía antes de restaurarla.
+Future<VaultPayload> validateImportZip(
+  Directory extractedDir,
+  String password,
+) async {
   final manifestFile = File(
     p.join(extractedDir.path, kVaultBackupManifestFile),
   );
@@ -515,13 +522,12 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
 
   if (await _extractedBackupIsPlain(extractedDir)) {
     try {
-      VaultPayload.decodeUtf8(await binFile.readAsBytes());
+      return VaultPayload.decodeUtf8(await binFile.readAsBytes());
     } catch (_) {
       throw VaultBackupException(
         'El contenido de la libreta en la copia no es válido.',
       );
     }
-    return;
   }
 
   if (!keysFile.existsSync()) {
@@ -538,7 +544,7 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
     );
     final dek = await VaultCrypto.dekFromBytes(dekBytes);
     final clear = await VaultCrypto.decryptPayload(blob: enc, dek: dek);
-    VaultPayload.decodeUtf8(clear);
+    return VaultPayload.decodeUtf8(clear);
   } on VaultCryptoException catch (e) {
     throw VaultBackupException(e.message);
   }
@@ -561,7 +567,8 @@ Future<bool> isPlainExtractedBackup(ExtractedVaultBackup backup) async {
 }
 
 /// Comprueba manifest y que [password] abre el payload (árbol en memoria).
-Future<void> validateImportBackup(
+/// Devuelve el payload decodificado — ver [validateImportZip].
+Future<VaultPayload> validateImportBackup(
   ExtractedVaultBackup backup,
   String password,
 ) async {
@@ -598,13 +605,12 @@ Future<void> validateImportBackup(
 
   if (await isPlainExtractedBackup(backup)) {
     try {
-      VaultPayload.decodeUtf8(bin);
+      return VaultPayload.decodeUtf8(bin);
     } catch (_) {
       throw VaultBackupException(
         'El contenido de la libreta en la copia no es válido.',
       );
     }
-    return;
   }
 
   final keys = backup[VaultPaths.wrappedDekFile];
@@ -619,7 +625,7 @@ Future<void> validateImportBackup(
     );
     final dek = await VaultCrypto.dekFromBytes(dekBytes);
     final clear = await VaultCrypto.decryptPayload(blob: bin, dek: dek);
-    VaultPayload.decodeUtf8(clear);
+    return VaultPayload.decodeUtf8(clear);
   } on VaultCryptoException catch (e) {
     throw VaultBackupException(e.message);
   }
@@ -768,8 +774,14 @@ Future<void> _applyImportToVaultStorageFromExtractedDir(
   }
 }
 
-/// Sustituye el material de la libreta **activa** por el del directorio ya validado.
-Future<void> applyImportFromDirectory(Directory extractedDir) async {
+/// Sustituye el material de la libreta **activa** por el del directorio ya
+/// validado. [importedPayload] (el resultado ya en mano de
+/// `validateImportZip`/`validateImportBackup`) permite rechazar el import si
+/// viene vacío y la libreta activa no lo está — ver [applyImportToVaultRoot].
+Future<void> applyImportFromDirectory(
+  Directory extractedDir, {
+  VaultPayload? importedPayload,
+}) async {
   if (kIsWeb) {
     final vaultId = VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) {
@@ -779,101 +791,129 @@ Future<void> applyImportFromDirectory(Directory extractedDir) async {
     return;
   }
   final root = await VaultPaths.vaultDirectory();
-  await applyImportToVaultRoot(extractedDir, root);
+  await applyImportToVaultRoot(
+    extractedDir,
+    root,
+    importedPayload: importedPayload,
+  );
 }
 
-/// Escribe la copia validada en la raíz de una libreta concreta (p. ej. libreta nueva).
+/// Escribe la copia validada en la raíz de una libreta concreta (p. ej.
+/// libreta nueva). Si se pasa [importedPayload] y viene sin páginas,
+/// rechaza el import cuando la libreta destino ya tiene contenido (árbol
+/// v1) — evita restaurar por error una copia vacía/corrupta sobre una
+/// libreta con datos reales. Toda la operación va bajo el mismo candado por
+/// libreta que usa `VaultLocalStorage`, para no correr a la vez que un sync
+/// en segundo plano de esa libreta.
 Future<void> applyImportToVaultRoot(
   Directory extractedDir,
-  Directory vaultRoot,
-) async {
+  Directory vaultRoot, {
+  VaultPayload? importedPayload,
+}) async {
   if (kIsWeb) {
     final vaultId = p.basename(vaultRoot.path);
     await _applyImportToVaultStorageFromExtractedDir(extractedDir, vaultId);
     return;
   }
-  final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
-  final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
-  final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
-  if (!binSrc.existsSync()) {
-    throw VaultBackupException('Falta vault.bin en la copia.');
-  }
-
-  final destWrapped = File(p.join(vaultRoot.path, VaultPaths.wrappedDekFile));
-  final destBin = File(p.join(vaultRoot.path, VaultPaths.cipherPayloadFile));
-  final destMode = File(p.join(vaultRoot.path, VaultPaths.vaultModeFile));
-  final isPlain = await _extractedBackupIsPlain(extractedDir);
-  if (!isPlain && !keysSrc.existsSync()) {
-    throw VaultBackupException('Falta vault.keys en la copia cifrada.');
-  }
-
-  // Escritura atómica (tmp + rename + rotación .bak) en vez de File.copy
-  // directo: si el proceso muere a mitad, cada archivo destino queda
-  // completo en su estado anterior, nunca a medias.
-  await AtomicFileWriter.writeAtomic(destBin, await binSrc.readAsBytes());
-  if (isPlain) {
-    if (destWrapped.existsSync()) {
-      await destWrapped.delete();
-    }
-  } else {
-    await AtomicFileWriter.writeAtomic(
-      destWrapped,
-      await keysSrc.readAsBytes(),
-    );
-  }
-  final modeBytes = modeSrc.existsSync()
-      ? await modeSrc.readAsBytes()
-      : Uint8List.fromList(
-          utf8.encode(isPlain ? _vaultModePlain : _vaultModeEncrypted),
+  await VaultLocalStorage.runExclusive(vaultRoot.path, () async {
+    if (importedPayload != null && importedPayload.pages.isEmpty) {
+      final repoDir = Directory(p.join(vaultRoot.path, 'repo'));
+      final existingPages = repoDir.existsSync()
+          ? VaultLocalStorage.countPageDirs(repoDir)
+          : 0;
+      if (existingPages > 0) {
+        throw VaultBackupException(
+          'La copia a restaurar no tiene páginas y la libreta actual tiene '
+          '$existingPages. Por seguridad, no se restaura para evitar '
+          'vaciarla — exporta primero la libreta actual si de verdad '
+          'quieres continuar.',
         );
-  await AtomicFileWriter.writeAtomic(destMode, modeBytes);
-
-  // El vault.bin importado es ahora la única fuente de verdad: invalidar
-  // cualquier árbol v1 existente para que el próximo bootstrap migre desde
-  // el contenido recién importado en vez de seguir leyendo el árbol viejo.
-  // Sin esto, restaurar un backup sobre una libreta ya migrada a v1 no tenía
-  // ningún efecto visible: el marker `vault.format` seguía diciendo 1 y el
-  // bootstrap ignoraba en silencio el vault.bin recién importado.
-  await _invalidateStaleV1TreeAfterImport(vaultRoot);
-
-  final attDir = Directory(
-    p.join(vaultRoot.path, VaultPaths.attachmentsDirName),
-  );
-  final attachmentsSrc = Directory(
-    p.join(extractedDir.path, VaultPaths.attachmentsDirName),
-  );
-  final stagingAtt = Directory(
-    p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.importing'),
-  );
-  if (stagingAtt.existsSync()) {
-    await stagingAtt.delete(recursive: true);
-  }
-  await stagingAtt.create(recursive: true);
-  if (attachmentsSrc.existsSync()) {
-    await for (final entity in attachmentsSrc.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is File) {
-        final rel = p.relative(entity.path, from: attachmentsSrc.path);
-        final destPath = p.join(stagingAtt.path, rel);
-        await Directory(p.dirname(destPath)).create(recursive: true);
-        await entity.copy(destPath);
       }
     }
-  }
-  // Swap: la carpeta de adjuntos anterior se renombra aparte (no se borra)
-  // por si el import resulta equivocado y hay que recuperarla a mano.
-  if (attDir.existsSync()) {
-    final oldAtt = Directory(
-      p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.pre-import'),
-    );
-    if (oldAtt.existsSync()) {
-      await oldAtt.delete(recursive: true);
+
+    final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
+    final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
+    final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
+    if (!binSrc.existsSync()) {
+      throw VaultBackupException('Falta vault.bin en la copia.');
     }
-    await attDir.rename(oldAtt.path);
-  }
-  await stagingAtt.rename(attDir.path);
+
+    final destWrapped = File(p.join(vaultRoot.path, VaultPaths.wrappedDekFile));
+    final destBin = File(p.join(vaultRoot.path, VaultPaths.cipherPayloadFile));
+    final destMode = File(p.join(vaultRoot.path, VaultPaths.vaultModeFile));
+    final isPlain = await _extractedBackupIsPlain(extractedDir);
+    if (!isPlain && !keysSrc.existsSync()) {
+      throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+    }
+
+    // Escritura atómica (tmp + rename + rotación .bak) en vez de File.copy
+    // directo: si el proceso muere a mitad, cada archivo destino queda
+    // completo en su estado anterior, nunca a medias.
+    await AtomicFileWriter.writeAtomic(destBin, await binSrc.readAsBytes());
+    if (isPlain) {
+      if (destWrapped.existsSync()) {
+        await destWrapped.delete();
+      }
+    } else {
+      await AtomicFileWriter.writeAtomic(
+        destWrapped,
+        await keysSrc.readAsBytes(),
+      );
+    }
+    final modeBytes = modeSrc.existsSync()
+        ? await modeSrc.readAsBytes()
+        : Uint8List.fromList(
+            utf8.encode(isPlain ? _vaultModePlain : _vaultModeEncrypted),
+          );
+    await AtomicFileWriter.writeAtomic(destMode, modeBytes);
+
+    // El vault.bin importado es ahora la única fuente de verdad: invalidar
+    // cualquier árbol v1 existente para que el próximo bootstrap migre desde
+    // el contenido recién importado en vez de seguir leyendo el árbol viejo.
+    // Sin esto, restaurar un backup sobre una libreta ya migrada a v1 no tenía
+    // ningún efecto visible: el marker `vault.format` seguía diciendo 1 y el
+    // bootstrap ignoraba en silencio el vault.bin recién importado.
+    await _invalidateStaleV1TreeAfterImport(vaultRoot);
+
+    final attDir = Directory(
+      p.join(vaultRoot.path, VaultPaths.attachmentsDirName),
+    );
+    final attachmentsSrc = Directory(
+      p.join(extractedDir.path, VaultPaths.attachmentsDirName),
+    );
+    final stagingAtt = Directory(
+      p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.importing'),
+    );
+    if (stagingAtt.existsSync()) {
+      await stagingAtt.delete(recursive: true);
+    }
+    await stagingAtt.create(recursive: true);
+    if (attachmentsSrc.existsSync()) {
+      await for (final entity in attachmentsSrc.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is File) {
+          final rel = p.relative(entity.path, from: attachmentsSrc.path);
+          final destPath = p.join(stagingAtt.path, rel);
+          await Directory(p.dirname(destPath)).create(recursive: true);
+          await entity.copy(destPath);
+        }
+      }
+    }
+    // Swap: la carpeta de adjuntos anterior se renombra aparte (no se borra)
+    // por si el import resulta equivocado y hay que recuperarla a mano.
+    if (attDir.existsSync()) {
+      final oldAtt = Directory(
+        p.join(vaultRoot.path, '${VaultPaths.attachmentsDirName}.pre-import'),
+      );
+      if (oldAtt.existsSync()) {
+        await oldAtt.delete(recursive: true);
+      }
+      await attDir.rename(oldAtt.path);
+    }
+    await stagingAtt.rename(attDir.path);
+  });
 }
 
 /// Renombra aparte (no borra) `repo/`, `versions/` y los markers de formato

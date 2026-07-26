@@ -12,6 +12,8 @@ import 'package:cryptography/cryptography.dart';
 
 import 'vault_snapshot.dart';
 import 'p2p_sync_packager.dart';
+import 'vault_payload_converters.dart';
+import '../data/vault_payload.dart';
 
 class VaultSnapshotManager {
   final Directory vaultDir;
@@ -44,6 +46,15 @@ class VaultSnapshotManager {
     final snapshotId = const Uuid().v4();
     final createdAtMs = DateTime.now().millisecondsSinceEpoch;
     final manifest = await _buildFileManifest(treeDir);
+    // Encadenar automáticamente al snapshot más reciente si el llamador no
+    // especifica uno explícito, para que el historial sea navegable como un
+    // log en vez de una bolsa plana ordenada solo por fecha.
+    String? resolvedParentId = parentSnapshotId;
+    if (resolvedParentId == null) {
+      final priorSnapshots = await listSnapshots();
+      resolvedParentId =
+          priorSnapshots.isNotEmpty ? priorSnapshots.first.snapshotId : null;
+    }
 
     final snapshot = VaultSnapshot(
       snapshotId: snapshotId,
@@ -52,7 +63,7 @@ class VaultSnapshotManager {
       treeFormatVersion: 1,
       fileManifest: manifest,
       label: label,
-      parentSnapshotId: parentSnapshotId,
+      parentSnapshotId: resolvedParentId,
     );
 
     // Guardar metadatos del snapshot
@@ -217,6 +228,32 @@ class VaultSnapshotManager {
     }
   }
 
+  /// Reconstruye el VaultPayload íntegro de un snapshot, restaurándolo a un
+  /// directorio temporal (sin tocar el árbol en vivo `treeDir`) y
+  /// decodificándolo desde ahí. Usado por el sync para recuperar el baseline
+  /// persistido (el "ancestro común" de la última sync exitosa).
+  Future<VaultPayload?> loadPayload(String snapshotId) async {
+    final tmpPath = p.join(vaultDir.path, 'baseline.tmp-$snapshotId');
+    final tmpDir = Directory(tmpPath);
+    final leftoverOld = Directory('$tmpPath.restore-old');
+    final leftoverStaging = Directory('$tmpPath.restore-tmp');
+    try {
+      final ok = await restoreSnapshot(snapshotId, tmpDir);
+      if (!ok) return null;
+      final treeJsonFile = File(p.join(tmpDir.path, 'tree.json'));
+      if (!treeJsonFile.existsSync()) return null;
+      return await TreeToVaultPayload.compose(tmpDir);
+    } finally {
+      for (final d in [tmpDir, leftoverOld, leftoverStaging]) {
+        if (d.existsSync()) {
+          try {
+            await d.delete(recursive: true);
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
   /// Elimina un snapshot (metadatos + archivo comprimido).
   Future<void> deleteSnapshot(String snapshotId) async {
     await init();
@@ -242,6 +279,46 @@ class VaultSnapshotManager {
       if (latestByPath[e.path] != e.sha256) return false;
     }
     return true;
+  }
+
+  /// Compara el árbol actual contra el manifiesto de [baseline] (no
+  /// necesariamente el más reciente — el baseline de sync persistido) y
+  /// devuelve qué páginas cambiaron (por id) desde entonces, más si algo
+  /// fuera de `pages/` (metadatos de libreta, ACL, integraciones, orden de
+  /// páginas) también cambió. No descarga ni sube nada — solo hashes locales.
+  Future<ChangedPagesSinceBaseline> changedPageIds(
+    Directory treeDir,
+    VaultSnapshot baseline,
+  ) async {
+    final baselineByPath = {
+      for (final e in baseline.fileManifest) e.path: e.sha256,
+    };
+    final current = await _buildFileManifest(treeDir);
+    final currentByPath = {for (final e in current) e.path: e.sha256};
+
+    String? pageIdOf(String path) {
+      final parts = path.split('/');
+      // pages/<prefix>/<pageId>/<file>
+      if (parts.length >= 4 && parts[0] == 'pages') return parts[2];
+      return null;
+    }
+
+    final changedPages = <String>{};
+    var restChanged = false;
+    final allPaths = {...baselineByPath.keys, ...currentByPath.keys};
+    for (final path in allPaths) {
+      if (baselineByPath[path] == currentByPath[path]) continue;
+      final pageId = pageIdOf(path);
+      if (pageId != null) {
+        changedPages.add(pageId);
+      } else {
+        restChanged = true;
+      }
+    }
+    return ChangedPagesSinceBaseline(
+      pageIds: changedPages,
+      restChanged: restChanged,
+    );
   }
 
   /// True si los [relativePaths] del árbol coinciden con el snapshot más reciente.
@@ -325,4 +402,17 @@ class VaultSnapshotManager {
     final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
     await zipFile.writeAsBytes(zipBytes, flush: true);
   }
+}
+
+/// Resultado de [VaultSnapshotManager.changedPageIds].
+class ChangedPagesSinceBaseline {
+  const ChangedPagesSinceBaseline({
+    required this.pageIds,
+    required this.restChanged,
+  });
+
+  final Set<String> pageIds;
+  final bool restChanged;
+
+  bool get isEmpty => pageIds.isEmpty && !restChanged;
 }

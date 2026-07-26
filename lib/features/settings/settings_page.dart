@@ -39,6 +39,7 @@ import '../../data/vault_registry.dart';
 import '../../data/vault_paths.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
+import '../workspace/history/vault_history_screen.dart';
 import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
@@ -2679,6 +2680,19 @@ class _SettingsPageState extends State<SettingsPage> {
                                         );
                                       },
                                     ),
+                                    if (_s.vaultFormatVersion == 1)
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.history_rounded,
+                                        ),
+                                        title: Text(l10n.vaultHistoryTitle),
+                                        onTap: () {
+                                          openVaultHistoryScreen(
+                                            context: context,
+                                            session: _s,
+                                          );
+                                        },
+                                      ),
                                     const Divider(height: 1),
                                     _SettingsSubsectionTitle(
                                       title: l10n.settingsSubsectionDrive,

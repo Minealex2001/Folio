@@ -8,7 +8,8 @@ import '../domain/vault/vault_migration.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../models/folio_page.dart';
 import '../models/folio_usage_intent.dart';
-import 'vault_local_storage.dart' show VaultEmptyOverwriteException;
+import 'vault_local_storage.dart'
+    show VaultEmptyOverwriteException, VaultLocalStorage;
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 import 'vault_starter_pages.dart';
@@ -104,22 +105,28 @@ class VaultRepository {
     return true;
   }
 
+  /// Va bajo el mismo candado por libreta que `VaultLocalStorage` (formato
+  /// v1), para que una lectura/escritura v0 no pueda solaparse con una
+  /// migración v0→v1 o un sync headless tocando la misma libreta.
   Future<VaultPayload> loadPayload(List<int>? dekBytes) async {
-    final primary = await VaultPaths.readCipherPayload();
-    if (primary == null) {
-      throw StateError('vault.bin no encontrado');
-    }
-    try {
-      return await _decodeAndMigrate(primary, dekBytes);
-    } on VaultCorruptionException {
-      final backup = await VaultPaths.readCipherPayloadBackup();
-      if (backup == null) rethrow;
-      return await _decodeAndMigrate(
-        backup,
-        dekBytes,
-        restoredFromBackup: true,
-      );
-    }
+    final vaultDir = await VaultPaths.vaultDirectory();
+    return VaultLocalStorage.runExclusive(vaultDir.path, () async {
+      final primary = await VaultPaths.readCipherPayload();
+      if (primary == null) {
+        throw StateError('vault.bin no encontrado');
+      }
+      try {
+        return await _decodeAndMigrate(primary, dekBytes);
+      } on VaultCorruptionException {
+        final backup = await VaultPaths.readCipherPayloadBackup();
+        if (backup == null) rethrow;
+        return await _decodeAndMigrate(
+          backup,
+          dekBytes,
+          restoredFromBackup: true,
+        );
+      }
+    });
   }
 
   Future<VaultPayload> _decodeAndMigrate(
@@ -157,6 +164,13 @@ class VaultRepository {
     }
   }
 
+  /// El chequeo anti-vacío (`_existingV0PageCount`, que a su vez llama a
+  /// [loadPayload]) corre ANTES de tomar el candado de abajo — si estuviera
+  /// dentro, `loadPayload` intentaría re-entrar en el mismo candado y
+  /// bloquearía para siempre. Es un chequeo best-effort igualmente (ver su
+  /// doc), así que esa pequeña ventana no atómica no empeora nada; lo que sí
+  /// gana en firmeza es que la escritura real ya no puede solaparse con una
+  /// migración v0→v1 o un sync headless de la misma libreta.
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
     if (payload.pages.isEmpty) {
       final existingPages = await _existingV0PageCount(dekBytes);
@@ -167,19 +181,24 @@ class VaultRepository {
         );
       }
     }
-    if (await isPlaintextVault()) {
-      await VaultPaths.writeCipherPayload(Uint8List.fromList(payload.encodeUtf8()));
-      return;
-    }
-    if (dekBytes == null) {
-      throw StateError('Se requiere DEK para guardar libreta cifrada');
-    }
-    final dek = await VaultCrypto.dekFromBytes(dekBytes);
-    final enc = await VaultCrypto.encryptPayload(
-      plain: payload.encodeUtf8(),
-      dek: dek,
-    );
-    await VaultPaths.writeCipherPayload(enc);
+    final vaultDir = await VaultPaths.vaultDirectory();
+    await VaultLocalStorage.runExclusive(vaultDir.path, () async {
+      if (await isPlaintextVault()) {
+        await VaultPaths.writeCipherPayload(
+          Uint8List.fromList(payload.encodeUtf8()),
+        );
+        return;
+      }
+      if (dekBytes == null) {
+        throw StateError('Se requiere DEK para guardar libreta cifrada');
+      }
+      final dek = await VaultCrypto.dekFromBytes(dekBytes);
+      final enc = await VaultCrypto.encryptPayload(
+        plain: payload.encodeUtf8(),
+        dek: dek,
+      );
+      await VaultPaths.writeCipherPayload(enc);
+    });
   }
 
   /// Best-effort: cuenta páginas del `vault.bin` actual antes de sobrescribir

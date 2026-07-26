@@ -508,6 +508,17 @@
   "strikeTip": "Tachado (~~)",
   "linkTip": "Enlace",
   "pageHistoryTitle": "Historial de versiones",
+  "vaultHistoryTitle": "Historial de la libreta",
+  "vaultHistoryEmptyHint": "Todavía no hay puntos guardados en el historial de esta libreta.",
+  "vaultHistoryOriginAutosave": "Autoguardado",
+  "vaultHistoryOriginCloudSync": "Sincronización con la nube",
+  "vaultHistoryOriginPreRestore": "Antes de restaurar",
+  "vaultHistoryOriginPostRestore": "Después de restaurar",
+  "vaultHistoryOriginManual": "Manual",
+  "vaultHistoryRestoreTitle": "Restaurar libreta",
+  "vaultHistoryRestoreBody": "Se sustituirán todas las páginas de la libreta por este punto del historial. El estado actual se guardará antes en el historial.",
+  "vaultHistoryPageCount": "{count} {count, plural, one {página} other {páginas}}",
+  "@vaultHistoryPageCount": {"placeholders": {"count": {"type": "int"}}},
   "restoreVersionTitle": "Restaurar versión",
   "restoreVersionBody": "Se sustituirán el título, icono, etiquetas, propiedades y contenido de el folio por esta versión. El estado actual se guardará antes en el historial.",
   "restore": "Restaurar",
@@ -1237,6 +1248,7 @@
   ,"syncConflictMergeOpenPage": "Ir a el folio"
   ,"syncConflictMergePreviewTitle": "Resultado fusionado"
   ,"syncConflictMergeHunksTitle": "Cambios por trozos"
+  ,"syncConflictMergeOriginalTitle": "Original (antes de cualquiera de los dos cambios)"
   ,"syncConflictMergePageUntitled": "Sin título"
   ,"syncConflictMergeMissingPage": "Folio no encontrada"
   ,"syncConflictMergeLegacyTitle": "Conflicto de libreta"

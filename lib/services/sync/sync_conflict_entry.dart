@@ -13,6 +13,7 @@ class SyncConflictEntry {
     this.blockId,
     this.remoteBlockJson,
     this.localBlockJson,
+    this.baseBlockJson,
   });
 
   final String id;
@@ -27,6 +28,10 @@ class SyncConflictEntry {
   final String? blockId;
   final Map<String, dynamic>? remoteBlockJson;
   final Map<String, dynamic>? localBlockJson;
+
+  /// Versión del bloque en el ancestro común, si existía — permite mostrar
+  /// un diff de 3 vías (local/base/remoto) en el panel de resolución.
+  final Map<String, dynamic>? baseBlockJson;
 
   bool get isBlockConflict =>
       pageId != null &&
@@ -44,6 +49,7 @@ class SyncConflictEntry {
         if (blockId != null) 'blockId': blockId,
         if (localBlockJson != null) 'localBlockJson': localBlockJson,
         if (remoteBlockJson != null) 'remoteBlockJson': remoteBlockJson,
+        if (baseBlockJson != null) 'baseBlockJson': baseBlockJson,
         // Snapshot legado: solo si no hay conflicto de bloque (más liviano).
         if (!isBlockConflict && remoteSnapshotBytes.isNotEmpty)
           'remoteSnapshotB64': base64Encode(remoteSnapshotBytes),
@@ -64,10 +70,13 @@ class SyncConflictEntry {
     }
     Map<String, dynamic>? localJson;
     Map<String, dynamic>? remoteJson;
+    Map<String, dynamic>? baseJson;
     final lj = j['localBlockJson'];
     final rj = j['remoteBlockJson'];
+    final bj = j['baseBlockJson'];
     if (lj is Map) localJson = Map<String, dynamic>.from(lj);
     if (rj is Map) remoteJson = Map<String, dynamic>.from(rj);
+    if (bj is Map) baseJson = Map<String, dynamic>.from(bj);
     return SyncConflictEntry(
       id: id,
       fromPeerId: '${j['fromPeerId'] ?? ''}'.trim(),
@@ -83,6 +92,7 @@ class SyncConflictEntry {
           : '${j['blockId']}'.trim(),
       localBlockJson: localJson,
       remoteBlockJson: remoteJson,
+      baseBlockJson: baseJson,
     );
   }
 }

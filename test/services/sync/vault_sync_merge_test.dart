@@ -268,6 +268,63 @@ void main() {
     expect(result.payload.slack.connections.single.id, 'remote');
   });
 
+  test('fast-forward: local sin cambios desde baseline adopta remoto entero', () {
+    final baseline = payload([
+      page(id: 'a', title: 'A'),
+      page(id: 'b', title: 'B'),
+    ]);
+    // Local idéntico al baseline: no ha cambiado nada en este dispositivo.
+    final local = payload([
+      page(id: 'a', title: 'A'),
+      page(id: 'b', title: 'B'),
+    ]);
+    // Remoto avanzó en varias páginas a la vez.
+    final remote = payload([
+      page(id: 'a', title: 'A edited remotely'),
+      page(id: 'b', title: 'B edited remotely'),
+      page(id: 'c', title: 'New remote page'),
+    ]);
+
+    final result = engine.merge(
+      local: local,
+      remote: remote,
+      baseline: baseline,
+    );
+
+    expect(
+      result.payload.pages.map((p) => p.title).toSet(),
+      {'A edited remotely', 'B edited remotely', 'New remote page'},
+    );
+    expect(result.blockConflicts, isEmpty);
+    expect(result.changed, isTrue);
+  });
+
+  test('conflicto real captura el bloque base (diff de 3 vías)', () {
+    final base = page(
+      id: 'a',
+      blocks: [FolioBlock(id: 'b1', type: 'paragraph', text: 'base text')],
+    );
+    final local = page(
+      id: 'a',
+      blocks: [FolioBlock(id: 'b1', type: 'paragraph', text: 'local text')],
+    );
+    final remote = page(
+      id: 'a',
+      blocks: [FolioBlock(id: 'b1', type: 'paragraph', text: 'remote text')],
+    );
+
+    final result = engine.merge(
+      local: payload([local]),
+      remote: payload([remote]),
+      baseline: payload([base]),
+    );
+
+    expect(result.blockConflicts, hasLength(1));
+    expect(result.blockConflicts.single.baseBlock?.text, 'base text');
+    expect(result.blockConflicts.single.localBlock.text, 'local text');
+    expect(result.blockConflicts.single.remoteBlock.text, 'remote text');
+  });
+
   test('spotify: conexiones distintas en cada lado se fusionan por id', () {
     final localSpotify = SpotifyIntegrationState(
       connections: [

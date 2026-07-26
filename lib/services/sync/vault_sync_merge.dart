@@ -23,12 +23,18 @@ class VaultSyncBlockConflict {
     required this.blockId,
     required this.localBlock,
     required this.remoteBlock,
+    this.baseBlock,
   });
 
   final String pageId;
   final String blockId;
   final FolioBlock localBlock;
   final FolioBlock remoteBlock;
+
+  /// Versión del bloque en el ancestro común (`baseline`), si existía. Nulo
+  /// si el bloque se creó después del último baseline conocido por ambos
+  /// lados — permite un diff de 3 vías (local/base/remoto) en vez de solo 2.
+  final FolioBlock? baseBlock;
 }
 
 /// Resultado del merge semántico local · remoto · baseline.
@@ -148,6 +154,20 @@ class VaultSyncMergeEngine {
         blockConflicts: const [],
         attachmentPaths: collectAttachmentPaths(local),
         changed: false,
+      );
+    }
+
+    // Fast-forward: si lo local no cambió desde el ancestro común, no hace
+    // falta recorrer página por página — se adopta el remoto completo tal
+    // cual, igual que un `git merge --ff-only`. Evita el diffing completo en
+    // el caso más habitual (nadie tocó esta libreta en este dispositivo
+    // desde la última sync).
+    if (localFp == payloadFingerprint(base)) {
+      return VaultSyncMergeResult(
+        payload: _copyPayload(remote),
+        blockConflicts: const [],
+        attachmentPaths: collectAttachmentPaths(remote),
+        changed: true,
       );
     }
 
@@ -460,6 +480,7 @@ class VaultSyncMergeEngine {
           blockId: id,
           localBlock: cloneBlock(l),
           remoteBlock: cloneBlock(r),
+          baseBlock: b != null ? cloneBlock(b) : null,
         ),
       );
       hadBlockConflict = true;

@@ -16,6 +16,7 @@
   ],
 
   "pt": [
-    "aiManageQuillInstructionsTooltip"
+    "aiManageQuillInstructionsTooltip",
+    "syncConflictMergeOriginalTitle"
   ]
 }

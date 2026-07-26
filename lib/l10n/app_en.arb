@@ -508,6 +508,17 @@
   "strikeTip": "Strikethrough (~~)",
   "linkTip": "Link",
   "pageHistoryTitle": "Version history",
+  "vaultHistoryTitle": "Notebook history",
+  "vaultHistoryEmptyHint": "No saved history points for this notebook yet.",
+  "vaultHistoryOriginAutosave": "Autosave",
+  "vaultHistoryOriginCloudSync": "Cloud sync",
+  "vaultHistoryOriginPreRestore": "Before restore",
+  "vaultHistoryOriginPostRestore": "After restore",
+  "vaultHistoryOriginManual": "Manual",
+  "vaultHistoryRestoreTitle": "Restore notebook",
+  "vaultHistoryRestoreBody": "All pages in this notebook will be replaced with this point in history. The current state will be saved to history first.",
+  "vaultHistoryPageCount": "{count} {count, plural, one {page} other {pages}}",
+  "@vaultHistoryPageCount": {"placeholders": {"count": {"type": "int"}}},
   "restoreVersionTitle": "Restore version",
   "restoreVersionBody": "The page title, icon, tags, properties and content will be replaced with this version. The current state will be saved first in history.",
   "restore": "Restore",
@@ -1239,6 +1250,7 @@
   ,"syncConflictMergeOpenPage": "Go to page"
   ,"syncConflictMergePreviewTitle": "Merged result"
   ,"syncConflictMergeHunksTitle": "Changes by hunk"
+  ,"syncConflictMergeOriginalTitle": "Original (before either change)"
   ,"syncConflictMergePageUntitled": "Untitled"
   ,"syncConflictMergeMissingPage": "Page not found"
   ,"syncConflictMergeLegacyTitle": "Notebook conflict"

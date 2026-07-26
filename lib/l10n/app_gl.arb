@@ -510,6 +510,17 @@
   "strikeTip": "Riscado (~~)",
   "linkTip": "Ligazón",
   "pageHistoryTitle": "Historial de versións",
+  "vaultHistoryTitle": "Historial do caderno",
+  "vaultHistoryEmptyHint": "Aínda non hai puntos gardados no historial deste caderno.",
+  "vaultHistoryOriginAutosave": "Gardado automático",
+  "vaultHistoryOriginCloudSync": "Sincronización coa nube",
+  "vaultHistoryOriginPreRestore": "Antes de restaurar",
+  "vaultHistoryOriginPostRestore": "Despois de restaurar",
+  "vaultHistoryOriginManual": "Manual",
+  "vaultHistoryRestoreTitle": "Restaurar caderno",
+  "vaultHistoryRestoreBody": "Todas as páxinas deste caderno substituiranse por este punto do historial. O estado actual gardarase antes no historial.",
+  "vaultHistoryPageCount": "{count} {count, plural, one {páxina} other {páxinas}}",
+  "@vaultHistoryPageCount": {"placeholders": {"count": {"type": "int"}}},
   "restoreVersionTitle": "Restaurar versión",
   "restoreVersionBody": "O título, a icona, as etiquetas, as propiedades e o contido da folio substituiranse por esta versión. O estado actual gardarase primeiro no historial.",
   "restore": "Restaurar",
@@ -1242,6 +1253,7 @@
   ,"syncConflictMergeOpenPage": "Ir á folio"
   ,"syncConflictMergePreviewTitle": "Resultado fusionado"
   ,"syncConflictMergeHunksTitle": "Cambios por anacos"
+  ,"syncConflictMergeOriginalTitle": "Orixinal (antes de calquera dos dous cambios)"
   ,"syncConflictMergePageUntitled": "Sen título"
   ,"syncConflictMergeMissingPage": "Folio non atopada"
   ,"syncConflictMergeLegacyTitle": "Conflito de caderno"

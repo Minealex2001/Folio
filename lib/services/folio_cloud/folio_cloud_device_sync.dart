@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
@@ -7,11 +8,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
 import '../../crypto/vault_crypto.dart';
+import '../../data/vault_local_storage.dart';
+import '../../data/vault_payload.dart';
 import '../../data/vault_paths.dart';
 import '../../data/vault_registry.dart';
+import '../../git/vault_snapshot_manager.dart';
 import '../../session/vault_session.dart';
 import '../app_logger.dart';
 import '../folio_firestore_support.dart';
@@ -93,6 +98,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   int _blobsCompleted = 0;
   int _blobsTotal = 0;
   final DeviceSyncVaultAckStore _ackStore = DeviceSyncVaultAckStore();
+  final DeviceSyncPageManifestStore _pageManifestStore =
+      DeviceSyncPageManifestStore();
   final HeadlessDeviceSyncVault _headless = HeadlessDeviceSyncVault();
   List<DeviceSyncVaultStatus> _vaultStatuses = const [];
   bool _ackLoaded = false;
@@ -635,6 +642,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         rev: _lastRemoteRev,
         successMs: _lastSyncSuccessMs,
       );
+      if (result.pageBlobIds.isNotEmpty) {
+        await _pageManifestStore.save(
+          vaultId: vaultId,
+          vaultBlobId: result.vaultBlobId,
+          pageBlobIds: result.pageBlobIds,
+        );
+      }
       AppLogger.debug(
         'push ok',
         tag: 'cloud_sync',
@@ -725,6 +739,20 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       }
       final wireKeys = <SecretKey?>[accountKey, vaultKey];
 
+      // Payload local + último manifiesto aplicado: permiten que el pull
+      // reponga páginas sin cambios desde memoria en vez de re-descargarlas.
+      VaultPayload? knownLocalPayload;
+      try {
+        final localRaw = await _session.exportSyncSnapshotBytes();
+        if (localRaw != null && localRaw.isNotEmpty) {
+          knownLocalPayload = VaultSyncPack.decodeFlexible(localRaw).payload;
+        }
+      } catch (_) {}
+      final knownManifestVaultId = _boundVaultId ?? VaultPaths.activeVaultId ?? '';
+      final knownManifest = _pageManifestStore.forVault(knownManifestVaultId);
+      var pulledVaultBlobId = '';
+      var pulledPageBlobIds = <String, String>{};
+
       late final Uint8List plain;
       if (syncFormatVersion >= 2 && manifestStoragePath.isNotEmpty) {
         plain = await _decryptWirePack(
@@ -736,8 +764,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
               onProgress: (done, total, fraction) {
                 _setTransferProgress(fraction, done, total);
               },
+              knownLocalPayload: knownLocalPayload,
+              knownPageBlobIds: knownManifest?.pageBlobIds ?? const {},
+              knownVaultBlobId: knownManifest?.vaultBlobId ?? '',
             );
             _cachedRemoteBlobIds = rebuilt.blobIds;
+            pulledVaultBlobId = rebuilt.vaultBlobId;
+            pulledPageBlobIds = rebuilt.pageBlobIds;
             return rebuilt.packBytes;
           },
         );
@@ -758,6 +791,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         _cachedPackPath = packStoragePath;
       }
 
+      if (knownManifestVaultId.isNotEmpty) {
+        final persistedBaseline =
+            await _loadPersistedBaseline(knownManifestVaultId);
+        if (persistedBaseline != null) {
+          _session.seedSyncBaselineIfEmpty(persistedBaseline);
+        }
+      }
       final applied = await _session.applySyncSnapshotBytes(
         plain,
         'cloud:${_settings.syncDeviceId}',
@@ -778,6 +818,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         rev: _lastRemoteRev,
         successMs: _lastSyncSuccessMs,
       );
+      if (pulledPageBlobIds.isNotEmpty && knownManifestVaultId.isNotEmpty) {
+        await _pageManifestStore.save(
+          vaultId: knownManifestVaultId,
+          vaultBlobId: pulledVaultBlobId,
+          pageBlobIds: pulledPageBlobIds,
+        );
+      }
 
       if (applied.changed) {
         AppLogger.debug(
@@ -855,7 +902,64 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> _ensureAckLoaded() async {
     if (_ackLoaded) return;
     await _ackStore.load();
+    await _pageManifestStore.load();
     _ackLoaded = true;
+  }
+
+  /// Recupera el baseline persistido (ancestro común de la última sync
+  /// exitosa) para poder pasarlo al motor de merge — sin esto, cada merge
+  /// headless trataba el baseline como vacío y nunca podía hacer
+  /// fast-forward real (ver [VaultSyncMergeEngine.merge]).
+  Future<VaultPayload?> _loadPersistedBaseline(String vaultId) async {
+    final snapshotId = _ackStore.forVault(vaultId)?.baselineSnapshotId ?? '';
+    if (snapshotId.isEmpty) return null;
+    try {
+      final vaultDir = await VaultPaths.vaultDirectoryForId(vaultId);
+      final manager = VaultSnapshotManager(
+        vaultDir: vaultDir,
+        deviceId: _settings.syncDeviceId,
+      );
+      return await manager.loadPayload(snapshotId);
+    } catch (e) {
+      AppLogger.warn(
+        'load persisted sync baseline failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+      return null;
+    }
+  }
+
+  /// Snapshot del árbol resultante tras un push/pull/merge exitoso, marcado
+  /// como el nuevo "ancestro común" persistido — lo que permite fast-forward
+  /// real (sin descargar/mergear de más) la próxima vez, incluso tras
+  /// reiniciar la app o bloquear/desbloquear la libreta. Devuelve `null` si
+  /// no se pudo crear (p. ej. libreta aún no migrada a v1), sin que eso
+  /// interrumpa el flujo de sync que lo llama.
+  Future<String?> _createCloudSyncBaselineSnapshot(String vaultId) async {
+    try {
+      final vaultDir = await VaultPaths.vaultDirectoryForId(vaultId);
+      final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+      if (!treeDir.existsSync()) return null;
+      return await VaultLocalStorage.runExclusive(vaultDir.path, () async {
+        final manager = VaultSnapshotManager(
+          vaultDir: vaultDir,
+          deviceId: _settings.syncDeviceId,
+        );
+        final snapshot = await manager.createSnapshot(
+          treeDir: treeDir,
+          label: 'cloud-sync',
+        );
+        return snapshot.snapshotId;
+      });
+    } catch (e, st) {
+      AppLogger.warn(
+        'cloud-sync baseline snapshot failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e', 'stack': '$st'},
+      );
+      return null;
+    }
   }
 
   Future<void> _persistActiveAck({
@@ -866,11 +970,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     final vaultId = _boundVaultId ?? VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) return;
     await _ensureAckLoaded();
+    final baselineSnapshotId = await _createCloudSyncBaselineSnapshot(vaultId);
     await _ackStore.saveAck(
       vaultId: vaultId,
       fingerprint: fingerprint,
       rev: rev,
       successMs: successMs,
+      baselineSnapshotId: baselineSnapshotId,
     );
     unawaited(refreshAllVaultStatuses());
   }
@@ -1235,6 +1341,13 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         final wireKeys = packKeyKind == 'vault'
             ? <SecretKey?>[packKey, accountKey]
             : <SecretKey?>[accountKey, packKey];
+        // Payload local + último manifiesto aplicado: permiten que el pull
+        // reponga páginas sin cambios desde disco en vez de re-descargarlas.
+        final knownLocalPayload =
+            packKey != null ? await _headless.loadPayload(vaultId, packKey) : null;
+        final knownManifest = _pageManifestStore.forVault(vaultId);
+        var pulledVaultBlobId = '';
+        var pulledPageBlobIds = <String, String>{};
         late final Uint8List plain;
         if (isV2) {
           plain = await _decryptWirePack(
@@ -1243,7 +1356,12 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
               final rebuilt = await pullDeviceSyncIncremental(
                 manifestStoragePath: manifestPath,
                 packKey: key,
+                knownLocalPayload: knownLocalPayload,
+                knownPageBlobIds: knownManifest?.pageBlobIds ?? const {},
+                knownVaultBlobId: knownManifest?.vaultBlobId ?? '',
               );
+              pulledVaultBlobId = rebuilt.vaultBlobId;
+              pulledPageBlobIds = rebuilt.pageBlobIds;
               return rebuilt.packBytes;
             },
           );
@@ -1275,16 +1393,27 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           vaultId: vaultId,
           packKey: packKey,
           remotePackBytes: plain,
+          baseline: await _loadPersistedBaseline(vaultId),
         );
         if (!applied.ok) {
           throw StateError('headless apply failed: vaultId=$vaultId');
         }
+        final baselineSnapshotId =
+            await _createCloudSyncBaselineSnapshot(vaultId);
         await _ackStore.saveAck(
           vaultId: vaultId,
           fingerprint: remoteFp,
           rev: rev,
           successMs: DateTime.now().millisecondsSinceEpoch,
+          baselineSnapshotId: baselineSnapshotId,
         );
+        if (isV2 && pulledPageBlobIds.isNotEmpty) {
+          await _pageManifestStore.save(
+            vaultId: vaultId,
+            vaultBlobId: pulledVaultBlobId,
+            pageBlobIds: pulledPageBlobIds,
+          );
+        }
         AppLogger.debug(
           'headless pull ok',
           tag: 'cloud_sync',
@@ -1356,7 +1485,24 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
     _setStatus('pushing');
     try {
-      final prevIds = <String>{};
+      var prevIds = <String>{};
+      if (isV2 && manifestPath.isNotEmpty) {
+        final peekKeys = packKeyKind == 'vault'
+            ? <SecretKey?>[packKey, accountKey]
+            : <SecretKey?>[accountKey, packKey];
+        for (final key in peekKeys) {
+          if (key == null) continue;
+          try {
+            prevIds = await peekDeviceSyncManifestBlobIds(
+              manifestStoragePath: manifestPath,
+              packKey: key,
+            );
+            break;
+          } catch (_) {
+            continue;
+          }
+        }
+      }
       final wireKey = accountKey ?? packKey;
       final wrapB64 = await _uploadBootstrapAfterPush(uid: uid, vaultId: vaultId);
       final result = await pushDeviceSyncIncremental(
@@ -1377,12 +1523,22 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         packKeyKind: accountKey != null ? 'account' : 'vault',
         dekAccountWrapB64: wrapB64 ?? '',
       );
+      final baselineSnapshotId =
+          await _createCloudSyncBaselineSnapshot(vaultId);
       await _ackStore.saveAck(
         vaultId: vaultId,
         fingerprint: localFp,
         rev: result.rev,
         successMs: DateTime.now().millisecondsSinceEpoch,
+        baselineSnapshotId: baselineSnapshotId,
       );
+      if (result.pageBlobIds.isNotEmpty) {
+        await _pageManifestStore.save(
+          vaultId: vaultId,
+          vaultBlobId: result.vaultBlobId,
+          pageBlobIds: result.pageBlobIds,
+        );
+      }
       AppLogger.debug(
         'headless push ok',
         tag: 'cloud_sync',

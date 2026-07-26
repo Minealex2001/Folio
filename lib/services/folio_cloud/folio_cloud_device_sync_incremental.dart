@@ -5,6 +5,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../data/vault_payload.dart';
+import '../../models/folio_page.dart';
 import '../app_logger.dart';
 import '../sync/vault_sync_pack.dart';
 import 'folio_cloud_callable.dart';
@@ -32,22 +33,37 @@ class DeviceSyncPushResult {
     required this.manifestSizeBytes,
     required this.blobIds,
     required this.rev,
+    this.vaultBlobId = '',
+    this.pageBlobIds = const {},
   });
 
   final String manifestPath;
   final int manifestSizeBytes;
   final Set<String> blobIds;
   final int rev;
+
+  /// Manifiesto por página que este push acaba de dejar en la nube — para
+  /// persistir como "último aplicado" y diffear la próxima vez sin red.
+  final String vaultBlobId;
+  final Map<String, String> pageBlobIds;
 }
 
 class DeviceSyncPullResult {
   const DeviceSyncPullResult({
     required this.packBytes,
     required this.blobIds,
+    this.vaultBlobId = '',
+    this.pageBlobIds = const {},
   });
 
   final Uint8List packBytes;
   final Set<String> blobIds;
+
+  /// Manifiesto resuelto de este pull (vacío en formato v2 legacy, que no
+  /// tiene páginas sueltas) — para persistir como "último aplicado" y poder
+  /// diffear la próxima vez sin descargar nada.
+  final String vaultBlobId;
+  final Map<String, String> pageBlobIds;
 }
 
 /// Sube blobs content-addressed + manifiesto cifrado (device-sync v2).
@@ -265,6 +281,81 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     manifestSizeBytes: manifestCipher.length,
     blobIds: allBlobIds,
     rev: rev,
+    vaultBlobId: vaultBlobId,
+    pageBlobIds: {
+      for (final e in pageEntries) e['pageId']!: e['blobId']!,
+    },
+  );
+}
+
+/// Manifiesto ya leído y resuelto a nivel de página: qué blob corresponde al
+/// "resto de la libreta" (vault v3) o al payload completo (v2), y qué blob
+/// corresponde a cada página. Permite decidir por página qué descargar sin
+/// bajar contenido.
+class DeviceSyncManifestPageBlobIds {
+  const DeviceSyncManifestPageBlobIds({
+    required this.vaultBlobId,
+    required this.pageBlobIds,
+  });
+
+  /// `payloadBlobId` (v2) o `vaultBlobId` (v3) — el "resto" no-por-página.
+  final String vaultBlobId;
+
+  /// `pageId -> blobId`. Vacío en manifiestos v2 (no hay páginas sueltas).
+  final Map<String, String> pageBlobIds;
+}
+
+/// Lee el manifiesto y devuelve el blob del resto de la libreta + el mapa
+/// `pageId -> blobId` de cada página, sin descargar ningún blob de contenido.
+/// Es lo que permite calcular qué páginas cambiaron en la nube comparando
+/// contra el último manifiesto aplicado, sin tráfico de red adicional.
+Future<DeviceSyncManifestPageBlobIds> peekDeviceSyncManifestPageBlobIds({
+  required String manifestStoragePath,
+  required SecretKey packKey,
+}) async {
+  final manifestCipher = await folioStorageGetData(
+    FirebaseStorage.instance.ref().child(manifestStoragePath),
+    16 * 1024 * 1024,
+  );
+  if (manifestCipher == null || manifestCipher.isEmpty) {
+    return const DeviceSyncManifestPageBlobIds(vaultBlobId: '', pageBlobIds: {});
+  }
+  final manifestPlain = await cloudPackDecryptBytes(
+    blob: manifestCipher,
+    packKey: packKey,
+  );
+  final decoded = jsonDecode(utf8.decode(manifestPlain));
+  if (decoded is! Map) {
+    return const DeviceSyncManifestPageBlobIds(vaultBlobId: '', pageBlobIds: {});
+  }
+  final map = Map<String, dynamic>.from(decoded);
+  final format = map['format'];
+  if (format != kDeviceSyncManifestFormatV2 &&
+      format != kDeviceSyncManifestFormatV3) {
+    return const DeviceSyncManifestPageBlobIds(vaultBlobId: '', pageBlobIds: {});
+  }
+  if (format == kDeviceSyncManifestFormatV2) {
+    final payloadBlobId = '${map['payloadBlobId'] ?? ''}'.trim().toLowerCase();
+    return DeviceSyncManifestPageBlobIds(
+      vaultBlobId: cloudPackIsValidBlobId(payloadBlobId) ? payloadBlobId : '',
+      pageBlobIds: const {},
+    );
+  }
+  final vaultBlobId = '${map['vaultBlobId'] ?? ''}'.trim().toLowerCase();
+  final pageBlobIds = <String, String>{};
+  final pagesRaw = map['pages'];
+  if (pagesRaw is List) {
+    for (final item in pagesRaw) {
+      if (item is! Map) continue;
+      final pageId = '${item['pageId'] ?? ''}'.trim();
+      final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
+      if (pageId.isEmpty || !cloudPackIsValidBlobId(blobId)) continue;
+      pageBlobIds[pageId] = blobId;
+    }
+  }
+  return DeviceSyncManifestPageBlobIds(
+    vaultBlobId: cloudPackIsValidBlobId(vaultBlobId) ? vaultBlobId : '',
+    pageBlobIds: pageBlobIds,
   );
 }
 
@@ -322,6 +413,12 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   required String manifestStoragePath,
   required SecretKey packKey,
   DeviceSyncTransferProgress? onProgress,
+  /// Payload local ya conocido, usado para reponer páginas/resto cuyo blobId
+  /// remoto coincide con [knownPageBlobIds]/[knownVaultBlobId] sin
+  /// descargarlas de nuevo (sync incremental por página).
+  VaultPayload? knownLocalPayload,
+  Map<String, String> knownPageBlobIds = const {},
+  String knownVaultBlobId = '',
 }) async {
   AppLogger.info(
     'incremental pull start',
@@ -396,7 +493,25 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     ...pageSpecs.map((e) => e.blobId),
     ...attSpecs.map((e) => e.blobId),
   };
-  final total = allIds.length;
+
+  final localPagesById = <String, FolioPage>{
+    for (final p in knownLocalPayload?.pages ?? const <FolioPage>[]) p.id: p,
+  };
+  final canReuseRest = isV3 &&
+      knownLocalPayload != null &&
+      knownVaultBlobId.isNotEmpty &&
+      payloadBlobId == knownVaultBlobId;
+  bool canReusePage(({String pageId, String blobId}) spec) =>
+      knownLocalPayload != null &&
+      localPagesById.containsKey(spec.pageId) &&
+      knownPageBlobIds[spec.pageId] == spec.blobId;
+
+  final toDownloadIds = <String>{
+    if (!canReuseRest) payloadBlobId,
+    ...pageSpecs.where((s) => !canReusePage(s)).map((e) => e.blobId),
+    ...attSpecs.map((e) => e.blobId),
+  };
+  final total = toDownloadIds.length;
   var done = 0;
 
   Future<Uint8List> downloadBlob(String blobId) async {
@@ -439,13 +554,28 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     }
     payloadJson = Map<String, dynamic>.from(decodedPayload);
   } else {
-    final restBytes = await downloadBlob(payloadBlobId);
-    final decodedRest = jsonDecode(utf8.decode(restBytes));
-    if (decodedRest is! Map) {
-      throw StateError('Invalid device-sync vault blob');
+    final Map<String, dynamic> decodedRest;
+    if (canReuseRest) {
+      decodedRest = knownLocalPayload.restJsonExcludingPages();
+    } else {
+      final restBytes = await downloadBlob(payloadBlobId);
+      final decoded = jsonDecode(utf8.decode(restBytes));
+      if (decoded is! Map) {
+        throw StateError('Invalid device-sync vault blob');
+      }
+      decodedRest = Map<String, dynamic>.from(decoded);
     }
     final pageSlices = <Map<String, dynamic>>[];
     for (final spec in pageSpecs) {
+      if (canReusePage(spec)) {
+        pageSlices.add(
+          VaultPayload.pageSliceJson(
+            localPagesById[spec.pageId]!,
+            knownLocalPayload!.comments,
+          ),
+        );
+        continue;
+      }
       final pageBytes = await downloadBlob(spec.blobId);
       final decodedSlice = jsonDecode(utf8.decode(pageBytes));
       if (decodedSlice is! Map) {
@@ -453,10 +583,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
       }
       pageSlices.add(Map<String, dynamic>.from(decodedSlice));
     }
-    payloadJson = VaultPayload.mergeRestAndPageSlices(
-      Map<String, dynamic>.from(decodedRest),
-      pageSlices,
-    );
+    payloadJson = VaultPayload.mergeRestAndPageSlices(decodedRest, pageSlices);
   }
 
   final attachments = <VaultSyncPackAttachment>[];
@@ -482,6 +609,8 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     tag: 'cloud_sync',
     context: {
       'blobs': allIds.length,
+      'downloaded': toDownloadIds.length,
+      'reused': allIds.length - toDownloadIds.length,
       'attachments': attachments.length,
       'packBytes': packBytes.length,
     },
@@ -490,6 +619,10 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   return DeviceSyncPullResult(
     packBytes: packBytes,
     blobIds: allIds,
+    vaultBlobId: isV3 ? payloadBlobId : '',
+    pageBlobIds: isV3
+        ? {for (final s in pageSpecs) s.pageId: s.blobId}
+        : const {},
   );
 }
 

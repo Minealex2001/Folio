@@ -356,6 +356,7 @@ class _ConflictDetailPaneState extends State<_ConflictDetailPane> {
     final peer = c.fromPeerId.trim().isEmpty
         ? l10n.syncConflictMergeUnknownDevice
         : c.fromPeerId;
+    final baseText = '${c.baseBlockJson?['text'] ?? ''}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -418,6 +419,30 @@ class _ConflictDetailPaneState extends State<_ConflictDetailPane> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: [
+                    if (c.baseBlockJson != null) ...[
+                      Text(
+                        l10n.syncConflictMergeOriginalTitle,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          baseText.isEmpty ? l10n.emptyValue : baseText,
+                          style: mono?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Text(
                       l10n.syncConflictMergeHunksTitle,
                       style: theme.textTheme.titleSmall?.copyWith(

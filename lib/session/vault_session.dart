@@ -1115,8 +1115,8 @@ class VaultSession extends ChangeNotifier {
     final temp = Directory.systemTemp.createTempSync('folio_recovery_import_');
     try {
       await extractBackupZipToDirectory(File(zipPath), temp);
-      await validateImportZip(temp, password);
-      await applyImportFromDirectory(temp);
+      final importedPayload = await validateImportZip(temp, password);
+      await applyImportFromDirectory(temp, importedPayload: importedPayload);
       await bootstrap();
     } finally {
       try {
@@ -2054,10 +2054,10 @@ class VaultSession extends ChangeNotifier {
     final temp = Directory.systemTemp.createTempSync('folio_import_overwrite_');
     try {
       await extractBackupArchiveToDirectory(File(archivePath), temp);
-      await validateImportZip(temp, backupPassword);
+      final importedPayload = await validateImportZip(temp, backupPassword);
       // Evita que un autosave pendiente pise los archivos recién importados.
       _persistence.cancelPendingSave();
-      await applyImportFromDirectory(temp);
+      await applyImportFromDirectory(temp, importedPayload: importedPayload);
       await bootstrap();
     } finally {
       try {
@@ -2077,10 +2077,16 @@ class VaultSession extends ChangeNotifier {
     if (!isUnlocked) {
       throw StateError('La libreta debe estar desbloqueada para importar.');
     }
-    await validateImportZip(extractedDir, backupPassword);
+    final importedPayload = await validateImportZip(
+      extractedDir,
+      backupPassword,
+    );
     // Evita que un autosave pendiente pise los archivos recién importados.
     _persistence.cancelPendingSave();
-    await applyImportFromDirectory(extractedDir);
+    await applyImportFromDirectory(
+      extractedDir,
+      importedPayload: importedPayload,
+    );
     await bootstrap();
   }
 
@@ -6174,38 +6180,50 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Bajo el mismo candado por libreta que `VaultLocalStorage`: este archivo
+  /// vive dentro de `repo/`, el mismo árbol que `decomposeAndStoreAt`
+  /// reemplaza entero en cada swap — sin el candado, una lectura aquí podría
+  /// solaparse con un sync en segundo plano a medio mover el árbol.
   Future<void> _ensureHiddenVersionsLoaded() async {
     if (_hiddenVersionsLoaded) return;
     _hiddenVersionsLoaded = true;
-    try {
-      final treeDir = await VaultPaths.vaultTreeDirectory();
-      final file = File(p.join(treeDir.path, 'vault', 'hidden_versions.json'));
-      if (!file.existsSync()) return;
-      final raw = jsonDecode(await file.readAsString());
-      if (raw is! Map) return;
-      _hiddenVersionsByPage.clear();
-      for (final entry in raw.entries) {
-        final list = entry.value;
-        if (list is List) {
-          _hiddenVersionsByPage['${entry.key}'] =
-              list.map((e) => '$e').toSet();
+    final vaultDir = await VaultPaths.vaultDirectory();
+    await VaultLocalStorage.runExclusive(vaultDir.path, () async {
+      try {
+        final treeDir = await VaultPaths.vaultTreeDirectory();
+        final file = File(
+          p.join(treeDir.path, 'vault', 'hidden_versions.json'),
+        );
+        if (!file.existsSync()) return;
+        final raw = jsonDecode(await file.readAsString());
+        if (raw is! Map) return;
+        _hiddenVersionsByPage.clear();
+        for (final entry in raw.entries) {
+          final list = entry.value;
+          if (list is List) {
+            _hiddenVersionsByPage['${entry.key}'] =
+                list.map((e) => '$e').toSet();
+          }
         }
+      } catch (e) {
+        AppLogger.warn('Failed to load hidden_versions.json: $e');
       }
-    } catch (e) {
-      AppLogger.warn('Failed to load hidden_versions.json: $e');
-    }
+    });
   }
 
   Future<void> _persistHiddenVersions() async {
-    final treeDir = await VaultPaths.vaultTreeDirectory();
-    final vaultMetaDir = Directory(p.join(treeDir.path, 'vault'));
-    await vaultMetaDir.create(recursive: true);
-    final file = File(p.join(vaultMetaDir.path, 'hidden_versions.json'));
-    final json = <String, List<String>>{
-      for (final e in _hiddenVersionsByPage.entries)
-        if (e.value.isNotEmpty) e.key: e.value.toList()..sort(),
-    };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    final vaultDir = await VaultPaths.vaultDirectory();
+    await VaultLocalStorage.runExclusive(vaultDir.path, () async {
+      final treeDir = await VaultPaths.vaultTreeDirectory();
+      final vaultMetaDir = Directory(p.join(treeDir.path, 'vault'));
+      await vaultMetaDir.create(recursive: true);
+      final file = File(p.join(vaultMetaDir.path, 'hidden_versions.json'));
+      final json = <String, List<String>>{
+        for (final e in _hiddenVersionsByPage.entries)
+          if (e.value.isNotEmpty) e.key: e.value.toList()..sort(),
+      };
+      await file.writeAsString(jsonEncode(json), flush: true);
+    });
   }
 
   /// Añade una copia de seguridad del estado actual y restaura [revisionId].
@@ -6325,6 +6343,37 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Historial de snapshots de TODA la libreta (no filtrado por página),
+  /// más reciente primero — estilo `git log`. Solo aplica al formato v1.
+  Future<List<VaultSnapshot>> listVaultSnapshots() {
+    if (_vaultFormatVersion != 1) return Future.value(const []);
+    return _snapshotManager.listSnapshots();
+  }
+
+  /// Restaura la libreta ENTERA (todas las páginas) a un snapshot anterior —
+  /// a diferencia de [restoreVersion], que restaura solo una página. Deja un
+  /// snapshot de seguridad antes y después, igual que el restore por página.
+  Future<bool> restoreVaultSnapshot(String snapshotId) async {
+    if (vaultUsesEncryption && _dek == null) return false;
+    if (_vaultFormatVersion != 1) return false;
+    try {
+      final payload = await _snapshotManager.loadPayload(snapshotId);
+      if (payload == null) return false;
+
+      await _createVaultSnapshotSafe(label: 'pre-restore');
+      await _applyResolvedSyncPayload(
+        payload,
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(payload),
+        setAsBaseline: true,
+      );
+      await _createVaultSnapshotSafe(label: 'post-restore');
+      return true;
+    } catch (e) {
+      AppLogger.error('Vault snapshot restore failed: $e');
+      return false;
+    }
+  }
+
   VaultPayload _buildVaultPayloadForPersist() {
     final name = _vaultId == null
         ? ''
@@ -6439,29 +6488,37 @@ class VaultSession extends ChangeNotifier {
 
   /// Crea un snapshot del árbol si el contenido relevante cambió respecto
   /// al último (dedupe por hash). [label] suele ser el título de la página.
+  ///
+  /// Bajo el mismo candado por libreta que `VaultLocalStorage`: lee `repo/`
+  /// (el mismo árbol que `decomposeAndStoreAt` reemplaza entero en cada
+  /// swap) para construir el snapshot — sin el candado, podría leerlo a
+  /// medio mover si coincide con un sync en segundo plano.
   Future<void> _createVaultSnapshotSafe({
     String? label,
     List<String>? pageIdsForDedupe,
   }) async {
     if (_vaultFormatVersion != 1) return;
     try {
-      final treeDir = await VaultPaths.vaultTreeDirectory();
-      if (pageIdsForDedupe != null && pageIdsForDedupe.isNotEmpty) {
-        final paths = <String>{};
-        for (final id in pageIdsForDedupe) {
-          paths.add(_pageTreePath(id, 'meta.json'));
-          paths.add(_pageTreePath(id, 'blocks.jsonl'));
-        }
-        if (await _snapshotManager.arePathsIdenticalToLatest(treeDir, paths)) {
+      final vaultDir = await VaultPaths.vaultDirectory();
+      await VaultLocalStorage.runExclusive(vaultDir.path, () async {
+        final treeDir = await VaultPaths.vaultTreeDirectory();
+        if (pageIdsForDedupe != null && pageIdsForDedupe.isNotEmpty) {
+          final paths = <String>{};
+          for (final id in pageIdsForDedupe) {
+            paths.add(_pageTreePath(id, 'meta.json'));
+            paths.add(_pageTreePath(id, 'blocks.jsonl'));
+          }
+          if (await _snapshotManager.arePathsIdenticalToLatest(
+            treeDir,
+            paths,
+          )) {
+            return;
+          }
+        } else if (await _snapshotManager.isTreeIdenticalToLatest(treeDir)) {
           return;
         }
-      } else if (await _snapshotManager.isTreeIdenticalToLatest(treeDir)) {
-        return;
-      }
-      await _snapshotManager.createSnapshot(
-        treeDir: treeDir,
-        label: label,
-      );
+        await _snapshotManager.createSnapshot(treeDir: treeDir, label: label);
+      });
     } catch (e) {
       AppLogger.warn('Snapshot creation failed: $e');
       // Don't fail persistence
@@ -6505,6 +6562,17 @@ class VaultSession extends ChangeNotifier {
 
   /// Aplica un pack/snapshot remoto con merge semántico (Cloud + P2P).
   /// Aplica un snapshot de sync. [changed] es true solo si el merge escribió estado local.
+  /// Siembra el baseline de sync en memoria si todavía está vacío (p. ej. al
+  /// reiniciar la app o tras bloquear/desbloquear la libreta) a partir de un
+  /// payload persistido (snapshot de la última sync exitosa). No sobreescribe
+  /// un baseline ya establecido en esta sesión — solo cubre el hueco de "aún
+  /// no hemos mergeado nada desde que se desbloqueó".
+  void seedSyncBaselineIfEmpty(VaultPayload payload) {
+    if (_syncBaselineFingerprint.isNotEmpty) return;
+    _syncBaselineFingerprint = VaultSyncMergeEngine.payloadFingerprint(payload);
+    _syncBaselinePayload = VaultPayload.decodeUtf8(payload.encodeUtf8());
+  }
+
   Future<({bool ok, bool changed})> applySyncSnapshotBytes(
     List<int> rawBytes, [
     String fromPeerId = '',
@@ -6736,6 +6804,7 @@ class VaultSession extends ChangeNotifier {
         blockId: conflict.blockId,
         remoteBlockJson: conflict.remoteBlock.toJson(),
         localBlockJson: conflict.localBlock.toJson(),
+        baseBlockJson: conflict.baseBlock?.toJson(),
       ),
     );
     _notifySyncConflictCountChanged();

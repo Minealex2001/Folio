@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../core/errors/vault_corruption_exception.dart';
+import '../data/vault_local_storage.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_paths.dart';
 import '../models/folio_page.dart';
@@ -56,123 +57,127 @@ class VaultMigrationTool {
     }
   }
 
-  /// Migra una libreta del formato viejo al nuevo.
+  /// Migra una libreta del formato viejo al nuevo. Va bajo el mismo candado
+  /// por libreta que usa `VaultLocalStorage`, para que un sync en segundo
+  /// plano de la misma libreta no pueda pisar `repo.tmp`/`repo`/`repo.old`
+  /// a la vez que la migración.
   static Future<VaultMigrationResult> migrateVault({
     required VaultPayload payload,
     required String deviceId,
   }) async {
-    Directory? tmpDir;
-    try {
-      final vaultId = VaultPaths.activeVaultId;
-      if (vaultId == null || vaultId.isEmpty) {
-        return VaultMigrationResult(
-          success: false,
-          vaultId: 'unknown',
-          message: 'No vault active',
-          filesCreated: 0,
-          snapshotsCreated: 0,
-          error: 'No active vault ID',
-        );
-      }
-
-      final vaultDir = await VaultPaths.vaultDirectory();
-      await _createPreMigrationBackup(vaultDir);
-
-      tmpDir = Directory(p.join(vaultDir.path, 'repo.tmp'));
-      if (tmpDir.existsSync()) {
-        await tmpDir.delete(recursive: true);
-      }
-      await tmpDir.create(recursive: true);
-
-      // Estado actual → tmp + verificación obligatoria
-      await VaultPayloadToTree.decompose(payload, tmpDir);
-      await _verifyRoundTrip(payload, tmpDir);
-
-      final snapshotManager = VaultSnapshotManager(
-        vaultDir: vaultDir,
-        deviceId: deviceId,
-      );
-      await snapshotManager.init();
-
-      var snapshotsCreated = 0;
-      String? parentSnapshotId;
-
-      final pagesById = {for (final page in payload.pages) page.id: page};
-      for (final entry in payload.pageRevisions.entries) {
-        final currentPage = pagesById[entry.key];
-        if (currentPage == null) continue;
-
-        final revisions = List<FolioPageRevision>.from(entry.value)
-          ..sort((a, b) => a.savedAtMs.compareTo(b.savedAtMs));
-        for (final revision in revisions) {
-          final pageAtRevision = FolioPage(
-            id: currentPage.id,
-            title: revision.title,
-            emoji: currentPage.emoji,
-            parentId: currentPage.parentId,
-            isFolder: currentPage.isFolder,
-            trashedAt: currentPage.trashedAt,
-            collabRoomId: currentPage.collabRoomId,
-            lastImportInfo: currentPage.lastImportInfo,
-            blocks: revision.decodeBlocks(),
-            properties: List.from(currentPage.properties),
-            tags: List.from(currentPage.tags),
-          );
-          await VaultPayloadToTree.writePageFiles(tmpDir, pageAtRevision);
-          final snap = await snapshotManager.createSnapshot(
-            treeDir: tmpDir,
-            label: revision.title.isNotEmpty ? revision.title : null,
-            parentSnapshotId: parentSnapshotId,
-          );
-          parentSnapshotId = snap.snapshotId;
-          snapshotsCreated++;
-        }
-      }
-
-      // Restaurar estado actual y verificar de nuevo
-      await VaultPayloadToTree.decompose(payload, tmpDir);
-      await _verifyRoundTrip(payload, tmpDir);
-
-      await snapshotManager.createSnapshot(
-        treeDir: tmpDir,
-        label: null,
-        parentSnapshotId: parentSnapshotId,
-      );
-      snapshotsCreated += 1;
-
-      final filesCreated = await _countFilesInDirectory(tmpDir);
-      final fingerprint = VaultIntegrity.fingerprintPages(payload);
-
-      // Swap atómico repo.tmp → repo
-      await _swapTmpToRepo(vaultDir, tmpDir);
-      tmpDir = null;
-
-      await writeTreeFormatVersion(1);
-      await writeV1VerifiedMarker(fingerprint);
-
-      return VaultMigrationResult(
-        success: true,
-        vaultId: vaultId,
-        message: 'Vault migrated successfully to new format',
-        filesCreated: filesCreated,
-        snapshotsCreated: snapshotsCreated,
-        contentFingerprint: fingerprint,
-      );
-    } catch (e) {
-      if (tmpDir != null && tmpDir.existsSync()) {
-        try {
-          await tmpDir.delete(recursive: true);
-        } catch (_) {}
-      }
+    final vaultId = VaultPaths.activeVaultId;
+    if (vaultId == null || vaultId.isEmpty) {
       return VaultMigrationResult(
         success: false,
-        vaultId: VaultPaths.activeVaultId ?? 'unknown',
-        message: 'Migration failed',
+        vaultId: 'unknown',
+        message: 'No vault active',
         filesCreated: 0,
         snapshotsCreated: 0,
-        error: e.toString(),
+        error: 'No active vault ID',
       );
     }
+    final vaultDir = await VaultPaths.vaultDirectory();
+    return VaultLocalStorage.runExclusive(vaultDir.path, () async {
+      Directory? tmpDir;
+      try {
+        await _createPreMigrationBackup(vaultDir);
+
+        tmpDir = Directory(p.join(vaultDir.path, 'repo.tmp'));
+        if (tmpDir.existsSync()) {
+          await tmpDir.delete(recursive: true);
+        }
+        await tmpDir.create(recursive: true);
+
+        // Estado actual → tmp + verificación obligatoria
+        await VaultPayloadToTree.decompose(payload, tmpDir);
+        await _verifyRoundTrip(payload, tmpDir);
+
+        final snapshotManager = VaultSnapshotManager(
+          vaultDir: vaultDir,
+          deviceId: deviceId,
+        );
+        await snapshotManager.init();
+
+        var snapshotsCreated = 0;
+        String? parentSnapshotId;
+
+        final pagesById = {for (final page in payload.pages) page.id: page};
+        for (final entry in payload.pageRevisions.entries) {
+          final currentPage = pagesById[entry.key];
+          if (currentPage == null) continue;
+
+          final revisions = List<FolioPageRevision>.from(entry.value)
+            ..sort((a, b) => a.savedAtMs.compareTo(b.savedAtMs));
+          for (final revision in revisions) {
+            final pageAtRevision = FolioPage(
+              id: currentPage.id,
+              title: revision.title,
+              emoji: currentPage.emoji,
+              parentId: currentPage.parentId,
+              isFolder: currentPage.isFolder,
+              trashedAt: currentPage.trashedAt,
+              collabRoomId: currentPage.collabRoomId,
+              lastImportInfo: currentPage.lastImportInfo,
+              blocks: revision.decodeBlocks(),
+              properties: List.from(currentPage.properties),
+              tags: List.from(currentPage.tags),
+            );
+            await VaultPayloadToTree.writePageFiles(tmpDir, pageAtRevision);
+            final snap = await snapshotManager.createSnapshot(
+              treeDir: tmpDir,
+              label: revision.title.isNotEmpty ? revision.title : null,
+              parentSnapshotId: parentSnapshotId,
+            );
+            parentSnapshotId = snap.snapshotId;
+            snapshotsCreated++;
+          }
+        }
+
+        // Restaurar estado actual y verificar de nuevo
+        await VaultPayloadToTree.decompose(payload, tmpDir);
+        await _verifyRoundTrip(payload, tmpDir);
+
+        await snapshotManager.createSnapshot(
+          treeDir: tmpDir,
+          label: null,
+          parentSnapshotId: parentSnapshotId,
+        );
+        snapshotsCreated += 1;
+
+        final filesCreated = await _countFilesInDirectory(tmpDir);
+        final fingerprint = VaultIntegrity.fingerprintPages(payload);
+
+        // Swap atómico repo.tmp → repo
+        await _swapTmpToRepo(vaultDir, tmpDir);
+        tmpDir = null;
+
+        await writeTreeFormatVersion(1);
+        await writeV1VerifiedMarker(fingerprint);
+
+        return VaultMigrationResult(
+          success: true,
+          vaultId: vaultId,
+          message: 'Vault migrated successfully to new format',
+          filesCreated: filesCreated,
+          snapshotsCreated: snapshotsCreated,
+          contentFingerprint: fingerprint,
+        );
+      } catch (e) {
+        if (tmpDir != null && tmpDir.existsSync()) {
+          try {
+            await tmpDir.delete(recursive: true);
+          } catch (_) {}
+        }
+        return VaultMigrationResult(
+          success: false,
+          vaultId: VaultPaths.activeVaultId ?? 'unknown',
+          message: 'Migration failed',
+          filesCreated: 0,
+          snapshotsCreated: 0,
+          error: e.toString(),
+        );
+      }
+    });
   }
 
   static Future<void> _verifyRoundTrip(

@@ -11,6 +11,8 @@ import 'vault_payload.dart';
 import '../core/errors/vault_corruption_exception.dart';
 import '../git/vault_payload_converters.dart';
 import '../git/vault_snapshot_manager.dart';
+import '../models/folio_page.dart';
+import '../models/local_collab.dart';
 import '../services/app_logger.dart';
 
 /// Se lanza si un persist intentaría sustituir un árbol con páginas por uno vacío.
@@ -34,7 +36,13 @@ class VaultLocalStorage {
   /// bloquean entre sí.
   static final Map<String, Future<void>> _vaultLocks = {};
 
-  static Future<T> _withVaultLock<T>(
+  /// Serializa cualquier operación sobre el árbol de una libreta (clave =
+  /// ruta de su directorio) frente a las demás operaciones de
+  /// `VaultLocalStorage` para esa MISMA libreta. Público para que otros
+  /// módulos que también tocan `repo/`/`vault.bin` de una libreta (import de
+  /// backups, migración v0→v1, el formato v0 legado) se unan al mismo
+  /// candado — si no, quedan invisibles a esta protección.
+  static Future<T> runExclusive<T>(
     String vaultDirPath,
     Future<T> Function() action,
   ) async {
@@ -91,7 +99,7 @@ class VaultLocalStorage {
     VaultPayload payload, {
     bool allowEmptyOverwrite = false,
   }) {
-    return _withVaultLock(vaultDir.path, () async {
+    return runExclusive(vaultDir.path, () async {
       final treeDir = Directory(p.join(vaultDir.path, 'repo'));
       final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
       if (!allowEmptyOverwrite &&
@@ -133,6 +141,49 @@ class VaultLocalStorage {
     });
   }
 
+  /// Lee una sola página (y sus comentarios) de `<vaultDir>/repo/pages/...`
+  /// sin recomponer la libreta entera — para aplicar un pull/merge
+  /// incremental que solo tocó unas pocas páginas.
+  static Future<FolioPage?> loadPageFromTreeAt(
+    Directory vaultDir,
+    String pageId,
+  ) async {
+    final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+    return runExclusive(vaultDir.path, () {
+      return TreeToVaultPayload.composePage(treeDir, pageId);
+    });
+  }
+
+  static Future<List<LocalPageComment>> loadPageCommentsFromTreeAt(
+    Directory vaultDir,
+    String pageId,
+  ) async {
+    final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+    return runExclusive(vaultDir.path, () {
+      return TreeToVaultPayload.composePageComments(treeDir, pageId);
+    });
+  }
+
+  /// Escribe atómicamente solo la carpeta de una página en
+  /// `<vaultDir>/repo/pages/...`, sin tocar el resto del árbol — la
+  /// contraparte de escritura de [loadPageFromTreeAt]. Requiere que `repo/`
+  /// ya exista (creado por un `decomposeAndStoreAt` previo).
+  static Future<void> storePageAt(
+    Directory vaultDir,
+    FolioPage page,
+    List<LocalPageComment> allComments,
+  ) async {
+    final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+    return runExclusive(vaultDir.path, () async {
+      if (!treeDir.existsSync()) {
+        throw StateError(
+          'Árbol no descompuesto; ejecuta decomposeAndStoreAt primero',
+        );
+      }
+      await VaultPayloadToTree.decomposePage(treeDir, page, allComments);
+    });
+  }
+
   /// Carga el árbol de archivos desde <vault>/repo/ y lo recompone en VaultPayload.
   /// Si el árbol no existe o está incompleto (falta tree.json), retorna null.
   static Future<VaultPayload?> loadFromTree() async {
@@ -169,7 +220,7 @@ class VaultLocalStorage {
     Directory treeDir,
     Directory vaultDir,
   ) {
-    return _withVaultLock(vaultDir.path, () async {
+    return runExclusive(vaultDir.path, () async {
       final payload = await loadFromTreeDir(treeDir);
       if (payload == null || payload.pages.isNotEmpty) return payload;
       if (await _latestSnapshotHadPages(vaultDir)) {
@@ -221,7 +272,7 @@ class VaultLocalStorage {
     final vaultDir = await VaultPaths.vaultDirectory();
     final treeDir = await VaultPaths.vaultTreeDirectory();
 
-    return _withVaultLock(vaultDir.path, () async {
+    return runExclusive(vaultDir.path, () async {
       if (!treeDir.existsSync()) {
         throw StateError(
           'Árbol no descompuesto; ejecuta decomposeAndStore primero',
@@ -244,7 +295,7 @@ class VaultLocalStorage {
   /// Obtiene lista de snapshots para el historial de versiones.
   static Future<List<SnapshotInfo>> listSnapshots() async {
     final vaultDir = await VaultPaths.vaultDirectory();
-    return _withVaultLock(vaultDir.path, () async {
+    return runExclusive(vaultDir.path, () async {
       final manager = VaultSnapshotManager(
         vaultDir: vaultDir,
         deviceId: 'unknown-device',
@@ -265,7 +316,7 @@ class VaultLocalStorage {
   }
 
   // TODO: cuando se implemente de verdad, debe unirse al mismo
-  // _withVaultLock(vaultDir.path, ...) que el resto de operaciones sobre el
+  // runExclusive(vaultDir.path, ...) que el resto de operaciones sobre el
   // árbol de esta libreta.
   static Future<bool> restoreSnapshot(String snapshotId) async {
     return false;

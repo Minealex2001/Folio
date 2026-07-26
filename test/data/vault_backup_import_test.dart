@@ -103,5 +103,90 @@ void main() {
         expect(preservedTree!.pages.single.id, 'old-page');
       },
     );
+
+    test(
+      'refuses to restore an empty backup over a vault that already has pages',
+      () async {
+        final vaultRoot = Directory(p.join(tempDir.path, 'vault'));
+        await vaultRoot.create(recursive: true);
+
+        final treeDir = Directory(p.join(vaultRoot.path, 'repo'));
+        await VaultPayloadToTree.decompose(
+          VaultPayload(
+            pages: [
+              FolioPage(
+                id: 'important-page',
+                title: 'Importante',
+                blocks: [
+                  FolioBlock(id: 'b1', type: 'paragraph', text: 'no perder'),
+                ],
+              ),
+            ],
+          ),
+          treeDir,
+        );
+        await File(
+          p.join(vaultRoot.path, 'vault.format'),
+        ).writeAsString('1', flush: true);
+
+        final extractedDir = Directory(p.join(tempDir.path, 'extracted_empty'));
+        await extractedDir.create(recursive: true);
+        final emptyPayload = VaultPayload(pages: const []);
+        await File(
+          p.join(extractedDir.path, 'vault.bin'),
+        ).writeAsBytes(emptyPayload.encodeUtf8(), flush: true);
+        await File(
+          p.join(extractedDir.path, 'vault.mode'),
+        ).writeAsString('plain', flush: true);
+
+        await expectLater(
+          applyImportToVaultRoot(
+            extractedDir,
+            vaultRoot,
+            importedPayload: emptyPayload,
+          ),
+          throwsA(isA<VaultBackupException>()),
+        );
+
+        // Nada se tocó: ni vault.bin, ni el árbol v1, ni el marker.
+        expect(treeDir.existsSync(), isTrue);
+        final stillThere = await VaultLocalStorage.loadFromTreeDir(treeDir);
+        expect(stillThere!.pages.single.id, 'important-page');
+        expect(
+          File(p.join(vaultRoot.path, 'vault.format')).existsSync(),
+          isTrue,
+        );
+        expect(
+          File(p.join(vaultRoot.path, 'vault.bin')).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'allows restoring an empty backup when the destination is genuinely empty',
+      () async {
+        final vaultRoot = Directory(p.join(tempDir.path, 'vault_fresh'));
+        await vaultRoot.create(recursive: true);
+
+        final extractedDir = Directory(p.join(tempDir.path, 'extracted_fresh'));
+        await extractedDir.create(recursive: true);
+        final emptyPayload = VaultPayload(pages: const []);
+        await File(
+          p.join(extractedDir.path, 'vault.bin'),
+        ).writeAsBytes(emptyPayload.encodeUtf8(), flush: true);
+        await File(
+          p.join(extractedDir.path, 'vault.mode'),
+        ).writeAsString('plain', flush: true);
+
+        await applyImportToVaultRoot(
+          extractedDir,
+          vaultRoot,
+          importedPayload: emptyPayload,
+        );
+
+        expect(File(p.join(vaultRoot.path, 'vault.bin')).existsSync(), isTrue);
+      },
+    );
   });
 }
