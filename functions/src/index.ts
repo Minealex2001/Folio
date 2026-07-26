@@ -20,6 +20,7 @@ import {
   queryMicrosoftStoreUserCollection,
   scanMicrosoftStoreCollectionItems,
 } from "./microsoft_store";
+import { isStudentEmail } from "./student_email";
 
 export {
   aggregateDailyTelemetryStats,
@@ -2836,35 +2837,6 @@ function assertValidVaultId(raw: unknown): string {
   return vaultId;
 }
 
-function isStudentEmail(email: string): boolean {
-  const domain = email.split("@").pop()?.toLowerCase() ?? "";
-  if (/\.edu(\.[a-z]{2})?$/i.test(domain)) {
-    return true;
-  }
-
-  const spanishUniversities = new Set([
-    "uji.es", "uoc.edu", "upc.edu", "ub.edu", "uam.es", "uc3m.es", "upv.es",
-    "uv.es", "ua.es", "um.es", "us.es", "uma.es", "unizar.es", "ehu.eus",
-    "ehu.es", "uab.cat", "uab.es", "urjc.es", "ucm.es", "upf.edu", "uah.es",
-    "ull.es", "unican.es", "unovi.es", "usal.es", "uva.es", "udc.es", "usc.es",
-    "uvigo.es", "unex.es", "uca.es", "uco.es", "ugr.es", "uhu.es", "ujaen.es",
-    "ual.es", "uclm.es", "unirioja.es", "upct.es", "upna.es", "udl.cat",
-    "udl.es", "urv.cat", "urv.es", "udg.edu", "udg.es", "uib.es", "uib.cat",
-    "uned.es"
-  ]);
-
-  if (spanishUniversities.has(domain)) {
-    return true;
-  }
-  for (const uni of spanishUniversities) {
-    if (domain.endsWith("." + uni)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function timestampToIsoString(value: unknown): string | null {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -3211,7 +3183,8 @@ export const createCheckoutSession = onCall(
       const billing = userData.billing as Record<string, unknown> | undefined;
       const studentVerified = billing?.studentVerified === true;
       const email = request.auth.token.email as string | undefined;
-      const isStudent = studentVerified || (email && isStudentEmail(email));
+      const isStudent =
+        studentVerified || (email ? await isStudentEmail(email) : false);
       if (!isStudent) {
         throw new HttpsError(
           "failed-precondition",
@@ -6220,7 +6193,7 @@ export const verifyStudentStatus = onCall(
     if (!email) {
       throw new HttpsError("invalid-argument", "No email found. Provide an email.");
     }
-    const verified = isStudentEmail(email);
+    const verified = await isStudentEmail(email);
     if (verified) {
       const ref = db.collection("users").doc(uid);
       await ref.set(

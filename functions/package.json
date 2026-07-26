@@ -4,13 +4,15 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
+    "test": "npm run build && node --test lib/student_email.test.js",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions --project production",
     "deploy:staging": "firebase deploy --only functions --project staging",
     "deploy:staging:backend": "firebase deploy --only functions,firestore:rules,storage --project staging",
     "deploy:production": "firebase deploy --only functions --project production",
     "logs": "firebase functions:log --project production",
-    "logs:staging": "firebase functions:log --project staging"
+    "logs:staging": "firebase functions:log --project staging",
+    "generate:abused-domains": "node scripts/generate_abused_domains.js"
   },
   "engines": {
     "node": "22"
@@ -20,7 +22,8 @@
     "dotenv": "^17.4.1",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^7.2.5",
-    "stripe": "^17.4.0"
+    "stripe": "^17.4.0",
+    "swot-node": "^2.0.1489"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

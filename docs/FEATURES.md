@@ -827,6 +827,11 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 ### Facturación
 
 - **Stripe**: `createCheckoutSession`, `createBillingPortalSession`, webhook **`stripeWebhook`**; sincronización manual **`syncFolioCloudSubscriptionFromStripe`** si hace falta.
+- **Tarifa estudiante**: en Ajustes → Folio Cloud se puede verificar un correo institucional (`verifyStudentStatus`) y contratar `folio_student_monthly` (cuota 15 GiB, 1000 tinta/mes; sin familia). La elegibilidad es **solo por dominio** (no se demuestra posesión del buzón):
+  - Catálogo mundial de instituciones de educación superior [JetBrains/swot](https://github.com/JetBrains/swot) vía `swot-node`.
+  - Overlay Folio de dominios regionales de educación no universitaria en España (p. ej. `educa.jcyl.es`, `edu.gva.es`, `g.educaand.es`, `xtec.cat`, …) para institutos/FP (prioridad sobre la lista `abused` de SWOT cuando coinciden).
+  - Resto de dominios en la lista `abused` de SWOT se rechazan.
+  - Implementación: `functions/src/student_email.ts`; gate también en checkout si el email de Auth ya califica.
 - **Microsoft Store** (build MSIX): compras y suscripción alineadas con el mismo modelo de productos; callable **`validateMicrosoftStoreEntitlements`** tras compra o «Sincronizar». Variables y Partner Center: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
 - Precios, tinteros y addons de almacenamiento: [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md). Job programado **`monthlyInkRefill`** (recarga de gotas el día 1 para suscriptores mensuales).
 

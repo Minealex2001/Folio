@@ -52,6 +52,7 @@ const https_2 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const stripe_1 = __importDefault(require("stripe"));
 const microsoft_store_1 = require("./microsoft_store");
+const student_email_1 = require("./student_email");
 var telemetry_1 = require("./telemetry");
 Object.defineProperty(exports, "aggregateDailyTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateDailyTelemetryStats; } });
 Object.defineProperty(exports, "aggregateGlobalTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateGlobalTelemetryStats; } });
@@ -2402,32 +2403,6 @@ function assertValidVaultId(raw) {
     }
     return vaultId;
 }
-function isStudentEmail(email) {
-    var _a, _b;
-    const domain = (_b = (_a = email.split("@").pop()) === null || _a === void 0 ? void 0 : _a.toLowerCase()) !== null && _b !== void 0 ? _b : "";
-    if (/\.edu(\.[a-z]{2})?$/i.test(domain)) {
-        return true;
-    }
-    const spanishUniversities = new Set([
-        "uji.es", "uoc.edu", "upc.edu", "ub.edu", "uam.es", "uc3m.es", "upv.es",
-        "uv.es", "ua.es", "um.es", "us.es", "uma.es", "unizar.es", "ehu.eus",
-        "ehu.es", "uab.cat", "uab.es", "urjc.es", "ucm.es", "upf.edu", "uah.es",
-        "ull.es", "unican.es", "unovi.es", "usal.es", "uva.es", "udc.es", "usc.es",
-        "uvigo.es", "unex.es", "uca.es", "uco.es", "ugr.es", "uhu.es", "ujaen.es",
-        "ual.es", "uclm.es", "unirioja.es", "upct.es", "upna.es", "udl.cat",
-        "udl.es", "urv.cat", "urv.es", "udg.edu", "udg.es", "uib.es", "uib.cat",
-        "uned.es"
-    ]);
-    if (spanishUniversities.has(domain)) {
-        return true;
-    }
-    for (const uni of spanishUniversities) {
-        if (domain.endsWith("." + uni)) {
-            return true;
-        }
-    }
-    return false;
-}
 function timestampToIsoString(value) {
     if (value instanceof firestore_1.Timestamp) {
         return value.toDate().toISOString();
@@ -2725,7 +2700,7 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
         const billing = userData.billing;
         const studentVerified = (billing === null || billing === void 0 ? void 0 : billing.studentVerified) === true;
         const email = request.auth.token.email;
-        const isStudent = studentVerified || (email && isStudentEmail(email));
+        const isStudent = studentVerified || (email ? await (0, student_email_1.isStudentEmail)(email) : false);
         if (!isStudent) {
             throw new https_1.HttpsError("failed-precondition", "Para contratar la suscripción de estudiantes debes usar un correo de estudiante verificado.");
         }
@@ -5203,7 +5178,7 @@ exports.verifyStudentStatus = (0, https_1.onCall)({ invoker: "public" }, async (
     if (!email) {
         throw new https_1.HttpsError("invalid-argument", "No email found. Provide an email.");
     }
-    const verified = isStudentEmail(email);
+    const verified = await (0, student_email_1.isStudentEmail)(email);
     if (verified) {
         const ref = db.collection("users").doc(uid);
         await ref.set({
