@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeVaultProfile = exports.folioGetVaultProfileMeta = exports.folioFinalizeAppProfile = exports.folioGetAppProfileRestoreWrap = exports.folioGetAppProfileMeta = exports.folioListDeviceSyncVaults = exports.folioFinalizeDeviceSync = exports.folioGetDeviceSyncMeta = exports.folioEnsurePlainVaultSyncSecret = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.folioCloudCatalogPrices = exports.stripeWebhook = exports.folioCloudAiPricing = exports.folioSpotifyApiProxy = exports.folioSpotifyOAuthCallback = exports.folioSpotifyExchangeOAuth = exports.folioTeamsExchangeOAuth = exports.folioSlackExchangeOAuth = exports.folioTeamsCommand = exports.folioSlackCommand = exports.folioAckIntegrationCommand = exports.folioListPendingIntegrationCommands = exports.folioRegisterIntegrationLinkCode = exports.folioIntegrationWebhookProxy = exports.folioUpsertIntegrationWebhookConnection = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.onUserDeleted = exports.processScheduledAccountDeletions = exports.exportAccountData = exports.updateAccountDisplayName = exports.cancelAccountDeletion = exports.requestAccountDeletion = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -125,7 +125,7 @@ function openAiBaseUrl() {
 }
 function openAiModel() {
     var _a;
-    return ((_a = process.env.OPENAI_MODEL) === null || _a === void 0 ? void 0 : _a.trim()) || "gpt-4o-mini";
+    return ((_a = process.env.OPENAI_MODEL) === null || _a === void 0 ? void 0 : _a.trim()) || "gpt-5.4-mini-2026-03-17";
 }
 function openAiTranscribeModel() {
     var _a;
@@ -140,6 +140,22 @@ function openAiMaxOutputTokens() {
     if (!Number.isFinite(n) || n < 1)
         return 8192;
     return Math.min(16384, Math.trunc(n));
+}
+/** gpt-5 / o-series rechazan `max_tokens`; usan `max_completion_tokens`. */
+function openAiUsesMaxCompletionTokens(model) {
+    const m = model.trim().toLowerCase();
+    return (m.startsWith("gpt-5") ||
+        m.startsWith("o1") ||
+        m.startsWith("o3") ||
+        m.startsWith("o4"));
+}
+function applyOpenAiOutputTokenLimit(body, model, maxTokens) {
+    if (openAiUsesMaxCompletionTokens(model)) {
+        body.max_completion_tokens = maxTokens;
+    }
+    else {
+        body.max_tokens = maxTokens;
+    }
 }
 function openAiTemperature() {
     var _a;
@@ -312,12 +328,13 @@ async function callOpenAiGenerate(prompt) {
     if (!key) {
         throw new AiHttpsError("failed-precondition", "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor).");
     }
+    const model = openAiModel();
     const body = {
-        model: openAiModel(),
+        model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: openAiMaxOutputTokens(),
         temperature: openAiTemperature(),
     };
+    applyOpenAiOutputTokenLimit(body, model, openAiMaxOutputTokens());
     let r429 = 0;
     for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
         const { status, raw } = await openAiFetchChatCompletion(key, body);
@@ -544,12 +561,13 @@ async function callOpenAiChatStructured(input) {
     if (messages.length === 0) {
         throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
+    const model = openAiModel();
     const body = {
-        model: openAiModel(),
+        model,
         messages,
-        max_tokens: (_d = input.maxTokens) !== null && _d !== void 0 ? _d : openAiMaxOutputTokens(),
-        temperature: (_e = input.temperature) !== null && _e !== void 0 ? _e : openAiTemperature(),
+        temperature: (_d = input.temperature) !== null && _d !== void 0 ? _d : openAiTemperature(),
     };
+    applyOpenAiOutputTokenLimit(body, model, (_e = input.maxTokens) !== null && _e !== void 0 ? _e : openAiMaxOutputTokens());
     const schema = (_f = input.responseSchema) !== null && _f !== void 0 ? _f : null;
     if (schema) {
         body.response_format = {
@@ -2410,6 +2428,274 @@ function isStudentEmail(email) {
     }
     return false;
 }
+function timestampToIsoString(value) {
+    if (value instanceof firestore_1.Timestamp) {
+        return value.toDate().toISOString();
+    }
+    if (value instanceof admin.firestore.Timestamp) {
+        return value.toDate().toISOString();
+    }
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+        return value.toISOString();
+    }
+    if (value &&
+        typeof value === "object" &&
+        typeof value.toDate === "function") {
+        try {
+            const d = value.toDate();
+            if (d instanceof Date && Number.isFinite(d.getTime())) {
+                return d.toISOString();
+            }
+        }
+        catch {
+            // Ignorar valores no serializables como fecha.
+        }
+    }
+    if (typeof value === "string" && value.trim()) {
+        return value;
+    }
+    return null;
+}
+function toPlainJson(value) {
+    if (value === null ||
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean") {
+        return value;
+    }
+    const iso = timestampToIsoString(value);
+    if (iso) {
+        return iso;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => toPlainJson(item));
+    }
+    if (value && typeof value === "object") {
+        const out = {};
+        for (const [k, v] of Object.entries(value)) {
+            if (typeof v === "undefined")
+                continue;
+            const normalized = toPlainJson(v);
+            if (typeof normalized !== "undefined") {
+                out[k] = normalized;
+            }
+        }
+        return out;
+    }
+    return undefined;
+}
+function pickDefinedFields(source, keys) {
+    if (!source)
+        return null;
+    const out = {};
+    for (const key of keys) {
+        const value = source[key];
+        if (typeof value === "undefined")
+            continue;
+        const normalized = toPlainJson(value);
+        if (typeof normalized !== "undefined") {
+            out[key] = normalized;
+        }
+    }
+    return Object.keys(out).length > 0 ? out : null;
+}
+function summarizedBillingForExport(billingRaw) {
+    if (!billingRaw || typeof billingRaw !== "object") {
+        return null;
+    }
+    const billing = billingRaw;
+    const out = {};
+    if (typeof billing.studentVerified !== "undefined") {
+        out.studentVerified = Boolean(billing.studentVerified);
+    }
+    const stripe = pickDefinedFields(billing.stripe, ["subscriptionStatus", "subscriptionPriceId", "active", "familySeats", "updatedAt"]);
+    if (stripe) {
+        out.stripe = stripe;
+    }
+    const microsoftStore = pickDefinedFields(billing.microsoftStore, [
+        "subscriptionActive",
+        "subscriptionStoreProductId",
+        "lastValidatedAt",
+        "lastItemCount",
+    ]);
+    if (microsoftStore) {
+        out.microsoftStore = microsoftStore;
+    }
+    return Object.keys(out).length > 0 ? out : null;
+}
+async function assertAccountNotPendingDeletion(uid) {
+    const userSnap = await db.collection("users").doc(uid).get();
+    const accountDeletion = userSnap.get("accountDeletion");
+    if (!accountDeletion) {
+        return;
+    }
+    throw new https_1.HttpsError("failed-precondition", "Account deletion pending");
+}
+async function deleteStoragePrefix(prefix) {
+    await admin.storage().bucket().deleteFiles({ prefix, force: true }).catch((e) => {
+        console.warn("deleteStoragePrefix failed", prefix, e);
+    });
+}
+async function recursiveDeleteRef(ref) {
+    await db.recursiveDelete(ref).catch((e) => {
+        console.warn("recursiveDeleteRef failed", ref.path, e);
+    });
+}
+async function purgeUserAccount(uid) {
+    var _a, _b, _c, _d;
+    const userRef = db.collection("users").doc(uid);
+    const familyRef = db.collection("families").doc(uid);
+    const [userSnap, ownedFamilySnap] = await Promise.all([
+        userRef.get(),
+        familyRef.get(),
+    ]);
+    const userData = ((_a = userSnap.data()) !== null && _a !== void 0 ? _a : {});
+    const stripe = stripeClient();
+    const stripeCustomerId = typeof userData.stripeCustomerId === "string"
+        ? userData.stripeCustomerId.trim()
+        : "";
+    if (stripe && stripeCustomerId) {
+        try {
+            const subs = await stripe.subscriptions.list({
+                customer: stripeCustomerId,
+                status: "all",
+                limit: 100,
+            });
+            for (const sub of subs.data) {
+                if (sub.status === "canceled" || sub.status === "incomplete_expired") {
+                    continue;
+                }
+                try {
+                    await stripe.subscriptions.cancel(sub.id);
+                }
+                catch (e) {
+                    console.warn("purgeUserAccount: cancel subscription failed", uid, sub.id, e);
+                }
+            }
+        }
+        catch (e) {
+            console.warn("purgeUserAccount: list subscriptions failed", uid, e);
+        }
+        try {
+            await stripe.customers.del(stripeCustomerId);
+        }
+        catch (e) {
+            console.warn("purgeUserAccount: delete customer failed", uid, stripeCustomerId, e);
+        }
+    }
+    const familyOwnerUid = typeof userData.familyOwnerUid === "string" ? userData.familyOwnerUid.trim() : "";
+    if (familyOwnerUid) {
+        await db
+            .collection("families")
+            .doc(familyOwnerUid)
+            .set({
+            members: firestore_1.FieldValue.arrayRemove(uid),
+            [`membersInfo.${uid}`]: firestore_1.FieldValue.delete(),
+        }, { merge: true })
+            .catch((e) => {
+            console.warn("purgeUserAccount: remove from family failed", uid, familyOwnerUid, e);
+        });
+        await recomputeEffectiveFolioCloud(familyOwnerUid).catch((e) => {
+            console.warn("purgeUserAccount: recompute family owner failed", familyOwnerUid, e);
+        });
+    }
+    if (ownedFamilySnap.exists) {
+        const familyData = ((_b = ownedFamilySnap.data()) !== null && _b !== void 0 ? _b : {});
+        const members = Array.isArray(familyData.members)
+            ? familyData.members.filter((memberUid) => typeof memberUid === "string")
+            : [];
+        for (const memberUid of members) {
+            if (!memberUid || memberUid === uid)
+                continue;
+            await db
+                .collection("users")
+                .doc(memberUid)
+                .set({ familyOwnerUid: firestore_1.FieldValue.delete() }, { merge: true })
+                .catch((e) => {
+                console.warn("purgeUserAccount: clear member familyOwnerUid failed", memberUid, e);
+            });
+            await recomputeEffectiveFolioCloud(memberUid).catch((e) => {
+                console.warn("purgeUserAccount: recompute former family member failed", memberUid, e);
+            });
+        }
+        await familyRef.delete().catch((e) => {
+            console.warn("purgeUserAccount: delete family doc failed", uid, e);
+        });
+    }
+    const ownedRoomsSnap = await db
+        .collection("collabRooms")
+        .where("ownerUid", "==", uid)
+        .get();
+    for (const roomDoc of ownedRoomsSnap.docs) {
+        const roomData = (_c = roomDoc.data()) !== null && _c !== void 0 ? _c : {};
+        const joinCodeKey = typeof roomData.joinCodeKey === "string" ? roomData.joinCodeKey.trim() : "";
+        if (joinCodeKey) {
+            await db.collection("collabJoinIndex").doc(joinCodeKey).delete().catch(() => undefined);
+        }
+        await deleteStoragePrefix(`collab-media-e2e/${roomDoc.id}/`);
+        await recursiveDeleteRef(roomDoc.ref);
+    }
+    const memberRoomsSnap = await db
+        .collection("collabRooms")
+        .where("memberUids", "array-contains", uid)
+        .get();
+    for (const roomDoc of memberRoomsSnap.docs) {
+        const roomData = (_d = roomDoc.data()) !== null && _d !== void 0 ? _d : {};
+        if (roomData.ownerUid === uid) {
+            continue;
+        }
+        await roomDoc.ref
+            .set({
+            memberUids: firestore_1.FieldValue.arrayRemove(uid),
+            [`memberJoinedAt.${uid}`]: firestore_1.FieldValue.delete(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        }, { merge: true })
+            .catch((e) => {
+            console.warn("purgeUserAccount: remove collab member failed", roomDoc.id, uid, e);
+        });
+    }
+    await Promise.all([
+        deleteStoragePrefix(`users/${uid}/`),
+        deleteStoragePrefix(`published/${uid}/`),
+        deleteStoragePrefix(`community-templates/${uid}/`),
+    ]);
+    const [publishedSnap, templatesSnap, integrationIndexSnap] = await Promise.all([
+        db.collection("publishedPages").where("ownerUid", "==", uid).get(),
+        db.collection("communityTemplates").where("ownerUid", "==", uid).get(),
+        db.collection("integrationUserIndex").where("firebaseUid", "==", uid).get(),
+    ]);
+    for (const doc of publishedSnap.docs) {
+        await recursiveDeleteRef(doc.ref);
+    }
+    for (const doc of templatesSnap.docs) {
+        await recursiveDeleteRef(doc.ref);
+    }
+    for (const doc of integrationIndexSnap.docs) {
+        await recursiveDeleteRef(doc.ref);
+    }
+    await db.collection("folioCloudSubscribers").doc(uid).delete().catch(() => undefined);
+    await db.collection("collabJoinAttempts").doc(uid).delete().catch(() => undefined);
+    await recursiveDeleteRef(db.collection("analytics_events").doc(uid));
+    const knownUserSubcollections = [
+        "pendingIntegrationCommands",
+        "vaultSync",
+        "appProfile",
+        "vaultProfiles",
+        "vaultBackups",
+        "vaultBackupIndex",
+    ];
+    for (const subcollectionId of knownUserSubcollections) {
+        await recursiveDeleteRef(userRef.collection(subcollectionId));
+    }
+    const remainingCollections = await userRef.listCollections().catch(() => []);
+    for (const collectionRef of remainingCollections) {
+        if (knownUserSubcollections.includes(collectionRef.id)) {
+            continue;
+        }
+        await recursiveDeleteRef(collectionRef);
+    }
+    await userRef.delete().catch(() => undefined);
+}
 /**
  * Callable v2 corre en Cloud Run (2nd gen). Para soportar escritorio vía HTTP callable
  * (`Authorization: Bearer <ID token>`), el servicio debe permitir invocación pública
@@ -2420,12 +2706,13 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
+    const uid = request.auth.uid;
+    await assertAccountNotPendingDeletion(uid);
     const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
     const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
-    const uid = request.auth.uid;
     let kindRaw = (_d = (_c = request.data) === null || _c === void 0 ? void 0 : _c.kind) !== null && _d !== void 0 ? _d : "folio_cloud_monthly";
     if (kindRaw === "backup_storage_pack") {
         kindRaw = "backup_storage_pack_small";
@@ -2559,6 +2846,7 @@ exports.validateMicrosoftStoreEntitlements = (0, https_1.onCall)({ cors: true, i
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
+    await assertAccountNotPendingDeletion(request.auth.uid);
     const collectionsId = String((_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.collectionsId) !== null && _c !== void 0 ? _c : "").trim();
     if (!collectionsId) {
         throw new https_1.HttpsError("invalid-argument", "collectionsId is required");
@@ -4946,6 +5234,190 @@ exports.getFamilyDetails = (0, https_1.onCall)({ invoker: "public" }, async (req
         members: (_d = familyData.members) !== null && _d !== void 0 ? _d : [],
         membersInfo: (_e = familyData.membersInfo) !== null && _e !== void 0 ? _e : {},
     };
+});
+exports.requestAccountDeletion = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const accountDeletion = userSnap.get("accountDeletion");
+    const existingScheduledFor = timestampToIsoString(accountDeletion === null || accountDeletion === void 0 ? void 0 : accountDeletion.scheduledFor);
+    if (accountDeletion && existingScheduledFor) {
+        return { scheduledFor: existingScheduledFor };
+    }
+    if (accountDeletion) {
+        throw new https_1.HttpsError("failed-precondition", "Account deletion pending");
+    }
+    const scheduledFor = firestore_1.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+    await userRef.set({
+        accountDeletion: {
+            requestedAt: firestore_1.FieldValue.serverTimestamp(),
+            scheduledFor,
+            requestedBy: "user",
+        },
+    }, { merge: true });
+    return { scheduledFor: scheduledFor.toDate().toISOString() };
+});
+exports.cancelAccountDeletion = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const accountDeletion = userSnap.get("accountDeletion");
+    const scheduledForIso = timestampToIsoString(accountDeletion === null || accountDeletion === void 0 ? void 0 : accountDeletion.scheduledFor);
+    if (scheduledForIso) {
+        const scheduledForMs = Date.parse(scheduledForIso);
+        if (Number.isFinite(scheduledForMs) && scheduledForMs < Date.now()) {
+            throw new https_1.HttpsError("failed-precondition", "Account deletion pending");
+        }
+    }
+    await userRef.set({ accountDeletion: firestore_1.FieldValue.delete() }, { merge: true });
+    return { ok: true };
+});
+exports.updateAccountDisplayName = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const raw = String((_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.displayName) !== null && _c !== void 0 ? _c : "")
+        .trim()
+        .replace(/\s+/g, " ");
+    if (!raw) {
+        throw new https_1.HttpsError("invalid-argument", "displayName is required");
+    }
+    if (raw.length > 80) {
+        throw new https_1.HttpsError("invalid-argument", "displayName must be at most 80 characters");
+    }
+    await admin.auth().updateUser(uid, { displayName: raw });
+    await db.collection("users").doc(uid).set({ displayName: raw }, { merge: true });
+    const userSnap = await db.collection("users").doc(uid).get();
+    const familyOwnerUid = String((_d = userSnap.get("familyOwnerUid")) !== null && _d !== void 0 ? _d : "").trim();
+    if (familyOwnerUid) {
+        await db
+            .collection("families")
+            .doc(familyOwnerUid)
+            .set({
+            [`membersInfo.${uid}.displayName`]: raw,
+        }, { merge: true })
+            .catch((e) => {
+            console.warn("updateAccountDisplayName: family membersInfo update failed", uid, familyOwnerUid, e);
+        });
+    }
+    return { ok: true, displayName: raw };
+});
+exports.exportAccountData = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const [userSnap, authUser, vaultBackupIndexSnap, publishedPagesSnap, communityTemplatesSnap] = await Promise.all([
+        userRef.get(),
+        admin.auth().getUser(uid).catch(() => null),
+        userRef.collection("vaultBackupIndex").get(),
+        db
+            .collection("publishedPages")
+            .where("ownerUid", "==", uid)
+            .limit(100)
+            .get(),
+        db
+            .collection("communityTemplates")
+            .where("ownerUid", "==", uid)
+            .limit(100)
+            .get(),
+    ]);
+    const userData = ((_b = userSnap.data()) !== null && _b !== void 0 ? _b : {});
+    const [ownedRoomsSnap, memberRoomsSnap] = await Promise.all([
+        db.collection("collabRooms").where("ownerUid", "==", uid).limit(50).get(),
+        db.collection("collabRooms").where("memberUids", "array-contains", uid).limit(50).get(),
+    ]);
+    const collabRooms = new Map();
+    for (const snap of [...ownedRoomsSnap.docs, ...memberRoomsSnap.docs]) {
+        collabRooms.set(snap.id, {
+            docId: snap.id,
+            ...toPlainJson(snap.data()),
+        });
+    }
+    const familyOwnerUid = typeof userData.familyOwnerUid === "string" ? userData.familyOwnerUid.trim() : "";
+    let family = { role: "none" };
+    const ownedFamilySnap = await db.collection("families").doc(uid).get();
+    if (ownedFamilySnap.exists) {
+        family = {
+            role: "owner",
+            ...toPlainJson((_c = ownedFamilySnap.data()) !== null && _c !== void 0 ? _c : {}),
+        };
+    }
+    else if (familyOwnerUid) {
+        family = {
+            role: "member",
+            ownerUid: familyOwnerUid,
+        };
+    }
+    const createdAt = timestampToIsoString(userData.createdAt) ||
+        (authUser === null || authUser === void 0 ? void 0 : authUser.metadata.creationTime) ||
+        null;
+    const data = {
+        uid,
+        email: (_d = authUser === null || authUser === void 0 ? void 0 : authUser.email) !== null && _d !== void 0 ? _d : (typeof userData.email === "string" ? userData.email : null),
+        displayName: (_e = authUser === null || authUser === void 0 ? void 0 : authUser.displayName) !== null && _e !== void 0 ? _e : (typeof userData.displayName === "string" ? userData.displayName : null),
+        createdAt,
+        folioCloud: toPlainJson((_f = userData.folioCloud) !== null && _f !== void 0 ? _f : null),
+        billing: summarizedBillingForExport(userData.billing),
+        ink: toPlainJson((_g = userData.ink) !== null && _g !== void 0 ? _g : null),
+        folioBackup: toPlainJson((_h = userData.folioBackup) !== null && _h !== void 0 ? _h : null),
+        family,
+        vaultBackupIndex: vaultBackupIndexSnap.docs.map((doc) => ({
+            docId: doc.id,
+            ...toPlainJson(doc.data()),
+        })),
+        publishedPages: publishedPagesSnap.docs.map((doc) => ({
+            docId: doc.id,
+            ...toPlainJson(doc.data()),
+        })),
+        communityTemplates: communityTemplatesSnap.docs.map((doc) => ({
+            docId: doc.id,
+            ...toPlainJson(doc.data()),
+        })),
+        collabRooms: Array.from(collabRooms.values()),
+    };
+    return {
+        exportedAt: new Date().toISOString(),
+        data,
+    };
+});
+exports.processScheduledAccountDeletions = (0, scheduler_1.onSchedule)({
+    schedule: "15 3 * * *",
+    timeZone: INK_TIMEZONE,
+    memory: "256MiB",
+}, async () => {
+    const now = firestore_1.Timestamp.now();
+    const dueUsersSnap = await db
+        .collection("users")
+        .where("accountDeletion.scheduledFor", "<=", now)
+        .get();
+    for (const userDoc of dueUsersSnap.docs) {
+        const uid = userDoc.id;
+        try {
+            await purgeUserAccount(uid);
+            await admin.auth().deleteUser(uid);
+        }
+        catch (e) {
+            console.error("processScheduledAccountDeletions failed", uid, e);
+        }
+    }
+});
+exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
+    await purgeUserAccount(user.uid).catch((e) => {
+        console.error("onUserDeleted: purge failed", user.uid, e);
+    });
 });
 exports.onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
     var _a, _b;

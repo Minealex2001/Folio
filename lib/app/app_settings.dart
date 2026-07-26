@@ -1468,7 +1468,7 @@ class AppSettings extends ChangeNotifier {
         ),
         AiProvider.openAi: List<String>.from(
           p.getStringList(_aiModelsKeyForProvider(AiProvider.openAi)) ??
-              const <String>['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+              const <String>['gpt-5.4-mini-2026-03-17', 'gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
         ),
         AiProvider.gemini: List<String>.from(
           p.getStringList(_aiModelsKeyForProvider(AiProvider.gemini)) ??
@@ -1681,7 +1681,7 @@ class AppSettings extends ChangeNotifier {
       case AiProvider.quillCloud:
         return 'quill-cloud';
       case AiProvider.openAi:
-        return 'gpt-4o-mini';
+        return 'gpt-5.4-mini-2026-03-17';
       case AiProvider.gemini:
         return 'gemini-1.5-flash';
       case AiProvider.geminiNano:

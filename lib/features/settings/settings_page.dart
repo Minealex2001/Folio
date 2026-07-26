@@ -62,6 +62,7 @@ import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
+import '../../services/folio_cloud/folio_cloud_account_lifecycle.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_catalog_labels.dart';
 import '../../services/folio_cloud/folio_cloud_catalog_prices.dart';
@@ -1019,10 +1020,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                               u.email?.trim().isNotEmpty == true
                                               ? u.email!.trim()
                                               : '—';
+                                          final displayName =
+                                              u.displayName?.trim() ?? '';
+                                          final initialSource =
+                                              displayName.isNotEmpty
+                                              ? displayName
+                                              : (email.isNotEmpty &&
+                                                      email != '—'
+                                                  ? email
+                                                  : '?');
                                           final initial =
-                                              email.isNotEmpty && email != '—'
-                                              ? email[0].toUpperCase()
-                                              : '?';
+                                              initialSource[0].toUpperCase();
                                           accountCard = Padding(
                                             padding: const EdgeInsets.fromLTRB(
                                               16,
@@ -1103,6 +1111,41 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                       .start,
                                                               children: [
                                                                 Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        displayName.isNotEmpty
+                                                                            ? displayName
+                                                                            : l10n.cloudAccountDisplayNameEmpty,
+                                                                        style: Theme.of(context)
+                                                                            .textTheme
+                                                                            .titleSmall
+                                                                            ?.copyWith(
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                          color: displayName.isEmpty
+                                                                              ? scheme.onSurfaceVariant
+                                                                              : null,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    IconButton(
+                                                                      tooltip: l10n
+                                                                          .cloudAccountEditDisplayName,
+                                                                      onPressed: () {
+                                                                        unawaited(
+                                                                          _editCloudDisplayName(),
+                                                                        );
+                                                                      },
+                                                                      icon: const Icon(
+                                                                        Icons
+                                                                            .edit_outlined,
+                                                                        size: 20,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                Row(
                                                                   crossAxisAlignment:
                                                                       CrossAxisAlignment
                                                                           .start,
@@ -1113,8 +1156,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                         style:
                                                                             Theme.of(
                                                                               context,
-                                                                            ).textTheme.titleSmall?.copyWith(
-                                                                              fontWeight: FontWeight.w700,
+                                                                            ).textTheme.bodyMedium?.copyWith(
+                                                                              color: scheme.onSurfaceVariant,
                                                                             ),
                                                                       ),
                                                                     ),
@@ -1338,53 +1381,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           ),
                                                         ),
                                                       ],
-                                                      const SizedBox(
-                                                        height: 14,
-                                                      ),
-                                                      OutlinedButton.icon(
-                                                        onPressed: () async {
-                                                          try {
-                                                            await _cloud
-                                                                .signOut();
-                                                            if (!context
-                                                                .mounted) {
-                                                              return;
-                                                            }
-                                                            ScaffoldMessenger.of(
-                                                              context,
-                                                            ).showSnackBar(
-                                                              SnackBar(
-                                                                content: Text(
-                                                                  AppLocalizations.of(
-                                                                    context,
-                                                                  ).settingsSessionEndedSnack,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          } catch (e) {
-                                                            if (!context
-                                                                .mounted) {
-                                                              return;
-                                                            }
-                                                            ScaffoldMessenger.of(
-                                                              context,
-                                                            ).showSnackBar(
-                                                              SnackBar(
-                                                                content: Text(
-                                                                  '$e',
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                        icon: const Icon(
-                                                          Icons.logout_rounded,
-                                                          size: 20,
-                                                        ),
-                                                        label: Text(
-                                                          l10n.cloudAccountSignOut,
-                                                        ),
-                                                      ),
                                                     ],
                                                   ),
                                                 ),
@@ -1538,243 +1534,33 @@ class _SettingsPageState extends State<SettingsPage> {
                                             !_cloud.isSignedIn) {
                                           return const SizedBox.shrink();
                                         }
-                                        final panelScheme = Theme.of(
-                                          context,
-                                        ).colorScheme;
                                         final panelL10n = AppLocalizations.of(
                                           context,
                                         );
                                         final webSnap =
                                             _folio.webPortalEntitlement;
-                                        return Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            16,
-                                            8,
-                                            16,
-                                            8,
+                                        return ListTile(
+                                          leading: const Icon(
+                                            Icons.language_outlined,
                                           ),
-                                          child: DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: panelScheme
-                                                  .surfaceContainerLow,
-                                              borderRadius:
-                                                  BorderRadius.circular(18),
-                                              border: Border.all(
-                                                color: panelScheme
-                                                    .outlineVariant
-                                                    .withValues(alpha: 0.4),
-                                              ),
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(18),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Text(
-                                                    panelL10n
-                                                        .folioWebPortalSubsectionTitle,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .titleSmall
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                        ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    panelL10n
-                                                        .folioWebMirrorNote,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                          color: panelScheme
-                                                              .onSurfaceVariant,
-                                                          height: 1.35,
-                                                        ),
-                                                  ),
-                                                  const SizedBox(height: 14),
-                                                  Text(
-                                                    panelL10n
-                                                        .folioWebPortalLinkHelp,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                          color: panelScheme
-                                                              .onSurfaceVariant,
-                                                          height: 1.35,
-                                                        ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  TextField(
-                                                    controller:
-                                                        _webLinkCodeController,
-                                                    decoration: InputDecoration(
-                                                      labelText: panelL10n
-                                                          .folioWebPortalLinkCodeLabel,
-                                                      border:
-                                                          const OutlineInputBorder(),
-                                                    ),
-                                                    textCapitalization:
-                                                        TextCapitalization
-                                                            .characters,
-                                                    autocorrect: false,
-                                                    enabled: !_webLinkBusy,
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: FilledButton(
-                                                          onPressed:
-                                                              _webLinkBusy
-                                                              ? null
-                                                              : _linkFolioWebPortalAccount,
-                                                          child: _webLinkBusy
-                                                              ? const FolioLoadingIndicator(
-                                                                  size: FolioLoadingSize.small,
-                                                                )
-                                                              : Text(
-                                                                  panelL10n
-                                                                      .folioWebPortalLinkButton,
-                                                                ),
-                                                        ),
-                                                      ),
-                                                      IconButton(
-                                                        tooltip: panelL10n
-                                                            .folioWebPortalRefreshWeb,
-                                                        onPressed:
-                                                            _refreshFolioWebPortalEntitlement,
-                                                        icon: const Icon(
-                                                          Icons.refresh_rounded,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  if (_folio
-                                                          .webPortalRefreshError !=
-                                                      null) ...[
-                                                    const SizedBox(height: 10),
-                                                    Text(
-                                                      _l10nFolioWebPortalError(
-                                                        panelL10n,
-                                                        _folio
-                                                            .webPortalRefreshError!,
-                                                      ),
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodySmall
-                                                          ?.copyWith(
-                                                            color: panelScheme
-                                                                .error,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                  if (webSnap != null) ...[
-                                                    const SizedBox(height: 14),
-                                                    Text(
-                                                      webSnap.linked
-                                                          ? panelL10n
-                                                                .folioWebEntitlementLinked
-                                                          : panelL10n
-                                                                .folioWebEntitlementNotLinked,
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodyMedium
-                                                          ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                    ),
-                                                    if (webSnap.folioCloud !=
-                                                        null) ...[
-                                                      const SizedBox(height: 6),
-                                                      Text(
-                                                        panelL10n.folioWebEntitlementWebPlan(
-                                                          webSnap.folioCloud!
-                                                              ? panelL10n
-                                                                    .settingsLabelYes
-                                                              : panelL10n
-                                                                    .settingsLabelNo,
-                                                        ),
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: panelScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                    if (webSnap.folioCloudStatus !=
-                                                            null &&
-                                                        webSnap
-                                                            .folioCloudStatus!
-                                                            .isNotEmpty) ...[
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        panelL10n
-                                                            .folioWebEntitlementWebStatus(
-                                                              webSnap
-                                                                  .folioCloudStatus!,
-                                                            ),
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: panelScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                    if (webSnap.folioCloudPeriodEnd !=
-                                                            null &&
-                                                        webSnap
-                                                            .folioCloudPeriodEnd!
-                                                            .isNotEmpty) ...[
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        panelL10n
-                                                            .folioWebEntitlementWebPeriodEnd(
-                                                              webSnap
-                                                                  .folioCloudPeriodEnd!,
-                                                            ),
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: panelScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                    if (webSnap
-                                                            .folioInkCredits !=
-                                                        null) ...[
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        panelL10n
-                                                            .folioWebEntitlementWebInk(
-                                                              webSnap
-                                                                  .folioInkCredits!,
-                                                            ),
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: panelScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
+                                          title: Text(
+                                            panelL10n.folioCloudLinkWebPortalTile,
                                           ),
+                                          subtitle: Text(
+                                            webSnap != null && webSnap.linked
+                                                ? panelL10n
+                                                    .folioWebEntitlementLinked
+                                                : panelL10n
+                                                    .folioWebPortalLinkHelp,
+                                          ),
+                                          trailing: const Icon(
+                                            Icons.chevron_right_rounded,
+                                          ),
+                                          onTap: () {
+                                            unawaited(
+                                              _showFolioWebPortalLinkDialog(),
+                                            );
+                                          },
                                         );
                                       },
                                     ),
@@ -1901,6 +1687,154 @@ class _SettingsPageState extends State<SettingsPage> {
                                           onVerifyStudent: _verifyStudentStatus,
                                           onRemoveFamilyMember: _removeFamilyMember,
                                           onInviteFamilyMember: _inviteFamilyMember,
+                                        );
+                                      },
+                                    ),
+                                    ListenableBuilder(
+                                      listenable: Listenable.merge([
+                                        _cloud,
+                                        _folio,
+                                      ]),
+                                      builder: (context, _) {
+                                        if (!_cloud.isSignedIn) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final dangerL10n =
+                                            AppLocalizations.of(context);
+                                        final dangerScheme =
+                                            Theme.of(context).colorScheme;
+                                        final pending = _folio
+                                            .snapshot
+                                            .hasPendingAccountDeletion;
+                                        final scheduled = _folio
+                                            .snapshot
+                                            .accountDeletionScheduledFor;
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            _SettingsSubsectionTitle(
+                                              title: dangerL10n
+                                                  .folioCloudSubsectionDanger,
+                                              scheme: dangerScheme,
+                                            ),
+                                            const Divider(height: 1),
+                                            if (pending && scheduled != null)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                  16,
+                                                  12,
+                                                  16,
+                                                  4,
+                                                ),
+                                                child: Text(
+                                                  dangerL10n
+                                                      .accountDeletePendingBanner(
+                                                    MaterialLocalizations.of(
+                                                      context,
+                                                    ).formatFullDate(scheduled),
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color:
+                                                            dangerScheme.error,
+                                                        height: 1.35,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ),
+                                            ListTile(
+                                              leading: const Icon(
+                                                Icons.logout_rounded,
+                                              ),
+                                              title: Text(
+                                                dangerL10n.cloudAccountSignOut,
+                                              ),
+                                              subtitle: Text(
+                                                dangerL10n
+                                                    .cloudAccountSignOutHelp,
+                                              ),
+                                              enabled: !_folioCloudActionBusy,
+                                              onTap: _folioCloudActionBusy
+                                                  ? null
+                                                  : () {
+                                                      unawaited(
+                                                        _signOutFolioCloudAccount(),
+                                                      );
+                                                    },
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(
+                                                Icons.download_outlined,
+                                              ),
+                                              title: Text(
+                                                dangerL10n.accountExportMyData,
+                                              ),
+                                              subtitle: Text(
+                                                dangerL10n
+                                                    .accountExportMyDataHelp,
+                                              ),
+                                              enabled: !_folioCloudActionBusy,
+                                              onTap: _folioCloudActionBusy
+                                                  ? null
+                                                  : () {
+                                                      unawaited(
+                                                        _exportFolioCloudAccountData(),
+                                                      );
+                                                    },
+                                            ),
+                                            if (pending)
+                                              ListTile(
+                                                leading: Icon(
+                                                  Icons.undo_rounded,
+                                                  color: dangerScheme.primary,
+                                                ),
+                                                title: Text(
+                                                  dangerL10n
+                                                      .accountDeleteCancel,
+                                                ),
+                                                enabled:
+                                                    !_folioCloudActionBusy,
+                                                onTap: _folioCloudActionBusy
+                                                    ? null
+                                                    : () {
+                                                        unawaited(
+                                                          _cancelFolioCloudAccountDeletion(),
+                                                        );
+                                                      },
+                                              )
+                                            else
+                                              ListTile(
+                                                leading: Icon(
+                                                  Icons.delete_forever_outlined,
+                                                  color: dangerScheme.error,
+                                                ),
+                                                title: Text(
+                                                  dangerL10n
+                                                      .accountDeleteRequest,
+                                                  style: TextStyle(
+                                                    color: dangerScheme.error,
+                                                  ),
+                                                ),
+                                                subtitle: Text(
+                                                  dangerL10n
+                                                      .accountDeleteRequestHelp,
+                                                ),
+                                                enabled:
+                                                    !_folioCloudActionBusy,
+                                                onTap: _folioCloudActionBusy
+                                                    ? null
+                                                    : () {
+                                                        unawaited(
+                                                          _requestFolioCloudAccountDeletion(),
+                                                        );
+                                                      },
+                                              ),
+                                          ],
                                         );
                                       },
                                     ),

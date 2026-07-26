@@ -141,6 +141,6 @@ La seguridad de objetos sigue en Auth + [`storage.rules`](../storage.rules); COR
 
 ### Referencia: endpoint de chat (Quill Cloud)
 
-- El backend usa `POST {OPENAI_BASE_URL}/chat/completions` con `Authorization: Bearer` y cuerpo `model`, `messages`, `max_tokens`, `temperature`. La URL base y la clave se configuran en Cloud Functions (variables de entorno del proyecto).
+- El backend usa `POST {OPENAI_BASE_URL}/chat/completions` con `Authorization: Bearer` y cuerpo `model`, `messages`, límite de salida (`max_completion_tokens` para gpt-5/o-series; `max_tokens` para el resto) y `temperature`. La URL base y la clave se configuran en Cloud Functions (variables de entorno del proyecto).
 - Para **cobrar tinta en función del trabajo real**, se lee **`usage.total_tokens`** en la respuesta para el suplemento por tokens además del coste base por `operationKind`.
-- El modelo de chat por defecto en código es `gpt-4o-mini`; `OPENAI_MODEL` en Functions lo sobrescribe. La transcripción usa `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`). Opcionales: `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TEMPERATURE`.
+- El modelo de chat por defecto en código es `gpt-5.4-mini-2026-03-17`; `OPENAI_MODEL` en Functions lo sobrescribe. La transcripción usa `OPENAI_TRANSCRIBE_MODEL` (default `gpt-4o-transcribe`). Opcionales: `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TEMPERATURE`.

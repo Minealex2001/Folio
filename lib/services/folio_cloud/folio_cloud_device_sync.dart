@@ -220,6 +220,36 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     return _status != 'error' && vaultsNeedingAttention == 0;
   }
 
+  /// Repara una libreta cuyo pack remoto no se puede descifrar en este
+  /// dispositivo (`SecretBoxAuthenticationError`/MAC — ver
+  /// [resolveAccountProfilePackKeyQuietly]) forzando una resubida del
+  /// contenido LOCAL, sin intentar leer el remoto primero (lo sabemos
+  /// ilegible; intentarlo solo repetiría el mismo error).
+  ///
+  /// PELIGROSO: si el pack remoto tenía cambios de otro dispositivo que este
+  /// no puede leer, esos cambios se pierden — no hay forma de mergearlos si
+  /// no se pueden descifrar. Solo llamar tras confirmación explícita del
+  /// usuario de que es seguro asumir que el remoto no tiene nada que perder.
+  Future<bool> repairVaultByForcePush(String vaultId) async {
+    if (!isEnabled) return false;
+    final activeId = VaultPaths.activeVaultId;
+    try {
+      if (vaultId == activeId && _session.isUnlocked) {
+        _boundVaultId = vaultId;
+        _resetBoundVaultCaches();
+        _pullBrokenFingerprint = '';
+        _lastError = null;
+        _dirty = true;
+        await _pushIfNeeded(force: true, skipRemoteRefresh: true);
+        return _lastError == null;
+      }
+      await _syncVaultHeadless(vaultId: vaultId, skipPull: true);
+      return _lastError == null;
+    } finally {
+      unawaited(refreshAllVaultStatuses());
+    }
+  }
+
   /// Tras desbloquear, cachea la DEK/clave de sync y sube bootstrap de inmediato.
   Future<void> cacheKeyForActiveVault() async {
     // Faltaba este guard: sin él, un llamador que no comprobara `isEnabled`
@@ -510,7 +540,14 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     }
   }
 
-  Future<void> _pushIfNeeded({bool force = false}) async {
+  Future<void> _pushIfNeeded({
+    bool force = false,
+    /// Solo para [repairVaultByForcePush]: el remoto es sabidamente
+    /// ilegible en este dispositivo (p. ej. MAC de descifrado), así que
+    /// intentar refrescarlo/mergearlo antes de subir volvería a fallar.
+    /// NUNCA usar en el flujo normal — se saltaría el anti-pisado habitual.
+    bool skipRemoteRefresh = false,
+  }) async {
     if (_pushInFlight) {
       _dirty = true;
       return;
@@ -532,10 +569,12 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _boundVaultId = vaultId;
       _resetBoundVaultCaches();
     }
-    // Comprobar el remoto justo antes de subir: si avanzó desde el último
-    // fingerprint aplicado, esto dispara un pull+merge (vía _onRemoteMeta)
-    // antes de continuar, para no pisar contenido remoto no incorporado.
-    await _refreshRemoteMetaOnce();
+    if (!skipRemoteRefresh) {
+      // Comprobar el remoto justo antes de subir: si avanzó desde el último
+      // fingerprint aplicado, esto dispara un pull+merge (vía _onRemoteMeta)
+      // antes de continuar, para no pisar contenido remoto no incorporado.
+      await _refreshRemoteMetaOnce();
+    }
 
     _dirty = false;
     _pushInFlight = true;
@@ -1246,11 +1285,16 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> _syncVaultHeadless({
     required String vaultId,
     bool forcePull = false,
+    /// Solo para [repairVaultByForcePush]: el remoto es sabidamente
+    /// ilegible en este dispositivo, así que ni se intenta bajar ni se
+    /// compara fingerprint contra él — se sube lo local directamente.
+    bool skipPull = false,
   }) async {
     try {
       await _syncVaultHeadlessBody(
         vaultId: vaultId,
         forcePull: forcePull,
+        skipPull: skipPull,
       );
     } catch (e, st) {
       AppLogger.error(
@@ -1268,6 +1312,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> _syncVaultHeadlessBody({
     required String vaultId,
     bool forcePull = false,
+    bool skipPull = false,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -1328,7 +1373,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         deviceId.isNotEmpty && deviceId == _settings.syncDeviceId;
 
     // Pull si remoto es más nuevo (u obligado).
-    final shouldPull = hasRemote &&
+    final shouldPull = !skipPull &&
+        hasRemote &&
         !remoteFromSelf &&
         (forcePull ||
             ack == null ||
@@ -1472,7 +1518,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _setStatus('idle');
       return;
     }
-    if (localFp == remoteFp && hasRemote) {
+    if (localFp == remoteFp && hasRemote && !skipPull) {
       await _ackStore.saveAck(
         vaultId: vaultId,
         fingerprint: localFp,

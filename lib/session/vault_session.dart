@@ -3335,12 +3335,15 @@ class VaultSession extends ChangeNotifier {
 
   /// Devuelve el id de la carpeta creada (los llamadores existentes que no lo
   /// necesitan simplemente ignoran el valor de retorno).
-  String addFolder({String? parentId}) {
+  String addFolder({String? parentId, String? title}) {
     final id = _uuid.v4();
+    final resolvedTitle = (title ?? '').trim().isEmpty
+        ? _titleL10n.defaultNewPageTitle
+        : title!.trim();
     _pages.add(
       FolioPage(
         id: id,
-        title: _titleL10n.defaultNewPageTitle,
+        title: resolvedTitle,
         parentId: parentId,
         isFolder: true,
         blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],

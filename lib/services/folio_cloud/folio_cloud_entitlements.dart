@@ -196,6 +196,7 @@ class FolioCloudSnapshot {
     this.isStudentVerified = false,
     this.familyOwnerUid,
     this.familySeats = 0,
+    this.accountDeletionScheduledFor,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
 
@@ -218,6 +219,11 @@ class FolioCloudSnapshot {
   final bool isStudentVerified;
   final String? familyOwnerUid;
   final int familySeats;
+
+  /// Si no es null, la cuenta tiene borrado programado (gracia de 30 días).
+  final DateTime? accountDeletionScheduledFor;
+
+  bool get hasPendingAccountDeletion => accountDeletionScheduledFor != null;
 
   /// Cuota de copias en la nube (bytes); `folioBackup.quotaBytes` en Firestore.
   final int backupQuotaBytes;
@@ -284,7 +290,34 @@ class FolioCloudSnapshot {
     isStudentVerified: false,
     familyOwnerUid: null,
     familySeats: 0,
+    accountDeletionScheduledFor: null,
   );
+
+  static DateTime? _accountDeletionScheduledFor(Map<String, dynamic>? data) {
+    if (data == null) return null;
+    final raw = data['accountDeletion'];
+    if (raw is! Map) return null;
+    final m = _asStringKeyedMap(raw);
+    final v = m['scheduledFor'];
+    if (v is Timestamp) return v.toDate().toLocal();
+    if (v is DateTime) return v.toLocal();
+    if (v is String) return DateTime.tryParse(v)?.toLocal();
+    // Firestore REST / mapas serializados: { "_seconds": … }
+    if (v is Map) {
+      final sec = v['_seconds'] ?? v['seconds'];
+      if (sec is int) {
+        return DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true)
+            .toLocal();
+      }
+      if (sec is num) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          (sec * 1000).round(),
+          isUtc: true,
+        ).toLocal();
+      }
+    }
+    return null;
+  }
 
   static int _folioBackupIntField(Map<String, dynamic>? data, String field) {
     if (data == null) return 0;
@@ -319,6 +352,7 @@ class FolioCloudSnapshot {
         isStudentVerified: false,
         familyOwnerUid: null,
         familySeats: 0,
+        accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -369,6 +403,7 @@ class FolioCloudSnapshot {
       isStudentVerified: _folioBool(m['studentVerified']),
       familyOwnerUid: m['familyOwnerUid']?.toString(),
       familySeats: seatsVal,
+      accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
   }
@@ -662,6 +697,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       snapshot = FolioCloudSnapshot(
         active: prev.active,
         subscriptionStatus: prev.subscriptionStatus,
+        plan: prev.plan,
         backup: prev.backup,
         cloudAi: prev.cloudAi,
         publishWeb: prev.publishWeb,
@@ -671,6 +707,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         backupUsedBytes: used,
         backupPurchasedBytes: prev.backupPurchasedBytes,
         backupSubscriptionExtraBytes: prev.backupSubscriptionExtraBytes,
+        isFamily: prev.isFamily,
+        isStudent: prev.isStudent,
+        isStudentVerified: prev.isStudentVerified,
+        familyOwnerUid: prev.familyOwnerUid,
+        familySeats: prev.familySeats,
+        accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
         ink: prev.ink,
       );
       notifyListeners();
@@ -699,6 +741,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     snapshot = FolioCloudSnapshot(
       active: prev.active,
       subscriptionStatus: prev.subscriptionStatus,
+      plan: prev.plan,
       backup: prev.backup,
       cloudAi: prev.cloudAi,
       publishWeb: prev.publishWeb,
@@ -708,6 +751,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       backupUsedBytes: prev.backupUsedBytes,
       backupPurchasedBytes: prev.backupPurchasedBytes,
       backupSubscriptionExtraBytes: prev.backupSubscriptionExtraBytes,
+      isFamily: prev.isFamily,
+      isStudent: prev.isStudent,
+      isStudentVerified: prev.isStudentVerified,
+      familyOwnerUid: prev.familyOwnerUid,
+      familySeats: prev.familySeats,
+      accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
       ink: ink,
     );
     notifyListeners();

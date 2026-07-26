@@ -580,6 +580,21 @@
   "aiDeleteCurrentChat": "Eliminar nota actual",
   "aiNewChat": "Nova nota",
   "aiAttach": "Adxuntar",
+  "aiPlanModeToggleTooltip": "Modo Plan",
+  "aiPlanModeActiveBanner": "Modo Plan: Quill proporá un plan editable. Podes axustalo, rexeitalo ou aprobalo.",
+  "aiPlanApprove": "Aprobar e executar",
+  "aiPlanCancel": "Cancelar",
+  "aiPlanReject": "Rexeitar",
+  "aiPlanExecutingLabel": "Executando o plan…",
+  "aiPlanCancelledLabel": "Plan cancelado",
+  "aiPlanApprovedLabel": "Plan executado",
+  "aiPlanPendingLabel": "Pendente de aprobación",
+  "aiPlanCardTitle": "Plan",
+  "aiPlanEditHint": "Edita os pasos do plan antes de aprobar…",
+  "aiPlanAdjustSection": "Axustar plan",
+  "aiPlanAdjustHint": "Describe o que queres cambiar e Quill reescribirá o plan (sen executalo).",
+  "aiPlanRevisionFieldHint": "p.ex. Non movas as páxinas de inicio; só crea a carpeta e a páxina",
+  "aiPlanRequestRevision": "Revisar plan",
   "aiChatEmptyHint": "Inicia unha conversa.\nQuill decidirá automaticamente que facer coa túa mensaxe.\nTamén podes preguntar como usar Folio (atallos, axustes, folios ou este nota).",
   "aiChatEmptyFocusComposer": "Escribe unha mensaxe",
   "aiInputHint": "Escribe a túa mensaxe. Quill actuará como un axente.",
@@ -1282,6 +1297,13 @@
   ,"folioCloudDeviceSyncVaultPhaseEmpty": "Aínda sen copia de sync na nube"
   ,"folioCloudDeviceSyncVaultActive": "activa"
   ,"folioCloudDeviceSyncOpenVault": "Abrir"
+  ,"folioCloudDeviceSyncRepairAction": "Reparar"
+  ,"folioCloudDeviceSyncRepairTitle": "Reparar este caderno?"
+  ,"folioCloudDeviceSyncRepairBody": "Este dispositivo non pode ler o contido gardado na nube para \"{vaultName}\" (clave incorrecta). Substituirase polo contido deste dispositivo. Se outro dispositivo subira cambios que este non puido ler, perderanse."
+  ,"@folioCloudDeviceSyncRepairBody": {"placeholders": {"vaultName": {}}}
+  ,"folioCloudDeviceSyncRepairConfirm": "Substituír polo local"
+  ,"folioCloudDeviceSyncRepairOk": "Caderno reparado."
+  ,"folioCloudDeviceSyncRepairFail": "Non se puido reparar o caderno."
   ,"folioCloudSubsectionAccountProfile": "Perfil da conta"
   ,"folioCloudAppProfileSyncTitle": "Sincronizar axustes da app"
   ,"folioCloudAppProfileSyncSubtitle": "Garda o tema, a Quill, os atallos, as iconas personalizadas e outras preferencias na túa conta Folio Cloud (cifrado)."
@@ -3438,4 +3460,47 @@
   ,"taskHubIcsExportWebUnsupported": "A exportación ICS está dispoñible no escritorio."
   ,"slackConnectWithOAuth": "Conectar con OAuth de Slack"
   ,"teamsConnectWithOAuth": "Conectar con OAuth de Microsoft"
+  ,"folioCloudPlanStudentSubtitle": "1000 gotas/mes · 15 GB de espazo de copias"
+  ,"folioCloudPlanFamilyOwnerSubtitle": "500 gotas/mes · 5 GB de espazo de copias · Admin"
+  ,"folioCloudInkPackBadgePopular": "POPULAR"
+  ,"folioCloudInkPackBadgeBestValue": "MELLOR VALOR"
+  ,"folioCloudBuyInkTile": "Comprar packs de tinta"
+  ,"folioCloudBuyInkSheetTitle": "Packs de tinta"
+  ,"folioCloudExpandStorageTile": "Ampliar almacenamento de copias"
+  ,"folioCloudExpandStorageSheetTitle": "Packs de almacenamento"
+  ,"folioCloudSubsectionDanger": "Zona perigosa"
+  ,"folioCloudSubsectionFamily": "Familia"
+  ,"folioCloudLinkWebPortalTile": "Vincular portal web de Folio"
+  ,"accountExportMyData": "Descargar os meus datos"
+  ,"accountExportMyDataHelp": "Exporta os metadatos da conta Folio Cloud (non as libretas locais)."
+  ,"accountExportSaving": "Preparando a exportación…"
+  ,"accountExportSaved": "Datos da conta gardados."
+  ,"accountExportFailed": "Non se puideron exportar os datos: {error}"
+  ,"@accountExportFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteRequest": "Eliminar conta Folio Cloud"
+  ,"accountDeleteRequestHelp": "Programa o borrado permanente da conta na nube en 30 días. As libretas locais deste dispositivo non se borron."
+  ,"accountDeleteDialogTitle": "Eliminar a conta Folio Cloud?"
+  ,"accountDeleteDialogBody": "A túa conta Folio Cloud e os datos na nube (copias, publicación, colaboración, facturación) borraranse de forma permanente o {date}. Ata entón podes cancelar.\n\nAs libretas locais deste dispositivo non se tocan.\n\nO acceso de pago continúa ata esa data; despois cancelanse as subscricións de Stripe automaticamente. Se compraches na Microsoft Store, cancélaa alí."
+  ,"@accountDeleteDialogBody": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteConfirm": "Programar borrado"
+  ,"accountDeletePendingBanner": "Esta conta Folio Cloud está programada para borrarse o {date}."
+  ,"@accountDeletePendingBanner": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteCancel": "Cancelar borrado"
+  ,"accountDeleteCancelOk": "Borrado da conta cancelado."
+  ,"accountDeleteRequestedOk": "Borrado da conta programado para o {date}."
+  ,"@accountDeleteRequestedOk": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteFailed": "Non se puido programar o borrado: {error}"
+  ,"@accountDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteCancelFailed": "Non se puido cancelar o borrado: {error}"
+  ,"@accountDeleteCancelFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeletionBlocksCheckout": "O pago está bloqueado mentres o borrado da conta está pendente. Cancélao primeiro."
+  ,"cloudAccountDisplayNameLabel": "Nome visible"
+  ,"cloudAccountDisplayNameEmpty": "Sen nome visible"
+  ,"cloudAccountEditDisplayName": "Editar nome visible"
+  ,"cloudAccountDisplayNameDialogTitle": "Nome visible"
+  ,"cloudAccountDisplayNameHint": "Así te ven na familia e no perfil da nube"
+  ,"cloudAccountDisplayNameSaved": "Nome visible actualizado."
+  ,"cloudAccountDisplayNameFailed": "Non se puido actualizar o nome: {error}"
+  ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"cloudAccountDisplayNameRequired": "Introduce un nome visible"
 }

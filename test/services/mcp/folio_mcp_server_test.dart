@@ -314,6 +314,32 @@ void main() {
     expect(session.pages.single.title, 'Página MCP');
   });
 
+  test(
+    'tools/call empty_trash sin onConfirmIrreversibleTool no pide confirmación',
+    () async {
+      await initializeAsClient();
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final trashId = session.pages.last.id;
+      session.movePageToTrash(trashId);
+
+      final res = await _rpc(
+        server,
+        method: 'tools/call',
+        sessionId: lastSessionId,
+        params: {
+          'name': 'empty_trash',
+          'arguments': <String, dynamic>{},
+        },
+      );
+
+      expect(res['_statusCode'], 200);
+      final result = res['result'] as Map<String, dynamic>;
+      expect(result['isError'], isNot(true));
+      expect(session.pages.any((p) => p.id == trashId), isFalse);
+    },
+  );
+
   test('tools/call devuelve isError:true para una tool que falla', () async {
     await initializeAsClient();
     final res = await _rpc(

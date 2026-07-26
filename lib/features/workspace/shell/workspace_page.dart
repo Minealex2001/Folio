@@ -98,6 +98,7 @@ part 'workspace_page_page_tools.dart';
 part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
 part 'workspace_page_ai_slash.dart';
+part 'workspace_page_ai_plan.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
@@ -178,6 +179,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _aiToolActivityLabel;
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
+  /// Modo Plan por hilo de chat (efímero; no se persiste). Default apagado.
+  final Map<String, bool> _planModeByChatId = {};
+  /// Editores del documento de plan (pending) y notas de ajuste.
+  /// Clave: `chatId:timestampMs` del mensaje del plan.
+  final Map<String, TextEditingController> _planBodyControllers = {};
+  final Map<String, TextEditingController> _planRevisionControllers = {};
+  final Set<String> _planRevisionExpanded = {};
   double _aiPanelWidth = 360;
   bool _aiPanelCollapsed = false;
   double _collabPanelWidth = 360;
@@ -564,13 +572,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final msgs = _activeChat.messages;
     if (messageIndex < 0 || messageIndex >= msgs.length) return;
     final old = msgs[messageIndex];
-    final updated = AiChatMessage(
-      role: old.role,
-      content: old.content,
-      timestamp: old.timestamp,
-      feedback: feedback,
-      agentApplySnapshot: old.agentApplySnapshot,
-    );
+    final updated = feedback == null
+        ? old.copyWith(clearFeedback: true)
+        : old.copyWith(feedback: feedback);
     _s.updateMessageInActiveAiChat(messageIndex, updated);
   }
 
@@ -770,6 +774,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         ],
                         Builder(
                           builder: (ctx) {
+                            // Plan = artefacto propio (no burbuja markdown normal).
+                            if (!isUser && message.agentPlan != null) {
+                              return _buildAgentPlanCard(
+                                message,
+                                messageIndex,
+                              );
+                            }
                             final target = bodyContent.isEmpty
                                 ? message.content
                                 : bodyContent;
@@ -806,7 +817,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           ...message.toolErrors!.map(
                             (err) => AiToolErrorChip(message: err, colorScheme: scheme),
                           ),
-                        if (!isUser) ...[
+                        if (!isUser && message.agentPlan == null) ...[
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -1124,6 +1135,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _aiThreadSearchController.dispose();
     _aiChatScrollController.dispose();
     _aiContextMenuSearchController.dispose();
+    for (final c in _planBodyControllers.values) {
+      c.dispose();
+    }
+    for (final c in _planRevisionControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 

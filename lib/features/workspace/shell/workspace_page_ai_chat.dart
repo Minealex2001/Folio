@@ -34,6 +34,18 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     // Recalcular estimación tras limpiar, para que no quede "pegada".
     _updateInkEstimateFromComposer();
     _s.appendMessageToAiChatById(targetChatId, userMessage);
+
+      if (_planModeEnabled) {
+      final pendingIdx = _indexOfLatestPendingPlanInChat(targetChatId);
+      if (pendingIdx >= 0 && _looksLikePlanApproval(text)) {
+        await _approveAgentPlan(pendingIdx);
+        return;
+      }
+      // Nueva petición con modo Plan: cierra planes pendientes previos para
+      // que no contaminen el siguiente (p. ej. «Google» vs «física»).
+      _supersedePendingPlansInChat(targetChatId);
+    }
+
     try {
       final outcome = await _runAiFromChat(
         text,
@@ -51,6 +63,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           role: 'assistant',
           content: outcome.reply,
           agentApplySnapshot: outcome.agentApplySnapshot,
+          agentPlan: outcome.agentPlan,
           toolCalls: outcome.toolCalls,
           toolErrors: outcome.toolErrors,
         ),
@@ -112,6 +125,21 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       (p) => p.id == bestPromptId,
       orElse: () => presets.firstWhere((p) => p.id == 'quill_default', orElse: () => presets.first),
     );
+
+    if (_planModeEnabled) {
+      return _s.agentChatWithAiPlanProposal(
+        messages: threadMessages,
+        prompt: t,
+        scopePageId: _s.selectedPageId,
+        includePageContext: includePageContext,
+        contextPageIds: contextPageIds,
+        attachments: attachments,
+        languageCode: languageCode,
+        cloudInkOperation: op,
+        extraContextSections: extra,
+        systemPromptOverride: preset.prompt,
+      );
+    }
 
     return _s.agentChatWithAi(
       messages: threadMessages,

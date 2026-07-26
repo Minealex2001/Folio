@@ -45,6 +45,24 @@ class OpenAiCompatibleAiService implements AiService {
     }
   }
 
+  /// gpt-5 / o-series rechazan `max_tokens`; usan `max_completion_tokens`.
+  static void _applyMaxOutputTokens(
+    Map<String, dynamic> payload,
+    String model,
+    int maxTokens,
+  ) {
+    final m = model.trim().toLowerCase();
+    final usesCompletionTokens = m.startsWith('gpt-5') ||
+        m.startsWith('o1') ||
+        m.startsWith('o3') ||
+        m.startsWith('o4');
+    if (usesCompletionTokens) {
+      payload['max_completion_tokens'] = maxTokens;
+    } else {
+      payload['max_tokens'] = maxTokens;
+    }
+  }
+
   Map<String, dynamic> _buildPayload(AiCompletionRequest request) {
     final textAttachments = request.attachments
         .where((a) => !a.mimeType.startsWith('image/'))
@@ -68,8 +86,9 @@ class OpenAiCompatibleAiService implements AiService {
             ),
           ];
 
+    final model = request.model == 'auto' ? defaultModel : request.model;
     final payload = <String, dynamic>{
-      'model': request.model == 'auto' ? defaultModel : request.model,
+      'model': model,
       'messages': [
         if ((request.systemPrompt ?? '').trim().isNotEmpty)
           {'role': 'system', 'content': request.systemPrompt!.trim()},
@@ -78,7 +97,9 @@ class OpenAiCompatibleAiService implements AiService {
       ],
     };
 
-    if (request.maxTokens != null) payload['max_tokens'] = request.maxTokens;
+    if (request.maxTokens != null) {
+      _applyMaxOutputTokens(payload, model, request.maxTokens!);
+    }
     if (request.temperature != null) payload['temperature'] = request.temperature;
     if (request.topP != null) payload['top_p'] = request.topP;
     if (request.stop != null && request.stop!.isNotEmpty) payload['stop'] = request.stop;

@@ -14,6 +14,7 @@ class _ScriptedAiService implements AiService {
   final List<AiCompletionResult> _results;
   final String _providerName;
   int callCount = 0;
+  final List<AiCompletionRequest> requests = [];
 
   @override
   bool get supportsNativeToolCalling => true;
@@ -23,6 +24,7 @@ class _ScriptedAiService implements AiService {
 
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
+    requests.add(request);
     final r = _results[callCount];
     callCount++;
     return r;
@@ -148,14 +150,14 @@ void main() {
   );
 
   test(
-    'agentChatWithAi(useToolCalling: true) permite hasta 8 pasos de tool loop (paridad MCP)',
+    'agentChatWithAi(useToolCalling: true) permite hasta 14 pasos de tool loop',
     () async {
       AiCompletionResult loopingCall(int i) => AiCompletionResult(
         text: '',
         toolCalls: [AiToolCall(id: 'c$i', name: 'noop', arguments: {'i': i})],
       );
       final ai = _ScriptedAiService([
-        for (var i = 1; i <= 8; i++) loopingCall(i),
+        for (var i = 1; i <= 14; i++) loopingCall(i),
         const AiCompletionResult(text: 'Cierre forzado por maxSteps.'),
       ], providerName: 'folio_cloud');
       final session = _readySession(ai);
@@ -166,9 +168,140 @@ void main() {
         useToolCalling: true,
       );
 
-      // maxSteps=8: 8 llamadas con tool call + 1 de cierre = 9.
-      expect(ai.callCount, 9);
+      // maxSteps=14: 14 llamadas con tool call + 1 de cierre = 15.
+      expect(ai.callCount, 15);
       expect(outcome.reply, 'Cierre forzado por maxSteps.');
+    },
+  );
+
+  test(
+    'agentChatWithAiPlanProposal no ejecuta tools y deja agentPlan pending',
+    () async {
+      final ai = _ScriptedAiService([
+        const AiCompletionResult(
+          text: '1. create_page — Notas\n2. append_blocks_to_page — contenido',
+        ),
+      ]);
+      final session = _readySession(ai);
+      final before = session.pages.length;
+
+      final outcome = await session.agentChatWithAiPlanProposal(
+        messages: const [],
+        prompt: 'Crea una página de notas con varios bloques',
+      );
+
+      expect(outcome.reply, contains('create_page'));
+      expect(outcome.agentPlan, isNotNull);
+      expect(outcome.agentPlan!['status'], 'pending');
+      expect(outcome.agentPlan!['originalPrompt'], contains('Crea una página'));
+      expect(outcome.toolCalls, isNull);
+      expect(session.pages.length, before);
+      expect(ai.callCount, 1);
+      expect(ai.requests.single.toolChoice, 'none');
+      expect(ai.requests.single.tools, isNotEmpty);
+    },
+  );
+
+  test(
+    'agentChatWithAiExecuteApprovedPlan ejecuta tools tras aprobar',
+    () async {
+      final ai = _ScriptedAiService([
+        const AiCompletionResult(
+          text: '',
+          toolCalls: [
+            AiToolCall(id: 'c1', name: 'create_page', arguments: {
+              'title': 'Desde plan',
+              'blocks': [
+                {'type': 'paragraph', 'text': 'Contenido'},
+              ],
+            }),
+          ],
+        ),
+        const AiCompletionResult(text: 'Plan ejecutado.'),
+      ]);
+      final session = _readySession(ai);
+      final planMessages = [
+        AiChatMessage.now(role: 'user', content: 'Crea una página'),
+        AiChatMessage.now(
+          role: 'assistant',
+          content: '1. create_page',
+          agentPlan: {
+            'status': 'pending',
+            'originalPrompt': 'Crea una página',
+            'includePageContext': true,
+            'contextPageIds': <String>[],
+            'languageCode': 'es',
+          },
+        ),
+      ];
+
+      final outcome = await session.agentChatWithAiExecuteApprovedPlan(
+        messages: planMessages,
+        planContext: planMessages.last.agentPlan!,
+      );
+
+      expect(outcome.reply, 'Plan ejecutado.');
+      expect(session.pages, hasLength(1));
+      expect(session.pages.single.title, 'Desde plan');
+      expect(ai.callCount, 2);
+    },
+  );
+
+  test(
+    'agentChatWithAiExecuteApprovedPlan respeta onConfirmIrreversibleTool false',
+    () async {
+      final session = _readySession(
+        _ScriptedAiService([
+          const AiCompletionResult(
+            text: '',
+            toolCalls: [
+              AiToolCall(id: 'c1', name: 'empty_trash', arguments: {}),
+            ],
+          ),
+          const AiCompletionResult(text: 'No vacié la papelera.'),
+        ]),
+      );
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final trashId = session.pages.last.id;
+      session.movePageToTrash(trashId);
+      var confirmCalls = 0;
+
+      final outcome = await session.agentChatWithAiExecuteApprovedPlan(
+        messages: [
+          AiChatMessage.now(role: 'user', content: 'Vacía la papelera'),
+          AiChatMessage.now(
+            role: 'assistant',
+            content: '1. empty_trash',
+            agentPlan: {
+              'status': 'pending',
+              'originalPrompt': 'Vacía la papelera',
+              'includePageContext': true,
+              'contextPageIds': <String>[],
+              'languageCode': 'es',
+            },
+          ),
+        ],
+        planContext: {
+          'status': 'pending',
+          'originalPrompt': 'Vacía la papelera',
+          'includePageContext': true,
+          'contextPageIds': <String>[],
+          'languageCode': 'es',
+        },
+        onConfirmIrreversibleTool: (name, _) async {
+          confirmCalls++;
+          expect(name, 'empty_trash');
+          return false;
+        },
+      );
+
+      expect(confirmCalls, 1);
+      expect(outcome.toolErrors, isNotNull);
+      expect(
+        session.pages.any((p) => p.id == trashId && p.isTrashed),
+        isTrue,
+      );
     },
   );
 }

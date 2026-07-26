@@ -29,6 +29,7 @@ class FolioToolRegistry {
     this._session, {
     this.scopePageId,
     this.onRequestMcpReadAccess,
+    this.onConfirmIrreversibleTool,
   });
 
   final VaultSession _session;
@@ -42,6 +43,12 @@ class FolioToolRegistry {
   /// Quill interno deja este campo null (lectura libre).
   final Future<McpReadAccessDecision> Function(String pageId, String pageTitle)?
       onRequestMcpReadAccess;
+
+  /// Si no es null, se pide confirmación antes de ejecutar tools irreversibles
+  /// (`permanently_delete_page`, `empty_trash`). Solo lo pasa el modo Plan al
+  /// ejecutar un plan aprobado; la ruta normal y MCP dejan null.
+  final Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
+      onConfirmIrreversibleTool;
 
   static const _uuid = Uuid();
 
@@ -614,8 +621,16 @@ class FolioToolRegistry {
 
   static const _createFolderDef = AiToolDefinition(
     name: 'create_folder',
-    description: 'Crea una libreta/carpeta nueva (vacía) en el árbol de páginas.',
+    description:
+        'Crea una libreta/carpeta nueva en el árbol. Pasa siempre un "title" '
+        'descriptivo (nunca dejes el título por defecto genérico).',
     parameters: [
+      AiToolParam(
+        name: 'title',
+        type: 'string',
+        description: 'Título de la carpeta (obligatorio en la práctica; p. ej. "Física").',
+        required: true,
+      ),
       AiToolParam(
         name: 'parentId',
         type: 'string',
@@ -626,10 +641,22 @@ class FolioToolRegistry {
 
   AiToolResult _createFolder(AiToolCall call) {
     final parentId = (call.arguments['parentId'] as String?)?.trim();
+    final title = (call.arguments['title'] as String?)?.trim() ?? '';
+    if (title.isEmpty) {
+      return AiToolResult.error(
+        call.id,
+        'Falta "title" para create_folder. Elige un nombre concreto '
+        '(p. ej. "Física"); no uses títulos genéricos.',
+      );
+    }
     final createdId = _session.addFolder(
       parentId: (parentId == null || parentId.isEmpty) ? null : parentId,
+      title: title,
     );
-    return AiToolResult.ok(call.id, '{"pageId":"$createdId"}');
+    return AiToolResult.ok(
+      call.id,
+      '{"pageId":"$createdId","title":${_jsonStr(title)}}',
+    );
   }
 
   static const _renamePageDef = AiToolDefinition(
@@ -831,10 +858,20 @@ class FolioToolRegistry {
     ],
   );
 
-  AiToolResult _permanentlyDeletePage(AiToolCall call) {
+  Future<AiToolResult> _permanentlyDeletePage(AiToolCall call) async {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
     if (page == null || !page.isTrashed) return AiToolResult.error(call.id, 'Página no está en la papelera: $pageId');
+    final confirm = onConfirmIrreversibleTool;
+    if (confirm != null) {
+      final ok = await confirm(call.name, call.arguments);
+      if (!ok) {
+        return AiToolResult.error(
+          call.id,
+          'Acción cancelada por el usuario: permanently_delete_page',
+        );
+      }
+    }
     _session.permanentlyDeleteFromTrash(pageId);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
   }
@@ -844,7 +881,17 @@ class FolioToolRegistry {
     description: 'Vacía la papelera por completo. Irreversible.',
   );
 
-  AiToolResult _emptyTrash(AiToolCall call) {
+  Future<AiToolResult> _emptyTrash(AiToolCall call) async {
+    final confirm = onConfirmIrreversibleTool;
+    if (confirm != null) {
+      final ok = await confirm(call.name, call.arguments);
+      if (!ok) {
+        return AiToolResult.error(
+          call.id,
+          'Acción cancelada por el usuario: empty_trash',
+        );
+      }
+    }
     _session.emptyTrash();
     return AiToolResult.ok(call.id, '{"emptied":true}');
   }

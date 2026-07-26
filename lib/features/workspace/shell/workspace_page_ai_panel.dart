@@ -566,6 +566,37 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                   ],
                 ),
               ),
+            if (_planModeEnabled)
+              Container(
+                margin: EdgeInsets.fromLTRB(headerPad, 0, headerPad, 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.checklist_rounded,
+                      color: scheme.onPrimaryContainer,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.aiPlanModeActiveBanner,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: EdgeInsets.fromLTRB(headerPad, 0, headerPad, 8),
               child: Row(
@@ -875,6 +906,24 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             tooltip: l10n.aiAttach,
                             visualDensity: VisualDensity.compact,
                             color: scheme.onSurfaceVariant,
+                          ),
+                          IconButton(
+                            onPressed: _aiChatBusy ? null : _togglePlanMode,
+                            icon: Icon(
+                              _planModeEnabled
+                                  ? Icons.checklist_rtl_rounded
+                                  : Icons.checklist_outlined,
+                            ),
+                            tooltip: l10n.aiPlanModeToggleTooltip,
+                            visualDensity: VisualDensity.compact,
+                            color: _planModeEnabled
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            style: _planModeEnabled
+                                ? IconButton.styleFrom(
+                                    backgroundColor: scheme.primaryContainer,
+                                  )
+                                : null,
                           ),
                           if (_transcribingVoice)
                             const Padding(

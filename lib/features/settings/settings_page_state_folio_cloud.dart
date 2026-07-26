@@ -129,6 +129,138 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     }
   }
 
+  Future<void> _showFolioWebPortalLinkDialog() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            return ListenableBuilder(
+              listenable: _folio,
+              builder: (context, _) {
+                final scheme = Theme.of(context).colorScheme;
+                final webSnap = _folio.webPortalEntitlement;
+                return FolioDialog(
+                  title: Text(l10n.folioWebPortalSubsectionTitle),
+                  content: SizedBox(
+                    width: 420,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          l10n.folioWebMirrorNote,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.folioWebPortalLinkHelp,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _webLinkCodeController,
+                          decoration: InputDecoration(
+                            labelText: l10n.folioWebPortalLinkCodeLabel,
+                            border: const OutlineInputBorder(),
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          autocorrect: false,
+                          enabled: !_webLinkBusy,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: _webLinkBusy
+                                    ? null
+                                    : () async {
+                                        await _linkFolioWebPortalAccount();
+                                        setLocal(() {});
+                                      },
+                                child: _webLinkBusy
+                                    ? const FolioLoadingIndicator(
+                                        size: FolioLoadingSize.small,
+                                      )
+                                    : Text(l10n.folioWebPortalLinkButton),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.folioWebPortalRefreshWeb,
+                              onPressed: () async {
+                                await _refreshFolioWebPortalEntitlement();
+                                setLocal(() {});
+                              },
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
+                          ],
+                        ),
+                        if (_folio.webPortalRefreshError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _l10nFolioWebPortalError(
+                              l10n,
+                              _folio.webPortalRefreshError!,
+                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: scheme.error),
+                          ),
+                        ],
+                        if (webSnap != null) ...[
+                          const SizedBox(height: 14),
+                          Text(
+                            webSnap.linked
+                                ? l10n.folioWebEntitlementLinked
+                                : l10n.folioWebEntitlementNotLinked,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          if (webSnap.folioCloud != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              l10n.folioWebEntitlementWebPlan(
+                                webSnap.folioCloud!
+                                    ? l10n.settingsLabelYes
+                                    : l10n.settingsLabelNo,
+                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(l10n.cancel),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _openFolioCloudSubscriptionPitch() async {
     if (_folioCloudActionBusy) return;
     final l10n = AppLocalizations.of(context);
@@ -348,11 +480,207 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
 
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
+    if (_folio.snapshot.hasPendingAccountDeletion) {
+      if (mounted) {
+        _snack(AppLocalizations.of(context).accountDeletionBlocksCheckout);
+      }
+      return;
+    }
     _rebuild(() => _folioCloudActionBusy = true);
     try {
       await _completeStripeFolioCheckout(kind);
     } catch (e) {
       if (mounted) _snack('$e');
+    } finally {
+      if (mounted) _rebuild(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<bool> _reauthFolioCloudForAccountLifecycle() async {
+    if (!_cloud.isAvailable || !_cloud.isSignedIn) {
+      _snack(AppLocalizations.of(context).settingsSignInFolioCloudSnack);
+      return false;
+    }
+    if (!_cloud.canReauthenticateWithPassword) {
+      _snack(
+        AppLocalizations.of(context).folioCloudReauthRequiresPasswordProvider,
+      );
+      return false;
+    }
+    final l10n = AppLocalizations.of(context);
+    final password = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => FolioCloudReauthDialog(
+        l10n: l10n,
+        cloud: _cloud,
+        onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
+        initialEmail: _cloud.user?.email,
+      ),
+    );
+    return password != null && password.isNotEmpty;
+  }
+
+  Future<void> _exportFolioCloudAccountData() async {
+    if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await _reauthFolioCloudForAccountLifecycle();
+    if (!ok || !mounted) return;
+    _rebuild(() => _folioCloudActionBusy = true);
+    _snack(l10n.accountExportSaving);
+    try {
+      final result =
+          await FolioCloudAccountLifecycle.exportAccountDataAndSave();
+      if (!mounted) return;
+      if (result == null) return;
+      _snack(l10n.accountExportSaved);
+      await _folio.refreshUserDocFromServer();
+    } catch (e) {
+      if (mounted) _snack(l10n.accountExportFailed('$e'));
+    } finally {
+      if (mounted) _rebuild(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _requestFolioCloudAccountDeletion() async {
+    if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final previewDate = DateTime.now().add(const Duration(days: 30));
+    final dateLabel =
+        MaterialLocalizations.of(context).formatFullDate(previewDate);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return FolioDialog(
+          title: Text(l10n.accountDeleteDialogTitle),
+          content: Text(l10n.accountDeleteDialogBody(dateLabel)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.accountDeleteConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    final ok = await _reauthFolioCloudForAccountLifecycle();
+    if (!ok || !mounted) return;
+    _rebuild(() => _folioCloudActionBusy = true);
+    try {
+      final scheduled =
+          await FolioCloudAccountLifecycle.requestAccountDeletion();
+      await _folio.refreshUserDocFromServer();
+      if (!mounted) return;
+      final label =
+          MaterialLocalizations.of(context).formatFullDate(scheduled);
+      _snack(l10n.accountDeleteRequestedOk(label));
+    } catch (e) {
+      if (mounted) _snack(l10n.accountDeleteFailed('$e'));
+    } finally {
+      if (mounted) _rebuild(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _cancelFolioCloudAccountDeletion() async {
+    if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
+    _rebuild(() => _folioCloudActionBusy = true);
+    try {
+      await FolioCloudAccountLifecycle.cancelAccountDeletion();
+      await _folio.refreshUserDocFromServer();
+      if (mounted) _snack(l10n.accountDeleteCancelOk);
+    } catch (e) {
+      if (mounted) _snack(l10n.accountDeleteCancelFailed('$e'));
+    } finally {
+      if (mounted) _rebuild(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _signOutFolioCloudAccount() async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await _cloud.signOut();
+      if (mounted) _snack(l10n.settingsSessionEndedSnack);
+    } catch (e) {
+      if (mounted) _snack('$e');
+    }
+  }
+
+  Future<void> _editCloudDisplayName() async {
+    if (!_cloud.isSignedIn) return;
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(
+      text: _cloud.user?.displayName?.trim() ?? '',
+    );
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return FolioDialog(
+          title: Text(l10n.cloudAccountDisplayNameDialogTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.cloudAccountDisplayNameHint,
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 80,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: l10n.cloudAccountDisplayNameLabel,
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (value) {
+                  final t = value.trim();
+                  if (t.isEmpty) return;
+                  Navigator.of(ctx).pop(t);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                final t = controller.text.trim();
+                if (t.isEmpty) {
+                  _snack(l10n.cloudAccountDisplayNameRequired);
+                  return;
+                }
+                Navigator.of(ctx).pop(t);
+              },
+              child: Text(l10n.save),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (saved == null || !mounted) return;
+    if (_folioCloudActionBusy) return;
+    _rebuild(() => _folioCloudActionBusy = true);
+    try {
+      await FolioCloudAccountLifecycle.updateDisplayName(saved);
+      await _cloud.reloadCurrentUser();
+      if (mounted) _snack(l10n.cloudAccountDisplayNameSaved);
+    } catch (e) {
+      if (mounted) _snack(l10n.cloudAccountDisplayNameFailed('$e'));
     } finally {
       if (mounted) _rebuild(() => _folioCloudActionBusy = false);
     }

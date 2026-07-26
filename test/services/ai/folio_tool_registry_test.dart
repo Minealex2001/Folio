@@ -174,13 +174,25 @@ void main() {
       final session = VaultSession();
       final registry = FolioToolRegistry(session);
 
-      final createResult = await registry.execute(_call('create_folder', {}));
+      final createResult = await registry.execute(
+        _call('create_folder', {'title': 'Apuntes'}),
+      );
       expect(createResult.isError, isFalse);
       expect(session.pages.single.isFolder, isTrue);
+      expect(session.pages.single.title, 'Apuntes');
 
       final listResult = await registry.execute(_call('list_children', {}));
       expect(listResult.isError, isFalse);
       expect(listResult.content, contains(session.pages.single.id));
+    });
+
+    test('create_folder sin title falla', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+
+      final createResult = await registry.execute(_call('create_folder', {}));
+      expect(createResult.isError, isTrue);
+      expect(session.pages, isEmpty);
     });
 
     test('rename_page y set_page_emoji mutan metadatos', () async {
@@ -334,6 +346,112 @@ void main() {
 
       expect(result.isError, isFalse);
       expect(session.pages.firstWhere((p) => p.id == pageId).blocks.first.type, 'h1');
+    });
+  });
+
+  group('FolioToolRegistry — confirmación irreversible (modo Plan)', () {
+    Future<({VaultSession session, String trashPageId})> _trashedVault() async {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final keepId = session.pages.first.id;
+      final trashId = session.pages.last.id;
+      expect(keepId, isNot(trashId));
+      session.movePageToTrash(trashId);
+      return (session: session, trashPageId: trashId);
+    }
+
+    test('sin onConfirmIrreversibleTool borra de inmediato (regresión)', () async {
+      final setup = await _trashedVault();
+      final registry = FolioToolRegistry(setup.session);
+
+      final result = await registry.execute(
+        _call('permanently_delete_page', {'pageId': setup.trashPageId}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(
+        setup.session.pages.any((p) => p.id == setup.trashPageId),
+        isFalse,
+      );
+    });
+
+    test('onConfirmIrreversibleTool false aborta permanently_delete_page', () async {
+      final setup = await _trashedVault();
+      var asked = false;
+      final registry = FolioToolRegistry(
+        setup.session,
+        onConfirmIrreversibleTool: (name, args) async {
+          asked = true;
+          expect(name, 'permanently_delete_page');
+          return false;
+        },
+      );
+
+      final result = await registry.execute(
+        _call('permanently_delete_page', {'pageId': setup.trashPageId}),
+      );
+
+      expect(asked, isTrue);
+      expect(result.isError, isTrue);
+      expect(result.content, contains('cancelada'));
+      expect(
+        setup.session.pages.any((p) => p.id == setup.trashPageId),
+        isTrue,
+      );
+    });
+
+    test('onConfirmIrreversibleTool true procede con permanently_delete_page', () async {
+      final setup = await _trashedVault();
+      final registry = FolioToolRegistry(
+        setup.session,
+        onConfirmIrreversibleTool: (_, __) async => true,
+      );
+
+      final result = await registry.execute(
+        _call('permanently_delete_page', {'pageId': setup.trashPageId}),
+      );
+
+      expect(result.isError, isFalse);
+      expect(
+        setup.session.pages.any((p) => p.id == setup.trashPageId),
+        isFalse,
+      );
+    });
+
+    test('onConfirmIrreversibleTool false aborta empty_trash', () async {
+      final setup = await _trashedVault();
+      final registry = FolioToolRegistry(
+        setup.session,
+        onConfirmIrreversibleTool: (name, _) async {
+          expect(name, 'empty_trash');
+          return false;
+        },
+      );
+
+      final result = await registry.execute(_call('empty_trash', {}));
+
+      expect(result.isError, isTrue);
+      expect(
+        setup.session.pages.any((p) => p.id == setup.trashPageId && p.isTrashed),
+        isTrue,
+      );
+    });
+
+    test('onConfirmIrreversibleTool true procede con empty_trash', () async {
+      final setup = await _trashedVault();
+      final registry = FolioToolRegistry(
+        setup.session,
+        onConfirmIrreversibleTool: (_, __) async => true,
+      );
+
+      final result = await registry.execute(_call('empty_trash', {}));
+
+      expect(result.isError, isFalse);
+      expect(
+        setup.session.pages.any((p) => p.isTrashed),
+        isFalse,
+      );
     });
   });
 

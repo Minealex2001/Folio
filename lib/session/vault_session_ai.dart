@@ -740,6 +740,9 @@ For images/blocks: use the + button or / command in a paragraph.
   /// cerrar con una respuesta en texto. Vive detrás de `useToolCalling` para
   /// poder convivir con el camino legado durante el dogfood (ver
   /// `AppSettings.quillToolCallingEnabled`).
+  static const int _kToolLoopMaxSteps = 14;
+  static const int _kPlanExecutionMaxSteps = 28;
+
   Future<AgentChatOutcome> _agentChatWithAiToolLoop({
     required AiService ai,
     required List<AiChatMessage> messages,
@@ -753,6 +756,9 @@ For images/blocks: use the + button or / command in a paragraph.
     String systemPromptOverride = '',
     String extraContextSections = '',
     void Function(AiToolLoopEvent event)? onToolEvent,
+    int maxSteps = _kToolLoopMaxSteps,
+    Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
+        onConfirmIrreversibleTool,
   }) async {
     final isEs = languageCode.toLowerCase().startsWith('es');
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -813,10 +819,12 @@ For images/blocks: use the + button or / command in a paragraph.
         ..writeln(extraContextSections.trim());
     }
 
-    final registry = FolioToolRegistry(this, scopePageId: scopePageId);
+    final registry = FolioToolRegistry(
+      this,
+      scopePageId: scopePageId,
+      onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+    );
     final toolAi = withToolCallingSupport(ai, isEs: isEs);
-
-    final maxSteps = 8;
 
     final baseRequest = AiCompletionRequest(
       prompt: prompt.trim(),
@@ -859,6 +867,283 @@ For images/blocks: use the + button or / command in a paragraph.
     );
   }
 
+  /// Turno de modo Plan: solo redacta un plan en texto. Nunca ejecuta tools
+  /// (`toolChoice: 'none'`); rechazar el plan es un no-op sobre la bóveda.
+  Future<AgentChatOutcome> agentChatWithAiPlanProposal({
+    required List<AiChatMessage> messages,
+    required String prompt,
+    String? scopePageId,
+    bool includePageContext = true,
+    List<String> contextPageIds = const [],
+    List<AiFileAttachment> attachments = const [],
+    String languageCode = 'es',
+    String? cloudInkOperation,
+    String extraContextSections = '',
+    String systemPromptOverride = '',
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    await pingAi();
+
+    final appDocsContext = await _maybeBuildAppDocsContext(
+      prompt,
+      languageCode: languageCode,
+    );
+    final combinedExtra = [extraContextSections, appDocsContext]
+        .where((s) => s.trim().isNotEmpty)
+        .join('\n\n');
+
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final effectiveContextIds = _resolveAiChatContextPageIds(
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      scopePageId: scopePageId,
+    );
+    final referencePagesText = includePageContext
+        ? _buildAiChatPagesTextContext(
+            effectiveContextIds,
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
+        : (isEs
+              ? 'El usuario desactivó el contexto de folios: no debes asumir ni citar contenido de notas.'
+              : 'The user disabled page context: do not assume or quote note contents.');
+
+    final agentIdentity = systemPromptOverride.isNotEmpty
+        ? systemPromptOverride
+        : (isEs
+              ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
+              : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.');
+
+    // Solo definiciones para orientar el plan; no se llama a registry.execute.
+    final registry = FolioToolRegistry(this, scopePageId: scopePageId);
+    final toolAi = withToolCallingSupport(ai, isEs: isEs);
+
+    final systemPrompt = StringBuffer()
+      ..writeln(agentIdentity)
+      ..writeln()
+      // No mezclar el playbook de ejecución («USA las tools»): este turno es
+      // solo propuesta con toolChoice none.
+      ..writeln(_folioPlanProposalInstruction(isEs: isEs))
+      ..writeln()
+      ..writeln(_folioAgentInAppGuideCompact(isEs: isEs))
+      ..writeln()
+      ..writeln(_aiLanguageRule(languageCode, isEsInstruction: isEs))
+      ..writeln()
+      ..writeln(referencePagesText);
+    if (combinedExtra.trim().isNotEmpty) {
+      systemPrompt
+        ..writeln()
+        ..writeln(combinedExtra.trim());
+    }
+
+    // No reenviar planes anteriores completos: el modelo los copia (p. ej. un
+    // plan de «Historia de Google» cuando el usuario pide otra cosa).
+    final historyForProposal = _messagesForFreshPlanProposal(messages, isEs: isEs);
+
+    final result = await toolAi.complete(
+      AiCompletionRequest(
+        prompt: prompt.trim(),
+        model: 'auto',
+        systemPrompt: systemPrompt.toString(),
+        messages: historyForProposal,
+        attachments: attachments,
+        cloudInkOperation: (cloudInkOperation ?? '').trim().isEmpty
+            ? 'agent_main'
+            : cloudInkOperation!.trim(),
+        tools: registry.definitions,
+        toolChoice: 'none',
+      ),
+    );
+
+    final rawReply = result.text.trim().isEmpty
+        ? (isEs
+              ? 'Plan propuesto:\n1. …'
+              : 'Proposed plan:\n1. …')
+        : result.text.trim();
+    final reply = _sanitizePlanProposalReply(rawReply, isEs: isEs);
+
+    return AgentChatOutcome(
+      reply: reply,
+      usage: result.usage,
+      agentPlan: {
+        'status': 'pending',
+        'originalPrompt': prompt.trim(),
+        'planText': reply,
+        'scopePageId': scopePageId,
+        'includePageContext': includePageContext,
+        'contextPageIds': contextPageIds,
+        'languageCode': languageCode,
+        'cloudInkOperation': cloudInkOperation,
+        'systemPromptOverride': systemPromptOverride,
+      },
+    );
+  }
+
+  /// Ejecuta un plan ya aprobado por el usuario. Pasa [onConfirmIrreversibleTool]
+  /// al registry para pausar borrados permanentes / vaciar papelera.
+  Future<AgentChatOutcome> agentChatWithAiExecuteApprovedPlan({
+    required List<AiChatMessage> messages,
+    required Map<String, dynamic> planContext,
+    void Function(AiToolLoopEvent event)? onToolEvent,
+    Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
+        onConfirmIrreversibleTool,
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para usar Quill.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    await pingAi();
+
+    final originalPrompt =
+        (planContext['originalPrompt'] as String?)?.trim() ?? '';
+    final planText = (planContext['planText'] as String?)?.trim() ?? '';
+    final languageCode =
+        (planContext['languageCode'] as String?)?.trim().isNotEmpty == true
+            ? (planContext['languageCode'] as String).trim()
+            : 'es';
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final scopePageId = planContext['scopePageId'] as String?;
+    final includePageContext =
+        planContext['includePageContext'] as bool? ?? true;
+    final rawContextIds = planContext['contextPageIds'];
+    final contextPageIds = rawContextIds is List
+        ? rawContextIds.map((e) => '$e').toList()
+        : <String>[];
+    final cloudInkOperation = planContext['cloudInkOperation'] as String?;
+    final systemPromptOverride =
+        (planContext['systemPromptOverride'] as String?) ?? '';
+
+    final approvePrompt = isEs
+        ? '''
+=== PLAN APROBADO (contrato obligatorio; no lo olvides) ===
+${planText.isEmpty ? '(sin texto de plan)' : planText}
+=== FIN DEL PLAN ===
+
+Petición original del usuario:
+${originalPrompt.isEmpty ? '(no indicada)' : originalPrompt}
+
+Ejecuta YA ese plan con tools, en orden, en este mismo turno.
+- El plan es tu checklist: cumple cada paso numerado que no sea opcional («si quieres…» sí es opcional).
+- No cambies de tema ni improvises otro objetivo.
+- create_folder SIEMPRE con title concreto del plan (p. ej. "Física"); nunca dejes "Nuevo Folio" ni crees carpetas vacías duplicadas.
+- create_page con parentId de la carpeta correcta y contenido sustancial en cada página.
+- Si hace falta ordenar, usa move_page / reorder_page.
+- No digas «Hecho» hasta haber intentado todos los pasos no opcionales.
+- En el resumen final, solo afirma lo que las tools aplicaron de verdad.
+- Solo pausa si el sistema pide confirmación de borrado irreversible.
+'''
+            .trim()
+        : '''
+=== APPROVED PLAN (binding contract; do not forget it) ===
+${planText.isEmpty ? '(no plan text)' : planText}
+=== END OF PLAN ===
+
+Original user request:
+${originalPrompt.isEmpty ? '(none)' : originalPrompt}
+
+Execute that plan with tools NOW, in order, this turn.
+- The plan is your checklist: complete every numbered non-optional step ("if you want…" is optional).
+- Do not switch topics or invent another goal.
+- create_folder ALWAYS with a concrete title from the plan; never leave a generic default or create duplicate empty folders.
+- create_page with the correct parentId and substantial content per page.
+- Use move_page / reorder_page if ordering is needed.
+- Do not say "Done" until every non-optional step was attempted.
+- Final summary: only what tools actually applied.
+- Only pause for irreversible-delete confirmation.
+'''
+            .trim();
+
+    final historyForExecution = _messagesForPlanExecution(
+      messages,
+      approvedPlanText: planText,
+      isEs: isEs,
+    );
+
+    return _agentChatWithAiToolLoop(
+      ai: ai,
+      messages: historyForExecution,
+      prompt: approvePrompt,
+      scopePageId: scopePageId,
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      attachments: const [],
+      languageCode: languageCode,
+      cloudInkOperation: cloudInkOperation,
+      systemPromptOverride: systemPromptOverride,
+      extraContextSections: _folioPlanExecutionPlaybook(isEs: isEs),
+      onToolEvent: onToolEvent,
+      maxSteps: _kPlanExecutionMaxSteps,
+      onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+    );
+  }
+
+  /// Instrucciones extra solo durante la ejecución de un plan aprobado.
+  String _folioPlanExecutionPlaybook({required bool isEs}) {
+    if (isEs) {
+      return '''
+Ejecución de plan aprobado:
+- Tu única fuente de verdad es el PLAN APROBADO del mensaje de usuario de este turno.
+- Recuérdalo en cada tool-call: no abandones pasos a mitad.
+- Una carpeta por tema con título claro; páginas hijas dentro con parentId.
+- Evita create_folder repetido si ya existe la carpeta del plan (usa list_children / search_pages).
+'''
+          .trim();
+    }
+    return '''
+Approved-plan execution:
+- Your only source of truth is the APPROVED PLAN in this turn's user message.
+- Remember it on every tool call; do not drop steps halfway.
+- One clearly titled folder per topic; child pages with parentId.
+- Avoid repeated create_folder if the plan folder already exists (use list_children / search_pages).
+'''
+        .trim();
+  }
+
+  /// Historial para ejecución: stub de otros planes; el aprobado conserva el texto.
+  List<AiChatMessage> _messagesForPlanExecution(
+    List<AiChatMessage> messages, {
+    required String approvedPlanText,
+    required bool isEs,
+  }) {
+    final stub = isEs
+        ? '(Otro plan del hilo; no aplica. Ejecuta solo el plan aprobado de este turno.)'
+        : '(Other plan in this thread; ignore. Execute only this turn\'s approved plan.)';
+    final normalizedApproved = approvedPlanText.trim();
+    return [
+      for (final m in messages)
+        if (m.agentPlan == null)
+          m
+        else if (normalizedApproved.isNotEmpty &&
+            (_planMessageMatchesApproved(m, normalizedApproved)))
+          m.copyWith(
+            content: normalizedApproved,
+            clearToolCalls: true,
+            clearToolErrors: true,
+          )
+        else
+          m.copyWith(content: stub, clearToolCalls: true, clearToolErrors: true),
+    ];
+  }
+
+  bool _planMessageMatchesApproved(AiChatMessage m, String approved) {
+    final status = m.agentPlan?['status'] as String? ?? '';
+    if (status == 'executing' || status == 'pending' || status == 'approved') {
+      final planText = (m.agentPlan?['planText'] as String?)?.trim() ?? '';
+      if (planText.isNotEmpty && planText == approved) return true;
+      if (m.content.trim() == approved) return true;
+      // El mensaje que estamos ejecutando suele ser el último con agentPlan.
+      return status == 'executing' || status == 'pending';
+    }
+    return false;
+  }
+
   /// Instrucciones de agente (estilo cliente MCP): preferir tools, contenido real,
   /// no delegar el trabajo al usuario.
   String _folioToolAgentPlaybook({required bool isEs}) {
@@ -866,24 +1151,149 @@ For images/blocks: use the + button or / command in a paragraph.
       return '''
 Modo agente (como un cliente MCP competente):
 - Si la petición implica crear/editar/buscar en la libreta, USA las tools disponibles; no digas solo lo que harías.
+- NUNCA digas que «no tienes acceso» o que «en este turno no puedes» ejecutar cambios: las tools están disponibles y debes usarlas.
 - Responde de forma útil y completa por defecto; sé breve solo si el usuario pide «corto» o «breve».
 - Al crear o editar folios, rellena siempre bloques con contenido real (nunca un folio vacío o solo título).
 - Si piden diagramas, usa bloques type=mermaid y/o table.
 - Si una tool falla (p. ej. blocks vacío), corrige los argumentos y vuelve a llamarla.
-- Al terminar, escribe un resumen claro de lo hecho (título, qué incluye); no digas «añádelo tú».
+- En peticiones multi-paso, encadena tools en el mismo turno sin pedir permiso por cada paso; el sistema te pedirá confirmación solo ante borrados permanentes o vaciar la papelera.
+- Al terminar, escribe un resumen claro solo de lo que las tools hayan aplicado; no inventes organización o páginas que no creaste.
 '''
           .trim();
     }
     return '''
 Agent mode (like a capable MCP client):
 - If the request implies creating/editing/searching the vault, USE the available tools; do not only describe what you would do.
+- NEVER say you "don't have access" or "cannot make changes this turn": tools are available and you must use them.
 - Be useful and thorough by default; keep it short only if the user asks for brief/short.
 - When creating or editing pages, always fill blocks with real content (never an empty or title-only page).
 - If they ask for diagrams, use type=mermaid and/or table blocks.
 - If a tool fails (e.g. empty blocks), fix the arguments and call it again.
-- When done, write a clear summary of what you did; never tell the user to fill the page themselves.
+- For multi-step requests, chain tools in the same turn without asking permission for each step; the system will prompt only for permanent deletes or emptying the trash.
+- When done, summarize only what tools actually applied; do not invent organization or pages you did not create.
 '''
         .trim();
+  }
+
+  /// Instrucción exclusiva del turno de propuesta de plan (sin tool-calling).
+  String _folioPlanProposalInstruction({required bool isEs}) {
+    if (isEs) {
+      return '''
+Modo Plan (solo propuesta, sin ejecutar):
+- El mensaje del usuario en este turno (prompt) es la ÚNICA petición a planificar. Ignora por completo planes anteriores del hilo (aunque hablen de Google u otros temas).
+- Empieza DIRECTAMENTE con el plan numerado alineado a ESA petición. Primera línea: «Plan:» o «1. …».
+- PROHIBIDO decir o parafrasear: «no tengo acceso», «en este turno no puedo», «no puedo ejecutar cambios», «puedo ayudarte pero…», «te propongo este plan» como excusa. El sistema ya bloquea las tools; no lo expliques.
+- NO digas «en el siguiente mensaje» ni pidas otro mensaje: el usuario edita/aprueba/rechaza en la tarjeta del plan.
+- Para cada paso indica la tool exacta (create_folder con title, create_page, move_page, list_children, etc.) y los objetivos de ESTA petición.
+- No digas que ya hiciste los cambios; aún no se han aplicado.
+'''
+          .trim();
+    }
+    return '''
+Plan mode (proposal only, do not execute):
+- The user message in this turn (prompt) is the ONLY request to plan for. Completely ignore earlier plans in the thread (even if they mention other topics).
+- Start DIRECTLY with a numbered plan for THAT request. First line: "Plan:" or "1. …".
+- FORBIDDEN to say or paraphrase: "I don't have access", "I can't make changes this turn", "I can help but…", "I propose this plan" as an excuse. The system already blocks tools; do not explain that.
+- Do NOT say "in the next message" or ask for another chat reply: the user edits/approves/rejects on the plan card.
+- For each step name the exact tool and the targets for THIS request.
+- Do not claim you already made changes; nothing has been applied yet.
+'''
+        .trim();
+  }
+
+  /// Historial para una propuesta nueva: sustituye el cuerpo de planes previos
+  /// para que el modelo no los reutilice.
+  List<AiChatMessage> _messagesForFreshPlanProposal(
+    List<AiChatMessage> messages, {
+    required bool isEs,
+  }) {
+    final stub = isEs
+        ? '(Plan anterior del hilo; ignóralo. Planifica solo la petición actual del usuario.)'
+        : '(Earlier plan in this thread; ignore it. Plan only for the current user request.)';
+    return [
+      for (final m in messages)
+        if (m.agentPlan != null)
+          m.copyWith(content: stub, clearToolCalls: true, clearToolErrors: true)
+        else
+          m,
+    ];
+  }
+
+  /// Quita coletillas de «no tengo acceso» que el modelo suele anteponer al plan.
+  String _sanitizePlanProposalReply(String reply, {required bool isEs}) {
+    var text = reply.trim();
+    if (text.isEmpty) return text;
+
+    // Párrafos / frases de apertura típicas (ES + EN).
+    final banned = <RegExp>[
+      RegExp(
+        r'^puedo ayudarte,?\s*pero\s+[^\n]{0,120}no tengo acceso[^\n]*\n*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'^puedo ayudarte,?\s*pero\s+en este turno\s+no tengo acceso[^\n.]*\.?\s*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'^en este turno\s+no tengo acceso[^\n.]*\.?\s*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'^no tengo acceso para ejecutar[^\n.]*\.?\s*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'^no puedo ejecutar cambios[^\n.]*\.?\s*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'^te propongo este plan:\s*',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r"^i can help( you)?,?\s*but\s+[^\n]{0,120}(do not|don't) have access[^\n]*\n*",
+        caseSensitive: false,
+      ),
+      RegExp(
+        r"^i (do not|don't) have access to (make|execute)[^\n.]*\.?\s*",
+        caseSensitive: false,
+      ),
+    ];
+    for (final re in banned) {
+      text = text.replaceFirst(re, '').trim();
+    }
+    // Segunda pasada por si van dos frases seguidas.
+    for (final re in banned) {
+      text = text.replaceFirst(re, '').trim();
+    }
+
+    // Líneas sueltas que solo repiten la excusa.
+    final lines = text.split('\n');
+    final kept = <String>[];
+    for (final line in lines) {
+      final t = line.trim();
+      final lower = t.toLowerCase();
+      final isExcuse = lower.contains('no tengo acceso') ||
+          lower.contains('no puedo ejecutar') ||
+          lower.contains("don't have access") ||
+          lower.contains('do not have access') ||
+          lower.contains('cannot make changes this turn') ||
+          lower.contains("can't make changes this turn") ||
+          lower == 'te propongo este plan:' ||
+          lower == 'i propose this plan:';
+      if (isExcuse && !RegExp(r'^\d+[\.\)]').hasMatch(t)) {
+        continue;
+      }
+      kept.add(line);
+    }
+    text = kept.join('\n').trim();
+
+    if (text.isEmpty) {
+      return isEs
+          ? 'Plan propuesto. Revísalo, ajústalo si hace falta y pulsa «Aprobar y ejecutar».'
+          : 'Proposed plan. Review or adjust it, then press “Approve and run”.';
+    }
+    return text;
   }
 
   /// Si create_page dejó muy poco contenido, rellena la página con el generador

@@ -43,6 +43,26 @@ class DeviceSyncRemoteVaultInfo {
 String deviceSyncBootstrapPrefix(String uid, String vaultId) =>
     'users/$uid/vaults/$vaultId/device-sync/bootstrap';
 
+/// Resuelve la clave de cuenta ("account key") usada para cifrar packs de
+/// device-sync cuando no se quiere depender del DEK propio de la libreta.
+///
+/// Importante: NUNCA genera (ni cachea localmente) una clave nueva cuando el
+/// servidor todavía no tiene un wrap canónico (`folioGetAppProfileRestoreWrap`
+/// vacío). Antes sí lo hacía — vía `FolioAppProfileCrypto.ensurePackKey`, que
+/// sin wrap remoto mina una clave aleatoria y la cachea localmente — y esa
+/// clave "huérfana" se usaba para cifrar el pack de esta libreta sin subir
+/// nunca su wrap para hacerla canónica. En cuanto CUALQUIER dispositivo (o
+/// esta misma sesión más tarde) resolvía la clave canónica real — que nunca
+/// coincide con la huérfana —, el pack quedaba permanentemente indescifrable
+/// (`SecretBoxAuthenticationError`/MAC) para todos los dispositivos. Este es
+/// el mismo bug que ya se corrigió en `folio_cloud_settings_sync.dart`
+/// (ver el comentario en `_resolvePackKey`), pero nunca se portó aquí.
+///
+/// Con este fix, si no hay wrap canónico todavía, se devuelve `null` — los
+/// llamadores caen a la clave propia de la libreta (`vaultKey`), que siempre
+/// es correcta y no tiene riesgo de huérfano. La clave de cuenta canónica se
+/// establece en otro sitio (sincronización de ajustes, que sí sube su wrap
+/// correctamente); aquí solo se adopta si ya existe.
 Future<SecretKey?> resolveAccountProfilePackKeyQuietly() async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null || uid.isEmpty) return null;
@@ -59,11 +79,16 @@ Future<SecretKey?> resolveAccountProfilePackKeyQuietly() async {
         if (w.isNotEmpty) wrapB64 = w;
       }
     } catch (_) {}
+    if (wrapB64 == null || wrapB64.isEmpty) {
+      // Sin wrap canónico todavía: no minar una clave huérfana. El llamador
+      // cae a la clave propia de la libreta.
+      return null;
+    }
     final resolved = await crypto.ensurePackKey(
       uid: uid,
       restoreWrapB64: wrapB64,
       restorePassword: '',
-      preferRemoteWrap: wrapB64 != null && wrapB64.isNotEmpty,
+      preferRemoteWrap: true,
     );
     return resolved.key;
   } catch (e) {

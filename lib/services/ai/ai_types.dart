@@ -9,6 +9,7 @@ class AiChatMessage {
     required this.timestamp,
     this.feedback,
     this.agentApplySnapshot,
+    this.agentPlan,
     this.toolCalls,
     this.toolCallId,
     this.toolErrors,
@@ -19,6 +20,7 @@ class AiChatMessage {
     required String content,
     String? feedback,
     Map<String, dynamic>? agentApplySnapshot,
+    Map<String, dynamic>? agentPlan,
     List<AiToolCall>? toolCalls,
     String? toolCallId,
     List<String>? toolErrors,
@@ -29,6 +31,7 @@ class AiChatMessage {
       timestamp: DateTime.now(),
       feedback: feedback,
       agentApplySnapshot: agentApplySnapshot,
+      agentPlan: agentPlan,
       toolCalls: toolCalls,
       toolCallId: toolCallId,
       toolErrors: toolErrors,
@@ -44,6 +47,10 @@ class AiChatMessage {
   /// la UI puede ofrecer aplicarlos manualmente a la página abierta.
   final Map<String, dynamic>? agentApplySnapshot;
 
+  /// Plan propuesto en modo Plan (`status`: pending/executing/approved/cancelled
+  /// + contexto para reanudar la ejecución tras aprobar). Nulo fuera de modo Plan.
+  final Map<String, dynamic>? agentPlan;
+
   /// Tool calls emitidas por el modelo en este mensaje (role 'assistant').
   /// Nulo en mensajes que no invocan ningún tool, y en todos los hilos
   /// guardados antes de la introducción del bucle de tool-calling.
@@ -56,12 +63,45 @@ class AiChatMessage {
   /// como chips distintos de la respuesta en texto. Nulo si no hubo errores.
   final List<String>? toolErrors;
 
+  AiChatMessage copyWith({
+    String? role,
+    String? content,
+    DateTime? timestamp,
+    String? feedback,
+    bool clearFeedback = false,
+    Map<String, dynamic>? agentApplySnapshot,
+    bool clearAgentApplySnapshot = false,
+    Map<String, dynamic>? agentPlan,
+    bool clearAgentPlan = false,
+    List<AiToolCall>? toolCalls,
+    bool clearToolCalls = false,
+    String? toolCallId,
+    bool clearToolCallId = false,
+    List<String>? toolErrors,
+    bool clearToolErrors = false,
+  }) {
+    return AiChatMessage(
+      role: role ?? this.role,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      feedback: clearFeedback ? null : (feedback ?? this.feedback),
+      agentApplySnapshot: clearAgentApplySnapshot
+          ? null
+          : (agentApplySnapshot ?? this.agentApplySnapshot),
+      agentPlan: clearAgentPlan ? null : (agentPlan ?? this.agentPlan),
+      toolCalls: clearToolCalls ? null : (toolCalls ?? this.toolCalls),
+      toolCallId: clearToolCallId ? null : (toolCallId ?? this.toolCallId),
+      toolErrors: clearToolErrors ? null : (toolErrors ?? this.toolErrors),
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'role': role,
     'content': content,
     'timestamp': timestamp.toIso8601String(),
     if (feedback != null) 'feedback': feedback,
     if (agentApplySnapshot != null) 'agentApplySnapshot': agentApplySnapshot,
+    if (agentPlan != null) 'agentPlan': agentPlan,
     if (toolCalls != null)
       'toolCalls': toolCalls!
           .map((c) => {'id': c.id, 'name': c.name, 'arguments': c.arguments})
@@ -76,6 +116,13 @@ class AiChatMessage {
     if (snap is Map) {
       snapMap = Map<String, dynamic>.from(
         snap.map((k, v) => MapEntry(k.toString(), v)),
+      );
+    }
+    final plan = json['agentPlan'];
+    Map<String, dynamic>? planMap;
+    if (plan is Map) {
+      planMap = Map<String, dynamic>.from(
+        plan.map((k, v) => MapEntry(k.toString(), v)),
       );
     }
     final rawToolCalls = json['toolCalls'];
@@ -107,6 +154,7 @@ class AiChatMessage {
           : DateTime.now(),
       feedback: json['feedback'] as String?,
       agentApplySnapshot: snapMap,
+      agentPlan: planMap,
       toolCalls: toolCalls,
       toolCallId: json['toolCallId'] as String?,
       toolErrors: toolErrors,
@@ -156,6 +204,7 @@ class AgentChatOutcome {
     required this.reply,
     this.usage,
     this.agentApplySnapshot,
+    this.agentPlan,
     this.toolCalls,
     this.toolErrors,
   });
@@ -165,6 +214,9 @@ class AgentChatOutcome {
 
   /// Solo en modo `chat` con `blocks` u `operations` no auto-aplicadas.
   final Map<String, dynamic>? agentApplySnapshot;
+
+  /// Solo en modo Plan: plan propuesto (pending) o contexto de ejecución.
+  final Map<String, dynamic>? agentPlan;
 
   /// Solo con el bucle de tool-calling (Fase 1): tools que el modelo invocó
   /// en este turno, para persistir en el `AiChatMessage` resultante.

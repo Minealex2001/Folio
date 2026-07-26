@@ -584,11 +584,25 @@ Si el modelo elige `create_page` sin contenido útil, Folio hace fallback a `gen
 - Con el flag desactivado, Quill usa el JSON legado (`mode`/`reply`/`blocks`).
 - La tool `create_page` **rechaza** `blocks` vacío; el modelo debe rellenar contenido (p. ej. `mermaid` si piden diagramas).
 - Las respuestas de chat son **completas por defecto**; breves solo si el usuario pide «corto»/«breve».
-- **Paridad con MCP**: el bucle admite hasta **8** pasos (create + reintentos + cierre). El system prompt pide actuar como agente (preferir tools, no páginas solo-título). Si `create_page` deja pocos bloques útiles (&lt;4), Quill rellena con `generateContentWithAi` sobre esa página.
+- **Paridad con MCP**: el bucle admite hasta **14** pasos (create + reintentos + cierre). El system prompt pide actuar como agente (preferir tools, encadenar multi-paso sin pedir permiso por cada uno; no páginas solo-título). Si `create_page` deja pocos bloques útiles (&lt;4), Quill rellena con `generateContentWithAi` sobre esa página.
+- Modelo OpenAI por defecto (BYOK / seed / fallback Cloud Functions): **`gpt-5.4-mini-2026-03-17`** (sobreescribible con `OPENAI_MODEL`).
+
+### Modo Plan (híbrido)
+
+Toggle **por conversación** en el compositor del panel Quill (efímero, apagado por defecto; no se guarda en Ajustes ni en el JSON del hilo):
+
+1. **Propuesta**: `agentChatWithAiPlanProposal` hace una sola completion con `toolChoice: 'none'`. El plan se muestra como **tarjeta/artefacto editable** (estilo Cursor/Claude): documento de pasos, sección **Ajustar** (revisión por notas), **Rechazar** o **Aprobar y ejecutar**. Metadata `agentPlan` con `status`, `planText` y contexto. **No muta la bóveda**.
+2. **Aprobar**: botón bajo el plan (usa el texto editado), o mensaje corto afirmativo («sí», «ejecuta», …) con plan pendiente → ejecución con hasta **28** pasos. El texto del plan aprobado se inyecta como **contrato** en el prompt de ejecución (no solo en extras) para que el agente no lo olvide.
+3. **Ajustar**: el usuario edita el texto del plan y/o pide una revisión («Revisar plan») que regenera solo el documento pendiente.
+4. **Cancelar/Rechazar**: marca `status: cancelled` (no-op sobre la bóveda).
+5. **Confirmación extra**: solo en la ejecución de un plan aprobado, `FolioToolRegistry.onConfirmIrreversibleTool` pausa `permanently_delete_page` y `empty_trash`. La ruta normal y el MCP **no** pasan ese callback.
+6. **`create_folder`**: exige `title` descriptivo (evita carpetas «Nuevo Folio» sin renombrar).
+
+Código: `workspace_page_ai_plan.dart`, APIs en `vault_session_ai.dart`.
 
 ### Interfaz de chat (panel Quill)
 
-Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje en `workspace_page.dart`. Límites adaptativos: `QuillChatLayout` en `lib/app/ui_tokens.dart` (`mobile` / `dockNarrow` / `dockWide` / `split`).
+Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/workspace_page_ai_plan.dart` (modo Plan), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje en `workspace_page.dart`. Límites adaptativos: `QuillChatLayout` en `lib/app/ui_tokens.dart` (`mobile` / `dockNarrow` / `dockWide` / `split`).
 
 #### Cabecera y modo de panel
 
@@ -714,6 +728,15 @@ Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo
 
 - **Sesión Folio Cloud** = usuario **Firebase Auth**.
 - Estado de plan, tinta y flags de funciones viven en Firestore `users/{uid}`; el cliente **no** es confiable: escritura de `folioCloud`, `ink` y campos de facturación vía **Admin SDK** en Cloud Functions y webhooks. Detalle: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
+
+### Gestión de cuenta (borrado, datos, Ajustes)
+
+- **Ajustes → Folio Cloud** usa subsections planas (mismo patrón que Libreta): **Cuenta**, **Plan**, **Tinta**, **Copias**, **Familia**, **Publicación**, **Zona peligrosa**. Packs de tinta/almacenamiento y el portal web van a sheets/diálogos (no cards apiladas en el scroll).
+- **Nombre visible**: editable en Cuenta (`updateAccountDisplayName`) — actualiza Firebase Auth, `users/{uid}.displayName` y, si aplica, `families/*/membersInfo`.
+- **Descargar mis datos** (`exportAccountData`): JSON de metadatos de cuenta (perfil, plan, tinta, cuota, familia, índices de copias, publicados, collab). **No** incluye el contenido cifrado de libretas locales.
+- **Eliminar cuenta** (`requestAccountDeletion`): reauth + agenda borrado en **30 días** (`users/{uid}.accountDeletion.scheduledFor`). Durante la gracia el acceso y la suscripción siguen activos; se puede **cancelar** (`cancelAccountDeletion`). Los checkouts nuevos quedan bloqueados.
+- Job diario **`processScheduledAccountDeletions`**: purga Stripe (cancela suscripciones + customer), Storage/Firestore ligados al uid, familia/collab/índices, y borra el usuario Auth. **`onUserDeleted`** repite la purga como red de seguridad.
+- Las **libretas locales del dispositivo no se tocan** al borrar o cerrar sesión Cloud.
 
 ### Entitlements (`folioCloud.features`)
 

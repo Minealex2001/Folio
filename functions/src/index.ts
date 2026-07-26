@@ -7,7 +7,7 @@ loadEnv({ path: path.resolve(__dirname, "../.env") });
 import "./admin_init";
 
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { createHash, randomBytes, randomInt } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
@@ -107,7 +107,7 @@ function openAiBaseUrl(): string {
 }
 
 function openAiModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  return process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini-2026-03-17";
 }
 
 function openAiTranscribeModel(): string {
@@ -120,6 +120,29 @@ function openAiMaxOutputTokens(): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return 8192;
   return Math.min(16384, Math.trunc(n));
+}
+
+/** gpt-5 / o-series rechazan `max_tokens`; usan `max_completion_tokens`. */
+function openAiUsesMaxCompletionTokens(model: string): boolean {
+  const m = model.trim().toLowerCase();
+  return (
+    m.startsWith("gpt-5") ||
+    m.startsWith("o1") ||
+    m.startsWith("o3") ||
+    m.startsWith("o4")
+  );
+}
+
+function applyOpenAiOutputTokenLimit(
+  body: Record<string, unknown>,
+  model: string,
+  maxTokens: number
+): void {
+  if (openAiUsesMaxCompletionTokens(model)) {
+    body.max_completion_tokens = maxTokens;
+  } else {
+    body.max_tokens = maxTokens;
+  }
 }
 
 function openAiTemperature(): number {
@@ -360,12 +383,13 @@ async function callOpenAiGenerate(prompt: string): Promise<{
     );
   }
 
+  const model = openAiModel();
   const body: Record<string, unknown> = {
-    model: openAiModel(),
+    model,
     messages: [{ role: "user", content: prompt }],
-    max_tokens: openAiMaxOutputTokens(),
     temperature: openAiTemperature(),
   };
+  applyOpenAiOutputTokenLimit(body, model, openAiMaxOutputTokens());
 
   let r429 = 0;
   for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
@@ -641,12 +665,17 @@ async function callOpenAiChatStructured(input: {
     throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
   }
 
+  const model = openAiModel();
   const body: Record<string, unknown> = {
-    model: openAiModel(),
+    model,
     messages,
-    max_tokens: input.maxTokens ?? openAiMaxOutputTokens(),
     temperature: input.temperature ?? openAiTemperature(),
   };
+  applyOpenAiOutputTokenLimit(
+    body,
+    model,
+    input.maxTokens ?? openAiMaxOutputTokens()
+  );
 
   const schema = input.responseSchema ?? null;
   if (schema) {
@@ -2836,6 +2865,318 @@ function isStudentEmail(email: string): boolean {
   return false;
 }
 
+function timestampToIsoString(value: unknown): string | null {
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toDate().toISOString();
+  }
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.toISOString();
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  ) {
+    try {
+      const d = (value as { toDate: () => Date }).toDate();
+      if (d instanceof Date && Number.isFinite(d.getTime())) {
+        return d.toISOString();
+      }
+    } catch {
+      // Ignorar valores no serializables como fecha.
+    }
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+  return null;
+}
+
+function toPlainJson(value: unknown): unknown {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+  const iso = timestampToIsoString(value);
+  if (iso) {
+    return iso;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => toPlainJson(item));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === "undefined") continue;
+      const normalized = toPlainJson(v);
+      if (typeof normalized !== "undefined") {
+        out[k] = normalized;
+      }
+    }
+    return out;
+  }
+  return undefined;
+}
+
+function pickDefinedFields(
+  source: Record<string, unknown> | undefined,
+  keys: string[]
+): Record<string, unknown> | null {
+  if (!source) return null;
+  const out: Record<string, unknown> = {};
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "undefined") continue;
+    const normalized = toPlainJson(value);
+    if (typeof normalized !== "undefined") {
+      out[key] = normalized;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function summarizedBillingForExport(
+  billingRaw: unknown
+): Record<string, unknown> | null {
+  if (!billingRaw || typeof billingRaw !== "object") {
+    return null;
+  }
+  const billing = billingRaw as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+
+  if (typeof billing.studentVerified !== "undefined") {
+    out.studentVerified = Boolean(billing.studentVerified);
+  }
+
+  const stripe = pickDefinedFields(
+    billing.stripe as Record<string, unknown> | undefined,
+    ["subscriptionStatus", "subscriptionPriceId", "active", "familySeats", "updatedAt"]
+  );
+  if (stripe) {
+    out.stripe = stripe;
+  }
+
+  const microsoftStore = pickDefinedFields(
+    billing.microsoftStore as Record<string, unknown> | undefined,
+    [
+      "subscriptionActive",
+      "subscriptionStoreProductId",
+      "lastValidatedAt",
+      "lastItemCount",
+    ]
+  );
+  if (microsoftStore) {
+    out.microsoftStore = microsoftStore;
+  }
+
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+async function assertAccountNotPendingDeletion(uid: string): Promise<void> {
+  const userSnap = await db.collection("users").doc(uid).get();
+  const accountDeletion = userSnap.get("accountDeletion");
+  if (!accountDeletion) {
+    return;
+  }
+  throw new HttpsError("failed-precondition", "Account deletion pending");
+}
+
+async function deleteStoragePrefix(prefix: string): Promise<void> {
+  await admin.storage().bucket().deleteFiles({ prefix, force: true }).catch((e) => {
+    console.warn("deleteStoragePrefix failed", prefix, e);
+  });
+}
+
+async function recursiveDeleteRef(
+  ref:
+    | FirebaseFirestore.CollectionReference
+    | FirebaseFirestore.DocumentReference
+): Promise<void> {
+  await db.recursiveDelete(ref).catch((e) => {
+    console.warn("recursiveDeleteRef failed", ref.path, e);
+  });
+}
+
+async function purgeUserAccount(uid: string): Promise<void> {
+  const userRef = db.collection("users").doc(uid);
+  const familyRef = db.collection("families").doc(uid);
+  const [userSnap, ownedFamilySnap] = await Promise.all([
+    userRef.get(),
+    familyRef.get(),
+  ]);
+  const userData = (userSnap.data() ?? {}) as Record<string, unknown>;
+
+  const stripe = stripeClient();
+  const stripeCustomerId =
+    typeof userData.stripeCustomerId === "string"
+      ? userData.stripeCustomerId.trim()
+      : "";
+  if (stripe && stripeCustomerId) {
+    try {
+      const subs = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: "all",
+        limit: 100,
+      });
+      for (const sub of subs.data) {
+        if (sub.status === "canceled" || sub.status === "incomplete_expired") {
+          continue;
+        }
+        try {
+          await stripe.subscriptions.cancel(sub.id);
+        } catch (e) {
+          console.warn("purgeUserAccount: cancel subscription failed", uid, sub.id, e);
+        }
+      }
+    } catch (e) {
+      console.warn("purgeUserAccount: list subscriptions failed", uid, e);
+    }
+    try {
+      await stripe.customers.del(stripeCustomerId);
+    } catch (e) {
+      console.warn("purgeUserAccount: delete customer failed", uid, stripeCustomerId, e);
+    }
+  }
+
+  const familyOwnerUid =
+    typeof userData.familyOwnerUid === "string" ? userData.familyOwnerUid.trim() : "";
+  if (familyOwnerUid) {
+    await db
+      .collection("families")
+      .doc(familyOwnerUid)
+      .set(
+        {
+          members: FieldValue.arrayRemove(uid),
+          [`membersInfo.${uid}`]: FieldValue.delete(),
+        },
+        { merge: true }
+      )
+      .catch((e) => {
+        console.warn("purgeUserAccount: remove from family failed", uid, familyOwnerUid, e);
+      });
+    await recomputeEffectiveFolioCloud(familyOwnerUid).catch((e) => {
+      console.warn("purgeUserAccount: recompute family owner failed", familyOwnerUid, e);
+    });
+  }
+
+  if (ownedFamilySnap.exists) {
+    const familyData = (ownedFamilySnap.data() ?? {}) as Record<string, unknown>;
+    const members = Array.isArray(familyData.members)
+      ? familyData.members.filter((memberUid): memberUid is string => typeof memberUid === "string")
+      : [];
+    for (const memberUid of members) {
+      if (!memberUid || memberUid === uid) continue;
+      await db
+        .collection("users")
+        .doc(memberUid)
+        .set({ familyOwnerUid: FieldValue.delete() }, { merge: true })
+        .catch((e) => {
+          console.warn("purgeUserAccount: clear member familyOwnerUid failed", memberUid, e);
+        });
+      await recomputeEffectiveFolioCloud(memberUid).catch((e) => {
+        console.warn("purgeUserAccount: recompute former family member failed", memberUid, e);
+      });
+    }
+    await familyRef.delete().catch((e) => {
+      console.warn("purgeUserAccount: delete family doc failed", uid, e);
+    });
+  }
+
+  const ownedRoomsSnap = await db
+    .collection("collabRooms")
+    .where("ownerUid", "==", uid)
+    .get();
+  for (const roomDoc of ownedRoomsSnap.docs) {
+    const roomData = roomDoc.data() ?? {};
+    const joinCodeKey =
+      typeof roomData.joinCodeKey === "string" ? roomData.joinCodeKey.trim() : "";
+    if (joinCodeKey) {
+      await db.collection("collabJoinIndex").doc(joinCodeKey).delete().catch(() => undefined);
+    }
+    await deleteStoragePrefix(`collab-media-e2e/${roomDoc.id}/`);
+    await recursiveDeleteRef(roomDoc.ref);
+  }
+
+  const memberRoomsSnap = await db
+    .collection("collabRooms")
+    .where("memberUids", "array-contains", uid)
+    .get();
+  for (const roomDoc of memberRoomsSnap.docs) {
+    const roomData = roomDoc.data() ?? {};
+    if (roomData.ownerUid === uid) {
+      continue;
+    }
+    await roomDoc.ref
+      .set(
+        {
+          memberUids: FieldValue.arrayRemove(uid),
+          [`memberJoinedAt.${uid}`]: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+      .catch((e) => {
+        console.warn("purgeUserAccount: remove collab member failed", roomDoc.id, uid, e);
+      });
+  }
+
+  await Promise.all([
+    deleteStoragePrefix(`users/${uid}/`),
+    deleteStoragePrefix(`published/${uid}/`),
+    deleteStoragePrefix(`community-templates/${uid}/`),
+  ]);
+
+  const [publishedSnap, templatesSnap, integrationIndexSnap] = await Promise.all([
+    db.collection("publishedPages").where("ownerUid", "==", uid).get(),
+    db.collection("communityTemplates").where("ownerUid", "==", uid).get(),
+    db.collection("integrationUserIndex").where("firebaseUid", "==", uid).get(),
+  ]);
+
+  for (const doc of publishedSnap.docs) {
+    await recursiveDeleteRef(doc.ref);
+  }
+  for (const doc of templatesSnap.docs) {
+    await recursiveDeleteRef(doc.ref);
+  }
+  for (const doc of integrationIndexSnap.docs) {
+    await recursiveDeleteRef(doc.ref);
+  }
+
+  await db.collection("folioCloudSubscribers").doc(uid).delete().catch(() => undefined);
+  await db.collection("collabJoinAttempts").doc(uid).delete().catch(() => undefined);
+
+  await recursiveDeleteRef(db.collection("analytics_events").doc(uid));
+
+  const knownUserSubcollections = [
+    "pendingIntegrationCommands",
+    "vaultSync",
+    "appProfile",
+    "vaultProfiles",
+    "vaultBackups",
+    "vaultBackupIndex",
+  ];
+  for (const subcollectionId of knownUserSubcollections) {
+    await recursiveDeleteRef(userRef.collection(subcollectionId));
+  }
+
+  const remainingCollections = await userRef.listCollections().catch(() => []);
+  for (const collectionRef of remainingCollections) {
+    if (knownUserSubcollections.includes(collectionRef.id)) {
+      continue;
+    }
+    await recursiveDeleteRef(collectionRef);
+  }
+
+  await userRef.delete().catch(() => undefined);
+}
+
 /**
  * Callable v2 corre en Cloud Run (2nd gen). Para soportar escritorio vía HTTP callable
  * (`Authorization: Bearer <ID token>`), el servicio debe permitir invocación pública
@@ -2847,6 +3188,8 @@ export const createCheckoutSession = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
+    const uid = request.auth.uid;
+    await assertAccountNotPendingDeletion(uid);
     const isDebug = request.data?.debug === true;
     const stripe = stripeClient(isDebug);
     if (!stripe) {
@@ -2855,7 +3198,6 @@ export const createCheckoutSession = onCall(
         "Stripe not configured on server"
       );
     }
-    const uid = request.auth.uid;
     let kindRaw = (request.data?.kind as string) ?? "folio_cloud_monthly";
     if (kindRaw === "backup_storage_pack") {
       kindRaw = "backup_storage_pack_small";
@@ -3029,6 +3371,7 @@ export const validateMicrosoftStoreEntitlements = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
+    await assertAccountNotPendingDeletion(request.auth.uid);
     const collectionsId = String(
       (request.data as { collectionsId?: string })?.collectionsId ?? ""
     ).trim();
@@ -5917,6 +6260,243 @@ export const getFamilyDetails = onCall(
     };
   }
 );
+
+export const requestAccountDeletion = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const accountDeletion = userSnap.get("accountDeletion") as
+      | Record<string, unknown>
+      | undefined;
+    const existingScheduledFor = timestampToIsoString(accountDeletion?.scheduledFor);
+    if (accountDeletion && existingScheduledFor) {
+      return { scheduledFor: existingScheduledFor };
+    }
+    if (accountDeletion) {
+      throw new HttpsError("failed-precondition", "Account deletion pending");
+    }
+
+    const scheduledFor = Timestamp.fromDate(
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    );
+    await userRef.set(
+      {
+        accountDeletion: {
+          requestedAt: FieldValue.serverTimestamp(),
+          scheduledFor,
+          requestedBy: "user",
+        },
+      },
+      { merge: true }
+    );
+    return { scheduledFor: scheduledFor.toDate().toISOString() };
+  }
+);
+
+export const cancelAccountDeletion = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const accountDeletion = userSnap.get("accountDeletion") as
+      | Record<string, unknown>
+      | undefined;
+    const scheduledForIso = timestampToIsoString(accountDeletion?.scheduledFor);
+    if (scheduledForIso) {
+      const scheduledForMs = Date.parse(scheduledForIso);
+      if (Number.isFinite(scheduledForMs) && scheduledForMs < Date.now()) {
+        throw new HttpsError("failed-precondition", "Account deletion pending");
+      }
+    }
+    await userRef.set({ accountDeletion: FieldValue.delete() }, { merge: true });
+    return { ok: true };
+  }
+);
+
+export const updateAccountDisplayName = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const raw = String((request.data as { displayName?: unknown })?.displayName ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (!raw) {
+      throw new HttpsError("invalid-argument", "displayName is required");
+    }
+    if (raw.length > 80) {
+      throw new HttpsError(
+        "invalid-argument",
+        "displayName must be at most 80 characters"
+      );
+    }
+
+    await admin.auth().updateUser(uid, { displayName: raw });
+    await db.collection("users").doc(uid).set({ displayName: raw }, { merge: true });
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    const familyOwnerUid = String(userSnap.get("familyOwnerUid") ?? "").trim();
+    if (familyOwnerUid) {
+      await db
+        .collection("families")
+        .doc(familyOwnerUid)
+        .set(
+          {
+            [`membersInfo.${uid}.displayName`]: raw,
+          },
+          { merge: true }
+        )
+        .catch((e) => {
+          console.warn(
+            "updateAccountDisplayName: family membersInfo update failed",
+            uid,
+            familyOwnerUid,
+            e
+          );
+        });
+    }
+
+    return { ok: true, displayName: raw };
+  }
+);
+
+export const exportAccountData = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const [userSnap, authUser, vaultBackupIndexSnap, publishedPagesSnap, communityTemplatesSnap] =
+      await Promise.all([
+        userRef.get(),
+        admin.auth().getUser(uid).catch(() => null),
+        userRef.collection("vaultBackupIndex").get(),
+        db
+          .collection("publishedPages")
+          .where("ownerUid", "==", uid)
+          .limit(100)
+          .get(),
+        db
+          .collection("communityTemplates")
+          .where("ownerUid", "==", uid)
+          .limit(100)
+          .get(),
+      ]);
+
+    const userData = (userSnap.data() ?? {}) as Record<string, unknown>;
+    const [ownedRoomsSnap, memberRoomsSnap] = await Promise.all([
+      db.collection("collabRooms").where("ownerUid", "==", uid).limit(50).get(),
+      db.collection("collabRooms").where("memberUids", "array-contains", uid).limit(50).get(),
+    ]);
+
+    const collabRooms = new Map<string, Record<string, unknown>>();
+    for (const snap of [...ownedRoomsSnap.docs, ...memberRoomsSnap.docs]) {
+      collabRooms.set(snap.id, {
+        docId: snap.id,
+        ...(toPlainJson(snap.data()) as Record<string, unknown>),
+      });
+    }
+
+    const familyOwnerUid =
+      typeof userData.familyOwnerUid === "string" ? userData.familyOwnerUid.trim() : "";
+    let family: Record<string, unknown> = { role: "none" };
+    const ownedFamilySnap = await db.collection("families").doc(uid).get();
+    if (ownedFamilySnap.exists) {
+      family = {
+        role: "owner",
+        ...(toPlainJson(ownedFamilySnap.data() ?? {}) as Record<string, unknown>),
+      };
+    } else if (familyOwnerUid) {
+      family = {
+        role: "member",
+        ownerUid: familyOwnerUid,
+      };
+    }
+
+    const createdAt =
+      timestampToIsoString(userData.createdAt) ||
+      authUser?.metadata.creationTime ||
+      null;
+
+    const data = {
+      uid,
+      email:
+        authUser?.email ??
+        (typeof userData.email === "string" ? userData.email : null),
+      displayName:
+        authUser?.displayName ??
+        (typeof userData.displayName === "string" ? userData.displayName : null),
+      createdAt,
+      folioCloud: toPlainJson(userData.folioCloud ?? null),
+      billing: summarizedBillingForExport(userData.billing),
+      ink: toPlainJson(userData.ink ?? null),
+      folioBackup: toPlainJson(userData.folioBackup ?? null),
+      family,
+      vaultBackupIndex: vaultBackupIndexSnap.docs.map((doc) => ({
+        docId: doc.id,
+        ...(toPlainJson(doc.data()) as Record<string, unknown>),
+      })),
+      publishedPages: publishedPagesSnap.docs.map((doc) => ({
+        docId: doc.id,
+        ...(toPlainJson(doc.data()) as Record<string, unknown>),
+      })),
+      communityTemplates: communityTemplatesSnap.docs.map((doc) => ({
+        docId: doc.id,
+        ...(toPlainJson(doc.data()) as Record<string, unknown>),
+      })),
+      collabRooms: Array.from(collabRooms.values()),
+    };
+
+    return {
+      exportedAt: new Date().toISOString(),
+      data,
+    };
+  }
+);
+
+export const processScheduledAccountDeletions = onSchedule(
+  {
+    schedule: "15 3 * * *",
+    timeZone: INK_TIMEZONE,
+    memory: "256MiB",
+  },
+  async () => {
+    const now = Timestamp.now();
+    const dueUsersSnap = await db
+      .collection("users")
+      .where("accountDeletion.scheduledFor", "<=", now)
+      .get();
+
+    for (const userDoc of dueUsersSnap.docs) {
+      const uid = userDoc.id;
+      try {
+        await purgeUserAccount(uid);
+        await admin.auth().deleteUser(uid);
+      } catch (e) {
+        console.error("processScheduledAccountDeletions failed", uid, e);
+      }
+    }
+  }
+);
+
+export const onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
+  await purgeUserAccount(user.uid).catch((e) => {
+    console.error("onUserDeleted: purge failed", user.uid, e);
+  });
+});
 
 export const onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
   const uid = user.uid;

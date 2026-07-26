@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/widgets/folio_dialog.dart';
 import '../../application/vault_persistence_controller.dart';
 import '../../data/vault_registry.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -196,6 +197,7 @@ class CloudDeviceSyncStatusButton extends StatelessWidget {
                                           ),
                                         );
                                       },
+                                onRepair: () => _confirmRepair(context, ctrl, v),
                               ),
                           ],
                           if (pendingConflicts > 0) ...[
@@ -253,6 +255,39 @@ class CloudDeviceSyncStatusButton extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  Future<void> _confirmRepair(
+    BuildContext context,
+    FolioCloudDeviceSyncController ctrl,
+    DeviceSyncVaultStatus v,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await FolioDialog.confirm(
+      context,
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      title: Text(l10n.folioCloudDeviceSyncRepairTitle),
+      content: Text(
+        l10n.folioCloudDeviceSyncRepairBody(v.displayName),
+      ),
+      confirmLabel: l10n.folioCloudDeviceSyncRepairConfirm,
+      destructive: true,
+    );
+    if (ok != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final repaired = await ctrl.repairVaultByForcePush(v.vaultId);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          repaired
+              ? l10n.folioCloudDeviceSyncRepairOk
+              : l10n.folioCloudDeviceSyncRepairFail,
+        ),
+      ),
     );
   }
 
@@ -446,11 +481,23 @@ class _VaultSyncTile extends StatelessWidget {
     required this.status,
     required this.l10n,
     this.onOpen,
+    this.onRepair,
   });
 
   final DeviceSyncVaultStatus status;
   final AppLocalizations l10n;
   final VoidCallback? onOpen;
+  final VoidCallback? onRepair;
+
+  /// Solo ofrecemos "Reparar" (resubida forzada, destructiva) para el fallo
+  /// de descifrado conocido — no para cualquier error (red, cuota, etc.),
+  /// donde sobrescribir el remoto no tiene sentido y podría ser peligroso.
+  bool get _isDecryptFailure {
+    final d = status.detail?.toLowerCase() ?? '';
+    return d.contains('secretboxauthenticationerror') ||
+        d.contains('device-sync decrypt failed') ||
+        d.contains('wrong message authentication code');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -495,6 +542,36 @@ class _VaultSyncTile extends StatelessWidget {
         subtitle = l10n.folioCloudDeviceSyncStatusPending;
     }
 
+    final showRepair =
+        status.phase == DeviceSyncVaultPhase.error && _isDecryptFailure && onRepair != null;
+
+    Widget? trailing;
+    if (showRepair && onOpen != null) {
+      trailing = Wrap(
+        spacing: 4,
+        children: [
+          TextButton(
+            onPressed: onRepair,
+            child: Text(l10n.folioCloudDeviceSyncRepairAction),
+          ),
+          TextButton(
+            onPressed: onOpen,
+            child: Text(l10n.folioCloudDeviceSyncOpenVault),
+          ),
+        ],
+      );
+    } else if (showRepair) {
+      trailing = TextButton(
+        onPressed: onRepair,
+        child: Text(l10n.folioCloudDeviceSyncRepairAction),
+      );
+    } else if (onOpen != null) {
+      trailing = TextButton(
+        onPressed: onOpen,
+        child: Text(l10n.folioCloudDeviceSyncOpenVault),
+      );
+    }
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: color),
@@ -504,12 +581,7 @@ class _VaultSyncTile extends StatelessWidget {
             : status.displayName,
       ),
       subtitle: Text(subtitle),
-      trailing: onOpen == null
-          ? null
-          : TextButton(
-              onPressed: onOpen,
-              child: Text(l10n.folioCloudDeviceSyncOpenVault),
-            ),
+      trailing: trailing,
     );
   }
 }

@@ -578,6 +578,21 @@
   "aiDeleteCurrentChat": "Delete current note",
   "aiNewChat": "New note",
   "aiAttach": "Attach",
+  "aiPlanModeToggleTooltip": "Plan mode",
+  "aiPlanModeActiveBanner": "Plan mode: Quill will propose an editable plan. You can adjust, reject, or approve it.",
+  "aiPlanApprove": "Approve and run",
+  "aiPlanCancel": "Cancel",
+  "aiPlanReject": "Reject",
+  "aiPlanExecutingLabel": "Running plan…",
+  "aiPlanCancelledLabel": "Plan cancelled",
+  "aiPlanApprovedLabel": "Plan executed",
+  "aiPlanPendingLabel": "Awaiting approval",
+  "aiPlanCardTitle": "Plan",
+  "aiPlanEditHint": "Edit the plan steps before approving…",
+  "aiPlanAdjustSection": "Adjust plan",
+  "aiPlanAdjustHint": "Describe what to change and Quill will rewrite the plan (without executing).",
+  "aiPlanRevisionFieldHint": "e.g. Don't move starter pages; only create the folder and page",
+  "aiPlanRequestRevision": "Revise plan",
   "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this note).",
   "aiChatEmptyFocusComposer": "Write a message",
   "aiInputHint": "Type your message. Quill will act as an agent.",
@@ -1279,6 +1294,13 @@
   ,"folioCloudDeviceSyncVaultPhaseEmpty": "No cloud sync pack yet"
   ,"folioCloudDeviceSyncVaultActive": "active"
   ,"folioCloudDeviceSyncOpenVault": "Open"
+  ,"folioCloudDeviceSyncRepairAction": "Repair"
+  ,"folioCloudDeviceSyncRepairTitle": "Repair this notebook?"
+  ,"folioCloudDeviceSyncRepairBody": "This device can't read the content saved in the cloud for \"{vaultName}\" (wrong key). It will be overwritten with this device's content. If another device had uploaded changes this one couldn't read, those will be lost."
+  ,"@folioCloudDeviceSyncRepairBody": {"placeholders": {"vaultName": {}}}
+  ,"folioCloudDeviceSyncRepairConfirm": "Overwrite with local"
+  ,"folioCloudDeviceSyncRepairOk": "Notebook repaired."
+  ,"folioCloudDeviceSyncRepairFail": "Couldn't repair the notebook."
   ,"folioCloudSubsectionAccountProfile": "Account profile"
   ,"folioCloudAppProfileSyncTitle": "Sync app settings"
   ,"folioCloudAppProfileSyncSubtitle": "Backs up theme, Quill, shortcuts, custom icons and other preferences to your Folio Cloud account (encrypted)."
@@ -3435,4 +3457,47 @@
   ,"taskHubIcsExportWebUnsupported": "ICS export is available on desktop."
   ,"slackConnectWithOAuth": "Connect with Slack OAuth"
   ,"teamsConnectWithOAuth": "Connect with Microsoft OAuth"
+  ,"folioCloudPlanStudentSubtitle": "1000 ink drops/month · 15 GB backup storage"
+  ,"folioCloudPlanFamilyOwnerSubtitle": "500 ink drops/month · 5 GB backup storage · Admin"
+  ,"folioCloudInkPackBadgePopular": "POPULAR"
+  ,"folioCloudInkPackBadgeBestValue": "BEST VALUE"
+  ,"folioCloudBuyInkTile": "Buy ink packs"
+  ,"folioCloudBuyInkSheetTitle": "Ink packs"
+  ,"folioCloudExpandStorageTile": "Expand backup storage"
+  ,"folioCloudExpandStorageSheetTitle": "Backup storage packs"
+  ,"folioCloudSubsectionDanger": "Danger zone"
+  ,"folioCloudSubsectionFamily": "Family"
+  ,"folioCloudLinkWebPortalTile": "Link Folio web portal"
+  ,"accountExportMyData": "Download my data"
+  ,"accountExportMyDataHelp": "Exports account metadata from Folio Cloud (not your local notebooks)."
+  ,"accountExportSaving": "Preparing export…"
+  ,"accountExportSaved": "Account data saved."
+  ,"accountExportFailed": "Could not export account data: {error}"
+  ,"@accountExportFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteRequest": "Delete Folio Cloud account"
+  ,"accountDeleteRequestHelp": "Schedules permanent deletion of your cloud account in 30 days. Local notebooks on this device are not deleted."
+  ,"accountDeleteDialogTitle": "Delete Folio Cloud account?"
+  ,"accountDeleteDialogBody": "Your Folio Cloud account and cloud data (backups, publishing, collab, billing profile) will be permanently deleted on {date}. Until then you can cancel.\n\nLocal notebooks on this device stay intact.\n\nPaid access continues until that date; then Stripe subscriptions are cancelled automatically. Microsoft Store subscriptions must be cancelled in the Store if you bought there."
+  ,"@accountDeleteDialogBody": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteConfirm": "Schedule deletion"
+  ,"accountDeletePendingBanner": "This Folio Cloud account is scheduled for deletion on {date}."
+  ,"@accountDeletePendingBanner": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteCancel": "Cancel deletion"
+  ,"accountDeleteCancelOk": "Account deletion cancelled."
+  ,"accountDeleteRequestedOk": "Account deletion scheduled for {date}."
+  ,"@accountDeleteRequestedOk": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteFailed": "Could not schedule account deletion: {error}"
+  ,"@accountDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteCancelFailed": "Could not cancel account deletion: {error}"
+  ,"@accountDeleteCancelFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeletionBlocksCheckout": "Checkout is blocked while account deletion is pending. Cancel deletion first."
+  ,"cloudAccountDisplayNameLabel": "Display name"
+  ,"cloudAccountDisplayNameEmpty": "No display name"
+  ,"cloudAccountEditDisplayName": "Edit display name"
+  ,"cloudAccountDisplayNameDialogTitle": "Display name"
+  ,"cloudAccountDisplayNameHint": "How you appear to family members and in the cloud profile"
+  ,"cloudAccountDisplayNameSaved": "Display name updated."
+  ,"cloudAccountDisplayNameFailed": "Could not update display name: {error}"
+  ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"cloudAccountDisplayNameRequired": "Enter a display name"
 }

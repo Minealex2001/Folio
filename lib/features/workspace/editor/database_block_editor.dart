@@ -2255,7 +2255,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       final result = await ai.complete(
         AiCompletionRequest(
           prompt: resolved,
-          model: 'gpt-4o-mini',
+          model: 'gpt-5.4-mini-2026-03-17',
           maxTokens: 200,
           temperature: 0.3,
           cloudInkOperation: 'database_property',

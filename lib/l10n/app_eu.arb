@@ -579,6 +579,21 @@
   "aiDeleteCurrentChat": "Ezabatu uneko txata",
   "aiNewChat": "Ohar berria",
   "aiAttach": "Erantsi",
+  "aiPlanModeToggleTooltip": "Plan modua",
+  "aiPlanModeActiveBanner": "Plan modua: Quillek plan editagarri bat proposatuko du. Doitu, baztertu edo onar dezakezu.",
+  "aiPlanApprove": "Onartu eta exekutatu",
+  "aiPlanCancel": "Utzi",
+  "aiPlanReject": "Baztertu",
+  "aiPlanExecutingLabel": "Plana exekutatzen…",
+  "aiPlanCancelledLabel": "Plana bertan behera utzita",
+  "aiPlanApprovedLabel": "Plana exekutatuta",
+  "aiPlanPendingLabel": "Onarpenaren zain",
+  "aiPlanCardTitle": "Plana",
+  "aiPlanEditHint": "Editatu planaren urratsak onartu aurretik…",
+  "aiPlanAdjustSection": "Doitu plana",
+  "aiPlanAdjustHint": "Deskribatu zer aldatu nahi duzun eta Quillek plana berridatziko du (exekutatu gabe).",
+  "aiPlanRevisionFieldHint": "adib. Ez mugitu hasierako orriak; sortu karpeta eta orria bakarrik",
+  "aiPlanRequestRevision": "Berrikusi plana",
   "aiChatEmptyHint": "Hasi elkarrizketa bat.\nQuillek automatikoki erabakiko du zer egin zure mezuarekin.\nFolio nola erabili ere galdetu diezaiokezu (lasterbideak, ezarpenak, folioak edo txat hau).",
   "aiChatEmptyFocusComposer": "Idatzi mezu bat",
   "aiInputHint": "Idatzi zure mezua. Quillek agente gisa jardungo du.",
@@ -1281,6 +1296,13 @@
   "folioCloudDeviceSyncVaultPhaseEmpty": "Oraindik ez dago sync kopiarik hodeian",
   "folioCloudDeviceSyncVaultActive": "aktiboa",
   "folioCloudDeviceSyncOpenVault": "Ireki",
+  "folioCloudDeviceSyncRepairAction": "Konpondu",
+  "folioCloudDeviceSyncRepairTitle": "Koaderno hau konpondu?",
+  "folioCloudDeviceSyncRepairBody": "Gailu honek ezin du irakurri \"{vaultName}\" koadernoaren hodeiko edukia (gako okerra). Gailu honetako edukiarekin gainidatziko da. Beste gailu batek gailu honek irakurri ezin izan dituen aldaketak igo baditu, galdu egingo dira.",
+  "@folioCloudDeviceSyncRepairBody": {"placeholders": {"vaultName": {}}},
+  "folioCloudDeviceSyncRepairConfirm": "Gainidatzi lokalarekin",
+  "folioCloudDeviceSyncRepairOk": "Koadernoa konponduta.",
+  "folioCloudDeviceSyncRepairFail": "Ezin izan da koadernoa konpondu.",
   "folioCloudSubsectionAccountProfile": "Kontuaren profila",
   "folioCloudAppProfileSyncTitle": "Aplikazioaren ezarpenak sinkronizatu",
   "folioCloudAppProfileSyncSubtitle": "Gaia, AA, lasterbideak, ikono pertsonalizatuak eta beste hobespenak zure Folio Cloud kontuan gordetzen ditu (zifratuta).",
@@ -3437,4 +3459,47 @@
   ,"taskHubIcsExportWebUnsupported": "ICS esportazioa mahaigainean dago erabilgarri."
   ,"slackConnectWithOAuth": "Konektatu Slack OAuth-ekin"
   ,"teamsConnectWithOAuth": "Konektatu Microsoft OAuth-ekin"
+  ,"folioCloudPlanStudentSubtitle": "1000 tinta-tanta/hilabete · 15 GB babeskopia biltegia"
+  ,"folioCloudPlanFamilyOwnerSubtitle": "500 tinta-tanta/hilabete · 5 GB babeskopia biltegia · Admin"
+  ,"folioCloudInkPackBadgePopular": "POPULAR"
+  ,"folioCloudInkPackBadgeBestValue": "BALIORIK ONENA"
+  ,"folioCloudBuyInkTile": "Erosi tinta paketeak"
+  ,"folioCloudBuyInkSheetTitle": "Tinta paketeak"
+  ,"folioCloudExpandStorageTile": "Handitu babeskopia biltegia"
+  ,"folioCloudExpandStorageSheetTitle": "Biltegi paketeak"
+  ,"folioCloudSubsectionDanger": "Zona arriskutsua"
+  ,"folioCloudSubsectionFamily": "Familia"
+  ,"folioCloudLinkWebPortalTile": "Lotu Folio web ataria"
+  ,"accountExportMyData": "Deskargatu nire datuak"
+  ,"accountExportMyDataHelp": "Folio Cloud kontuaren metadatuak esportatzen ditu (ez tokiko koadernoak)."
+  ,"accountExportSaving": "Esportazioa prestatzen…"
+  ,"accountExportSaved": "Kontuaren datuak gorde dira."
+  ,"accountExportFailed": "Ezin izan dira datuak esportatu: {error}"
+  ,"@accountExportFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteRequest": "Ezabatu Folio Cloud kontua"
+  ,"accountDeleteRequestHelp": "Hodeiko kontua 30 egunetan behin betiko ezabatzeko programatzen du. Gailu honetako tokiko koadernoak ez dira ezabatzen."
+  ,"accountDeleteDialogTitle": "Folio Cloud kontua ezabatu?"
+  ,"accountDeleteDialogBody": "Zure Folio Cloud kontua eta hodeiko datuak (babeskopiak, argitalpena, elkarlana, fakturazioa) behin betiko ezabatuko dira {date} egunean. Ordu arte bertan behera utz dezakezu.\n\nGailu honetako tokiko koadernoak bere horretan geratzen dira.\n\nOrdaindutako sarbidea data horretara arte jarraitzen du; gero Stripe harpidetzak automatikoki bertan behera geratzen dira. Microsoft Storen erosi bazenuen, bertan utzi behar duzu."
+  ,"@accountDeleteDialogBody": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteConfirm": "Programatu ezabaketa"
+  ,"accountDeletePendingBanner": "Folio Cloud kontu hau {date} egunean ezabatzeko programatuta dago."
+  ,"@accountDeletePendingBanner": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteCancel": "Utzi ezabaketa"
+  ,"accountDeleteCancelOk": "Kontuaren ezabaketa bertan behera utzi da."
+  ,"accountDeleteRequestedOk": "Kontuaren ezabaketa {date} egunerako programatu da."
+  ,"@accountDeleteRequestedOk": {"placeholders": {"date": {"type": "String"}}}
+  ,"accountDeleteFailed": "Ezin izan da ezabaketa programatu: {error}"
+  ,"@accountDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeleteCancelFailed": "Ezin izan da ezabaketa bertan behera utzi: {error}"
+  ,"@accountDeleteCancelFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"accountDeletionBlocksCheckout": "Ordainketa blokeatuta dago kontuaren ezabaketa zain dagoen bitartean. Utzi lehenengo."
+  ,"cloudAccountDisplayNameLabel": "Izen ikusgaia"
+  ,"cloudAccountDisplayNameEmpty": "Izen ikusgairik gabe"
+  ,"cloudAccountEditDisplayName": "Editatu izen ikusgaia"
+  ,"cloudAccountDisplayNameDialogTitle": "Izen ikusgaia"
+  ,"cloudAccountDisplayNameHint": "Horrela ikusiko zaituzte familian eta hodeiko profilean"
+  ,"cloudAccountDisplayNameSaved": "Izen ikusgaia eguneratu da."
+  ,"cloudAccountDisplayNameFailed": "Ezin izan da izena eguneratu: {error}"
+  ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"cloudAccountDisplayNameRequired": "Sartu izen ikusgai bat"
 }
