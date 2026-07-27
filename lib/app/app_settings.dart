@@ -10,6 +10,7 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 
+import 'folio_brand_palette.dart';
 import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
@@ -137,6 +138,9 @@ enum UiScaleMode { manual, followWindows }
 
 /// Origen del color de acento para Material [ColorScheme.fromSeed].
 enum FolioAccentColorMode { followSystem, folioDefault, custom }
+
+/// Brillo / variante de tema de la app (incluye OLED como modo propio).
+enum FolioThemeMode { system, light, dark, oled }
 
 class CustomIconEntry {
   const CustomIconEntry({
@@ -674,8 +678,7 @@ class AppSettings extends ChangeNotifier {
     defaultValue: false,
   );
 
-  ThemeMode _themeMode = ThemeMode.system;
-  bool _oledThemeEnabled = false;
+  FolioThemeMode _themeMode = FolioThemeMode.system;
   double _uiScale = defaultUiScale;
   UiScaleMode _uiScaleMode = UiScaleMode.manual;
   Locale? _locale;
@@ -800,12 +803,25 @@ class AppSettings extends ChangeNotifier {
   // crashes que tumban la app — ver FolioDiagnosticReporter.
   bool _autoCrashReports = true;
   FolioAccentColorMode _accentColorMode = FolioAccentColorMode.followSystem;
-  int _customAccentArgb = 0xFF455A64;
+  int _customAccentArgb = kFolioBrandPrimaryArgb;
 
-  ThemeMode get themeMode => _themeMode;
-  bool get oledThemeEnabled => _oledThemeEnabled;
+  FolioThemeMode get themeMode => _themeMode;
+
+  /// [ThemeMode] de MaterialApp: OLED fuerza oscuro.
+  ThemeMode get materialThemeMode => switch (_themeMode) {
+    FolioThemeMode.system => ThemeMode.system,
+    FolioThemeMode.light => ThemeMode.light,
+    FolioThemeMode.dark || FolioThemeMode.oled => ThemeMode.dark,
+  };
+
+  /// True cuando el modo activo usa superficies OLED (negro puro).
+  bool get oledThemeEnabled => _themeMode == FolioThemeMode.oled;
 
   /// Semilla de color para temas claro/oscuro (Material 3).
+  ///
+  /// En [FolioAccentColorMode.folioDefault] el esquema completo no se deriva
+  /// del seed: ver [resolveColorScheme]. El seed se usa para swatches y como
+  /// fallback visual de marca ([kFolioBrandPrimary]).
   ///
   /// [androidDynamicAccent] es el color de acento de Material You obtenido en
   /// tiempo de ejecución (vía `dynamic_color`) en Android 12+. `system_theme`
@@ -822,10 +838,33 @@ class AppSettings extends ChangeNotifier {
         }
         return SystemTheme.accentColor.accent;
       case FolioAccentColorMode.folioDefault:
-        return const Color(0xFF455A64);
+        return kFolioBrandPrimary;
       case FolioAccentColorMode.custom:
         return Color(_customAccentArgb);
     }
+  }
+
+  /// Resuelve el [ColorScheme] de la app según el modo de acento.
+  ///
+  /// - [FolioAccentColorMode.folioDefault]: paleta de marca explícita
+  ///   ([FolioBrandPalette]).
+  /// - Resto: [ColorScheme.fromSeed] con variante expressive.
+  ColorScheme resolveColorScheme({
+    required Brightness brightness,
+    Color? androidDynamicAccent,
+  }) {
+    if (_accentColorMode == FolioAccentColorMode.folioDefault) {
+      return brightness == Brightness.light
+          ? FolioBrandPalette.light
+          : FolioBrandPalette.dark;
+    }
+    return ColorScheme.fromSeed(
+      seedColor: resolveAccentSeedColor(
+        androidDynamicAccent: androidDynamicAccent,
+      ),
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+    );
   }
 
   bool get telemetryEnabled => _telemetryEnabled;
@@ -1073,8 +1112,17 @@ class AppSettings extends ChangeNotifier {
   Future<void> load() async {
     final p = await _prefs();
     final raw = p.getString(_themeModeKey);
-    _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
-    _oledThemeEnabled = p.getBool(_oledThemeEnabledKey) ?? false;
+    final legacyOled = p.getBool(_oledThemeEnabledKey) ?? false;
+    var parsed = _parseFolioThemeMode(raw) ?? FolioThemeMode.system;
+    // Migración: el antiguo toggle OLED + ThemeMode.dark/system → FolioThemeMode.oled.
+    if (legacyOled &&
+        parsed != FolioThemeMode.oled &&
+        parsed != FolioThemeMode.light) {
+      parsed = FolioThemeMode.oled;
+      await p.setString(_themeModeKey, 'oled');
+      await p.setBool(_oledThemeEnabledKey, false);
+    }
+    _themeMode = parsed;
     _uiScale = _sanitizeUiScale(p.getDouble(_uiScaleKey));
     _uiScaleMode = _parseUiScaleMode(p.getString(_uiScaleModeKey));
     final localeCode = p.getString(_localeCodeKey);
@@ -1375,7 +1423,7 @@ class AppSettings extends ChangeNotifier {
     final storedAccent = p.getInt(_customAccentArgbKey);
     _customAccentArgb = storedAccent != null && storedAccent != 0
         ? storedAccent
-        : 0xFF455A64;
+        : kFolioBrandPrimaryArgb;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -1482,14 +1530,16 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  ThemeMode? _parseThemeMode(String? raw) {
+  FolioThemeMode? _parseFolioThemeMode(String? raw) {
     switch (raw) {
       case 'light':
-        return ThemeMode.light;
+        return FolioThemeMode.light;
       case 'dark':
-        return ThemeMode.dark;
+        return FolioThemeMode.dark;
+      case 'oled':
+        return FolioThemeMode.oled;
       case 'system':
-        return ThemeMode.system;
+        return FolioThemeMode.system;
       default:
         return null;
     }
@@ -1717,25 +1767,31 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setThemeMode(ThemeMode mode) async {
+  Future<void> setThemeMode(FolioThemeMode mode) async {
     if (_themeMode == mode) return;
     _themeMode = mode;
     notifyListeners();
     final p = await _prefs();
     final v = switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
+      FolioThemeMode.light => 'light',
+      FolioThemeMode.dark => 'dark',
+      FolioThemeMode.oled => 'oled',
+      FolioThemeMode.system => 'system',
     };
     await p.setString(_themeModeKey, v);
+    // Limpia el flag legacy si quedara residual.
+    if (p.containsKey(_oledThemeEnabledKey)) {
+      await p.setBool(_oledThemeEnabledKey, false);
+    }
   }
 
+  /// Compatibilidad con perfiles antiguos que aún envían el toggle OLED.
   Future<void> setOledThemeEnabled(bool value) async {
-    if (_oledThemeEnabled == value) return;
-    _oledThemeEnabled = value;
-    notifyListeners();
-    final p = await _prefs();
-    await p.setBool(_oledThemeEnabledKey, value);
+    if (value) {
+      await setThemeMode(FolioThemeMode.oled);
+    } else if (_themeMode == FolioThemeMode.oled) {
+      await setThemeMode(FolioThemeMode.dark);
+    }
   }
 
   Future<void> setUiScale(double value) async {

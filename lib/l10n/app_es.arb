@@ -125,6 +125,7 @@
   "systemTheme": "Sistema",
   "lightTheme": "Claro",
   "darkTheme": "Oscuro",
+  "oledTheme": "OLED",
   "settingsOledThemeTitle": "Tema OLED",
   "settingsOledThemeBody": "Usa negro puro en el modo oscuro para ahorrar batería y reducir halos.",
   "language": "Idioma",

@@ -656,27 +656,49 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         title: l10n.settingsSearchThemeTitle,
         description: l10n.settingsSearchThemeDesc,
         keywords: isEs
-            ? ['tema', 'apariencia', 'claro', 'oscuro', 'diseño', 'color']
-            : ['theme', 'dark', 'light', 'appearance', 'color'],
+            ? [
+                'tema',
+                'apariencia',
+                'claro',
+                'oscuro',
+                'oled',
+                'negro',
+                'diseño',
+                'color',
+              ]
+            : [
+                'theme',
+                'dark',
+                'light',
+                'oled',
+                'black',
+                'appearance',
+                'color',
+              ],
         builder: (context) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SegmentedButton<ThemeMode>(
+            SegmentedButton<FolioThemeMode>(
               segments: [
-                ButtonSegment<ThemeMode>(
-                  value: ThemeMode.system,
+                ButtonSegment<FolioThemeMode>(
+                  value: FolioThemeMode.system,
                   label: Text(l10n.systemTheme),
                   icon: const Icon(Icons.brightness_auto, size: 18),
                 ),
-                ButtonSegment<ThemeMode>(
-                  value: ThemeMode.light,
+                ButtonSegment<FolioThemeMode>(
+                  value: FolioThemeMode.light,
                   label: Text(l10n.lightTheme),
                   icon: const Icon(Icons.light_mode_outlined, size: 18),
                 ),
-                ButtonSegment<ThemeMode>(
-                  value: ThemeMode.dark,
+                ButtonSegment<FolioThemeMode>(
+                  value: FolioThemeMode.dark,
                   label: Text(l10n.darkTheme),
                   icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                ),
+                ButtonSegment<FolioThemeMode>(
+                  value: FolioThemeMode.oled,
+                  label: Text(l10n.oledTheme),
+                  icon: const Icon(Icons.contrast, size: 18),
                 ),
               ],
               selected: {_app.themeMode},
@@ -687,24 +709,6 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
               },
             ),
           ],
-        ),
-      ),
-      _SearchItem(
-        category: _SettingsSectionId.uiWorkspace,
-        title: l10n.settingsOledThemeTitle,
-        description: l10n.settingsOledThemeBody,
-        keywords: isEs
-            ? ['oled', 'negro', 'puro', 'batería']
-            : ['oled', 'black', 'pure', 'battery'],
-        builder: (context) => SwitchListTile(
-          title: Text(l10n.settingsOledThemeTitle),
-          subtitle: Text(l10n.settingsOledThemeBody),
-          value: _app.oledThemeEnabled,
-          onChanged: (value) {
-            _rebuild(() {
-              _app.setOledThemeEnabled(value);
-            });
-          },
         ),
       ),
       _SearchItem(

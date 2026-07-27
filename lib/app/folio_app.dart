@@ -1661,19 +1661,25 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
-    final seed = widget.appSettings.resolveAccentSeedColor(
-      androidDynamicAccent: androidLightDynamic?.primary,
+    final androidAccent = androidLightDynamic?.primary;
+    final lightScheme = widget.appSettings.resolveColorScheme(
+      brightness: Brightness.light,
+      androidDynamicAccent: androidAccent,
+    );
+    final darkScheme = widget.appSettings.resolveColorScheme(
+      brightness: Brightness.dark,
+      androidDynamicAccent: androidAccent,
     );
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      theme: folioLightTheme(seed),
+      theme: folioLightTheme(lightScheme),
       darkTheme: widget.appSettings.oledThemeEnabled
-          ? folioOledTheme(seed)
-          : folioDarkTheme(seed),
-      themeMode: widget.appSettings.themeMode,
+          ? folioOledTheme(darkScheme)
+          : folioDarkTheme(darkScheme),
+      themeMode: widget.appSettings.materialThemeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [

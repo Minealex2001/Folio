@@ -2902,29 +2902,37 @@ class _SettingsPageState extends State<SettingsPage> {
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
                                       ),
-                                      child: SegmentedButton<ThemeMode>(
+                                      child: SegmentedButton<FolioThemeMode>(
                                         segments: [
-                                          ButtonSegment<ThemeMode>(
-                                            value: ThemeMode.system,
+                                          ButtonSegment<FolioThemeMode>(
+                                            value: FolioThemeMode.system,
                                             label: Text(l10n.systemTheme),
                                             icon: const Icon(
                                               Icons.brightness_auto,
                                               size: 18,
                                             ),
                                           ),
-                                          ButtonSegment<ThemeMode>(
-                                            value: ThemeMode.light,
+                                          ButtonSegment<FolioThemeMode>(
+                                            value: FolioThemeMode.light,
                                             label: Text(l10n.lightTheme),
                                             icon: const Icon(
                                               Icons.light_mode_outlined,
                                               size: 18,
                                             ),
                                           ),
-                                          ButtonSegment<ThemeMode>(
-                                            value: ThemeMode.dark,
+                                          ButtonSegment<FolioThemeMode>(
+                                            value: FolioThemeMode.dark,
                                             label: Text(l10n.darkTheme),
                                             icon: const Icon(
                                               Icons.dark_mode_outlined,
+                                              size: 18,
+                                            ),
+                                          ),
+                                          ButtonSegment<FolioThemeMode>(
+                                            value: FolioThemeMode.oled,
+                                            label: Text(l10n.oledTheme),
+                                            icon: const Icon(
+                                              Icons.contrast,
                                               size: 18,
                                             ),
                                           ),
@@ -2933,26 +2941,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                         onSelectionChanged: (s) {
                                           _app.setThemeMode(s.first);
                                         },
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                      child: Card(
-                                        child: SwitchListTile(
-                                          title: Text(
-                                            l10n.settingsOledThemeTitle,
-                                          ),
-                                          subtitle: Text(
-                                            l10n.settingsOledThemeBody,
-                                          ),
-                                          value: _app.oledThemeEnabled,
-                                          onChanged: (value) {
-                                            _app.setOledThemeEnabled(value);
-                                          },
-                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -3025,7 +3013,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         onTap: () async {
                                           const presets = <int>[
-                                            0xFF455A64,
+                                            0xFF00F3FF,
                                             0xFF1565C0,
                                             0xFF0277BD,
                                             0xFF6A1B9A,

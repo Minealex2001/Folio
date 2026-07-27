@@ -1116,16 +1116,19 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 
 ### Modo de tema
 
-- Claro / Oscuro / Seguir sistema (`ThemeMode`), configurable en `AppSettings.themeMode`.
-- Opción **OLED** (negro puro) para el modo oscuro, configurable en `AppSettings.oledThemeEnabled`.
+- Sistema / Claro / Oscuro / OLED (`FolioThemeMode`), configurable en `AppSettings.themeMode`.
+- **OLED** es un modo de primer nivel (no un toggle aparte): fuerza superficies en negro puro; el acento (marca Folio o seed) se conserva.
+- Migración: el antiguo `oledThemeEnabled` + tema oscuro/sistema se convierte a `FolioThemeMode.oled` al cargar.
 
 ### Color de acento (`FolioAccentColorMode`)
 
 | Modo | Descripción |
 |---|---|
-| `followSystem` | Usa el color dinámico del SO (Material You) |
-| `folioDefault` | Color de marca de Folio |
-| `custom` | Color personalizado elegido por el usuario |
+| `followSystem` | Usa el color dinámico del SO (Material You) vía `ColorScheme.fromSeed` |
+| `folioDefault` | Paleta de marca Folio (Minealex): `ColorScheme` explícito claro/oscuro en `lib/app/folio_brand_palette.dart` (cyan neón `#00F3FF`, magenta, lima, superficies Deep Space Blue); no se deriva de un seed Material 3 |
+| `custom` | Color personalizado elegido por el usuario (`ColorScheme.fromSeed`) |
+
+Con el modo OLED, las superficies del esquema oscuro resuelto se fuerzan a negro puro conservando primary/secondary/tertiary.
 
 ### Fuente
 
@@ -1541,7 +1544,7 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 
 | Clave | Tipo | Descripción |
 |---|---|---|
-| `themeMode` | enum | Tema (claro/oscuro/sistema) |
+| `themeMode` | enum | Tema (`system` / `light` / `dark` / `oled`) |
 | `accentColorMode` | enum | Modo de color de acento |
 | `uiScale` | double | Factor de escala de UI |
 | `uiScaleMode` | enum | Modo de escala (auto/manual) |

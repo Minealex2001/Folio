@@ -55,11 +55,20 @@ class SettingsProfileApplier {
 
     final themeRaw = s['themeMode']?.toString();
     if (themeRaw != null) {
-      final mode =
-          ThemeMode.values.where((e) => e.name == themeRaw).firstOrNull;
-      if (mode != null) await settings.setThemeMode(mode);
+      final mode = FolioThemeMode.values
+          .where((e) => e.name == themeRaw)
+          .firstOrNull;
+      if (mode != null) {
+        await settings.setThemeMode(mode);
+      }
     }
-    await applyBool('oledThemeEnabled', settings.setOledThemeEnabled);
+    // Perfiles antiguos: ThemeMode + flag OLED separado.
+    final legacyOled = s['oledThemeEnabled'];
+    if (legacyOled == true &&
+        settings.themeMode != FolioThemeMode.oled &&
+        settings.themeMode != FolioThemeMode.light) {
+      await settings.setThemeMode(FolioThemeMode.oled);
+    }
     await applyDouble('uiScale', settings.setUiScale);
     final scaleMode = s['uiScaleMode']?.toString();
     if (scaleMode != null) {

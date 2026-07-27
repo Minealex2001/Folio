@@ -7,23 +7,26 @@ Inventario y plan de migración de todo lo que Folio usa de Firebase hoy, basado
 Folio ya tiene una ventaja de partida importante: **el cliente de escritorio (Windows/Linux) no usa los SDKs nativos de Firebase para las callables** — `cloud_functions` no funciona bien fuera de Android/iOS, así que ya hablan HTTP plano (`Authorization: Bearer <idToken>`) contra las Cloud Functions (ver [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) y [folio_cloud_callable.dart](../lib/services/folio_cloud/folio_cloud_callable.dart)). Eso significa que sustituir el backend por Spring Boot es, en gran parte, **cambiar la URL base y el esquema de token**, no reescribir el cliente desde cero.
 
 Lo que sí es trabajo grande:
-- Portar ~40 funciones (`onCall`/`onRequest`/`onSchedule`) a controllers Spring.
-- Portar las reglas de seguridad de Firestore/Storage (437 líneas combinadas) a lógica de autorización explícita en el service layer — esto es el mayor riesgo de regresión porque hoy es declarativo y "gratis".
+- Portar ~53 funciones (`onCall`/`onRequest`/`onSchedule`) a controllers Spring.
+- Portar las reglas de seguridad de Firestore/Storage (530 líneas combinadas) a lógica de autorización explícita en el service layer — esto es el mayor riesgo de regresión porque hoy es declarativo y "gratis".
 - Reemplazar Firestore por una base de datos relacional o documental propia.
 - Reemplazar Firebase Auth por un proveedor propio o gestionado (Keycloak/Auth0) que emita JWTs equivalentes.
 - Reemplazar Firebase Storage por S3 (o compatible) con URLs firmadas.
+- Portar el flujo de borrado de cuenta (RGPD): solicitud con preaviso de 30 días, cancelación, exportación de datos y purga en cascada (`purgeUserAccount`) que hoy toca Stripe, Storage, Firestore y varias colecciones-índice a la vez — ver sección 3.9.
 
 ## 1. Autenticación (Firebase Auth)
 
 **Uso actual:**
 - Login/sesión del cliente Flutter vía `firebase_auth` / `firebase_auth_platform_interface` (con [fork local en `vendor/firebase_auth_platform_interface`](../vendor/firebase_auth_platform_interface) para evitar un crash conocido en Windows — flutter/flutterfire#18210).
 - Custom claims / perfil extendido en `users/{uid}` (Firestore), no en los claims del token: `folioStaff`, `folioCloud.active`, `folioCloud.features.*`, `ink`, `stripeCustomerId`.
-- Trigger [`onUserCreated`](../functions/src/index.ts:4418) (Auth v1 `auth.user().onCreate`) — crea el doc inicial en `users/{uid}` al registrarse.
+- Trigger [`onUserCreated`](../functions/src/index.ts:4474) (Auth v1 `auth.user().onCreate`) — crea el doc inicial en `users/{uid}` al registrarse.
+- Trigger [`onUserDeleted`](../functions/src/index.ts:6468) (Auth v1 `auth.user().onDelete`) — ejecuta `purgeUserAccount` (ver sección 3.9) cuando el usuario se borra directamente desde Firebase Auth (fuera del flujo normal con preaviso).
 - Verificación de ID token en cada callable (`request.auth.uid`).
 
 **Qué migrar:**
 - Sustituir por Spring Security + emisión de JWT propia, o delegar en un IdP gestionado (Keycloak / Auth0 / Cognito) si no quieres mantener tú el flujo de password reset, verificación de email, etc.
 - El trigger `onUserCreated` se convierte en un paso explícito del endpoint de registro (`POST /auth/register` → crear fila `users` con valores por defecto).
+- El trigger `onUserDeleted` se convierte en un `@TransactionalEventListener`/hook explícito tras borrar la cuenta en el IdP (o, si el borrado normal siempre pasa por `processScheduledAccountDeletions`, puede no ser necesario replicarlo — confirmar si el nuevo backend permite borrado directo del IdP sin pasar por tu API).
 - Cada controller necesita el equivalente de `request.auth.uid`: un filtro/interceptor de Spring Security que valide el JWT y exponga el `uid` en el `SecurityContext`.
 - Decisión pendiente: ¿mantienes Firebase Auth solo para auth y migras todo lo demás? Es una opción intermedia razonable a corto plazo (menos trabajo, pero sigues atado a Google para login).
 
@@ -48,6 +51,13 @@ Lo que sí es trabajo grande:
 | `folioCloudSubscribers/{uid}` | solo Functions | índice para el job mensual de recarga de tinta |
 | `vaultBackupIndex/{...}` | solo Functions | índice de backups por libreta |
 | `vaultBackups/{...}` | solo Functions | metadatos de backups (blobs viven en Storage) |
+| `users/{uid}/vaultSync/{vaultId}` | solo Functions | señal de device-sync de contenido de libreta (rev, fingerprint, formato v1/v2) |
+| `users/{uid}/appProfile/meta` | solo Functions | metadatos del perfil de ajustes de la app sincronizado entre dispositivos (rev, fingerprint, pack cifrado en Storage, `iconIds`) |
+| `users/{uid}/vaultProfiles/{vaultId}` | solo Functions | igual que `appProfile` pero para preferencias por libreta |
+| `users/{uid}/plainVaultSyncSecrets/{vaultId}` | solo Functions | secreto de 32 bytes get-or-create, mezclado en la derivación de clave de device-sync de libretas sin contraseña |
+| `users/{uid}.accountDeletion` | solo Functions | campo (no colección) con `requestedAt`/`scheduledFor` cuando el usuario pide borrar su cuenta — preaviso de 30 días |
+| `integrationUserIndex/{...}` | solo Functions | índice de vínculo entre uid Firebase y cuentas de integraciones (Jira/Slack/Teams) |
+| `users/{uid}/pendingIntegrationCommands/{commandId}` | solo Functions | buzón de comandos entrantes de Slack/Teams pendientes de aplicar en el cliente |
 | `items`, `media` | (uso a confirmar en cliente — revisar `folio_firestore_sync.dart`) | posible contenido de usuario sincronizado directo |
 
 **Punto clave:** la mayoría de escrituras pasan por Cloud Functions con Admin SDK (`allow write: if false` en las rules), lo cual es bueno: esa lógica de negocio ya está centralizada en `functions/src/index.ts` y se traduce case por case a service methods de Spring. Las excepciones con **escritura directa desde el cliente** (`collabRooms` update, `publishedPages`, `communityTemplates`) son las que requieren más cuidado: hoy la validación de esas escrituras vive **solo** en las security rules (ver sección 5) y hay que decidir si en Spring pasan a ser también writes directos autenticados (replicando la validación en el controller) o si se fuerzan a pasar por un endpoint dedicado (más seguro, recomendado).
@@ -70,9 +80,12 @@ CREATE TABLE users (
   display_name        TEXT,
   folio_staff         BOOLEAN NOT NULL DEFAULT FALSE,
   stripe_customer_id  TEXT UNIQUE,
+  deletion_requested_at TIMESTAMPTZ,              -- objeto `accountDeletion` actual
+  deletion_scheduled_for TIMESTAMPTZ,              -- NULL = sin borrado pendiente; ver requestAccountDeletion/cancelAccountDeletion
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_users_deletion_scheduled ON users(deletion_scheduled_for) WHERE deletion_scheduled_for IS NOT NULL;
 
 -- 1:1 con users — hoy es el objeto `folioCloud` de recomputeEffectiveFolioCloud()
 CREATE TABLE user_folio_cloud (
@@ -255,13 +268,85 @@ CREATE TABLE vault_backup_blobs (
 -- Igual con `folioCloudSubscribers`: sustitúyela por
 --   SELECT user_id FROM user_folio_cloud WHERE active AND subscription_price_id IS NOT NULL
 -- dentro del job `monthlyInkRefill`.
+
+-- ============ Sync de ajustes entre dispositivos (appProfile / vaultProfiles) ============
+-- Mismo patrón que vault_backups: metadata en BD, blob cifrado en Storage/S3.
+CREATE TABLE user_app_profile (
+  user_id             TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  rev                 INT NOT NULL DEFAULT 0,
+  content_fingerprint TEXT NOT NULL,
+  pack_storage_path   TEXT NOT NULL,
+  pack_size_bytes     BIGINT NOT NULL,
+  restore_wrap_b64    TEXT,                        -- clave envuelta para restaurar en otro dispositivo
+  icon_ids            JSONB NOT NULL DEFAULT '[]',
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_vault_profile (
+  user_id             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  vault_id            TEXT NOT NULL,
+  rev                 INT NOT NULL DEFAULT 0,
+  content_fingerprint TEXT NOT NULL,
+  pack_storage_path   TEXT NOT NULL,
+  pack_size_bytes     BIGINT NOT NULL,
+  restore_wrap_b64    TEXT,
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, vault_id)
+);
+
+-- ============ Device sync de contenido de libreta (señal, no el contenido) ============
+CREATE TABLE user_vault_sync (
+  user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  vault_id               TEXT NOT NULL,
+  rev                    INT NOT NULL DEFAULT 0,
+  content_fingerprint    TEXT NOT NULL,
+  sync_format_version    SMALLINT NOT NULL DEFAULT 1,  -- 1 = pack monolítico, 2 = incremental (blobs+manifiesto)
+  pack_storage_path      TEXT,
+  pack_size_bytes        BIGINT NOT NULL DEFAULT 0,
+  manifest_storage_path  TEXT,
+  manifest_size_bytes    BIGINT NOT NULL DEFAULT 0,
+  device_id              TEXT,
+  device_name            TEXT,
+  vault_mode             TEXT,
+  pack_key_kind          TEXT,
+  dek_account_wrap_b64   TEXT,
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, vault_id)
+);
+
+-- get-or-create de 32 bytes, mezclado en la derivación de clave de libretas
+-- sin contraseña (folioEnsurePlainVaultSyncSecret) — candidato a Redis/KMS
+-- en vez de tabla si se prefiere no persistirlo en la misma BD relacional.
+CREATE TABLE user_plain_vault_sync_secret (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  vault_id   TEXT NOT NULL,
+  secret_b64 TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, vault_id)
+);
+
+-- ============ Integraciones (Jira / Slack / Teams) ============
+-- Ver también docs/SLACK_TEAMS_INTEGRATION_TODO.md para el alcance completo.
+CREATE TABLE integration_user_index (
+  id             TEXT PRIMARY KEY,                  -- clave estable del lado de la integración (ej. Slack user id)
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider       TEXT NOT NULL,                      -- 'jira' | 'slack' | 'teams'
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE pending_integration_command (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  payload    JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
 **Sobre `items`/`media`** (uso a confirmar en `folio_firestore_sync.dart`): si resultan ser el contenido real de las libretas/páginas del usuario (no solo metadata), probablemente no quieras normalizarlos en columnas — mantenlos como un blob versionado (JSONB o BYTEA si van cifrados en cliente, con un `content_version` como ya hace `collab_rooms`) en una tabla `vault_items` o similar. Antes de diseñar esa tabla merece la pena revisar exactamente qué sincroniza ese archivo, porque probablemente sea el store principal del contenido de usuario y no una colección secundaria como las demás.
 
 ## 3. Cloud Functions → REST Controllers
 
-`functions/src/index.ts` tiene ~4400 líneas y ~40 endpoints. Agrupados por dominio (nombre real de la función entre paréntesis):
+`functions/src/index.ts` tiene ~6500 líneas y ~53 endpoints. Agrupados por dominio (nombre real de la función entre paréntesis):
 
 ### 3.1 Billing / Stripe
 - `stripeWebhook` (`onRequest`) — verificación de firma Stripe, idempotencia vía `stripeWebhookEvents`/`stripeProcessedCheckouts`.
@@ -277,8 +362,17 @@ CREATE TABLE vault_backup_blobs (
 - Nota: esto es solo el control-plane (crear sala, gestionar miembros, autorizar subida de media). El **contenido en vivo** de la sala se sincroniza hoy vía updates directos a Firestore (ver sección 2) — si migras esto de verdad en tiempo real necesitarás WebSockets/STOMP en Spring o un servicio de sync dedicado, no solo REST.
 
 ### 3.4 Cloud backup / Vault
-- `folioFinalizeCloudPack`, `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioGetBackupStorageUsage`, `folioListVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioTrimVaultBackups`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`.
+- `folioFinalizeCloudPack`, `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioGetBackupStorageUsage`, `folioListVaultBackups`, `folioDeleteVaultCloudPack`, `folioDeleteVaultLegacyBackup`, `folioTrimVaultBackupsByBytes`, `folioTrimVaultBackups`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`.
 - Todo el contenido ya viaja cifrado end-to-end desde el cliente (el backend solo gestiona blobs/metadata) — buena noticia, no hay que portar criptografía.
+
+**Device sync de contenido de libreta** (multi-dispositivo, distinto de la copia de seguridad de arriba):
+- `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync` (soporta v1 pack monolítico y v2 incremental con `newBlobs`/`deleteBlobs`/manifiesto; migra v1→v2 restando `oldPackSizeBytes` de la cuota), `folioListDeviceSyncVaults`.
+- `folioEnsurePlainVaultSyncSecret` — get-or-create transaccional de un secreto de 32 bytes por cuenta+libreta, mezclado en la derivación de clave de las libretas "en claro" (sin contraseña); sin este secreto la clave sería recalculable solo con `uid`+`vaultId`, que ya son públicos en la propia ruta. En Spring: mismo patrón con una transacción/`SELECT ... FOR UPDATE` para evitar condiciones de carrera en el get-or-create.
+
+**Sync de ajustes de la app entre dispositivos** (perfil de la app y preferencias por libreta, no el contenido de las páginas):
+- `folioGetAppProfileMeta`, `folioGetAppProfileRestoreWrap`, `folioFinalizeAppProfile` — mismo patrón que el cloud-pack (metadata + pack cifrado en Storage, cuota compartida con `folioBackup.usedBytes`), pero para los ajustes de la app (incluye `iconIds`).
+- `folioGetVaultProfileMeta`, `folioFinalizeVaultProfile` — igual pero por libreta (preferencias específicas del vault, no ajustes globales de cuenta).
+- → Spring: mismos controllers que el cloud-pack, cambiando el prefijo de Storage y la tabla de metadata (`user_app_profile` / `user_vault_profile`); la validación de `packStoragePath` (debe empezar por `users/{uid}/app-profiles/...` o `.../vault-profiles/{vaultId}/...`, sin `..`, terminado en `.bin`) se porta literal a un `@Valid`/validator de Spring.
 
 ### 3.5 IA
 - `folioCloudAiPricing`, `folioCloudAiComplete` (v1, deliberadamente 1st-gen por temas de IAM/429 — ver docs), `folioCloudAiCompleteHttp` (fallback HTTP puro), `folioCloudTranscribeChunk`.
@@ -295,7 +389,16 @@ CREATE TABLE vault_backup_blobs (
 
 ### 3.8 Programado
 - `monthlyInkRefill` (`onSchedule`) — recarga mensual de tinta el día 1, usa el índice `folioCloudSubscribers`.
+- `processScheduledAccountDeletions` (`onSchedule`, diario a las 3:15 hora de `INK_TIMEZONE`) — busca `users` con `accountDeletion.scheduledFor <= now`, ejecuta `purgeUserAccount` y borra el usuario del IdP (`admin.auth().deleteUser`). Ver 3.9.
 - → Spring: `@Scheduled(cron = "...")` o un job en un scheduler externo (Quartz, o simplemente un cron de infraestructura que golpee un endpoint interno).
+
+### 3.9 Gestión de cuenta (RGPD: borrado y exportación)
+- `requestAccountDeletion` — marca `users/{uid}.accountDeletion` con `scheduledFor` = ahora + 30 días; si ya hay una solicitud pendiente, devuelve la fecha existente en vez de duplicarla; si ya venció (no debería, la procesa el schedule), `failed-precondition`.
+- `cancelAccountDeletion` — borra el campo `accountDeletion`; rechaza si la fecha programada ya pasó (evita cancelar justo cuando el job de borrado ya la está procesando — condición de carrera a vigilar también en la versión Spring).
+- `updateAccountDisplayName` — valida longitud (máx. 80, espacios colapsados), actualiza el IdP (`admin.auth().updateUser`) y `users/{uid}`, y propaga el cambio a `families/{ownerUid}.membersInfo.{uid}.displayName` si el usuario pertenece a una familia (best-effort, no falla la operación si esto último falla).
+- `exportAccountData` — recopila en una sola respuesta: perfil (`users/{uid}`, email/displayName del IdP), `folioCloud`, `billing` (resumido — ver `summarizedBillingForExport`, no exporta tal cual todo el objeto de Stripe), `ink`, `folioBackup`, familia (rol owner/member), `vaultBackupIndex`, `publishedPages` y `communityTemplates` propios (límite 100 cada uno), y `collabRooms` donde el usuario es dueño o miembro (límite 50 cada consulta). Es lectura pura, sin borrar nada.
+- `purgeUserAccount` (función interna, no expuesta — la llaman `processScheduledAccountDeletions` y el trigger `onUserDeleted`): cancela y borra el customer de Stripe, saca al usuario de su familia (y recalcula `recomputeEffectiveFolioCloud` del owner), si el usuario es owner de una familia libera a todos los miembros y borra la familia, borra sus salas de colaboración propias (Storage + Firestore recursivo) y lo quita como miembro de las salas ajenas, borra sus prefijos de Storage (`users/{uid}/`, `published/{uid}/`, `community-templates/{uid}/`), y borra `publishedPages`/`communityTemplates`/`integrationUserIndex` asociados. **Esta es la lógica más grande a portar 1:1** — cualquier paso omitido dejaría datos huérfanos tras un borrado de cuenta.
+- → Spring: un `AccountDeletionService` con un método equivalente a `purgeUserAccount` (transaccional donde la BD lo permita; las llamadas a Stripe y Storage no pueden ser parte de la misma transacción de BD, así que hay que decidir idempotencia/reintentos igual que hoy con `.catch()` + logs de warning en vez de abortar todo el borrado por un fallo parcial). El scheduler diario se porta a `@Scheduled`; el trigger `onUserDeleted` solo aplica si el nuevo backend permite borrar la cuenta directamente en el IdP sin pasar por `requestAccountDeletion`.
 
 ## 4. Storage (Firebase Storage → S3 o equivalente)
 
@@ -317,7 +420,7 @@ Rutas actuales (de `storage.rules`) y su propósito:
 
 ## 5. Reglas de seguridad → autorización explícita (el punto más delicado)
 
-`firestore.rules` (327 líneas) y `storage.rules` (110 líneas) hoy hacen gratis, de forma declarativa:
+`firestore.rules` (394 líneas) y `storage.rules` (136 líneas) hoy hacen gratis, de forma declarativa:
 - Ownership checks (`request.auth.uid == resource.data.ownerUid`).
 - Validación de esquema en escritura (tipos, tamaños máximos, campos permitidos) — ej. `communityTemplateCreateOk()` en `firestore.rules:96-119`.
 - Restricción de qué campos pueden cambiar en un update (`diff(resource.data).changedKeys().hasOnly([...])`) — ej. el update de `collabRooms` distingue entre "sala legacy" y "sala E2E sellada" y solo permite tocar ciertos campos en cada caso (`firestore.rules:162-199`).
@@ -350,3 +453,4 @@ En Spring nada de esto es automático: **cada uno de estos checks se convierte e
 - **Idempotencia de webhooks**: Stripe y Microsoft Store reintentan; las tablas `stripeWebhookEvents`/`stripeProcessedCheckouts`/`microsoftStoreProcessedPurchases` existen justo para eso — no simplificar esa parte al portarla.
 - **IAM de invocación pública** (Cloud Run `allUsers` + `roles/run.invoker`) es un problema específico de Firebase Functions v2 que desaparece con Spring Boot — una menos, pero confirma que el nuevo backend no imponga restricciones equivalentes por defecto en tu plataforma de despliegue.
 - **Sync en tiempo real de `collabRooms`**: es la pieza que menos se parece a "un CRUD"; conviene diseñarla aparte en vez de forzarla a encajar en el resto del plan REST.
+- **Borrado de cuenta incompleto (RGPD)**: `purgeUserAccount` (sección 3.9) toca Stripe, Storage y cinco colecciones distintas en una sola pasada best-effort (sigue adelante aunque un paso falle, solo loguea). Si la reimplementación en Spring omite un paso, el resultado es un usuario "borrado" que deja rastro (salas de colaboración, páginas publicadas, suscripción de Stripe activa cobrando) — igual de silencioso que una regresión de seguridad, pero con implicación legal directa. Escribir un test de integración que verifique que las cinco colecciones + Storage + Stripe quedan vacíos tras el borrado.

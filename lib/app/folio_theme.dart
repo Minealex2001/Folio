@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'ui_tokens.dart';
 
-ThemeData folioLightTheme(Color seedColor) {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: seedColor,
-    brightness: Brightness.light,
-    dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-  );
+ThemeData folioLightTheme(ColorScheme colorScheme) {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
@@ -16,12 +11,7 @@ ThemeData folioLightTheme(Color seedColor) {
   return _folioThemeFromBase(base, colorScheme);
 }
 
-ThemeData folioDarkTheme(Color seedColor) {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: seedColor,
-    brightness: Brightness.dark,
-    dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-  );
+ThemeData folioDarkTheme(ColorScheme colorScheme) {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
@@ -30,13 +20,10 @@ ThemeData folioDarkTheme(Color seedColor) {
   return _folioThemeFromBase(base, colorScheme);
 }
 
-ThemeData folioOledTheme(Color seedColor) {
-  final baseScheme = ColorScheme.fromSeed(
-    seedColor: seedColor,
-    brightness: Brightness.dark,
-    dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-  );
-  final oledScheme = baseScheme.copyWith(
+/// Tema OLED: superficies negras puras sobre el [ColorScheme] oscuro resuelto
+/// (marca Folio o `fromSeed`), conservando primary/secondary/tertiary.
+ThemeData folioOledTheme(ColorScheme darkScheme) {
+  final oledScheme = darkScheme.copyWith(
     surface: Colors.black,
     surfaceDim: const Color(0xFF000000),
     surfaceBright: const Color(0xFF101010),

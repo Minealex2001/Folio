@@ -103,7 +103,7 @@ Future<void> main(List<String> args) async {
         return true;
       };
 
-      SystemTheme.fallbackColor = const Color(0xFF455A64);
+      SystemTheme.fallbackColor = const Color(0xFF00F3FF);
       try {
         await SystemTheme.accentColor.load();
       } catch (e, st) {

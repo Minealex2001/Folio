@@ -88,7 +88,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool get _isFirstOnboarding => !widget.session.canCancelNewVaultOnboarding;
 
   /// Borradores de pasos de configuraciÃ³n (solo se persisten al pulsar Continuar).
-  late ThemeMode _draftThemeMode;
+  late FolioThemeMode _draftThemeMode;
   late FolioAccentColorMode _draftAccentMode;
   late int _draftCustomAccentArgb;
   late int _draftIdleLockMinutes;
@@ -1464,7 +1464,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _pickDraftAccentPresets() async {
     final l10n = AppLocalizations.of(context);
     const presets = <int>[
-      0xFF455A64,
+      0xFF00F3FF,
       0xFF1565C0,
       0xFF0277BD,
       0xFF6A1B9A,
@@ -1613,22 +1613,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         ),
         const SizedBox(height: FolioSpace.sm),
-        SegmentedButton<ThemeMode>(
+        SegmentedButton<FolioThemeMode>(
           segments: [
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.system,
+            ButtonSegment<FolioThemeMode>(
+              value: FolioThemeMode.system,
               label: Text(l10n.systemTheme),
               icon: const Icon(Icons.brightness_auto, size: 18),
             ),
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.light,
+            ButtonSegment<FolioThemeMode>(
+              value: FolioThemeMode.light,
               label: Text(l10n.lightTheme),
               icon: const Icon(Icons.light_mode_outlined, size: 18),
             ),
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.dark,
+            ButtonSegment<FolioThemeMode>(
+              value: FolioThemeMode.dark,
               label: Text(l10n.darkTheme),
               icon: const Icon(Icons.dark_mode_outlined, size: 18),
+            ),
+            ButtonSegment<FolioThemeMode>(
+              value: FolioThemeMode.oled,
+              label: Text(l10n.oledTheme),
+              icon: const Icon(Icons.contrast, size: 18),
             ),
           ],
           selected: {_draftThemeMode},

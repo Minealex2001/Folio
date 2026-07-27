@@ -250,7 +250,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         break;
       case _SettingsSectionId.about:
         icon = Icons.info_outline_rounded;
-        gradientColors = const [Color(0xFF78909C), Color(0xFF455A64)];
+        gradientColors = const [Color(0xFF00F3FF), Color(0xFFFF00FF)];
         subtitle = 'Versión ${widget.installedVersionLabel}';
         break;
       case _SettingsSectionId.integrations:

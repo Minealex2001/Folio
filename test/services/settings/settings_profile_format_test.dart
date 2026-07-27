@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,7 +43,7 @@ void main() {
   test('buildAppProfile excludes device-local sync runtime fields', () async {
     final settings = AppSettings();
     await settings.load();
-    await settings.setThemeMode(ThemeMode.dark);
+    await settings.setThemeMode(FolioThemeMode.dark);
 
     final profile = const SettingsProfileBuilder().buildAppProfile(settings);
     expect(profile.kind, FolioSettingsProfileKind.app);
