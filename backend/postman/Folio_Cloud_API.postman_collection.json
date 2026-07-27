@@ -1,0 +1,3729 @@
+{
+  "info": {
+    "_postman_id": "4be2083f-ebfa-4942-970b-7c39d7eca9e0",
+    "name": "Folio Cloud API",
+    "description": "Colección completa de la API Spring Boot de Folio (`/api/v1/...`).\n\n## Uso rápido\n1. Importa esta colección y el environment `Folio_Cloud_Local`.\n2. Arranca el stack (`docker compose up` en `backend/`).\n3. Ejecuta **Auth → Register** (o usa email/password ya existentes).\n4. Ejecuta **Auth → Login** (guarda `accessToken` / `refreshToken`).\n5. Prueba **Account → Me**.\n\n## Auth\nLa mayoría de endpoints requieren `Authorization: Bearer {{accessToken}}`.\nRutas públicas: health, auth register/login/refresh/verify/forgot/reset, billing webhook, billing catalog-prices, admin (con X-Folio-Admin-Key), diagnostics report, Slack/Teams commands, Jira oauth-exchange, Spotify oauth-callback, GET published-pages/{id}, GET community-templates.\n\n## Variables\nVer environment local: `baseUrl`, `accessToken`, `adminApiKey`, `email`, `password`, más IDs auxiliares (`vaultId`, `roomId`, etc.).\n\nGenerada a partir de controllers + OpenAPI `/v3/api-docs`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:18080"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "postman@example.com"
+    },
+    {
+      "key": "password",
+      "value": "PostmanPass123!"
+    },
+    {
+      "key": "adminApiKey",
+      "value": "dev-admin-change-me"
+    },
+    {
+      "key": "vaultId",
+      "value": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "key": "roomId",
+      "value": "00000000-0000-0000-0000-000000000002"
+    },
+    {
+      "key": "uid",
+      "value": ""
+    },
+    {
+      "key": "memberUid",
+      "value": ""
+    },
+    {
+      "key": "joinCode",
+      "value": ""
+    },
+    {
+      "key": "vaultPageId",
+      "value": "page-example"
+    },
+    {
+      "key": "publishedPageId",
+      "value": ""
+    },
+    {
+      "key": "templateId",
+      "value": "tmpl-example"
+    },
+    {
+      "key": "connectionId",
+      "value": "conn-example"
+    },
+    {
+      "key": "commandId",
+      "value": ""
+    },
+    {
+      "key": "deviceId",
+      "value": "postman-device-1"
+    },
+    {
+      "key": "installId",
+      "value": "postman-install-1"
+    },
+    {
+      "key": "mediaId",
+      "value": ""
+    },
+    {
+      "key": "emailVerificationToken",
+      "value": ""
+    },
+    {
+      "key": "passwordResetToken",
+      "value": ""
+    },
+    {
+      "key": "oauthCode",
+      "value": ""
+    },
+    {
+      "key": "codeVerifier",
+      "value": ""
+    },
+    {
+      "key": "audioBase64",
+      "value": ""
+    },
+    {
+      "key": "spotifyAccessToken",
+      "value": ""
+    },
+    {
+      "key": "msStoreCollectionsId",
+      "value": ""
+    },
+    {
+      "key": "stripeSigTimestamp",
+      "value": "0"
+    },
+    {
+      "key": "stripeSigPlaceholder",
+      "value": "placeholder"
+    },
+    {
+      "key": "slackTimestamp",
+      "value": "0"
+    },
+    {
+      "key": "slackSignaturePlaceholder",
+      "value": "placeholder"
+    },
+    {
+      "key": "teamsHmacPlaceholder",
+      "value": "placeholder"
+    },
+    {
+      "key": "diagnosticSignature",
+      "value": ""
+    },
+    {
+      "key": "slackClientId",
+      "value": ""
+    },
+    {
+      "key": "teamsClientId",
+      "value": ""
+    },
+    {
+      "key": "jiraClientId",
+      "value": ""
+    },
+    {
+      "key": "spotifyClientId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Health check público (sin auth).",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ]
+            },
+            "description": "Comprueba que la API está viva. Respuesta esperada: `{\"status\":\"ok\"}`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Registro, login JWT, refresh, verificación de email y reset de contraseña.\n\n**Flujo recomendado:** Register → Login (guarda tokens) → Account/me → Refresh.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Crea usuario (Argon2id). Público. Envía email de verificación (Mailpit en local).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"displayName\": \"Postman Tester\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devuelve accessToken + refreshToken. El script de test guarda ambos en variables de colección y environment.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "  pm.environment.set('accessToken', json.accessToken);",
+                  "}",
+                  "if (json.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "  pm.environment.set('refreshToken', json.refreshToken);",
+                  "}",
+                  "pm.test('Login returns tokens', function () {",
+                  "  pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "  pm.expect(json.refreshToken).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Rota el refresh token. Público. Guarda los nuevos tokens.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "  pm.environment.set('accessToken', json.accessToken);",
+                  "}",
+                  "if (json.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "  pm.environment.set('refreshToken', json.refreshToken);",
+                  "}",
+                  "pm.test('Refresh rotates tokens', function () {",
+                  "  pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoca el refresh token. Requiere Bearer access token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "Público. Token del enlace de verificación (Mailpit).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{emailVerificationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resend verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Reenvía email de verificación. Requiere Bearer. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Público. Envía email con token de reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Público. Cambia contraseña y revoca todos los refresh tokens.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"newPassword\": \"NewSecurePass123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "description": "Perfil, entitlements Folio Cloud, borrado programado y export GDPR.",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "me"
+              ]
+            },
+            "description": "Perfil + folioCloud + ink. Tras Login, usa este endpoint para validar el token."
+          },
+          "response": []
+        },
+        {
+          "name": "Ensure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/ensure",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "ensure"
+              ]
+            },
+            "description": "Idempotente: asegura filas de perfil/cloud/ink (puerto de ensureUserDocExists)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update display name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/display-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "display-name"
+              ]
+            },
+            "description": "Máx. 80 caracteres; propaga a familia si aplica.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Nuevo Nombre\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Request deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/deletion/request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "deletion",
+                "request"
+              ]
+            },
+            "description": "Programa borrado de cuenta. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/deletion/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "deletion",
+                "cancel"
+              ]
+            },
+            "description": "Cancela borrado programado. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/account/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "export"
+              ]
+            },
+            "description": "Export de datos de cuenta (GDPR-style)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Endpoint legacy/compat de identidad mínima.",
+      "item": [
+        {
+          "name": "Users me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Identidad mínima del usuario autenticado (compat)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin (QA)",
+      "description": "Pruebas locales / self-host **sin pagar Stripe**.\n\nAuth: header `X-Folio-Admin-Key` = `FOLIO_ADMIN_API_KEY` **o** JWT de usuario `folioStaff`.\n`grant-cloud` pone `admin_override` (sobrevive a recompute) + features completas.",
+      "item": [
+        {
+          "name": "Lookup user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Folio-Admin-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/lookup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "lookup"
+              ]
+            },
+            "description": "Snapshot de cuenta por email o uid.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Grant Folio Cloud (no Stripe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Folio-Admin-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/entitlements/grant-cloud",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "entitlements",
+                "grant-cloud"
+              ]
+            },
+            "description": "Activa Cloud completo + opcional staff + tinta comprada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"alsoStaff\": true,\n  \"inkDrops\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Folio Cloud grant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Folio-Admin-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/entitlements/revoke-cloud",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "entitlements",
+                "revoke-cloud"
+              ]
+            },
+            "description": "Quita admin_override y recalcula entitlements (vuelve a free/Stripe).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Grant ink",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Folio-Admin-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/ink/grant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "ink",
+                "grant"
+              ]
+            },
+            "description": "Suma tinta purchasedBalance (default 1000).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"inkDrops\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set folioStaff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Folio-Admin-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/staff",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "staff"
+              ]
+            },
+            "description": "Marca/desmarca folioStaff (cuota backup ilimitada, etc.).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"staff\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Billing",
+      "description": "Stripe Checkout/Portal/sync/webhook y Microsoft Store IAP.\n\n`kind` de checkout: folio_cloud_monthly | folio_family_monthly | folio_student_monthly | ink_small | ink_medium | ink_large | backup_storage_pack_small|medium|large.",
+      "item": [
+        {
+          "name": "Create checkout session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/billing/checkout-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "checkout-session"
+              ]
+            },
+            "description": "Crea sesión Stripe Checkout. Requiere Bearer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"folio_cloud_monthly\",\n  \"debug\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create portal session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/billing/portal-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "portal-session"
+              ]
+            },
+            "description": "Portal de cliente Stripe.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"debug\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sync billing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/billing/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "sync"
+              ]
+            },
+            "description": "Sincroniza estado de suscripción desde Stripe.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"debug\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Stripe webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "t={{stripeSigTimestamp}},v1={{stripeSigPlaceholder}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/billing/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "webhook"
+              ]
+            },
+            "description": "**Público** con verificación propia. Header `Stripe-Signature` obligatorio (formato `t=...,v1=...`). El body debe ser el payload raw firmado por Stripe; este ejemplo es placeholder y fallará la verificación de firma en local.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_placeholder\",\n  \"object\": \"event\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_placeholder\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Microsoft Store validate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/billing/microsoft-store/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "microsoft-store",
+                "validate"
+              ]
+            },
+            "description": "Valida compras Microsoft Store (Azure AD + Collections API).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"collectionsId\": \"{{msStoreCollectionsId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Family",
+      "description": "Plan familia: invitar/quitar miembros y verificación estudiante.",
+      "item": [
+        {
+          "name": "Invite member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/family/invite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "family",
+                "invite"
+              ]
+            },
+            "description": "Invita miembro al plan familia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member@example.com\",\n  \"debug\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/family/remove",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "family",
+                "remove"
+              ]
+            },
+            "description": "Quita miembro por UID.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberUid\": \"{{memberUid}}\",\n  \"debug\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Family details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/family/details",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "family",
+                "details"
+              ]
+            },
+            "description": "Lista miembros e info de familia."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/family/verify-student",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "family",
+                "verify-student"
+              ]
+            },
+            "description": "Verifica elegibilidad estudiante por dominio de email.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@university.edu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Vault Backups",
+      "description": "Cloud-pack incremental, índices legacy, trim y uso de almacenamiento.",
+      "item": [
+        {
+          "name": "Cloud pack finalize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/cloud-pack/finalize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "cloud-pack",
+                "finalize"
+              ]
+            },
+            "description": "Finaliza subida de cloud-pack incremental.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"snapshotStoragePath\": \"vaults/{{vaultId}}/cloud-pack/snapshot.bin\",\n  \"snapshotSizeBytes\": 1024,\n  \"contentFingerprint\": \"fp-example\",\n  \"oldSnapshotStoragePath\": null,\n  \"oldSnapshotSizeBytes\": null,\n  \"newBlobs\": [\n    {\n      \"blobId\": \"blob-1\",\n      \"sizeBytes\": 256\n    }\n  ],\n  \"deleteBlobs\": [],\n  \"cloudPackRestoreWrapB64\": \"d3JhcC1leGFtcGxl\",\n  \"cloudPackRestoreWrapKind\": \"account\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cloud pack latest meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/cloud-pack/latest-meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "cloud-pack",
+                "latest-meta"
+              ]
+            },
+            "description": "Meta del último cloud-pack.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cloud pack restore wrap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/cloud-pack/restore-wrap",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "cloud-pack",
+                "restore-wrap"
+              ]
+            },
+            "description": "Obtiene envoltorio de restauración del cloud-pack.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cloud pack blobs exist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/cloud-pack/blobs-exist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "cloud-pack",
+                "blobs-exist"
+              ]
+            },
+            "description": "Comprueba existencia de blobs en storage.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"blobIds\": [\n    \"blob-1\",\n    \"blob-2\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Usage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "usage"
+              ]
+            },
+            "description": "Uso de almacenamiento de backups. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "List backups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "list"
+              ]
+            },
+            "description": "Lista backups de una libreta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cloud pack delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/cloud-pack/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "cloud-pack",
+                "delete"
+              ]
+            },
+            "description": "Borra cloud-pack de la libreta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Legacy delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/legacy/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "legacy",
+                "delete"
+              ]
+            },
+            "description": "Borra backups legacy (ZIP/TAR).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trim by bytes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/trim-by-bytes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "trim-by-bytes"
+              ]
+            },
+            "description": "Recorta backups hasta un tamaño objetivo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUsedBytes\": 1073741824\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trim keep latest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/trim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "trim"
+              ]
+            },
+            "description": "Conserva N backups más recientes por vault.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keepLatestPerVault\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List vaults with backups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/vaults",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "vaults"
+              ]
+            },
+            "description": "Lista vaultIds con presencia en backups. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Index upsert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/index/upsert",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "index",
+                "upsert"
+              ]
+            },
+            "description": "Upsert del índice de backup legacy.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"latestStoragePath\": \"vaults/{{vaultId}}/legacy/latest.zip\",\n  \"latestSizeBytes\": 2048,\n  \"contentFingerprint\": \"fp-legacy\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Latest meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/latest-meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "latest-meta"
+              ]
+            },
+            "description": "Meta del último backup (índice).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Record meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/backups/record-meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "backups",
+                "record-meta"
+              ]
+            },
+            "description": "Registra meta de un backup individual.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"storagePath\": \"vaults/{{vaultId}}/legacy/snap.zip\",\n  \"sizeBytes\": 4096,\n  \"contentFingerprint\": \"fp-record\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Device Sync",
+      "description": "Sincronización multi-dispositivo vía packs en object storage.",
+      "item": [
+        {
+          "name": "Meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/device-sync/meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "device-sync",
+                "meta"
+              ]
+            },
+            "description": "Meta del pack de device-sync.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Finalize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/device-sync/finalize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "device-sync",
+                "finalize"
+              ]
+            },
+            "description": "Finaliza subida de pack de sync.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"syncFormatVersion\": 1,\n  \"contentFingerprint\": \"fp-sync\",\n  \"packStoragePath\": \"vaults/{{vaultId}}/device-sync/pack.bin\",\n  \"packSizeBytes\": 8192,\n  \"manifestStoragePath\": \"vaults/{{vaultId}}/device-sync/manifest.json\",\n  \"manifestSizeBytes\": 128,\n  \"oldPackStoragePath\": null,\n  \"oldPackSizeBytes\": null,\n  \"oldManifestStoragePath\": null,\n  \"oldManifestSizeBytes\": null,\n  \"newBlobs\": [\n    {\n      \"blobId\": \"b1\",\n      \"sizeBytes\": 100\n    }\n  ],\n  \"deleteBlobs\": [],\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceName\": \"Postman PC\",\n  \"vaultMode\": \"encrypted\",\n  \"packKeyKind\": \"account\",\n  \"dekAccountWrapB64\": \"ZGVrLXdyYXA=\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List vaults",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/device-sync/vaults",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "device-sync",
+                "vaults"
+              ]
+            },
+            "description": "Vaults con device-sync. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Ensure plain secret",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/device-sync/plain-secret/ensure",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "device-sync",
+                "plain-secret",
+                "ensure"
+              ]
+            },
+            "description": "Asegura secreto para libretas en claro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profiles",
+      "description": "Sync de perfil de app y de prefs de libreta.",
+      "item": [
+        {
+          "name": "App profile meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/profiles/app/meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "profiles",
+                "app",
+                "meta"
+              ]
+            },
+            "description": "Meta del pack de perfil de app. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "App profile restore wrap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/profiles/app/restore-wrap",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "profiles",
+                "app",
+                "restore-wrap"
+              ]
+            },
+            "description": "Envoltorio de restauración del perfil de app. Sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "App profile finalize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/profiles/app/finalize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "profiles",
+                "app",
+                "finalize"
+              ]
+            },
+            "description": "Finaliza pack de perfil de app.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packStoragePath\": \"users/me/app-profile/pack.bin\",\n  \"packSizeBytes\": 512,\n  \"contentFingerprint\": \"fp-app\",\n  \"restoreWrapB64\": \"d3JhcA==\",\n  \"iconIds\": [\n    \"icon-a\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Vault profile meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/profiles/vault/meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "profiles",
+                "vault",
+                "meta"
+              ]
+            },
+            "description": "Meta del perfil de libreta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Vault profile finalize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vault/profiles/vault/finalize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vault",
+                "profiles",
+                "vault",
+                "finalize"
+              ]
+            },
+            "description": "Finaliza pack de perfil de libreta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"packStoragePath\": \"vaults/{{vaultId}}/profile/pack.bin\",\n  \"packSizeBytes\": 256,\n  \"contentFingerprint\": \"fp-vault-profile\",\n  \"restoreWrapB64\": \"d3JhcA==\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "description": "Pricing de tinta, completion y transcripción (OpenAI vía backend).",
+      "item": [
+        {
+          "name": "Pricing",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/pricing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "pricing"
+              ]
+            },
+            "description": "Tabla de precios/costes de operaciones IA en tinta."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "complete"
+              ]
+            },
+            "description": "Completion de chat/IA. Cobra tinta según operación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Resume esta nota en una frase.\",\n  \"systemPrompt\": \"Eres Quill, asistente de Folio.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Hola, ¿qué puedes hacer?\"\n    }\n  ],\n  \"responseSchema\": null,\n  \"maxTokens\": 256,\n  \"temperature\": 0.4,\n  \"tools\": null,\n  \"toolChoice\": null,\n  \"operationKind\": \"quill_chat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transcribe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/transcribe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "transcribe"
+              ]
+            },
+            "description": "Transcripción de audio (base64). Puede cobrar tinta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"audioBase64\": \"{{audioBase64}}\",\n  \"language\": \"es\",\n  \"chargeInk\": true,\n  \"inkAmount\": 1.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "description": "Slack, Teams, Jira, Spotify y webhooks de captura de tareas.\n\nComandos Slack/Teams son **públicos** con verificación de firma de plataforma.",
+      "item": [
+        {
+          "name": "Slack & Teams",
+          "description": "Conexiones webhook, link codes, pending commands y slash/Adaptive Card commands.",
+          "item": [
+            {
+              "name": "Upsert webhook connection",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/webhook-connection",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "webhook-connection"
+                  ]
+                },
+                "description": "Guarda conexión webhook (slack|teams).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"connectionId\": \"{{connectionId}}\",\n  \"provider\": \"slack\",\n  \"webhookUrl\": \"https://hooks.slack.com/services/T00/B00/XXX\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Webhook proxy",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/webhook-proxy",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "webhook-proxy"
+                  ]
+                },
+                "description": "Proxy autenticado hacia el webhook externo.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"provider\": \"slack\",\n  \"connectionId\": \"{{connectionId}}\",\n  \"payload\": {\n    \"text\": \"Hola desde Folio\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create link code",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/link-code",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "link-code"
+                  ]
+                },
+                "description": "Código de enlace de 8 chars A-Z0-9.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"ABCD1234\",\n  \"vaultId\": \"{{vaultId}}\",\n  \"connectionId\": \"{{connectionId}}\",\n  \"provider\": \"slack\",\n  \"webhookUrl\": \"https://hooks.slack.com/services/T00/B00/XXX\",\n  \"teamsSecurityToken\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Pending commands",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/pending-commands",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "pending-commands"
+                  ]
+                },
+                "description": "Cola de comandos pendientes para el cliente.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"vaultId\": \"{{vaultId}}\",\n  \"limit\": 20\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Ack command",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/ack-command",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "ack-command"
+                  ]
+                },
+                "description": "ACK de un comando pendiente.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"commandId\": \"{{commandId}}\",\n  \"success\": true,\n  \"taskTitle\": \"Tarea creada\",\n  \"errorMessage\": null,\n  \"responseMessage\": \"OK\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Slack command (form)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-slack-request-timestamp",
+                    "value": "{{slackTimestamp}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-slack-signature",
+                    "value": "v0={{slackSignaturePlaceholder}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/slack/command",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "slack",
+                    "command"
+                  ]
+                },
+                "description": "**Público.** `application/x-www-form-urlencoded`. Headers `x-slack-request-timestamp` + `x-slack-signature` (HMAC). Placeholders no pasarán verificación real.",
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "user_id",
+                      "value": "U01234567",
+                      "type": "text"
+                    },
+                    {
+                      "key": "text",
+                      "value": "link ABCD1234",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Slack command (JSON)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-slack-request-timestamp",
+                    "value": "{{slackTimestamp}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-slack-signature",
+                    "value": "v0={{slackSignaturePlaceholder}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/slack/command",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "slack",
+                    "command"
+                  ]
+                },
+                "description": "Misma ruta Slack con `application/json` + firmas placeholder.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": \"U01234567\",\n  \"text\": \"add Comprar leche\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Teams command",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "HMAC {{teamsHmacPlaceholder}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/teams/command",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "teams",
+                    "command"
+                  ],
+                  "query": [
+                    {
+                      "key": "connectionId",
+                      "value": "{{connectionId}}",
+                      "description": "ID de conexión Teams"
+                    }
+                  ]
+                },
+                "description": "**Público.** Query `connectionId`. Header `Authorization: HMAC ...` (firma plataforma). Placeholder no verifica en local.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"from\": {\n    \"id\": \"29:teams-user-id\"\n  },\n  \"text\": \"link ABCD1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Slack OAuth exchange",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/slack/oauth-exchange",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "slack",
+                    "oauth-exchange"
+                  ]
+                },
+                "description": "Intercambia code/refresh por tokens Slack.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"grantType\": \"authorization_code\",\n  \"code\": \"{{oauthCode}}\",\n  \"redirectUri\": \"http://localhost/oauth/slack\",\n  \"codeVerifier\": \"{{codeVerifier}}\",\n  \"clientId\": \"{{slackClientId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Teams OAuth exchange",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/teams/oauth-exchange",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "teams",
+                    "oauth-exchange"
+                  ]
+                },
+                "description": "Intercambia code/refresh por tokens Microsoft Teams.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"grantType\": \"authorization_code\",\n  \"code\": \"{{oauthCode}}\",\n  \"redirectUri\": \"http://localhost/oauth/teams\",\n  \"codeVerifier\": \"{{codeVerifier}}\",\n  \"clientId\": \"{{teamsClientId}}\",\n  \"scope\": \"openid offline_access ChannelMessage.Send\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Jira",
+          "description": "OAuth exchange público (client secret en servidor).",
+          "item": [
+            {
+              "name": "Jira OAuth exchange",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/jira/oauth-exchange",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "jira",
+                    "oauth-exchange"
+                  ]
+                },
+                "description": "**Público** (SecurityConfig). Intercambio OAuth Atlassian.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{oauthCode}}\",\n  \"redirectUri\": \"http://localhost/oauth/jira\",\n  \"clientId\": \"{{jiraClientId}}\",\n  \"codeVerifier\": \"{{codeVerifier}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Spotify",
+          "description": "OAuth PKCE + proxy a Web API de Spotify.",
+          "item": [
+            {
+              "name": "Spotify OAuth exchange",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/spotify/oauth-exchange",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "spotify",
+                    "oauth-exchange"
+                  ]
+                },
+                "description": "Intercambia code/refresh por tokens Spotify.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"grantType\": \"authorization_code\",\n  \"code\": \"{{oauthCode}}\",\n  \"redirectUri\": \"http://localhost/oauth/spotify\",\n  \"codeVerifier\": \"{{codeVerifier}}\",\n  \"clientId\": \"{{spotifyClientId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Spotify OAuth callback",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/spotify/oauth-callback",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "spotify",
+                    "oauth-callback"
+                  ],
+                  "query": [
+                    {
+                      "key": "code",
+                      "value": "{{oauthCode}}"
+                    },
+                    {
+                      "key": "state",
+                      "value": "folio"
+                    },
+                    {
+                      "key": "origin",
+                      "value": "http://localhost"
+                    },
+                    {
+                      "key": "error",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "**Público.** Callback HTML del flujo OAuth (navegador)."
+              },
+              "response": []
+            },
+            {
+              "name": "Spotify API proxy",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/spotify/api-proxy",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "integrations",
+                    "spotify",
+                    "api-proxy"
+                  ]
+                },
+                "description": "Proxy autenticado a Spotify Web API (`path` debe empezar por `/v1/`).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"method\": \"GET\",\n  \"path\": \"/v1/me\",\n  \"accessToken\": \"{{spotifyAccessToken}}\",\n  \"headers\": {},\n  \"body\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Diagnostics",
+      "description": "Reportes de diagnóstico / bugs (público).",
+      "item": [
+        {
+          "name": "Report diagnostic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/diagnostics/report",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "diagnostics",
+                "report"
+              ]
+            },
+            "description": "**Público.** Requiere `installId`. Opcionales: kind, appVersion, platform, channel, userNote, logExcerpt, signature, telemetryEnabled.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"installId\": \"{{installId}}\",\n  \"kind\": \"manual\",\n  \"appVersion\": \"1.0.0+postman\",\n  \"platform\": \"windows\",\n  \"channel\": \"dev\",\n  \"userNote\": \"Prueba desde Postman\",\n  \"logExcerpt\": \"ERROR example stack…\",\n  \"signature\": \"{{diagnosticSignature}}\",\n  \"telemetryEnabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Collab",
+      "description": "Salas de colaboración (control-plane REST). Sync en vivo vía STOMP en carpeta WebSocket.",
+      "item": [
+        {
+          "name": "Create room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms"
+              ]
+            },
+            "description": "Crea sala de collab para una página.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vaultPageId\": \"{{vaultPageId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Join room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/join",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "join"
+              ]
+            },
+            "description": "Une al usuario con código de invitación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"joinCode\": \"{{joinCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get room",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}"
+              ]
+            },
+            "description": "Detalle de sala (miembros, contenido, versión)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update room",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}"
+              ]
+            },
+            "description": "Actualiza contenido (last-write-wins por contentVersion).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Página colaborativa\",\n  \"blocksJson\": \"[]\",\n  \"contentVersion\": 1,\n  \"wrappedRoomKey\": null,\n  \"contentCipher\": null,\n  \"updatedBy\": \"{{uid}}\",\n  \"changedKeys\": [\n    \"title\",\n    \"blocks\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Media prepare",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}/media/prepare",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}",
+                "media",
+                "prepare"
+              ]
+            },
+            "description": "Prepara upload de media (presign / path).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blockId\": \"block-1\",\n  \"mediaKind\": \"image\",\n  \"sizeBytes\": 102400\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Media commit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}/media/commit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}",
+                "media",
+                "commit"
+              ]
+            },
+            "description": "Confirma media subida.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mediaId\": \"{{mediaId}}\",\n  \"blockId\": \"block-1\",\n  \"storagePath\": \"collab/{{roomId}}/media/block-1.bin\",\n  \"mediaKind\": \"image\",\n  \"sizeBytes\": 102400\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invite member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}/invite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}",
+                "invite"
+              ]
+            },
+            "description": "Invita miembro por UID.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberUid\": \"{{memberUid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}/remove-member",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}",
+                "remove-member"
+              ]
+            },
+            "description": "Quita miembro de la sala.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberUid\": \"{{memberUid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Close room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collab/rooms/{{roomId}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "collab",
+                "rooms",
+                "{{roomId}}",
+                "close"
+              ]
+            },
+            "description": "Cierra la sala. Sin body."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Published Pages",
+      "description": "Páginas publicadas. GET por id es público; /mine y mutaciones requieren auth.",
+      "item": [
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/published-pages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "published-pages"
+              ]
+            },
+            "description": "Publica una página (referencia a storage).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storagePath\": \"published/example/page.json\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/published-pages/{{publishedPageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "published-pages",
+                "{{publishedPageId}}"
+              ]
+            },
+            "description": "Actualiza storagePath de una página publicada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storagePath\": \"published/example/page-v2.json\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/published-pages/{{publishedPageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "published-pages",
+                "{{publishedPageId}}"
+              ]
+            },
+            "description": "Elimina página publicada."
+          },
+          "response": []
+        },
+        {
+          "name": "Get by id (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/published-pages/{{publishedPageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "published-pages",
+                "{{publishedPageId}}"
+              ]
+            },
+            "description": "**Público.** Lectura de página publicada."
+          },
+          "response": []
+        },
+        {
+          "name": "Mine",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/published-pages/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "published-pages",
+                "mine"
+              ]
+            },
+            "description": "Lista páginas publicadas del usuario autenticado."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Community Templates",
+      "description": "Plantillas comunitarias. GET list/id públicos; mutaciones con auth.",
+      "item": [
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/community-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "community-templates"
+              ]
+            },
+            "description": "Crea/publica plantilla comunitaria.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{templateId}}\",\n  \"name\": \"Plantilla ejemplo\",\n  \"description\": \"Descripción breve\",\n  \"category\": \"productivity\",\n  \"emoji\": \"📝\",\n  \"blockCount\": 5,\n  \"storagePath\": \"community/{{templateId}}/template.json\",\n  \"storageDownloadUrl\": \"https://example.com/template.json\",\n  \"sizeBytes\": 2048\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/community-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "community-templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Actualiza plantilla.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{templateId}}\",\n  \"name\": \"Plantilla actualizada\",\n  \"description\": \"Nueva descripción\",\n  \"category\": \"productivity\",\n  \"emoji\": \"✨\",\n  \"blockCount\": 6,\n  \"storagePath\": \"community/{{templateId}}/template.json\",\n  \"storageDownloadUrl\": \"https://example.com/template.json\",\n  \"sizeBytes\": 3072\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/community-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "community-templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Borra plantilla."
+          },
+          "response": []
+        },
+        {
+          "name": "Get by id (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/community-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "community-templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "**Público.** Detalle de plantilla."
+          },
+          "response": []
+        },
+        {
+          "name": "List (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/community-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "community-templates"
+              ]
+            },
+            "description": "**Público.** Listado de plantillas."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WebSocket STOMP (Collab)",
+      "description": "Postman soporta WebSocket de forma limitada; este ítem documenta el contrato STOMP.\n\n**Endpoint:** `ws://localhost:8080/ws/collab` (handshake HTTP público; JWT en CONNECT).\n\n**Broker:** prefix app `/app`, broker `/topic` + `/queue`, user `/user`.\n\n**Frames:**\n1. CONNECT con header `Authorization: Bearer <accessToken>` (o según CollabStompAuthInterceptor).\n2. SUBSCRIBE destino `/topic/collab/{roomId}`.\n3. SEND destino `/app/collab/{roomId}/update` con body CollabRoomUpdateRequest (title, blocksJson, contentVersion, wrappedRoomKey, contentCipher, updatedBy, changedKeys).\n4. Errores de API → `/user/queue/collab-errors` `{error, message}`.\n5. Retransmisión de snapshot → `/topic/collab/{roomId}`.\n\nUsa un cliente STOMP (o la consola del navegador) para probar de verdad.",
+      "item": [
+        {
+          "name": "Collab live update (documentación)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ws/collab",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ws",
+                "collab"
+              ]
+            },
+            "description": "No es un REST GET usable: es el endpoint de handshake WebSocket/STOMP.\n\nSEND `/app/collab/{{roomId}}/update` body ejemplo:\n```json\n{\n  \"title\": \"Live title\",\n  \"blocksJson\": \"[]\",\n  \"contentVersion\": 2,\n  \"wrappedRoomKey\": null,\n  \"contentCipher\": null,\n  \"updatedBy\": \"{{uid}}\",\n  \"changedKeys\": [\n    \"title\"\n  ]\n}\n```\nSUBSCRIBE `/topic/collab/{{roomId}}`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

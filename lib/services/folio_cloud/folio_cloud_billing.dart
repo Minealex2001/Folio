@@ -1,11 +1,18 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../config/folio_backend_config.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_cloud_identity.dart';
+
+bool get _folioCloudBackendReady =>
+    FolioBackendConfig.useSpring
+        ? folioCloudHasSession() || FolioBackendConfig.baseUrl.isNotEmpty
+        : Firebase.apps.isNotEmpty;
 
 /// Opens Stripe Customer Portal via Cloud Function (server holds Stripe secret).
 Future<Uri?> createBillingPortalUri() async {
-  if (Firebase.apps.isEmpty) return null;
+  if (!_folioCloudBackendReady) return null;
   final res = await callFolioHttpsCallable(
     'createBillingPortalSession',
     <String, dynamic>{'debug': kDebugMode},
@@ -17,7 +24,7 @@ Future<Uri?> createBillingPortalUri() async {
 
 /// Vuelve a leer la suscripción en Stripe y actualiza Firestore (por si el webhook fue lento o falló).
 Future<void> syncFolioCloudSubscriptionFromStripe() async {
-  if (Firebase.apps.isEmpty) return;
+  if (!_folioCloudBackendReady) return;
   await callFolioHttpsCallable(
     'syncFolioCloudSubscriptionFromStripe',
     <String, dynamic>{'debug': kDebugMode},
@@ -28,8 +35,12 @@ Future<void> syncFolioCloudSubscriptionFromStripe() async {
 Future<Map<String, dynamic>> validateMicrosoftStoreEntitlements({
   required String collectionsId,
 }) async {
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!_folioCloudBackendReady) {
+    throw StateError(
+      FolioBackendConfig.useSpring
+          ? 'Spring backend not configured'
+          : 'Firebase not initialized',
+    );
   }
   final res = await callFolioHttpsCallable(
     'validateMicrosoftStoreEntitlements',

@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../config/folio_backend_config.dart';
 import 'folio_cloud_callable.dart';
 
 /// Must match [CheckoutKind] in Cloud Functions (`createCheckoutSession`).
@@ -41,7 +42,7 @@ String _kindParam(FolioCheckoutKind k) {
 
 /// Stripe Checkout URL from Cloud Function (server holds Stripe secret).
 Future<Uri?> createFolioCheckoutUri(FolioCheckoutKind kind) async {
-  if (Firebase.apps.isEmpty) return null;
+  if (!FolioBackendConfig.useSpring && Firebase.apps.isEmpty) return null;
   final res = await callFolioHttpsCallable(
     'createCheckoutSession',
     <String, dynamic>{

@@ -1,0 +1,68 @@
+folio:
+  jwt:
+    signing-secret: test-signing-secret-must-be-at-least-32-bytes-long
+    access-token-ttl: PT15M
+    refresh-token-ttl: P30D
+  admin:
+    api-key: test-admin-api-key-for-it
+  mail:
+    from: test@folio.local
+  app:
+    public-base-url: http://localhost:8080
+  storage:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: folio-test
+    region: us-east-1
+    path-style-access: true
+    bootstrap-bucket: true
+  stripe:
+    secret-key: sk_test_folio_dummy_for_isConfigured
+    webhook-secret: whsec_test_folio_dummy
+    price-folio-cloud-monthly: price_test_monthly
+    price-folio-cloud-family: price_test_family
+    price-folio-cloud-family-member: price_test_family_member
+    price-folio-cloud-student: price_test_student
+    price-ink-small: price_test_ink_small
+    price-ink-medium: price_test_ink_medium
+    price-ink-large: price_test_ink_large
+  microsoft-store:
+    azure-ad-tenant-id: test-tenant
+    azure-ad-client-id: test-client
+    azure-ad-client-secret: test-secret
+    product-folio-cloud-monthly: 9NTESTFOLIOMONTHLY
+    ink-small: 9NTESTINKSMALL
+    ink-medium: 9NTESTINKMEDIUM
+    ink-large: 9NTESTINKLARGE
+  openai:
+    api-key: test-openai-key
+    base-url: http://127.0.0.1:9
+    model: gpt-test
+    transcribe-model: whisper-test
+    max-output-tokens: 1024
+    temperature: 0.2
+  jira:
+    oauth-client-id: test-jira-client
+    oauth-client-secret: test-jira-secret
+  integrations:
+    slack-signing-secret: test-slack-signing-secret
+    slack-oauth-client-id: test-slack-client
+    slack-oauth-client-secret: test-slack-secret
+    teams-oauth-client-id: test-teams-client
+    teams-oauth-client-secret: test-teams-secret
+    spotify-oauth-client-id: test-spotify-client
+
+spring:
+  mail:
+    host: localhost
+    port: 25
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    org.flywaydb: INFO

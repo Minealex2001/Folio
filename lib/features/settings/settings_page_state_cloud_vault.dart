@@ -42,7 +42,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     AppLogger.info(
       'cloud auth ok → import all vaults',
       tag: 'settings',
-      context: {'uid': _cloud.user?.uid},
+      context: {'uid': _cloud.uid},
     );
     await showFolioCloudImportAllVaultsFlow(
       context: context,
@@ -111,7 +111,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     try {
       await _cloud.reloadCurrentUser();
       if (!mounted) return;
-      final verified = _cloud.user?.emailVerified ?? false;
+      final verified = _cloud.emailVerified;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

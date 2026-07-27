@@ -4,13 +4,13 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../config/folio_backend_config.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/vault_local_storage.dart';
 import '../../data/vault_payload.dart';
@@ -26,8 +26,10 @@ import 'device_sync_push_guard.dart';
 import 'device_sync_vault_bootstrap.dart';
 import 'device_sync_vault_status.dart';
 import 'device_sync_key_cache.dart';
+import 'folio_cloud_callable.dart';
 import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_firestore_rest.dart';
 import 'folio_storage_transport.dart';
@@ -136,8 +138,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   bool get isEnabled =>
       _settings.cloudDeviceSyncEnabled &&
       _entitlements.snapshot.canUseCloudBackup &&
-      Firebase.apps.isNotEmpty &&
-      FirebaseAuth.instance.currentUser != null;
+      folioCloudHasSession() &&
+      (FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty);
 
   /// Pausa o reanuda solo el **pull** (poll + listener). El push no cambia.
   void setAppInForeground(bool foreground) {
@@ -266,7 +268,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           await _headless.keyCache.save(vaultId, dek);
         }
       } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
+        final uid = folioCloudCurrentUid();
         if (uid != null && uid.isNotEmpty) {
           final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);
           final key = await DeviceSyncKeyCache.plainPackKey(
@@ -278,7 +280,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           await _headless.keyCache.save(vaultId, raw);
         }
       }
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid != null && uid.isNotEmpty) {
         await _uploadBootstrapAfterPush(uid: uid, vaultId: vaultId);
       }
@@ -352,8 +354,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   void _startActiveVaultPullWatching() {
     if (!_appInForeground || !isEnabled) return;
-    if (_boundVaultId != null && folioFirestoreSupported) {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+    // Spring no tiene listener Firestore; poll de meta vía callable.
+    if (_boundVaultId != null &&
+        folioFirestoreSupported &&
+        !FolioBackendConfig.useSpring) {
+      final uid = folioCloudCurrentUid();
       if (uid == null) return;
       unawaited(_metaSub?.cancel());
       _metaSub = FirebaseFirestore.instance
@@ -440,27 +445,41 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  /// Meta remota de device-sync (Firestore en Firebase; callable en Spring).
+  Future<Map<String, dynamic>?> _loadVaultSyncMeta({
+    required String uid,
+    required String vaultId,
+  }) async {
+    if (FolioBackendConfig.useSpring) {
+      final raw = await callFolioHttpsCallable(
+        'folioGetDeviceSyncMeta',
+        <String, dynamic>{'vaultId': vaultId},
+      );
+      if (raw is Map) {
+        return Map<String, dynamic>.from(raw);
+      }
+      return null;
+    }
+    if (folioFirestoreSupported) {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('vaultSync')
+          .doc(vaultId)
+          .get();
+      return snap.data();
+    }
+    return folioFirestoreRestGetDocument('users/$uid/vaultSync/$vaultId');
+  }
+
   Future<void> _refreshRemoteMetaOnce() async {
     if (!isEnabled) return;
     final vaultId = _boundVaultId ?? VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     try {
-      Map<String, dynamic>? data;
-      if (folioFirestoreSupported) {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('vaultSync')
-            .doc(vaultId)
-            .get();
-        data = snap.data();
-      } else {
-        data = await folioFirestoreRestGetDocument(
-          'users/$uid/vaultSync/$vaultId',
-        );
-      }
+      final data = await _loadVaultSyncMeta(uid: uid, vaultId: vaultId);
       await _onRemoteMeta(data);
     } catch (e, st) {
       AppLogger.warn(
@@ -629,20 +648,20 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         },
       );
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      final uid = folioCloudCurrentUid();
+      if (uid == null || uid.isEmpty) return;
 
       final vaultKey = packKey;
       final accountKey = await resolveAccountProfilePackKeyQuietly();
       final wireKey = accountKey ?? vaultKey;
       final packKeyKind = accountKey != null ? 'account' : 'vault';
       final wrapB64 = await _uploadBootstrapAfterPush(
-        uid: user.uid,
+        uid: uid,
         vaultId: vaultId,
       );
 
       final result = await pushDeviceSyncIncremental(
-        uid: user.uid,
+        uid: uid,
         vaultId: vaultId,
         pack: pack,
         packKey: wireKey,
@@ -1037,7 +1056,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid == null) return;
       final activeId = VaultPaths.activeVaultId ?? '';
       final out = <DeviceSyncVaultStatus>[];
@@ -1103,19 +1122,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
     Map<String, dynamic>? data;
     try {
-      if (folioFirestoreSupported) {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('vaultSync')
-            .doc(entry.id)
-            .get();
-        data = snap.data();
-      } else {
-        data = await folioFirestoreRestGetDocument(
-          'users/$uid/vaultSync/${entry.id}',
-        );
-      }
+      data = await _loadVaultSyncMeta(uid: uid, vaultId: entry.id);
     } catch (_) {
       data = null;
     }
@@ -1314,7 +1321,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     bool forcePull = false,
     bool skipPull = false,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     var packKey = await _headless.resolvePackKey(vaultId);
     packKey ??= await adoptDeviceSyncPackKeyFromBootstrap(
@@ -1325,19 +1332,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     // Meta puede traer el wrap aunque Storage aún no tenga el fichero.
     Map<String, dynamic>? data;
     try {
-      if (folioFirestoreSupported) {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('vaultSync')
-            .doc(vaultId)
-            .get();
-        data = snap.data();
-      } else {
-        data = await folioFirestoreRestGetDocument(
-          'users/$uid/vaultSync/$vaultId',
-        );
-      }
+      data = await _loadVaultSyncMeta(uid: uid, vaultId: vaultId);
     } catch (e) {
       AppLogger.warn(
         'headless meta failed',
@@ -1667,7 +1662,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         return null;
       }
     }
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null || uid.isEmpty) return null;
     try {
       final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vaultId);

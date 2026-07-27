@@ -6,14 +6,17 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
+import '../../config/folio_backend_config.dart';
 import '../app_logger.dart';
 import '../folio_firestore_support.dart';
 import '../cloud_account/cloud_account_controller.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_firestore_rest.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_sync.dart';
+import 'folio_spring_account_me.dart';
 import 'folio_web_portal_api.dart';
 
 /// En Windows/Linux el plugin usa un canal Pigeon que a menudo rompe con
@@ -362,8 +365,11 @@ class FolioCloudSnapshot {
     var active = _folioBool(m['active']);
     final statusNorm =
         m['subscriptionStatus']?.toString().trim().toLowerCase();
-    final planRaw = m['plan']?.toString().trim().toLowerCase();
-    final plan = (planRaw == 'free' || planRaw == 'cloud') ? planRaw : null;
+    final planFromRoot = m['plan']?.toString().trim().toLowerCase();
+    final planFromFeatures = features['plan']?.toString().trim().toLowerCase();
+    final planCandidate = planFromRoot ?? planFromFeatures;
+    final plan =
+        (planCandidate == 'free' || planCandidate == 'cloud') ? planCandidate : null;
     // Si `active` falta o quedó desincronizado pero el estado Stripe es de alta.
     if (!active &&
         (statusNorm == 'active' ||
@@ -412,18 +418,36 @@ class FolioCloudSnapshot {
 /// Listens to Auth + Firestore `users/{uid}` for Folio Cloud entitlements.
 class FolioCloudEntitlementsController extends ChangeNotifier {
   FolioCloudEntitlementsController() {
+    if (FolioBackendConfig.useSpring) return;
     if (Firebase.apps.isEmpty) return;
-    _authSub = FirebaseAuth.instance.authStateChanges().listen(_onUser);
+    _authSub = FirebaseAuth.instance.authStateChanges().listen(_onFirebaseUser);
   }
 
   StreamSubscription<User?>? _authSub;
+  CloudAccountController? _cloudAccount;
 
   void listenToCloudAccount(CloudAccountController cloud) {
-    cloud.addListener(() {
-      _onUser(cloud.user);
-    });
-    _onUser(cloud.user);
+    _cloudAccount?.removeListener(_onCloudAccountChanged);
+    _cloudAccount = cloud;
+    cloud.addListener(_onCloudAccountChanged);
+    _onCloudAccountChanged();
   }
+
+  void _onCloudAccountChanged() {
+    final cloud = _cloudAccount;
+    if (cloud == null) return;
+    if (FolioBackendConfig.useSpring) {
+      final uid = cloud.uid;
+      unawaited(_handleUidChange(uid));
+      return;
+    }
+    _onFirebaseUser(cloud.user);
+  }
+
+  void _onFirebaseUser(User? user) {
+    unawaited(_handleUidChange(user?.uid));
+  }
+
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
   Timer? _userDocPollTimer;
 
@@ -452,7 +476,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Último fallo al refrescar el espejo web (p. ej. red o 503).
   FolioWebPortalException? webPortalRefreshError;
 
-  bool get isAvailable => Firebase.apps.isNotEmpty;
+  bool get isAvailable =>
+      FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty;
 
   /// Desde [FolioApp]: URL efectiva (prefs + `FOLIO_WEB_PORTAL_BASE_URL`).
   void setWebPortalBaseUrlResolver(String Function() resolve) {
@@ -477,6 +502,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    // El portal web aún valida ID token de Firebase; en modo Spring se omite.
+    if (FolioBackendConfig.useSpring) {
+      _clearWebPortalMirror();
+      return;
+    }
     final base = _effectiveWebPortalBaseUrl();
     if (base.isEmpty) {
       _clearWebPortalMirror();
@@ -493,7 +523,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     try {
       final token = await user.getIdToken(true);
       if (token == null || token.isEmpty) {
-        if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+        if (folioCloudCurrentUid() != uid) return;
         webPortalEntitlement = null;
         webPortalRefreshError = FolioWebPortalException(
           FolioWebPortalErrorKind.unauthorized,
@@ -506,12 +536,12 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         portalBaseUrl: base,
         idToken: token,
       );
-      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      if (folioCloudCurrentUid() != uid) return;
       webPortalEntitlement = snap;
       webPortalRefreshError = null;
       notifyListeners();
     } on FolioWebPortalException catch (e) {
-      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      if (folioCloudCurrentUid() != uid) return;
       webPortalEntitlement = null;
       webPortalRefreshError = e;
       notifyListeners();
@@ -521,7 +551,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         context: {'kind': e.kind.name, 'detail': e.detail},
       );
     } catch (e, st) {
-      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      if (folioCloudCurrentUid() != uid) return;
       webPortalEntitlement = null;
       webPortalRefreshError = FolioWebPortalException(
         FolioWebPortalErrorKind.network,
@@ -569,7 +599,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       }
       try {
         final data = await folioFirestoreRestGetUserDoc(uid);
-        if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+        if (folioCloudCurrentUid() != uid) return null;
         return data;
       } catch (e, st) {
         final canRetry = attempt < _firestoreServerFetchMaxAttempts - 1;
@@ -591,6 +621,23 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     String uid, {
     Duration leadingDelay = Duration.zero,
   }) async {
+    if (FolioBackendConfig.useSpring) {
+      if (leadingDelay > Duration.zero) {
+        await Future<void>.delayed(leadingDelay);
+      }
+      try {
+        return await folioSpringFetchAccountMeAsUserDoc();
+      } catch (e, st) {
+        AppLogger.error(
+          'Spring account/me fetch failed',
+          tag: 'entitlements',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return null;
+      }
+    }
     // Windows: el SDK nativo de Firestore (C++) crashea. Como workaround leemos
     // `users/{uid}` por la API REST de Firestore usando el ID token de Auth,
     // que sí funciona en escritorio (igual que las Cloud Functions por HTTP).
@@ -612,7 +659,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
             .collection('users')
             .doc(uid)
             .get(const GetOptions(source: Source.server));
-        if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+        if (folioCloudCurrentUid() != uid) return null;
         return serverDoc.data();
       } catch (e, st) {
         final transient = _isTransientFirestoreHostChannelError(e);
@@ -627,7 +674,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
                 .collection('users')
                 .doc(uid)
                 .get();
-            if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+            if (folioCloudCurrentUid() != uid) return null;
             AppLogger.warn(
               'server fetch falló; usando última caché local',
               tag: 'entitlements',
@@ -662,14 +709,14 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     Duration leadingDelay = Duration.zero,
   }) async {
     if (!isAvailable) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     final serverData = await _fetchUserDocFromServerWithRetries(
       uid,
       leadingDelay: leadingDelay,
     );
     if (serverData == null ||
-        FirebaseAuth.instance.currentUser?.uid != uid) {
+        folioCloudCurrentUid() != uid) {
       return;
     }
     final parsed = FolioCloudSnapshot.fromUserDoc(serverData);
@@ -685,7 +732,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   Future<void> refreshBackupStorageUsageFromServer() async {
     if (!isAvailable) return;
     if (!snapshot.canUseCloudBackup) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     try {
       final m = await folioGetBackupStorageUsageCallable();
@@ -765,7 +812,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Al reactivar la app: datos frescos de Firestore y, si aplica, una sync con Stripe tras checkout.
   Future<void> handleAppResumed() async {
     if (!isAvailable) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     // Windows: el motor Flutter + Pigeon a menudo necesitan >1s tras resumed.
     await refreshUserDocFromServer(
@@ -814,15 +861,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     _userDocPollTimer = null;
   }
 
-  void _onUser(User? user) {
-    unawaited(_handleUserChange(user));
-  }
-
-  Future<void> _handleUserChange(User? user) async {
+  Future<void> _handleUidChange(String? uid) async {
     await _docSub?.cancel();
     _docSub = null;
     _cancelUserDocPoll();
-    if (user == null) {
+    if (uid == null || uid.isEmpty) {
       _subscribedUid = null;
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
@@ -832,8 +875,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final accountChanged = _subscribedUid != user.uid;
-    _subscribedUid = user.uid;
+    final accountChanged = _subscribedUid != uid;
+    _subscribedUid = uid;
     if (accountChanged) {
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
@@ -842,7 +885,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _clearWebPortalMirror();
       notifyListeners();
     }
-    await _subscribeUserDoc(user.uid);
+    await _subscribeUserDoc(uid);
     unawaited(refreshWebPortalEntitlement());
   }
 
@@ -850,7 +893,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   Future<void> _subscribeUserDoc(String uid) async {
     Map<String, dynamic>? serverData =
         await _fetchUserDocFromServerWithRetries(uid);
-    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (folioCloudCurrentUid() != uid) return;
     if (serverData == null) {
       try {
         await callFolioHttpsCallable('ensureUserDocExists');
@@ -859,7 +902,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         // Ignorar
       }
     }
-    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (folioCloudCurrentUid() != uid) return;
     if (serverData != null) {
       final parsed = FolioCloudSnapshot.fromUserDoc(serverData);
       AppLogger.debug(
@@ -884,13 +927,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _serverFetchTruth = null;
     }
 
-    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (folioCloudCurrentUid() != uid) return;
 
     unawaited(_maybeSyncStripeAfterServerRead(uid, serverData));
 
-    if (_folioFirestoreUseGetPolling) {
+    if (FolioBackendConfig.useSpring || _folioFirestoreUseGetPolling) {
       _userDocPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-        if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+        if (folioCloudCurrentUid() != uid) return;
         unawaited(refreshUserDocFromServer());
       });
       return;
@@ -902,7 +945,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         .snapshots()
         .listen(
           (doc) {
-            if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+            if (folioCloudCurrentUid() != uid) return;
             final next = FolioCloudSnapshot.fromUserDoc(doc.data());
             if (doc.metadata.isFromCache && _serverFetchTruth != null) {
               final s = _serverFetchTruth!;
@@ -935,7 +978,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     String uid,
     Map<String, dynamic>? serverData,
   ) async {
-    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (folioCloudCurrentUid() != uid) return;
     if (snapshot.active && (snapshot.isStudent || !snapshot.isStudentVerified)) return;
     final cid = serverData?['stripeCustomerId'];
     if (cid is! String || cid.trim().isEmpty) return;
@@ -959,7 +1002,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Llamar tras volver del checkout o si la UI sigue desactualizada.
   Future<void> refreshSubscriptionFromStripe() async {
     if (!isAvailable) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     _lastStripeSync = null;
     try {
@@ -974,7 +1017,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       rethrow;
     }
     final data = await _fetchUserDocFromServerWithRetries(uid);
-    if (data != null && FirebaseAuth.instance.currentUser?.uid == uid) {
+    if (data != null && folioCloudCurrentUid() == uid) {
       final parsed = FolioCloudSnapshot.fromUserDoc(data);
       snapshot = parsed;
       _serverFetchTruth = parsed;
@@ -987,7 +1030,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     if (!isAvailable) return;
     if (!FolioMicrosoftStoreChannel.isRuntimeSupported) return;
     if (!FolioDistribution.showMicrosoftStoreIntegration) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     try {
       await syncFolioMicrosoftStoreEntitlementsFromDevice();
@@ -1001,7 +1044,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       rethrow;
     }
     final data = await _fetchUserDocFromServerWithRetries(uid);
-    if (data != null && FirebaseAuth.instance.currentUser?.uid == uid) {
+    if (data != null && folioCloudCurrentUid() == uid) {
       final parsed = FolioCloudSnapshot.fromUserDoc(data);
       snapshot = parsed;
       _serverFetchTruth = parsed;
@@ -1012,7 +1055,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Una sola acción: revalida Stripe y, en Windows, Microsoft Store; actualiza el snapshot si al menos un canal responde.
   Future<void> refreshFolioCloudBillingFromServers() async {
     if (!isAvailable) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
     _lastStripeSync = null;
 
@@ -1046,7 +1089,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     }
 
     final data = await _fetchUserDocFromServerWithRetries(uid);
-    if (data != null && FirebaseAuth.instance.currentUser?.uid == uid) {
+    if (data != null && folioCloudCurrentUid() == uid) {
       try {
         final parsed = FolioCloudSnapshot.fromUserDoc(data);
         snapshot = parsed;
@@ -1079,6 +1122,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cloudAccount?.removeListener(_onCloudAccountChanged);
     _cancelUserDocPoll();
     unawaited(_authSub?.cancel());
     unawaited(_docSub?.cancel());

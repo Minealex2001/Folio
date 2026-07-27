@@ -6,6 +6,8 @@ Inventario y plan de migración de todo lo que Folio usa de Firebase hoy, basado
 
 Folio ya tiene una ventaja de partida importante: **el cliente de escritorio (Windows/Linux) no usa los SDKs nativos de Firebase para las callables** — `cloud_functions` no funciona bien fuera de Android/iOS, así que ya hablan HTTP plano (`Authorization: Bearer <idToken>`) contra las Cloud Functions (ver [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) y [folio_cloud_callable.dart](../lib/services/folio_cloud/folio_cloud_callable.dart)). Eso significa que sustituir el backend por Spring Boot es, en gran parte, **cambiar la URL base y el esquema de token**, no reescribir el cliente desde cero.
 
+**Self-host / open source:** el directorio `backend/` incluye Dockerfile + Compose con el servicio `api` (perfil Spring `docker`) junto a Postgres, MinIO y Mailpit. Guía operativa: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md).
+
 Lo que sí es trabajo grande:
 - Portar ~53 funciones (`onCall`/`onRequest`/`onSchedule`) a controllers Spring.
 - Portar las reglas de seguridad de Firestore/Storage (530 líneas combinadas) a lógica de autorización explícita en el service layer — esto es el mayor riesgo de regresión porque hoy es declarativo y "gratis".
@@ -431,12 +433,23 @@ En Spring nada de esto es automático: **cada uno de estos checks se convierte e
 ## 6. Analytics / Telemetría
 
 - `firebase_analytics` — uso ligero, fácil de sustituir por tu propio pipeline: ya existe [`folio_telemetry.dart`](../lib/services/folio_telemetry.dart) y un [dashboard propio](../lib/features/telemetry_dashboard/telemetry_dashboard_page.dart), y una function `telemetry.ts` separada. Probablemente ya no dependes de Analytics para nada crítico — confirmar antes de decidir si lo quitas del todo o lo dejas en paralelo solo para métricas de producto/marketing.
+- **Decisión (Fase 28):** no se porta el pipeline Firestore (`analytics_events` + jobs de `telemetry.ts`) a Spring en el cutover. La continuidad no es crítica (opt-in, dashboard staff, GA4 cubre installs/marketing). Detalle en `docs/FEATURES.md` (Fase 28 descartada).
 
 ## 7. Cliente Flutter — qué cambia
 
-- Quitar `firebase_core`, `firebase_auth*`, `firebase_storage`, `firebase_analytics` de `pubspec.yaml` una vez migrado todo, y borrar [`firebase_options.dart`](../lib/firebase_options.dart).
+- Quitar `firebase_core`, `firebase_auth*`, `firebase_storage`, `firebase_analytics`, `cloud_firestore`, `cloud_functions` de `pubspec.yaml` una vez migrado todo, y borrar [`firebase_options.dart`](../lib/firebase_options.dart) / [`firebase_options_staging.dart`](../lib/firebase_options_staging.dart) y el fork [`vendor/firebase_auth_platform_interface`](../vendor/firebase_auth_platform_interface).
 - El patrón ya usado en `folio_firestore_rest.dart` / `folio_firebase_storage_rest.dart` / `folio_cloud_callable.dart` (HTTP + Bearer token) se mantiene casi igual — cambia el host, el formato exacto de error (`{error:{status,message}}` de las callables vs. el que definas tú) y el esquema de token (ID token de Firebase vs. tu propio JWT).
 - El login pasa de `firebase_auth` a lo que decidas (llamadas HTTP a tu backend de auth, o SDK del IdP elegido).
+
+### 7.1 Fase 30 — decomisión Firebase (checklist; no ejecutada aún)
+
+**Estado: Fase 30 diferida — checklist listo, no ejecutada.** Detalle ejecutable (prerrequisitos, inventario a borrar, comandos `flutter analyze` / `rg` / `flutter test` / builds, docs a archivar, proyectos `folio-minealexgames` / `folio-staging-minealex`): ver **«Backend Spring Boot — Fase 30»** en [FEATURES.md](FEATURES.md).
+
+Reglas de esta fase:
+
+1. **Prerrequisito:** Fase 29 (flag dual-mode) estable en producción **≥1 ciclo de release completo** con default Spring.
+2. **No ejecutar** la decomisión en la misma sesión en que solo se documenta el checklist; no romper el modo Firebase mientras Fase 29 esté activa.
+3. **Tras ejecutar:** se eliminan deps pubspec + opciones + vendor fork + `functions/` + config Firebase del repo; se archivan/actualizan `FOLIO_CLOUD_BACKEND.md` y `FOLIO_CLOUD_STAGING.md`; ops decomisiona los proyectos GCP. **El rollback deja de ser barato** (ya no basta con flip de flag).
 
 ## 8. Fases recomendadas
 

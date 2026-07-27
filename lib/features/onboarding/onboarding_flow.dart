@@ -367,7 +367,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
     } else {
       // 2) Reauth captures account password for restore unwrap.
-      final userEmail = _cloud.user?.email?.trim();
+      final userEmail = _cloud.email?.trim();
       if (userEmail == null || userEmail.isEmpty) {
         setState(() => _error = l10n.cloudAuthErrorGeneric);
         return;

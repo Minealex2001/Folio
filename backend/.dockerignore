@@ -1,0 +1,15 @@
+target/
+.git/
+.idea/
+*.iml
+.env
+*.log
+.classpath
+.project
+.settings/
+Dockerfile*
+docker-compose*.yml
+README.md
+.env.example
+**/.DS_Store
+**/Thumbs.db

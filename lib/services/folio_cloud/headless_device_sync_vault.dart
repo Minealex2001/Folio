@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 
@@ -19,6 +18,7 @@ import '../app_logger.dart';
 import '../sync/vault_sync_merge.dart';
 import '../sync/vault_sync_pack.dart';
 import 'device_sync_key_cache.dart';
+import 'folio_cloud_identity.dart';
 
 /// Lectura/escritura de una libreta para device-sync sin abrirla en la UI.
 ///
@@ -68,7 +68,7 @@ class HeadlessDeviceSyncVault {
   /// Resuelve la clave de pack. Null si la libreta cifrada nunca se desbloqueó
   /// en este dispositivo (aún no hay DEK en caché ni quick-unlock).
   Future<SecretKey?> resolvePackKey(String vaultId) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (await isPlain(vaultId)) {
       if (uid != null && uid.isNotEmpty) {
         try {

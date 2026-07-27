@@ -1738,3 +1738,228 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 - División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
 - Unificación de bridges `integrations_bridge` / `run2doc_bridge` / MCP (puertos ya separados: 45831 / 45832 / 45833).
 - Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.
+
+## Backend Spring Boot (migración Firebase → Spring) — Fases 1–10
+
+Directorio nuevo `backend/`: API REST `/api/v1/...` con Maven, Java 21 y Spring Boot 3.3.x que sustituye gradualmente Auth/Firestore/Functions.
+
+**Infra local (Fase 1):** `docker-compose.yml` con PostgreSQL 16, MinIO y Mailpit; `GET /api/v1/health` → `{"status":"ok"}`; Swagger UI en `/swagger-ui.html`.
+
+**Self-host Docker:** el mismo compose incluye el servicio `api` (Dockerfile multi-stage Maven + JRE 21, perfil `docker`). Un `docker compose up -d --build` levanta el stack completo; el API queda en el host en **`:18080`** (`API_HOST_PORT`, evita choque con CEF en `:8080` en Windows). Secretos Stripe/OpenAI van en **`backend/.env`** (no en `functions/.env`). Guía: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md).
+
+**Postman:** colección v2.1 de todos los endpoints REST + nota STOMP collab en [`backend/postman/`](../backend/postman/) (`Folio_Cloud_API.postman_collection.json` + environment local). Cómo importar: [backend/README.md](../backend/README.md) § Postman. Carpeta **Admin (QA)** para grant Cloud/ink/staff sin Stripe. El `adminApiKey` del environment debe coincidir con `FOLIO_ADMIN_API_KEY` en `backend/.env`. Los IT que hacen fallback sin Testcontainers usan la BD `folio_it` (no `folio`) para no truncar datos locales del self-host.
+
+### Admin / QA (sin pagar Stripe)
+
+| Método | Ruta | Efecto |
+|---|---|---|
+| POST | `/api/v1/admin/entitlements/grant-cloud` | Cloud completo (`admin_override`) sin Checkout |
+| POST | `/api/v1/admin/entitlements/revoke-cloud` | Quita el grant |
+| POST | `/api/v1/admin/ink/grant` | Suma tinta `purchasedBalance` |
+| POST | `/api/v1/admin/staff` | Marca `folioStaff` |
+| POST | `/api/v1/admin/users/lookup` | Snapshot de cuenta |
+
+Auth: header `X-Folio-Admin-Key: $FOLIO_ADMIN_API_KEY` **o** JWT de usuario `folioStaff`. Body: `{ "email": "..." }` o `{ "uid": "..." }`.
+
+```powershell
+# En backend/.env: FOLIO_ADMIN_API_KEY=dev-admin-change-me
+docker compose -f backend/docker-compose.yml up -d --build api
+
+curl -X POST http://127.0.0.1:18080/api/v1/admin/entitlements/grant-cloud `
+  -H "Content-Type: application/json" `
+  -H "X-Folio-Admin-Key: dev-admin-change-me" `
+  -d "{\"email\":\"tu@email.com\",\"alsoStaff\":true,\"inkDrops\":1000}"
+```
+
+**Esquema (Fases 2–3):** Flyway `V1__core_schema.sql` (tablas del doc §2.1) + `V2__auth_schema.sql` (`password_hash`, `email_verified_at`, `status`, `refresh_tokens`, `email_verification_tokens`, `password_reset_tokens`).
+
+**Auth (Fases 4–9):**
+- `POST /auth/register` — Argon2id, crea `users` + `user_folio_cloud` + `user_ink`, envía verificación de email.
+- `POST /auth/login` — JWT HS256 (access 15 min) + refresh opaco (SHA-256 en BD, 30 días).
+- Filtro JWT fail-closed; públicos: health, register/login/refresh/verify-email/forgot/reset-password y Swagger.
+- `POST /auth/refresh` con rotación; reuso de refresh revocado invalida la cadena del usuario.
+- `POST /auth/logout` y `POST /auth/resend-verification` requieren Bearer.
+- Verificación de email y forgot/reset password vía Mailpit en local; reset revoca todos los refresh tokens.
+
+**Cuenta (Fase 10):** `GET /account/me`, `POST /account/ensure` (idempotente, puerto de `ensureUserDocExists`), `PATCH /account/display-name` (máx. 80, colapsa espacios; propagación a familia en Fase 15).
+
+## Backend Spring Boot — Fases 12–15 (billing, ink, MS Store, familia)
+
+**Fase 12 — Stripe + email estudiante:** `POST /api/v1/billing/checkout-session`, `/portal-session`, `/sync` (JWT); `POST /api/v1/billing/webhook` (público, firma Stripe + idempotencia en `stripe_webhook_events` / `stripe_processed_checkouts`). `StudentEmailChecker` / `AbusedEmailDomains` portan `student_email.ts` + `swot_abused_domains.ts` (tests 1:1). Variables `STRIPE_*` alineadas con `docs/FOLIO_CLOUD_SECRETS.md`.
+
+**Fase 13 — Recarga mensual de tinta:** `@Scheduled` cron `0 0 8 1 * *` (segundos + campos Spring) zona `Europe/Madrid`; `MonthlyInkRefillJob.runRefill()` consultable en tests. Elegibilidad por query directa a `user_folio_cloud` (+ MS Store), sin índice `folioCloudSubscribers`.
+
+**Fase 14 — Microsoft Store IAP:** `POST /api/v1/billing/microsoft-store/validate` — Azure AD + Collections API; idempotencia en `microsoft_store_processed_purchases` / `_backup_grants`. Tests con MockWebServer.
+
+**Fase 15 — Familia:** `POST /api/v1/family/invite|remove|verify-student`, `GET /api/v1/family/details`; recalcula entitlements al invitar/quitar. `PATCH /account/display-name` propaga best-effort a `family_members.display_name_snapshot`.
+
+Verificación: `mvn -f backend/pom.xml test` (Testcontainers Postgres). Arranque: ver `backend/README.md`.
+
+## Backend Spring Boot — Fases 19–21 (IA + Jira/diagnósticos + Slack/Teams/Spotify)
+
+Flyway `V19__ai_integrations_schema.sql`: amplía `integration_user_index` / `pending_integration_command` y añade `integration_webhook_connections`, `integration_link_codes`, `teams_webhook_endpoints`, `folio_diagnostics`, `folio_diagnostic_signatures`.
+
+**Fase 19 — Proxy IA + tinta:** `GET /api/v1/ai/pricing`, `POST /api/v1/ai/complete`, `POST /api/v1/ai/transcribe` (JWT). Debita tinta antes de llamar al proveedor; reembolsa a `purchasedBalance` si falla. Cliente OpenAI inyectable (`OpenAiClient`) para tests.
+
+**Fase 20 — Jira OAuth + diagnósticos (públicos):** `POST /api/v1/integrations/jira/oauth-exchange` (shape Atlassian: `access_token` / `refresh_token` / `expires_in`); `POST /api/v1/diagnostics/report` → `{ok, savedToYouTrack}` y persistencia local.
+
+**Fase 21 — Slack/Teams (9) + Spotify (3):** webhook connection/proxy, link-code, pending-commands, ack-command; `POST .../slack/command` y `.../teams/command` públicos con verificación de firma Slack HMAC / Teams outgoing HMAC; OAuth exchange Slack/Teams/Spotify (JWT); callback HTML Spotify; proxy passthrough Spotify Web API.
+
+Públicos adicionales en SecurityConfig: jira oauth-exchange, diagnostics/report, slack/teams command, spotify oauth-callback.
+
+## Backend Spring Boot — Fases 11, 16–18, 22–24 (storage, vault, collab, publish, templates)
+
+**Fase 11 — Storage MinIO/S3:** AWS SDK v2 `S3Client`/`S3Presigner`; `StorageService` (presign upload/download, put/get, delete, `deletePrefix`); `StoragePathAuthorizer` traduce `storage.rules` (backups, cloud-packs, device-sync, app/vault profiles, published, community-templates ≤1 MiB, collab-media ≤80 MiB); bootstrap de bucket en perfiles `dev`/`test`. Config `folio.storage.*` / env `S3_*`. Proxy autenticado para el cliente: `PUT/GET/HEAD /api/v1/storage/objects` con cabecera `X-Folio-Storage-Path` (evita URLs presignadas con hostname Docker `minio`).
+
+**Fase 16 — Vault backups (14 endpoints):** `POST /api/v1/vault/backups/...` — finalize/latest-meta/restore-wrap/blobs-exist/usage/list/delete cloud-pack & legacy/trim(-by-bytes)/vaults/index upsert/record-meta. Cuota en `user_backup_usage` + Flyway `V111__vault_backup_fingerprint.sql`.
+
+**Fase 17 — Device sync:** `POST /api/v1/vault/device-sync/meta|finalize|vaults|plain-secret/ensure` — v1 pack monolítico / v2 manifiesto (+ resta de cuota v1→v2); secreto plain get-or-create con lock. El cliente en modo Spring lee meta vía callable (no Firestore) y sube blobs/manifiesto por el proxy `/api/v1/storage/objects` con el UID Spring en las rutas `users/{uid}/...`.
+
+**Fase 18 — App/vault profiles:** `POST /api/v1/vault/profiles/app|vault/...` — validación de `packStoragePath` vía `StoragePathAuthorizer` (prefijo, sin `..`, `.bin`). Respuesta vacía de `app/meta` y `vault/meta` usa `LinkedHashMap` (permite `updatedAt: null`); un `Map.of(..., null)` provocaba NPE y el cliente veía **401 vacío** por el error-dispatch de Spring Security. `POST .../app/restore-wrap` alinea con Firebase: **200** con `restoreWrapB64` vacío si aún no hay wrap (antes 412 `failed_precondition`, que abortaba el primer push de ajustes).
+
+**Fase 22 — Collab control-plane:** `POST/GET/PUT /api/v1/collab/rooms/**` — create/join/invite/remove/close, prepare/commit media (presign), update con `CollabRoomUpdateValidator` (reglas firestore legacy / e2e seal / e2e content). Sync en vivo → Fase 27.
+
+**Fase 23 — Published pages:** `POST/PUT/DELETE/GET /api/v1/published-pages` — exige feature `publishWeb`; GET por id público; owner-only write/delete.
+
+**Fase 24 — Community templates:** `POST/PUT/DELETE/GET /api/v1/community-templates` — `communityTemplateCreateOk` a nivel app (name/blockCount/path/url/…) con 400 por campo; límite 1 MiB en subida.
+
+## Backend Spring Boot — Fases 25–26 (ciclo de vida de cuenta / RGPD)
+
+**Fase 25 — Solicitud/cancelación de borrado + exportación:**
+- `POST /api/v1/account/deletion/request` — agenda `deletion_scheduled_for = now+30d`; si ya hay pendiente, devuelve la misma fecha.
+- `POST /api/v1/account/deletion/cancel` — limpia columnas; rechaza si la fecha ya pasó (carrera con el job).
+- `GET /api/v1/account/export` — JSON de metadatos (perfil, folioCloud, billing resumido, ink, familia, vaultBackups/publishedPages/communityTemplates ≤100, collabRooms ≤50). Sin contenido cifrado de libretas.
+
+**Fase 26 — Cascada `purgeUserAccount` + job diario:**
+- `AccountDeletionService.purgeUserAccount(uid)`: Stripe cancel/delete customer (best-effort), salir/disolver familia + recompute entitlements, borrar salas propias (BD + prefijo `collab-media-e2e/`) y membresías ajenas, `deletePrefix` de `users/{uid}/`, `published/{uid}/`, `community-templates/{uid}/`, borrar published/templates/integration index (+ filas MS Store sin CASCADE), y finalmente `users` (FK 1:1 en cascada).
+- Job `@Scheduled(cron = "0 15 3 * * *", zone = Europe/Madrid)` → `processScheduledAccountDeletions`.
+- Sin IdP externo: no hay trigger `onUserDeleted` separado (documentado en el servicio).
+
+**Fase 27 — Collab sync en vivo (STOMP/WebSocket):** endpoint `ws://…/ws/collab`; JWT en frame STOMP `CONNECT` (`Authorization: Bearer` o header `token`, mismo `JwtService` que HTTP). `SEND /app/collab/{roomId}/update` con shape legacy (`title`/`blocksJson`) o E2E (`wrappedRoomKey`/`contentCipher`) + `changedKeys`; valida con `CollabRoomUpdateValidator`, persiste `content_version`, retransmite a `/topic/collab/{roomId}` solo si es válido. Sin CRDT (el cliente usa last-write-wins por `contentVersion`). Handshake HTTP público; auth en CONNECT. Errores de validación → `/user/queue/collab-errors` (sin broadcast).
+
+Verificación: `mvn -f backend/pom.xml test`. Arranque: ver `backend/README.md`.
+
+## Backend Spring Boot — Fase 28 (telemetría opcional)
+
+**Fase 28 — Telemetría: descartada intencionalmente.** No se porta a Spring la ingesta `telemetry_events` ni los jobs de agregación de `functions/src/telemetry.ts`. Motivos (evidencia en código/docs):
+
+- `docs/MIGRACION_SPRINGBOOT.md` §6 ya enmarca `firebase_analytics` como uso ligero y no crítico: «Probablemente ya no dependes de Analytics para nada crítico — confirmar antes de decidir…».
+- Canal dual documentado en `docs/TELEMETRY.md`: GA4 (anónimo, sin cuenta) + copia Firestore `analytics_events/{uid}/events` solo con sesión y `AppSettings.telemetryEnabled`. El dashboard staff (`telemetry_dashboard_page.dart`) depende de Firestore/agregados; los totales de instalación viven en GA4 (`folio_install`), no en el pipeline propio.
+- Continuidad histórica a través del cutover no bloquea Auth, billing, vault, collab ni Cloud; la telemetría es opt-in de producto/privacidad, no contrato de API.
+- En Windows el sync a Firestore ya está deshabilitado (`folioFirestoreSupported` / `FolioFirestoreSync`), así que el pipeline propio ya no es universal antes del cutover.
+- Tras el cutover se puede dejar GA4 en paralelo para métricas de producto/marketing, o reintroducir un pipeline Spring más adelante sin acoplarlo al go-live.
+
+Sin código nuevo en esta fase (sin `mvn test` adicional).
+
+## Backend Spring Boot — Fase 29 (cutover cliente Flutter)
+
+Cutover **sin big-bang**: el cliente Flutter puede apuntar a Firebase (default) o al API Spring Boot detrás de compile-time defines. Rollback = rebuild sin el flag Spring (modo Firebase sigue construible; no se borran paquetes Firebase — eso es Fase 30).
+
+### Activar modo Spring
+
+```bash
+flutter run -d windows --dart-define=FOLIO_BACKEND_MODE=spring \
+  --dart-define=FOLIO_BACKEND_BASE_URL=http://127.0.0.1:18080
+```
+(En Windows preferir `127.0.0.1:18080`: el compose publica el API ahí; `localhost:8080` choca a menudo con CEF/Cursor.)
+
+| Define | Default | Efecto |
+|---|---|---|
+| `FOLIO_BACKEND_MODE` | `firebase` | `spring` / `springboot` / `backend` → API Spring |
+| `FOLIO_BACKEND_BASE_URL` | (vacío) | Obligatorio en modo Spring (p. ej. `http://127.0.0.1:18080` o URL de staging/prod) |
+
+Código clave:
+- `lib/config/folio_backend_config.dart` — flag + base URL + WS collab derivado
+- `lib/services/cloud_account/folio_spring_auth_session.dart` — login/refresh/logout/register; tokens en `FlutterSecureStorage`
+- `lib/services/cloud_account/cloud_account_controller.dart` — dual Firebase | Spring
+- `lib/services/folio_cloud/folio_cloud_callable.dart` — en Spring: HTTP en **todas** las plataformas + mapa callable→REST
+- `lib/services/folio_cloud/folio_spring_callable_routes.dart` — rutas `/api/v1/...`
+- `lib/services/folio_cloud/folio_cloud_identity.dart` — UID/Bearer unificados
+- Entitlements: `GET /account/me` (mapa compatible con el shape Firestore)
+
+Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco, mismo almacén seguro que el resto de secretos de la app.
+
+### Checklist go / no-go (antes de cambiar el default a Spring)
+
+- [ ] `mvn -f backend/pom.xml test` verde (grupos A–L / fases 1–27)
+- [ ] `flutter test` verde en modo default (Firebase)
+- [ ] Smoke desktop (Windows) contra Spring local o staging: registro, login, refresh de sesión, ensure/account me, billing portal si aplica, un callable vault (meta), create/join collab room
+- [ ] Confirmar que el rollback (build sin defines Spring) sigue autenticando contra Firebase
+- [ ] Dogfooding desktop estable; móvil/web solo tras cerrar pendientes de plataforma (abajo)
+- [ ] No ejecutar Fase 30 hasta un ciclo de release completo con default Spring en producción
+
+### Pendientes por plataforma / superficie
+
+| Área | Estado en Fase 29 |
+|---|---|
+| Callables → REST (desktop + forzado HTTP en móvil/web en modo Spring) | Hecho (mapa en `folio_spring_callable_routes.dart`) |
+| Auth JWT + secure storage | Hecho |
+| Entitlements vía `/account/me` | Hecho |
+| `folioCloudCatalogPrices` | `POST /api/v1/billing/catalog-prices` (público) |
+| Subidas/descargas blob (proxy Spring → MinIO) | **Hecho** — `PUT/GET/HEAD /api/v1/storage/objects` + `folio_storage_transport` en modo Spring; device-sync/app-profile usan `folioCloudCurrentUid` (no Firebase Auth) |
+| Collab live WebSocket STOMP (`/ws/collab`) | Cliente aún no cableado al transporte Spring (control-plane REST sí) |
+| Lecturas/escrituras directas Firestore (móvil/web: collab content streams, community templates, published pages, telemetry dashboard, integrations pending cmds vía SDK) | Parcial: callables unificados; streams nativos Firestore siguen en Firebase si el SDK está activo — documentar y migrar por archivo |
+| Portal web (`FOLIO_WEB_PORTAL_*`) | Omite espejo en modo Spring (sigue esperando ID token Firebase) |
+| Analytics / telemetría GA4 | Fuera de alcance (Fase 28 descartada) |
+
+## Backend Spring Boot — Fase 30 (decomisión Firebase)
+
+**Estado actual: Fase 30 diferida — checklist listo, no ejecutada.**
+
+No ejecutar esta fase en la misma sesión en que se escribe el checklist. La decomisión es destructiva: **el rollback deja de ser barato** (hay que restaurar deps, `functions/`, opciones de Firebase, fork Windows y, si se apagan los proyectos GCP, recuperar proyectos/billing). Solo procede **después de que la Fase 29 (flag dual-mode Firebase | Spring) haya corrido limpia en producción durante al menos un ciclo de release completo**, con tráfico real en modo Spring por defecto y sin dependencia operativa del backend Firebase.
+
+Coordinación: mientras Fase 29 esté en curso o en canario, **no** quitar paquetes Firebase ni romper el modo Firebase del cliente.
+
+### Prerrequisitos (obligatorios antes de tocar código)
+
+1. Fase 29 fusionada y desplegada: flag dual-mode estable; default de producción = Spring.
+2. Al menos **un ciclo de release completo** en producción con el default Spring, sin regresiones de Auth, billing, vault, collab, IA ni storage atribuibles al cutover.
+3. Confirmación explícita de producto/ops de que no hace falta volver a Firebase en caliente (rollback = rebuild + redeploy del cliente + posible reactivación de proyectos, no un flip de flag).
+4. Backup / export de lo que aún se necesite de Firestore/Auth/Storage (si aplica migración de datos residuales) y de secretos aún solo en Firebase.
+5. CI y builds de release apuntando ya a Spring; sin jobs que desplieguen `functions/` a producción como camino feliz.
+
+### Qué se eliminará cuando se ejecute (inventario)
+
+| Ámbito | Elementos |
+|---|---|
+| **Deps `pubspec.yaml`** | `firebase_core`, `firebase_auth`, `firebase_auth_platform_interface`, `cloud_firestore`, `firebase_storage`, `cloud_functions`, `firebase_analytics`; quitar el `dependency_overrides` del path `vendor/firebase_auth_platform_interface`. |
+| **Cliente / vendor** | `lib/firebase_options.dart`, `lib/firebase_options_staging.dart`, directorio `vendor/firebase_auth_platform_interface/`; código/imports residuales de plugins Firebase en `lib/` (tras el cutover de Fase 29 solo deberían quedar stubs o rutas muertas). |
+| **Backend Firebase** | Directorio completo `functions/` (Cloud Functions, scripts de deploy npm, emuladores). |
+| **Config Firebase en repo** | `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, `firestore.indexes.json` (y CORS/scripts solo-Firebase si ya no aplican). |
+| **Docs a archivar o reescribir** | [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) (autoridad Cloud Functions / reglas) → archivar o redirigir a `backend/README.md` + este FEATURES; [FOLIO_CLOUD_STAGING.md](FOLIO_CLOUD_STAGING.md) (proyectos `folio-minealexgames` / `folio-staging-minealex`) → archivar o reescribir para staging Spring. Actualizar referencias en README, `FOLIO_CLOUD_SECRETS.md`, `TELEMETRY.md`, `MIGRACION_SPRINGBOOT.md` §7. |
+| **Proyectos Firebase/GCP** | Decomisión operativa de **`folio-minealexgames`** (producción) y **`folio-staging-minealex`** (staging): Functions, Auth, Firestore, Storage, facturación; solo tras confirmar que ningún cliente en soporte sigue apuntando ahí. |
+
+### Checklist ejecutable (orden)
+
+Ejecutar en PowerShell desde la raíz del repo, en este orden. Cada casilla es un commit o PR propio si el diff es grande.
+
+1. **Congelar prerrequisitos** — Verificar en release notes / métricas que Fase 29 lleva ≥1 release estable en producción con default Spring.
+2. **Rama de decomisión** — Crear rama; no mezclar con features de producto.
+3. **Quitar deps Firebase** — Eliminar paquetes y override del fork Windows en `pubspec.yaml`; `flutter pub get`.
+4. **Borrar artefactos Firebase del cliente** — `lib/firebase_options.dart`, `lib/firebase_options_staging.dart`, `vendor/firebase_auth_platform_interface/`.
+5. **Limpiar código cliente** — Eliminar `main.dart` / env / telemetría / callables que aún importen plugins Firebase; dejar solo el cliente HTTP/JWT Spring (Fase 29).
+6. **Borrar `functions/`** — Tras confirmar que no hay deploys programados ni webhooks Stripe/MS Store aún apuntando a URLs de Cloud Functions.
+7. **Borrar config Firebase del repo** — `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, `firestore.indexes.json`.
+8. **Docs** — Archivar/actualizar `FOLIO_CLOUD_BACKEND.md`, `FOLIO_CLOUD_STAGING.md` y referencias cruzadas; marcar Fase 30 como **ejecutada** en este FEATURES y en `MIGRACION_SPRINGBOOT.md` §7.
+9. **Verificación local (obligatoria)**
+   ```powershell
+   flutter analyze
+   # Cero imports de plugins Firebase en lib/ y test/ (ajustar si queda un comentario histórico):
+   rg -n "package:firebase_|package:cloud_firestore|package:cloud_functions|firebase_options" lib test
+   flutter test
+   ```
+10. **Builds de release** — Al menos un build por plataforma de soporte (p. ej. Windows MSIX / Android / iOS / web según el release train vigente); confirmar arranque sin `Firebase.initializeApp` y sesión solo vía Spring.
+11. **Decomisión de proyectos GCP** (último, ops) — Apagar o borrar `folio-staging-minealex` primero; luego `folio-minealexgames` cuando el tráfico legacy sea cero. Documentar fecha y ticket de ops.
+
+### Comandos de verificación (resumen)
+
+| Comando | Criterio de éxito |
+|---|---|
+| `flutter analyze` | Sin errores nuevos por símbolos Firebase eliminados. |
+| `rg … package:firebase_\|cloud_firestore\|cloud_functions\|firebase_options` en `lib`/`test` | Sin coincidencias de imports activos (o solo docs/comentarios explícitamente permitidos). |
+| `flutter test` | Suite verde. |
+| Builds release | Artefactos firmados/instalables OK; smoke Auth + una callable crítica contra Spring. |
+
+### Nota de rollback
+
+Antes de Fase 30, el rollback típico es **revertir el flag dual-mode (Fase 29)** y seguir sirviendo Firebase. **Después de Fase 30**, el rollback implica restaurar deps + vendor + `functions/` + opciones + redeploy de Functions y, si se decomisionaron los proyectos, recrear infraestructura GCP — coste alto y fuera de un hotfix de release. No ejecutar Fase 30 en la misma ventana que un incidente de producción.

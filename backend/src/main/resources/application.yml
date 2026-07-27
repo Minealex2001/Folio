@@ -1,0 +1,118 @@
+spring:
+  application:
+    name: folio-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    # Device-sync / profile packs proxied via PUT /api/v1/storage/objects (≤80 MiB)
+    max-http-form-post-size: 83886080
+    max-swallow-size: 83886080
+
+folio:
+  jwt:
+    signing-secret: ${JWT_SIGNING_SECRET:dev-only-change-me-to-a-long-random-secret-32b}
+    access-token-ttl: PT15M
+    refresh-token-ttl: P30D
+  admin:
+    api-key: ${FOLIO_ADMIN_API_KEY:}
+  mail:
+    from: ${MAIL_FROM:noreply@folio.local}
+  app:
+    public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
+  storage:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+    bucket: ${S3_BUCKET:folio}
+    region: ${S3_REGION:us-east-1}
+    path-style-access: true
+    bootstrap-bucket: true
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    test-secret-key: ${STRIPE_TEST_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    test-webhook-secret: ${STRIPE_TEST_WEBHOOK_SECRET:}
+    checkout-success-url: ${STRIPE_CHECKOUT_SUCCESS_URL:}
+    checkout-cancel-url: ${STRIPE_CHECKOUT_CANCEL_URL:}
+    billing-portal-return-url: ${BILLING_PORTAL_RETURN_URL:https://folio.app}
+    price-folio-cloud-monthly: ${STRIPE_PRICE_FOLIO_CLOUD_MONTHLY:}
+    price-folio-cloud-family: ${STRIPE_PRICE_FOLIO_CLOUD_FAMILY:}
+    price-folio-cloud-family-member: ${STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER:}
+    price-folio-cloud-student: ${STRIPE_PRICE_FOLIO_CLOUD_STUDENT:}
+    price-ink-small: ${STRIPE_PRICE_INK_SMALL:}
+    price-ink-medium: ${STRIPE_PRICE_INK_MEDIUM:}
+    price-ink-large: ${STRIPE_PRICE_INK_LARGE:}
+    price-backup-storage-pack-small: ${STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL:}
+    price-backup-storage-pack-medium: ${STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM:}
+    price-backup-storage-pack-large: ${STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE:}
+    test-price-folio-cloud-monthly: ${STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY:}
+    test-price-folio-cloud-family: ${STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY:}
+    test-price-folio-cloud-family-member: ${STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY_MEMBER:}
+    test-price-folio-cloud-student: ${STRIPE_TEST_PRICE_FOLIO_CLOUD_STUDENT:}
+    test-price-ink-small: ${STRIPE_TEST_PRICE_INK_SMALL:}
+    test-price-ink-medium: ${STRIPE_TEST_PRICE_INK_MEDIUM:}
+    test-price-ink-large: ${STRIPE_TEST_PRICE_INK_LARGE:}
+    test-price-backup-storage-pack-small: ${STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL:}
+    test-price-backup-storage-pack-medium: ${STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM:}
+    test-price-backup-storage-pack-large: ${STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE:}
+    legacy-price-ids: ${STRIPE_PRICE_IDS_FOLIO_CLOUD:}
+  microsoft-store:
+    azure-ad-tenant-id: ${AZURE_AD_TENANT_ID:}
+    azure-ad-client-id: ${AZURE_AD_CLIENT_ID:}
+    azure-ad-client-secret: ${AZURE_AD_CLIENT_SECRET:}
+    product-folio-cloud-monthly: ${MS_STORE_PRODUCT_FOLIO_CLOUD_MONTHLY:}
+    ink-small: ${MS_STORE_INK_SMALL:}
+    ink-medium: ${MS_STORE_INK_MEDIUM:}
+    ink-large: ${MS_STORE_INK_LARGE:}
+    backup-storage-pack-small: ${MS_STORE_BACKUP_STORAGE_PACK_SMALL:${MS_STORE_BACKUP_STORAGE_PACK:}}
+    backup-storage-pack-medium: ${MS_STORE_BACKUP_STORAGE_PACK_MEDIUM:}
+    backup-storage-pack-large: ${MS_STORE_BACKUP_STORAGE_PACK_LARGE:}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    model: ${OPENAI_MODEL:gpt-5.4-mini-2026-03-17}
+    transcribe-model: ${OPENAI_TRANSCRIBE_MODEL:gpt-4o-transcribe}
+    max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:8192}
+    temperature: ${OPENAI_TEMPERATURE:0.7}
+  jira:
+    oauth-client-id: ${JIRA_OAUTH_CLIENT_ID:}
+    oauth-client-secret: ${JIRA_OAUTH_CLIENT_SECRET:}
+  integrations:
+    slack-signing-secret: ${SLACK_SIGNING_SECRET:}
+    slack-oauth-client-id: ${SLACK_OAUTH_CLIENT_ID:}
+    slack-oauth-client-secret: ${SLACK_OAUTH_CLIENT_SECRET:}
+    teams-oauth-client-id: ${TEAMS_OAUTH_CLIENT_ID:}
+    teams-oauth-client-secret: ${TEAMS_OAUTH_CLIENT_SECRET:}
+    spotify-oauth-client-id: ${SPOTIFY_OAUTH_CLIENT_ID:}
+    youtrack-base-url: ${YOUTRACK_BASE_URL:}
+    youtrack-token: ${YOUTRACK_TOKEN:}
+    youtrack-project-id: ${YOUTRACK_PROJECT_ID:}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

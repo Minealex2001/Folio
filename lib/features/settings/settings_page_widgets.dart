@@ -223,7 +223,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.cloud_outlined;
         gradientColors = const [Color(0xFF42A5F5), Color(0xFF1E88E5)];
         subtitle = widget.cloud.isSignedIn
-            ? (widget.cloud.user?.email ?? 'Sesión iniciada')
+            ? (widget.cloud.email ?? 'Sesión iniciada')
             : 'Configura tu cuenta';
         break;
       case _SettingsSectionId.vault:

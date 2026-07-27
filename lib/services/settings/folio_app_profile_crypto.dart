@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../crypto/vault_crypto.dart';
 import '../app_logger.dart';
+import '../folio_cloud/folio_cloud_identity.dart';
 import '../folio_cloud/folio_cloud_pack_crypto.dart';
 
 /// Clave AES del perfil de ajustes de la cuenta (no depende del vault).
@@ -258,5 +258,5 @@ class FolioAppProfileCrypto {
     return h.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
-  static String? currentUid() => FirebaseAuth.instance.currentUser?.uid;
+  static String? currentUid() => folioCloudCurrentUid();
 }

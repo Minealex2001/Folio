@@ -7,11 +7,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:http/http.dart' as http;
 
+import '../../config/folio_backend_config.dart';
 import '../app_logger.dart';
 import 'folio_cloud_callable_post.dart'
     if (dart.library.html) 'folio_cloud_callable_post_stub.dart'
     as callable_post;
+import 'folio_cloud_identity.dart';
+import 'folio_spring_callable_routes.dart';
 
 /// Región de despliegue de Cloud Functions (debe coincidir con `firebase deploy`).
 const String kFolioCloudFunctionsRegion = 'us-central1';
@@ -29,8 +33,12 @@ class FolioCloudFunctionsEmulator {
 /// muchos builds); el SDK usa un canal Pigeon que no existe y falla en runtime.
 /// En esas plataformas usamos el [protocolo HTTP callable] de Firebase.
 ///
+/// En **modo Spring** ([FolioBackendConfig.useSpring]) forzamos HTTP en **todas**
+/// las plataformas (móvil/web incluidas) hacia `/api/v1/...`.
+///
 /// [protocolo HTTP callable]: https://firebase.google.com/docs/functions/callable-reference
 bool get folioHttpsCallableUsesHttp {
+  if (FolioBackendConfig.useSpring) return true;
   if (kIsWeb) return false;
   return defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux;
@@ -58,22 +66,55 @@ FirebaseFunctions get _folioFunctions => FirebaseFunctions.instanceFor(
   region: kFolioCloudFunctionsRegion,
 );
 
+Map<String, dynamic> _paramsAsMap(Object? parameters) {
+  if (parameters == null) return <String, dynamic>{};
+  if (parameters is Map<String, dynamic>) return Map<String, dynamic>.from(parameters);
+  if (parameters is Map) {
+    return parameters.map((k, v) => MapEntry('$k', v));
+  }
+  return <String, dynamic>{'value': parameters};
+}
+
 /// Equivalente a [HttpsCallable.call] (devuelve el payload `result` del protocolo).
 Future<dynamic> callFolioHttpsCallable(
   String name, [
   Object? parameters,
 ]) async {
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
   AppLogger.debug(
     'callable call',
     tag: 'cloud_sync',
     context: {
       'name': name,
       'viaHttp': folioHttpsCallableUsesHttp,
+      'backend': FolioBackendConfig.modeLabel,
     },
   );
+
+  if (FolioBackendConfig.useSpring) {
+    try {
+      final result = await _callFolioSpringRest(name, parameters);
+      AppLogger.debug(
+        'callable ok',
+        tag: 'cloud_sync',
+        context: {'name': name, 'viaHttp': true, 'backend': 'spring'},
+      );
+      return result;
+    } catch (e, st) {
+      AppLogger.error(
+        'callable failed',
+        tag: 'cloud_sync',
+        error: e,
+        stackTrace: st,
+        context: {'name': name, 'viaHttp': true, 'backend': 'spring'},
+      );
+      rethrow;
+    }
+  }
+
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+
   if (folioHttpsCallableUsesHttp) {
     try {
       final result = await _callFolioHttpsViaHttp(name, parameters);
@@ -163,6 +204,145 @@ Future<dynamic> callFolioHttpsCallable(
   }
 }
 
+Future<dynamic> _callFolioSpringRest(String name, Object? parameters) async {
+  final route = resolveFolioSpringApiRoute(name);
+  if (route == null) {
+    throw FirebaseFunctionsException(
+      message: 'No Spring route mapping for callable "$name"',
+      code: 'unimplemented',
+    );
+  }
+
+  final params = _paramsAsMap(parameters);
+  final path = route.pathBuilder(params);
+  final uri = Uri.parse(
+    '${FolioBackendConfig.apiV1Prefix}/${path.replaceFirst(RegExp(r'^/'), '')}',
+  );
+
+  final maxAttempts = route.requiresAuth ? 2 : 1;
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    final forceRefresh = attempt > 0;
+    String? token;
+    if (route.requiresAuth) {
+      token = await folioCloudBearerToken(forceRefresh: forceRefresh);
+      if (token == null || token.isEmpty) {
+        throw FirebaseFunctionsException(
+          message: 'Must be signed in to call Folio Cloud API',
+          code: 'unauthenticated',
+        );
+      }
+    } else {
+      // Público (p. ej. catalog-prices): JWT opcional.
+      token = await folioCloudBearerToken(forceRefresh: false);
+    }
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json; charset=utf-8',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    late http.Response resp;
+    try {
+      switch (route.method.toUpperCase()) {
+        case 'GET':
+          resp = await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 120));
+        case 'PATCH':
+          resp = await http
+              .patch(
+                uri,
+                headers: headers,
+                body: route.omitBody ? null : jsonEncode(params),
+              )
+              .timeout(const Duration(seconds: 120));
+        case 'PUT':
+          resp = await http
+              .put(
+                uri,
+                headers: headers,
+                body: route.omitBody ? null : jsonEncode(params),
+              )
+              .timeout(const Duration(seconds: 120));
+        case 'DELETE':
+          resp = await http
+              .delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 120));
+        case 'POST':
+        default:
+          resp = await http
+              .post(
+                uri,
+                headers: headers,
+                body: route.omitBody ? '{}' : jsonEncode(params),
+              )
+              .timeout(const Duration(seconds: 120));
+      }
+    } on TimeoutException catch (e) {
+      throw FirebaseFunctionsException(
+        message: 'Folio Cloud API request timed out: $e',
+        code: 'deadline-exceeded',
+      );
+    }
+
+    if (resp.statusCode == 401 && route.requiresAuth && attempt == 0) {
+      continue;
+    }
+
+    final jsonText = _trimLeadingBom(resp.body);
+    if (resp.statusCode == 204 || jsonText.isEmpty) {
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        return <String, dynamic>{'ok': true};
+      }
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonText.isEmpty ? null : jsonDecode(jsonText);
+    } catch (_) {
+      throw FirebaseFunctionsException(
+        message:
+            'Folio Cloud API no devolvió JSON (HTTP ${resp.statusCode}). '
+            '${_previewForCallableFailure(jsonText)}',
+        code: 'unknown',
+      );
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      var message = 'HTTP ${resp.statusCode} calling $name';
+      var code = 'unknown';
+      if (decoded is Map) {
+        message = decoded['message']?.toString() ??
+            decoded['error']?.toString() ??
+            message;
+        final status = decoded['status'] ?? decoded['error'];
+        if (status != null && status is! Map) {
+          code = status.toString().toLowerCase().replaceAll('_', '-');
+        }
+        if (resp.statusCode == 401) code = 'unauthenticated';
+        if (resp.statusCode == 403) code = 'permission-denied';
+        if (resp.statusCode == 404) code = 'not-found';
+        if (resp.statusCode == 429) code = 'resource-exhausted';
+      }
+      throw FirebaseFunctionsException(message: message, code: code);
+    }
+
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(
+        decoded.map((k, v) => MapEntry('$k', v)),
+      );
+    }
+    return decoded;
+  }
+
+  throw FirebaseFunctionsException(
+    message:
+        'Folio Cloud API rejected the session (401). Sign out and sign in again.',
+    code: 'unauthenticated',
+  );
+}
+
 Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
@@ -200,7 +380,7 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
   /// [User.getIdToken] forzado suele resolverlo en escritorio.
   for (var attempt = 0; attempt < 2; attempt++) {
     final forceRefresh = attempt > 0;
-    final idToken = await user.getIdToken(forceRefresh);
+    final idToken = await folioCloudBearerToken(forceRefresh: forceRefresh);
     if (idToken == null || idToken.isEmpty) {
       throw FirebaseFunctionsException(
         message:
@@ -412,11 +592,17 @@ Future<dynamic> _callFolioCloudAiHttpFallback({
 
 /// Callable `folioGetBackupStorageUsage` (uso total = cloud-pack + archivos legado en `backups/`).
 Future<Map<String, dynamic>> folioGetBackupStorageUsageCallable() async {
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
-    throw StateError('Not signed in');
+  if (FolioBackendConfig.useSpring) {
+    if (!folioCloudHasSession()) {
+      throw StateError('Not signed in');
+    }
+  } else {
+    if (Firebase.apps.isEmpty) {
+      throw StateError('Firebase not initialized');
+    }
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw StateError('Not signed in');
+    }
   }
   final raw = await callFolioHttpsCallable(
     'folioGetBackupStorageUsage',

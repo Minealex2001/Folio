@@ -15,6 +15,7 @@ import 'app/app_settings.dart';
 import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
+import 'config/folio_backend_config.dart';
 import 'config/folio_firebase_env.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
@@ -151,6 +152,27 @@ Future<void> main(List<String> args) async {
       }
 
       final cloudAccountController = CloudAccountController();
+      if (FolioBackendConfig.useSpring) {
+        try {
+          await cloudAccountController.ensureSpringSessionRestored();
+          AppLogger.info(
+            'Spring backend mode active',
+            tag: 'backend',
+            context: {
+              'baseUrl': FolioBackendConfig.baseUrl.isEmpty
+                  ? '(unset)'
+                  : FolioBackendConfig.baseUrl,
+            },
+          );
+        } catch (e, st) {
+          AppLogger.error(
+            'Spring session restore failed',
+            tag: 'backend',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
       final folioCloudEntitlements = FolioCloudEntitlementsController();
       folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
 

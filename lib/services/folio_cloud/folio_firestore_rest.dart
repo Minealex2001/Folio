@@ -6,7 +6,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../config/folio_backend_config.dart';
 import '../../firebase_options.dart';
+import 'folio_cloud_identity.dart';
+import 'folio_spring_account_me.dart';
 
 /// Workaround para leer Cloud Firestore en plataformas donde el SDK nativo no
 /// es fiable (Windows: el plugin C++ crashea al inicializarse). En vez del SDK
@@ -39,6 +42,14 @@ Future<Map<String, dynamic>?> folioFirestoreRestGetDocument(
   String documentPath, {
   Duration timeout = const Duration(seconds: 20),
 }) async {
+  // En modo Spring, `users/{uid}` se lee vía `/account/me` (no Firestore REST).
+  if (FolioBackendConfig.useSpring) {
+    final parts = documentPath.split('/');
+    if (parts.length == 2 && parts[0] == 'users') {
+      return folioSpringFetchAccountMeAsUserDoc(timeout: timeout);
+    }
+    return null;
+  }
   // En web el SDK nativo de Firestore funciona; este workaround es para desktop.
   if (kIsWeb) return null;
   if (Firebase.apps.isEmpty) return null;
@@ -54,7 +65,7 @@ Future<Map<String, dynamic>?> folioFirestoreRestGetDocument(
   // 401: token caducado/rechazado; un segundo intento con refresh forzado lo
   // suele resolver (mismo criterio que las Cloud Functions por HTTP).
   for (var attempt = 0; attempt < 2; attempt++) {
-    final idToken = await user.getIdToken(attempt > 0);
+    final idToken = await folioCloudBearerToken(forceRefresh: attempt > 0);
     if (idToken == null || idToken.isEmpty) return null;
 
     final http.Response res;
@@ -91,6 +102,10 @@ Future<List<({String id, Map<String, dynamic> data})>>
   String collectionPath, {
   Duration timeout = const Duration(seconds: 20),
 }) async {
+  if (FolioBackendConfig.useSpring) {
+    // Listados Firestore REST no tienen equivalente genérico en Spring aún.
+    return const [];
+  }
   if (kIsWeb) return const [];
   if (Firebase.apps.isEmpty) return const [];
   final user = FirebaseAuth.instance.currentUser;
@@ -103,7 +118,7 @@ Future<List<({String id, Map<String, dynamic> data})>>
   );
 
   for (var attempt = 0; attempt < 2; attempt++) {
-    final idToken = await user.getIdToken(attempt > 0);
+    final idToken = await folioCloudBearerToken(forceRefresh: attempt > 0);
     if (idToken == null || idToken.isEmpty) return const [];
 
     final http.Response res;

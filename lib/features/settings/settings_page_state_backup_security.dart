@@ -422,7 +422,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
         l10n: l10n,
         cloud: _cloud,
         onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
-        initialEmail: _cloud.user?.email,
+        initialEmail: _cloud.email,
       ),
     );
     return password != null && password.isNotEmpty;

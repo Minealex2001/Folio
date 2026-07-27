@@ -1015,13 +1015,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                         }
                                         late final Widget accountCard;
                                         if (_cloud.isSignedIn) {
-                                          final u = _cloud.user!;
-                                          final email =
-                                              u.email?.trim().isNotEmpty == true
-                                              ? u.email!.trim()
+                                          final emailRaw =
+                                              _cloud.email?.trim() ?? '';
+                                          final email = emailRaw.isNotEmpty
+                                              ? emailRaw
                                               : '—';
                                           final displayName =
-                                              u.displayName?.trim() ?? '';
+                                              _cloud.displayName?.trim() ?? '';
                                           final initialSource =
                                               displayName.isNotEmpty
                                               ? displayName
@@ -1195,7 +1195,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                       ),
                                                                   ],
                                                                 ),
-                                                                if (u
+                                                                if (_cloud
                                                                     .emailVerified)
                                                                   Padding(
                                                                     padding:
@@ -1239,7 +1239,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                 SelectableText(
                                                                   l10n.cloudAccountUid(
                                                                     _shortCloudUid(
-                                                                      u.uid,
+                                                                      _cloud.uid ??
+                                                                          '',
                                                                     ),
                                                                   ),
                                                                   style: Theme.of(context)
@@ -1257,11 +1258,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           ),
                                                         ],
                                                       ),
-                                                      if (u.email != null &&
-                                                          u.email!
-                                                              .trim()
-                                                              .isNotEmpty &&
-                                                          !u.emailVerified) ...[
+                                                      if (emailRaw.isNotEmpty &&
+                                                          !_cloud
+                                                              .emailVerified) ...[
                                                         const SizedBox(
                                                           height: 12,
                                                         ),

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../crypto/vault_crypto.dart';
@@ -15,6 +14,7 @@ import '../sync/vault_sync_pack.dart';
 import 'device_sync_key_cache.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_cloud_device_sync_incremental.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_storage_transport.dart';
 import 'headless_device_sync_vault.dart';
@@ -64,7 +64,7 @@ String deviceSyncBootstrapPrefix(String uid, String vaultId) =>
 /// establece en otro sitio (sincronización de ajustes, que sí sube su wrap
 /// correctamente); aquí solo se adopta si ya existe.
 Future<SecretKey?> resolveAccountProfilePackKeyQuietly() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
+  final uid = folioCloudCurrentUid();
   if (uid == null || uid.isEmpty) return null;
   final crypto = FolioAppProfileCrypto();
   try {
@@ -75,7 +75,8 @@ Future<SecretKey?> resolveAccountProfilePackKeyQuietly() async {
         <String, dynamic>{},
       );
       if (wrapRes is Map) {
-        final w = '${wrapRes['restoreWrapB64'] ?? ''}'.trim();
+        final w =
+            '${wrapRes['restoreWrapB64'] ?? wrapRes['wrapB64'] ?? ''}'.trim();
         if (w.isNotEmpty) wrapB64 = w;
       }
     } catch (_) {}
@@ -205,7 +206,7 @@ Future<SecretKey?> adoptDeviceSyncPackKeyFromBootstrap({
   required DeviceSyncKeyCache keyCache,
   HeadlessDeviceSyncVault? headless,
 }) async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
+  final uid = folioCloudCurrentUid();
   if (uid == null || uid.isEmpty) return null;
   final id = vaultId.trim();
   if (id.isEmpty) return null;
@@ -334,7 +335,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
   required HeadlessDeviceSyncVault headless,
   required DeviceSyncKeyCache keyCache,
 }) async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
+  final uid = folioCloudCurrentUid();
   if (uid == null) return false;
   if (!remote.hasCloudPack) return false;
 

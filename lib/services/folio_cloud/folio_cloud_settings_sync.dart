@@ -4,12 +4,12 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/app_settings.dart';
+import '../../config/folio_backend_config.dart';
 import '../../data/folio_settings_profile_format.dart';
 import '../../data/vault_paths.dart';
 import '../app_logger.dart';
@@ -20,6 +20,7 @@ import '../settings/settings_profile_applier.dart';
 import '../settings/settings_profile_builder.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_storage_transport.dart';
 
 /// Sync de perfiles de ajustes (app + libreta) vía Folio Cloud.
@@ -74,8 +75,8 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   bool get isEnabled =>
       _settings.cloudAppProfileSyncEnabled &&
       _entitlements.snapshot.canUseCloudBackup &&
-      Firebase.apps.isNotEmpty &&
-      FirebaseAuth.instance.currentUser != null;
+      folioCloudHasSession() &&
+      (FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty);
 
   void markAppProfileDirty() {
     if (_suppressDirty || !isEnabled) return;
@@ -98,7 +99,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   Future<void> start() async {
     await stopWatching();
     if (!isEnabled) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid != null &&
         _settings.cloudAppProfileAckUid == uid &&
         _settings.cloudAppProfileAckFingerprint.isNotEmpty &&
@@ -242,7 +243,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     required String fp,
     required int updatedAtMs,
   }) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = folioCloudCurrentUid() ?? '';
     if (uid.isEmpty || _settings.cloudAppProfileAckUid != uid) return false;
     final ackFp = _settings.cloudAppProfileAckFingerprint;
     if (ackFp.isNotEmpty && ackFp == fp) return true;
@@ -254,7 +255,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     required String fp,
     required int updatedAtMs,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = folioCloudCurrentUid() ?? '';
     if (uid.isEmpty || fp.isEmpty) return;
     await _settings.setCloudAppProfileAcknowledged(
       uid: uid,
@@ -272,7 +273,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     String password = '',
     bool reclaimWithLocal = false,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) throw StateError('Not signed in');
 
     // Reclamar cuenta: usar/crear clave local y siempre devolver wrap para
@@ -288,14 +289,27 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     // Siempre consultar el wrap canónico de la cuenta cuando sea posible.
     // Preferir la caché local a ciegas generaba packs cifrados con clave
     // huérfana mientras el wrap remoto seguía siendo otro → MAC al restaurar.
-    final wrapRes = await callFolioHttpsCallable(
-      'folioGetAppProfileRestoreWrap',
-      <String, dynamic>{},
-    );
+    // Sin wrap remoto (cuenta nueva): Firebase devolvía ""; Spring alineado.
+    // Por si un backend antiguo aún lanza failed-precondition, lo tratamos
+    // como vacío.
     String? wrapB64;
-    if (wrapRes is Map) {
-      final w = '${wrapRes['restoreWrapB64'] ?? ''}'.trim();
-      if (w.isNotEmpty) wrapB64 = w;
+    try {
+      final wrapRes = await callFolioHttpsCallable(
+        'folioGetAppProfileRestoreWrap',
+        <String, dynamic>{},
+      );
+      if (wrapRes is Map) {
+        final w =
+            '${wrapRes['restoreWrapB64'] ?? wrapRes['wrapB64'] ?? ''}'.trim();
+        if (w.isNotEmpty) wrapB64 = w;
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code != 'failed-precondition') rethrow;
+      AppLogger.debug(
+        'no remote app profile wrap yet',
+        tag: 'settings_sync',
+        context: {'message': e.message},
+      );
     }
 
     return _crypto.ensurePackKey(
@@ -326,7 +340,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         <String, dynamic>{},
       );
       final wrapB64 = wrapRes is Map
-          ? '${wrapRes['restoreWrapB64'] ?? ''}'.trim()
+          ? '${wrapRes['restoreWrapB64'] ?? wrapRes['wrapB64'] ?? ''}'.trim()
           : '';
       final recovered = wrapB64.isEmpty
           ? null
@@ -398,7 +412,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         context: {
           'enabled': _settings.cloudAppProfileSyncEnabled,
           'backup': _entitlements.snapshot.canUseCloudBackup,
-          'user': FirebaseAuth.instance.currentUser?.uid,
+          'user': folioCloudCurrentUid(),
         },
       );
       if (notifyUser) {
@@ -413,7 +427,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _pushInFlight = true;
     _lastError = null;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid == null) {
         _lastError = 'not_signed_in';
         return false;
@@ -578,7 +592,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _lastError = null;
     var remoteRev = 0;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid == null) {
         _lastError = 'not_signed_in';
         return false;
@@ -721,7 +735,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         context: {
           'enabled': _settings.cloudAppProfileSyncEnabled,
           'backup': _entitlements.snapshot.canUseCloudBackup,
-          'user': FirebaseAuth.instance.currentUser?.uid,
+          'user': folioCloudCurrentUid(),
         },
       );
       if (notifyUser) {
@@ -740,7 +754,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _setStatus('pushing_vault');
     _lastError = null;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid == null) {
         _lastError = 'not_signed_in';
         AppLogger.info(
@@ -908,7 +922,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
     _setStatus('pulling_vault');
     _lastError = null;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = folioCloudCurrentUid();
       if (uid == null) {
         _lastError = 'not_signed_in';
         AppLogger.info(

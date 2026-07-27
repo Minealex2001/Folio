@@ -955,7 +955,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                       entry: communitySelected,
                       l10n: l10n,
                       isOwner:
-                          widget.cloud.user?.uid == communitySelected.ownerUid,
+                          widget.cloud.uid == communitySelected.ownerUid,
                       onUse: () {
                         unawaited(_useCommunitySelection());
                       },

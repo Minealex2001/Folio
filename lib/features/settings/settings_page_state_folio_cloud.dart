@@ -515,7 +515,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
         l10n: l10n,
         cloud: _cloud,
         onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
-        initialEmail: _cloud.user?.email,
+        initialEmail: _cloud.email,
       ),
     );
     return password != null && password.isNotEmpty;
@@ -615,7 +615,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     if (!_cloud.isSignedIn) return;
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(
-      text: _cloud.user?.displayName?.trim() ?? '',
+      text: _cloud.displayName?.trim() ?? '',
     );
     final saved = await showDialog<String>(
       context: context,
