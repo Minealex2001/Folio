@@ -702,7 +702,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
     final l10nRoot = AppLocalizations.of(context);
-    if (Firebase.apps.isEmpty) {
+    if (!folioCloudHasSession()) {
       _snack(l10nRoot.firebaseUnavailablePublish);
       return;
     }

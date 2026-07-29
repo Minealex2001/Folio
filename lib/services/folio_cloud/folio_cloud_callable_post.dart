@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_functions/cloud_functions.dart';
+import 'folio_cloud_exception.dart';
 
-/// Respuesta mínima POST (solo cabeceras permitidas en el protocolo callable).
+/// Respuesta mínima POST (solo cabeceras Content-Type + Authorization).
 class FolioCallableHttpResponse {
   FolioCallableHttpResponse({
     required this.statusCode,
@@ -17,13 +17,7 @@ class FolioCallableHttpResponse {
   final Map<String, String> headers;
 }
 
-/// POST al endpoint callable con **solo** `Content-Type` y `Authorization`.
-///
-/// La spec de Firebase rechaza cabeceras extra; `package:http` añade
-/// `User-Agent` y puede provocar respuestas no JSON en Windows/Linux.
-///
-/// Errores de red/TLS/timeout se convierten en [FirebaseFunctionsException] para
-/// que los consumidores puedan tratarlos como el SDK callable.
+/// POST HTTP con cabeceras mínimas (útil para proxies Spring).
 Future<FolioCallableHttpResponse> folioCallableHttpPost({
   required Uri uri,
   required String body,
@@ -59,39 +53,39 @@ Future<FolioCallableHttpResponse> folioCallableHttpPost({
       headers: headers,
     );
   } on TimeoutException catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'Cloud Functions request timed out: $e',
+    throw FolioCloudException(
+      message: 'Folio Cloud request timed out: $e',
       code: 'deadline-exceeded',
     );
   } on HandshakeException catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'TLS handshake failed calling Cloud Functions: $e',
+    throw FolioCloudException(
+      message: 'TLS handshake failed: $e',
       code: 'unavailable',
     );
   } on TlsException catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'TLS error calling Cloud Functions: $e',
+    throw FolioCloudException(
+      message: 'TLS error: $e',
       code: 'unavailable',
     );
   } on SocketException catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'Network error calling Cloud Functions: $e',
+    throw FolioCloudException(
+      message: 'Network error: $e',
       code: 'unavailable',
     );
   } on HttpException catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'HTTP client error calling Cloud Functions: $e',
+    throw FolioCloudException(
+      message: 'HTTP client error: $e',
       code: 'unavailable',
     );
   } on OSError catch (e) {
-    throw FirebaseFunctionsException(
-      message: 'Network error calling Cloud Functions: $e',
+    throw FolioCloudException(
+      message: 'Network error: $e',
       code: 'unavailable',
     );
   } catch (e) {
-    if (e is FirebaseFunctionsException) rethrow;
-    throw FirebaseFunctionsException(
-      message: 'Network error calling Cloud Functions: $e',
+    if (e is FolioCloudException) rethrow;
+    throw FolioCloudException(
+      message: 'Network error: $e',
       code: 'unavailable',
     );
   } finally {

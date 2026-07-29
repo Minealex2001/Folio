@@ -1,9 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../../app/app_settings.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -11,7 +8,7 @@ import '../../models/folio_task_data.dart';
 import '../../session/vault_session.dart';
 import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
-import '../folio_firestore_support.dart';
+import '../folio_cloud/folio_cloud_identity.dart';
 import 'integration_command_parser.dart';
 
 /// Procesa el buzón `pendingIntegrationCommands` al tener vault desbloqueado.
@@ -24,7 +21,6 @@ class IntegrationCommandProcessor {
 
   final VaultSession _session;
   final AppSettings _appSettings;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   Timer? _pollTimer;
   bool _processing = false;
 
@@ -35,18 +31,12 @@ class IntegrationCommandProcessor {
 
   void dispose() {
     _session.removeListener(_onSessionChanged);
-    unawaited(_subscription?.cancel());
-    _subscription = null;
     _pollTimer?.cancel();
     _pollTimer = null;
   }
 
   void _onSessionChanged() {
-    if (_session.state != VaultFlowState.unlocked ||
-        Firebase.apps.isEmpty ||
-        FirebaseAuth.instance.currentUser == null) {
-      unawaited(_subscription?.cancel());
-      _subscription = null;
+    if (_session.state != VaultFlowState.unlocked || !folioCloudHasSession()) {
       _pollTimer?.cancel();
       _pollTimer = null;
       return;
@@ -56,34 +46,8 @@ class IntegrationCommandProcessor {
   }
 
   void _ensureListening() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     if (uid == null) return;
-
-    // En Windows el SDK C++ de Firestore puede tumbar el proceso; usamos solo
-    // polling vía callable (Admin SDK), no list REST.
-    if (!folioFirestoreSupported) {
-      _pollTimer ??= Timer.periodic(
-        const Duration(seconds: 45),
-        (_) => unawaited(_processPending()),
-      );
-      return;
-    }
-
-    if (_subscription != null) return;
-
-    _subscription = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('pendingIntegrationCommands')
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .listen((_) => unawaited(_processPending()), onError: (Object e, StackTrace st) {
-      AppLogger.warn(
-        'integration commands listener failed',
-        tag: 'integrations',
-        context: {'error': '$e'},
-      );
-    });
 
     _pollTimer ??= Timer.periodic(
       const Duration(seconds: 45),
@@ -97,33 +61,15 @@ class IntegrationCommandProcessor {
   Future<void> _processPending() async {
     if (_processing) return;
     if (_session.state != VaultFlowState.unlocked) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = folioCloudCurrentUid();
     final vaultId = _session.activeVaultId?.trim();
     if (uid == null || vaultId == null || vaultId.isEmpty) return;
 
     _processing = true;
     try {
-      if (folioFirestoreSupported) {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('pendingIntegrationCommands')
-            .where('status', isEqualTo: 'pending')
-            .where('vaultId', isEqualTo: vaultId)
-            .limit(20)
-            .get();
-
-        for (final doc in snap.docs) {
-          await _applyCommand(doc.id, doc.data());
-        }
-      } else {
-        // En Windows/Linux el listado REST de Firestore suele devolver 403
-        // (PERMISSION_DENIED) aunque las reglas permitan list; usamos callable
-        // con Admin SDK (mismo patrón que el resto de Folio Cloud en desktop).
-        final pending = await _fetchPendingViaCallable(vaultId);
-        for (final item in pending) {
-          await _applyCommand(item.id, item.data);
-        }
+      final pending = await _fetchPendingViaCallable(vaultId);
+      for (final item in pending) {
+        await _applyCommand(item.id, item.data);
       }
     } catch (e, st) {
       AppLogger.warn(

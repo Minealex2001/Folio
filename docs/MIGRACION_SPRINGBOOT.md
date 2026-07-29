@@ -441,11 +441,11 @@ En Spring nada de esto es automático: **cada uno de estos checks se convierte e
 - El patrón ya usado en `folio_firestore_rest.dart` / `folio_firebase_storage_rest.dart` / `folio_cloud_callable.dart` (HTTP + Bearer token) se mantiene casi igual — cambia el host, el formato exacto de error (`{error:{status,message}}` de las callables vs. el que definas tú) y el esquema de token (ID token de Firebase vs. tu propio JWT).
 - El login pasa de `firebase_auth` a lo que decidas (llamadas HTTP a tu backend de auth, o SDK del IdP elegido).
 
-### 7.1 Fase 30 — decomisión Firebase (checklist; no ejecutada aún)
+### 7.1 Fase 30 — decomisión Firebase (**ejecutada** 2026-07-29)
 
-**Estado: Fase 30 diferida — checklist listo, no ejecutada.** Detalle ejecutable (prerrequisitos, inventario a borrar, comandos `flutter analyze` / `rg` / `flutter test` / builds, docs a archivar, proyectos `folio-minealexgames` / `folio-staging-minealex`): ver **«Backend Spring Boot — Fase 30»** en [FEATURES.md](FEATURES.md).
+**Estado: Fase 30 ejecutada.** Cliente Spring-only; eliminados `functions/`, rules, `firebase_options*`, deps Firebase y vendor Windows. Import de datos: `backend/tools/firebase-import/`. Detalle en [FEATURES.md](FEATURES.md) «Fase 30».
 
-Reglas de esta fase:
+Reglas históricas de esta fase:
 
 1. **Prerrequisito:** Fase 29 (flag dual-mode) estable en producción **≥1 ciclo de release completo** con default Spring.
 2. **No ejecutar** la decomisión en la misma sesión en que solo se documenta el checklist; no romper el modo Firebase mientras Fase 29 esté activa.

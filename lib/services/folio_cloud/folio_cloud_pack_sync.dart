@@ -4,9 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
@@ -67,11 +65,13 @@ Future<String?> uploadOpenVaultCloudPack({
       'La libreta debe estar desbloqueada para subir la copia a la nube.',
     );
   }
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
   }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
 
   void rep(VaultCloudPackProgressStep step, double progress01) {
     onProgress?.call(
@@ -125,7 +125,7 @@ Future<String?> uploadOpenVaultCloudPack({
     final sp = latest?['snapshotStoragePath']?.toString().trim() ?? '';
     if (sp.isNotEmpty) {
       try {
-        final u = await FirebaseStorage.instance.ref(sp).getDownloadURL();
+        final u = sp;
         _logSyncTelemetry(
           telemetrySettings,
           'cloud_pack_push',
@@ -211,7 +211,7 @@ Future<String?> uploadOpenVaultCloudPack({
 
   for (final b in built.blobs) {
     await _ensureBlobUploaded(
-      uid: user.uid,
+      uid: uid,
       vaultId: vaultId,
       blobId: b.item.blobId,
       bytes: b.cipherBytes,
@@ -234,11 +234,10 @@ Future<String?> uploadOpenVaultCloudPack({
 
   final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
   final snapName = 'snap-$stamp.bin';
-  final snapRef = FirebaseStorage.instance.ref().child(
-    'users/${user.uid}/vaults/$vaultId/cloud-packs/snapshots/$snapName',
-  );
+  final snapPath =
+      'users/$uid/vaults/$vaultId/cloud-packs/snapshots/$snapName';
   rep(VaultCloudPackProgressStep.uploadingSnapshot, 0.76);
-  await folioStoragePutData(snapRef, snapCipher);
+  await folioStoragePutData(snapPath, snapCipher);
   final snapSize = snapCipher.length;
 
   final oldIds = oldManifest == null
@@ -250,7 +249,7 @@ Future<String?> uploadOpenVaultCloudPack({
   for (final id in oldIds.keys) {
     if (!newIds.containsKey(id)) {
       final sz = await _blobSizeIfExists(
-        uid: user.uid,
+        uid: uid,
         vaultId: vaultId,
         blobId: id,
       );
@@ -264,7 +263,7 @@ Future<String?> uploadOpenVaultCloudPack({
   for (final i in items) {
     if (!oldIds.containsKey(i.blobId)) {
       final sz = await _blobSizeIfExists(
-        uid: user.uid,
+        uid: uid,
         vaultId: vaultId,
         blobId: i.blobId,
       );
@@ -278,7 +277,7 @@ Future<String?> uploadOpenVaultCloudPack({
   try {
     await callFolioHttpsCallable('folioFinalizeCloudPack', <String, dynamic>{
       'vaultId': vaultId,
-      'snapshotStoragePath': snapRef.fullPath,
+      'snapshotStoragePath': snapPath,
       'snapshotSizeBytes': snapSize,
       'contentFingerprint': contentFp,
       'oldSnapshotStoragePath': oldSnapPath.isNotEmpty ? oldSnapPath : null,
@@ -293,9 +292,9 @@ Future<String?> uploadOpenVaultCloudPack({
     });
   } catch (e) {
     await _rollbackFailedCloudPackUpload(
-      uid: user.uid,
+      uid: uid,
       vaultId: vaultId,
-      snapshotPath: snapRef.fullPath,
+      snapshotPath: snapPath,
       newBlobIds: newBlobList
           .map((b) => b['blobId']?.toString() ?? '')
           .where((id) => id.isNotEmpty)
@@ -305,9 +304,9 @@ Future<String?> uploadOpenVaultCloudPack({
   }
 
   rep(VaultCloudPackProgressStep.cleaningOldBlobs, 0.88);
-  if (oldSnapPath.isNotEmpty && oldSnapPath != snapRef.fullPath) {
+  if (oldSnapPath.isNotEmpty && oldSnapPath != snapPath) {
     try {
-      await FirebaseStorage.instance.ref(oldSnapPath).delete();
+      await folioStorageDelete(oldSnapPath);
     } catch (e) {
       AppLogger.warn(
         'No se pudo borrar snapshot antiguo tras cloud-pack',
@@ -321,9 +320,7 @@ Future<String?> uploadOpenVaultCloudPack({
     final bid = d['blobId']?.toString() ?? '';
     if (bid.isEmpty) continue;
     try {
-      await FirebaseStorage.instance
-          .ref('users/${user.uid}/vaults/$vaultId/cloud-packs/blobs/$bid')
-          .delete();
+      await folioStorageDelete('users/${uid}/vaults/$vaultId/cloud-packs/blobs/$bid');
     } catch (e) {
       AppLogger.warn(
         'No se pudo borrar blob obsoleto tras cloud-pack',
@@ -348,7 +345,7 @@ Future<String?> uploadOpenVaultCloudPack({
     );
   }
 
-  final url = await snapRef.getDownloadURL();
+  final url = snapPath;
   rep(VaultCloudPackProgressStep.complete, 1.0);
   _logSyncTelemetry(
     telemetrySettings,
@@ -409,7 +406,7 @@ Future<FolioCloudPackSnapshotManifest?> _downloadDecryptManifest({
 }) async {
   final max = 32 * 1024 * 1024;
   final data = await folioStorageGetData(
-    FirebaseStorage.instance.ref(storagePath),
+    storagePath,
     max,
   );
   if (data == null || data.isEmpty) return null;
@@ -422,22 +419,9 @@ Future<void> _ensureBlobUploaded({
   required String blobId,
   required List<int> bytes,
 }) async {
-  final ref = FirebaseStorage.instance.ref().child(
-    'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId',
-  );
-  // Comprobar existencia en Storage desde el cliente (mismas reglas que la subida).
-  // Evita `folioCheckCloudPackBlobsExist`, que en escritorio usa HTTP callable y puede
-  // acabar en 504 por tiempo agotado en la cadena Functions → GCS.
-  try {
-    await ref.getMetadata();
-    return;
-  } on FirebaseException catch (e) {
-    final c = e.code;
-    if (c != 'object-not-found' && c != 'storage/object-not-found') {
-      rethrow;
-    }
-  }
-  await folioStoragePutData(ref, Uint8List.fromList(bytes));
+  final path = 'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId';
+  if (await folioStorageObjectExists(path)) return;
+  await folioStoragePutData(path, Uint8List.fromList(bytes));
 }
 
 Future<int?> _blobSizeIfExists({
@@ -445,12 +429,11 @@ Future<int?> _blobSizeIfExists({
   required String vaultId,
   required String blobId,
 }) async {
-  final ref = FirebaseStorage.instance.ref().child(
-    'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId',
-  );
+  final path = 'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId';
   try {
-    final m = await ref.getMetadata();
-    return m.size ?? 0;
+    final data = await folioStorageGetData(path, 512 * 1024 * 1024);
+    if (data == null) return null;
+    return data.length;
   } catch (_) {
     return null;
   }
@@ -464,13 +447,13 @@ Future<void> _rollbackFailedCloudPackUpload({
   required List<String> newBlobIds,
 }) async {
   try {
-    await FirebaseStorage.instance.ref(snapshotPath).delete();
+    await folioStorageDelete(snapshotPath);
   } catch (_) {}
   for (final blobId in newBlobIds) {
     try {
-      await FirebaseStorage.instance
-          .ref('users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId')
-          .delete();
+      await folioStorageDelete(
+        'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId',
+      );
     } catch (_) {}
   }
 }
@@ -489,11 +472,13 @@ Future<void> downloadLatestCloudPackToDirectory({
     if (!session.isUnlocked) {
       throw StateError('La libreta debe estar desbloqueada.');
     }
-    if (Firebase.apps.isEmpty) {
-      throw StateError('Firebase not initialized');
-    }
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw StateError('Not signed in');
+    if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
+  }
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
 
     final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
     final path = latest?['snapshotStoragePath']?.toString().trim() ?? '';
@@ -503,7 +488,7 @@ Future<void> downloadLatestCloudPackToDirectory({
 
     final packKey = await session.cloudPackEncryptionKey();
     await _downloadCloudPackTreeToDirectory(
-      uid: user.uid,
+      uid: uid,
       vaultId: vaultId,
       snapshotStoragePath: path,
       packKey: packKey,
@@ -556,11 +541,13 @@ Future<ExtractedVaultBackup> downloadCloudPackToMemoryForRestore({
   final sw = Stopwatch()..start();
   try {
     requireFolioCloudBackupEntitlement(entitlementSnapshot);
-    if (Firebase.apps.isEmpty) {
-      throw StateError('Firebase not initialized');
-    }
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw StateError('Not signed in');
+    if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
+  }
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
 
     final wrapRaw = await callFolioHttpsCallable(
       'folioGetCloudPackRestoreWrap',
@@ -590,7 +577,7 @@ Future<ExtractedVaultBackup> downloadCloudPackToMemoryForRestore({
     }
 
     final backup = await _downloadCloudPackTreeToMemory(
-      uid: user.uid,
+      uid: uid,
       vaultId: vaultId,
       snapshotStoragePath: path,
       packKey: packKey,
@@ -630,11 +617,10 @@ Future<ExtractedVaultBackup> _downloadCloudPackTreeToMemory({
 
   final backup = ExtractedVaultBackup();
   for (final item in manifest.items) {
-    final ref = FirebaseStorage.instance.ref().child(
-      'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}',
-    );
+    final path =
+        'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}';
     final max = 512 * 1024 * 1024;
-    final data = await folioStorageGetData(ref, max);
+    final data = await folioStorageGetData(path, max);
     if (data == null || data.isEmpty) {
       throw StateError('Falta un blob en la nube: ${item.blobId}');
     }

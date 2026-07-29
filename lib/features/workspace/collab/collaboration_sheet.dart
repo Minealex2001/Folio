@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +9,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../editor/block_editor_support_widgets.dart';
 
+import '../../../services/folio_cloud/folio_cloud_identity.dart';
 String _formatCollabTime(BuildContext context, int createdAtMs) {
   if (createdAtMs <= 0) return '';
   final d = DateTime.fromMillisecondsSinceEpoch(createdAtMs);
@@ -77,6 +77,9 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
     if (raw == null || raw.isEmpty) return '';
     if (raw == 'collab_needs_join_code') {
       return l10n.collabNeedsJoinCode;
+    }
+    if (raw == 'collab_chat_spring_unavailable') {
+      return l10n.collabChatSpringUnavailable;
     }
     if (raw == 'collab_e2e_required') {
       return 'Esta sala no usa cifrado E2E y ha sido bloqueada. Crea una sala nueva para mantener el contenido cifrado.';
@@ -314,7 +317,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final myUid = folioCloudCurrentUid();
 
     return ListenableBuilder(
       listenable: widget.collab,
@@ -383,7 +386,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
                                         : () => _run(() async {
                                               await widget.collab
                                                   .createRoomForPage(
-                                                pageId: widget.pageId,
+                                                widget.pageId,
                                               );
                                             }),
                                     icon: const Icon(
@@ -432,8 +435,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
                                         : () => _run(() async {
                                               final ok = await widget.collab
                                                   .joinRoomByCode(
-                                                pageId: widget.pageId,
-                                                joinCodeInput: _joinCodeCtrl.text,
+                                                _joinCodeCtrl.text,
                                               );
                                               if (context.mounted && !ok) {
                                                 ScaffoldMessenger.of(context)
@@ -713,9 +715,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
                         onPressed: _busy
                             ? null
                             : () => _run(() async {
-                                await widget.collab.archiveChatToVault(
-                                  widget.pageId,
-                                );
+                                await widget.collab.archiveChatToVault();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -730,9 +730,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
                         onPressed: _busy
                             ? null
                             : () => _run(() async {
-                                await widget.collab.leaveRoom(
-                                  pageId: widget.pageId,
-                                );
+                                await widget.collab.leaveRoom();
                                 if (context.mounted && !widget.embedded) {
                                   Navigator.of(context).pop();
                                 }

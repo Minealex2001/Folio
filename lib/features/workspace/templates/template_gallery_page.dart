@@ -322,6 +322,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     try {
       final parsed = await _communityStore.downloadTemplate(
         entry.storageDownloadUrl,
+        storagePath: entry.storagePath,
       );
       if (!mounted) return;
       const uuid = Uuid();
@@ -350,6 +351,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     try {
       final parsed = await _communityStore.downloadTemplate(
         entry.storageDownloadUrl,
+        storagePath: entry.storagePath,
       );
       final local = _communityStore.copyIntoVault(parsed);
       widget.session.addTemplate(local);

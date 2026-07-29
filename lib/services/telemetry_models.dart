@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Tipo de evento de telemetría.
 enum TelemetryEventType {
@@ -32,7 +31,7 @@ abstract class TelemetryEvent {
   }) {
     return {
       'id': id,
-      'timestamp': Timestamp.fromDate(timestamp),
+      'timestamp': timestamp,
       'type': type.toString().split('.').last,
       'userId': userId,
       'appVersion': appVersion,
@@ -235,6 +234,6 @@ class DailyStatsSnapshot {
     'errorCount': errorCount,
     'totalSyncTimeMs': totalSyncTimeMs,
     'totalPerformanceTimeMs': totalPerformanceTimeMs,
-    'lastUpdate': Timestamp.fromDate(lastUpdate),
+    'lastUpdate': lastUpdate,
   };
 }

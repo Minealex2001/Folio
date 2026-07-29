@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
@@ -66,6 +65,8 @@ import '../../services/folio_cloud/folio_cloud_account_lifecycle.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_catalog_labels.dart';
 import '../../services/folio_cloud/folio_cloud_catalog_prices.dart';
+import '../../services/folio_cloud/folio_cloud_exception.dart';
+import '../../services/folio_cloud/folio_cloud_identity.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
 import '../../services/device_sync/device_sync_controller.dart';

@@ -5061,9 +5061,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     required String roomId,
     required String joinCode,
   }) async {
-    // Windows: Firestore deshabilitado (crash nativo del SDK C++); sin acceso a
-    // `collabRooms` no podemos resolver la clave de sala.
-    if (!folioFirestoreSupported) return null;
     final cached = _collabRoomKeyCache[roomId];
     if (cached != null) return cached;
 
@@ -5071,12 +5068,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (inFlight != null) return inFlight;
 
     final future = (() async {
-      final roomSnap = await FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(roomId)
-          .get();
-      final room = roomSnap.data();
-      if (room == null) return null;
+      final room = await CollabSpringApi().getRoom(roomId);
       final e2eV = (room['e2eV'] as num?)?.toInt() ?? 0;
       if (e2eV != 1) return null;
       final wrapped = (room['wrappedRoomKey'] as String?)?.trim();
@@ -5193,72 +5185,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         bytes: Uint8List.fromList(plain),
         roomKey: roomKey,
       );
-      final ref = FirebaseStorage.instance.ref(storagePath);
-      final startedAt = DateTime.now();
-      if (folioStorageUseRestTransport) {
-        if (mounted) {
-          setState(() {
-            _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
-              encrypting: false,
-              progress: null,
-              eta: null,
-            );
-          });
-        }
-        await folioStoragePutData(
-          ref,
-          cipher,
-          metadata: SettableMetadata(
-            contentType: 'application/octet-stream',
-          ),
-        );
-      } else {
-        final task = ref.putData(
-          cipher,
-          SettableMetadata(contentType: 'application/octet-stream'),
-        );
-        StreamSubscription<TaskSnapshot>? snapshotSub;
-        snapshotSub = task.snapshotEvents.listen((snap) {
-          if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
-          final total = snap.totalBytes <= 0 ? null : snap.totalBytes;
-          final transferred = snap.bytesTransferred;
-          final progress = total == null
-              ? null
-              : (transferred / total).clamp(0.0, 1.0);
-          Duration? eta;
-          if (total != null && transferred > 0 && transferred < total) {
-            final elapsedMs = DateTime.now()
-                .difference(startedAt)
-                .inMilliseconds;
-            if (elapsedMs > 0) {
-              final rate = transferred / elapsedMs;
-              if (rate > 0) {
-                final remainingMs = ((total - transferred) / rate).round();
-                eta = Duration(milliseconds: remainingMs.clamp(0, 36000000));
-              }
-            }
-          }
-          if (!_shouldEmitCollabUploadUi(
-            blockId: blockId,
-            progress: progress,
-            eta: eta,
-          )) {
-            return;
-          }
-          setState(() {
-            _collabUploadByBlockId[blockId] = _CollabUploadProgress(
-              encrypting: false,
-              progress: progress,
-              eta: eta,
-            );
-          });
+      final ref = storagePath;
+      if (mounted) {
+        setState(() {
+          _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
+            encrypting: false,
+            progress: null,
+            eta: null,
+          );
         });
-        try {
-          await task;
-        } finally {
-          await snapshotSub.cancel();
-        }
       }
+      await folioStoragePutData(ref, cipher);
 
       await callFolioHttpsCallable('commitCollabMediaUpload', {
         'roomId': roomId,
@@ -5298,58 +5235,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<File?> _resolveCollabMediaFile(String rawUrl) async {
-    // Windows: sin Firestore no hay metadatos de media de sala.
-    if (!folioFirestoreSupported) return null;
-    final parsed = _parseCollabMediaUri(rawUrl);
-    if (parsed == null) return null;
-
-    final page = _s.selectedPage;
-    final joinCode = page?.collabJoinCode?.trim();
-    if (joinCode == null || joinCode.isEmpty) return null;
-
-    final cached = await _findCachedCollabMediaFile(parsed.mediaId);
-    if (cached != null) return cached;
-
-    try {
-      final mediaSnap = await FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(parsed.roomId)
-          .collection('media')
-          .doc(parsed.mediaId)
-          .get();
-      final media = mediaSnap.data();
-      if (media == null) return null;
-      final storagePath = (media['storagePath'] as String?)?.trim();
-      if (storagePath == null || storagePath.isEmpty) return null;
-
-      final roomKey = await _roomKeyForCollabRoom(
-        roomId: parsed.roomId,
-        joinCode: joinCode,
-      );
-      if (roomKey == null) return null;
-
-      final data = await folioStorageGetData(
-        FirebaseStorage.instance.ref(storagePath),
-        80 * 1024 * 1024,
-      );
-      if (data == null || data.isEmpty) return null;
-      final clear = await CollabE2eCrypto.decryptBinaryBytes(
-        cipherBytes: Uint8List.fromList(data),
-        roomKey: roomKey,
-      );
-
-      final cacheDir = await _collabMediaCacheDir();
-      final fileName = (media['fileName'] as String?)?.trim();
-      final ext = (fileName != null && fileName.isNotEmpty)
-          ? p.extension(fileName)
-          : '.bin';
-      final out = File(p.join(cacheDir.path, '${parsed.mediaId}$ext'));
-      await out.writeAsBytes(clear, flush: true);
-      _collabMediaCachePathByMediaId[parsed.mediaId] = out.path;
-      return out;
-    } catch (_) {
-      return null;
-    }
+    // Media collab indexada en Firestore no está portada a Spring aún.
+    return null;
   }
 
   Future<Directory> _collabMediaCacheDir() async {

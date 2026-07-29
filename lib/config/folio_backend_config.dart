@@ -1,47 +1,48 @@
-/// Cutover Firebase → Spring Boot (Fase 29): modo backend en compile-time.
+/// Cutover Firebase → Spring Boot (Fase 29–30): backend = Spring únicamente.
 ///
-/// Default = **Firebase** (comportamiento actual). Activar Spring:
+/// Config (prioridad: `--dart-define` > [FolioLocalSecrets]):
 ///
 /// ```bash
-/// flutter run -d windows --dart-define=FOLIO_BACKEND_MODE=spring \
-///   --dart-define=FOLIO_BACKEND_BASE_URL=http://127.0.0.1:18080
+/// flutter run -d windows --dart-define=FOLIO_BACKEND_BASE_URL=https://….up.railway.app
 /// ```
 ///
-/// En Windows usa `127.0.0.1` (no `localhost`): Dart resuelve `localhost` a IPv4
-/// y el puerto 8080 suele estar ocupado por el remote debugging de CEF/Cursor.
-/// El compose publica el API en **18080** por defecto.
-///
-/// Rollback: omitir los defines (o `FOLIO_BACKEND_MODE=firebase`).
+/// Local (compose): `http://127.0.0.1:18080`. En Windows usa `127.0.0.1`, no
+/// `localhost` (CEF/Cursor suele ocupar `:8080`).
+import 'folio_local_secrets.dart';
+
 class FolioBackendConfig {
   FolioBackendConfig._();
 
-  static const String _mode = String.fromEnvironment(
+  static const String _modeDefine = String.fromEnvironment(
     'FOLIO_BACKEND_MODE',
-    defaultValue: 'firebase',
+    defaultValue: '',
   );
 
-  /// Base URL del API Spring (sin barra final). Vacío si no se definió.
-  static const String baseUrl = String.fromEnvironment(
+  static const String _baseUrlDefine = String.fromEnvironment(
     'FOLIO_BACKEND_BASE_URL',
     defaultValue: '',
   );
 
-  /// `true` cuando el build apunta al backend Spring (`FOLIO_BACKEND_MODE=spring`).
-  static bool get useSpring {
-    final m = _mode.trim().toLowerCase();
-    return m == 'spring' || m == 'springboot' || m == 'backend';
+  /// Base URL del API Spring (sin barra final). Vacío si no se definió.
+  static String get baseUrl {
+    final fromDefine = _baseUrlDefine.trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+    return FolioLocalSecrets.folioBackendBaseUrl.trim();
   }
 
-  /// Alias legible para logs / UI de diagnóstico.
-  static String get modeLabel => useSpring ? 'spring' : 'firebase';
+  /// Tras Fase 30 (Firebase decomisionado) el cliente es Spring-only.
+  static bool get useSpring => true;
 
-  /// URL base efectiva. En modo Spring exige [baseUrl] no vacío.
+  /// Alias legible para logs / UI de diagnóstico.
+  static String get modeLabel => 'spring';
+
+  /// URL base efectiva. Exige [baseUrl] no vacío.
   static String get apiBaseUrl {
     final trimmed = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     if (trimmed.isEmpty) {
       throw StateError(
-        'FOLIO_BACKEND_BASE_URL is required when FOLIO_BACKEND_MODE=spring '
-        '(e.g. http://127.0.0.1:18080)',
+        'FOLIO_BACKEND_BASE_URL is required '
+        '(Railway: https://….up.railway.app — local: http://127.0.0.1:18080)',
       );
     }
     return trimmed;

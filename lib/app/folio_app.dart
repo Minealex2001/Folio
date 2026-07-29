@@ -6,8 +6,6 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
@@ -64,6 +62,7 @@ import 'app_settings.dart';
 import 'folio_theme.dart';
 import 'ui_tokens.dart';
 
+import '../services/folio_cloud/folio_cloud_identity.dart';
 class FolioApp extends StatefulWidget {
   const FolioApp({
     super.key,
@@ -494,8 +493,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
     if (!prefs.enabled || !prefs.isContinuous) return;
     final canCloud =
-        Firebase.apps.isNotEmpty &&
-        FirebaseAuth.instance.currentUser != null &&
+        folioCloudHasSession() &&
+        folioCloudHasSession() &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
     if (!scheduledVaultBackupHasDestination(prefs, canCloud: canCloud)) {
       return;
@@ -542,8 +541,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     // El modo continuo se dispara tras persist; el timer solo cubre intervalos fijos.
     if (prefs.isContinuous) return;
     final canCloud =
-        Firebase.apps.isNotEmpty &&
-        FirebaseAuth.instance.currentUser != null &&
+        folioCloudHasSession() &&
+        folioCloudHasSession() &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
     final willDoFolder = prefs.hasNetworkDestination;
     final willDoCloud = prefs.alsoCloud && canCloud;
@@ -909,7 +908,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (ctrl == null) return;
     final shouldRun = ctrl.isEnabled &&
         (widget.session.state == VaultFlowState.unlocked ||
-            FirebaseAuth.instance.currentUser != null);
+            folioCloudHasSession());
     AppLogger.debug(
       'settings sync lifecycle',
       tag: 'settings_sync',

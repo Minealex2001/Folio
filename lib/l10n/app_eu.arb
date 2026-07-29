@@ -1532,6 +1532,7 @@
   "collabArchiveToPage": "Artxibatu txata folioan",
   "collabLeaveRoom": "Irten gelatik",
   "collabNeedsJoinCode": "Sartu gelaren kodea lankidetza-saio hau descifratzeko.",
+  "collabChatSpringUnavailable": "Gelako txata oraindik ez dago erabilgarri Spring backendarekin; edukiaren zuzeneko sinkronizazioa badabil.",
   "collabMissingJoinCodeHint": "Folio hau gela bati lotuta dago baina ez dago koderik gordeta hemen. Itsatsi anfitrioiaren kodea edukia descifratzeko.",
   "collabUnlockWithCode": "Desblokeatu kodearekin",
   "collabHidePanel": "Ezkutatu lankidetza-panela",
@@ -2607,6 +2608,7 @@
   ,"settingsIntegrationsCommunicationTitle": "Komunikazioa"
   ,"settingsIntegrationsMusicTitle": "Musika"
   ,"telemetryDashboardTitle": "Telemetria-panela"
+  ,"telemetryDashboardUnavailableSpring": "Firestore telemetria-panela ez dago erabilgarri Folio Cloud (Spring) cutover-aren ondoren."
   ,"telemetryDashboardAccessDenied": "Sarbidea ukatuta"
   ,"telemetryDashboardStaffOnlyBody": "Folioko langileek bakarrik ireki dezakete pantaila hau."
   ,"telemetryDashboardFlushTooltip": "Bidali zain dauden gertaerak eta eguneratu"

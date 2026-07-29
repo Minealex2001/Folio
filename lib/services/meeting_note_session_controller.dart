@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -19,6 +18,7 @@ import 'folio_cloud/folio_cloud_entitlements.dart';
 import 'meeting_note_transcript_merge.dart';
 import 'system_audio_service.dart';
 
+import '../services/folio_cloud/folio_cloud_exception.dart';
 enum MeetingNoteSessionState {
   idle,
   setup,
@@ -655,7 +655,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
               ? text
               : MeetingNoteTranscriptMerge.merge(cloudTranscript, text);
         }
-      } on FirebaseFunctionsException catch (e) {
+      } on FolioCloudException catch (e) {
         _cloudFallbackNoticeCode = e.code == 'resource-exhausted'
             ? 'ink_exhausted'
             : 'cloud_fallback';

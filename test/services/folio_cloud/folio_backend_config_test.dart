@@ -8,17 +8,20 @@ import 'package:folio/services/folio_cloud/folio_spring_account_me.dart';
 import 'package:folio/services/folio_cloud/folio_spring_callable_routes.dart';
 
 void main() {
-  group('FolioBackendConfig (default firebase)', () {
-    test('useSpring is false by default', () {
-      expect(FolioBackendConfig.useSpring, isFalse);
-      expect(FolioBackendConfig.modeLabel, 'firebase');
+  group('FolioBackendConfig (default via FolioLocalSecrets)', () {
+    test('useSpring follows FolioLocalSecrets when defines are empty', () {
+      // En este checkout: secrets apuntan a Railway Spring.
+      expect(FolioBackendConfig.useSpring, isTrue);
+      expect(FolioBackendConfig.modeLabel, 'spring');
+      expect(
+        FolioBackendConfig.baseUrl,
+        'https://backendfolio.minealexgames.com',
+      );
     });
 
     test('folioHttpsCallableUsesHttp is platform-gated without Spring', () {
-      // En tests unitarios (VM) no es Windows/Linux desktop necesariamente;
-      // lo importante: sin Spring no fuerza HTTP universal.
-      // (En modo Spring el getter siempre es true — ver test de rutas.)
-      expect(FolioBackendConfig.useSpring, isFalse);
+      // Con Spring activo el cliente fuerza HTTP en todas las plataformas.
+      expect(FolioBackendConfig.useSpring, isTrue);
     });
   });
 

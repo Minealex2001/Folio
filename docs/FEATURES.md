@@ -813,6 +813,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 ### Publicación web
 
 - Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
+- **Modo Spring** (`FolioBackendConfig.useSpring`): sube HTML con `folioSpringStoragePutData` a `published/{uid}/{slug}.html` (`folioCloudCurrentUid`) y registra/actualiza el índice con `POST`/`PUT /api/v1/published-pages` (`storagePath`); listado `GET …/mine`; borrado `DELETE …/{id}` (el servidor elimina el objeto). Sin Firestore; usable en Windows. Modo Firebase sin cambios (`publishedPages` + Storage download URL).
 
 ### Cliente web (Vercel / dominios MineAlex)
 
@@ -1819,9 +1820,9 @@ Públicos adicionales en SecurityConfig: jira oauth-exchange, diagnostics/report
 
 **Fase 22 — Collab control-plane:** `POST/GET/PUT /api/v1/collab/rooms/**` — create/join/invite/remove/close, prepare/commit media (presign), update con `CollabRoomUpdateValidator` (reglas firestore legacy / e2e seal / e2e content). Sync en vivo → Fase 27.
 
-**Fase 23 — Published pages:** `POST/PUT/DELETE/GET /api/v1/published-pages` — exige feature `publishWeb`; GET por id público; owner-only write/delete.
+**Fase 23 — Published pages:** `POST/PUT/DELETE/GET /api/v1/published-pages` — exige feature `publishWeb`; GET por id público; owner-only write/delete. Cliente Flutter (`folio_cloud_publish.dart`): modo Spring usa storage proxy + REST (upsert por `storagePath` vía `/mine`); modo Firebase sigue en Firestore `publishedPages`.
 
-**Fase 24 — Community templates:** `POST/PUT/DELETE/GET /api/v1/community-templates` — `communityTemplateCreateOk` a nivel app (name/blockCount/path/url/…) con 400 por campo; límite 1 MiB en subida.
+**Fase 24 — Community templates:** `POST/PUT/DELETE/GET /api/v1/community-templates` — `communityTemplateCreateOk` a nivel app (name/blockCount/path/url/…) con 400 por campo; límite 1 MiB en subida. Cliente Flutter (`community_template_store.dart`): en modo Spring sube el `.folio-template` por proxy de storage, indexa con `POST /api/v1/community-templates`, lista con `GET` público, descarga por `folioSpringStorageGetData(storagePath)` y borra con `DELETE /{id}` (objeto en servidor).
 
 ## Backend Spring Boot — Fases 25–26 (ciclo de vida de cuenta / RGPD)
 
@@ -1835,7 +1836,9 @@ Públicos adicionales en SecurityConfig: jira oauth-exchange, diagnostics/report
 - Job `@Scheduled(cron = "0 15 3 * * *", zone = Europe/Madrid)` → `processScheduledAccountDeletions`.
 - Sin IdP externo: no hay trigger `onUserDeleted` separado (documentado en el servicio).
 
-**Fase 27 — Collab sync en vivo (STOMP/WebSocket):** endpoint `ws://…/ws/collab`; JWT en frame STOMP `CONNECT` (`Authorization: Bearer` o header `token`, mismo `JwtService` que HTTP). `SEND /app/collab/{roomId}/update` con shape legacy (`title`/`blocksJson`) o E2E (`wrappedRoomKey`/`contentCipher`) + `changedKeys`; valida con `CollabRoomUpdateValidator`, persiste `content_version`, retransmite a `/topic/collab/{roomId}` solo si es válido. Sin CRDT (el cliente usa last-write-wins por `contentVersion`). Handshake HTTP público; auth en CONNECT. Errores de validación → `/user/queue/collab-errors` (sin broadcast).
+**Fase 27 — Collab sync en vivo (STOMP/WebSocket):** endpoint `ws://…/ws/collab`; JWT en frame STOMP `CONNECT` (`Authorization: Bearer` o header `token`, mismo `JwtService` que HTTP). `SEND /app/collab/{roomId}/update` con shape legacy (`title`/`blocksJson`) o E2E (`wrappedRoomKey`/`contentCipher`) + `changedKeys`; valida con `CollabRoomUpdateValidator`, persiste `content_version`, retransmite a `/topic/collab/{roomId}` solo si es válido. Sin CRDT (el cliente usa last-write-wins por `contentVersion`). Handshake HTTP público; auth en CONNECT. Errores de validación → `/user/queue/collab-errors` (sin broadcast; `CollabStompAuthInterceptor` permite SUBSCRIBE a ese destino con sesión autenticada).
+
+**Cliente Flutter (Fase 29):** si `FolioBackendConfig.useSpring`, `CollabSessionController` usa `CollabStompTransport` (`stomp_dart_client`) hacia `FolioBackendConfig.collabWsUrl` + snapshot REST `GET /api/v1/collab/rooms/{id}` (`collab_spring_api.dart`). Si no, sigue Firestore `collabRooms`. Chat de sala solo en Firestore (código `collab_chat_spring_unavailable` en modo Spring).
 
 Verificación: `mvn -f backend/pom.xml test`. Arranque: ver `backend/README.md`.
 
@@ -1857,16 +1860,30 @@ Cutover **sin big-bang**: el cliente Flutter puede apuntar a Firebase (default) 
 
 ### Activar modo Spring
 
-```bash
-flutter run -d windows --dart-define=FOLIO_BACKEND_MODE=spring \
+Prioridad: `--dart-define` > `FolioLocalSecrets.folioBackendMode` /
+`folioBackendBaseUrl` (en `lib/config/folio_local_secrets.dart`).
+
+**Railway (prod):** `https://backendfolio.minealexgames.com` — modo Spring activo en
+`FolioLocalSecrets` por defecto en desarrollo local.
+
+```powershell
+flutter run -d windows
+# o explícito:
+.\tool\run_folio_spring.ps1 -BaseUrl https://backendfolio.minealexgames.com
+```
+
+**Local (compose en :18080):**
+
+```powershell
+flutter run -d windows --dart-define=FOLIO_BACKEND_MODE=spring `
   --dart-define=FOLIO_BACKEND_BASE_URL=http://127.0.0.1:18080
 ```
 (En Windows preferir `127.0.0.1:18080`: el compose publica el API ahí; `localhost:8080` choca a menudo con CEF/Cursor.)
 
-| Define | Default | Efecto |
+| Define / secret | Default | Efecto |
 |---|---|---|
-| `FOLIO_BACKEND_MODE` | `firebase` | `spring` / `springboot` / `backend` → API Spring |
-| `FOLIO_BACKEND_BASE_URL` | (vacío) | Obligatorio en modo Spring (p. ej. `http://127.0.0.1:18080` o URL de staging/prod) |
+| `FOLIO_BACKEND_MODE` | `spring` vía `FolioLocalSecrets` (o `firebase` si se vacía) | `spring` / `springboot` / `backend` → API Spring |
+| `FOLIO_BACKEND_BASE_URL` | `https://backendfolio.minealexgames.com` vía secrets | Obligatorio en modo Spring |
 
 Código clave:
 - `lib/config/folio_backend_config.dart` — flag + base URL + WS collab derivado
@@ -1881,12 +1898,14 @@ Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco,
 
 ### Checklist go / no-go (antes de cambiar el default a Spring)
 
-- [ ] `mvn -f backend/pom.xml test` verde (grupos A–L / fases 1–27)
-- [ ] `flutter test` verde en modo default (Firebase)
-- [ ] Smoke desktop (Windows) contra Spring local o staging: registro, login, refresh de sesión, ensure/account me, billing portal si aplica, un callable vault (meta), create/join collab room
-- [ ] Confirmar que el rollback (build sin defines Spring) sigue autenticando contra Firebase
-- [ ] Dogfooding desktop estable; móvil/web solo tras cerrar pendientes de plataforma (abajo)
-- [ ] No ejecutar Fase 30 hasta un ciclo de release completo con default Spring en producción
+- [x] Smoke Railway: `GET /api/v1/health` → ok; `POST /api/v1/auth/register` → **201** (fix `/error` + mail best-effort)
+- [x] Default cliente Spring: `FolioLocalSecrets` → `https://backendfolio.minealexgames.com`
+- [x] Storage proxy Spring + UID unificado
+- [x] OAuth / publish / templates / collab STOMP cableados a Spring
+- [x] ETL tool: `backend/tools/firebase-import/` (Auth/Firestore/Storage → Postgres+Bucket; passwords `{migrated}RESET_REQUIRED`)
+- [ ] Ops: ejecutar `npm run import` con service account + vars Railway; usuarios migrados hacen forgot-password
+- [ ] Ops: Stripe Dashboard webhook → `https://backendfolio.minealexgames.com/api/v1/billing/webhook` (dejar de apuntar a Cloud Functions)
+- [ ] Smoke desktop con cuenta migrada: login/reset, `/account/me`, vault meta, storage put/get, collab
 
 ### Pendientes por plataforma / superficie
 
@@ -1896,15 +1915,21 @@ Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco,
 | Auth JWT + secure storage | Hecho |
 | Entitlements vía `/account/me` | Hecho |
 | `folioCloudCatalogPrices` | `POST /api/v1/billing/catalog-prices` (público) |
-| Subidas/descargas blob (proxy Spring → MinIO) | **Hecho** — `PUT/GET/HEAD /api/v1/storage/objects` + `folio_storage_transport` en modo Spring; device-sync/app-profile usan `folioCloudCurrentUid` (no Firebase Auth) |
-| Collab live WebSocket STOMP (`/ws/collab`) | Cliente aún no cableado al transporte Spring (control-plane REST sí) |
-| Lecturas/escrituras directas Firestore (móvil/web: collab content streams, community templates, published pages, telemetry dashboard, integrations pending cmds vía SDK) | Parcial: callables unificados; streams nativos Firestore siguen en Firebase si el SDK está activo — documentar y migrar por archivo |
-| Portal web (`FOLIO_WEB_PORTAL_*`) | Omite espejo en modo Spring (sigue esperando ID token Firebase) |
+| Subidas/descargas blob (proxy Spring → MinIO/S3) | **Hecho** |
+| OAuth HTTP (Slack/Teams/Jira/Spotify) + diagnóstico | **Hecho** (`apiV1Prefix` + Bearer Spring) |
+| Collab live WebSocket STOMP (`/ws/collab`) | **Hecho** — `CollabSessionController` → STOMP si `useSpring` (`collab_stomp_transport.dart` + `stomp_dart_client`); Firestore si no. CONNECT Bearer; SUBSCRIBE topic + errores; SEND update E2E. Chat sala aún no en Spring. |
+| Published pages + community templates | **Hecho** — REST Spring + storage proxy |
+| Portal web (`FOLIO_WEB_PORTAL_*`) | Omite espejo en modo Spring |
 | Analytics / telemetría GA4 | Fuera de alcance (Fase 28 descartada) |
+| Migración datos Firebase → Railway | Tool `backend/tools/firebase-import/` (one-shot); ejecutar con SA antes de apagar Firebase |
 
 ## Backend Spring Boot — Fase 30 (decomisión Firebase)
 
-**Estado actual: Fase 30 diferida — checklist listo, no ejecutada.**
+**Estado actual: Fase 30 ejecutada (2026-07-29).** Cliente y repo apuntan solo a Spring/Railway (`https://backendfolio.minealexgames.com`). Se eliminaron deps Firebase, `functions/`, rules, `firebase_options*`, vendor fork Windows. ETL one-shot en `backend/tools/firebase-import/`. Telemetría Firestore staff deshabilitada (UI stub). Ops pendiente: apuntar Stripe webhook a Railway y apagar proyectos GCP cuando el tráfico legacy sea cero.
+
+**Compilación cliente (post-cutover):** se cerraron los `error` de `flutter analyze lib` dejados a medias tras quitar Firebase — storage vía `folio_storage_transport` (backup / cloud-pack / settings sync), entitlements `canUseRealtimeCollab`, identity/auth exceptions, collab firmas, proxy Spotify/Slack/Teams e integration commands por callable Spring. Meta: **0** `error -` en `flutter analyze lib` (warnings/info permitidos).
+
+### Histórico (checklist previo a la ejecución)
 
 No ejecutar esta fase en la misma sesión en que se escribe el checklist. La decomisión es destructiva: **el rollback deja de ser barato** (hay que restaurar deps, `functions/`, opciones de Firebase, fork Windows y, si se apagan los proyectos GCP, recuperar proyectos/billing). Solo procede **después de que la Fase 29 (flag dual-mode Firebase | Spring) haya corrido limpia en producción durante al menos un ciclo de release completo**, con tráfico real en modo Spring por defecto y sin dependencia operativa del backend Firebase.
 

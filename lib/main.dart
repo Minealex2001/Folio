@@ -2,10 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:flutter/services.dart';
-
-import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
@@ -16,12 +12,10 @@ import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
-import 'config/folio_firebase_env.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/folio_diagnostic_reporter.dart';
 import 'services/folio_telemetry.dart';
-import 'services/folio_firestore_sync.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
 import 'services/env/local_env_loader.dart';
 import 'services/env/local_env.dart';
@@ -120,63 +114,31 @@ Future<void> main(List<String> args) async {
         );
       }
 
-      try {
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-          FirebaseAuthPlatform.disableIdTokenChannelOnWindows = true;
-        }
-        await Firebase.initializeApp(
-          options: FolioFirebaseEnv.options,
-        );
-        AppLogger.info(
-          'Firebase initialized (${FolioFirebaseEnv.label})',
-          tag: 'firebase',
-          context: {
-            'projectId': FolioFirebaseEnv.options.projectId,
-          },
-        );
+      AppLogger.info(
+        'Spring backend mode (Fase 30 — Firebase decomisionado)',
+        tag: 'backend',
+        context: {
+          'baseUrl': FolioBackendConfig.baseUrl.isEmpty
+              ? '(unset)'
+              : FolioBackendConfig.baseUrl,
+        },
+      );
 
-        // Parche de seguridad adicional: si algún código sigue usando el plugin
-        // nativo (p. ej. delete/getDownloadURL), reencola mensajes taskEvent en el
-        // isolate principal. Las subidas/descargas en escritorio usan REST vía
-        // folio_storage_transport.dart y no deberían abrir taskEvent.
-        if (!kIsWeb) {
-          _patchFirebaseStorageTaskEventChannels();
-        }
+      final cloudAccountController = CloudAccountController();
+      try {
+        await cloudAccountController.ensureSpringSessionRestored();
       } catch (e, st) {
         AppLogger.error(
-          'Firebase init failed',
-          tag: 'firebase',
+          'Spring session restore failed',
+          tag: 'backend',
           error: e,
           stackTrace: st,
         );
       }
-
-      final cloudAccountController = CloudAccountController();
-      if (FolioBackendConfig.useSpring) {
-        try {
-          await cloudAccountController.ensureSpringSessionRestored();
-          AppLogger.info(
-            'Spring backend mode active',
-            tag: 'backend',
-            context: {
-              'baseUrl': FolioBackendConfig.baseUrl.isEmpty
-                  ? '(unset)'
-                  : FolioBackendConfig.baseUrl,
-            },
-          );
-        } catch (e, st) {
-          AppLogger.error(
-            'Spring session restore failed',
-            tag: 'backend',
-            error: e,
-            stackTrace: st,
-          );
-        }
-      }
       final folioCloudEntitlements = FolioCloudEntitlementsController();
       folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
 
-      // A diferencia de las fases de arriba (env/.env, SystemTheme, Firebase),
+      // A diferencia de las fases de arriba (env/.env, SystemTheme),
       // esta carga no estaba protegida: si algo aquí lanzaba, runApp() nunca se
       // ejecutaba y el proceso quedaba sin ventana visible en vez de degradar
       // con defaults (rompe el arranque-por-fases documentado en FEATURES.md).
@@ -201,17 +163,6 @@ Future<void> main(List<String> args) async {
         try {
           await appSettings.load();
         } catch (_) {}
-      }
-
-      try {
-        FolioFirestoreSync.initialize();
-      } catch (e, st) {
-        AppLogger.error(
-          'FolioFirestoreSync init failed; continuing without telemetry sync',
-          tag: 'bootstrap',
-          error: e,
-          stackTrace: st,
-        );
       }
 
       VaultSession session;
@@ -282,55 +233,4 @@ bool _hasJiraClientSecret() {
     return true;
   }
   return LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET');
-}
-
-/// Patches the `firebase_storage/taskEvent/*` method channels so that messages
-/// arriving from the native side on a background thread are re-dispatched on
-/// the main UI isolate before they reach Flutter's codec / element tree.
-///
-/// Background: the Windows (and sometimes iOS/macOS) implementation of
-/// `firebase_storage` calls back on a background C++ thread instead of the
-/// platform thread, which triggers the Flutter assertion
-/// `'_elements.contains(element)': is not true` during warm-up frame builds.
-///
-/// The workaround intercepts [PlatformDispatcher.instance.onPlatformMessage]
-/// — the single global raw message hook — and for channels whose name starts
-/// with the storage taskEvent prefix it re-enqueues the message on the Dart
-/// event loop via [scheduleMicrotask] before forwarding it to the
-/// framework's registered handler through [ChannelBuffers.push].
-///
-/// All other channels are forwarded synchronously as normal.
-void _patchFirebaseStorageTaskEventChannels() {
-  const _kStorageTaskPrefix =
-      'plugins.flutter.io/firebase_storage/taskEvent/';
-
-  // Save whatever handler may already be installed (usually null at this point).
-  final previousHandler = PlatformDispatcher.instance.onPlatformMessage;
-
-  PlatformDispatcher.instance.onPlatformMessage = (
-    String name,
-    ByteData? data,
-    PlatformMessageResponseCallback? callback,
-  ) {
-    if (name.startsWith(_kStorageTaskPrefix)) {
-      // Re-enqueue on the Dart microtask queue so it is guaranteed to run
-      // on the main isolate / event loop, not the background native thread.
-      scheduleMicrotask(() {
-        ServicesBinding.instance.channelBuffers.push(
-          name,
-          data,
-          callback ?? (_) {},
-        );
-      });
-    } else if (previousHandler != null) {
-      previousHandler(name, data, callback);
-    } else {
-      // Default: let the framework handle it normally.
-      ServicesBinding.instance.channelBuffers.push(
-        name,
-        data,
-        callback ?? (_) {},
-      );
-    }
-  };
 }

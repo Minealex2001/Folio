@@ -50,7 +50,7 @@ extension _WorkspacePageCollabModule on _WorkspacePageState {
     final msgs = _collab.messages;
     final latest = msgs.isEmpty ? null : msgs.last;
     final latestId = latest?.id;
-    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final myUid = folioCloudCurrentUid();
     final incomingFromOther =
         latest != null && (myUid == null || latest.authorUid != myUid);
     final roomChanged = _lastCollabObservedRoomId != roomId;
@@ -83,7 +83,7 @@ extension _WorkspacePageCollabModule on _WorkspacePageState {
         : _s.pages.firstWhereOrNull((p) => p.id == id);
     final rid = page?.collabRoomId?.trim();
     if (_isValidCollabRoomId(rid) &&
-        Firebase.apps.isNotEmpty &&
+        folioCloudHasSession() &&
         widget.cloudAccountController.isSignedIn) {
       _collab.attach(
         pageId: page!.id,

@@ -1,10 +1,7 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../crypto/collab_e2e_crypto.dart';
@@ -15,15 +12,12 @@ import '../../session/vault_session.dart';
 import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
-import '../folio_firestore_support.dart';
+import '../folio_cloud/folio_cloud_exception.dart';
+import '../folio_cloud/folio_cloud_identity.dart';
+import 'collab_spring_api.dart';
+import 'collab_stomp_transport.dart';
 
-bool _collabFirestorePolling() {
-  if (kIsWeb) return false;
-  return defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux;
-}
-
-/// Mensaje de chat de sala (Firestore).
+/// Mensaje de chat de sala (UI). En Spring el chat aún no está portado.
 @immutable
 class CollabChatMessageView {
   const CollabChatMessageView({
@@ -41,23 +35,25 @@ class CollabChatMessageView {
   final int createdAtMs;
 }
 
-/// Sincroniza una página local con `collabRooms/{roomId}` y mensajes en subcolección.
+/// Sincroniza una página local con la sala collab vía Spring STOMP + REST.
 ///
-/// Contenido y chat E2E cuando la sala tiene `e2eV == 1`; salas antiguas siguen en claro.
+/// Contenido E2E cuando la sala tiene `e2eV == 1`. Chat de sala no disponible.
 class CollabSessionController extends ChangeNotifier {
   CollabSessionController({
     required this.vaultSession,
     required this.folioCloudEntitlements,
-  });
+    CollabSpringApi? springApi,
+    CollabStompTransport? stompTransport,
+  }) : _springApi = springApi ?? CollabSpringApi(),
+       _stomp = stompTransport ?? CollabStompTransport();
 
   final VaultSession vaultSession;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+  final CollabSpringApi _springApi;
+  final CollabStompTransport _stomp;
 
   String? _pageId;
   String? _roomId;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roomSub;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _msgSub;
-  Timer? _pollTimer;
   Timer? _pushDebounce;
   VoidCallback? _vaultListener;
 
@@ -66,9 +62,8 @@ class CollabSessionController extends ChangeNotifier {
   final List<CollabChatMessageView> _messages = [];
 
   SecretKey? _roomKey;
-
-  /// `null` = aún no leído; true/false según último snapshot de sala.
   bool? _roomUsesE2e;
+  Map<String, dynamic>? _springRoomCache;
 
   List<CollabChatMessageView> get messages => List.unmodifiable(_messages);
   String? get activeRoomId => _roomId;
@@ -78,7 +73,6 @@ class CollabSessionController extends ChangeNotifier {
   int? _remoteContentVersion;
   int? get remoteContentVersion => _remoteContentVersion;
 
-  /// Código para compartir o descifrar (local / pegado al unirse). No viene de Firestore en salas nuevas.
   String? _roomJoinCode;
   String? get roomJoinCode => _roomJoinCode;
 
@@ -88,7 +82,6 @@ class CollabSessionController extends ChangeNotifier {
   bool _isValidRoomId(String? raw) {
     final rid = raw?.trim();
     if (rid == null || rid.isEmpty) return false;
-    // Evita aceptar placeholders visuales (--- / —) como roomId real.
     if (RegExp(r'^[-—]+$').hasMatch(rid)) return false;
     return true;
   }
@@ -99,17 +92,20 @@ class CollabSessionController extends ChangeNotifier {
   }
 
   bool _isCollabPermissionDeniedError(Object e) {
-    if (e is FirebaseException) {
+    if (e is CollabSpringApiException) {
+      return e.code == 'permission_denied' || e.code == 'not_found';
+    }
+    if (e is FolioCloudException) {
       final code = e.code.toLowerCase();
-      if (code == 'permission-denied' ||
-          code == 'cloud_firestore/permission-denied') {
-        return true;
-      }
+      if (code == 'permission-denied' || code == 'not-found') return true;
     }
     final m = '$e'.toLowerCase();
     return m.contains('permission-denied') ||
-        m.contains('insufficient permissions');
+        m.contains('insufficient permissions') ||
+        m.contains('not a member of this collab room');
   }
+
+  String? _currentUid() => folioCloudCurrentUid();
 
   void _handleRoomClosedByPermissionDenied() {
     final pageId = _pageId;
@@ -136,18 +132,13 @@ class CollabSessionController extends ChangeNotifier {
 
   String? _effectiveJoinCode() {
     final hint = _roomJoinCode?.trim();
-    if (hint != null && hint.isNotEmpty) {
-      return hint;
-    }
+    if (hint != null && hint.isNotEmpty) return hint;
     final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
     final c = page?.collabJoinCode?.trim();
-    if (c != null && c.isNotEmpty) {
-      return c;
-    }
+    if (c != null && c.isNotEmpty) return c;
     return null;
   }
 
-  /// Tras guardar el código en la libreta, reintenta descifrar y refresca sala + mensajes.
   Future<void> applyJoinCodeAndResync(String rawCode) async {
     final t = rawCode.trim();
     if (t.isEmpty || _pageId == null) return;
@@ -156,21 +147,7 @@ class CollabSessionController extends ChangeNotifier {
     _roomKey = null;
     notifyListeners();
     try {
-      if (_collabFirestorePolling()) {
-        await _pollRoomAndMessages();
-      } else {
-        final roomRef = FirebaseFirestore.instance
-            .collection('collabRooms')
-            .doc(_roomId);
-        final snap = await roomRef.get();
-        await _handleRoomSnapshot(snap);
-        final msgSnap = await roomRef
-            .collection('messages')
-            .orderBy('createdAt')
-            .limit(400)
-            .get();
-        await _handleMessagesQuery(msgSnap.docs);
-      }
+      await _fetchSpringRoomAndApply();
     } catch (e) {
       _handleCollabError(e);
     }
@@ -186,7 +163,7 @@ class CollabSessionController extends ChangeNotifier {
       detach();
       return;
     }
-    if (Firebase.apps.isEmpty || FirebaseAuth.instance.currentUser == null) {
+    if (!folioCloudHasSession()) {
       detach();
       return;
     }
@@ -208,30 +185,49 @@ class CollabSessionController extends ChangeNotifier {
       }
       return;
     }
+
     detach();
     _pageId = pageId;
     _roomId = rid;
-    _lastAppliedRemoteVersion = 0;
-    _messages.clear();
     _roomJoinCode = resolvedCode;
+    _lastAppliedRemoteVersion = 0;
+    _remoteContentVersion = null;
+    _roomKey = null;
+    _roomUsesE2e = null;
+    _springRoomCache = null;
+    _messages.clear();
+    _lastError = null;
+
     _vaultListener = _onVaultChanged;
     vaultSession.addListener(_vaultListener!);
-    _startFirestore();
+
+    unawaited(_connectSpring());
     notifyListeners();
   }
 
   Future<void> _refetchAfterJoinCode() async {
-    if (!isAttached) return;
     try {
-      if (_collabFirestorePolling()) {
-        await _pollRoomAndMessages();
-      } else {
-        final roomRef = FirebaseFirestore.instance
-            .collection('collabRooms')
-            .doc(_roomId);
-        final snap = await roomRef.get();
-        await _handleRoomSnapshot(snap);
-      }
+      await _fetchSpringRoomAndApply();
+    } catch (e) {
+      _handleCollabError(e);
+    }
+  }
+
+  Future<void> _connectSpring() async {
+    if (!isAttached || _roomId == null) return;
+    try {
+      await _fetchSpringRoomAndApply();
+      await _stomp.connect(
+        roomId: _roomId!,
+        onRoomUpdate: (json) => unawaited(_handleSpringTopicPayload(json)),
+        onError: (json) {
+          final msg = json['message']?.toString() ?? json['error']?.toString();
+          if (msg != null && msg.isNotEmpty) {
+            _lastError = msg;
+            notifyListeners();
+          }
+        },
+      );
     } catch (e) {
       _handleCollabError(e);
     }
@@ -240,24 +236,21 @@ class CollabSessionController extends ChangeNotifier {
   void detach() {
     _pushDebounce?.cancel();
     _pushDebounce = null;
-    unawaited(_roomSub?.cancel());
-    unawaited(_msgSub?.cancel());
-    _roomSub = null;
-    _msgSub = null;
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    if (_vaultListener != null) {
-      vaultSession.removeListener(_vaultListener!);
-      _vaultListener = null;
+    final vl = _vaultListener;
+    _vaultListener = null;
+    if (vl != null) {
+      vaultSession.removeListener(vl);
     }
+    unawaited(_stomp.disconnect());
     _pageId = null;
     _roomId = null;
-    _lastAppliedRemoteVersion = 0;
-    _messages.clear();
-    _remoteContentVersion = null;
     _roomJoinCode = null;
     _roomKey = null;
     _roomUsesE2e = null;
+    _springRoomCache = null;
+    _remoteContentVersion = null;
+    _lastAppliedRemoteVersion = 0;
+    _messages.clear();
     notifyListeners();
   }
 
@@ -269,48 +262,41 @@ class CollabSessionController extends ChangeNotifier {
 
   void _onVaultChanged() {
     if (!isAttached) return;
-    if (vaultSession.selectedPageId != _pageId) return;
     _schedulePush();
   }
 
   void _schedulePush() {
-    if (!isAttached) return;
     _pushDebounce?.cancel();
-    _pushDebounce = Timer(const Duration(milliseconds: 480), () {
+    _pushDebounce = Timer(const Duration(milliseconds: 450), () {
       unawaited(_flushPush());
     });
   }
 
-  Future<SecretKey?> _unwrapRoomKey(Map<String, dynamic> d) async {
-    final w = d['wrappedRoomKey'] as String?;
-    if (w == null || w.isEmpty) {
-      return null;
-    }
+  Future<SecretKey?> _unwrapRoomKey(Map<String, dynamic> data) async {
     final code = _effectiveJoinCode();
     if (code == null) {
+      _setErrorCode('collab_needs_join_code');
       return null;
     }
-    final norm = CollabE2eCrypto.normalizeJoinCode(code);
+    final wrapped = data['wrappedRoomKey'] as String?;
+    if (wrapped == null || wrapped.isEmpty) return null;
     try {
       return await CollabE2eCrypto.unwrapRoomKeyB64(
-        wrappedB64: w,
-        joinCodeNormalized: norm,
+        wrappedB64: wrapped,
+        joinCodeNormalized: CollabE2eCrypto.normalizeJoinCode(code),
         roomId: _roomId!,
       );
-    } on CollabE2eException catch (e) {
-      _lastError = e.message;
-      return null;
-    } catch (e) {
-      _lastError = '$e';
+    } on CollabE2eException {
+      _setErrorCode('collab_needs_join_code');
       return null;
     }
   }
 
   Future<void> _sealPendingE2eRoom(Map<String, dynamic> data) async {
     if (_roomId == null || _pageId == null) return;
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    if (user.uid != data['ownerUid']) return;
+    final uid = _currentUid();
+    if (uid == null) return;
+    if (uid != data['ownerUid']) return;
     final code = _effectiveJoinCode();
     if (code == null) {
       _lastError = 'collab_needs_join_code';
@@ -320,44 +306,40 @@ class CollabSessionController extends ChangeNotifier {
     final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
     if (page == null) return;
 
-    final roomKey = await CollabE2eCrypto.generateRoomKey();
-    final norm = CollabE2eCrypto.normalizeJoinCode(code);
-    final wrapped = await CollabE2eCrypto.wrapRoomKeyB64(
-      roomKey: roomKey,
-      joinCodeNormalized: norm,
-      roomId: _roomId!,
-    );
-    final blocksJson = page.blocks.map((b) => b.toJson()).toList();
-    final cipher = await CollabE2eCrypto.encryptPagePayloadB64(
-      title: page.title,
-      blocksJson: blocksJson,
-      roomKey: roomKey,
-    );
-    final roomRef = FirebaseFirestore.instance
-        .collection('collabRooms')
-        .doc(_roomId);
     try {
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final snap = await tx.get(roomRef);
-        final d = snap.data() ?? {};
-        if ((d['contentVersion'] as num?)?.toInt() != 0) {
-          return;
-        }
-        final members = (d['memberUids'] as List<dynamic>?) ?? [];
-        if (!members.map((e) => '$e').contains(user.uid)) {
-          throw StateError('not_member');
-        }
-        tx.update(roomRef, {
-          'wrappedRoomKey': wrapped,
-          'contentCipher': cipher,
-          'contentVersion': 1,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': user.uid,
-        });
-      });
+      final roomKey = await CollabE2eCrypto.generateRoomKey();
+      final norm = CollabE2eCrypto.normalizeJoinCode(code);
+      final wrapped = await CollabE2eCrypto.wrapRoomKeyB64(
+        roomKey: roomKey,
+        joinCodeNormalized: norm,
+        roomId: _roomId!,
+      );
+      final blocksJson = page.blocks.map((b) => b.toJson()).toList();
+      final cipher = await CollabE2eCrypto.encryptPagePayloadB64(
+        title: page.title,
+        blocksJson: blocksJson,
+        roomKey: roomKey,
+      );
+      final body = <String, dynamic>{
+        'wrappedRoomKey': wrapped,
+        'contentCipher': cipher,
+        'contentVersion': 1,
+        'updatedBy': uid,
+        'changedKeys': <String>['wrappedRoomKey', 'contentCipher'],
+      };
+      try {
+        _stomp.sendRoomUpdate(_roomId!, body);
+      } catch (_) {
+        await _springApi.putRoomUpdate(_roomId!, body);
+      }
       _roomKey = roomKey;
       _lastAppliedRemoteVersion = 1;
       _remoteContentVersion = 1;
+      _springRoomCache = {
+        ...?_springRoomCache,
+        ...data,
+        ...body,
+      };
     } catch (e) {
       _lastError = '$e';
     }
@@ -366,61 +348,56 @@ class CollabSessionController extends ChangeNotifier {
 
   Future<void> _flushPush() async {
     if (!isAttached) return;
-    if (Firebase.apps.isEmpty) return;
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    final uid = _currentUid();
+    if (uid == null) return;
     final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
     if (page == null) return;
-    final roomRef = FirebaseFirestore.instance
-        .collection('collabRooms')
-        .doc(_roomId);
+
     try {
-      var newVersion = 0;
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final snap = await tx.get(roomRef);
-        if (!snap.exists) {
-          throw StateError('room_missing');
-        }
-        final d = snap.data() ?? {};
-        final members = (d['memberUids'] as List<dynamic>?) ?? [];
-        if (!members.map((e) => '$e').contains(user.uid)) {
-          throw StateError('not_member');
-        }
-        final e2eV = (d['e2eV'] as num?)?.toInt() ?? 0;
-        final usesE2e = e2eV == 1;
-        final v = (d['contentVersion'] as num?)?.toInt() ?? 0;
-        if (!usesE2e) {
-          throw StateError('e2e_required');
-        }
-        if (usesE2e && v == 0) {
-          throw StateError('pending_seal');
-        }
-        newVersion = v + 1;
-        var key = _roomKey;
-        key ??= await _unwrapRoomKey(d);
-        if (key == null) {
-          throw StateError('no_room_key');
-        }
-        _roomKey = key;
-        final blocksJson = page.blocks.map((b) => b.toJson()).toList();
-        final cipher = await CollabE2eCrypto.encryptPagePayloadB64(
-          title: page.title,
-          blocksJson: blocksJson,
-          roomKey: key,
-        );
-        tx.update(roomRef, {
-          'contentCipher': cipher,
-          'contentVersion': newVersion,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': user.uid,
-        });
-      });
+      var data = _springRoomCache;
+      data ??= await _springApi.getRoom(_roomId!);
+      _springRoomCache = data;
+
+      final members = (data['memberUids'] as List<dynamic>?) ?? [];
+      if (!members.map((e) => '$e').contains(uid) &&
+          '${data['ownerUid']}' != uid) {
+        throw StateError('not_member');
+      }
+      final e2eV = (data['e2eV'] as num?)?.toInt() ?? 0;
+      final usesE2e = e2eV == 1;
+      final v = (data['contentVersion'] as num?)?.toInt() ?? 0;
+      if (!usesE2e) throw StateError('e2e_required');
+      if (v == 0) throw StateError('pending_seal');
+
+      var key = _roomKey;
+      key ??= await _unwrapRoomKey(data);
+      if (key == null) throw StateError('no_room_key');
+      _roomKey = key;
+
+      final newVersion = v + 1;
+      final blocksJson = page.blocks.map((b) => b.toJson()).toList();
+      final cipher = await CollabE2eCrypto.encryptPagePayloadB64(
+        title: page.title,
+        blocksJson: blocksJson,
+        roomKey: key,
+      );
+      final body = <String, dynamic>{
+        'contentCipher': cipher,
+        'contentVersion': newVersion,
+        'updatedBy': uid,
+        'changedKeys': <String>['contentCipher'],
+      };
+      try {
+        _stomp.sendRoomUpdate(_roomId!, body);
+      } catch (_) {
+        await _springApi.putRoomUpdate(_roomId!, body);
+      }
       _lastLocalPushMs = DateTime.now().millisecondsSinceEpoch;
       _lastAppliedRemoteVersion = newVersion;
+      _remoteContentVersion = newVersion;
+      _springRoomCache = {...data, ...body};
     } on StateError catch (e) {
-      if (e.message == 'pending_seal') {
-        return;
-      }
+      if (e.message == 'pending_seal') return;
       if (e.message == 'e2e_required') {
         _setErrorCode('collab_e2e_required');
         return;
@@ -436,68 +413,24 @@ class CollabSessionController extends ChangeNotifier {
     }
   }
 
-  void _startFirestore() {
-    if (!isAttached) return;
-    final roomRef = FirebaseFirestore.instance
-        .collection('collabRooms')
-        .doc(_roomId);
-    final msgQuery = roomRef
-        .collection('messages')
-        .orderBy('createdAt')
-        .limit(400);
-
-    if (_collabFirestorePolling()) {
-      _pollTimer?.cancel();
-      _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        unawaited(_pollRoomAndMessages());
-      });
-      unawaited(_pollRoomAndMessages());
-      return;
-    }
-
-    _roomSub = roomRef.snapshots().listen(
-      (snap) => unawaited(_handleRoomSnapshot(snap)),
-      onError: (Object e, StackTrace st) {
-        _lastError = '$e';
-        notifyListeners();
-      },
-    );
-    _msgSub = msgQuery.snapshots().listen(
-      (snap) => unawaited(_handleMessagesSnapshot(snap)),
-      onError: (Object e, StackTrace st) {
-        _lastError = '$e';
-        notifyListeners();
-      },
-    );
+  Future<void> _fetchSpringRoomAndApply() async {
+    if (!isAttached || _roomId == null) return;
+    final data = await _springApi.getRoom(_roomId!);
+    _springRoomCache = data;
+    await _handleRoomData(data);
   }
 
-  Future<void> _pollRoomAndMessages() async {
+  Future<void> _handleSpringTopicPayload(Map<String, dynamic> json) async {
     if (!isAttached) return;
-    try {
-      final roomRef = FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(_roomId);
-      final roomSnap = await roomRef.get();
-      if (roomSnap.exists) {
-        await _handleRoomSnapshot(roomSnap);
-      }
-      final msgSnap = await roomRef
-          .collection('messages')
-          .orderBy('createdAt')
-          .limit(400)
-          .get();
-      await _handleMessagesQuery(msgSnap.docs);
-    } catch (e) {
-      _handleCollabError(e);
-    }
+    final type = '${json['type'] ?? ''}';
+    if (type.isNotEmpty && type != 'room.update') return;
+    final merged = <String, dynamic>{...?_springRoomCache, ...json};
+    _springRoomCache = merged;
+    await _handleRoomData(merged);
   }
 
-  Future<void> _handleRoomSnapshot(
-    DocumentSnapshot<Map<String, dynamic>> snap,
-  ) async {
-    if (!isAttached || !snap.exists) return;
-    final data = snap.data();
-    if (data == null) return;
+  Future<void> _handleRoomData(Map<String, dynamic> data) async {
+    if (!isAttached) return;
 
     final e2eV = (data['e2eV'] as num?)?.toInt() ?? 0;
     final usesE2e = e2eV == 1;
@@ -573,384 +506,97 @@ class CollabSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _handleMessagesSnapshot(
-    QuerySnapshot<Map<String, dynamic>> snap,
-  ) async {
-    try {
-      await _handleMessagesQuery(snap.docs);
-    } catch (e) {
-      _handleCollabError(e);
-    }
-  }
-
-  Future<void> _handleMessagesQuery(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) async {
-    final list = <CollabChatMessageView>[];
-    SecretKey? key = _roomKey;
-    if (_roomUsesE2e == true) {
-      final roomRef = FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(_roomId);
-      final rs = await roomRef.get();
-      final d = rs.data();
-      if (d != null) {
-        key ??= await _unwrapRoomKey(d);
-        if (key != null) {
-          _roomKey = key;
-        }
-      }
-    }
-    for (final d in docs) {
-      final m = d.data();
-      final ts = m['createdAt'];
-      int ms = 0;
-      if (ts is Timestamp) {
-        ms = ts.millisecondsSinceEpoch;
-      }
-      final e2eMsg =
-          (m['e2eV'] as num?)?.toInt() == 1 ||
-          (m['cipherText'] as String?)?.isNotEmpty == true;
-      if (e2eMsg && key != null) {
-        final ct = m['cipherText'] as String? ?? '';
-        try {
-          final dec = await CollabE2eCrypto.decryptChatMessageB64(
-            cipherB64: ct,
-            roomKey: key,
-          );
-          list.add(
-            CollabChatMessageView(
-              id: d.id,
-              authorUid: '${m['authorUid'] ?? ''}',
-              authorName: dec.authorName,
-              text: dec.text,
-              createdAtMs: ms,
-            ),
-          );
-        } on CollabE2eException {
-          list.add(
-            CollabChatMessageView(
-              id: d.id,
-              authorUid: '${m['authorUid'] ?? ''}',
-              authorName: '',
-              text: '…',
-              createdAtMs: ms,
-            ),
-          );
-        }
-      } else if (e2eMsg && key == null) {
-        list.add(
-          CollabChatMessageView(
-            id: d.id,
-            authorUid: '${m['authorUid'] ?? ''}',
-            authorName: '${m['authorName'] ?? ''}',
-            text: '…',
-            createdAtMs: ms,
-          ),
-        );
-      } else {
-        list.add(
-          CollabChatMessageView(
-            id: d.id,
-            authorUid: '${m['authorUid'] ?? ''}',
-            authorName: '${m['authorName'] ?? ''}',
-            text: '${m['text'] ?? ''}',
-            createdAtMs: ms,
-          ),
-        );
-      }
-    }
-    _messages
-      ..clear()
-      ..addAll(list);
-    notifyListeners();
-  }
-
   Future<void> sendChatMessage(String text) async {
     final t = text.trim();
     if (t.isEmpty || !isAttached) return;
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final name = user.displayName?.trim().isNotEmpty == true
-        ? user.displayName!.trim()
-        : (user.email?.trim().isNotEmpty == true
-              ? user.email!.trim()
-              : user.uid);
-    final localNow = DateTime.now().toUtc();
-    final optimisticId =
-        'local_${localNow.microsecondsSinceEpoch}_${user.uid.substring(0, 6)}';
-    _messages.add(
-      CollabChatMessageView(
-        id: optimisticId,
-        authorUid: user.uid,
-        authorName: name,
-        text: t,
-        createdAtMs: localNow.millisecondsSinceEpoch,
-      ),
-    );
-    notifyListeners();
-
-    var sent = false;
-    try {
-      final roomRef = FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(_roomId);
-      var usesE2e = _roomUsesE2e;
-      var cv = _remoteContentVersion ?? 1;
-      Map<String, dynamic>? roomData;
-
-      if (usesE2e != true || cv <= 0 || _roomKey == null) {
-        final rs = await roomRef.get();
-        roomData = rs.data() ?? {};
-        final e2eV = (roomData['e2eV'] as num?)?.toInt() ?? 0;
-        usesE2e = e2eV == 1;
-        _roomUsesE2e = usesE2e;
-        cv = (roomData['contentVersion'] as num?)?.toInt() ?? 0;
-        _remoteContentVersion = cv;
-      }
-
-      if (usesE2e != true) {
-        _setErrorCode('collab_e2e_required');
-        return;
-      }
-      if (cv == 0) {
-        if (roomData != null) {
-          await _sealPendingE2eRoom(roomData);
-          cv = _remoteContentVersion ?? cv;
-        }
-        if (cv == 0) {
-          final refreshed = await roomRef.get();
-          final d2 = refreshed.data() ?? {};
-          cv = (d2['contentVersion'] as num?)?.toInt() ?? 0;
-          _remoteContentVersion = cv;
-          roomData = d2;
-        }
-        if (cv == 0) {
-          _setErrorCode('collab_pending_encryption');
-          return;
-        }
-      }
-      final payload = <String, dynamic>{
-        'authorUid': user.uid,
-        'createdAt': Timestamp.fromDate(DateTime.now().toUtc()),
-      };
-      var key = _roomKey;
-      if (key == null && roomData != null) {
-        key = await _unwrapRoomKey(roomData);
-      }
-      if (key == null) {
-        final rs = await roomRef.get();
-        key = await _unwrapRoomKey(rs.data() ?? {});
-      }
-      if (key == null) {
-        _setErrorCode('collab_needs_join_code');
-        return;
-      }
-      _roomKey = key;
-      final ct = await CollabE2eCrypto.encryptChatMessageB64(
-        authorName: name,
-        text: t,
-        roomKey: key,
-      );
-      payload['e2eV'] = 1;
-      payload['authorName'] = '';
-      payload['cipherText'] = ct;
-      await roomRef.collection('messages').add(payload);
-      sent = true;
-    } catch (e) {
-      _handleCollabError(e);
-    } finally {
-      if (!sent) {
-        _messages.removeWhere((m) => m.id == optimisticId);
-        notifyListeners();
-      }
-    }
+    _setErrorCode('collab_chat_spring_unavailable');
   }
 
-  Future<String?> createRoomForPage({required String pageId}) async {
-    // Windows: Firestore no está disponible (crash nativo del SDK C++); la
-    // colaboración en tiempo real usa `collabRooms`, así que queda deshabilitada.
-    if (!folioFirestoreSupported) {
-      _lastError = 'collab_unsupported_platform';
-      AppLogger.warn(
-        'createRoom unsupported platform',
-        tag: 'collab',
-        context: {'pageId': pageId},
-      );
-      notifyListeners();
+  Future<String?> createRoomForPage(String pageId) async {
+    if (!folioCloudHasSession()) return null;
+    final snap = folioCloudEntitlements.snapshot;
+    if (!snap.canUseRealtimeCollab) {
+      _setErrorCode('collab_entitlement');
       return null;
     }
-    if (!folioCloudEntitlements.snapshot.canRealtimeCollab) {
-      _lastError = 'no_entitlement';
-      AppLogger.warn(
-        'createRoom no entitlement',
-        tag: 'collab',
-        context: {'pageId': pageId},
-      );
-      notifyListeners();
-      return null;
-    }
-    AppLogger.info(
-      'createRoom start',
-      tag: 'collab',
-      context: {'pageId': pageId},
-    );
     try {
       final res = await callFolioHttpsCallable('createCollabRoom', {
-        'vaultPageId': pageId,
+        'pageId': pageId,
       });
-      if (res is Map && res['roomId'] is String) {
-        final rid = (res['roomId'] as String).trim();
-        if (!_isValidRoomId(rid)) {
-          _lastError = 'collab_invalid_room_id';
-          notifyListeners();
-          return null;
-        }
-        final code = (res['joinCode'] as String?)?.trim();
-        if (code == null || code.isEmpty) {
-          _lastError = 'collab_no_join_code';
-          notifyListeners();
-          return null;
-        }
-        vaultSession.setPageCollabRoomId(pageId, rid, joinCode: code);
-        attach(pageId: pageId, roomId: rid, initialJoinCode: code);
-        final roomRef = FirebaseFirestore.instance
-            .collection('collabRooms')
-            .doc(rid);
-        final snap = await roomRef.get();
-        if (snap.exists) {
-          await _sealPendingE2eRoom(snap.data() ?? {});
-        }
-        AppLogger.info(
-          'createRoom ok',
-          tag: 'collab',
-          context: {'pageId': pageId, 'roomId': rid},
-        );
-        return rid;
+      if (res is! Map) return null;
+      final roomId = res['roomId']?.toString();
+      final joinCode = res['joinCode']?.toString();
+      if (roomId == null || roomId.isEmpty) return null;
+      if (joinCode != null && joinCode.isNotEmpty) {
+        vaultSession.setPageCollabJoinCode(pageId, joinCode);
       }
+      vaultSession.setPageCollabRoomId(pageId, roomId);
+      attach(pageId: pageId, roomId: roomId, initialJoinCode: joinCode);
+      return roomId;
     } catch (e) {
-      AppLogger.error(
-        'createRoom failed',
-        tag: 'collab',
-        error: e,
-        context: {'pageId': pageId},
-      );
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
+      return null;
     }
-    return null;
   }
 
-  Future<void> inviteMember(String targetUid) async {
+  Future<void> inviteMember(String email) async {
     if (_roomId == null) return;
     try {
       await callFolioHttpsCallable('inviteCollabMember', {
         'roomId': _roomId,
-        'targetUid': targetUid.trim(),
+        'email': email.trim(),
       });
     } catch (e) {
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
     }
   }
 
-  Future<void> leaveRoom({required String pageId}) async {
-    if (_roomId == null) return;
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    var ok = false;
+  Future<void> leaveRoom() async {
+    if (_roomId == null || _pageId == null) return;
+    final roomId = _roomId!;
+    final pageId = _pageId!;
     try {
-      final roomRef = FirebaseFirestore.instance
-          .collection('collabRooms')
-          .doc(_roomId);
-      final snap = await roomRef.get();
-      final data = snap.data() ?? <String, dynamic>{};
-      final ownerUid = (data['ownerUid'] as String?)?.trim();
-      final amOwner = ownerUid != null && ownerUid == user.uid;
-      if (amOwner) {
-        await callFolioHttpsCallable('closeCollabRoom', {'roomId': _roomId});
+      final uid = _currentUid();
+      final data = _springRoomCache ?? await _springApi.getRoom(roomId);
+      final owner = '${data['ownerUid'] ?? ''}';
+      if (uid != null && uid == owner) {
+        await callFolioHttpsCallable('closeCollabRoom', {'roomId': roomId});
       } else {
         await callFolioHttpsCallable('removeCollabMember', {
-          'roomId': _roomId,
-          'targetUid': user.uid,
+          'roomId': roomId,
+          'uid': uid,
         });
       }
-      ok = true;
     } catch (e) {
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
+    } finally {
+      vaultSession.setPageCollabRoomId(pageId, null);
+      detach();
     }
-    if (!ok) return;
-    vaultSession.setPageCollabRoomId(pageId, null);
-    detach();
   }
 
-  Future<void> archiveChatToVault(String pageId) async {
-    if (_messages.isEmpty) return;
-    vaultSession.archiveCollabChatToComments(
-      pageId: pageId,
-      messages: _messages
-          .map(
-            (m) => (
-              messageId: m.id,
-              authorUid: m.authorUid,
-              authorName: m.authorName,
-              text: m.text,
-              createdAtMs: m.createdAtMs,
-            ),
-          )
-          .toList(),
-    );
+  Future<void> archiveChatToVault() async {
+    // Chat no disponible en Spring.
   }
 
-  Future<bool> joinRoomByCode({
-    required String pageId,
-    required String joinCodeInput,
-  }) async {
-    // Windows: sin Firestore no hay colaboración en tiempo real (ver arriba).
-    if (!folioFirestoreSupported) {
-      _lastError = 'collab_unsupported_platform';
-      notifyListeners();
-      return false;
-    }
-    if (Firebase.apps.isEmpty) return false;
-    if (FirebaseAuth.instance.currentUser == null) return false;
-    AppLogger.info(
-      'joinRoom start',
-      tag: 'collab',
-      context: {'pageId': pageId},
-    );
+  Future<bool> joinRoomByCode(String code) async {
+    if (!folioCloudHasSession()) return false;
     try {
       final res = await callFolioHttpsCallable('joinCollabRoomByCode', {
-        'joinCode': joinCodeInput,
+        'code': code.trim(),
       });
-      if (res is Map && res['roomId'] is String) {
-        final rid = (res['roomId'] as String).trim();
-        if (!_isValidRoomId(rid)) {
-          _lastError = 'collab_invalid_room_id';
-          notifyListeners();
-          return false;
-        }
-        final code = joinCodeInput.trim();
-        vaultSession.setPageCollabRoomId(pageId, rid, joinCode: code);
-        attach(pageId: pageId, roomId: rid, initialJoinCode: code);
-        AppLogger.info(
-          'joinRoom ok',
-          tag: 'collab',
-          context: {'pageId': pageId, 'roomId': rid},
-        );
-        return true;
-      }
+      if (res is! Map) return false;
+      final roomId = res['roomId']?.toString();
+      final pageId = res['pageId']?.toString();
+      final joinCode = res['joinCode']?.toString() ?? code.trim();
+      if (roomId == null || pageId == null) return false;
+      vaultSession.setPageCollabRoomId(pageId, roomId);
+      vaultSession.setPageCollabJoinCode(pageId, joinCode);
+      attach(pageId: pageId, roomId: roomId, initialJoinCode: joinCode);
+      return true;
     } catch (e) {
-      AppLogger.error(
-        'joinRoom failed',
-        tag: 'collab',
-        error: e,
-        context: {'pageId': pageId},
-      );
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
+      return false;
     }
-    return false;
   }
 }

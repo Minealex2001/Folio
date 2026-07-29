@@ -1,54 +1,19 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
-import '../../config/folio_backend_config.dart';
 import '../app_logger.dart';
-import '../folio_firestore_support.dart';
 import '../cloud_account/cloud_account_controller.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_cloud_identity.dart';
-import 'folio_firestore_rest.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_sync.dart';
 import 'folio_spring_account_me.dart';
 import 'folio_web_portal_api.dart';
 
-/// En Windows/Linux el plugin usa un canal Pigeon que a menudo rompe con
-/// `documentReferenceSnapshot` (stream). Misma SDK [cloud_firestore], pero solo
-/// `.get()` es fiable; el tiempo real se aproxima con sondeo.
-bool get _folioFirestoreUseGetPolling {
-  if (kIsWeb) return false;
-  return defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux;
-}
-
-/// En Windows (y a veces desktop) Firestore falla justo al [resumed] con el canal nativo aún frío.
-bool _isTransientFirestoreHostChannelError(Object e) {
-  if (e is FirebaseException) {
-    final msg = '${e.message}'.toLowerCase();
-    final code = e.code.toLowerCase();
-    if (msg.contains('unable to establish connection') ||
-        msg.contains('connection on channel') ||
-        msg.contains('establish connection')) {
-      return true;
-    }
-    // p. ej. [cloud_firestore/unknown] con mensaje genérico
-    if (code == 'unknown' &&
-        (msg.contains('channel') || msg.contains('connection'))) {
-      return true;
-    }
-  }
-  final s = e.toString().toLowerCase();
-  return s.contains('unable to establish connection') ||
-      s.contains('connection on channel') ||
-      s.contains('establish connection on channel');
-}
+import 'folio_cloud_exception.dart';
 
 bool _folioBool(dynamic v) {
   if (v == true) return true;
@@ -271,6 +236,9 @@ class FolioCloudSnapshot {
   /// Colaboración en vivo (Firestore `collabRooms`).
   bool get canRealtimeCollab => folioStaff || (active && realtimeCollab);
 
+  /// Alias usado por collab / UI (mismo significado que [canRealtimeCollab]).
+  bool get canUseRealtimeCollab => canRealtimeCollab;
+
   /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, tinta comprada, o staff.
   bool get canUseCloudAi =>
       folioStaff || (active && cloudAi) || ink.purchasedBalance > 0;
@@ -302,7 +270,7 @@ class FolioCloudSnapshot {
     if (raw is! Map) return null;
     final m = _asStringKeyedMap(raw);
     final v = m['scheduledFor'];
-    if (v is Timestamp) return v.toDate().toLocal();
+    if (v is DateTime) return v.toLocal();
     if (v is DateTime) return v.toLocal();
     if (v is String) return DateTime.tryParse(v)?.toLocal();
     // Firestore REST / mapas serializados: { "_seconds": … }
@@ -415,15 +383,10 @@ class FolioCloudSnapshot {
   }
 }
 
-/// Listens to Auth + Firestore `users/{uid}` for Folio Cloud entitlements.
+/// Escucha la sesión Spring y el documento de cuenta (`/account/me`).
 class FolioCloudEntitlementsController extends ChangeNotifier {
-  FolioCloudEntitlementsController() {
-    if (FolioBackendConfig.useSpring) return;
-    if (Firebase.apps.isEmpty) return;
-    _authSub = FirebaseAuth.instance.authStateChanges().listen(_onFirebaseUser);
-  }
+  FolioCloudEntitlementsController();
 
-  StreamSubscription<User?>? _authSub;
   CloudAccountController? _cloudAccount;
 
   void listenToCloudAccount(CloudAccountController cloud) {
@@ -436,19 +399,9 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   void _onCloudAccountChanged() {
     final cloud = _cloudAccount;
     if (cloud == null) return;
-    if (FolioBackendConfig.useSpring) {
-      final uid = cloud.uid;
-      unawaited(_handleUidChange(uid));
-      return;
-    }
-    _onFirebaseUser(cloud.user);
+    unawaited(_handleUidChange(cloud.uid));
   }
 
-  void _onFirebaseUser(User? user) {
-    unawaited(_handleUidChange(user?.uid));
-  }
-
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
   Timer? _userDocPollTimer;
 
   FolioCloudSnapshot snapshot = FolioCloudSnapshot.empty;
@@ -476,8 +429,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Último fallo al refrescar el espejo web (p. ej. red o 503).
   FolioWebPortalException? webPortalRefreshError;
 
-  bool get isAvailable =>
-      FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty;
+  bool get isAvailable => true;
 
   /// Desde [FolioApp]: URL efectiva (prefs + `FOLIO_WEB_PORTAL_BASE_URL`).
   void setWebPortalBaseUrlResolver(String Function() resolve) {
@@ -495,76 +447,9 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     webPortalRefreshError = null;
   }
 
-  /// Fuerza ID token y consulta el portal Next.js. No altera Firestore.
+  /// El portal web legacy validaba ID token Firebase; con Spring se omite.
   Future<void> refreshWebPortalEntitlement() async {
-    if (!isAvailable) {
-      _clearWebPortalMirror();
-      notifyListeners();
-      return;
-    }
-    // El portal web aún valida ID token de Firebase; en modo Spring se omite.
-    if (FolioBackendConfig.useSpring) {
-      _clearWebPortalMirror();
-      return;
-    }
-    final base = _effectiveWebPortalBaseUrl();
-    if (base.isEmpty) {
-      _clearWebPortalMirror();
-      notifyListeners();
-      return;
-    }
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      _clearWebPortalMirror();
-      notifyListeners();
-      return;
-    }
-    final uid = user.uid;
-    try {
-      final token = await user.getIdToken(true);
-      if (token == null || token.isEmpty) {
-        if (folioCloudCurrentUid() != uid) return;
-        webPortalEntitlement = null;
-        webPortalRefreshError = FolioWebPortalException(
-          FolioWebPortalErrorKind.unauthorized,
-          detail: 'missing_id_token',
-        );
-        notifyListeners();
-        return;
-      }
-      final snap = await fetchFolioWebEntitlement(
-        portalBaseUrl: base,
-        idToken: token,
-      );
-      if (folioCloudCurrentUid() != uid) return;
-      webPortalEntitlement = snap;
-      webPortalRefreshError = null;
-      notifyListeners();
-    } on FolioWebPortalException catch (e) {
-      if (folioCloudCurrentUid() != uid) return;
-      webPortalEntitlement = null;
-      webPortalRefreshError = e;
-      notifyListeners();
-      AppLogger.warn(
-        'web portal refresh failed',
-        tag: 'entitlements',
-        context: {'kind': e.kind.name, 'detail': e.detail},
-      );
-    } catch (e, st) {
-      if (folioCloudCurrentUid() != uid) return;
-      webPortalEntitlement = null;
-      webPortalRefreshError = FolioWebPortalException(
-        FolioWebPortalErrorKind.network,
-        detail: '$e',
-      );
-      notifyListeners();
-      AppLogger.error(
-        'web portal refresh failed',
-        tag: 'entitlements',
-        error: e,
-        stackTrace: st,
-      );
-    }
+    _clearWebPortalMirror();
   }
 
   /// Marcar que el usuario abrió el pago en el navegador; al volver a la app se sincroniza con Stripe una vez.
@@ -578,133 +463,28 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     _pendingMicrosoftStoreSyncOnResume = true;
   }
 
-  static const int _firestoreServerFetchMaxAttempts = 7;
-
-  /// Lee `users/{uid}` por la API REST de Firestore (workaround para Windows,
-  /// donde el SDK nativo no está disponible). Reintentos suaves para el arranque
-  /// en frío del canal de red en escritorio.
-  Future<Map<String, dynamic>?> _fetchUserDocViaRest(
-    String uid, {
-    Duration leadingDelay = Duration.zero,
-  }) async {
-    if (kIsWeb) return null;
-    if (leadingDelay > Duration.zero) {
-      await Future<void>.delayed(leadingDelay);
-    }
-    for (var attempt = 0; attempt < _firestoreServerFetchMaxAttempts; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(
-          Duration(milliseconds: 350 + 550 * attempt),
-        );
-      }
-      try {
-        final data = await folioFirestoreRestGetUserDoc(uid);
-        if (folioCloudCurrentUid() != uid) return null;
-        return data;
-      } catch (e, st) {
-        final canRetry = attempt < _firestoreServerFetchMaxAttempts - 1;
-        if (canRetry) continue;
-        AppLogger.error(
-          'REST fetch user doc failed',
-          tag: 'entitlements',
-          error: e,
-          stackTrace: st,
-          context: {'uid': uid, 'attempt': attempt + 1},
-        );
-        return null;
-      }
-    }
-    return null;
-  }
-
   Future<Map<String, dynamic>?> _fetchUserDocFromServerWithRetries(
     String uid, {
     Duration leadingDelay = Duration.zero,
   }) async {
-    if (FolioBackendConfig.useSpring) {
-      if (leadingDelay > Duration.zero) {
-        await Future<void>.delayed(leadingDelay);
-      }
-      try {
-        return await folioSpringFetchAccountMeAsUserDoc();
-      } catch (e, st) {
-        AppLogger.error(
-          'Spring account/me fetch failed',
-          tag: 'entitlements',
-          error: e,
-          stackTrace: st,
-          context: {'uid': uid},
-        );
-        return null;
-      }
-    }
-    // Windows: el SDK nativo de Firestore (C++) crashea. Como workaround leemos
-    // `users/{uid}` por la API REST de Firestore usando el ID token de Auth,
-    // que sí funciona en escritorio (igual que las Cloud Functions por HTTP).
-    if (!folioFirestoreSupported) {
-      return _fetchUserDocViaRest(uid, leadingDelay: leadingDelay);
-    }
     if (leadingDelay > Duration.zero) {
       await Future<void>.delayed(leadingDelay);
     }
-    for (var attempt = 0; attempt < _firestoreServerFetchMaxAttempts; attempt++) {
-      if (attempt > 0) {
-        // Backoff: 600ms, 1.1s, 1.6s… — en Windows el canal a veces tarda varios segundos.
-        await Future<void>.delayed(
-          Duration(milliseconds: 350 + 550 * attempt),
-        );
-      }
-      try {
-        final serverDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .get(const GetOptions(source: Source.server));
-        if (folioCloudCurrentUid() != uid) return null;
-        return serverDoc.data();
-      } catch (e, st) {
-        final transient = _isTransientFirestoreHostChannelError(e);
-        final canRetry =
-            attempt < _firestoreServerFetchMaxAttempts - 1 && transient;
-        if (canRetry) {
-          continue;
-        }
-        if (transient) {
-          try {
-            final cached = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(uid)
-                .get();
-            if (folioCloudCurrentUid() != uid) return null;
-            AppLogger.warn(
-              'server fetch falló; usando última caché local',
-              tag: 'entitlements',
-              context: {'uid': uid},
-            );
-            return cached.data();
-          } catch (cacheErr, cacheSt) {
-            AppLogger.error(
-              'caché local también falló',
-              tag: 'entitlements',
-              error: cacheErr,
-              stackTrace: cacheSt,
-              context: {'uid': uid},
-            );
-          }
-        }
-        AppLogger.error(
-          'fetch server user doc failed',
-          tag: 'entitlements',
-          error: e,
-          stackTrace: transient ? null : st,
-          context: {'uid': uid, 'transient': transient},
-        );
-        return null;
-      }
+    try {
+      return await folioSpringFetchAccountMeAsUserDoc();
+    } catch (e, st) {
+      AppLogger.error(
+        'Spring account/me fetch failed',
+        tag: 'entitlements',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return null;
     }
-    return null;
   }
 
-  /// `get(Source.server)` de `users/{uid}` sin re-suscribir al stream (p. ej. al volver de segundo plano).
+  /// `get` de cuenta Spring sin re-suscribir el poll.
   Future<void> refreshUserDocFromServer({
     Duration leadingDelay = Duration.zero,
   }) async {
@@ -862,8 +642,6 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   Future<void> _handleUidChange(String? uid) async {
-    await _docSub?.cancel();
-    _docSub = null;
     _cancelUserDocPoll();
     if (uid == null || uid.isEmpty) {
       _subscribedUid = null;
@@ -889,7 +667,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     unawaited(refreshWebPortalEntitlement());
   }
 
-  /// Refresca `users/{uid}` desde el servidor y luego escucha cambios (evita caché local obsoleta).
+  /// Refresca la cuenta desde Spring y arranca poll periódico.
   Future<void> _subscribeUserDoc(String uid) async {
     Map<String, dynamic>? serverData =
         await _fetchUserDocFromServerWithRetries(uid);
@@ -931,49 +709,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
 
     unawaited(_maybeSyncStripeAfterServerRead(uid, serverData));
 
-    if (FolioBackendConfig.useSpring || _folioFirestoreUseGetPolling) {
-      _userDocPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-        if (folioCloudCurrentUid() != uid) return;
-        unawaited(refreshUserDocFromServer());
-      });
-      return;
-    }
-
-    _docSub = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .listen(
-          (doc) {
-            if (folioCloudCurrentUid() != uid) return;
-            final next = FolioCloudSnapshot.fromUserDoc(doc.data());
-            if (doc.metadata.isFromCache && _serverFetchTruth != null) {
-              final s = _serverFetchTruth!;
-              if (s.active &&
-                  !next.active &&
-                  _folioCloudUserDocCacheLooksIncomplete(doc.data())) {
-                return;
-              }
-            }
-            snapshot = next;
-            notifyListeners();
-            if (!doc.metadata.isFromCache) {
-              _serverFetchTruth = next;
-            }
-          },
-          onError: (Object e, StackTrace st) {
-            AppLogger.error(
-              'Firestore snapshots failed',
-              tag: 'entitlements',
-              error: e,
-              stackTrace: st,
-              context: {'uid': uid},
-            );
-          },
-        );
+    _userDocPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (folioCloudCurrentUid() != uid) return;
+      unawaited(refreshUserDocFromServer());
+    });
   }
 
-  /// Si el documento en servidor no refleja suscripción, un sync con Stripe actualiza Firestore.
+  /// Si el documento en servidor no refleja suscripción, un sync con Stripe actualiza el estado.
   Future<void> _maybeSyncStripeAfterServerRead(
     String uid,
     Map<String, dynamic>? serverData,
@@ -1124,8 +866,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   void dispose() {
     _cloudAccount?.removeListener(_onCloudAccountChanged);
     _cancelUserDocPoll();
-    unawaited(_authSub?.cancel());
-    unawaited(_docSub?.cancel());
+    _cancelUserDocPoll();
     super.dispose();
   }
 }

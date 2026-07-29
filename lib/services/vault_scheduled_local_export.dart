@@ -1,5 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../app/app_settings.dart';
 import '../data/vault_backup.dart';
@@ -13,6 +11,7 @@ import 'secure_credential_storage.dart';
 import 'vault_pack/vault_pack_destinations.dart';
 import 'vault_pack/vault_pack_sync.dart';
 
+import '../services/folio_cloud/folio_cloud_identity.dart';
 /// Escribe un ZIP de copia programada en los destinos de red configurados.
 ///
 /// Uso legados / export manual a NAS. La copia programada automática usa pack
@@ -57,8 +56,8 @@ Future<void> runScheduledFolderVaultExport({
   final wantWebdav = prefs.hasWebDavDestination;
   final canCloud =
       folioEntitlements != null &&
-      Firebase.apps.isNotEmpty &&
-      FirebaseAuth.instance.currentUser != null &&
+      folioCloudHasSession() &&
+      folioCloudHasSession() &&
       folioEntitlements.snapshot.canUseCloudBackup;
   final wantCloud = prefs.alsoCloud && canCloud;
 

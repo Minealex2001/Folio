@@ -3,15 +3,12 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
-import '../../firebase_options.dart';
 import '../../models/teams_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
@@ -19,6 +16,8 @@ import '../oauth/oauth_loopback_io.dart'
     if (dart.library.html) '../oauth/oauth_loopback_stub.dart' as loopback;
 import 'teams_auth_config.dart';
 
+import '../../services/folio_cloud/folio_cloud_identity.dart';
+import '../../config/folio_backend_config.dart';
 class TeamsAuthCancelToken {
   final Completer<void> _c = Completer<void>();
   Future<void> get whenCancelled => _c.future;
@@ -65,7 +64,7 @@ class TeamsAuthService {
         'Falta TEAMS_OAUTH_CLIENT_ID. Configúralo en folio_local_secrets.dart.',
       );
     }
-    if (Firebase.apps.isEmpty || FirebaseAuth.instance.currentUser == null) {
+    if (!folioCloudHasSession() || !folioCloudHasSession()) {
       throw StateError('Se requiere sesión Folio Cloud para OAuth de Teams.');
     }
 
@@ -141,16 +140,18 @@ class TeamsAuthService {
     required String codeVerifier,
     required String scope,
   }) async {
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
-    final idToken = await FirebaseAuth.instance.currentUser!.getIdToken();
     final uri = Uri.parse(
-      'https://us-central1-$projectId.cloudfunctions.net/folioTeamsExchangeOAuth',
+      '${FolioBackendConfig.apiV1Prefix}/integrations/teams/oauth-exchange',
     );
+    final token = await folioCloudBearerToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Inicia sesión en Folio Cloud.');
+    }
     final res = await _client.post(
       uri,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
+        'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
         'grantType': 'authorization_code',

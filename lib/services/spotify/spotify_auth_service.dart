@@ -3,21 +3,20 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
-import '../../firebase_options.dart';
 import '../../models/spotify_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 import 'spotify_auth_config.dart';
 import 'spotify_auth_errors.dart';
+import '../../services/folio_cloud/folio_cloud_identity.dart';
+import '../../config/folio_backend_config.dart';
 import 'spotify_oauth_loopback_io.dart'
     if (dart.library.html) 'spotify_oauth_loopback_stub.dart' as loopback;
 import 'spotify_oauth_web_stub.dart'
@@ -146,7 +145,7 @@ class SpotifyAuthService {
     if (clientId.isEmpty) {
       throw StateError('Falta SPOTIFY_OAUTH_CLIENT_ID para OAuth en Web.');
     }
-    if (Firebase.apps.isEmpty) {
+    if (!folioCloudHasSession()) {
       throw StateError(
         'Firebase no está inicializado (requerido para OAuth Web).',
       );
@@ -268,7 +267,7 @@ class SpotifyAuthService {
     if (cid.isEmpty) {
       throw StateError('Falta SPOTIFY_OAUTH_CLIENT_ID.');
     }
-    if (kIsWeb && Firebase.apps.isNotEmpty) {
+    if (kIsWeb && folioCloudHasSession()) {
       // En Web el token endpoint de Spotify suele bloquear CORS; usamos proxy.
       return _exchangeRefreshViaCloud(
         refreshToken: refreshToken,
@@ -299,14 +298,11 @@ class SpotifyAuthService {
   }
 
   Future<Map<String, String>> _folioIdTokenHeader() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw StateError(
-        'Inicia sesión en Folio Cloud para conectar Spotify.',
-      );
+    final token = await folioCloudBearerToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Inicia sesión en Folio Cloud.');
     }
-    final idToken = await user.getIdToken();
-    return {'authorization': 'Bearer $idToken'};
+    return {'authorization': 'Bearer $token'};
   }
 
   Future<Map<String, dynamic>> _exchangeRefreshViaCloud({
@@ -315,9 +311,8 @@ class SpotifyAuthService {
   }) async {
     // Reutilizamos el mismo endpoint de intercambio con grant distinto si
     // el CF lo soporta; si no, intentamos refresh directo (puede fallar CORS).
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
     final uri = Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioSpotifyExchangeOAuth',
+      '${FolioBackendConfig.apiV1Prefix}/integrations/spotify/oauth-exchange',
     );
     final resp = await _client
         .post(
@@ -359,7 +354,7 @@ class SpotifyAuthService {
     required Uri redirectUri,
     required String codeVerifier,
   }) async {
-    if (kIsWeb && Firebase.apps.isNotEmpty) {
+    if (kIsWeb && folioCloudHasSession()) {
       return _exchangeCodeViaCloud(
         code: code,
         clientId: clientId,
@@ -398,9 +393,8 @@ class SpotifyAuthService {
     required Uri redirectUri,
     required String codeVerifier,
   }) async {
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
     final uri = Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioSpotifyExchangeOAuth',
+      '${FolioBackendConfig.apiV1Prefix}/integrations/spotify/oauth-exchange',
     );
     final resp = await _client
         .post(

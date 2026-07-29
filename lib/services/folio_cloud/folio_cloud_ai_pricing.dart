@@ -1,7 +1,7 @@
-import 'package:cloud_functions/cloud_functions.dart';
 
 import 'folio_cloud_callable.dart';
 
+import 'folio_cloud_exception.dart';
 const Map<String, int> kFolioCloudInkCostFallback = <String, int>{
   'rewrite_block': 3,
   'summarize_selection': 3,
@@ -78,7 +78,7 @@ class FolioCloudAiPricingService {
       _cache = parsed;
       _cacheAt = DateTime.now();
       return parsed;
-    } on FirebaseFunctionsException {
+    } on FolioCloudException {
       return _cache ?? FolioCloudAiPricingSnapshot.fallback();
     } catch (_) {
       return _cache ?? FolioCloudAiPricingSnapshot.fallback();

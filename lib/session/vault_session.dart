@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart' show Locale;
@@ -93,6 +92,7 @@ import '../git/vault_migration_tool.dart';
 import '../git/vault_integrity.dart';
 import '../git/version_info.dart';
 
+import '../services/folio_cloud/folio_cloud_identity.dart';
 export '../services/sync/sync_conflict_entry.dart' show SyncConflictEntry;
 
 part 'vault_session_ai.dart';
@@ -2646,7 +2646,7 @@ class VaultSession extends ChangeNotifier {
         }
         await cache.save(vid, _dek!);
       } else {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
+        final uid = folioCloudCurrentUid();
         if (uid != null && uid.isNotEmpty) {
           final secret = await DeviceSyncKeyCache.ensureAccountSyncSecret(vid);
           final key = await DeviceSyncKeyCache.plainPackKey(

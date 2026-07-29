@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
@@ -8,6 +7,7 @@ import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 
+import '../../services/folio_cloud/folio_cloud_exception.dart';
 /// Pide correo (si hace falta) y contraseña de **Folio Cloud** antes de listar/descargar copias.
 class FolioCloudReauthDialog extends StatefulWidget {
   const FolioCloudReauthDialog({
@@ -101,7 +101,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
         password: pass,
       );
       if (mounted) Navigator.of(context).pop(pass);
-    } on FirebaseAuthException catch (e) {
+    } on FolioAuthException catch (e) {
       if (mounted) {
         setState(() {
           final errorMsg = widget.onAuthError(e.code);

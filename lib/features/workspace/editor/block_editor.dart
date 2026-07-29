@@ -7,11 +7,9 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/gestures.dart'
     show kPrimaryButton, kSecondaryMouseButton;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart'
     show
         TargetPlatform,
@@ -55,7 +53,8 @@ import '../../../session/vault_session.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
-import '../../../services/folio_firestore_support.dart';
+import '../../../services/folio_cloud/folio_storage_transport.dart';
+import '../../../services/collab/collab_spring_api.dart';
 import 'code_block_languages.dart';
 import 'block_editor_support_widgets.dart';
 import 'block_type_catalog.dart';

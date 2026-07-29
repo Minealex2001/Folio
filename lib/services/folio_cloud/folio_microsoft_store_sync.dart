@@ -1,10 +1,10 @@
-import 'package:firebase_core/firebase_core.dart';
 
 import '../app_logger.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_products.dart';
 
+import 'folio_cloud_identity.dart';
 /// Pon a `true` para volver a sincronizar colección MS → Cloud Functions
 /// («Actualizar», al reanudar, etc.). Las compras en Tienda siguen llamando
 /// la sync con [force].
@@ -25,8 +25,8 @@ Future<void> syncFolioMicrosoftStoreEntitlementsFromDevice({
     );
     return;
   }
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
   }
   if (!FolioMicrosoftStoreChannel.isRuntimeSupported) {
     throw StateError('Microsoft Store channel is only available on Windows');

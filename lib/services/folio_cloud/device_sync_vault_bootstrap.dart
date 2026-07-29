@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../crypto/vault_crypto.dart';
 import '../../data/storage/vault_storage.dart';
@@ -146,7 +145,7 @@ Future<String?> uploadDeviceSyncBootstrap({
   final storage = VaultStorage.instance;
   final mode = encrypted ? 'encrypted' : 'plain';
   await folioStoragePutData(
-    FirebaseStorage.instance.ref().child('$prefix/vault.mode'),
+    '$prefix/vault.mode',
     Uint8List.fromList(utf8.encode(mode)),
   );
 
@@ -155,7 +154,7 @@ Future<String?> uploadDeviceSyncBootstrap({
     final keys = await storage.readVaultFile(vaultId, VaultPaths.wrappedDekFile);
     if (keys != null && keys.isNotEmpty) {
       await folioStoragePutData(
-        FirebaseStorage.instance.ref().child('$prefix/vault.keys'),
+        '$prefix/vault.keys',
         keys,
       );
     }
@@ -167,7 +166,7 @@ Future<String?> uploadDeviceSyncBootstrap({
           packKey: accountKey,
         );
         await folioStoragePutData(
-          FirebaseStorage.instance.ref().child('$prefix/dek.accountwrap.bin'),
+          '$prefix/dek.accountwrap.bin',
           wrap,
         );
         wrapB64 = base64Encode(wrap);
@@ -191,7 +190,7 @@ Future<String?> uploadDeviceSyncBootstrap({
 Future<Uint8List?> _downloadBootstrapFile(String path, int maxBytes) async {
   try {
     return await folioStorageGetData(
-      FirebaseStorage.instance.ref().child(path),
+      path,
       maxBytes,
     );
   } catch (_) {
@@ -503,7 +502,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
       );
     } else {
       final cipher = await folioStorageGetData(
-        FirebaseStorage.instance.ref().child(packPath),
+        packPath,
         80 * 1024 * 1024,
       );
       if (cipher == null || cipher.isEmpty) {

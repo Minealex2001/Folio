@@ -1,13 +1,11 @@
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
-import '../../firebase_options.dart';
 import '../../models/spotify_integration_state.dart';
-import '../folio_cloud/folio_cloud_callable.dart';
+import '../../config/folio_backend_config.dart';
+import '../folio_cloud/folio_cloud_identity.dart';
 import 'spotify_auth_service.dart';
 
 /// Resultado de la reproducción actual en Spotify.
@@ -184,21 +182,23 @@ class SpotifyApiClient {
 
   Future<http.Response> _proxyViaCloud(
     String method,
-    Uri uri, {
+    Uri targetUri, {
     Map<String, String>? headers,
     Object? body,
   }) async {
-    if (Firebase.apps.isEmpty) {
-      throw StateError('Firebase no inicializado (proxy Spotify Web).');
+    if (!folioCloudHasSession()) {
+      throw StateError('Sesión Folio Cloud requerida (proxy Spotify Web).');
     }
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw StateError('Sesión Firebase requerida para API Spotify en Web.');
+    final uid = folioCloudCurrentUid();
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Sesión Folio Cloud requerida para API Spotify en Web.');
     }
-    final idToken = await user.getIdToken();
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
+    final idToken = await folioCloudBearerToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw StateError('Sesión Folio Cloud requerida para API Spotify en Web.');
+    }
     final proxyUri = Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioSpotifyApiProxy',
+      '${FolioBackendConfig.apiV1Prefix}/integrations/spotify/api-proxy',
     );
     return _client
         .post(
@@ -209,7 +209,8 @@ class SpotifyApiClient {
           },
           body: jsonEncode({
             'method': method.toUpperCase(),
-            'path': '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+            'path':
+                '${targetUri.path}${targetUri.hasQuery ? '?${targetUri.query}' : ''}',
             'accessToken': _connection.accessToken,
             if (body != null) 'body': body is String ? body : jsonEncode(body),
             if (headers != null && headers.isNotEmpty) 'headers': headers,

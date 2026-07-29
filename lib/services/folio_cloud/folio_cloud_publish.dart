@@ -1,13 +1,11 @@
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'folio_storage_transport.dart';
+import 'package:http/http.dart' as http;
 
-import '../folio_firestore_support.dart';
+import '../../config/folio_backend_config.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_identity.dart';
+import 'folio_spring_storage.dart';
 
 class FolioPublishResult {
   const FolioPublishResult({required this.publicUrl, required this.docId});
@@ -40,121 +38,175 @@ void _requirePublishWebEntitlement(FolioCloudSnapshot? snapshot) {
   }
 }
 
-/// Windows: Firestore no está disponible (crash nativo del SDK C++), así que la
-/// publicación web (índice en `publishedPages`) queda deshabilitada.
-void _requireFirestoreSupported() {
-  if (!folioFirestoreSupported) {
-    throw StateError(
-      'La publicación web no está disponible en esta plataforma.',
-    );
+String _safeSlug(String slug) {
+  final safe = slug.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '-');
+  if (safe.isEmpty) {
+    throw ArgumentError('Invalid slug');
   }
+  return safe;
 }
 
-/// Publishes HTML to public Storage path and indexes metadata in Firestore.
-/// Si [entitlementSnapshot] no es null, comprueba [FolioCloudSnapshot.canPublishToWeb].
+String _slugFromStoragePath(String storagePath) {
+  final name = storagePath.split('/').last;
+  if (name.toLowerCase().endsWith('.html')) {
+    return name.substring(0, name.length - 5);
+  }
+  return name;
+}
+
+Uri _springPublishedLogicalUrl(String storagePath) {
+  return Uri.parse(
+    '${FolioBackendConfig.apiV1Prefix}/storage/objects#${Uri.encodeComponent(storagePath)}',
+  );
+}
+
+DateTime? _parseApiInstant(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is DateTime) return raw;
+  if (raw is String) return DateTime.tryParse(raw);
+  return null;
+}
+
+Future<Map<String, String>> _springAuthHeaders({bool forceRefresh = false}) async {
+  final token = await folioCloudBearerToken(forceRefresh: forceRefresh);
+  if (token == null || token.isEmpty) {
+    throw StateError('Not signed in');
+  }
+  return <String, String>{
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Accept': 'application/json',
+  };
+}
+
+Future<http.Response> _springAuthorized(
+  Future<http.Response> Function(Map<String, String> headers) send,
+) async {
+  var headers = await _springAuthHeaders();
+  var res = await send(headers);
+  if (res.statusCode == 401) {
+    headers = await _springAuthHeaders(forceRefresh: true);
+    res = await send(headers);
+  }
+  return res;
+}
+
+void _ensureSpringOk(http.Response res, {bool allowNoContent = false}) {
+  if (allowNoContent && res.statusCode == 204) return;
+  if (res.statusCode >= 200 && res.statusCode < 300) return;
+  throw StateError(
+    'published-pages HTTP ${res.statusCode}: ${res.body}',
+  );
+}
+
+Map<String, dynamic> _decodeJsonMap(String body) {
+  final decoded = jsonDecode(body);
+  if (decoded is! Map) {
+    throw StateError('published-pages: expected JSON object');
+  }
+  return decoded.map((k, v) => MapEntry('$k', v));
+}
+
+PublishedPageEntry _entryFromSpringDto(Map<String, dynamic> m) {
+  final id = m['id']?.toString() ?? '';
+  final storagePath = m['storagePath']?.toString() ?? '';
+  if (id.isEmpty || storagePath.isEmpty) {
+    throw StateError('published-pages: missing id/storagePath');
+  }
+  final url = _springPublishedLogicalUrl(storagePath);
+  return PublishedPageEntry(
+    docId: id,
+    slug: _slugFromStoragePath(storagePath),
+    publicUrl: '$url',
+    storagePath: storagePath,
+    updatedAt: _parseApiInstant(m['updatedAt']),
+  );
+}
+
+/// Publica HTML vía storage proxy + índice `POST/PUT /api/v1/published-pages`.
 Future<FolioPublishResult> publishHtmlPage({
   required String slug,
   required String html,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requirePublishWebEntitlement(entitlementSnapshot);
-  _requireFirestoreSupported();
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
-  final safeSlug = slug.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '-');
-  if (safeSlug.isEmpty) {
-    throw ArgumentError('Invalid slug');
-  }
-  final path = 'published/${user.uid}/$safeSlug.html';
-  final ref = FirebaseStorage.instance.ref().child(path);
-  await folioStoragePutData(
-    ref,
-    utf8.encode(html),
-    metadata: SettableMetadata(contentType: 'text/html; charset=utf-8'),
-  );
-  final url = await ref.getDownloadURL();
-  final uri = Uri.parse(url);
-  final docId = '${user.uid}_$safeSlug';
-  await FirebaseFirestore.instance.collection('publishedPages').doc(docId).set({
-    'ownerUid': user.uid,
-    'slug': safeSlug,
-    'storagePath': path,
-    'publicUrl': url,
-    'updatedAt': FieldValue.serverTimestamp(),
-  });
-  return FolioPublishResult(publicUrl: uri, docId: docId);
-}
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) throw StateError('Not signed in');
+  final safeSlug = _safeSlug(slug);
+  final path = 'published/$uid/$safeSlug.html';
+  final bytes = utf8.encode(html);
+  await folioSpringStoragePutData(path, bytes);
 
-/// Entradas de [publishedPages] del usuario actual (orden aproximado por [updatedAt] en cliente).
-Future<List<PublishedPageEntry>> listMyPublishedPages() async {
-  // Windows: sin Firestore no hay índice de páginas publicadas.
-  if (!folioFirestoreSupported) return const <PublishedPageEntry>[];
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
-  final qs = await FirebaseFirestore.instance
-      .collection('publishedPages')
-      .where('ownerUid', isEqualTo: user.uid)
-      .get();
-  final out = <PublishedPageEntry>[];
-  for (final d in qs.docs) {
-    final m = d.data();
-    final slug = m['slug']?.toString() ?? '';
-    final url = m['publicUrl']?.toString() ?? '';
-    final storagePath = m['storagePath']?.toString() ?? '';
-    if (slug.isEmpty || url.isEmpty) continue;
-    DateTime? updatedAt;
-    final raw = m['updatedAt'];
-    if (raw is Timestamp) {
-      updatedAt = raw.toDate();
+  final mine = await listMyPublishedPages();
+  PublishedPageEntry? existing;
+  for (final e in mine) {
+    if (e.storagePath == path) {
+      existing = e;
+      break;
     }
-    out.add(
-      PublishedPageEntry(
-        docId: d.id,
-        slug: slug,
-        publicUrl: url,
-        storagePath: storagePath,
-        updatedAt: updatedAt,
-      ),
+  }
+
+  final body = jsonEncode(<String, dynamic>{'storagePath': path});
+  late http.Response res;
+  if (existing != null) {
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/published-pages/${existing.docId}',
+    );
+    res = await _springAuthorized(
+      (h) => http.put(uri, headers: h, body: body),
+    );
+  } else {
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/published-pages',
+    );
+    res = await _springAuthorized(
+      (h) => http.post(uri, headers: h, body: body),
     );
   }
-  out.sort((a, b) {
-    final ta = a.updatedAt;
-    final tb = b.updatedAt;
-    if (ta == null && tb == null) return 0;
-    if (ta == null) return 1;
-    if (tb == null) return -1;
-    return tb.compareTo(ta);
-  });
+  _ensureSpringOk(res);
+  final dto = _decodeJsonMap(res.body);
+  final entry = _entryFromSpringDto(dto);
+  return FolioPublishResult(
+    publicUrl: Uri.parse(entry.publicUrl),
+    docId: entry.docId,
+  );
+}
+
+Future<List<PublishedPageEntry>> listMyPublishedPages() async {
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) throw StateError('Not signed in');
+  final uri = Uri.parse(
+    '${FolioBackendConfig.apiV1Prefix}/published-pages/mine',
+  );
+  final res = await _springAuthorized((h) => http.get(uri, headers: h));
+  _ensureSpringOk(res);
+  if (res.body.isEmpty) return const <PublishedPageEntry>[];
+  final decoded = jsonDecode(res.body);
+  if (decoded is! List) {
+    throw StateError('published-pages/mine: expected JSON array');
+  }
+  final out = <PublishedPageEntry>[];
+  for (final item in decoded) {
+    if (item is! Map) continue;
+    try {
+      out.add(
+        _entryFromSpringDto(item.map((k, v) => MapEntry('$k', v))),
+      );
+    } catch (_) {}
+  }
   return out;
 }
 
-/// Quita el HTML en Storage y el índice en Firestore.
 Future<void> deletePublishedPage(
   PublishedPageEntry entry, {
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requirePublishWebEntitlement(entitlementSnapshot);
-  _requireFirestoreSupported();
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
-  if (entry.storagePath.isNotEmpty) {
-    try {
-      await FirebaseStorage.instance.ref(entry.storagePath).delete();
-    } catch (_) {
-      // Puede no existir; seguimos borrando el índice.
-    }
-  }
-  await FirebaseFirestore.instance
-      .collection('publishedPages')
-      .doc(entry.docId)
-      .delete();
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) throw StateError('Not signed in');
+  final uri = Uri.parse(
+    '${FolioBackendConfig.apiV1Prefix}/published-pages/${entry.docId}',
+  );
+  final res = await _springAuthorized((h) => http.delete(uri, headers: h));
+  _ensureSpringOk(res, allowNoContent: true);
 }

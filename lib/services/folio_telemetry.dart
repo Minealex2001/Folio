@@ -1,9 +1,6 @@
 import 'dart:async';
-
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -12,30 +9,18 @@ import 'package:uuid/uuid.dart';
 
 import '../app/app_settings.dart';
 import 'app_logger.dart';
-import 'folio_firestore_sync.dart';
 import 'telemetry_models.dart';
 
-/// Telemetría opcional (Firebase Analytics). Respeta [AppSettings.telemetryEnabled].
+/// Telemetría opcional (stub tras Fase 30 — sin GA4 / Firebase Analytics).
+///
+/// Conserva la API pública y un snapshot local del último evento para el
+/// dashboard de diagnóstico. No envía datos a ningún backend.
 class FolioTelemetry {
   FolioTelemetry._();
 
-  /// En Windows/Linux el binario de Flutter no registra el plugin de Analytics
-  /// (no aparece en `generated_plugin_registrant.cc`); las llamadas Pigeon fallan
-  /// con `channel-error` y no deben ejecutarse.
-  static bool get _canUseFirebaseAnalytics {
-    if (kIsWeb) return true;
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android ||
-      TargetPlatform.iOS ||
-      TargetPlatform.macOS =>
-        true,
-      _ => false,
-    };
-  }
-
   static const _installIdKey = 'folio_anonymous_install_id';
-  /// Ping único a GA4 por instalación (independiente del interruptor de telemetría).
   static const _installPingKey = 'folio_install_ping_sent_v1';
+  static const _lastEventSnapshotKey = 'folio_last_event_snapshot';
 
   static Future<String> anonymousInstallId() async {
     final p = await SharedPreferences.getInstance();
@@ -49,26 +34,21 @@ class FolioTelemetry {
   }
 
   static Future<void> applyAfterSettingsLoaded(AppSettings settings) async {
-    if (Firebase.apps.isEmpty) return;
-    if (!_canUseFirebaseAnalytics) return;
+    // No-op: sin Analytics. Marcamos install ping local una sola vez.
     try {
-      await _recordMinimalInstallIfNeeded(settings);
-
-      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-        settings.telemetryEnabled,
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_installPingKey) ?? false) return;
+      await anonymousInstallId();
+      await PackageInfo.fromPlatform();
+      await prefs.setBool(_installPingKey, true);
+      AppLogger.debug(
+        'Telemetry stub ready (no GA4)',
+        tag: 'telemetry',
+        context: {
+          'enabled': settings.telemetryEnabled,
+          'platform': _analyticsPlatformLabel(),
+        },
       );
-      if (!settings.telemetryEnabled) return;
-
-      final id = await anonymousInstallId();
-      await FirebaseAnalytics.instance.setUserId(id: id);
-
-      final channel = AppSettings.distributionChannelFromEnvironment.trim();
-      if (channel.isNotEmpty) {
-        await FirebaseAnalytics.instance.setUserProperty(
-          name: 'distribution_channel',
-          value: channel.length > 36 ? channel.substring(0, 36) : channel,
-        );
-      }
     } catch (e, st) {
       AppLogger.warn(
         'Telemetry init failed',
@@ -80,49 +60,6 @@ class FolioTelemetry {
         tag: 'telemetry',
         context: {'stack': '$st'},
       );
-    }
-  }
-
-  /// Un evento [folio_install] por instalación (GA4), aunque la telemetría opcional esté desactivada.
-  static Future<void> _recordMinimalInstallIfNeeded(
-    AppSettings settings,
-  ) async {
-    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_installPingKey) ?? false) return;
-
-    try {
-      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
-      final id = await anonymousInstallId();
-      await FirebaseAnalytics.instance.setUserId(id: id);
-
-      final info = await PackageInfo.fromPlatform();
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'folio_install',
-        parameters: {
-          'app_version': info.version,
-          'build_number': info.buildNumber,
-          'folio_platform': _analyticsPlatformLabel(),
-        },
-      );
-      await prefs.setBool(_installPingKey, true);
-    } catch (e, st) {
-      AppLogger.warn(
-        'Minimal install telemetry failed',
-        tag: 'telemetry',
-        context: {'error': '$e'},
-      );
-      AppLogger.debug(
-        'Minimal install telemetry stack',
-        tag: 'telemetry',
-        context: {'stack': '$st'},
-      );
-    } finally {
-      try {
-        await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-          settings.telemetryEnabled,
-        );
-      } catch (_) {}
     }
   }
 
@@ -143,10 +80,8 @@ class FolioTelemetry {
   }
 
   static Future<void> _logOnboardingCloudEvent(String name) async {
-    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) return;
-    try {
-      await FirebaseAnalytics.instance.logEvent(name: name);
-    } catch (_) {}
+    // No-op (sin GA4).
+    AppLogger.debug('onboarding telemetry', tag: 'telemetry', context: {'name': name});
   }
 
   static Future<void> logOnboardingCloudPitchViewed() =>
@@ -165,32 +100,18 @@ class FolioTelemetry {
     AppSettings settings,
     String featureName,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
+    if (!settings.telemetryEnabled) return;
     final name = featureName.trim();
     if (name.isEmpty) return;
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'feature_used',
-          parameters: {
-            'feature': name.length > 40 ? name.substring(0, 40) : name,
-          },
-        );
-      }
-      // También registrar en Firestore para análisis más detallado
-      _logEventToFirestore(
-        FeatureEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          featureName: name,
-        ),
-      );
-    } catch (_) {}
+    _saveLocalSnapshot(
+      FeatureEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        featureName: name,
+      ),
+    );
   }
 
-  /// Log: Feature abierto/usado
   static Future<void> logFeatureOpened(
     AppSettings settings,
     String featureName,
@@ -198,102 +119,58 @@ class FolioTelemetry {
     await logFeatureUsed(settings, featureName);
   }
 
-  /// Log: Acción sobre contenido (crear, editar, eliminar, ver)
   static Future<void> logContentAction(
     AppSettings settings,
     String action,
     String contentType, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'content_action',
-          parameters: {
-            'action': action.trim(),
-            'content_type': contentType.trim(),
-          },
-        );
-      }
-      _logEventToFirestore(
-        ContentActionEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          action: action.trim(),
-          contentType: contentType.trim(),
-          metadata: metadata,
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      ContentActionEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        action: action.trim(),
+        contentType: contentType.trim(),
+        metadata: metadata,
+      ),
+    );
   }
 
-  /// Log: Navegación entre pantallas
   static Future<void> logNavigation(
     AppSettings settings,
     String fromScreen,
     String toScreen,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'screen_view',
-          parameters: {
-            'screen_class': toScreen.trim(),
-            'from_screen': fromScreen.trim(),
-          },
-        );
-      }
-      _logEventToFirestore(
-        NavigationEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          fromScreen: fromScreen.trim(),
-          toScreen: toScreen.trim(),
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      NavigationEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        fromScreen: fromScreen.trim(),
+        toScreen: toScreen.trim(),
+      ),
+    );
   }
 
-  /// Log: Búsqueda/filtrado
   static Future<void> logSearch(
     AppSettings settings,
     String queryType,
     int resultCount, {
     int? durationMs,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'search',
-          parameters: {
-            'search_term': queryType.trim(),
-            'result_count': resultCount,
-            'duration_ms': ?durationMs,
-          },
-        );
-      }
-      _logEventToFirestore(
-        SearchEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          queryType: queryType.trim(),
-          resultCount: resultCount,
-          durationMs: durationMs,
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      SearchEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        queryType: queryType.trim(),
+        resultCount: resultCount,
+        durationMs: durationMs,
+      ),
+    );
   }
 
-  /// Log: Sincronización
   static Future<void> logSyncEvent(
     AppSettings settings,
     String syncType,
@@ -301,148 +178,74 @@ class FolioTelemetry {
     String? errorMessage,
     int? durationMs,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'sync_event',
-          parameters: {
-            'sync_type': syncType.trim(),
-            'success': success,
-            if (errorMessage != null && errorMessage.isNotEmpty)
-              'error': errorMessage,
-            'duration_ms': ?durationMs,
-          },
-        );
-      }
-      _logEventToFirestore(
-        SyncEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          syncType: syncType.trim(),
-          success: success,
-          errorMessage: errorMessage,
-          durationMs: durationMs,
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      SyncEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        syncType: syncType.trim(),
+        success: success,
+        errorMessage: errorMessage,
+        durationMs: durationMs,
+      ),
+    );
   }
 
-  /// Log: Rendimiento de operación
   static Future<void> logPerformance(
     AppSettings settings,
     String operationName,
     int durationMs, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'performance',
-          parameters: {
-            'operation': operationName.trim(),
-            'duration_ms': durationMs,
-          },
-        );
-      }
-      _logEventToFirestore(
-        PerformanceEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          operationName: operationName.trim(),
-          durationMs: durationMs,
-          metadata: metadata,
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      PerformanceEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        operationName: operationName.trim(),
+        durationMs: durationMs,
+        metadata: metadata,
+      ),
+    );
   }
 
-  /// Log: Error o excepción
   static Future<void> logError(
     AppSettings settings,
     dynamic exception,
     String context, {
     StackTrace? stackTrace,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      final errorType = exception.runtimeType.toString();
-      final errorMsg = exception.toString();
-
-      if (_canUseFirebaseAnalytics) {
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'app_error',
-          parameters: {
-            'error_type': errorType.length > 100
-                ? errorType.substring(0, 100)
-                : errorType,
-            'context': context.length > 100
-                ? context.substring(0, 100)
-                : context,
-          },
-        );
-      }
-      _logEventToFirestore(
-        ErrorEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          errorType: errorType,
-          errorMessage: errorMsg.length > 500
-              ? errorMsg.substring(0, 500)
-              : errorMsg,
-          context: context,
-          stackTrace: stackTrace?.toString(),
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    final errorType = exception.runtimeType.toString();
+    final errorMsg = exception.toString();
+    _saveLocalSnapshot(
+      ErrorEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        errorType: errorType,
+        errorMessage: errorMsg.length > 500
+            ? errorMsg.substring(0, 500)
+            : errorMsg,
+        context: context,
+        stackTrace: stackTrace?.toString(),
+      ),
+    );
   }
 
-  /// Log: Estadísticas de uso (cantidad de notas, tamaño, etc.)
   static Future<void> logUsageStats(
     AppSettings settings,
     Map<String, dynamic> stats,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      if (_canUseFirebaseAnalytics) {
-        // Enviar solo subset de stats a Firebase Analytics (límite de propiedades)
-        final analyticsStats = <String, Object>{};
-        var count = 0;
-        for (final entry in stats.entries) {
-          if (count >= 10) break; // Máximo 10 propiedades
-          if (entry.value is int ||
-              entry.value is String ||
-              entry.value is bool) {
-            analyticsStats[entry.key] = entry.value as Object;
-            count++;
-          }
-        }
-
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'usage_stats',
-          parameters: analyticsStats,
-        );
-      }
-      _logEventToFirestore(
-        UsageStatsEvent(
-          id: const Uuid().v4(),
-          timestamp: DateTime.now(),
-          stats: stats,
-        ),
-      );
-    } catch (_) {}
+    if (!settings.telemetryEnabled) return;
+    _saveLocalSnapshot(
+      UsageStatsEvent(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        stats: stats,
+      ),
+    );
   }
 
-  /// Último evento registrado localmente (Analytics + snapshot para Firestore si aplica).
   static Future<Map<String, dynamic>?> getLastEventSnapshot() async {
     try {
       final p = await SharedPreferences.getInstance();
@@ -473,17 +276,11 @@ class FolioTelemetry {
     return v;
   }
 
-  // ============ PRIVADOS ============
-
-  static const _lastEventSnapshotKey = 'folio_last_event_snapshot';
-
-  static void _logEventToFirestore(TelemetryEvent event) {
-    unawaited(_saveLastEventSnapshot(event));
-    if (FirebaseAuth.instance.currentUser == null) return;
-    FolioFirestoreSync.addEvent(event);
+  static void _saveLocalSnapshot(TelemetryEvent event) {
+    unawaited(_persistLastEventSnapshot(event));
   }
 
-  static Future<void> _saveLastEventSnapshot(TelemetryEvent event) async {
+  static Future<void> _persistLastEventSnapshot(TelemetryEvent event) async {
     try {
       final p = await SharedPreferences.getInstance();
       final snapshot = {

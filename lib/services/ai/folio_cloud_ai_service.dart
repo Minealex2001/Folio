@@ -1,14 +1,13 @@
 import 'dart:convert';
 
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
 
+import '../../services/folio_cloud/folio_cloud_exception.dart';
+import '../../services/folio_cloud/folio_cloud_identity.dart';
 /// Error legible tras [FolioCloudAiService.complete].
 class FolioCloudAiException implements Exception {
   FolioCloudAiException(this.message, {this.functionsCode});
@@ -42,7 +41,7 @@ String _upstreamLlmVsFolioInkMessage() {
       'el campo ink en Firestore para tu usuario.';
 }
 
-String _mapFolioCloudAiError(FirebaseFunctionsException e) {
+String _mapFolioCloudAiError(FolioCloudException e) {
   final code = e.code;
   final details = (e.message ?? '').trim();
   switch (code) {
@@ -194,9 +193,7 @@ class FolioCloudAiService implements AiService {
 
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
-    if (Firebase.apps.isEmpty) {
-      throw StateError('Firebase not initialized');
-    }
+    if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
     try {
       final hasStructured =
           request.messages.isNotEmpty ||
@@ -246,7 +243,7 @@ class FolioCloudAiService implements AiService {
         model: request.model,
         toolCalls: toolCalls,
       );
-    } on FirebaseFunctionsException catch (e) {
+    } on FolioCloudException catch (e) {
       throw FolioCloudAiException(
         _mapFolioCloudAiError(e),
         functionsCode: e.code,
@@ -255,7 +252,7 @@ class FolioCloudAiService implements AiService {
       if (e is StateError) rethrow;
       throw FolioCloudAiException(
         _mapFolioCloudAiError(
-          FirebaseFunctionsException(
+          FolioCloudException(
             message: e.toString(),
             code: 'unavailable',
           ),
@@ -267,12 +264,15 @@ class FolioCloudAiService implements AiService {
 
   @override
   Future<void> ping() async {
-    if (Firebase.apps.isEmpty) throw StateError('Firebase not initialized');
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (!folioCloudHasSession()) throw StateError('Not signed in');
+    final uid = folioCloudCurrentUid();
+    if (uid == null || uid.isEmpty) {
       throw StateError('Inicia sesión en la cuenta Folio Cloud (Ajustes).');
     }
-    await user.getIdToken();
+    final token = await folioCloudBearerToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Inicia sesión en la cuenta Folio Cloud (Ajustes).');
+    }
   }
 
   @override

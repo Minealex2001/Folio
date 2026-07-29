@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_cloud_identity.dart';
 import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
@@ -42,19 +40,19 @@ Future<String> uploadEncryptedBackupFile(
   if (!await file.exists()) {
     throw StateError('El archivo de copia no existe: ${file.path}');
   }
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
   }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
   final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
   // Legado: permite subir un ZIP existente si ya lo tienes localmente.
   final name = 'vault-$stamp.zip';
-  final ref = FirebaseStorage.instance.ref().child(
-    'users/${user.uid}/vaults/$vaultId/backups/$name',
-  );
-  await folioStoragePutFile(ref, file);
-  return await ref.getDownloadURL();
+  final path = 'users/$uid/vaults/$vaultId/backups/$name';
+  await folioStoragePutFile(path, file);
+  return path;
 }
 
 Future<Map<String, dynamic>?> _getLatestBackupMeta({
@@ -105,10 +103,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
       'La libreta debe estar desbloqueada para subir la copia a la nube.',
     );
   }
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   final vaultBinBytes = await session.vaultBinEquivalentBytes();
@@ -138,7 +133,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
     final sp = latest?['storagePath']?.toString().trim() ?? '';
     if (sp.isNotEmpty) {
       try {
-        return await FirebaseStorage.instance.ref(sp).getDownloadURL();
+        return sp;
       } catch (_) {}
     }
     return '';
@@ -149,19 +144,17 @@ Future<String> uploadOpenVaultEncryptedToCloud({
   final tgzFile = File(p.join(tmp.path, 'vault.tar.gz'));
   try {
     await exportVaultTarGz(tgzFile, vaultBinBytes: vaultBinBytes);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw StateError('Not signed in');
+    final uid = folioCloudCurrentUid();
+    if (uid == null || uid.isEmpty) throw StateError('Not signed in');
     final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
     final name = 'vault-$stamp.tar.gz';
-    final ref = FirebaseStorage.instance.ref().child(
-      'users/${user.uid}/vaults/$vaultId/backups/$name',
-    );
-    final sizeBytes = await folioStoragePutFile(ref, tgzFile);
+    final path = 'users/$uid/vaults/$vaultId/backups/$name';
+    final sizeBytes = await folioStoragePutFile(path, tgzFile);
     try {
       await _recordBackupMeta(
         vaultId: vaultId,
         fileName: name,
-        storagePath: ref.fullPath,
+        storagePath: path,
         sizeBytes: sizeBytes,
         fingerprint: fp.fingerprint,
         vaultBytes: fp.vaultBytes,
@@ -176,7 +169,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
       );
     }
     unawaited(session.cleanupV0AfterSuccessfulSync());
-    return await ref.getDownloadURL();
+    return path;
   } finally {
     try {
       if (tmp.existsSync()) {
@@ -219,10 +212,7 @@ Future<List<FolioCloudBackupVaultEntry>> listFolioCloudBackupVaults({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   final raw =
@@ -321,10 +311,7 @@ Future<List<FolioCloudBackupEntry>> listFolioCloudBackups({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   // Unificamos el listado vía callable para incluir sizeBytes y soportar escritorio.
@@ -341,21 +328,17 @@ int _folioCloudBackupGetDataMaxBytes(FolioCloudBackupEntry entry) {
 
 /// Descarga los bytes de una copia (ZIP/TAR.GZ) desde Storage.
 ///
-/// En web se usa en lugar de [Reference.writeToFile], que no está soportado.
+/// En web se usa descarga por bytes (sin writeToFile nativo).
 Future<Uint8List> downloadFolioCloudBackupBytes({
   required FolioCloudBackupEntry entry,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
-  final ref = FirebaseStorage.instance.ref(entry.storagePath);
   final maxBytes = _folioCloudBackupGetDataMaxBytes(entry);
-  final data = await folioStorageGetData(ref, maxBytes);
+  final data = await folioStorageGetData(entry.storagePath, maxBytes);
   if (data == null || data.isEmpty) {
     throw StateError('La descarga no devolvió datos.');
   }
@@ -369,12 +352,13 @@ Future<void> downloadFolioCloudBackup({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
   }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
-  final ref = FirebaseStorage.instance.ref(entry.storagePath);
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
   if (kIsWeb) {
     final data = await downloadFolioCloudBackupBytes(
       entry: entry,
@@ -382,7 +366,7 @@ Future<void> downloadFolioCloudBackup({
     );
     await destinationFile.writeAsBytes(data, flush: true);
   } else {
-    await folioStorageWriteToFile(ref, destinationFile);
+    await folioStorageWriteToFile(entry.storagePath, destinationFile);
   }
 }
 
@@ -395,10 +379,7 @@ Future<bool> deleteFolioCloudPack({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   final id = vaultId.trim();
@@ -421,11 +402,13 @@ Future<bool> deleteFolioCloudBackup({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
+  if (!folioCloudHasSession()) {
+    throw StateError('Not signed in');
   }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
+  final uid = folioCloudCurrentUid();
+  if (uid == null || uid.isEmpty) {
+    throw StateError('Not signed in');
+  }
 
   var id = vaultId?.trim() ?? '';
   if (id.isEmpty) {
@@ -463,10 +446,7 @@ Future<void> trimFolioCloudBackups({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   await callFolioHttpsCallable('folioTrimVaultBackups', <String, dynamic>{
@@ -481,10 +461,7 @@ Future<void> trimFolioCloudBackupsByBytes({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   await callFolioHttpsCallable('folioTrimVaultBackupsByBytes', <String, dynamic>{
@@ -499,10 +476,7 @@ Future<void> upsertFolioCloudBackupVaultIndex({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  if (FirebaseAuth.instance.currentUser == null) {
+  if (!folioCloudHasSession()) {
     throw StateError('Not signed in');
   }
   await callFolioHttpsCallable('folioUpsertVaultBackupIndex', <String, dynamic>{

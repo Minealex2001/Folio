@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../data/vault_payload.dart';
 import '../../models/folio_page.dart';
@@ -153,7 +152,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   for (final blobId in supposedlyExisting) {
     final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
     final exists = await folioStorageObjectExists(
-      FirebaseStorage.instance.ref().child(path),
+      path,
     );
     if (!exists) {
       newBlobIds = {...newBlobIds, blobId};
@@ -185,7 +184,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     final cipher = cipherByBlobId[blobId]!;
     final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
     await folioStoragePutData(
-      FirebaseStorage.instance.ref().child(path),
+      path,
       cipher,
     );
     newBlobList.add({'blobId': blobId, 'sizeBytes': cipher.length});
@@ -218,7 +217,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   final manifestPath =
       'users/$uid/vaults/$vaultId/device-sync/manifests/manifest-$stamp.bin';
   await folioStoragePutData(
-    FirebaseStorage.instance.ref().child(manifestPath),
+    manifestPath,
     manifestCipher,
   );
   done++;
@@ -314,7 +313,7 @@ Future<DeviceSyncManifestPageBlobIds> peekDeviceSyncManifestPageBlobIds({
   required SecretKey packKey,
 }) async {
   final manifestCipher = await folioStorageGetData(
-    FirebaseStorage.instance.ref().child(manifestStoragePath),
+    manifestStoragePath,
     16 * 1024 * 1024,
   );
   if (manifestCipher == null || manifestCipher.isEmpty) {
@@ -365,7 +364,7 @@ Future<Set<String>> peekDeviceSyncManifestBlobIds({
   required SecretKey packKey,
 }) async {
   final manifestCipher = await folioStorageGetData(
-    FirebaseStorage.instance.ref().child(manifestStoragePath),
+    manifestStoragePath,
     16 * 1024 * 1024,
   );
   if (manifestCipher == null || manifestCipher.isEmpty) return {};
@@ -426,7 +425,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     context: {'manifest': manifestStoragePath},
   );
   final manifestCipher = await folioStorageGetData(
-    FirebaseStorage.instance.ref().child(manifestStoragePath),
+    manifestStoragePath,
     16 * 1024 * 1024,
   );
   if (manifestCipher == null || manifestCipher.isEmpty) {
@@ -524,7 +523,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
     try {
       final cipher = await folioStorageGetData(
-        FirebaseStorage.instance.ref().child(path),
+        path,
         80 * 1024 * 1024,
       );
       if (cipher == null || cipher.isEmpty) {

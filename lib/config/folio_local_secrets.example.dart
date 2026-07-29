@@ -18,6 +18,12 @@ abstract final class FolioLocalSecrets {
   static const String slackOAuthClientId = '';
   static const String teamsOAuthClientId = '';
 
+  /// Folio Cloud Spring: `spring` | vacío (= Firebase).
+  static const String folioBackendMode = '';
+
+  /// URL del API Spring (Railway o `http://127.0.0.1:18080`).
+  static const String folioBackendBaseUrl = '';
+
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {
     switch (key) {
@@ -35,6 +41,10 @@ abstract final class FolioLocalSecrets {
         return slackOAuthClientId.trim();
       case 'TEAMS_OAUTH_CLIENT_ID':
         return teamsOAuthClientId.trim();
+      case 'FOLIO_BACKEND_MODE':
+        return folioBackendMode.trim();
+      case 'FOLIO_BACKEND_BASE_URL':
+        return folioBackendBaseUrl.trim();
       default:
         return '';
     }

@@ -1,10 +1,10 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
 import 'folio_cloud_callable.dart';
 
+import 'folio_cloud_exception.dart';
 /// Importes de catálogo Stripe (`folioCloudCatalogPrices`) para la UI.
 class FolioCloudCatalogPrice {
   const FolioCloudCatalogPrice({
@@ -76,7 +76,7 @@ class FolioCloudCatalogPricesService {
       _cache = parsed;
       _cacheAt = DateTime.now();
       return parsed;
-    } on FirebaseFunctionsException {
+    } on FolioCloudException {
       return _cache ?? FolioCloudCatalogPricesSnapshot.empty();
     } catch (_) {
       return _cache ?? FolioCloudCatalogPricesSnapshot.empty();

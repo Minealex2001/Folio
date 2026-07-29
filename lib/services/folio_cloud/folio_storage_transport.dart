@@ -1,98 +1,44 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:firebase_storage/firebase_storage.dart';
-
-import '../../config/folio_backend_config.dart';
-import 'folio_firebase_storage_rest.dart';
 import 'folio_spring_storage.dart';
 
-export 'folio_firebase_storage_rest.dart' show folioStorageUseRestTransport;
-
-String _storageObjectPath(Reference ref) => ref.fullPath;
-
-/// Sube bytes usando REST en escritorio, proxy Spring en modo Spring, o el plugin.
-Future<void> folioStoragePutData(
-  Reference ref,
-  Uint8List data, {
-  SettableMetadata? metadata,
-}) async {
-  if (FolioBackendConfig.useSpring) {
-    await folioSpringStoragePutData(_storageObjectPath(ref), data);
-    return;
-  }
-  if (folioStorageUseRestTransport) {
-    await folioFirebaseStorageRestPutData(ref, data, metadata: metadata);
-    return;
-  }
-  await ref.putData(data, metadata);
+/// Sube bytes al proxy Spring `/api/v1/storage/objects`.
+Future<void> folioStoragePutData(String path, Uint8List data) async {
+  await folioSpringStoragePutData(path, data);
 }
 
 /// Sube un archivo local. Devuelve el tamaño en bytes del archivo subido.
-Future<int> folioStoragePutFile(
-  Reference ref,
-  File file, {
-  SettableMetadata? metadata,
-}) async {
-  if (FolioBackendConfig.useSpring) {
-    final bytes = await file.readAsBytes();
-    await folioSpringStoragePutData(_storageObjectPath(ref), bytes);
-    return bytes.length;
-  }
-  if (folioStorageUseRestTransport) {
-    await folioFirebaseStorageRestPutFile(ref, file, metadata: metadata);
-    return await file.length();
-  }
-  final snap = await ref.putFile(file, metadata);
-  return snap.totalBytes;
+Future<int> folioStoragePutFile(String path, File file) async {
+  final bytes = await file.readAsBytes();
+  await folioSpringStoragePutData(path, bytes);
+  return bytes.length;
 }
 
-/// Descarga bytes; en escritorio / Spring evita el plugin nativo.
-Future<Uint8List?> folioStorageGetData(Reference ref, int maxBytes) async {
-  if (FolioBackendConfig.useSpring) {
-    return folioSpringStorageGetData(_storageObjectPath(ref), maxBytes);
-  }
-  if (folioStorageUseRestTransport) {
-    return folioFirebaseStorageRestGetData(ref, maxBytes);
-  }
-  return ref.getData(maxBytes);
+/// Descarga bytes vía proxy Spring.
+Future<Uint8List?> folioStorageGetData(String path, int maxBytes) async {
+  return folioSpringStorageGetData(path, maxBytes);
 }
 
-/// true si el objeto existe (HEAD/metadata). false si 404 u otro fallo suave.
-Future<bool> folioStorageObjectExists(Reference ref) async {
-  if (FolioBackendConfig.useSpring) {
-    return folioSpringStorageObjectExists(_storageObjectPath(ref));
-  }
-  if (folioStorageUseRestTransport) {
-    return folioFirebaseStorageRestObjectExists(ref);
-  }
+/// true si el objeto existe (HEAD). false si 404 u otro fallo suave.
+Future<bool> folioStorageObjectExists(String path) async {
   try {
-    await ref.getMetadata();
-    return true;
-  } on FirebaseException catch (e) {
-    if (e.code == 'object-not-found') return false;
-    return false;
+    return await folioSpringStorageObjectExists(path);
   } catch (_) {
     return false;
   }
 }
 
 /// Descarga a archivo local.
-Future<void> folioStorageWriteToFile(Reference ref, File destination) async {
-  if (FolioBackendConfig.useSpring) {
-    final data = await folioSpringStorageGetData(
-      _storageObjectPath(ref),
-      80 * 1024 * 1024,
-    );
-    if (data == null) {
-      throw FolioSpringStorageException(404, 'Object not found');
-    }
-    await destination.writeAsBytes(data, flush: true);
-    return;
+Future<void> folioStorageWriteToFile(String path, File destination) async {
+  final data = await folioSpringStorageGetData(path, 80 * 1024 * 1024);
+  if (data == null) {
+    throw FolioSpringStorageException(404, 'Object not found');
   }
-  if (folioStorageUseRestTransport) {
-    await folioFirebaseStorageRestWriteToFile(ref, destination);
-    return;
-  }
-  await ref.writeToFile(destination);
+  await destination.writeAsBytes(data, flush: true);
+}
+
+/// Borra un objeto (best-effort; 404 = ok).
+Future<void> folioStorageDelete(String path) async {
+  await folioSpringStorageDelete(path);
 }

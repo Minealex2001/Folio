@@ -603,7 +603,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       : () {
                           if (snap.isFamily && snap.familyOwnerUid != null) {
                             final uid =
-                                FirebaseAuth.instance.currentUser?.uid;
+                                folioCloudCurrentUid();
                             if (uid != null) {
                               onRemoveFamilyMember(uid);
                             }
@@ -1284,7 +1284,7 @@ class _FamilyManagerWidgetState extends State<_FamilyManagerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+    final ownerUid = folioCloudCurrentUid();
     if (ownerUid == null) return const SizedBox.shrink();
 
     return Column(

@@ -1,12 +1,12 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../firebase_options.dart';
+import '../../config/folio_backend_config.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/slack_integration_state.dart';
 import '../../models/teams_integration_state.dart';
 import '../../services/folio_cloud/folio_cloud_callable.dart';
+import '../../services/folio_cloud/folio_cloud_identity.dart';
 import '../../services/integrations/integration_link_service.dart';
 import '../../session/vault_session.dart';
 import '../../app/widgets/folio_skeletons.dart';
@@ -14,9 +14,7 @@ import '../../app/widgets/integration_settings_widgets.dart';
 
 /// URL pública del endpoint de comandos Teams (Outgoing Webhook).
 String buildTeamsCommandEndpointUrl() {
-  const region = kFolioCloudFunctionsRegion;
-  final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
-  return 'https://$region-$projectId.cloudfunctions.net/folioTeamsCommand';
+  return '${FolioBackendConfig.apiV1Prefix}/integrations/teams/command';
 }
 
 class SlackIntegrationCommandsTab extends StatelessWidget {
@@ -150,7 +148,7 @@ class _IntegrationCommandsTabState extends State<IntegrationCommandsTab> {
 
   Future<void> _generateCode() async {
     final l10n = AppLocalizations.of(context);
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!folioCloudHasSession()) {
       setState(() => _error = l10n.integrationCommandNeedsSignIn);
       return;
     }

@@ -1,7 +1,6 @@
 ﻿import 'dart:async' show unawaited;
 import 'dart:io';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -30,6 +29,7 @@ import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
 import 'onboarding_cloud_pitch_step.dart';
 
+import '../../services/folio_cloud/folio_cloud_exception.dart';
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
     super.key,
@@ -524,7 +524,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             _error = '$e';
           });
         }
-      } on FirebaseFunctionsException catch (e) {
+      } on FolioCloudException catch (e) {
         if (mounted) {
           final isWrap = e.code.toLowerCase() == 'failed-precondition';
           setState(() {

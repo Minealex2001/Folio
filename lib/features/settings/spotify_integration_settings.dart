@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
@@ -13,6 +11,7 @@ import '../../services/spotify/spotify_playback_controller.dart';
 import '../../session/vault_session.dart';
 import 'spotify_playlist_picker.dart';
 
+import '../../services/folio_cloud/folio_cloud_identity.dart';
 class SpotifyIntegrationCard extends StatelessWidget {
   const SpotifyIntegrationCard({
     super.key,
@@ -120,8 +119,8 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
   Future<void> _connect() async {
     final l10n = AppLocalizations.of(context);
     if (kIsWeb &&
-        Firebase.apps.isNotEmpty &&
-        FirebaseAuth.instance.currentUser == null) {
+        folioCloudHasSession() &&
+        !folioCloudHasSession()) {
       setState(() {
         _error = l10n.spotifyConnectionFailed(
           'Inicia sesión en Folio Cloud para conectar Spotify.',

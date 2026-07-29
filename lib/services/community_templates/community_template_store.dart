@@ -1,19 +1,17 @@
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import '../folio_cloud/folio_storage_transport.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
+import '../../config/folio_backend_config.dart';
 import '../../models/folio_page_template.dart';
-import '../folio_firestore_support.dart';
+import '../folio_cloud/folio_cloud_identity.dart';
+import '../folio_cloud/folio_spring_storage.dart';
 
 const String kCommunityTemplatesCollection = 'communityTemplates';
 
-/// Metadatos de una plantilla en la tienda comunitaria (Firestore + Storage).
+/// Metadatos de una plantilla en la tienda comunitaria
+/// (`/api/v1/community-templates` + proxy de storage).
 class CommunityTemplateEntry {
   const CommunityTemplateEntry({
     required this.docId,
@@ -52,8 +50,10 @@ class CommunityTemplateEntry {
     }
     DateTime? createdAt;
     final rawCreated = data['createdAt'];
-    if (rawCreated is Timestamp) {
-      createdAt = rawCreated.toDate();
+    if (rawCreated is String) {
+      createdAt = DateTime.tryParse(rawCreated);
+    } else if (rawCreated is DateTime) {
+      createdAt = rawCreated;
     }
     final blockCount = (data['blockCount'] as num?)?.toInt() ?? 0;
     return CommunityTemplateEntry(
@@ -69,40 +69,64 @@ class CommunityTemplateEntry {
       createdAt: createdAt,
     );
   }
+
+  /// Shape JSON de `CommunityTemplatesService.toDto`.
+  static CommunityTemplateEntry? fromSpringDto(Map<String, dynamic> data) {
+    final id = data['id']?.toString() ?? '';
+    if (id.isEmpty) return null;
+    return fromDoc(id, data);
+  }
 }
 
 class CommunityTemplateStore {
-  CommunityTemplateStore({FirebaseFirestore? firestore, FirebaseAuth? auth})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+  CommunityTemplateStore();
 
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
+  static bool get isFirebaseReady => true;
 
-  static bool get isFirebaseReady => Firebase.apps.isNotEmpty;
+  static bool get isStoreAvailable => true;
 
-  /// Windows: Firestore no está disponible (crash nativo del SDK C++), así que
-  /// la galería comunitaria queda deshabilitada.
-  static bool get isStoreAvailable => isFirebaseReady && folioFirestoreSupported;
+  Future<Map<String, String>> _springAuthHeaders({
+    bool forceRefresh = false,
+  }) async {
+    final token = await folioCloudBearerToken(forceRefresh: forceRefresh);
+    if (token == null || token.isEmpty) {
+      throw StateError('Not signed in');
+    }
+    return <String, String>{
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Accept': 'application/json',
+    };
+  }
 
-  /// Sube la plantilla y crea el documento índice. [tpl] puede tener cualquier id local;
-  /// el archivo publicado usa [docId] como id Folio en el JSON.
+  Future<http.Response> _springAuthorized(
+    Future<http.Response> Function(Map<String, String> headers) send,
+  ) async {
+    var headers = await _springAuthHeaders();
+    var res = await send(headers);
+    if (res.statusCode == 401) {
+      headers = await _springAuthHeaders(forceRefresh: true);
+      res = await send(headers);
+    }
+    return res;
+  }
+
+  void _ensureSpringOk(http.Response res, {bool allowNoContent = false}) {
+    if (allowNoContent && res.statusCode == 204) return;
+    if (res.statusCode >= 200 && res.statusCode < 300) return;
+    throw StateError(
+      'community-templates HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+
   Future<String> publishTemplate(FolioPageTemplate tpl) async {
-    if (!folioFirestoreSupported) {
-      throw StateError(
-        'La galería comunitaria no está disponible en esta plataforma.',
-      );
-    }
-    if (!isFirebaseReady) {
-      throw StateError('Firebase not initialized');
-    }
-    final user = _auth.currentUser;
-    if (user == null) {
+    final uid = folioCloudCurrentUid();
+    if (uid == null || uid.isEmpty) {
       throw StateError('Not signed in');
     }
     const uuid = Uuid();
     final docId = uuid.v4();
-    final path = 'community-templates/${user.uid}/$docId.folio-template';
+    final path = 'community-templates/$uid/$docId.folio-template';
     final published = FolioPageTemplate(
       id: docId,
       name: tpl.name,
@@ -113,66 +137,82 @@ class CommunityTemplateStore {
       blocks: tpl.blocks,
     );
     final bytes = utf8.encode(published.encodeAsFile());
-    final ref = FirebaseStorage.instance.ref().child(path);
-    await folioStoragePutData(
-      ref,
-      bytes,
-      metadata: SettableMetadata(contentType: 'application/json; charset=utf-8'),
-    );
-    final downloadUrl = await ref.getDownloadURL();
-    final batch = <String, dynamic>{
-      'ownerUid': user.uid,
-      'name': tpl.name.trim().isEmpty ? 'Template' : tpl.name.trim(),
+    await folioSpringStoragePutData(path, bytes);
+
+    final storageDownloadUrl =
+        '${FolioBackendConfig.apiV1Prefix}/storage/objects#${Uri.encodeComponent(path)}';
+    final name = tpl.name.trim().isEmpty ? 'Template' : tpl.name.trim();
+    final emoji = tpl.emoji?.trim() ?? '';
+    final body = <String, dynamic>{
+      'id': docId,
+      'name': name,
       'description': tpl.description.trim(),
       'category': tpl.category.trim(),
+      if (emoji.isNotEmpty) 'emoji': emoji,
       'blockCount': tpl.blocks.length,
       'storagePath': path,
-      'storageDownloadUrl': downloadUrl,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'storageDownloadUrl': storageDownloadUrl,
+      'sizeBytes': bytes.length,
     };
-    final emoji = tpl.emoji?.trim() ?? '';
-    if (emoji.isNotEmpty) {
-      batch['emoji'] = emoji;
-    }
-    await _firestore
-        .collection(kCommunityTemplatesCollection)
-        .doc(docId)
-        .set(batch);
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/community-templates',
+    );
+    final res = await _springAuthorized(
+      (h) => http.post(uri, headers: h, body: jsonEncode(body)),
+    );
+    _ensureSpringOk(res);
     return docId;
   }
 
-  /// Listado reciente para la galería (sin filtro Firestore por categoría; filtrar en cliente).
   Future<List<CommunityTemplateEntry>> listRecent({int limit = 80}) async {
-    // Windows: sin Firestore devolvemos una galería vacía en lugar de crashear.
-    if (!folioFirestoreSupported) return const <CommunityTemplateEntry>[];
-    if (!isFirebaseReady) {
-      throw StateError('Firebase not initialized');
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/community-templates',
+    );
+    http.Response res;
+    final token = await folioCloudBearerToken();
+    if (token != null && token.isNotEmpty) {
+      res = await _springAuthorized((h) => http.get(uri, headers: h));
+    } else {
+      res = await http.get(
+        uri,
+        headers: const {'Accept': 'application/json'},
+      );
     }
-    final snap = await _firestore
-        .collection(kCommunityTemplatesCollection)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .get();
+    _ensureSpringOk(res);
+    if (res.body.isEmpty) return const <CommunityTemplateEntry>[];
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) {
+      throw StateError('community-templates: expected JSON array');
+    }
     final out = <CommunityTemplateEntry>[];
-    for (final d in snap.docs) {
-      final e = CommunityTemplateEntry.fromDoc(d.id, d.data());
-      if (e != null) {
-        out.add(e);
-      }
+    for (final item in decoded) {
+      if (item is! Map) continue;
+      final e = CommunityTemplateEntry.fromSpringDto(
+        item.map((k, v) => MapEntry('$k', v)),
+      );
+      if (e != null) out.add(e);
+    }
+    if (out.length > limit) {
+      return out.sublist(0, limit);
     }
     return out;
   }
 
-  /// Descarga el archivo público y parsea. No modifica el vault.
-  Future<FolioPageTemplate> downloadTemplate(String downloadUrl) async {
-    final response = await http
-        .get(Uri.parse(downloadUrl))
-        .timeout(const Duration(seconds: 30));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('HTTP ${response.statusCode}');
+  Future<FolioPageTemplate> downloadTemplate(
+    String downloadUrl, {
+    String? storagePath,
+  }) async {
+    final path = (storagePath ?? '').trim().isNotEmpty
+        ? storagePath!.trim()
+        : _storagePathFromLogicalUrl(downloadUrl);
+    if (path.isEmpty) {
+      throw StateError('storagePath required');
     }
-    final raw = utf8.decode(response.bodyBytes);
+    final data = await folioSpringStorageGetData(path, 2 * 1024 * 1024);
+    if (data == null) {
+      throw StateError('Template object not found');
+    }
+    final raw = utf8.decode(data);
     final parsed = FolioPageTemplate.tryParseFile(raw);
     if (parsed == null) {
       throw const FormatException('Invalid community template file');
@@ -180,7 +220,17 @@ class CommunityTemplateStore {
     return parsed;
   }
 
-  /// Copia al vault con id nuevo (misma semántica que importación desde archivo).
+  static String _storagePathFromLogicalUrl(String downloadUrl) {
+    final uri = Uri.tryParse(downloadUrl);
+    if (uri != null && uri.fragment.isNotEmpty) {
+      return Uri.decodeComponent(uri.fragment);
+    }
+    if (downloadUrl.startsWith('community-templates/')) {
+      return downloadUrl;
+    }
+    return '';
+  }
+
   FolioPageTemplate copyIntoVault(FolioPageTemplate parsed) {
     const uuid = Uuid();
     return FolioPageTemplate(
@@ -198,30 +248,14 @@ class CommunityTemplateStore {
     required String docId,
     required String storagePath,
   }) async {
-    if (!folioFirestoreSupported) {
-      throw StateError(
-        'La galería comunitaria no está disponible en esta plataforma.',
-      );
-    }
-    if (!isFirebaseReady) {
-      throw StateError('Firebase not initialized');
-    }
-    final user = _auth.currentUser;
-    if (user == null) {
+    final uid = folioCloudCurrentUid();
+    if (uid == null || uid.isEmpty) {
       throw StateError('Not signed in');
     }
-    final docRef = _firestore
-        .collection(kCommunityTemplatesCollection)
-        .doc(docId);
-    final doc = await docRef.get();
-    if (!doc.exists) {
-      return;
-    }
-    final owner = doc.data()?['ownerUid']?.toString();
-    if (owner != user.uid) {
-      throw StateError('Not owner');
-    }
-    await FirebaseStorage.instance.ref().child(storagePath).delete();
-    await docRef.delete();
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/community-templates/$docId',
+    );
+    final res = await _springAuthorized((h) => http.delete(uri, headers: h));
+    _ensureSpringOk(res, allowNoContent: true);
   }
 }

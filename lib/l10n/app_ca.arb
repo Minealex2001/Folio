@@ -1531,6 +1531,7 @@
   "collabArchiveToPage": "Arxiva el nota a el fòli",
   "collabLeaveRoom": "Surt de la sala",
   "collabNeedsJoinCode": "Introdueix el codi de la sala per desxifrar aquesta sessió de col·laboració.",
+  "collabChatSpringUnavailable": "El xat de sala encara no està disponible amb el backend Spring; la sincronització de contingut sí funciona en viu.",
   "collabMissingJoinCodeHint": "Aquesta fòli està vinculada a una sala però no hi ha cap codi desat aquí. Enganxa el codi per desxifrar el contingut.",
   "collabUnlockWithCode": "Desbloqueja amb el codi",
   "collabHidePanel": "Amaga el panell de col·laboració",
@@ -2606,6 +2607,7 @@
   ,"settingsIntegrationsCommunicationTitle": "Comunicació"
   ,"settingsIntegrationsMusicTitle": "Música"
   ,"telemetryDashboardTitle": "Tauler de telemetria"
+  ,"telemetryDashboardUnavailableSpring": "El tauler de telemetria de Firestore ja no està disponible després del cutover a Folio Cloud (Spring)."
   ,"telemetryDashboardAccessDenied": "Accés denegat"
   ,"telemetryDashboardStaffOnlyBody": "Només el personal de Folio pot obrir aquesta pantalla."
   ,"telemetryDashboardFlushTooltip": "Enviar esdeveniments pendents i actualitzar"

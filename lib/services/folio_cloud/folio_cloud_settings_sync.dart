@@ -1,24 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/app_settings.dart';
-import '../../config/folio_backend_config.dart';
 import '../../data/folio_settings_profile_format.dart';
 import '../../data/vault_paths.dart';
 import '../app_logger.dart';
 import '../custom_icon_import_service.dart';
-import '../folio_firestore_support.dart';
 import '../settings/folio_app_profile_crypto.dart';
 import '../settings/settings_profile_applier.dart';
 import '../settings/settings_profile_builder.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_cloud_exception.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_storage_transport.dart';
@@ -56,7 +51,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   Timer? _appPushTimer;
   Timer? _vaultPushTimer;
   Timer? _pollTimer;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _metaSub;
+  StreamSubscription<void>? _metaSub;
   bool _appDirty = false;
   bool _pushInFlight = false;
   bool _pullInFlight = false;
@@ -75,8 +70,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   bool get isEnabled =>
       _settings.cloudAppProfileSyncEnabled &&
       _entitlements.snapshot.canUseCloudBackup &&
-      folioCloudHasSession() &&
-      (FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty);
+      folioCloudHasSession();
 
   void markAppProfileDirty() {
     if (_suppressDirty || !isEnabled) return;
@@ -107,28 +101,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
       _lastAppFp = _settings.cloudAppProfileAckFingerprint;
     }
     await _refreshMetaOnce(promptIfNewer: true);
-    if (folioFirestoreSupported) {
-      if (uid == null) return;
-      _metaSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('appProfile')
-          .doc('meta')
-          .snapshots()
-          .listen(
-            (snap) => unawaited(_onRemoteAppMeta(snap.data())),
-            onError: (Object e) {
-              AppLogger.warn(
-                'appProfile snapshots failed; falling back to daily check',
-                tag: 'settings_sync',
-                context: {'error': '$e'},
-              );
-              _startDailyCheck();
-            },
-          );
-    } else {
-      _startDailyCheck();
-    }
+    _startDailyCheck();
   }
 
   /// Fallback cuando no hay listener de Firestore en tiempo real: comprueba
@@ -303,7 +276,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
             '${wrapRes['restoreWrapB64'] ?? wrapRes['wrapB64'] ?? ''}'.trim();
         if (w.isNotEmpty) wrapB64 = w;
       }
-    } on FirebaseFunctionsException catch (e) {
+    } on FolioCloudException catch (e) {
       if (e.code != 'failed-precondition') rethrow;
       AppLogger.debug(
         'no remote app profile wrap yet',
@@ -487,10 +460,11 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
           continue;
         }
         try {
-          final ref = FirebaseStorage.instance.ref().child(
-            'users/$uid/app-profile/icons/${e.key}',
+          final iconPath = 'users/$uid/app-profile/icons/${e.key}';
+          await folioStoragePutData(
+            iconPath,
+            Uint8List.fromList(e.value),
           );
-          await folioStoragePutData(ref, Uint8List.fromList(e.value));
           iconIds.add(e.key);
         } catch (eIcon) {
           AppLogger.warn(
@@ -510,7 +484,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         context: {'path': path, 'bytes': cipher.length},
       );
       await folioStoragePutData(
-        FirebaseStorage.instance.ref().child(path),
+        path,
         cipher,
       );
 
@@ -612,7 +586,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
 
       final resolved = await _resolvePackKey(password: password);
       final cipher = await folioStorageGetData(
-        FirebaseStorage.instance.ref().child(path),
+        path,
         _maxPackBytes,
       );
       if (cipher == null || cipher.isEmpty) {
@@ -699,11 +673,9 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   }) async {
     if (iconId.isEmpty || out.containsKey(iconId)) return;
     try {
-      final ref = FirebaseStorage.instance.ref().child(
-        'users/$uid/app-profile/icons/$iconId',
-      );
+      final iconPath = 'users/$uid/app-profile/icons/$iconId';
       final data = await folioStorageGetData(
-        ref,
+        iconPath,
         CustomIconImportService.maxBytes,
       );
       if (data == null || data.isEmpty) return;
@@ -849,7 +821,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         context: {'path': path, 'bytes': cipher.length},
       );
       await folioStoragePutData(
-        FirebaseStorage.instance.ref().child(path),
+        path,
         cipher,
       );
 
@@ -976,7 +948,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         context: {'path': path},
       );
       final cipher = await folioStorageGetData(
-        FirebaseStorage.instance.ref().child(path),
+        path,
         _maxPackBytes,
       );
       if (cipher == null || cipher.isEmpty) {
@@ -1050,8 +1022,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   /// Normaliza `updatedAt` de callable/Firestore a epoch ms.
   static int _asUpdatedAtMs(Object? v) {
     if (v == null) return 0;
-    if (v is Timestamp) return v.millisecondsSinceEpoch;
-    if (v is DateTime) return v.millisecondsSinceEpoch;
+        if (v is DateTime) return v.millisecondsSinceEpoch;
     if (v is num) {
       final n = v.toInt();
       // Segundos vs milisegundos.
@@ -1077,9 +1048,9 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   }
 
   static String _formatSyncError(Object e) {
-    if (e is FirebaseFunctionsException) {
+    if (e is FolioCloudException) {
       final code = e.code.trim();
-      final msg = (e.message ?? '').trim();
+      final msg = e.message.trim();
       if (code == 'not-found') {
         return 'Folio Cloud: función de perfil no desplegada ($code)';
       }

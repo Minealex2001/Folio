@@ -77,7 +77,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.cloudPasswordResetSent)));
-    } on FirebaseAuthException catch (e) {
+    } on FolioAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),
@@ -94,7 +94,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.cloudAccountVerificationSent)),
       );
-    } on FirebaseAuthException catch (e) {
+    } on FolioAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),

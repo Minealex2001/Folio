@@ -8,8 +8,6 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:collection/collection.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -90,6 +88,7 @@ import '../canvas/canvas_page.dart';
 import '../widgets/page_properties_widget.dart';
 import '../ai/ai_slash_intent.dart';
 
+import '../../../services/folio_cloud/folio_cloud_identity.dart';
 part 'workspace_page_ai_chat.dart';
 part 'workspace_page_ai_context.dart';
 part 'workspace_page_ai_threads.dart';
@@ -2149,7 +2148,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final useDesktopAiDock = !compact && aiSessionActive;
     final useMobileAiDock = compact && aiSessionActive;
     final cloudSignedIn =
-        Firebase.apps.isNotEmpty && widget.cloudAccountController.isSignedIn;
+        folioCloudHasSession() && widget.cloudAccountController.isSignedIn;
     final hasCollabRoom = _isValidCollabRoomId(page?.collabRoomId);
     final useDesktopCollabDock =
         !compact && page != null && cloudSignedIn && hasCollabRoom;

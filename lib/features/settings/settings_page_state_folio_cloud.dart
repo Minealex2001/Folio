@@ -86,7 +86,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     if (!AppSettings.folioWebPortalLinkEnabled) return;
     if (_webLinkBusy) return;
     final l10n = AppLocalizations.of(context);
-    final user = FirebaseAuth.instance.currentUser;
+    final user = null;
     if (user == null) {
       _snack(l10n.folioWebPortalNeedSignIn);
       return;

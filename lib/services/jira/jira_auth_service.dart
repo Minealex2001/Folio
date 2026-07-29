@@ -4,19 +4,19 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
-import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
 import '../../core/errors/folio_exception.dart';
-import '../../firebase_options.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 
+import '../../services/folio_cloud/folio_cloud_identity.dart';
+import '../../config/folio_backend_config.dart';
 class JiraAuthCancelledException extends FolioException {
   const JiraAuthCancelledException() : super('OAuth cancelado por el usuario.');
 }
@@ -295,7 +295,7 @@ class JiraAuthService {
     required Uri redirectUri,
     required String codeVerifier,
   }) async {
-    if (Firebase.apps.isEmpty) {
+    if (!folioCloudHasSession()) {
       throw StateError(
         'Falta JIRA_OAUTH_CLIENT_SECRET en este equipo y Firebase no está inicializado. '
         'Opciones (en este orden de uso habitual): lib/config/folio_local_secrets.dart (copia desde .example), '
@@ -303,9 +303,8 @@ class JiraAuthService {
         'o Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
       );
     }
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
     final uri = Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioJiraExchangeOAuth',
+      '${FolioBackendConfig.apiV1Prefix}/integrations/jira/oauth-exchange',
     );
     AppLogger.info(
       'Jira OAuth token via Folio Cloud',

@@ -92,3 +92,13 @@ Future<bool> folioSpringStorageObjectExists(String path) async {
     throw FolioSpringStorageException(code, '');
   });
 }
+
+/// `DELETE /api/v1/storage/objects` — 404 se trata como éxito.
+Future<void> folioSpringStorageDelete(String path) async {
+  await _withAuthRetry((force) async {
+    final headers = await _authHeaders(path: path, forceRefresh: force);
+    final res = await http.delete(_objectsUri(), headers: headers);
+    if (res.statusCode == 404) return;
+    _ensureOk(res);
+  });
+}

@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../folio_cloud/folio_cloud_callable.dart';
 
+import '../../services/folio_cloud/folio_cloud_exception.dart';
 /// Envío HTTP a webhooks de Slack/Teams. En Web usa el proxy callable para evitar CORS.
 class IntegrationWebhookTransport {
   IntegrationWebhookTransport({http.Client? httpClient})
@@ -45,7 +45,7 @@ class IntegrationWebhookTransport {
           'connectionId': connectionId,
           'payload': payload,
         });
-      } on FirebaseFunctionsException catch (e) {
+      } on FolioCloudException catch (e) {
         // Connections created before the server-side registration step
         // existed won't be found yet — register once (self-healing) and
         // retry, instead of permanently breaking pre-existing connections.

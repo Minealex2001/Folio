@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +20,7 @@ import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../recent_page_visits.dart';
 
+import '../../../services/folio_cloud/folio_cloud_identity.dart';
 /// Pantalla de inicio del workspace (sin página seleccionada).
 class WorkspaceHomeView extends StatefulWidget {
   const WorkspaceHomeView({
@@ -587,7 +587,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
 
   bool _shouldShowCloudGuestTeaser() {
     if (!widget.appSettings.workspaceHomeShowFolioCloudCard) return false;
-    if (Firebase.apps.isEmpty) return false;
+    if (!folioCloudHasSession()) return false;
     if (_cloudGuestDismissed) return false;
     if (widget.folioCloudEntitlements.snapshot.active) return false;
     final anchor = _onboardAnchorMs;
@@ -891,7 +891,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     final hasPage = pages.isNotEmpty;
     final hasSubpage = pages.any((p) => p.parentId != null);
     final usedSearch = widget.appSettings.recentSearchQueries.isNotEmpty;
-    final showCloudExplore = Firebase.apps.isNotEmpty;
+    final showCloudExplore = folioCloudHasSession();
     final cloudExploreDone = _cloudExploreDone ||
         widget.cloudAccount.isSignedIn ||
         widget.folioCloudEntitlements.snapshot.active;
@@ -1614,7 +1614,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         .toList(growable: false);
     final showCloudQuick =
         widget.appSettings.workspaceHomeShowFolioCloudCard &&
-            Firebase.apps.isNotEmpty &&
+            folioCloudHasSession() &&
             widget.cloudAccount.isSignedIn;
     final showCloudGuestTeaser = _shouldShowCloudGuestTeaser();
 

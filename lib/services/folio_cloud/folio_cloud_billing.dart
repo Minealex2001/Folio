@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../config/folio_backend_config.dart';
@@ -8,7 +7,7 @@ import 'folio_cloud_identity.dart';
 bool get _folioCloudBackendReady =>
     FolioBackendConfig.useSpring
         ? folioCloudHasSession() || FolioBackendConfig.baseUrl.isNotEmpty
-        : Firebase.apps.isNotEmpty;
+        : folioCloudHasSession();
 
 /// Opens Stripe Customer Portal via Cloud Function (server holds Stripe secret).
 Future<Uri?> createBillingPortalUri() async {

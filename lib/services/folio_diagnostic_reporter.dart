@@ -3,19 +3,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../app/app_settings.dart';
-import '../firebase_options.dart';
+import '../config/folio_backend_config.dart';
 import 'app_logger.dart';
 import 'folio_cloud/folio_cloud_callable.dart';
 import 'folio_telemetry.dart';
 
-/// Informes de diagnóstico hacia [folioReportDiagnostic] en Cloud Functions.
+/// Informes de diagnóstico hacia `POST /api/v1/diagnostics/report` (Spring).
 /// Activado por defecto (`AppSettings.autoCrashReports`); cubre tanto crashes
 /// no capturados como cualquier `AppLogger.error(...)` (ver `setOnError` en
 /// app_logger.dart) — no solo lo que tumba la app.
@@ -52,11 +51,7 @@ class FolioDiagnosticReporter {
   }
 
   static Uri? _reportUri() {
-    if (Firebase.apps.isEmpty) return null;
-    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
-    return Uri.parse(
-      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioReportDiagnostic',
-    );
+    return Uri.parse('${FolioBackendConfig.apiV1Prefix}/diagnostics/report');
   }
 
   static Future<String> _readLogTail({int maxBytes = 16000}) async {
@@ -138,8 +133,9 @@ class FolioDiagnosticReporter {
     final uri = _reportUri();
     if (uri == null) {
       AppLogger.warn(
-        'Diagnostic report skipped (Firebase not initialized)',
+        'Diagnostic report skipped (backend not available)',
         tag: 'diagnostics',
+        context: {'backend': FolioBackendConfig.modeLabel},
       );
       return false;
     }

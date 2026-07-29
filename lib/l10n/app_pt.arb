@@ -1530,6 +1530,7 @@
   "collabArchiveToPage": "Arquivar nota no fólio",
   "collabLeaveRoom": "Sair da sala",
   "collabNeedsJoinCode": "Digite o código da sala para descriptografar esta sessão de colaboração.",
+  "collabChatSpringUnavailable": "O chat da sala ainda não está disponível com o backend Spring; a sincronização de conteúdo em tempo real funciona.",
   "collabMissingJoinCodeHint": "Esta fólio está vinculada a uma sala, mas nenhum código foi salvo aqui. Cole o código do anfitrião para ver o conteúdo.",
   "collabUnlockWithCode": "Desbloquear com código",
   "collabHidePanel": "Ocultar painel de colaboração",
@@ -2605,6 +2606,7 @@
   ,"settingsIntegrationsCommunicationTitle": "Comunicação"
   ,"settingsIntegrationsMusicTitle": "Música"
   ,"telemetryDashboardTitle": "Painel de telemetria"
+  ,"telemetryDashboardUnavailableSpring": "O painel de telemetria do Firestore já não está disponível após o cutover para Folio Cloud (Spring)."
   ,"telemetryDashboardAccessDenied": "Acesso negado"
   ,"telemetryDashboardStaffOnlyBody": "Apenas a equipa Folio pode abrir este ecrã."
   ,"telemetryDashboardFlushTooltip": "Enviar eventos pendentes e atualizar"

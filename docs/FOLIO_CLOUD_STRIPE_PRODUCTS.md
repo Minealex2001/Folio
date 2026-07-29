@@ -22,7 +22,13 @@ Flujos concretos: copia manual y opcionalmente la copia programada tras export l
 
 ## Webhook
 
-Configura el endpoint HTTPS de la función `stripeWebhook` y el secreto `STRIPE_WEBHOOK_SECRET`.
+Configura el endpoint HTTPS del API Spring:
+
+`https://backendfolio.minealexgames.com/api/v1/billing/webhook`
+
+y el secreto `STRIPE_WEBHOOK_SECRET` en variables Railway (mismo valor `whsec_...` del endpoint).
+
+**Ya no uses** la Cloud Function `stripeWebhook` de Firebase una vez el cutover esté activo.
 
 Eventos mínimos: `checkout.session.completed`, `checkout.session.async_payment_succeeded` (pagos diferidos / segundo aviso), `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` (los de suscripción rellenan `stripeCustomerId` si el checkout no lo hizo).
 

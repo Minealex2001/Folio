@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -31,7 +28,6 @@ import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
-import 'folio_firestore_rest.dart';
 import 'folio_storage_transport.dart';
 import 'headless_device_sync_vault.dart';
 
@@ -71,7 +67,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Timer? _pushDebounceTimer;
   Timer? _pollTimer;
   Timer? _allVaultsPollTimer;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _metaSub;
+  // Meta remota vía poll/callable (sin listener Firestore).
+  // no firestore meta sub
   bool _pushInFlight = false;
   bool _pullInFlight = false;
   bool _dirty = false;
@@ -139,7 +136,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _settings.cloudDeviceSyncEnabled &&
       _entitlements.snapshot.canUseCloudBackup &&
       folioCloudHasSession() &&
-      (FolioBackendConfig.useSpring || Firebase.apps.isNotEmpty);
+      (FolioBackendConfig.useSpring || folioCloudHasSession());
 
   /// Pausa o reanuda solo el **pull** (poll + listener). El push no cambia.
   void setAppInForeground(bool foreground) {
@@ -170,8 +167,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     );
     _boundVaultId = next;
     _resetBoundVaultCaches();
-    await _metaSub?.cancel();
-    _metaSub = null;
+    // meta listener removed
+    
     _pollTimer?.cancel();
     _pollTimer = null;
     if (next != null) {
@@ -328,8 +325,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   /// Cancela poll + listener de pull sin tocar push ni caches de vault.
   Future<void> _stopPullWatching() async {
-    await _metaSub?.cancel();
-    _metaSub = null;
+    // meta listener removed
+    
     _pollTimer?.cancel();
     _pollTimer = null;
     _allVaultsPollTimer?.cancel();
@@ -354,33 +351,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   void _startActiveVaultPullWatching() {
     if (!_appInForeground || !isEnabled) return;
-    // Spring no tiene listener Firestore; poll de meta vía callable.
-    if (_boundVaultId != null &&
-        folioFirestoreSupported &&
-        !FolioBackendConfig.useSpring) {
-      final uid = folioCloudCurrentUid();
-      if (uid == null) return;
-      unawaited(_metaSub?.cancel());
-      _metaSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('vaultSync')
-          .doc(_boundVaultId!)
-          .snapshots()
-          .listen(
-            (snap) => unawaited(_onRemoteMeta(snap.data())),
-            onError: (Object e, StackTrace st) {
-              AppLogger.warn(
-                'vaultSync snapshots failed; falling back to poll',
-                tag: 'cloud_sync',
-                context: {'error': '$e'},
-              );
-              _startPolling();
-            },
-          );
-    } else {
-      _startPolling();
-    }
+    _startPolling();
   }
 
   void _startPolling() {
@@ -450,26 +421,14 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     required String uid,
     required String vaultId,
   }) async {
-    if (FolioBackendConfig.useSpring) {
-      final raw = await callFolioHttpsCallable(
-        'folioGetDeviceSyncMeta',
-        <String, dynamic>{'vaultId': vaultId},
-      );
-      if (raw is Map) {
-        return Map<String, dynamic>.from(raw);
-      }
-      return null;
+    final raw = await callFolioHttpsCallable(
+      'folioGetDeviceSyncMeta',
+      <String, dynamic>{'vaultId': vaultId},
+    );
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
     }
-    if (folioFirestoreSupported) {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('vaultSync')
-          .doc(vaultId)
-          .get();
-      return snap.data();
-    }
-    return folioFirestoreRestGetDocument('users/$uid/vaultSync/$vaultId');
+    return null;
   }
 
   Future<void> _refreshRemoteMetaOnce() async {
@@ -835,7 +794,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         _cachedManifestPath = manifestStoragePath;
       } else {
         final cipher = await folioStorageGetData(
-          FirebaseStorage.instance.ref().child(packStoragePath),
+          packStoragePath,
           _maxPackBytes,
         );
         if (cipher == null || cipher.isEmpty) {
@@ -1408,7 +1367,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           );
         } else {
           final cipher = await folioStorageGetData(
-            FirebaseStorage.instance.ref().child(packPath),
+            packPath,
             _maxPackBytes,
           );
           if (cipher == null || cipher.isEmpty) {
