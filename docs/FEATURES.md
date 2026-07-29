@@ -1744,6 +1744,8 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 Directorio `backend/` (**git submodule** → repo GitHub [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend)): API REST `/api/v1/...` con Maven, Java 21 y Spring Boot 3.3.x que sustituye gradualmente Auth/Firestore/Functions. Tras clonar Folio: `git submodule update --init --recursive`. Despliegue cloud (p. ej. Railway) desde ese repo, no desde el monorepo de la app.
 
+**Referencia de endpoints:** [FOLIO_BACKEND_API.md](FOLIO_BACKEND_API.md) → detalle canónico en [`backend/docs/API.md`](../backend/docs/API.md) (Auth, Account, Billing, Family, Vault, Storage, Collab, Publish, Templates, AI, Integraciones, Diagnostics, Admin, STOMP).
+
 **Infra local (Fase 1):** `docker-compose.yml` con PostgreSQL 16, MinIO y Mailpit; `GET /api/v1/health` → `{"status":"ok"}`; Swagger UI en `/swagger-ui.html`.
 
 **Self-host Docker:** el mismo compose incluye el servicio `api` (Dockerfile multi-stage Maven + JRE 21, perfil `docker`). Un `docker compose up -d --build` levanta el stack completo; el API queda en el host en **`:18080`** (`API_HOST_PORT`, evita choque con CEF en `:8080` en Windows). Secretos Stripe/OpenAI van en **`backend/.env`** (no en `functions/.env`). Guía: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md). Código API y Railway: repo [Folio-Backend](https://github.com/Minealex2001/Folio-Backend) ([`backend/README.md`](../backend/README.md)).
