@@ -2,7 +2,9 @@
 
 Cómo hostear tu propio Folio Cloud (API Spring Boot + Postgres + object storage) con Docker Compose. Pensado para instalaciones open source / on-prem.
 
-Ver también: [backend/README.md](../backend/README.md), secretos en [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md), migración en [MIGRACION_SPRINGBOOT.md](MIGRACION_SPRINGBOOT.md).
+El código de la API vive en el repo GitHub **[Folio-Backend](https://github.com/Minealex2001/Folio-Backend)** y en este monorepo como **submodule** `backend/`. Tras clonar Folio: `git submodule update --init --recursive`.
+
+Ver también: [backend/README.md](../backend/README.md) (incluye sección Railway), secretos en [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md), migración en [MIGRACION_SPRINGBOOT.md](MIGRACION_SPRINGBOOT.md).
 
 ## Requisitos
 

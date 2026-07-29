@@ -1741,11 +1741,11 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 ## Backend Spring Boot (migración Firebase → Spring) — Fases 1–10
 
-Directorio nuevo `backend/`: API REST `/api/v1/...` con Maven, Java 21 y Spring Boot 3.3.x que sustituye gradualmente Auth/Firestore/Functions.
+Directorio `backend/` (**git submodule** → repo GitHub [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend)): API REST `/api/v1/...` con Maven, Java 21 y Spring Boot 3.3.x que sustituye gradualmente Auth/Firestore/Functions. Tras clonar Folio: `git submodule update --init --recursive`. Despliegue cloud (p. ej. Railway) desde ese repo, no desde el monorepo de la app.
 
 **Infra local (Fase 1):** `docker-compose.yml` con PostgreSQL 16, MinIO y Mailpit; `GET /api/v1/health` → `{"status":"ok"}`; Swagger UI en `/swagger-ui.html`.
 
-**Self-host Docker:** el mismo compose incluye el servicio `api` (Dockerfile multi-stage Maven + JRE 21, perfil `docker`). Un `docker compose up -d --build` levanta el stack completo; el API queda en el host en **`:18080`** (`API_HOST_PORT`, evita choque con CEF en `:8080` en Windows). Secretos Stripe/OpenAI van en **`backend/.env`** (no en `functions/.env`). Guía: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md).
+**Self-host Docker:** el mismo compose incluye el servicio `api` (Dockerfile multi-stage Maven + JRE 21, perfil `docker`). Un `docker compose up -d --build` levanta el stack completo; el API queda en el host en **`:18080`** (`API_HOST_PORT`, evita choque con CEF en `:8080` en Windows). Secretos Stripe/OpenAI van en **`backend/.env`** (no en `functions/.env`). Guía: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md). Código API y Railway: repo [Folio-Backend](https://github.com/Minealex2001/Folio-Backend) ([`backend/README.md`](../backend/README.md)).
 
 **Postman:** colección v2.1 de todos los endpoints REST + nota STOMP collab en [`backend/postman/`](../backend/postman/) (`Folio_Cloud_API.postman_collection.json` + environment local). Cómo importar: [backend/README.md](../backend/README.md) § Postman. Carpeta **Admin (QA)** para grant Cloud/ink/staff sin Stripe. El `adminApiKey` del environment debe coincidir con `FOLIO_ADMIN_API_KEY` en `backend/.env`. Los IT que hacen fallback sin Testcontainers usan la BD `folio_it` (no `folio`) para no truncar datos locales del self-host.
 

@@ -53,9 +53,11 @@ Folio is designed for users who value privacy, control, and productivity. Whethe
 ### Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/folio.git
-cd folio
+# 1. Clone the repository (incluye submodule backend/ → Folio-Backend)
+git clone --recurse-submodules https://github.com/Minealex2001/Folio.git
+cd Folio
+# Si ya clonaste sin submodules:
+# git submodule update --init --recursive
 
 # 2. Install dependencies
 flutter pub get
@@ -85,6 +87,8 @@ flutter run -d windows
 ### Building without Folio Cloud
 
 The core app (vault, editor, local device sync, local AI) works **without** Firebase, Stripe, or any paid backend. Optional **Folio Cloud** features (encrypted cloud backup/sync, hosted AI, publish to web) require a configured Firebase project and active subscription; they are disabled if Firebase fails to start. Contributors do not need production keys—see [docs/FOLIO_CLOUD_SECRETS.md](docs/FOLIO_CLOUD_SECRETS.md).
+
+The Spring Boot API (self-host / Railway) lives in a separate GitHub repo, [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend), checked out here as the `backend/` submodule. See [backend/README.md](backend/README.md) and [docs/FOLIO_CLOUD_SELF_HOST.md](docs/FOLIO_CLOUD_SELF_HOST.md).
 
 ---
 

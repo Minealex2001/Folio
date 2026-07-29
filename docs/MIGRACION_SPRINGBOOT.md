@@ -6,7 +6,7 @@ Inventario y plan de migración de todo lo que Folio usa de Firebase hoy, basado
 
 Folio ya tiene una ventaja de partida importante: **el cliente de escritorio (Windows/Linux) no usa los SDKs nativos de Firebase para las callables** — `cloud_functions` no funciona bien fuera de Android/iOS, así que ya hablan HTTP plano (`Authorization: Bearer <idToken>`) contra las Cloud Functions (ver [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) y [folio_cloud_callable.dart](../lib/services/folio_cloud/folio_cloud_callable.dart)). Eso significa que sustituir el backend por Spring Boot es, en gran parte, **cambiar la URL base y el esquema de token**, no reescribir el cliente desde cero.
 
-**Self-host / open source:** el directorio `backend/` incluye Dockerfile + Compose con el servicio `api` (perfil Spring `docker`) junto a Postgres, MinIO y Mailpit. Guía operativa: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md).
+**Self-host / open source:** el directorio `backend/` es un **git submodule** del repo [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend) (Dockerfile + Compose con el servicio `api`, perfil Spring `docker`, Postgres, MinIO y Mailpit). Guía operativa: [FOLIO_CLOUD_SELF_HOST.md](FOLIO_CLOUD_SELF_HOST.md). Para desplegar solo la API (p. ej. Railway), conecta ese repo GitHub, no el monorepo Flutter.
 
 Lo que sí es trabajo grande:
 - Portar ~53 funciones (`onCall`/`onRequest`/`onSchedule`) a controllers Spring.
