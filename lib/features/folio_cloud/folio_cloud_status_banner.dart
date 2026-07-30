@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/ui_tokens.dart';
 import '../../config/folio_status_urls.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/folio_cloud/folio_cloud_status.dart';
+import '../../services/folio_cloud/folio_cloud_status_colors.dart';
 import '../../services/folio_cloud/folio_cloud_status_controller.dart';
 
-/// Banner de alerta cuando Folio Cloud est├í degradado o hay incidencias.
+/// Aviso de estado Folio Cloud pensado para el sidebar (no ocupa el workspace).
 class FolioCloudStatusBanner extends StatelessWidget {
   const FolioCloudStatusBanner({
     super.key,
@@ -25,7 +27,7 @@ class FolioCloudStatusBanner extends StatelessWidget {
         if (!controller.bannerVisible) return const SizedBox.shrink();
         final snap = controller.snapshot;
         if (snap == null) return const SizedBox.shrink();
-        return _BannerBody(
+        return _SidebarBannerBody(
           snapshot: snap,
           onOpenDetails: onOpenDetails,
           onDismiss: () => controller.dismissBanner(),
@@ -35,8 +37,8 @@ class FolioCloudStatusBanner extends StatelessWidget {
   }
 }
 
-class _BannerBody extends StatelessWidget {
-  const _BannerBody({
+class _SidebarBannerBody extends StatelessWidget {
+  const _SidebarBannerBody({
     required this.snapshot,
     required this.onOpenDetails,
     required this.onDismiss,
@@ -49,101 +51,161 @@ class _BannerBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
     final incident = snapshot.primaryIncident;
-    final isDown = snapshot.status == 'down';
-    final bg = isDown ? scheme.errorContainer : scheme.tertiaryContainer;
-    final fg = isDown ? scheme.onErrorContainer : scheme.onTertiaryContainer;
-    final icon = incident?.type == 'maintenance'
-        ? Icons.build_circle_outlined
-        : (isDown ? Icons.cloud_off_outlined : Icons.cloud_queue_outlined);
+    final affectedIds = snapshot.bannerAffectedServiceIds;
+    final severity = snapshot.bannerSeverity;
+    final bg = FolioCloudStatusColors.container(severity, brightness: brightness);
+    final fg = FolioCloudStatusColors.onContainer(severity, brightness: brightness);
 
     final title = incident != null && incident.title.isNotEmpty
         ? incident.title
-        : (isDown
-            ? l10n.folioCloudStatusBannerDown
-            : l10n.folioCloudStatusBannerDegraded);
+        : switch (severity) {
+            'down' => l10n.folioCloudStatusBannerDown,
+            'partial' => l10n.folioCloudStatusBannerPartial,
+            _ => l10n.folioCloudStatusBannerDegraded,
+          };
 
-    final subtitle = incident != null
+    final hint = incident != null
         ? l10n.folioCloudStatusBannerIncidentHint(
             incident.type == 'maintenance'
                 ? l10n.folioCloudStatusTypeMaintenance
                 : l10n.folioCloudStatusTypeIncident,
           )
         : l10n.folioCloudStatusBannerGenericHint;
+    final affected = affectedIds.isEmpty
+        ? null
+        : l10n.folioCloudStatusAffectedServices(
+            affectedIds.map((id) => _serviceLabel(l10n, id)).join(', '),
+          );
 
     return Material(
       color: bg,
+      borderRadius: BorderRadius.circular(FolioRadius.md),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(10, 8, 4, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: fg),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: fg,
-                          fontWeight: FontWeight.w600,
-                        ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    switch (severity) {
+                      'down' => Icons.cloud_off_outlined,
+                      'partial' => Icons.cloud_queue_outlined,
+                      _ => Icons.warning_amber_outlined,
+                    },
+                    size: 16,
+                    color: fg,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: fg.withValues(alpha: 0.9),
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextButton(
-                        onPressed: onOpenDetails,
-                        style: TextButton.styleFrom(
-                          foregroundColor: fg,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: Text(l10n.folioCloudStatusBannerDetails),
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: fg,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
-                      TextButton(
-                        onPressed: () async {
-                          final lang =
-                              Localizations.localeOf(context).languageCode;
-                          final uri = FolioStatusUrls.statusPageUri(
-                            languageCode: lang,
-                          );
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: fg,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: Text(l10n.folioCloudStatusBannerMoreInfo),
+                      const SizedBox(height: 2),
+                      Text(
+                        hint,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: fg.withValues(alpha: 0.9),
+                            ),
                       ),
+                      if (affected != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          affected,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: fg,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.folioCloudStatusBannerDismiss,
+                  onPressed: onDismiss,
+                  icon: Icon(Icons.close, size: 16, color: fg),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 0,
+                children: [
+                  TextButton(
+                    onPressed: onOpenDetails,
+                    style: TextButton.styleFrom(
+                      foregroundColor: fg,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.folioCloudStatusBannerDetails),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final lang = Localizations.localeOf(context).languageCode;
+                      final uri =
+                          FolioStatusUrls.statusPageUri(languageCode: lang);
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: fg,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.folioCloudStatusBannerMoreInfo),
                   ),
                 ],
               ),
-            ),
-            IconButton(
-              tooltip: l10n.folioCloudStatusBannerDismiss,
-              onPressed: onDismiss,
-              icon: Icon(Icons.close, size: 18, color: fg),
-              visualDensity: VisualDensity.compact,
             ),
           ],
         ),
       ),
     );
+  }
+
+  static String _serviceLabel(AppLocalizations l10n, String id) {
+    return switch (id) {
+      'api' => l10n.folioCloudStatusServiceApi,
+      'database' => l10n.folioCloudStatusServiceDatabase,
+      'bucket' => l10n.folioCloudStatusServiceBucket,
+      'quill' => l10n.folioCloudStatusServiceQuill,
+      'stripe' => l10n.folioCloudStatusServiceStripe,
+      'resend' => l10n.folioCloudStatusServiceResend,
+      'jira' => l10n.folioCloudStatusServiceJira,
+      'slack' => l10n.folioCloudStatusServiceSlack,
+      'teams' => l10n.folioCloudStatusServiceTeams,
+      'spotify' => l10n.folioCloudStatusServiceSpotify,
+      'microsoft_store' => l10n.folioCloudStatusServiceMicrosoftStore,
+      _ => id,
+    };
   }
 }

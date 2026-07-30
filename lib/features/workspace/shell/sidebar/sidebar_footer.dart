@@ -11,8 +11,11 @@ import '../../../../app/widgets/folio_feedback.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../../services/media/media_playback_router.dart';
 import '../../../../services/meeting_note_session_controller.dart';
+import '../../../../services/folio_cloud/folio_cloud_status_colors.dart';
+import '../../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../../services/platform/pwa_install.dart';
 import '../../../../session/vault_session.dart';
+import '../../../folio_cloud/folio_cloud_status_banner.dart';
 import '../../widgets/spotify_now_playing_bar.dart';
 import '../../widgets/meeting_note_active_bar.dart';
 import '../page_trash_sheet.dart';
@@ -23,14 +26,18 @@ class SidebarFooter extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.trashCount,
+    this.cloudStatusController,
     this.onOpenSettings,
+    this.onOpenCloudStatus,
     required this.onSpotifyExpandedChanged,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final int trashCount;
+  final FolioCloudStatusController? cloudStatusController;
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenCloudStatus;
   final VoidCallback onSpotifyExpandedChanged;
 
   Future<void> _installWebApp(BuildContext context) async {
@@ -122,6 +129,19 @@ class SidebarFooter extends StatelessWidget {
               },
             ),
           ),
+        if (cloudStatusController != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              0,
+              FolioSpace.sm,
+              FolioSpace.xs,
+            ),
+            child: FolioCloudStatusBanner(
+              controller: cloudStatusController!,
+              onOpenDetails: onOpenCloudStatus ?? onOpenSettings ?? () {},
+            ),
+          ),
         Padding(
           padding: EdgeInsets.fromLTRB(
             FolioSpace.sm,
@@ -145,6 +165,13 @@ class SidebarFooter extends StatelessWidget {
                   child: const Icon(Icons.delete_outline_rounded),
                 ),
               ),
+              if (cloudStatusController != null) ...[
+                const SizedBox(width: FolioSpace.xs),
+                _FolioCloudStatusDot(
+                  controller: cloudStatusController!,
+                  onPressed: onOpenCloudStatus ?? onOpenSettings,
+                ),
+              ],
               if (onOpenSettings != null) ...[
                 const SizedBox(width: FolioSpace.xs),
                 Expanded(
@@ -205,6 +232,64 @@ class SidebarFooter extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _FolioCloudStatusDot extends StatelessWidget {
+  const _FolioCloudStatusDot({
+    required this.controller,
+    this.onPressed,
+  });
+
+  final FolioCloudStatusController controller;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final snap = controller.snapshot;
+        final effective = snap?.uiSeverity ??
+            (controller.loading ? 'loading' : 'unknown');
+        final color = switch (effective) {
+          'ok' => FolioCloudStatusColors.ok,
+          'degraded' => FolioCloudStatusColors.degraded,
+          'partial' => FolioCloudStatusColors.partial,
+          'down' => FolioCloudStatusColors.down,
+          _ => scheme.outline,
+        };
+        final tooltip = switch (effective) {
+          'ok' => l10n.folioCloudStatusAggregateOk,
+          'degraded' => l10n.folioCloudStatusAggregateDegraded,
+          'partial' => l10n.folioCloudStatusAggregatePartial,
+          'down' => l10n.folioCloudStatusAggregateDown,
+          'loading' => l10n.folioCloudStatusRefresh,
+          _ => l10n.folioCloudStatusSubsectionTitle,
+        };
+        return IconButton(
+          tooltip: tooltip,
+          onPressed: onPressed,
+          icon: Semantics(
+            label: tooltip,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  width: 1,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

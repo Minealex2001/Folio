@@ -7,7 +7,7 @@ import 'folio_cloud_http_client.dart';
 
 const Duration _kStatusTimeout = Duration(seconds: 8);
 
-/// Snapshot del endpoint p├║blico Minealex `/api/folio/status`.
+/// Snapshot del endpoint público Minealex `/api/folio/status`.
 class FolioCloudStatusSnapshot {
   const FolioCloudStatusSnapshot({
     required this.status,
@@ -24,26 +24,129 @@ class FolioCloudStatusSnapshot {
   final List<FolioCloudIncident> incidents;
   final List<FolioCloudHistoryDay> history;
 
-  bool get isUnhealthy => status == 'degraded' || status == 'down';
+  bool get isUnhealthy =>
+      status == 'degraded' || status == 'partial' || status == 'down';
 
   List<FolioCloudIncident> get activeIncidents =>
       incidents.where((i) => i.isActive).toList(growable: false);
 
-  bool get hasActiveIncident => activeIncidents.isNotEmpty;
+  bool get hasActiveIncident => primaryIncident != null;
 
-  bool get shouldShowBanner => isUnhealthy || hasActiveIncident;
+  /// IDs de servicios visibles en `degraded` / `partial` / `down`.
+  List<String> get unhealthyServiceIds {
+    return folioCloudStatusVisibleServiceIds(this)
+        .where((id) {
+          final s = displayStatusFor(id);
+          return s == 'degraded' || s == 'partial' || s == 'down';
+        })
+        .toList(growable: false);
+  }
 
-  /// Estado a mostrar para [serviceId]: live check + overlay de incidencias activas.
-  /// Nunca mejora un live `down`; s├¡ puede empeorar un `ok` por impacto de incidencia.
+  /// Servicios a listar en el banner.
+  /// Prioridad 1: afectados por la incidencia abierta.
+  /// Prioridad 2: servicios unhealthy del status (sin incidencia).
+  List<String> get bannerAffectedServiceIds {
+    final incident = primaryIncident;
+    final visible = folioCloudStatusVisibleServiceIds(this);
+    if (incident != null) {
+      if (incident.affectedServices.isNotEmpty) {
+        return visible
+            .where((id) => incident.affectedServices.contains(id))
+            .toList(growable: false);
+      }
+      return visible
+          .where((id) {
+            final embedded = services[id]?.activeIncident;
+            if (embedded == null) return false;
+            if (incident.id.isNotEmpty && embedded.id == incident.id) {
+              return true;
+            }
+            return embedded.title == incident.title &&
+                embedded.impact == incident.impact;
+          })
+          .toList(growable: false);
+    }
+    return unhealthyServiceIds;
+  }
+
+  /// Severidad visual agregada: `ok` | `degraded` | `partial` | `down`.
+  String get uiSeverity {
+    var worst = normalizeCloudStatus(status);
+    if (worst != 'ok' &&
+        worst != 'degraded' &&
+        worst != 'partial' &&
+        worst != 'down') {
+      worst = 'down';
+    }
+    for (final id in folioCloudStatusVisibleServiceIds(this)) {
+      worst = worseStatus(worst, displayStatusFor(id));
+    }
+    final incident = primaryIncident;
+    if (incident != null) {
+      final fromImpact = statusFromIncidentImpact(incident.impact);
+      if (fromImpact != null) worst = worseStatus(worst, fromImpact);
+    }
+    return worst;
+  }
+
+  /// Severidad del banner: impacto de incidencia (prio 1) o status agregado (prio 2).
+  String get bannerSeverity {
+    final incident = primaryIncident;
+    if (incident != null) {
+      return statusFromIncidentImpact(incident.impact) ?? uiSeverity;
+    }
+    return uiSeverity;
+  }
+
+  /// Banner: 1) incidencia abierta, 2) status unhealthy sin incidencia.
+  bool get shouldShowBanner {
+    if (primaryIncident != null) return true;
+    if (isUnhealthy) return true;
+    return unhealthyServiceIds.isNotEmpty;
+  }
+
+  /// Estado a mostrar para [serviceId]: live check + overlay de incidencias.
+  /// Nunca mejora un live `down`; sí puede empeorar un `ok` por impacto de incidencia.
   String displayStatusFor(String serviceId) {
-    final live = services[serviceId]?.status ?? 'ok';
+    final live = normalizeCloudStatus(services[serviceId]?.status ?? 'ok');
     final overlay = _incidentOverlayFor(serviceId);
     if (overlay == null) return live;
     return worseStatus(live, overlay);
   }
 
+  /// Motivo del estado del servicio (`incident`, `maintenance`, …) si viene en el API.
+  String? statusReasonFor(String serviceId) {
+    final reason = services[serviceId]?.statusReason?.trim();
+    if (reason != null && reason.isNotEmpty) return reason.toLowerCase();
+    final incident = activeIncidentFor(serviceId);
+    if (incident == null) return null;
+    return incident.type.isNotEmpty ? incident.type : 'incident';
+  }
+
+  /// Incidencia activa embebida en el servicio, o la del listado top-level que le afecta.
+  FolioCloudIncident? activeIncidentFor(String serviceId) {
+    final embedded = services[serviceId]?.activeIncident;
+    if (embedded != null) return embedded;
+    FolioCloudIncident? best;
+    for (final incident in activeIncidents) {
+      final affects = incident.affectedServices.isEmpty ||
+          incident.affectedServices.contains(serviceId);
+      if (!affects) continue;
+      if (best == null ||
+          _incidentPriority(incident) < _incidentPriority(best)) {
+        best = incident;
+      }
+    }
+    return best;
+  }
+
   String? _incidentOverlayFor(String serviceId) {
     String? worst;
+    final embedded = services[serviceId]?.activeIncident;
+    if (embedded != null) {
+      final fromImpact = statusFromIncidentImpact(embedded.impact);
+      if (fromImpact != null) worst = fromImpact;
+    }
     for (final incident in activeIncidents) {
       final fromImpact = statusFromIncidentImpact(incident.impact);
       if (fromImpact == null) continue;
@@ -57,22 +160,35 @@ class FolioCloudStatusSnapshot {
   }
 
   FolioCloudIncident? get primaryIncident {
-    final active = activeIncidents;
-    if (active.isEmpty) return null;
-    FolioCloudIncident best = active.first;
-    for (final i in active.skip(1)) {
+    final candidates = <FolioCloudIncident>[
+      ...activeIncidents,
+      for (final s in services.values)
+        if (s.activeIncident != null) s.activeIncident!,
+    ];
+    if (candidates.isEmpty) return null;
+    final byId = <String, FolioCloudIncident>{};
+    for (final i in candidates) {
+      final key = i.id.isNotEmpty ? i.id : '${i.title}|${i.impact}|${i.status}';
+      final prev = byId[key];
+      if (prev == null || _incidentPriority(i) < _incidentPriority(prev)) {
+        byId[key] = i;
+      }
+    }
+    FolioCloudIncident best = byId.values.first;
+    for (final i in byId.values.skip(1)) {
       if (_incidentPriority(i) < _incidentPriority(best)) best = i;
     }
     return best;
   }
 
   static int _incidentPriority(FolioCloudIncident i) {
-    // Menor = m├ís urgente.
+    // Menor = más urgente.
     final fromImpact = statusFromIncidentImpact(i.impact);
     final impact = switch (fromImpact) {
       'down' => 0,
-      'degraded' => 1,
-      _ => 2,
+      'partial' => 1,
+      'degraded' => 2,
+      _ => 3,
     };
     final type = i.type == 'incident' ? 0 : 1;
     return impact * 10 + type;
@@ -118,7 +234,9 @@ class FolioCloudStatusSnapshot {
     }
 
     return FolioCloudStatusSnapshot(
-      status: (json['status']?.toString() ?? 'down').trim().toLowerCase(),
+      status: normalizeCloudStatus(
+        (json['status']?.toString() ?? 'down').trim().toLowerCase(),
+      ),
       checkedAt: _parseInstant(json['checkedAt'] ?? json['checked_at']),
       services: services,
       incidents: incidents,
@@ -132,14 +250,22 @@ class FolioCloudServiceStatus {
     required this.status,
     this.latencyMs,
     bool? healthy,
+    this.statusReason,
+    this.activeIncident,
   }) : healthy = healthy ?? (status == 'ok');
 
-  /// `ok` | `down` | `degraded` | `unconfigured`.
+  /// `ok` | `down` | `degraded` | `partial` | `unconfigured`.
   final String status;
   final int? latencyMs;
 
   /// Conveniencia del API Minealex (`healthy: true/false`).
   final bool healthy;
+
+  /// Motivo del estado, p.ej. `incident` | `maintenance` (Minealex).
+  final String? statusReason;
+
+  /// Incidencia/mantenimiento activo asociado a este servicio (Minealex).
+  final FolioCloudIncident? activeIncident;
 
   bool get isHealthy => healthy;
 
@@ -151,16 +277,33 @@ class FolioCloudServiceStatus {
     } else if (latency != null) {
       latencyMs = int.tryParse(latency.toString());
     }
-    final status = (json['status']?.toString() ?? 'down').trim().toLowerCase();
+    final status = normalizeCloudStatus(
+      (json['status']?.toString() ?? 'down').trim().toLowerCase(),
+    );
     bool? healthy;
     final rawHealthy = json['healthy'];
     if (rawHealthy is bool) {
       healthy = rawHealthy;
     }
+    final reasonRaw =
+        json['statusReason'] ?? json['status_reason'];
+    final reason = reasonRaw?.toString().trim();
+    FolioCloudIncident? activeIncident;
+    final rawIncident =
+        json['activeIncident'] ?? json['active_incident'];
+    if (rawIncident is Map) {
+      activeIncident = FolioCloudIncident.fromJson(
+        Map<String, dynamic>.from(rawIncident),
+      );
+    }
     return FolioCloudServiceStatus(
       status: status,
       latencyMs: latencyMs,
       healthy: healthy,
+      statusReason: (reason == null || reason.isEmpty)
+          ? null
+          : reason.toLowerCase(),
+      activeIncident: activeIncident,
     );
   }
 }
@@ -315,7 +458,7 @@ DateTime? _parseInstant(Object? raw) {
   return DateTime.tryParse(s)?.toUtc();
 }
 
-/// Orden can├│nico de servicios en UI (core primero, luego integraciones).
+/// Orden canónico de servicios en UI (core primero, luego integraciones).
 const List<String> kFolioCloudStatusServiceOrder = [
   'api',
   'database',
@@ -345,7 +488,34 @@ List<String> folioCloudStatusVisibleServiceIds(
       .toList(growable: false);
 }
 
-/// Mapea impacto de incidencia Minealex ÔåÆ estado de servicio para UI.
+/// Normaliza estados Minealex (`partial_outage`, `major_outage`, …) a la UI.
+String normalizeCloudStatus(String raw) {
+  final s = raw.trim().toLowerCase();
+  if (s.isEmpty) return 'down';
+  switch (s) {
+    case 'ok':
+    case 'operational':
+    case 'normal':
+      return 'ok';
+    case 'degraded':
+      return 'degraded';
+    case 'partial':
+    case 'partial_outage':
+    case 'minor_outage':
+      return 'partial';
+    case 'down':
+    case 'outage':
+    case 'major_outage':
+    case 'full_outage':
+      return 'down';
+    case 'unconfigured':
+      return 'unconfigured';
+    default:
+      return s;
+  }
+}
+
+/// Mapea impacto de incidencia Minealex → estado de servicio para UI.
 String? statusFromIncidentImpact(String impact) {
   final i = impact.trim().toLowerCase();
   if (i.isEmpty) return null;
@@ -355,9 +525,10 @@ String? statusFromIncidentImpact(String impact) {
     case 'outage':
     case 'full_outage':
       return 'down';
-    case 'degraded':
     case 'partial_outage':
     case 'minor_outage':
+      return 'partial';
+    case 'degraded':
       return 'degraded';
     default:
       return 'degraded';
@@ -367,6 +538,8 @@ String? statusFromIncidentImpact(String impact) {
 int statusSeverityRank(String status) {
   switch (status) {
     case 'down':
+      return 4;
+    case 'partial':
       return 3;
     case 'degraded':
       return 2;
@@ -378,12 +551,12 @@ int statusSeverityRank(String status) {
   }
 }
 
-/// El peor de dos estados (nunca ÔÇ£mejoraÔÇØ hacia ok).
+/// El peor de dos estados (nunca “mejora” hacia ok).
 String worseStatus(String a, String b) {
   return statusSeverityRank(a) >= statusSeverityRank(b) ? a : b;
 }
 
-/// GET p├║blico a Minealex status.
+/// GET público a Minealex status.
 Future<FolioCloudStatusSnapshot> fetchFolioCloudStatus({
   http.Client? client,
   String? apiUrl,

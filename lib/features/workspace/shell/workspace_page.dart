@@ -54,7 +54,6 @@ import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
-import '../../folio_cloud/folio_cloud_status_banner.dart';
 import '../../sync/cloud_device_sync_status_button.dart';
 import '../../sync/sync_conflict_merge_sheet.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
@@ -1490,36 +1489,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   Widget? _buildTopBanners(ColorScheme scheme, AppLocalizations l10n) {
-    final statusCtrl = widget.cloudStatusController;
-    final showBeta = widget.appSettings.shouldShowBetaBanner;
-    if (statusCtrl == null) {
-      return showBeta ? _buildBetaBanner(scheme, l10n) : null;
-    }
-    return ListenableBuilder(
-      listenable: statusCtrl,
-      builder: (context, _) {
-        final showStatus = statusCtrl.bannerVisible;
-        if (!showStatus && !showBeta) return const SizedBox.shrink();
-        final statusBanner = showStatus
-            ? FolioCloudStatusBanner(
-                controller: statusCtrl,
-                onOpenDetails: () => _openSettings(initialSection: 'cloud'),
-              )
-            : null;
-        if (statusBanner != null && showBeta) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              statusBanner,
-              _buildBetaBanner(scheme, l10n),
-            ],
-          );
-        }
-        if (statusBanner != null) return statusBanner;
-        return _buildBetaBanner(scheme, l10n);
-      },
-    );
+    if (!widget.appSettings.shouldShowBetaBanner) return null;
+    return _buildBetaBanner(scheme, l10n);
   }
 
   Widget _buildBetaBanner(ColorScheme scheme, AppLocalizations l10n) {
@@ -2222,9 +2193,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           cloudAccountController: widget.cloudAccountController,
+          cloudStatusController: widget.cloudStatusController,
           onSearch: () => widget.onOpenSearch(),
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
+          onOpenCloudStatus: () => _openSettings(initialSection: 'cloud'),
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
           onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,

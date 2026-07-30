@@ -3522,6 +3522,7 @@
   ,"@folioCloudStatusCheckedAt": {"placeholders": {"when": {"type": "String"}}}
   ,"folioCloudStatusAggregateOk": "All systems operational"
   ,"folioCloudStatusAggregateDegraded": "Service degraded"
+  ,"folioCloudStatusAggregatePartial": "Partial outage"
   ,"folioCloudStatusAggregateDown": "Service unavailable"
   ,"folioCloudStatusServiceApi": "Folio Cloud API"
   ,"folioCloudStatusServiceDatabase": "Database"
@@ -3536,6 +3537,7 @@
   ,"folioCloudStatusServiceMicrosoftStore": "Microsoft Store"
   ,"folioCloudStatusServiceOk": "Operational"
   ,"folioCloudStatusServiceDegraded": "Degraded"
+  ,"folioCloudStatusServicePartial": "Partial outage"
   ,"folioCloudStatusServiceDown": "Down"
   ,"folioCloudStatusServiceUnconfigured": "Unconfigured"
   ,"folioCloudStatusLatencyMs": "{ms} ms"
@@ -3559,6 +3561,7 @@
   ,"folioCloudStatusImpactPartialOutage": "Partial outage"
   ,"folioCloudStatusImpactDegraded": "Degraded"
   ,"folioCloudStatusBannerDown": "Folio Cloud is unavailable"
+  ,"folioCloudStatusBannerPartial": "Folio Cloud has a partial outage"
   ,"folioCloudStatusBannerDegraded": "Folio Cloud is running with limitations"
   ,"folioCloudStatusBannerIncidentHint": "{type} in progress. Some features may fail."
   ,"@folioCloudStatusBannerIncidentHint": {"placeholders": {"type": {"type": "String"}}}

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'folio_cloud_status.dart';
 
-/// Poll + cache del estado p├║blico Folio Cloud (Minealex).
+/// Poll + cache del estado público Folio Cloud (Minealex).
 class FolioCloudStatusController extends ChangeNotifier {
   FolioCloudStatusController({
     this.pollInterval = const Duration(minutes: 5),
@@ -22,6 +22,7 @@ class FolioCloudStatusController extends ChangeNotifier {
   bool _loading = false;
   bool _appInForeground = true;
   String? _dismissedFingerprint;
+  bool _dismissLoaded = false;
   Timer? _pollTimer;
   bool _started = false;
   bool _disposed = false;
@@ -34,7 +35,10 @@ class FolioCloudStatusController extends ChangeNotifier {
   bool get bannerVisible {
     final snap = _snapshot;
     if (snap == null || !snap.shouldShowBanner) return false;
+    // Evitar flash antes de cargar el dismiss persistido.
+    if (!_dismissLoaded) return false;
     final fp = _bannerFingerprint(snap);
+    if (fp.isEmpty) return false;
     return fp != _dismissedFingerprint;
   }
 
@@ -42,8 +46,14 @@ class FolioCloudStatusController extends ChangeNotifier {
   void start() {
     if (_started || _disposed) return;
     _started = true;
-    unawaited(_loadDismissed());
-    unawaited(refresh());
+    unawaited(_bootstrap());
+  }
+
+  Future<void> _bootstrap() async {
+    await _loadDismissed();
+    if (_disposed) return;
+    await refresh();
+    if (_disposed) return;
     _restartPollTimer();
   }
 
@@ -68,11 +78,6 @@ class FolioCloudStatusController extends ChangeNotifier {
       if (_disposed) return;
       _snapshot = next;
       _lastError = null;
-      // Si cambi├│ el fingerprint, el dismiss anterior ya no aplica.
-      final fp = _bannerFingerprint(next);
-      if (_dismissedFingerprint != null && _dismissedFingerprint != fp) {
-        // Mantener dismiss solo si el fingerprint coincide; si empeora/cambia, se limpia abajo al comparar en bannerVisible.
-      }
     } catch (e) {
       if (_disposed) return;
       _lastError = e;
@@ -88,6 +93,7 @@ class FolioCloudStatusController extends ChangeNotifier {
     final snap = _snapshot;
     if (snap == null) return;
     final fp = _bannerFingerprint(snap);
+    if (fp.isEmpty) return;
     _dismissedFingerprint = fp;
     notifyListeners();
     try {
@@ -98,18 +104,37 @@ class FolioCloudStatusController extends ChangeNotifier {
     }
   }
 
+  /// Fingerprint estable: incidencia (prio 1) o set de servicios unhealthy (prio 2).
+  /// No incluye latencias para que el dismiss no se pierda en cada poll.
   String _bannerFingerprint(FolioCloudStatusSnapshot snap) {
-    final ids = snap.activeIncidents.map((i) => i.id).where((id) => id.isNotEmpty).join(',');
-    return '${snap.status}|$ids';
+    final incident = snap.primaryIncident;
+    if (incident != null) {
+      final id = incident.id.trim().isNotEmpty
+          ? incident.id.trim()
+          : '${incident.title}|${incident.type}|${incident.createdAt?.toIso8601String() ?? ''}';
+      return 'incident|$id|${incident.impact}|${incident.status}';
+    }
+    final services = snap.unhealthyServiceIds
+        .map((id) {
+          final reason = snap.services[id]?.statusReason ?? '';
+          return '$id:${snap.displayStatusFor(id)}:$reason';
+        })
+        .join(',');
+    if (services.isEmpty && !snap.isUnhealthy) return '';
+    return 'status|${snap.bannerSeverity}|$services';
   }
 
   Future<void> _loadDismissed() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _dismissedFingerprint = prefs.getString(_prefsDismissKey);
-      if (!_disposed) notifyListeners();
+      final stored = prefs.getString(_prefsDismissKey);
+      // No pisar un dismiss hecho en memoria mientras cargábamos prefs.
+      _dismissedFingerprint ??= stored;
     } catch (_) {
       // ignore
+    } finally {
+      _dismissLoaded = true;
+      if (!_disposed) notifyListeners();
     }
   }
 

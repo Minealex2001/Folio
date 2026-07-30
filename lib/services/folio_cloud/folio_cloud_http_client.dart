@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 ///
 /// Las funciones top-level de `package:http` (`http.get`, `http.post`, ...)
 /// crean y cierran un `http.Client` nuevo en cada llamada, lo que obliga a
-/// repetir el handshake TCP+TLS por request. Reutilizar un ├║nico cliente
+/// repetir el handshake TCP+TLS por request. Reutilizar un único cliente
 /// permite mantener conexiones keep-alive por host, lo que importa mucho
-/// en redes con m├ís latencia (VPN/proxy corporativo).
+/// en redes con más latencia (VPN/proxy corporativo).
 final http.Client folioCloudHttpClient = http.Client();

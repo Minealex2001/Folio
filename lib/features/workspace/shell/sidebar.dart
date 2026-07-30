@@ -13,6 +13,7 @@ import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/app_logger.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../app/widgets/folio_interactions.dart';
 import '../recent_page_visits.dart';
 import '../templates/template_gallery_page.dart';
@@ -31,9 +32,11 @@ class Sidebar extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.cloudAccountController,
+    this.cloudStatusController,
     this.onSearch,
     this.onForceSync,
     this.onOpenSettings,
+    this.onOpenCloudStatus,
     this.onLock,
     this.onQuickAddTask,
     this.onOpenVaultTaskHub,
@@ -42,9 +45,11 @@ class Sidebar extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
+  final FolioCloudStatusController? cloudStatusController;
   final VoidCallback? onSearch;
   final VoidCallback? onForceSync;
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenCloudStatus;
   final VoidCallback? onLock;
   final VoidCallback? onQuickAddTask;
   final VoidCallback? onOpenVaultTaskHub;
@@ -1135,7 +1140,9 @@ class _SidebarState extends State<Sidebar> {
               session: session,
               appSettings: widget.appSettings,
               trashCount: trashCount,
+              cloudStatusController: widget.cloudStatusController,
               onOpenSettings: widget.onOpenSettings,
+              onOpenCloudStatus: widget.onOpenCloudStatus,
               onSpotifyExpandedChanged: () => setState(() {}),
             ),
           ],

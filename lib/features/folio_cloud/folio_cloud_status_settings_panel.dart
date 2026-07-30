@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/folio_status_urls.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/folio_cloud/folio_cloud_status.dart';
+import '../../services/folio_cloud/folio_cloud_status_colors.dart';
 import '../../services/folio_cloud/folio_cloud_status_controller.dart';
 
 /// Panel de estado Folio Cloud en Ajustes (servicios, incidencias, historial).
@@ -71,10 +72,10 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
             else if (snap != null) ...[
               ListTile(
                 leading: Icon(
-                  _aggregateIcon(snap.status),
-                  color: _aggregateColor(scheme, snap.status),
+                  _aggregateIcon(snap.uiSeverity),
+                  color: FolioCloudStatusColors.foreground(snap.uiSeverity),
                 ),
-                title: Text(_aggregateLabel(l10n, snap.status)),
+                title: Text(_aggregateLabel(l10n, snap.uiSeverity)),
                 subtitle: snap.checkedAt != null
                     ? Text(
                         l10n.folioCloudStatusCheckedAt(
@@ -150,16 +151,16 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
           dense: true,
           leading: Icon(
             _serviceIcon(id),
-            color: _serviceStatusColor(
-              scheme,
+            color: FolioCloudStatusColors.foreground(
               snap.displayStatusFor(id),
             ),
             size: 22,
           ),
           title: Text(_serviceLabel(l10n, id)),
           subtitle: Text(
-            _serviceStatusLabel(l10n, snap.displayStatusFor(id)),
+            _serviceSubtitle(l10n, snap, id),
           ),
+          isThreeLine: snap.activeIncidentFor(id)?.title.isNotEmpty == true,
           trailing: snap.services[id]!.latencyMs != null
               ? Text(
                   l10n.folioCloudStatusLatencyMs(snap.services[id]!.latencyMs!),
@@ -172,18 +173,41 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     ];
   }
 
+  static String _serviceSubtitle(
+    AppLocalizations l10n,
+    FolioCloudStatusSnapshot snap,
+    String id,
+  ) {
+    final statusLabel = _serviceStatusLabel(l10n, snap.displayStatusFor(id));
+    final incident = snap.activeIncidentFor(id);
+    final parts = <String>[statusLabel];
+    final reason = snap.statusReasonFor(id);
+    if (reason == 'incident') {
+      parts.add(l10n.folioCloudStatusTypeIncident);
+    } else if (reason == 'maintenance') {
+      parts.add(l10n.folioCloudStatusTypeMaintenance);
+    } else if (reason != null && reason.isNotEmpty) {
+      parts.add(reason);
+    }
+    final title = incident?.title.trim();
+    if (title != null && title.isNotEmpty) {
+      parts.add(title);
+    }
+    return parts.join(' · ');
+  }
+
   List<Widget> _historyTiles(
     BuildContext context,
     FolioCloudStatusSnapshot snap,
   ) {
-    // ├Ültimos registros por servicio (m├íx. 8 filas).
+    // Últimos registros por servicio (máx. 8 filas).
     final rows = snap.history.reversed.take(8).toList();
     return [
       for (final h in rows)
         ListTile(
           dense: true,
           title: Text(
-            '${_serviceLabel(l10n, h.serviceId)} ┬À ${h.logDate}',
+            '${_serviceLabel(l10n, h.serviceId)} · ${h.logDate}',
           ),
           subtitle: Text(
             l10n.folioCloudStatusHistoryLine(
@@ -206,15 +230,8 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     return switch (status) {
       'ok' => Icons.check_circle_outline,
       'degraded' => Icons.warning_amber_outlined,
+      'partial' => Icons.cloud_queue_outlined,
       _ => Icons.error_outline,
-    };
-  }
-
-  static Color _aggregateColor(ColorScheme scheme, String status) {
-    return switch (status) {
-      'ok' => scheme.primary,
-      'degraded' => scheme.tertiary,
-      _ => scheme.error,
     };
   }
 
@@ -222,6 +239,7 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     return switch (status) {
       'ok' => l10n.folioCloudStatusAggregateOk,
       'degraded' => l10n.folioCloudStatusAggregateDegraded,
+      'partial' => l10n.folioCloudStatusAggregatePartial,
       'down' => l10n.folioCloudStatusAggregateDown,
       _ => status,
     };
@@ -241,15 +259,6 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
       'spotify' => Icons.music_note_outlined,
       'microsoft_store' => Icons.shop_outlined,
       _ => Icons.circle_outlined,
-    };
-  }
-
-  static Color _serviceStatusColor(ColorScheme scheme, String status) {
-    return switch (status) {
-      'ok' => scheme.primary,
-      'degraded' => scheme.tertiary,
-      'unconfigured' => scheme.outline,
-      _ => scheme.error,
     };
   }
 
@@ -274,6 +283,7 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     return switch (status) {
       'ok' => l10n.folioCloudStatusServiceOk,
       'degraded' => l10n.folioCloudStatusServiceDegraded,
+      'partial' => l10n.folioCloudStatusServicePartial,
       'down' => l10n.folioCloudStatusServiceDown,
       'unconfigured' => l10n.folioCloudStatusServiceUnconfigured,
       _ => status,
@@ -311,7 +321,11 @@ class _IncidentTile extends StatelessWidget {
         incident.type == 'maintenance'
             ? Icons.build_outlined
             : Icons.report_problem_outlined,
-        color: incident.isActive ? scheme.tertiary : scheme.outline,
+        color: incident.isActive
+            ? FolioCloudStatusColors.foreground(
+                statusFromIncidentImpact(incident.impact) ?? 'degraded',
+              )
+            : scheme.outline,
       ),
       title: Text(incident.title.isEmpty ? typeLabel : incident.title),
       subtitle: Text(
@@ -320,7 +334,7 @@ class _IncidentTile extends StatelessWidget {
           _incidentStatusLabel(l10n, incident.status),
           if (incident.impact.isNotEmpty)
             _impactLabel(l10n, incident.impact),
-        ].join(' ┬À '),
+        ].join(' · '),
       ),
       children: [
         if (latest != null && latest.message.isNotEmpty)

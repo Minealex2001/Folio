@@ -1,4 +1,4 @@
-/// URLs p├║blicas de estado Folio Cloud en Minealex Games.
+/// URLs públicas de estado Folio Cloud en Minealex Games.
 class FolioStatusUrls {
   FolioStatusUrls._();
 
@@ -10,7 +10,7 @@ class FolioStatusUrls {
     defaultValue: '',
   );
 
-  /// Idiomas con p├ígina de estado en minealexgames.com.
+  /// Idiomas con página de estado en minealexgames.com.
   static const Set<String> knownStatusPageLangs = {
     'es',
     'en',
@@ -20,14 +20,14 @@ class FolioStatusUrls {
     'pt',
   };
 
-  /// Endpoint JSON p├║blico (servicios, incidencias, historial).
+  /// Endpoint JSON público (servicios, incidencias, historial).
   static String get apiUrl {
     final fromDefine = _apiUrlDefine.trim().replaceAll(RegExp(r'/+$'), '');
     if (fromDefine.isNotEmpty) return fromDefine;
     return defaultApiUrl;
   }
 
-  /// P├ígina web ÔÇ£M├ís infoÔÇØ ÔÇö can├│nica: `https://minealexgames.com/es/folio/status`.
+  /// Página web “Más info” — canónica: `https://minealexgames.com/es/folio/status`.
   static Uri statusPageUri({String? languageCode}) {
     final raw = (languageCode ?? 'es').trim().toLowerCase();
     final lang = knownStatusPageLangs.contains(raw) ? raw : 'es';

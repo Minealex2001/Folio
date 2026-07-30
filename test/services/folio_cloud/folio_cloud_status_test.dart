@@ -51,7 +51,7 @@ void main() {
             'updates': [
               {
                 'status': 'scheduled',
-                'message': 'Actualizaci├│n de base de datos programada.',
+                'message': 'Actualización de base de datos programada.',
                 'created_at': '2026-07-30T10:00:00.000Z',
               },
             ],
@@ -71,7 +71,9 @@ void main() {
 
       expect(snap.status, 'degraded');
       expect(snap.isUnhealthy, isTrue);
+      // Degraded por mantenimiento activo → banner.
       expect(snap.shouldShowBanner, isTrue);
+      expect(snap.bannerAffectedServiceIds, ['api', 'database']);
       expect(snap.services['api']!.status, 'ok');
       expect(snap.services['quill']!.latencyMs, 595);
       expect(snap.incidents, hasLength(1));
@@ -130,6 +132,7 @@ void main() {
       expect(snap.displayStatusFor('api'), 'down');
       expect(snap.displayStatusFor('database'), 'down');
       expect(snap.displayStatusFor('quill'), 'down');
+      expect(snap.shouldShowBanner, isTrue);
       // latency intacta
       expect(snap.services['api']!.latencyMs, 1);
     });
@@ -155,7 +158,8 @@ void main() {
         'history': [],
       });
       expect(snap.displayStatusFor('api'), 'ok');
-      expect(snap.displayStatusFor('database'), 'degraded');
+      expect(snap.displayStatusFor('database'), 'partial');
+      expect(snap.uiSeverity, 'partial');
     });
 
     test('live down no se mejora por incidencia degradada', () {
@@ -232,12 +236,93 @@ void main() {
         ]),
       );
     });
+
+    test('servicios degraded y down salen en unhealthyServiceIds y banner', () {
+      final snap = FolioCloudStatusSnapshot.fromJson({
+        'status': 'down',
+        'services': {
+          'api': {'status': 'ok', 'latencyMs': 0},
+          'quill': {'status': 'down', 'latencyMs': 800},
+          'stripe': {'status': 'degraded', 'latencyMs': 200},
+          'slack': {'status': 'unconfigured'},
+        },
+        'incidents': [],
+        'history': [],
+      });
+      // Sin incidencia → banner por status (prio 2).
+      expect(snap.shouldShowBanner, isTrue);
+      expect(snap.primaryIncident, isNull);
+      expect(snap.unhealthyServiceIds, ['quill', 'stripe']);
+      expect(snap.bannerAffectedServiceIds, ['quill', 'stripe']);
+      expect(snap.bannerSeverity, 'down');
+    });
+
+    test('parsea statusReason y activeIncident por servicio', () {
+      final snap = FolioCloudStatusSnapshot.fromJson({
+        'status': 'partial_outage',
+        'services': {
+          'quill': {
+            'status': 'partial_outage',
+            'latencyMs': 438,
+            'healthy': true,
+            'statusReason': 'incident',
+            'activeIncident': {
+              'id': 'inc-1',
+              'title': 'Interrupción parcial de Quill Cloud',
+              'status': 'investigating',
+              'impact': 'minor_outage',
+              'type': 'incident',
+            },
+          },
+          'stripe': {
+            'status': 'degraded',
+            'latencyMs': 260,
+            'healthy': true,
+            'statusReason': 'high_latency',
+          },
+          'api': {
+            'status': 'ok',
+            'latencyMs': 0,
+            'healthy': true,
+            'statusReason': 'normal',
+          },
+        },
+        'incidents': [
+          {
+            'id': 'inc-1',
+            'title': 'Interrupción parcial de Quill Cloud',
+            'type': 'incident',
+            'impact': 'minor_outage',
+            'status': 'investigating',
+            'affected_services': ['quill'],
+            'updates': [],
+          },
+        ],
+        'history': [],
+      });
+
+      final quill = snap.services['quill']!;
+      expect(quill.status, 'partial');
+      expect(quill.statusReason, 'incident');
+      expect(quill.activeIncident?.id, 'inc-1');
+      expect(quill.activeIncident?.title, 'Interrupción parcial de Quill Cloud');
+      expect(snap.status, 'partial');
+      expect(snap.statusReasonFor('quill'), 'incident');
+      expect(snap.activeIncidentFor('quill')?.title, contains('Quill'));
+      expect(snap.primaryIncident?.id, 'inc-1');
+      expect(snap.shouldShowBanner, isTrue);
+      // Con incidencia (prio 1): solo Quill, no Stripe por high_latency.
+      expect(snap.bannerAffectedServiceIds, ['quill']);
+      expect(snap.bannerSeverity, 'partial');
+      expect(snap.unhealthyServiceIds, containsAll(['quill', 'stripe']));
+    });
   });
 
   group('statusFromIncidentImpact', () {
-    test('mapea major_outage y partial_outage', () {
+    test('mapea major_outage, partial_outage y degraded', () {
       expect(statusFromIncidentImpact('major_outage'), 'down');
-      expect(statusFromIncidentImpact('partial_outage'), 'degraded');
+      expect(statusFromIncidentImpact('partial_outage'), 'partial');
+      expect(statusFromIncidentImpact('minor_outage'), 'partial');
       expect(statusFromIncidentImpact('degraded'), 'degraded');
     });
   });
