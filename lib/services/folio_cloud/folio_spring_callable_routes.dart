@@ -256,6 +256,10 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'integrations/webhook-proxy',
   ),
+  'folioEnqueueIntegrationNotification': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'integrations/notifications/enqueue',
+  ),
   'folioRegisterIntegrationLinkCode': FolioSpringApiRoute(
     method: 'POST',
     pathBuilder: (_) => 'integrations/link-code',

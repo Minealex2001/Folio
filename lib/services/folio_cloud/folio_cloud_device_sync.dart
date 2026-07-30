@@ -28,6 +28,7 @@ import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
+import 'folio_cloud_vault_push_listener.dart';
 import 'folio_cloud_vault_share.dart';
 import 'folio_storage_transport.dart';
 import 'headless_device_sync_vault.dart';
@@ -50,7 +51,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   }) : _settings = appSettings,
        _session = session,
        _entitlements = entitlements,
-       _onEvent = onEvent;
+       _onEvent = onEvent {
+    _pushListener = FolioCloudVaultPushListener(
+      onVaultEvent: () => unawaited(_refreshRemoteMetaOnce()),
+    );
+  }
 
   final AppSettings _settings;
   final VaultSession _session;
@@ -58,9 +63,16 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   final void Function(String message)? _onEvent;
   bool _disposed = false;
 
+  /// Push server-side (ver `finalizeDeviceSync` en el backend) que dispara un
+  /// refresco inmediato en vez de esperar al poll — el poll de abajo sigue
+  /// activo como respaldo ante huecos de reconexión del WebSocket.
+  late final FolioCloudVaultPushListener _pushListener;
+
   static const Duration _pushDebounce = Duration(seconds: 10);
   /// Poll de meta remota de la libreta activa, solo en primer plano.
-  static const Duration _pollIntervalForeground = Duration(seconds: 30);
+  /// Antes 30s (única señal); ahora es un respaldo del push por WebSocket,
+  /// así que una cadencia más relajada no cuesta latencia percibida.
+  static const Duration _pollIntervalForeground = Duration(minutes: 3);
   /// Poll de todas las libretas (incl. bloqueadas / no activas), solo en primer plano.
   static const Duration _allVaultsPollInterval = Duration(minutes: 15);
   static const int _maxPackBytes = kFolioStorageMaxObjectBytes;
@@ -327,8 +339,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   /// Cancela poll + listener de pull sin tocar push ni caches de vault.
   Future<void> _stopPullWatching() async {
-    // meta listener removed
-    
+    unawaited(_pushListener.disconnect());
     _pollTimer?.cancel();
     _pollTimer = null;
     _allVaultsPollTimer?.cancel();
@@ -347,6 +358,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
 
   void _startPullWatching() {
     if (!_appInForeground || !isEnabled) return;
+    unawaited(_pushListener.connect());
     _startAllVaultsPolling();
     _startActiveVaultPullWatching();
   }

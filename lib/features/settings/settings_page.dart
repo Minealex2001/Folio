@@ -61,6 +61,7 @@ import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../services/folio_cloud/folio_cloud_status_controller.dart';
+import '../../services/folio_cloud/folio_cloud_status_colors.dart';
 import '../folio_cloud/folio_cloud_status_settings_panel.dart';
 import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_account_lifecycle.dart';
@@ -166,6 +167,7 @@ class SettingsPage extends StatefulWidget {
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     this.initialSection,
+    this.initialCloudTab,
   });
 
   final VaultSession session;
@@ -178,6 +180,9 @@ class SettingsPage extends StatefulWidget {
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final String? initialSection;
 
+  /// `account` | `plan` | `status` — pestaña interna de Folio Cloud.
+  final String? initialCloudTab;
+
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -189,6 +194,8 @@ class _SettingsPageState extends State<SettingsPage> {
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
+
+  _FolioCloudTab _folioCloudTab = _FolioCloudTab.plan;
 
   /// Fase 5: toggle del servidor MCP local (desktop-only). Muestra el
   /// puerto/token en ejecución vía `folioMcpServerStatus` (el servidor en sí
@@ -581,7 +588,28 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         setState(() => _selectedMobileSection = target);
       }
+      _folioCloudTab = _parseFolioCloudTab(
+        widget.initialCloudTab,
+        signedIn: _cloud.isSignedIn,
+      );
+      if (mounted) setState(() {});
     });
+  }
+
+  static _FolioCloudTab _parseFolioCloudTab(
+    String? raw, {
+    required bool signedIn,
+  }) {
+    switch (raw?.trim().toLowerCase()) {
+      case 'account':
+        return _FolioCloudTab.account;
+      case 'status':
+        return _FolioCloudTab.status;
+      case 'plan':
+        return _FolioCloudTab.plan;
+      default:
+        return signedIn ? _FolioCloudTab.plan : _FolioCloudTab.account;
+    }
   }
 
   Future<void> _loadTaskCapturePrefs() async {
@@ -967,6 +995,61 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ],
                                     ),
                                     const Divider(height: 1),
+                                    ListenableBuilder(
+                                      listenable: Listenable.merge([
+                                        _cloud,
+                                        if (widget.cloudStatusController !=
+                                            null)
+                                          widget.cloudStatusController!,
+                                      ]),
+                                      builder: (context, _) {
+                                        final email =
+                                            (_cloud.email?.trim().isNotEmpty ==
+                                                    true)
+                                                ? _cloud.email!.trim()
+                                                : null;
+                                        final accountLabel = _cloud.isSignedIn
+                                            ? (email ??
+                                                (_cloud.displayName?.trim().isNotEmpty ==
+                                                        true
+                                                    ? _cloud.displayName!.trim()
+                                                    : l10n
+                                                        .folioCloudSubsectionAccount))
+                                            : l10n
+                                                .folioCloudSettingsSummaryGuest;
+                                        return _FolioCloudSettingsChrome(
+                                          scheme: scheme,
+                                          l10n: l10n,
+                                          tab: _folioCloudTab,
+                                          onTabChanged: (t) => setState(
+                                            () => _folioCloudTab = t,
+                                          ),
+                                          signedIn: _cloud.isSignedIn,
+                                          accountLabel: accountLabel,
+                                          showStatusTab: widget
+                                                  .cloudStatusController !=
+                                              null,
+                                          statusController:
+                                              widget.cloudStatusController,
+                                          onStatusChipPressed: widget
+                                                      .cloudStatusController ==
+                                                  null
+                                              ? null
+                                              : () => setState(
+                                                    () => _folioCloudTab =
+                                                        _FolioCloudTab.status,
+                                                  ),
+                                          onSignInPressed: _cloud.isSignedIn
+                                              ? null
+                                              : () => setState(
+                                                    () => _folioCloudTab =
+                                                        _FolioCloudTab.account,
+                                                  ),
+                                        );
+                                      },
+                                    ),
+                                    if (_folioCloudTab ==
+                                        _FolioCloudTab.account) ...[
                                     ListenableBuilder(
                                       listenable: _cloud,
                                       builder: (context, _) {
@@ -1572,6 +1655,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         );
                                       },
                                     ),
+                                    ],
+                                    if (_folioCloudTab ==
+                                        _FolioCloudTab.plan) ...[
                                     ListenableBuilder(
                                       listenable: Listenable.merge([
                                         _cloud,
@@ -1698,6 +1784,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         );
                                       },
                                     ),
+                                    ],
+                                    if (_folioCloudTab ==
+                                        _FolioCloudTab.account) ...[
                                     ListenableBuilder(
                                       listenable: Listenable.merge([
                                         _cloud,
@@ -1846,13 +1935,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                         );
                                       },
                                     ),
-                                    if (widget.cloudStatusController != null) ...[
-                                      const Divider(height: 1),
+                                    ],
+                                    if (_folioCloudTab ==
+                                            _FolioCloudTab.status &&
+                                        widget.cloudStatusController !=
+                                            null) ...[
                                       FolioCloudStatusSettingsPanel(
                                         controller:
                                             widget.cloudStatusController!,
                                         scheme: scheme,
                                         l10n: l10n,
+                                        showSectionTitle: false,
                                       ),
                                     ],
                                   ],

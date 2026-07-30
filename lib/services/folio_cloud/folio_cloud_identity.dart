@@ -6,6 +6,10 @@ String? folioCloudCurrentUid() => FolioSpringAuthSession.instance.uid;
 /// Email de la sesión activa (o null).
 String? folioCloudCurrentEmail() => FolioSpringAuthSession.instance.email;
 
+/// Nombre para mostrar de la sesión activa (o null).
+String? folioCloudCurrentDisplayName() =>
+    FolioSpringAuthSession.instance.displayName;
+
 /// Bearer JWT Spring para HTTP.
 Future<String?> folioCloudBearerToken({bool forceRefresh = false}) {
   return FolioSpringAuthSession.instance.getAccessToken(

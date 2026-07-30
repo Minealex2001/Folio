@@ -10,6 +10,9 @@ import '../folio_cloud/folio_spring_storage.dart';
 
 const String kCommunityTemplatesCollection = 'communityTemplates';
 
+/// Orden de resultados soportado por `GET /api/v1/community-templates`.
+enum CommunityTemplateSort { recent, popular, relevance }
+
 /// Metadatos de una plantilla en la tienda comunitaria
 /// (`/api/v1/community-templates` + proxy de storage).
 class CommunityTemplateEntry {
@@ -22,7 +25,8 @@ class CommunityTemplateEntry {
     required this.category,
     required this.blockCount,
     required this.storagePath,
-    required this.storageDownloadUrl,
+    required this.useCount,
+    this.storageDownloadUrl,
     this.createdAt,
   });
 
@@ -34,7 +38,8 @@ class CommunityTemplateEntry {
   final String category;
   final int blockCount;
   final String storagePath;
-  final String storageDownloadUrl;
+  final String? storageDownloadUrl;
+  final int useCount;
   final DateTime? createdAt;
 
   static CommunityTemplateEntry? fromDoc(
@@ -44,8 +49,7 @@ class CommunityTemplateEntry {
     final ownerUid = data['ownerUid']?.toString() ?? '';
     final name = data['name']?.toString() ?? '';
     final storagePath = data['storagePath']?.toString() ?? '';
-    final url = data['storageDownloadUrl']?.toString() ?? '';
-    if (ownerUid.isEmpty || name.isEmpty || storagePath.isEmpty || url.isEmpty) {
+    if (ownerUid.isEmpty || name.isEmpty || storagePath.isEmpty) {
       return null;
     }
     DateTime? createdAt;
@@ -56,6 +60,8 @@ class CommunityTemplateEntry {
       createdAt = rawCreated;
     }
     final blockCount = (data['blockCount'] as num?)?.toInt() ?? 0;
+    final useCount = (data['useCount'] as num?)?.toInt() ?? 0;
+    final url = data['storageDownloadUrl']?.toString() ?? '';
     return CommunityTemplateEntry(
       docId: docId,
       ownerUid: ownerUid,
@@ -65,7 +71,8 @@ class CommunityTemplateEntry {
       category: data['category']?.toString() ?? '',
       blockCount: blockCount,
       storagePath: storagePath,
-      storageDownloadUrl: url,
+      storageDownloadUrl: url.isEmpty ? null : url,
+      useCount: useCount,
       createdAt: createdAt,
     );
   }
@@ -76,6 +83,23 @@ class CommunityTemplateEntry {
     if (id.isEmpty) return null;
     return fromDoc(id, data);
   }
+}
+
+/// Resultado paginado de `CommunityTemplateStore.search`.
+class CommunityTemplateSearchResult {
+  const CommunityTemplateSearchResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+  });
+
+  final List<CommunityTemplateEntry> items;
+  final int total;
+  final int page;
+  final int limit;
+
+  bool get hasMore => (page + 1) * limit < total;
 }
 
 class CommunityTemplateStore {
@@ -114,9 +138,7 @@ class CommunityTemplateStore {
   void _ensureSpringOk(http.Response res, {bool allowNoContent = false}) {
     if (allowNoContent && res.statusCode == 204) return;
     if (res.statusCode >= 200 && res.statusCode < 300) return;
-    throw StateError(
-      'community-templates HTTP ${res.statusCode}: ${res.body}',
-    );
+    throw StateError('community-templates HTTP ${res.statusCode}: ${res.body}');
   }
 
   Future<String> publishTemplate(FolioPageTemplate tpl) async {
@@ -139,8 +161,6 @@ class CommunityTemplateStore {
     final bytes = utf8.encode(published.encodeAsFile());
     await folioSpringStoragePutData(path, bytes);
 
-    final storageDownloadUrl =
-        '${FolioBackendConfig.apiV1Prefix}/storage/objects#${Uri.encodeComponent(path)}';
     final name = tpl.name.trim().isEmpty ? 'Template' : tpl.name.trim();
     final emoji = tpl.emoji?.trim() ?? '';
     final body = <String, dynamic>{
@@ -151,7 +171,6 @@ class CommunityTemplateStore {
       if (emoji.isNotEmpty) 'emoji': emoji,
       'blockCount': tpl.blocks.length,
       'storagePath': path,
-      'storageDownloadUrl': storageDownloadUrl,
       'sizeBytes': bytes.length,
     };
     final uri = Uri.parse(
@@ -164,47 +183,81 @@ class CommunityTemplateStore {
     return docId;
   }
 
-  Future<List<CommunityTemplateEntry>> listRecent({int limit = 80}) async {
+  /// Búsqueda paginada en servidor: filtro opcional por categoría, texto libre
+  /// (nombre/categoría/descripción) y orden (recientes/populares/relevancia).
+  /// Sustituye al antiguo `listRecent()`, que traía como mucho 80-200 entradas
+  /// y filtraba/ordenaba en memoria — invisible para cualquier plantilla más
+  /// allá de ese límite.
+  Future<CommunityTemplateSearchResult> search({
+    String? query,
+    String? category,
+    CommunityTemplateSort sort = CommunityTemplateSort.recent,
+    int page = 0,
+    int limit = 80,
+  }) async {
+    final params = <String, String>{'page': '$page', 'limit': '$limit'};
+    switch (sort) {
+      case CommunityTemplateSort.recent:
+        break; // 'recent' es el default en el backend, no hace falta enviarlo.
+      case CommunityTemplateSort.popular:
+        params['sort'] = 'popular';
+      case CommunityTemplateSort.relevance:
+        params['sort'] = 'relevance';
+    }
+    final trimmedQuery = query?.trim() ?? '';
+    if (trimmedQuery.isNotEmpty) params['query'] = trimmedQuery;
+    final trimmedCategory = category?.trim() ?? '';
+    if (trimmedCategory.isNotEmpty) params['category'] = trimmedCategory;
+
     final uri = Uri.parse(
       '${FolioBackendConfig.apiV1Prefix}/community-templates',
-    );
+    ).replace(queryParameters: params);
     http.Response res;
     final token = await folioCloudBearerToken();
     if (token != null && token.isNotEmpty) {
       res = await _springAuthorized((h) => http.get(uri, headers: h));
     } else {
-      res = await http.get(
-        uri,
-        headers: const {'Accept': 'application/json'},
-      );
+      res = await http.get(uri, headers: const {'Accept': 'application/json'});
     }
     _ensureSpringOk(res);
-    if (res.body.isEmpty) return const <CommunityTemplateEntry>[];
-    final decoded = jsonDecode(res.body);
-    if (decoded is! List) {
-      throw StateError('community-templates: expected JSON array');
-    }
-    final out = <CommunityTemplateEntry>[];
-    for (final item in decoded) {
-      if (item is! Map) continue;
-      final e = CommunityTemplateEntry.fromSpringDto(
-        item.map((k, v) => MapEntry('$k', v)),
+    if (res.body.isEmpty) {
+      return CommunityTemplateSearchResult(
+        items: const [],
+        total: 0,
+        page: page,
+        limit: limit,
       );
-      if (e != null) out.add(e);
     }
-    if (out.length > limit) {
-      return out.sublist(0, limit);
+    final decoded = jsonDecode(res.body);
+    if (decoded is! Map) {
+      throw StateError('community-templates: expected a JSON object');
     }
-    return out;
+    final itemsRaw = decoded['items'];
+    final items = <CommunityTemplateEntry>[];
+    if (itemsRaw is List) {
+      for (final item in itemsRaw) {
+        if (item is! Map) continue;
+        final e = CommunityTemplateEntry.fromSpringDto(
+          item.map((k, v) => MapEntry('$k', v)),
+        );
+        if (e != null) items.add(e);
+      }
+    }
+    return CommunityTemplateSearchResult(
+      items: items,
+      total: (decoded['total'] as num?)?.toInt() ?? items.length,
+      page: (decoded['page'] as num?)?.toInt() ?? page,
+      limit: (decoded['limit'] as num?)?.toInt() ?? limit,
+    );
   }
 
   Future<FolioPageTemplate> downloadTemplate(
-    String downloadUrl, {
+    String? downloadUrl, {
     String? storagePath,
   }) async {
     final path = (storagePath ?? '').trim().isNotEmpty
         ? storagePath!.trim()
-        : _storagePathFromLogicalUrl(downloadUrl);
+        : _storagePathFromLogicalUrl(downloadUrl ?? '');
     if (path.isEmpty) {
       throw StateError('storagePath required');
     }
@@ -220,6 +273,24 @@ class CommunityTemplateStore {
     return parsed;
   }
 
+  /// Registra que una plantilla se ha usado/descargado (contador de
+  /// popularidad). Requiere sesión iniciada igual que la propia descarga;
+  /// nunca bloquea el flujo de uso si falla — es una métrica, no una ruta
+  /// crítica.
+  Future<void> recordDownload(String docId) async {
+    try {
+      final uri = Uri.parse(
+        '${FolioBackendConfig.apiV1Prefix}/community-templates/$docId/downloads',
+      );
+      await _springAuthorized((h) => http.post(uri, headers: h));
+    } catch (_) {
+      // Silenciado a propósito: ver docstring.
+    }
+  }
+
+  /// Solo queda como fallback de lectura para filas publicadas antes de que
+  /// `storageDownloadUrl` dejara de generarse (ver `publishTemplate`); las
+  /// entradas nuevas siempre traen `storagePath` directamente.
   static String _storagePathFromLogicalUrl(String downloadUrl) {
     final uri = Uri.tryParse(downloadUrl);
     if (uri != null && uri.fragment.isNotEmpty) {

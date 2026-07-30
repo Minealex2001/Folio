@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -12,6 +13,7 @@ import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../../services/community_templates/community_template_store.dart';
 import '../../../session/vault_session.dart';
+import 'template_categories.dart';
 import '../../onboarding/cloud_sign_in_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
 import '../../../app/widgets/folio_error_card.dart';
@@ -88,6 +90,8 @@ class TemplateGalleryPage extends StatefulWidget {
 
 class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     with SingleTickerProviderStateMixin {
+  static const int _communityPageSize = 40;
+
   String _filter = '';
   String _category = '';
   String? _selectedId;
@@ -97,28 +101,31 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
   final CommunityTemplateStore _communityStore = CommunityTemplateStore();
   List<CommunityTemplateEntry> _communityEntries = [];
   var _communityLoading = false;
+  var _communityLoadingMore = false;
   String? _communityError;
   String? _selectedCommunityId;
   var _communityUseBusy = false;
-  var _communityHasFetched = false;
+  CommunityTemplateSort _communitySort = CommunityTemplateSort.recent;
+  int _communityPage = 0;
+  int _communityTotal = 0;
+  Timer? _communitySearchDebounce;
 
   List<FolioPageTemplate> get _allTemplates => widget.session.pageTemplates;
 
   List<String> get _categories {
-    final values =
-        _allTemplates
-            .map((template) => template.category.trim())
-            .where((category) => category.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return values;
+    final present = _allTemplates
+        .map((template) => normalizeFolioTemplateCategory(template.category))
+        .toSet();
+    return kFolioTemplateCategoryIds
+        .where((categoryId) => present.contains(categoryId))
+        .toList();
   }
 
   List<FolioPageTemplate> get _templates {
     final query = _filter.trim().toLowerCase();
     final filtered = _allTemplates.where((template) {
-      if (_category.isNotEmpty && template.category.trim() != _category) {
+      if (_category.isNotEmpty &&
+          normalizeFolioTemplateCategory(template.category) != _category) {
         return false;
       }
       if (query.isEmpty) return true;
@@ -160,45 +167,27 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _communitySearchDebounce?.cancel();
     super.dispose();
   }
 
   void _onTabChanged() {
     if (!mounted || _tabController.indexIsChanging) return;
     if (_tabController.index == 1) {
-      unawaited(_ensureCommunityLoaded());
+      unawaited(_loadCommunityTemplates());
     }
   }
 
-  Future<void> _ensureCommunityLoaded() async {
-    if (_communityLoading || _communityHasFetched) return;
-    await _loadCommunityTemplates();
-  }
-
-  List<CommunityTemplateEntry> get _communityFiltered {
-    final query = _filter.trim().toLowerCase();
-    return _communityEntries.where((e) {
-      if (_category.isNotEmpty && e.category.trim() != _category) {
-        return false;
-      }
-      if (query.isEmpty) return true;
-      return e.name.toLowerCase().contains(query) ||
-          e.description.toLowerCase().contains(query) ||
-          e.category.toLowerCase().contains(query);
-    }).toList()..sort((a, b) {
-      switch (_sortMode) {
-        case _TemplateSortMode.recent:
-          final ta = a.createdAt;
-          final tb = b.createdAt;
-          if (ta == null && tb == null) return 0;
-          if (ta == null) return 1;
-          if (tb == null) return -1;
-          return tb.compareTo(ta);
-        case _TemplateSortMode.name:
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      }
+  /// Espera a que el usuario deje de teclear antes de volver a pedir al
+  /// servidor (a diferencia del filtro local, que es en memoria e instantáneo).
+  void _scheduleCommunitySearch() {
+    _communitySearchDebounce?.cancel();
+    _communitySearchDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_loadCommunityTemplates());
     });
   }
+
+  bool get _communityHasMore => _communityEntries.length < _communityTotal;
 
   CommunityTemplateEntry? get _selectedCommunity {
     final id = _selectedCommunityId;
@@ -209,52 +198,59 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     return null;
   }
 
-  List<String> get _communityCategories {
-    final values =
-        _communityEntries
-            .map((e) => e.category.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return values;
-  }
-
-  Future<void> _loadCommunityTemplates() async {
+  /// Búsqueda/filtro/orden/paginación en servidor (Fase 4): `reset: true`
+  /// (default) sustituye la página actual; `reset: false` añade la siguiente
+  /// página al final (botón "Cargar más").
+  Future<void> _loadCommunityTemplates({bool reset = true}) async {
     if (!CommunityTemplateStore.isFirebaseReady) {
       setState(() {
         _communityError = '';
         _communityLoading = false;
-        _communityHasFetched = true;
       });
       return;
     }
+    if (!reset && (_communityLoadingMore || !_communityHasMore)) return;
+    final nextPage = reset ? 0 : _communityPage + 1;
     setState(() {
-      _communityLoading = true;
+      if (reset) {
+        _communityLoading = true;
+      } else {
+        _communityLoadingMore = true;
+      }
       _communityError = null;
     });
     try {
-      final list = await _communityStore.listRecent();
+      final result = await _communityStore.search(
+        query: _filter,
+        category: _category.isEmpty ? null : _category,
+        sort: _communitySort,
+        page: nextPage,
+        limit: _communityPageSize,
+      );
       if (!mounted) return;
       setState(() {
-        _communityEntries = list;
+        _communityEntries = reset
+            ? result.items
+            : [..._communityEntries, ...result.items];
+        _communityTotal = result.total;
+        _communityPage = result.page;
         _communityLoading = false;
+        _communityLoadingMore = false;
         _communityError = null;
-        _communityHasFetched = true;
         _syncCommunitySelection();
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _communityLoading = false;
+        _communityLoadingMore = false;
         _communityError = '$e';
-        _communityHasFetched = true;
       });
     }
   }
 
   void _syncCommunitySelection() {
-    final visible = _communityFiltered;
+    final visible = _communityEntries;
     if (visible.isEmpty) {
       _selectedCommunityId = null;
       return;
@@ -271,9 +267,9 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
       final ok = await folioGoogleApisReachable();
       if (!ok) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.cloudAuthErrorNetwork)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.cloudAuthErrorNetwork)));
         return;
       }
     }
@@ -328,12 +324,17 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     final l10n = AppLocalizations.of(context);
     final entry = _selectedCommunity;
     if (entry == null || _communityUseBusy) return;
+    if (!widget.cloud.isSignedIn) {
+      await _openCloudSignIn();
+      if (!widget.cloud.isSignedIn || !mounted) return;
+    }
     setState(() => _communityUseBusy = true);
     try {
       final parsed = await _communityStore.downloadTemplate(
         entry.storageDownloadUrl,
         storagePath: entry.storagePath,
       );
+      unawaited(_communityStore.recordDownload(entry.docId));
       if (!mounted) return;
       const uuid = Uuid();
       final forPage = FolioPageTemplate(
@@ -356,13 +357,52 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     }
   }
 
-  Future<void> _addCommunityToVault(CommunityTemplateEntry entry) async {
+  /// Descarga el contenido real de una plantilla de comunidad y lo muestra en
+  /// un diálogo de solo lectura, sin comprometerse todavía a usarla/guardarla
+  /// (y sin contar como descarga a efectos de popularidad).
+  Future<void> _previewCommunityTemplate(CommunityTemplateEntry entry) async {
     final l10n = AppLocalizations.of(context);
+    if (!widget.cloud.isSignedIn) {
+      await _openCloudSignIn();
+      if (!widget.cloud.isSignedIn || !mounted) return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: FolioLoadingIndicator()),
+    );
     try {
       final parsed = await _communityStore.downloadTemplate(
         entry.storageDownloadUrl,
         storagePath: entry.storagePath,
       );
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      await showDialog<void>(
+        context: context,
+        builder: (_) => _TemplateContentPreviewDialog(template: parsed),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.templateCommunityDownloadError('$e'))),
+      );
+    }
+  }
+
+  Future<void> _addCommunityToVault(CommunityTemplateEntry entry) async {
+    final l10n = AppLocalizations.of(context);
+    if (!widget.cloud.isSignedIn) {
+      await _openCloudSignIn();
+      if (!widget.cloud.isSignedIn || !mounted) return;
+    }
+    try {
+      final parsed = await _communityStore.downloadTemplate(
+        entry.storageDownloadUrl,
+        storagePath: entry.storagePath,
+      );
+      unawaited(_communityStore.recordDownload(entry.docId));
       final local = _communityStore.copyIntoVault(parsed);
       widget.session.addTemplate(local);
       if (!mounted) return;
@@ -419,7 +459,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     final templates = _templates;
     final selected = _selected;
     final totalTemplates = _allTemplates.length;
-    final communityList = _communityFiltered;
+    final communityList = _communityEntries;
     final communitySelected = _selectedCommunity;
     final isLocalTab = _tabController.index == 0;
 
@@ -437,11 +477,11 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                           templates.length,
                           totalTemplates,
                         ))
-                : (communityList.length == _communityEntries.length
-                      ? l10n.templateCount(_communityEntries.length)
+                : (communityList.length == _communityTotal
+                      ? l10n.templateCount(_communityTotal)
                       : l10n.templateFilteredCount(
                           communityList.length,
-                          _communityEntries.length,
+                          _communityTotal,
                         ));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,7 +592,6 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
   }) {
     if (_communityUseBusy) return false;
     if (isLocalTab) return selected != null;
-    if (!widget.cloud.isSignedIn) return false;
     return communitySelected != null &&
         !(_communityLoading && _communityEntries.isEmpty);
   }
@@ -654,7 +693,9 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
-                              label: Text(category),
+                              label: Text(
+                                templateCategoryLabel(l10n, category),
+                              ),
                               selected: _category == category,
                               onSelected: (_) {
                                 setState(() {
@@ -682,7 +723,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                           gridDelegate:
                               const SliverGridDelegateWithMaxCrossAxisExtent(
                                 maxCrossAxisExtent: 220,
-                                mainAxisExtent: 164,
+                                mainAxisExtent: 172,
                                 crossAxisSpacing: 10,
                                 mainAxisSpacing: 10,
                               ),
@@ -720,6 +761,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                     child: _TemplateDetailPanel(
                       template: selected,
                       previewText: _previewTextFor(selected),
+                      onPreview: () => _previewLocalTemplate(selected),
                       onUse: () => _use(selected),
                       onEdit: () => _editTemplate(selected),
                       onDelete: () => _confirmDelete(selected),
@@ -781,34 +823,6 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
       );
     }
 
-    if (!widget.cloud.isSignedIn) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.templateCommunitySignInCta,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: widget.cloud.isAvailable ? _openCloudSignIn : null,
-                  child: Text(l10n.templateCommunitySignInButton),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -828,10 +842,8 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                           isDense: true,
                         ),
                         onChanged: (value) {
-                          setState(() {
-                            _filter = value;
-                            _syncCommunitySelection();
-                          });
+                          setState(() => _filter = value);
+                          _scheduleCommunitySearch();
                         },
                       ),
                     ),
@@ -844,68 +856,62 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                       icon: const Icon(Icons.refresh_rounded),
                     ),
                     const SizedBox(width: 4),
-                    DropdownButton<_TemplateSortMode>(
-                      value: _sortMode,
+                    DropdownButton<CommunityTemplateSort>(
+                      value: _communitySort,
                       onChanged: (value) {
                         if (value == null) return;
-                        setState(() {
-                          _sortMode = value;
-                          _syncCommunitySelection();
-                        });
+                        setState(() => _communitySort = value);
+                        unawaited(_loadCommunityTemplates());
                       },
                       items: [
                         DropdownMenuItem(
-                          value: _TemplateSortMode.recent,
+                          value: CommunityTemplateSort.recent,
                           child: Text(l10n.templateSortRecent),
                         ),
                         DropdownMenuItem(
-                          value: _TemplateSortMode.name,
-                          child: Text(l10n.templateSortName),
+                          value: CommunityTemplateSort.popular,
+                          child: Text(l10n.templateSortPopular),
                         ),
                       ],
                     ),
                   ],
                 ),
-                if (_communityCategories.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 34,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 34,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(l10n.searchFilterAll),
+                          selected: _category.isEmpty,
+                          onSelected: (_) {
+                            setState(() => _category = '');
+                            unawaited(_loadCommunityTemplates());
+                          },
+                        ),
+                      ),
+                      for (final category in kFolioTemplateCategoryIds)
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: Text(l10n.searchFilterAll),
-                            selected: _category.isEmpty,
+                            label: Text(templateCategoryLabel(l10n, category)),
+                            selected: _category == category,
                             onSelected: (_) {
                               setState(() {
-                                _category = '';
-                                _syncCommunitySelection();
+                                _category = _category == category
+                                    ? ''
+                                    : category;
                               });
+                              unawaited(_loadCommunityTemplates());
                             },
                           ),
                         ),
-                        for (final category in _communityCategories)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(category),
-                              selected: _category == category,
-                              onSelected: (_) {
-                                setState(() {
-                                  _category = _category == category
-                                      ? ''
-                                      : category;
-                                  _syncCommunitySelection();
-                                });
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
-                ],
+                ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: communityList.isEmpty
@@ -926,8 +932,26 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                                 crossAxisSpacing: 10,
                                 mainAxisSpacing: 10,
                               ),
-                          itemCount: communityList.length,
+                          itemCount:
+                              communityList.length +
+                              (_communityHasMore ? 1 : 0),
                           itemBuilder: (_, index) {
+                            if (index >= communityList.length) {
+                              return Center(
+                                child: _communityLoadingMore
+                                    ? const FolioLoadingIndicator(
+                                        size: FolioLoadingSize.small,
+                                      )
+                                    : TextButton(
+                                        onPressed: () => unawaited(
+                                          _loadCommunityTemplates(reset: false),
+                                        ),
+                                        child: Text(
+                                          l10n.templateCommunityLoadMore,
+                                        ),
+                                      ),
+                              );
+                            }
                             final entry = communityList[index];
                             return _CommunityTemplateCard(
                               entry: entry,
@@ -966,8 +990,10 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                     child: _CommunityTemplateDetailPanel(
                       entry: communitySelected,
                       l10n: l10n,
-                      isOwner:
-                          widget.cloud.uid == communitySelected.ownerUid,
+                      isOwner: widget.cloud.uid == communitySelected.ownerUid,
+                      onPreview: () {
+                        unawaited(_previewCommunityTemplate(communitySelected));
+                      },
                       onUse: () {
                         unawaited(_useCommunitySelection());
                       },
@@ -990,9 +1016,10 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
       _filter = '';
       _category = '';
       _sortMode = _TemplateSortMode.recent;
+      _communitySort = CommunityTemplateSort.recent;
       _syncSelection();
-      _syncCommunitySelection();
     });
+    unawaited(_loadCommunityTemplates());
   }
 
   void _syncSelection() {
@@ -1010,12 +1037,21 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     Navigator.pop(context, TemplateGalleryResult(template: template));
   }
 
+  /// Ya está en memoria (sin descarga ni sesión): abre el diálogo de
+  /// contenido directamente, a diferencia de la versión de comunidad.
+  Future<void> _previewLocalTemplate(FolioPageTemplate template) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => _TemplateContentPreviewDialog(template: template),
+    );
+  }
+
   Future<void> _editTemplate(FolioPageTemplate template) async {
     final l10n = AppLocalizations.of(context);
     String emoji = template.emoji ?? '';
     String name = template.name;
     String description = template.description;
-    String category = template.category;
+    String category = normalizeFolioTemplateCategory(template.category);
 
     final shouldSave = await showDialog<bool>(
       context: context,
@@ -1053,12 +1089,22 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                       setDialogState(() => description = value),
                 ),
                 const SizedBox(height: 10),
-                TextFormField(
+                DropdownButtonFormField<String>(
                   initialValue: category,
                   decoration: InputDecoration(
                     labelText: l10n.templateCategoryHint,
                   ),
-                  onChanged: (value) => setDialogState(() => category = value),
+                  items: [
+                    for (final categoryId in kFolioTemplateCategoryIds)
+                      DropdownMenuItem(
+                        value: categoryId,
+                        child: Text(templateCategoryLabel(l10n, categoryId)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => category = value);
+                  },
                 ),
               ],
             ),
@@ -1201,6 +1247,10 @@ class _CommunityTemplateCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final emoji = entry.emoji.trim().isEmpty ? '\u{1F4C4}' : entry.emoji.trim();
+    final l10n = AppLocalizations.of(context);
+    final categoryColor = folioTemplateCategoryColor(context, entry.category);
+    final borderColor = selected ? scheme.secondary : scheme.outlineVariant;
+    final borderWidth = selected ? 2.0 : 1.0;
 
     return Material(
       color: Colors.transparent,
@@ -1208,93 +1258,111 @@ class _CommunityTemplateCard extends StatelessWidget {
         onTap: onTap,
         onDoubleTap: onDoubleTap,
         borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.secondaryContainer
-                : scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? scheme.secondary : scheme.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.shadow.withAlpha(selected ? 28 : 12),
-                blurRadius: selected ? 14 : 8,
-                offset: const Offset(0, 3),
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: selected
+                    ? scheme.secondaryContainer
+                    : scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                // Border.paint no admite colores distintos por lado junto a un
+                // borderRadius; el acento de categoría se pinta aparte, debajo.
+                border: Border.all(color: borderColor, width: borderWidth),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withAlpha(selected ? 28 : 12),
+                    blurRadius: selected ? 14 : 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 26)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? scheme.onSecondaryContainer.withAlpha(26)
-                          : scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${entry.blockCount}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                  Row(
+                    children: [
+                      Text(emoji, style: const TextStyle(fontSize: 26)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? scheme.onSecondaryContainer.withAlpha(26)
+                              : scheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${entry.blockCount}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    entry.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: selected
+                          ? scheme.onSecondaryContainer
+                          : scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    templateCategoryLabel(
+                      l10n,
+                      normalizeFolioTemplateCategory(entry.category),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: selected
+                          ? scheme.onSecondaryContainer.withAlpha(185)
+                          : categoryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    previewText.trim().isEmpty
+                        ? AppLocalizations.of(context).templatePreviewEmpty
+                        : previewText.replaceAll('\n', ' '),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: selected
+                          ? scheme.onSecondaryContainer.withAlpha(210)
+                          : scheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                entry.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurface,
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
+                child: ColoredBox(color: categoryColor),
               ),
-              if (entry.category.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  entry.category,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? scheme.onSecondaryContainer.withAlpha(185)
-                        : scheme.primary,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              Text(
-                previewText.trim().isEmpty
-                    ? AppLocalizations.of(context).templatePreviewEmpty
-                    : previewText.replaceAll('\n', ' '),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: selected
-                      ? scheme.onSecondaryContainer.withAlpha(210)
-                      : scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1306,6 +1374,7 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
     required this.entry,
     required this.l10n,
     required this.isOwner,
+    required this.onPreview,
     required this.onUse,
     required this.onAddToVault,
     required this.onDelete,
@@ -1314,6 +1383,7 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
   final CommunityTemplateEntry entry;
   final AppLocalizations l10n;
   final bool isOwner;
+  final VoidCallback onPreview;
   final VoidCallback onUse;
   final VoidCallback onAddToVault;
   final VoidCallback onDelete;
@@ -1371,8 +1441,13 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
                   icon: Icons.view_agenda_outlined,
                   label: l10n.templateBlockCount(entry.blockCount),
                 ),
-                if (entry.category.trim().isNotEmpty)
-                  _MetaChip(icon: Icons.sell_outlined, label: entry.category),
+                _MetaChip(
+                  icon: Icons.sell_outlined,
+                  label: templateCategoryLabel(
+                    l10n,
+                    normalizeFolioTemplateCategory(entry.category),
+                  ),
+                ),
                 if (createdLabel.isNotEmpty)
                   _MetaChip(
                     icon: Icons.schedule_rounded,
@@ -1408,6 +1483,15 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onPreview,
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(40),
+              ),
+              label: Text(l10n.templatePreviewAction),
+            ),
+            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: onUse,
               icon: const Icon(Icons.note_add_outlined, size: 18),
@@ -1453,6 +1537,121 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
   }
 }
 
+/// Vista de solo lectura del contenido real de una plantilla ya descargada,
+/// para decidir si usarla/guardarla antes de comprometerse.
+class _TemplateContentPreviewDialog extends StatelessWidget {
+  const _TemplateContentPreviewDialog({required this.template});
+
+  final FolioPageTemplate template;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final previewBlocks = template.blocks
+        .where((b) => b.text.trim().isNotEmpty)
+        .toList();
+
+    return Dialog(
+      child: SizedBox(
+        width: 480,
+        height: 560,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    template.emoji ?? '📄',
+                    style: const TextStyle(fontSize: 28),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      template.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              if (template.description.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  template.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                l10n.templateBlockCount(template.blocks.length),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Expanded(
+                child: previewBlocks.isEmpty
+                    ? Center(
+                        child: Text(
+                          l10n.templatePreviewEmpty,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: previewBlocks.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, index) {
+                          final block = previewBlocks[index];
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                folioBlockTypeIcon(block.type),
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  block.text.replaceAll('\n', ' '),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TemplateCard extends StatelessWidget {
   const _TemplateCard({
     required this.template,
@@ -1472,6 +1671,16 @@ class _TemplateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final categoryColor = folioTemplateCategoryColor(
+      context,
+      template.category,
+    );
+    final blockTypeIcons = folioTemplateBlockTypeIcons(
+      template.blocks.map((b) => b.type),
+    );
+    final borderColor = selected ? scheme.secondary : scheme.outlineVariant;
+    final borderWidth = selected ? 2.0 : 1.0;
 
     return Material(
       color: Colors.transparent,
@@ -1479,96 +1688,131 @@ class _TemplateCard extends StatelessWidget {
         onTap: onTap,
         onDoubleTap: onDoubleTap,
         borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.secondaryContainer
-                : scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? scheme.secondary : scheme.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.shadow.withAlpha(selected ? 28 : 12),
-                blurRadius: selected ? 14 : 8,
-                offset: const Offset(0, 3),
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: selected
+                    ? scheme.secondaryContainer
+                    : scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                // Border.paint no admite colores distintos por lado junto a un
+                // borderRadius; el acento de categoría se pinta aparte, debajo.
+                border: Border.all(color: borderColor, width: borderWidth),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withAlpha(selected ? 28 : 12),
+                    blurRadius: selected ? 14 : 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Text(
+                        template.emoji ?? '📄',
+                        style: const TextStyle(fontSize: 26),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? scheme.onSecondaryContainer.withAlpha(26)
+                              : scheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${template.blocks.length}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Text(
-                    template.emoji ?? '📄',
-                    style: const TextStyle(fontSize: 26),
+                    template.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: selected
+                          ? scheme.onSecondaryContainer
+                          : scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          templateCategoryLabel(
+                            l10n,
+                            normalizeFolioTemplateCategory(template.category),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: selected
+                                ? scheme.onSecondaryContainer.withAlpha(185)
+                                : categoryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      for (final icon in blockTypeIcons)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            icon,
+                            size: 13,
+                            color: selected
+                                ? scheme.onSecondaryContainer.withAlpha(185)
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
                   ),
                   const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
+                  Text(
+                    previewText.isEmpty
+                        ? AppLocalizations.of(context).templatePreviewEmpty
+                        : previewText,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: selected
-                          ? scheme.onSecondaryContainer.withAlpha(26)
-                          : scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${template.blocks.length}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                          ? scheme.onSecondaryContainer.withAlpha(210)
+                          : scheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                template.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurface,
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
+                child: ColoredBox(color: categoryColor),
               ),
-              if (template.category.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  template.category,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? scheme.onSecondaryContainer.withAlpha(185)
-                        : scheme.primary,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              Text(
-                previewText.isEmpty
-                    ? AppLocalizations.of(context).templatePreviewEmpty
-                    : previewText,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: selected
-                      ? scheme.onSecondaryContainer.withAlpha(210)
-                      : scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1579,6 +1823,7 @@ class _TemplateDetailPanel extends StatelessWidget {
   const _TemplateDetailPanel({
     required this.template,
     required this.previewText,
+    required this.onPreview,
     required this.onUse,
     required this.onEdit,
     required this.onDelete,
@@ -1588,6 +1833,7 @@ class _TemplateDetailPanel extends StatelessWidget {
 
   final FolioPageTemplate template;
   final String previewText;
+  final VoidCallback onPreview;
   final VoidCallback onUse;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1652,11 +1898,13 @@ class _TemplateDetailPanel extends StatelessWidget {
                   icon: Icons.view_agenda_outlined,
                   label: l10n.templateBlockCount(template.blocks.length),
                 ),
-                if (template.category.trim().isNotEmpty)
-                  _MetaChip(
-                    icon: Icons.sell_outlined,
-                    label: template.category,
+                _MetaChip(
+                  icon: Icons.sell_outlined,
+                  label: templateCategoryLabel(
+                    l10n,
+                    normalizeFolioTemplateCategory(template.category),
                   ),
+                ),
                 _MetaChip(
                   icon: Icons.schedule_rounded,
                   label: l10n.templateCreatedOn(
@@ -1691,6 +1939,15 @@ class _TemplateDetailPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onPreview,
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(40),
+              ),
+              label: Text(l10n.templatePreviewAction),
+            ),
+            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: onUse,
               icon: const Icon(Icons.note_add_outlined, size: 18),

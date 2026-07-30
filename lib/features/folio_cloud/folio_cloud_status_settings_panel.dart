@@ -14,11 +14,15 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     required this.controller,
     required this.scheme,
     required this.l10n,
+    this.showSectionTitle = true,
   });
 
   final FolioCloudStatusController controller;
   final ColorScheme scheme;
   final AppLocalizations l10n;
+
+  /// Si la pestaña ya se llama «Estado», ocultar el título duplicado.
+  final bool showSectionTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +34,21 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
+              padding: EdgeInsets.fromLTRB(16, showSectionTitle ? 14 : 8, 8, 0),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.folioCloudStatusSubsectionTitle,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
+                  if (showSectionTitle)
+                    Expanded(
+                      child: Text(
+                        l10n.folioCloudStatusSubsectionTitle,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
                   if (controller.loading)
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
@@ -71,6 +78,7 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
               )
             else if (snap != null) ...[
               ListTile(
+                dense: true,
                 leading: Icon(
                   _aggregateIcon(snap.uiSeverity),
                   color: FolioCloudStatusColors.foreground(snap.uiSeverity),
@@ -85,7 +93,10 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
                     : null,
               ),
               const Divider(height: 1),
-              ..._serviceTiles(context, snap),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: _serviceSquaresGrid(context, snap),
+              ),
               if (snap.incidents.isNotEmpty) ...[
                 const Divider(height: 1),
                 Padding(
@@ -96,19 +107,41 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
                   ),
                 ),
                 ...snap.incidents.take(8).map(
-                      (i) => _IncidentTile(incident: i, l10n: l10n, scheme: scheme),
+                      (i) => _IncidentTile(
+                        incident: i,
+                        l10n: l10n,
+                        scheme: scheme,
+                      ),
                     ),
               ],
               if (snap.history.isNotEmpty) ...[
                 const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(
-                    l10n.folioCloudStatusHistoryTitle,
-                    style: Theme.of(context).textTheme.labelLarge,
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    initiallyExpanded: false,
+                    title: Text(l10n.folioCloudStatusHistoryCollapsed),
+                    children: [
+                      ..._historyTiles(context, snap, limit: 4),
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.open_in_new, size: 20),
+                        title: Text(l10n.folioCloudStatusOpenWebMore),
+                        onTap: () async {
+                          final lang =
+                              Localizations.localeOf(context).languageCode;
+                          final uri = FolioStatusUrls.statusPageUri(
+                            languageCode: lang,
+                          );
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                ..._historyTiles(context, snap),
               ],
             ] else if (controller.loading)
               const Padding(
@@ -126,8 +159,7 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
               title: Text(l10n.folioCloudStatusOpenWeb),
               onTap: () async {
                 final lang = Localizations.localeOf(context).languageCode;
-                final uri =
-                    FolioStatusUrls.statusPageUri(languageCode: lang);
+                final uri = FolioStatusUrls.statusPageUri(languageCode: lang);
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
               },
             ),
@@ -137,71 +169,47 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     );
   }
 
-  List<Widget> _serviceTiles(
+  Widget _serviceSquaresGrid(
     BuildContext context,
     FolioCloudStatusSnapshot snap,
   ) {
-    final keys = folioCloudStatusVisibleServiceIds(snap);
-    if (keys.isEmpty) {
-      return const [];
-    }
-    return [
-      for (final id in keys)
-        ListTile(
-          dense: true,
-          leading: Icon(
-            _serviceIcon(id),
-            color: FolioCloudStatusColors.foreground(
-              snap.displayStatusFor(id),
+    final ids = folioCloudStatusVisibleServiceIds(snap);
+    if (ids.isEmpty) return const SizedBox.shrink();
+    const gap = 8.0;
+    const tileSize = 104.0;
+    return Wrap(
+      spacing: gap,
+      runSpacing: gap,
+      children: [
+        for (final id in ids)
+          SizedBox(
+            width: tileSize,
+            height: tileSize,
+            child: _ServiceStatusSquare(
+              icon: _serviceIcon(id),
+              logoAsset: _serviceLogoAsset(id),
+              label: _serviceLabel(l10n, id),
+              status: snap.displayStatusFor(id),
+              statusLabel: _serviceStatusLabel(
+                l10n,
+                snap.displayStatusFor(id),
+              ),
+              latencyMs: snap.services[id]?.latencyMs,
+              tooltip: _serviceSubtitle(l10n, snap, id),
+              l10n: l10n,
+              scheme: scheme,
             ),
-            size: 22,
           ),
-          title: Text(_serviceLabel(l10n, id)),
-          subtitle: Text(
-            _serviceSubtitle(l10n, snap, id),
-          ),
-          isThreeLine: snap.activeIncidentFor(id)?.title.isNotEmpty == true,
-          trailing: snap.services[id]!.latencyMs != null
-              ? Text(
-                  l10n.folioCloudStatusLatencyMs(snap.services[id]!.latencyMs!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                )
-              : null,
-        ),
-    ];
-  }
-
-  static String _serviceSubtitle(
-    AppLocalizations l10n,
-    FolioCloudStatusSnapshot snap,
-    String id,
-  ) {
-    final statusLabel = _serviceStatusLabel(l10n, snap.displayStatusFor(id));
-    final incident = snap.activeIncidentFor(id);
-    final parts = <String>[statusLabel];
-    final reason = snap.statusReasonFor(id);
-    if (reason == 'incident') {
-      parts.add(l10n.folioCloudStatusTypeIncident);
-    } else if (reason == 'maintenance') {
-      parts.add(l10n.folioCloudStatusTypeMaintenance);
-    } else if (reason != null && reason.isNotEmpty) {
-      parts.add(reason);
-    }
-    final title = incident?.title.trim();
-    if (title != null && title.isNotEmpty) {
-      parts.add(title);
-    }
-    return parts.join(' · ');
+      ],
+    );
   }
 
   List<Widget> _historyTiles(
     BuildContext context,
-    FolioCloudStatusSnapshot snap,
-  ) {
-    // Últimos registros por servicio (máx. 8 filas).
-    final rows = snap.history.reversed.take(8).toList();
+    FolioCloudStatusSnapshot snap, {
+    int limit = 8,
+  }) {
+    final rows = snap.history.reversed.take(limit).toList();
     return [
       for (final h in rows)
         ListTile(
@@ -226,6 +234,34 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     ];
   }
 
+  static String _serviceSubtitle(
+    AppLocalizations l10n,
+    FolioCloudStatusSnapshot snap,
+    String id,
+  ) {
+    final statusLabel = _serviceStatusLabel(l10n, snap.displayStatusFor(id));
+    final incident = snap.activeIncidentFor(id);
+    final parts = <String>[statusLabel];
+    final reason = snap.statusReasonFor(id);
+    if (reason == 'incident') {
+      parts.add(l10n.folioCloudStatusTypeIncident);
+    } else if (reason == 'maintenance') {
+      parts.add(l10n.folioCloudStatusTypeMaintenance);
+    } else if (reason != null &&
+        reason.isNotEmpty &&
+        reason != 'normal' &&
+        reason != 'high_latency') {
+      parts.add(reason);
+    } else if (reason == 'high_latency') {
+      parts.add(statusLabel);
+    }
+    final title = incident?.title.trim();
+    if (title != null && title.isNotEmpty) {
+      parts.add(title);
+    }
+    return parts.join(' · ');
+  }
+
   static IconData _aggregateIcon(String status) {
     return switch (status) {
       'ok' => Icons.check_circle_outline,
@@ -245,6 +281,16 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     };
   }
 
+  static String? _serviceLogoAsset(String id) {
+    return switch (id) {
+      'jira' => 'appLogos/jira.png',
+      'slack' => 'appLogos/slack.png',
+      'teams' => 'appLogos/microsoftTeams.png',
+      'spotify' => 'appLogos/spotify.png',
+      _ => null,
+    };
+  }
+
   static IconData _serviceIcon(String id) {
     return switch (id) {
       'api' => Icons.dns_outlined,
@@ -258,6 +304,11 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
       'teams' => Icons.groups_outlined,
       'spotify' => Icons.music_note_outlined,
       'microsoft_store' => Icons.shop_outlined,
+      'community_templates' => Icons.style_outlined,
+      'collab' => Icons.groups_2_outlined,
+      'vault_share' => Icons.share_outlined,
+      'device_sync' => Icons.sync_outlined,
+      'integrations' => Icons.extension_outlined,
       _ => Icons.circle_outlined,
     };
   }
@@ -275,6 +326,11 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
       'teams' => l10n.folioCloudStatusServiceTeams,
       'spotify' => l10n.folioCloudStatusServiceSpotify,
       'microsoft_store' => l10n.folioCloudStatusServiceMicrosoftStore,
+      'community_templates' => l10n.folioCloudStatusServiceCommunityTemplates,
+      'collab' => l10n.folioCloudStatusServiceCollab,
+      'vault_share' => l10n.folioCloudStatusServiceVaultShare,
+      'device_sync' => l10n.folioCloudStatusServiceDeviceSync,
+      'integrations' => l10n.folioCloudStatusServiceIntegrations,
       _ => id,
     };
   }
@@ -296,6 +352,100 @@ class FolioCloudStatusSettingsPanel extends StatelessWidget {
     final date = loc.formatShortDate(local);
     final time = loc.formatTimeOfDay(TimeOfDay.fromDateTime(local));
     return '$date $time';
+  }
+}
+
+class _ServiceStatusSquare extends StatelessWidget {
+  const _ServiceStatusSquare({
+    required this.icon,
+    required this.label,
+    required this.status,
+    required this.statusLabel,
+    required this.l10n,
+    required this.scheme,
+    this.logoAsset,
+    this.latencyMs,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final String? logoAsset;
+  final String label;
+  final String status;
+  final String statusLabel;
+  final AppLocalizations l10n;
+  final ColorScheme scheme;
+  final int? latencyMs;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = FolioCloudStatusColors.foreground(status);
+    final tile = Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: logoAsset != null
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Image.asset(
+                          logoAsset!,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                      )
+                    : Icon(icon, size: 20, color: color),
+              ),
+              const Spacer(),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                      fontSize: 11.5,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                statusLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              if (latencyMs != null)
+                Text(
+                  l10n.folioCloudStatusLatencyMs(latencyMs!),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (tooltip == null || tooltip!.isEmpty) return tile;
+    return Tooltip(message: tooltip!, child: tile);
   }
 }
 

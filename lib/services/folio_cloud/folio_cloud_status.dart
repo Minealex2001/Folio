@@ -471,6 +471,13 @@ const List<String> kFolioCloudStatusServiceOrder = [
   'teams',
   'spotify',
   'microsoft_store',
+  // Sub-servicios propios de Folio (no proveedores externos) — mismo
+  // tratamiento visual que el resto, ver CloudStatusService en el backend.
+  'community_templates',
+  'collab',
+  'vault_share',
+  'device_sync',
+  'integrations',
 ];
 
 /// Servicios visibles en UI (omite `unconfigured`).

@@ -1688,7 +1688,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openSettings({String? initialSection}) {
+  void _openSettings({String? initialSection, String? initialCloudTab}) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'settings'),
@@ -1702,6 +1702,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
           initialSection: initialSection,
+          initialCloudTab: initialCloudTab,
         ),
       ),
     );
@@ -2197,7 +2198,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onSearch: () => widget.onOpenSearch(),
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
-          onOpenCloudStatus: () => _openSettings(initialSection: 'cloud'),
+          onOpenCloudStatus: () =>
+              _openSettings(initialSection: 'cloud', initialCloudTab: 'status'),
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
           onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,

@@ -1,5 +1,181 @@
 part of 'settings_page.dart';
 
+enum _FolioCloudTab { account, plan, status }
+
+/// Resumen compacto + selector de pestañas de Folio Cloud.
+class _FolioCloudSettingsChrome extends StatelessWidget {
+  const _FolioCloudSettingsChrome({
+    required this.scheme,
+    required this.l10n,
+    required this.tab,
+    required this.onTabChanged,
+    required this.signedIn,
+    required this.accountLabel,
+    required this.showStatusTab,
+    this.statusController,
+    this.onStatusChipPressed,
+    this.onSignInPressed,
+  });
+
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+  final _FolioCloudTab tab;
+  final ValueChanged<_FolioCloudTab> onTabChanged;
+  final bool signedIn;
+  final String accountLabel;
+  final bool showStatusTab;
+  final FolioCloudStatusController? statusController;
+  final VoidCallback? onStatusChipPressed;
+  final VoidCallback? onSignInPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = <ButtonSegment<_FolioCloudTab>>[
+      ButtonSegment(
+        value: _FolioCloudTab.account,
+        label: Text(l10n.folioCloudSettingsTabAccount),
+        icon: const Icon(Icons.person_outline, size: 18),
+      ),
+      ButtonSegment(
+        value: _FolioCloudTab.plan,
+        label: Text(l10n.folioCloudSettingsTabPlan),
+        icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+      ),
+      if (showStatusTab)
+        ButtonSegment(
+          value: _FolioCloudTab.status,
+          label: Text(l10n.folioCloudSettingsTabStatus),
+          icon: const Icon(Icons.monitor_heart_outlined, size: 18),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      signedIn
+                          ? Icons.account_circle_outlined
+                          : Icons.cloud_off_outlined,
+                      size: 22,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        accountLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                    if (!signedIn && onSignInPressed != null)
+                      TextButton(
+                        onPressed: onSignInPressed,
+                        child: Text(l10n.folioCloudSettingsSummarySignIn),
+                      ),
+                  ],
+                ),
+              ),
+              if (statusController != null) ...[
+                const SizedBox(width: 8),
+                _FolioCloudStatusSummaryChip(
+                  controller: statusController!,
+                  l10n: l10n,
+                  onPressed: onStatusChipPressed,
+                ),
+              ],
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: SegmentedButton<_FolioCloudTab>(
+            segments: tabs,
+            selected: {tab},
+            onSelectionChanged: (next) {
+              if (next.isEmpty) return;
+              onTabChanged(next.first);
+            },
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+class _FolioCloudStatusSummaryChip extends StatelessWidget {
+  const _FolioCloudStatusSummaryChip({
+    required this.controller,
+    required this.l10n,
+    this.onPressed,
+  });
+
+  final FolioCloudStatusController controller;
+  final AppLocalizations l10n;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final snap = controller.snapshot;
+        final severity = snap?.uiSeverity ??
+            (controller.loading ? 'loading' : 'unknown');
+        final color = FolioCloudStatusColors.foreground(
+          severity == 'loading' || severity == 'unknown' ? 'ok' : severity,
+        );
+        final effectiveColor = (severity == 'loading' || severity == 'unknown')
+            ? Theme.of(context).colorScheme.outline
+            : color;
+        final label = snap?.primaryIncident != null
+            ? l10n.folioCloudSettingsStatusChipIncident
+            : switch (severity) {
+                'ok' => l10n.folioCloudStatusAggregateOk,
+                'degraded' => l10n.folioCloudStatusAggregateDegraded,
+                'partial' => l10n.folioCloudStatusAggregatePartial,
+                'down' => l10n.folioCloudStatusAggregateDown,
+                'loading' => l10n.folioCloudStatusRefresh,
+                _ => l10n.folioCloudSettingsTabStatus,
+              };
+        return ActionChip(
+          avatar: Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: effectiveColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          label: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          onPressed: onPressed,
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        );
+      },
+    );
+  }
+}
+
 class _FolioCloudGuestPitchTeaser extends StatelessWidget {
   const _FolioCloudGuestPitchTeaser({
     required this.scheme,
@@ -664,7 +840,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     scheme: scheme,
                     icon: Icons.calendar_month_outlined,
                     label: l10n.folioCloudInkMonthly,
-                    valueText: l10n.folioCloudInkCount(snap.ink.monthlyBalance),
+                    valueText:
+                        l10n.folioCloudInkCount(snap.ink.monthlyBalance),
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(

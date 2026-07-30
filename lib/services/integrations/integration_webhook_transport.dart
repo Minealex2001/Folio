@@ -15,16 +15,18 @@ class IntegrationWebhookTransport {
 
   final http.Client _http;
 
-  /// Registra la conexión en el backend antes de poder relayarla vía
-  /// [postJson] en Web — folioIntegrationWebhookProxy ya no acepta una
-  /// webhookUrl arbitraria del cliente, solo un connectionId previamente
-  /// registrado por su propio dueño.
+  /// Registra la conexión en el backend: antes solo se registraba en Web (para
+  /// poder relayarla vía [postJson] y evitar CORS — folioIntegrationWebhookProxy
+  /// no acepta una webhookUrl arbitraria del cliente, solo un connectionId ya
+  /// registrado por su dueño). Ahora se registra en toda plataforma porque el
+  /// outbox de notificaciones salientes del backend (entrega durable,
+  /// sobrevive el cierre de la app) también necesita resolver el connectionId
+  /// del lado del servidor — ver `OutboundNotificationOutboxService`.
   Future<void> registerConnection({
     required String provider,
     required String connectionId,
     required String webhookUrl,
   }) async {
-    if (!kIsWeb) return;
     await callFolioHttpsCallable('folioUpsertIntegrationWebhookConnection', {
       'provider': provider,
       'connectionId': connectionId,

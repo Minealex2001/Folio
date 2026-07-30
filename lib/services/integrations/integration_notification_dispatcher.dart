@@ -6,6 +6,9 @@ import '../../models/slack_integration_state.dart';
 import '../../models/teams_integration_state.dart';
 import '../app_logger.dart';
 import '../discord/discord_api_client.dart';
+import '../folio_cloud/folio_cloud_callable.dart';
+import '../folio_cloud/folio_cloud_exception.dart';
+import '../integrations/integration_webhook_transport.dart';
 import '../slack/slack_api_client.dart';
 import '../teams/teams_api_client.dart';
 
@@ -31,13 +34,23 @@ class _PendingNotification {
   final DiscordConnection? discord;
 }
 
-/// Dispatcher compartido entre Slack, Teams y Discord para notificaciones
-/// salientes.
+/// Dispatcher compartido entre Slack, Teams y Discord para notificaciones salientes.
 ///
-/// Encola fallos con backoff exponencial (máx. 3 intentos). No bloquea la
-/// mutación del vault que disparó el aviso.
+/// Las conexiones basadas en webhook (el caso común) se encolan en el outbox
+/// durable del backend (`POST /integrations/notifications/enqueue`), que
+/// reintenta con backoff y sobrevive el cierre de la app — antes esto vivía
+/// solo en memoria aquí y se perdía en silencio si la app se cerraba a mitad
+/// de un backoff.
+///
+/// Las conexiones que usan Bot API/Graph API (token OAuth en vez de webhook)
+/// no tienen equivalente server-side hoy (el backend no gestiona esos
+/// tokens), así que siguen el camino anterior: envío directo desde el
+/// cliente con reintento en memoria (máx. 3 intentos).
 class IntegrationNotificationDispatcher {
-  IntegrationNotificationDispatcher();
+  IntegrationNotificationDispatcher({IntegrationWebhookTransport? transport})
+    : _transport = transport ?? IntegrationWebhookTransport();
+
+  final IntegrationWebhookTransport _transport;
 
   static const _maxAttempts = 3;
   static const _backoff = <Duration>[
@@ -56,7 +69,7 @@ class IntegrationNotificationDispatcher {
     List<DiscordConnection> discordConnections = const [],
     required String message,
   }) {
-    _enqueue(
+    _dispatch(
       slackConnections: slackConnections.where((c) => c.notifyOnStatusChange),
       teamsConnections: teamsConnections.where((c) => c.notifyOnStatusChange),
       discordConnections:
@@ -71,7 +84,7 @@ class IntegrationNotificationDispatcher {
     List<DiscordConnection> discordConnections = const [],
     required String message,
   }) {
-    _enqueue(
+    _dispatch(
       slackConnections: slackConnections.where((c) => c.notifyOnNewTask),
       teamsConnections: teamsConnections.where((c) => c.notifyOnNewTask),
       discordConnections: discordConnections.where((c) => c.notifyOnNewTask),
@@ -85,7 +98,7 @@ class IntegrationNotificationDispatcher {
     List<DiscordConnection> discordConnections = const [],
     required String message,
   }) {
-    _enqueue(
+    _dispatch(
       slackConnections: slackConnections.where((c) => c.notifyOnComment),
       teamsConnections: teamsConnections.where((c) => c.notifyOnComment),
       discordConnections: discordConnections.where((c) => c.notifyOnComment),
@@ -99,55 +112,157 @@ class IntegrationNotificationDispatcher {
     _queue.clear();
   }
 
+  void _dispatch({
+    required Iterable<SlackConnection> slackConnections,
+    required Iterable<TeamsConnection> teamsConnections,
+    required Iterable<DiscordConnection> discordConnections,
+    required String text,
+  }) {
+    for (final c in slackConnections) {
+      if (c.hasWebhook) {
+        unawaited(
+          _enqueueServerSide(
+            provider: 'slack',
+            connectionId: c.id,
+            webhookUrl: c.webhookUrl,
+            payload: {'text': text},
+          ),
+        );
+      } else {
+        _enqueueLocalFallback(
+          provider: 'slack',
+          connectionId: c.id,
+          text: text,
+          slack: c,
+        );
+      }
+    }
+    for (final c in teamsConnections) {
+      if (c.hasWebhook) {
+        unawaited(
+          _enqueueServerSide(
+            provider: 'teams',
+            connectionId: c.id,
+            webhookUrl: c.webhookUrl,
+            payload: _teamsAdaptiveCard(text),
+          ),
+        );
+      } else {
+        _enqueueLocalFallback(
+          provider: 'teams',
+          connectionId: c.id,
+          text: text,
+          teams: c,
+        );
+      }
+    }
+    for (final c in discordConnections) {
+      // Discord solo soporta Incoming Webhook en este cliente (ver
+      // DiscordApiClient) — siempre hasWebhook.
+      unawaited(
+        _enqueueServerSide(
+          provider: 'discord',
+          connectionId: c.id,
+          webhookUrl: c.webhookUrl,
+          payload: {'content': text},
+        ),
+      );
+    }
+  }
+
+  static Map<String, Object?> _teamsAdaptiveCard(String text) => {
+    'type': 'message',
+    'attachments': [
+      {
+        'contentType': 'application/vnd.microsoft.card.adaptive',
+        'content': {
+          r'$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+          'type': 'AdaptiveCard',
+          'version': '1.4',
+          'body': [
+            {'type': 'TextBlock', 'text': text, 'wrap': true},
+          ],
+        },
+      },
+    ],
+  };
+
+  Future<void> _enqueueServerSide({
+    required String provider,
+    required String connectionId,
+    required String webhookUrl,
+    required Map<String, Object?> payload,
+  }) async {
+    Future<void> callEnqueue() => callFolioHttpsCallable(
+      'folioEnqueueIntegrationNotification',
+      {'provider': provider, 'connectionId': connectionId, 'payload': payload},
+    );
+    try {
+      await callEnqueue();
+    } on FolioCloudException catch (e) {
+      // La conexión puede no estar registrada server-side todavía (creada
+      // antes de que el registro fuera multiplataforma, o primera vez que se
+      // usa) — auto-sana registrándola y reintentando una vez, mismo patrón
+      // que IntegrationWebhookTransport.postJson en Web.
+      if (e.code.toLowerCase() != 'not-found') {
+        AppLogger.warn(
+          '$provider notification enqueue failed',
+          tag: provider,
+          context: {'connectionId': connectionId, 'error': '$e'},
+        );
+        return;
+      }
+      try {
+        await _transport.registerConnection(
+          provider: provider,
+          connectionId: connectionId,
+          webhookUrl: webhookUrl,
+        );
+        await callEnqueue();
+      } catch (e2) {
+        AppLogger.warn(
+          '$provider notification enqueue failed after re-register',
+          tag: provider,
+          context: {'connectionId': connectionId, 'error': '$e2'},
+        );
+      }
+    } catch (e) {
+      AppLogger.warn(
+        '$provider notification enqueue failed',
+        tag: provider,
+        context: {'connectionId': connectionId, 'error': '$e'},
+      );
+    }
+  }
+
+  // --- Fallback en memoria para conexiones sin webhook (Bot/Graph token) ---
+
   void _ensureTimer() {
     _timer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       unawaited(_flushDue());
     });
   }
 
-  void _enqueue({
-    required Iterable<SlackConnection> slackConnections,
-    required Iterable<TeamsConnection> teamsConnections,
-    required Iterable<DiscordConnection> discordConnections,
+  void _enqueueLocalFallback({
+    required String provider,
+    required String connectionId,
     required String text,
+    SlackConnection? slack,
+    TeamsConnection? teams,
+    DiscordConnection? discord,
   }) {
-    final now = DateTime.now().toUtc();
-    for (final c in slackConnections) {
-      _queue.add(
-        _PendingNotification(
-          provider: 'slack',
-          connectionId: c.id,
-          text: text,
-          attempts: 0,
-          nextAttemptAt: now,
-          slack: c,
-        ),
-      );
-    }
-    for (final c in teamsConnections) {
-      _queue.add(
-        _PendingNotification(
-          provider: 'teams',
-          connectionId: c.id,
-          text: text,
-          attempts: 0,
-          nextAttemptAt: now,
-          teams: c,
-        ),
-      );
-    }
-    for (final c in discordConnections) {
-      _queue.add(
-        _PendingNotification(
-          provider: 'discord',
-          connectionId: c.id,
-          text: text,
-          attempts: 0,
-          nextAttemptAt: now,
-          discord: c,
-        ),
-      );
-    }
+    _queue.add(
+      _PendingNotification(
+        provider: provider,
+        connectionId: connectionId,
+        text: text,
+        attempts: 0,
+        nextAttemptAt: DateTime.now().toUtc(),
+        slack: slack,
+        teams: teams,
+        discord: discord,
+      ),
+    );
     _ensureTimer();
     unawaited(_flushDue());
   }

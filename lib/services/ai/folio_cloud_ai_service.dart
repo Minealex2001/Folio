@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 
+import '../../config/folio_backend_config.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
+import '../folio_cloud/folio_cloud_http_client.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
 
@@ -106,19 +110,118 @@ class FolioCloudAiService implements AiService {
   @override
   bool get supportsNativeToolCalling => true;
 
-  // TODO(quill-tools): streaming real requiere un transporte distinto al de
-  // una Cloud Function `onCall` (que devuelve una única respuesta, no SSE) —
-  // deliberadamente fuera de alcance de la paridad de tool-calling. De
-  // momento emite el resultado completo como un único chunk final.
+  /// Streaming real vía SSE (`POST /api/v1/ai/complete-stream`) — antes esto
+  /// emitía un único chunk final porque el transporte era una Cloud Function
+  /// `onCall` (respuesta única, sin SSE); con el backend Spring de larga
+  /// duración ya no aplica esa limitación.
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
-    final result = await complete(request);
-    yield AiCompletionChunk(
-      textDelta: result.text,
-      isFinal: true,
-      usage: result.usage,
-      toolCalls: result.toolCalls,
-    );
+    if (!folioCloudHasSession()) {
+      throw StateError('Not signed in');
+    }
+    final token = await folioCloudBearerToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Not signed in');
+    }
+
+    final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete-stream');
+    final httpReq = http.Request('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Content-Type'] = 'application/json; charset=utf-8'
+      ..headers['Accept'] = 'text/event-stream'
+      ..body = jsonEncode(_buildCompletePayload(request));
+
+    http.StreamedResponse resp;
+    try {
+      resp = await folioCloudHttpClient.send(httpReq);
+    } catch (e) {
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(FolioCloudException(message: '$e', code: 'unavailable')),
+        functionsCode: 'unavailable',
+      );
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      final body = await resp.stream.bytesToString();
+      String message = 'HTTP ${resp.statusCode}';
+      String code = 'unavailable';
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          message = '${decoded['message'] ?? decoded['error'] ?? message}';
+          final status = decoded['status'] ?? decoded['error'];
+          if (status != null) code = '$status'.toLowerCase().replaceAll('_', '-');
+        }
+      } catch (_) {}
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(FolioCloudException(message: message, code: code)),
+        functionsCode: code,
+      );
+    }
+
+    String? currentEvent;
+    final lines = resp.stream.transform(utf8.decoder).transform(const LineSplitter());
+    await for (final line in lines) {
+      if (line.isEmpty) {
+        currentEvent = null;
+        continue;
+      }
+      if (line.startsWith('event:')) {
+        currentEvent = line.substring(6).trim();
+        continue;
+      }
+      if (!line.startsWith('data:')) continue;
+      final dataStr = line.substring(5).trim();
+      if (dataStr.isEmpty) continue;
+      final obj = jsonDecode(dataStr);
+      if (currentEvent == 'delta') {
+        final delta = obj is Map ? '${obj['textDelta'] ?? ''}' : '';
+        if (delta.isNotEmpty) {
+          yield AiCompletionChunk(textDelta: delta);
+        }
+      } else if (currentEvent == 'done') {
+        final toolCalls = obj is Map ? _parseToolCalls(obj['toolCalls']) : null;
+        final inkRaw = obj is Map ? obj['ink'] : null;
+        final ent = _entitlements;
+        if (inkRaw is Map && ent != null) {
+          final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+          final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+          if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+            ent.applyInkBalancesFromCloudAi(
+              monthlyBalance: monthly,
+              purchasedBalance: purchased,
+            );
+          }
+        }
+        yield AiCompletionChunk(isFinal: true, toolCalls: toolCalls);
+      }
+    }
+  }
+
+  Map<String, dynamic> _buildCompletePayload(AiCompletionRequest request) {
+    final hasStructured =
+        request.messages.isNotEmpty ||
+        (request.systemPrompt != null &&
+            request.systemPrompt!.trim().isNotEmpty) ||
+        request.responseSchema != null ||
+        request.temperature != null ||
+        request.maxTokens != null ||
+        request.tools.isNotEmpty;
+    return <String, dynamic>{
+      'prompt': (hasStructured ? request.prompt.trim() : _mergePrompt(request)),
+      'operationKind': request.cloudInkOperation ?? 'default',
+      if (request.systemPrompt != null && request.systemPrompt!.trim().isNotEmpty)
+        'systemPrompt': request.systemPrompt!.trim(),
+      if (request.messages.isNotEmpty)
+        'messages': request.messages.map(_encodeHistoryMessage).toList(),
+      if (request.responseSchema != null) 'responseSchema': request.responseSchema,
+      if (request.temperature != null) 'temperature': request.temperature,
+      if (request.maxTokens != null) 'maxTokens': request.maxTokens,
+      if (request.tools.isNotEmpty) ...{
+        'tools': request.tools.map((t) => t.toJsonSchema()).toList(),
+        'toolChoice': request.toolChoice ?? 'auto',
+      },
+    };
   }
 
   /// El turno actual del usuario ya va dentro de [AiCompletionRequest.prompt] (p. ej.
@@ -195,32 +298,9 @@ class FolioCloudAiService implements AiService {
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
     try {
-      final hasStructured =
-          request.messages.isNotEmpty ||
-          (request.systemPrompt != null &&
-              request.systemPrompt!.trim().isNotEmpty) ||
-          request.responseSchema != null ||
-          request.temperature != null ||
-          request.maxTokens != null ||
-          request.tools.isNotEmpty;
-      final payload = <String, dynamic>{
-        'prompt': (hasStructured ? request.prompt.trim() : _mergePrompt(request)),
-        'operationKind': request.cloudInkOperation ?? 'default',
-        if (request.systemPrompt != null && request.systemPrompt!.trim().isNotEmpty)
-          'systemPrompt': request.systemPrompt!.trim(),
-        if (request.messages.isNotEmpty)
-          'messages': request.messages.map(_encodeHistoryMessage).toList(),
-        if (request.responseSchema != null) 'responseSchema': request.responseSchema,
-        if (request.temperature != null) 'temperature': request.temperature,
-        if (request.maxTokens != null) 'maxTokens': request.maxTokens,
-        if (request.tools.isNotEmpty) ...{
-          'tools': request.tools.map((t) => t.toJsonSchema()).toList(),
-          'toolChoice': request.toolChoice ?? 'auto',
-        },
-      };
       final res = await callFolioHttpsCallable(
         'folioCloudAiComplete',
-        payload,
+        _buildCompletePayload(request),
       );
       final raw = res;
       final text = raw is Map ? '${raw['text'] ?? ''}' : '';

@@ -81,6 +81,9 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
     if (raw == 'collab_chat_spring_unavailable') {
       return l10n.collabChatSpringUnavailable;
     }
+    if (raw == 'collab_invite_user_not_found') {
+      return 'No se encontró ninguna cuenta verificada con ese email.';
+    }
     if (raw == 'collab_e2e_required') {
       return 'Esta sala no usa cifrado E2E y ha sido bloqueada. Crea una sala nueva para mantener el contenido cifrado.';
     }

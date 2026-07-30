@@ -14,8 +14,10 @@ import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
 import '../folio_cloud/folio_cloud_exception.dart';
 import '../folio_cloud/folio_cloud_identity.dart';
+import '../folio_cloud/folio_spring_users.dart';
 import 'collab_spring_api.dart';
 import 'collab_stomp_transport.dart';
+import 'presence/collab_presence_controller.dart';
 
 /// Mensaje de chat de sala (UI). En Spring el chat aún no está portado.
 @immutable
@@ -45,12 +47,21 @@ class CollabSessionController extends ChangeNotifier {
     CollabSpringApi? springApi,
     CollabStompTransport? stompTransport,
   }) : _springApi = springApi ?? CollabSpringApi(),
-       _stomp = stompTransport ?? CollabStompTransport();
+       _stomp = stompTransport ?? CollabStompTransport() {
+    presence = CollabPresenceController(
+      transport: _stomp,
+      localUidProvider: _currentUid,
+      localDisplayNameProvider: folioCloudCurrentDisplayName,
+    );
+  }
 
   final VaultSession vaultSession;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final CollabSpringApi _springApi;
   final CollabStompTransport _stomp;
+
+  /// Presencia/cursores en vivo de la sala actualmente adjunta (ver [attach]).
+  late final CollabPresenceController presence;
 
   String? _pageId;
   String? _roomId;
@@ -217,9 +228,12 @@ class CollabSessionController extends ChangeNotifier {
     if (!isAttached || _roomId == null) return;
     try {
       await _fetchSpringRoomAndApply();
+      unawaited(_fetchInitialChatHistory());
       await _stomp.connect(
         roomId: _roomId!,
         onRoomUpdate: (json) => unawaited(_handleSpringTopicPayload(json)),
+        onPresence: presence.handleIncoming,
+        onChat: (json) => unawaited(_handleChatPayload(json)),
         onError: (json) {
           final msg = json['message']?.toString() ?? json['error']?.toString();
           if (msg != null && msg.isNotEmpty) {
@@ -227,6 +241,7 @@ class CollabSessionController extends ChangeNotifier {
             notifyListeners();
           }
         },
+        onConnected: () => presence.attach(_roomId!),
       );
     } catch (e) {
       _handleCollabError(e);
@@ -241,6 +256,7 @@ class CollabSessionController extends ChangeNotifier {
     if (vl != null) {
       vaultSession.removeListener(vl);
     }
+    presence.detach();
     unawaited(_stomp.disconnect());
     _pageId = null;
     _roomId = null;
@@ -257,6 +273,7 @@ class CollabSessionController extends ChangeNotifier {
   @override
   void dispose() {
     detach();
+    presence.dispose();
     super.dispose();
   }
 
@@ -509,7 +526,91 @@ class CollabSessionController extends ChangeNotifier {
   Future<void> sendChatMessage(String text) async {
     final t = text.trim();
     if (t.isEmpty || !isAttached) return;
-    _setErrorCode('collab_chat_spring_unavailable');
+    final key = _roomKey;
+    if (key == null) {
+      _setErrorCode('collab_needs_join_code');
+      return;
+    }
+    final uid = _currentUid();
+    if (uid == null) return;
+    final displayName = folioCloudCurrentDisplayName()?.trim();
+    try {
+      final cipher = await CollabE2eCrypto.encryptChatMessageB64(
+        authorName: (displayName == null || displayName.isEmpty)
+            ? uid
+            : displayName,
+        text: t,
+        roomKey: key,
+      );
+      try {
+        _stomp.sendChatMessage(_roomId!, cipher);
+      } catch (_) {
+        await _springApi.postChatMessage(_roomId!, cipher);
+      }
+      // No se agrega optimistamente: el servidor retransmite el mensaje a
+      // todos los suscriptores del topic (incluido el remitente), y
+      // _handleChatPayload lo añade cuando llegue.
+    } catch (e) {
+      _handleCollabError(e);
+    }
+  }
+
+  /// Carga el historial de chat (best-effort, no bloquea la conexión de
+  /// contenido) al adjuntar la sala. Requiere la room key ya resuelta por
+  /// [_fetchSpringRoomAndApply]; si aún no hay join code, simplemente no
+  /// carga historial (igual que el contenido en ese mismo caso).
+  Future<void> _fetchInitialChatHistory() async {
+    if (!isAttached || _roomId == null) return;
+    final key = _roomKey;
+    if (key == null) return;
+    try {
+      final rows = await _springApi.getChatHistory(_roomId!);
+      final decoded = <CollabChatMessageView>[];
+      for (final row in rows) {
+        final view = await _decodeChatRow(row, key);
+        if (view != null) decoded.add(view);
+      }
+      _messages
+        ..clear()
+        ..addAll(decoded);
+      notifyListeners();
+    } catch (_) {
+      // Historial de chat es best-effort; falla silenciosamente.
+    }
+  }
+
+  Future<void> _handleChatPayload(Map<String, dynamic> json) async {
+    if (!isAttached) return;
+    final key = _roomKey;
+    if (key == null) return;
+    final view = await _decodeChatRow(json, key);
+    if (view == null) return;
+    if (_messages.any((m) => m.id == view.id)) return;
+    _messages.add(view);
+    notifyListeners();
+  }
+
+  Future<CollabChatMessageView?> _decodeChatRow(
+    Map<String, dynamic> row,
+    SecretKey roomKey,
+  ) async {
+    final cipher = row['contentCipher'] as String?;
+    if (cipher == null || cipher.isEmpty) return null;
+    try {
+      final dec = await CollabE2eCrypto.decryptChatMessageB64(
+        cipherB64: cipher,
+        roomKey: roomKey,
+      );
+      return CollabChatMessageView(
+        id: '${row['id'] ?? ''}',
+        authorUid: '${row['authorUid'] ?? ''}',
+        authorName: dec.authorName,
+        text: dec.text,
+        createdAtMs: (row['createdAtMs'] as num?)?.toInt() ?? 0,
+      );
+    } on CollabE2eException {
+      return null; // mensaje ilegible (room key distinta / corrupción).
+    }
   }
 
   Future<String?> createRoomForPage(String pageId) async {
@@ -521,7 +622,7 @@ class CollabSessionController extends ChangeNotifier {
     }
     try {
       final res = await callFolioHttpsCallable('createCollabRoom', {
-        'pageId': pageId,
+        'vaultPageId': pageId,
       });
       if (res is! Map) return null;
       final roomId = res['roomId']?.toString();
@@ -539,12 +640,22 @@ class CollabSessionController extends ChangeNotifier {
     }
   }
 
+  /// El backend solo acepta invitar por [memberUid] (no email), así que primero
+  /// se resuelve el email a uid vía `/api/v1/users/lookup` (solo cuentas
+  /// verificadas y activas; ver `UserLookupService`).
   Future<void> inviteMember(String email) async {
     if (_roomId == null) return;
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return;
     try {
+      final memberUid = await folioSpringLookupUserUidByEmail(trimmed);
+      if (memberUid == null) {
+        _setErrorCode('collab_invite_user_not_found');
+        return;
+      }
       await callFolioHttpsCallable('inviteCollabMember', {
         'roomId': _roomId,
-        'email': email.trim(),
+        'memberUid': memberUid,
       });
     } catch (e) {
       _handleCollabError(e);
@@ -564,7 +675,7 @@ class CollabSessionController extends ChangeNotifier {
       } else {
         await callFolioHttpsCallable('removeCollabMember', {
           'roomId': roomId,
-          'uid': uid,
+          'memberUid': uid,
         });
       }
     } catch (e) {
@@ -576,14 +687,28 @@ class CollabSessionController extends ChangeNotifier {
   }
 
   Future<void> archiveChatToVault() async {
-    // Chat no disponible en Spring.
+    if (!isAttached || _pageId == null || _messages.isEmpty) return;
+    vaultSession.archiveCollabChatToComments(
+      pageId: _pageId!,
+      messages: _messages
+          .map(
+            (m) => (
+              messageId: m.id,
+              authorUid: m.authorUid,
+              authorName: m.authorName,
+              text: m.text,
+              createdAtMs: m.createdAtMs,
+            ),
+          )
+          .toList(),
+    );
   }
 
   Future<bool> joinRoomByCode(String code) async {
     if (!folioCloudHasSession()) return false;
     try {
       final res = await callFolioHttpsCallable('joinCollabRoomByCode', {
-        'code': code.trim(),
+        'joinCode': code.trim(),
       });
       if (res is! Map) return false;
       final roomId = res['roomId']?.toString();

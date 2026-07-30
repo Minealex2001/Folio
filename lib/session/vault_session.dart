@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 
 import '../application/page_tree_controller.dart';
 import '../application/vault_ai_controller.dart';
+import '../application/vault_collab_controller.dart';
 import '../application/vault_persistence_controller.dart';
 import '../application/vault_search_index.dart';
 import '../core/errors/vault_corruption_exception.dart';
@@ -337,6 +338,15 @@ class VaultSession extends ChangeNotifier {
       selectedIdUpdater: (id) => _selectedPageId = id,
     );
     _aiController = VaultAiController()..initializeThreads(_aiChatThreads);
+    _collab = VaultCollabController(
+      pageProvider: _pageById,
+      scheduleSave: scheduleSave,
+      canMutateEncryptedContent: () => !vaultUsesEncryption || _dek != null,
+      bumpContentEpoch: () => _contentEpoch++,
+      commentsProvider: () => _comments,
+      addComment: (comment) => _comments.add(comment),
+    );
+    _collab.addListener(_notifySessionListeners);
   }
 
   /// Idioma para títulos por defecto (páginas nuevas, chats). Actualizar al cambiar el idioma de la app.
@@ -425,6 +435,7 @@ class VaultSession extends ChangeNotifier {
   final VaultSearchIndex _searchIndex = VaultSearchIndex();
   late final PageTreeController _pageTree;
   late final VaultAiController _aiController;
+  late final VaultCollabController _collab;
   String _syncBaselineFingerprint = '';
   VaultPayload? _syncBaselinePayload;
   int _syncPendingConflicts = 0;
@@ -561,6 +572,8 @@ class VaultSession extends ChangeNotifier {
   PageTreeController get pageTree => _pageTree;
 
   VaultAiController get aiController => _aiController;
+
+  VaultCollabController get collab => _collab;
 
   VaultSearchIndex get searchIndex => _searchIndex;
 
@@ -4656,52 +4669,31 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  // Las siguientes cuatro delegan a [VaultCollabController] (ver getter
+  // [collab]); permanecen aquí como forwarders porque la UI existente
+  // escucha esta instancia de VaultSession directamente, no al sub-controller
+  // (mismo patrón que [pageTree]/[persistence]).
+
   void setPageCollabRoomId(String pageId, String? roomId, {String? joinCode}) {
-    final p = _pageById(pageId);
-    if (p == null) return;
-    final next = roomId?.trim();
-    p.collabRoomId = (next == null || next.isEmpty) ? null : next;
-    if (p.collabRoomId == null) {
-      p.collabJoinCode = null;
-    } else if (joinCode != null) {
-      final c = joinCode.trim();
-      p.collabJoinCode = c.isEmpty ? null : c;
-    }
-    notifyListeners();
-    scheduleSave();
+    _collab.setPageCollabRoomId(pageId, roomId, joinCode: joinCode);
   }
 
   void setPageCollabJoinCode(String pageId, String? joinCode) {
-    final p = _pageById(pageId);
-    if (p == null) return;
-    final c = joinCode?.trim();
-    p.collabJoinCode = (c == null || c.isEmpty) ? null : c;
-    notifyListeners();
-    scheduleSave();
+    _collab.setPageCollabJoinCode(pageId, joinCode);
   }
 
-  /// Aplica estado remoto de colaboración (sin deshacer local explícito).
-  ///
-  /// Sustituye título y bloques por el snapshot remoto. Si el par remoto
-  /// está desactualizado, un bloque de texto (p. ej. cita) puede verse vacío
-  /// hasta la siguiente sincronización; el editor alineará controladores en
-  /// el siguiente frame.
   void applyRemoteCollabPageState({
     required String pageId,
     required String title,
     required List<FolioBlock> blocks,
   }) {
-    if (vaultUsesEncryption && _dek == null) return;
-    final page = _pageById(pageId);
-    if (page == null) return;
-    page.title = title;
-    page.blocks = blocks;
-    _contentEpoch++;
-    notifyListeners();
-    scheduleSave(trackRevisionForPageId: pageId);
+    _collab.applyRemoteCollabPageState(
+      pageId: pageId,
+      title: title,
+      blocks: blocks,
+    );
   }
 
-  /// Archiva mensajes del chat de colaboración como comentarios locales de la página.
   void archiveCollabChatToComments({
     required String pageId,
     required List<
@@ -4715,29 +4707,7 @@ class VaultSession extends ChangeNotifier {
     >
     messages,
   }) {
-    if (vaultUsesEncryption && _dek == null) return;
-    if (_pageById(pageId) == null) return;
-    final existing = _comments
-        .where((c) => c.pageId == pageId)
-        .map((c) => c.collabMessageId)
-        .whereType<String>()
-        .toSet();
-    for (final m in messages) {
-      if (existing.contains(m.messageId)) continue;
-      _comments.add(
-        LocalPageComment(
-          id: _uuid.v4(),
-          pageId: pageId,
-          authorProfileId: m.authorUid,
-          text: m.text,
-          createdAtMs: m.createdAtMs,
-          collabMessageId: m.messageId,
-          authorDisplayName: m.authorName,
-        ),
-      );
-    }
-    notifyListeners();
-    scheduleSave();
+    _collab.archiveCollabChatToComments(pageId: pageId, messages: messages);
   }
 
   void addComment({

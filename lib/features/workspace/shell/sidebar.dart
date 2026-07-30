@@ -16,6 +16,7 @@ import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../app/widgets/folio_interactions.dart';
 import '../recent_page_visits.dart';
+import '../templates/template_categories.dart';
 import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
@@ -270,19 +271,24 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _toggleExpandCollapseAll() {
-    final pagesWithChildren = session.activePages.where((p) {
-      final childCounts = <String, int>{};
-      for (final pg in session.activePages) {
-        final pid = pg.parentId;
-        if (pid != null) {
-          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
-        }
-      }
-      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
-    }).map((p) => p.id).toSet();
+    final pagesWithChildren = session.activePages
+        .where((p) {
+          final childCounts = <String, int>{};
+          for (final pg in session.activePages) {
+            final pid = pg.parentId;
+            if (pid != null) {
+              childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+            }
+          }
+          return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+        })
+        .map((p) => p.id)
+        .toSet();
 
     setState(() {
-      final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+      final allCollapsed = pagesWithChildren.every(
+        (id) => _collapsedPageIds.contains(id),
+      );
       if (allCollapsed) {
         _collapsedPageIds.clear();
       } else {
@@ -425,7 +431,7 @@ class _SidebarState extends State<Sidebar> {
     final l10n = AppLocalizations.of(context);
     String name = page.title.isNotEmpty ? page.title : l10n.untitledFallback;
     String description = '';
-    String category = '';
+    String category = kFolioTemplateCategoryOther;
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -450,11 +456,22 @@ class _SidebarState extends State<Sidebar> {
                   onChanged: (v) => description = v,
                 ),
                 const SizedBox(height: 8),
-                TextField(
+                DropdownButtonFormField<String>(
+                  initialValue: category,
                   decoration: InputDecoration(
                     labelText: l10n.templateCategoryHint,
                   ),
-                  onChanged: (v) => category = v,
+                  items: [
+                    for (final categoryId in kFolioTemplateCategoryIds)
+                      DropdownMenuItem(
+                        value: categoryId,
+                        child: Text(templateCategoryLabel(l10n, categoryId)),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setSt(() => category = v);
+                  },
                 ),
               ],
             ),
@@ -549,9 +566,7 @@ class _SidebarState extends State<Sidebar> {
   }
 
   /// Mismo patrón que exportar página: [showMenu] anclado + [BlockEditorFloatingPanel].
-  Future<void> _showDeletePageConfirmMenu(
-    FolioPage page,
-  ) async {
+  Future<void> _showDeletePageConfirmMenu(FolioPage page) async {
     try {
       final hasChildren = _hasChildrenById[page.id] ?? false;
       final isFolderWithChildren = page.isFolder && hasChildren;
@@ -737,17 +752,22 @@ class _SidebarState extends State<Sidebar> {
     );
     _hasChildrenById = visible.hasChildrenById;
 
-    final pagesWithChildren = session.activePages.where((p) {
-      final childCounts = <String, int>{};
-      for (final pg in session.activePages) {
-        final pid = pg.parentId;
-        if (pid != null) {
-          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
-        }
-      }
-      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
-    }).map((p) => p.id).toSet();
-    final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+    final pagesWithChildren = session.activePages
+        .where((p) {
+          final childCounts = <String, int>{};
+          for (final pg in session.activePages) {
+            final pid = pg.parentId;
+            if (pid != null) {
+              childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+            }
+          }
+          return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+        })
+        .map((p) => p.id)
+        .toSet();
+    final allCollapsed = pagesWithChildren.every(
+      (id) => _collapsedPageIds.contains(id),
+    );
     final trashCount = session.trashedPages.length;
 
     return LayoutBuilder(
@@ -766,14 +786,12 @@ class _SidebarState extends State<Sidebar> {
               vaults: _vaults,
               loading: _vaultsLoading,
               activeVaultId: session.activeVaultId,
-              onSwitchVault: (vaultId) => unawaited(_confirmSwitchVault(vaultId)),
+              onSwitchVault: (vaultId) =>
+                  unawaited(_confirmSwitchVault(vaultId)),
               onAddVault: () => unawaited(_addVault()),
               onRenameVault: () => unawaited(_renameActiveVault()),
               onShareVault: () => unawaited(
-                showVaultShareSheet(
-                  context: context,
-                  session: session,
-                ),
+                showVaultShareSheet(context: context, session: session),
               ),
             ),
             if (showDeskTools)
@@ -799,12 +817,18 @@ class _SidebarState extends State<Sidebar> {
                             borderRadius: BorderRadius.circular(FolioRadius.md),
                             child: InkWell(
                               onTap: widget.onSearch,
-                              borderRadius: BorderRadius.circular(FolioRadius.md),
+                              borderRadius: BorderRadius.circular(
+                                FolioRadius.md,
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                                  borderRadius: BorderRadius.circular(
+                                    FolioRadius.md,
+                                  ),
                                   border: Border.all(
-                                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: 0.3,
+                                    ),
                                   ),
                                 ),
                                 padding: const EdgeInsets.symmetric(
@@ -857,7 +881,8 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 ),
               ),
-            if (widget.onQuickAddTask != null || widget.onOpenVaultTaskHub != null)
+            if (widget.onQuickAddTask != null ||
+                widget.onOpenVaultTaskHub != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   FolioSpace.sm,
@@ -890,8 +915,11 @@ class _SidebarState extends State<Sidebar> {
               recentVisits: _recentVisits,
               onSelectPage: session.selectPage,
               onToggleCollapsed: () {
-                final next = !widget.appSettings.workspaceSidebarRecentPagesCollapsed;
-                widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(next);
+                final next =
+                    !widget.appSettings.workspaceSidebarRecentPagesCollapsed;
+                widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(
+                  next,
+                );
                 setState(() {});
               },
             ),
@@ -917,7 +945,9 @@ class _SidebarState extends State<Sidebar> {
                   ),
                   IconButton(
                     icon: Icon(
-                      allCollapsed ? Icons.unfold_more_rounded : Icons.unfold_less_rounded,
+                      allCollapsed
+                          ? Icons.unfold_more_rounded
+                          : Icons.unfold_less_rounded,
                       size: 20,
                     ),
                     tooltip: allCollapsed ? l10n.aiExpand : l10n.aiCollapse,
@@ -951,16 +981,24 @@ class _SidebarState extends State<Sidebar> {
                     color: scheme.surfaceContainerHighest,
                     onSelected: (value) {
                       if (value == 'show_recents') {
-                        final next = !widget.appSettings.workspaceSidebarShowRecentPages;
-                        widget.appSettings.setWorkspaceSidebarShowRecentPages(next);
+                        final next =
+                            !widget.appSettings.workspaceSidebarShowRecentPages;
+                        widget.appSettings.setWorkspaceSidebarShowRecentPages(
+                          next,
+                        );
                         setState(() {});
                       }
                     },
                     itemBuilder: (context) => [
                       CheckedPopupMenuItem(
                         value: 'show_recents',
-                        checked: widget.appSettings.workspaceSidebarShowRecentPages,
-                        child: Text(AppLocalizations.of(context).workspaceRecentPagesSectionTitle),
+                        checked:
+                            widget.appSettings.workspaceSidebarShowRecentPages,
+                        child: Text(
+                          AppLocalizations.of(
+                            context,
+                          ).workspaceRecentPagesSectionTitle,
+                        ),
                       ),
                     ],
                   ),
@@ -1020,11 +1058,11 @@ class _SidebarState extends State<Sidebar> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(FolioRadius.xl),
                         border: hoveringRoot
-                          ? Border.all(
-                              color: scheme.primary.withValues(alpha: 0.25),
-                              width: 2,
-                            )
-                          : null,
+                            ? Border.all(
+                                color: scheme.primary.withValues(alpha: 0.25),
+                                width: 2,
+                              )
+                            : null,
                       ),
                       child: visible.rows.isEmpty && _selectedTagFilter != null
                           ? FadingEmptyState(

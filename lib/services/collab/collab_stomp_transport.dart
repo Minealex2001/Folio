@@ -14,13 +14,23 @@ typedef CollabStompJsonHandler = void Function(Map<String, dynamic> json);
 ///
 /// Protocolo:
 /// - CONNECT con `Authorization: Bearer <JWT>` (o header `token`)
-/// - SUBSCRIBE `/topic/collab/{roomId}`
+/// - SUBSCRIBE `/topic/collab/{roomId}` (contenido)
+/// - SUBSCRIBE `/topic/collab/{roomId}/presence` (presencia/cursores, efímero)
+/// - SUBSCRIBE `/topic/collab/{roomId}/chat` (chat de sala)
 /// - SUBSCRIBE `/user/queue/collab-errors`
 /// - SEND `/app/collab/{roomId}/update` (JSON CollabRoomUpdateRequest)
+/// - SEND `/app/collab/{roomId}/presence` y `/app/collab/{roomId}/presence/leave`
+/// - SEND `/app/collab/{roomId}/chat`
+///
+/// Presencia usa un topic separado del de contenido (no un switch por `type`
+/// sobre el mismo topic) porque tiene un ciclo de vida distinto: efímero,
+/// sin escritura en DB, y con su propio throttle. Ver plan de colaboración.
 class CollabStompTransport {
   StompClient? _client;
   String? _roomId;
   CollabStompJsonHandler? _onRoomUpdate;
+  CollabStompJsonHandler? _onPresence;
+  CollabStompJsonHandler? _onChat;
   CollabStompJsonHandler? _onError;
   VoidCallback? _onConnected;
   bool _active = false;
@@ -32,12 +42,16 @@ class CollabStompTransport {
   Future<void> connect({
     required String roomId,
     required CollabStompJsonHandler onRoomUpdate,
+    CollabStompJsonHandler? onPresence,
+    CollabStompJsonHandler? onChat,
     CollabStompJsonHandler? onError,
     VoidCallback? onConnected,
   }) async {
     await disconnect();
     _roomId = roomId;
     _onRoomUpdate = onRoomUpdate;
+    _onPresence = onPresence;
+    _onChat = onChat;
     _onError = onError;
     _onConnected = onConnected;
     _active = true;
@@ -136,6 +150,22 @@ class CollabStompTransport {
       },
     );
     client.subscribe(
+      destination: '/topic/collab/$roomId/presence',
+      callback: (frame) {
+        final map = _parseJson(frame.body);
+        if (map == null) return;
+        _onPresence?.call(map);
+      },
+    );
+    client.subscribe(
+      destination: '/topic/collab/$roomId/chat',
+      callback: (frame) {
+        final map = _parseJson(frame.body);
+        if (map == null) return;
+        _onChat?.call(map);
+      },
+    );
+    client.subscribe(
       destination: '/user/queue/collab-errors',
       callback: (frame) {
         final map = _parseJson(frame.body);
@@ -176,12 +206,49 @@ class CollabStompTransport {
     );
   }
 
+  /// SEND mensaje de chat (contentCipher ya cifrado E2E por el llamador).
+  void sendChatMessage(String roomId, String contentCipher) {
+    final client = _client;
+    if (client == null || !client.connected) {
+      throw StateError('stomp_not_connected');
+    }
+    client.send(
+      destination: '/app/collab/$roomId/chat',
+      body: jsonEncode({'contentCipher': contentCipher}),
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+
+  /// SEND heartbeat/actualización de presencia y cursor (sin cifrar, efímero).
+  void sendPresenceUpdate(String roomId, Map<String, dynamic> body) {
+    final client = _client;
+    if (client == null || !client.connected) return;
+    client.send(
+      destination: '/app/collab/$roomId/presence',
+      body: jsonEncode(body),
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+
+  /// SEND anuncio explícito de salida de presencia (cierre limpio de la vista).
+  void sendPresenceLeave(String roomId, Map<String, dynamic> body) {
+    final client = _client;
+    if (client == null || !client.connected) return;
+    client.send(
+      destination: '/app/collab/$roomId/presence/leave',
+      body: jsonEncode(body),
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+
   Future<void> disconnect() async {
     _active = false;
     final client = _client;
     _client = null;
     _roomId = null;
     _onRoomUpdate = null;
+    _onPresence = null;
+    _onChat = null;
     _onError = null;
     _onConnected = null;
     final c = _connectCompleter;
