@@ -8,8 +8,11 @@ import '../../config/folio_backend_config.dart';
 import '../../crypto/vault_share_crypto.dart';
 import '../../models/folio_page.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_http_client.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_spring_storage.dart';
+
+const Duration _kVaultShareTimeout = Duration(seconds: 30);
 
 class VaultPublicShareState {
   const VaultPublicShareState({
@@ -114,10 +117,10 @@ Future<http.Response> _authorized(
   Future<http.Response> Function(Map<String, String> headers) send,
 ) async {
   var headers = await _authHeaders();
-  var res = await send(headers);
+  var res = await send(headers).timeout(_kVaultShareTimeout);
   if (res.statusCode == 401) {
     headers = await _authHeaders(forceRefresh: true);
-    res = await send(headers);
+    res = await send(headers).timeout(_kVaultShareTimeout);
   }
   return res;
 }
@@ -201,7 +204,7 @@ Future<VaultPublicShareState> enableVaultPublicShare({
     );
   }
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/public/enable'),
       headers: h,
       body: jsonEncode({'vaultId': vaultId, 'displayName': displayName}),
@@ -213,7 +216,7 @@ Future<VaultPublicShareState> enableVaultPublicShare({
 
 Future<VaultPublicShareState> fetchVaultPublicShareMine(String vaultId) async {
   final res = await _authorized(
-    (h) => http.get(
+    (h) => folioCloudHttpClient.get(
       Uri.parse(
         '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/mine?vaultId=${Uri.encodeQueryComponent(vaultId)}',
       ),
@@ -226,31 +229,35 @@ Future<VaultPublicShareState> fetchVaultPublicShareMine(String vaultId) async {
 
 /// Meta pública (sin auth) — viewer web `/s/{token}`.
 Future<Map<String, dynamic>> fetchVaultPublicMetaUnauthed(String token) async {
-  final res = await http.get(
-    Uri.parse(
-      '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}',
-    ),
-    headers: const {'Accept': 'application/json'},
-  );
+  final res = await folioCloudHttpClient
+      .get(
+        Uri.parse(
+          '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}',
+        ),
+        headers: const {'Accept': 'application/json'},
+      )
+      .timeout(_kVaultShareTimeout);
   _ensureOk(res);
   return _decodeMap(res.body);
 }
 
 /// Contenido del view-pack público (sin auth).
 Future<Map<String, dynamic>> fetchVaultPublicContentUnauthed(String token) async {
-  final res = await http.get(
-    Uri.parse(
-      '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}/content',
-    ),
-    headers: const {'Accept': 'application/json'},
-  );
+  final res = await folioCloudHttpClient
+      .get(
+        Uri.parse(
+          '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}/content',
+        ),
+        headers: const {'Accept': 'application/json'},
+      )
+      .timeout(_kVaultShareTimeout);
   _ensureOk(res);
   return _decodeMap(res.body);
 }
 
 Future<void> revokeVaultPublicShare(String vaultId) async {
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/public/revoke'),
       headers: h,
       body: jsonEncode({'vaultId': vaultId}),
@@ -271,7 +278,7 @@ Future<VaultPublicShareState> publishVaultPublicViewContent({
   await folioSpringStoragePutData('$prefix/view.json', bytes);
 
   final res = await _authorized(
-    (h) => http.put(
+    (h) => folioCloudHttpClient.put(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/public/content'),
       headers: h,
       body: jsonEncode({
@@ -325,7 +332,7 @@ Future<VaultMemberInviteResult> inviteVaultMember({
     vaultId: vaultId,
   );
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/members/invite'),
       headers: h,
       body: jsonEncode({
@@ -352,7 +359,7 @@ Future<Map<String, dynamic>> acceptVaultShare({
   required String shareCode,
 }) async {
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/members/accept'),
       headers: h,
       body: jsonEncode({'shareId': shareId, 'shareCode': shareCode}),
@@ -367,7 +374,7 @@ Future<void> leaveSharedVault({
   required String ownerUid,
 }) async {
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/members/leave'),
       headers: h,
       body: jsonEncode({'vaultId': vaultId, 'ownerUid': ownerUid}),
@@ -381,7 +388,7 @@ Future<void> removeVaultMember({
   required String membershipId,
 }) async {
   final res = await _authorized(
-    (h) => http.post(
+    (h) => folioCloudHttpClient.post(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/members/remove'),
       headers: h,
       body: jsonEncode({'vaultId': vaultId, 'membershipId': membershipId}),
@@ -392,7 +399,7 @@ Future<void> removeVaultMember({
 
 Future<List<Map<String, dynamic>>> listVaultMembers(String vaultId) async {
   final res = await _authorized(
-    (h) => http.get(
+    (h) => folioCloudHttpClient.get(
       Uri.parse(
         '${FolioBackendConfig.apiV1Prefix}/vault-shares/members?vaultId=${Uri.encodeQueryComponent(vaultId)}',
       ),
@@ -412,7 +419,7 @@ Future<List<Map<String, dynamic>>> listVaultMembers(String vaultId) async {
 Future<({List<VaultSharedWithMeEntry> vaults, List<Map<String, dynamic>> pending})>
     fetchSharedWithMe() async {
   final res = await _authorized(
-    (h) => http.get(
+    (h) => folioCloudHttpClient.get(
       Uri.parse('${FolioBackendConfig.apiV1Prefix}/vault-shares/shared-with-me'),
       headers: h,
     ),

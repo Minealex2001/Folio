@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import '../../config/folio_backend_config.dart';
+import 'folio_cloud_http_client.dart';
 import 'folio_cloud_identity.dart';
-import 'package:http/http.dart' as http;
 
 /// GET `/api/v1/account/me` → mapa compatible con `FolioCloudSnapshot.fromUserDoc`.
 Future<Map<String, dynamic>?> folioSpringFetchAccountMeAsUserDoc({
@@ -16,7 +16,7 @@ Future<Map<String, dynamic>?> folioSpringFetchAccountMeAsUserDoc({
     if (token == null || token.isEmpty) return null;
 
     final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/account/me');
-    final res = await http
+    final res = await folioCloudHttpClient
         .get(
           uri,
           headers: {

@@ -51,8 +51,10 @@ import '../../../services/folio_cloud/folio_cloud_catalog_prices.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_settings_sync.dart';
+import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
+import '../../folio_cloud/folio_cloud_status_banner.dart';
 import '../../sync/cloud_device_sync_status_button.dart';
 import '../../sync/sync_conflict_merge_sheet.dart';
 import '../../../services/folio_cloud/folio_page_pdf_export.dart';
@@ -107,6 +109,7 @@ class WorkspacePage extends StatefulWidget {
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
+    this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -118,6 +121,7 @@ class WorkspacePage extends StatefulWidget {
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
+  final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -1485,6 +1489,39 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _useQuillTourPrompt(l10n.workspaceHomeAiTasksPrompt(body));
   }
 
+  Widget? _buildTopBanners(ColorScheme scheme, AppLocalizations l10n) {
+    final statusCtrl = widget.cloudStatusController;
+    final showBeta = widget.appSettings.shouldShowBetaBanner;
+    if (statusCtrl == null) {
+      return showBeta ? _buildBetaBanner(scheme, l10n) : null;
+    }
+    return ListenableBuilder(
+      listenable: statusCtrl,
+      builder: (context, _) {
+        final showStatus = statusCtrl.bannerVisible;
+        if (!showStatus && !showBeta) return const SizedBox.shrink();
+        final statusBanner = showStatus
+            ? FolioCloudStatusBanner(
+                controller: statusCtrl,
+                onOpenDetails: () => _openSettings(initialSection: 'cloud'),
+              )
+            : null;
+        if (statusBanner != null && showBeta) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              statusBanner,
+              _buildBetaBanner(scheme, l10n),
+            ],
+          );
+        }
+        if (statusBanner != null) return statusBanner;
+        return _buildBetaBanner(scheme, l10n);
+      },
+    );
+  }
+
   Widget _buildBetaBanner(ColorScheme scheme, AppLocalizations l10n) {
     return Material(
       color: scheme.tertiaryContainer,
@@ -1690,6 +1727,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           deviceSyncController: widget.deviceSyncController,
           cloudSettingsSyncController: widget.cloudSettingsSyncController,
           cloudDeviceSyncController: widget.cloudDeviceSyncController,
+          cloudStatusController: widget.cloudStatusController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
           initialSection: initialSection,
@@ -3016,9 +3054,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             setState(() => _sidebarPeek = true);
           },
           scheme: scheme,
-          betaBanner: widget.appSettings.shouldShowBetaBanner
-              ? _buildBetaBanner(scheme, l10n)
-              : null,
+          betaBanner: _buildTopBanners(scheme, l10n),
           aiFloatingPanel: useDesktopAiDock && !_zenMode && !useSplitAi
               ? (_aiPanelCollapsed
                     ? _buildAiCollapsedFab(context, scheme)

@@ -2,14 +2,63 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart' show compute;
 
+import '../../crypto/vault_crypto.dart';
 import '../../data/vault_payload.dart';
 import '../../models/folio_page.dart';
+import '../../utils/concurrency.dart';
 import '../app_logger.dart';
 import '../sync/vault_sync_pack.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_storage_transport.dart';
+
+/// Cifra+hashea un lote de páginas/adjuntos en un isolate aparte: por cada
+/// item de `message['items']` (`{id, role, json?, bytes?}`) hace el
+/// `jsonEncode` (si aplica) + AES-GCM + SHA-256 — el trabajo de CPU más
+/// pesado de un push, antes hecho uno a uno en el isolate de UI.
+Future<List<Map<String, Object?>>> _encryptPackItemsIsolate(
+  Map<String, Object?> message,
+) async {
+  final packKey = await VaultCrypto.dekFromBytes(
+    message['keyBytes'] as Uint8List,
+  );
+  final items = message['items'] as List;
+  final out = <Map<String, Object?>>[];
+  for (final raw in items) {
+    final item = raw as Map;
+    final json = item['json'];
+    final plain = json != null
+        ? utf8.encode(jsonEncode(json))
+        : item['bytes'] as Uint8List;
+    final cipher = await cloudPackEncryptPlainBlob(
+      plain: plain,
+      packKey: packKey,
+      role: item['role'] as String,
+    );
+    final blobId = await cloudPackBlobIdFromCipherBytes(cipher);
+    out.add({'id': item['id'], 'cipher': cipher, 'blobId': blobId});
+  }
+  return out;
+}
+
+/// Descifra un lote de blobs ya descargados (ciphertext -> plaintext) en un
+/// isolate aparte. El `jsonDecode` sigue en el isolate de UI (barato: solo
+/// arma Maps, no hay serialización de string pesada).
+Future<List<Uint8List>> _decryptPackItemsIsolate(
+  Map<String, Object?> message,
+) async {
+  final packKey = await VaultCrypto.dekFromBytes(
+    message['keyBytes'] as Uint8List,
+  );
+  final ciphers = message['ciphers'] as List;
+  final out = <Uint8List>[];
+  for (final cipher in ciphers) {
+    out.add(await cloudPackDecryptBytes(blob: cipher as Uint8List, packKey: packKey));
+  }
+  return out;
+}
 
 /// v3 sube cada página como blob independiente (content-addressed), igual
 /// que los adjuntos; v2 (legacy, aún leído) sube todo el payload en un único
@@ -101,45 +150,55 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   // v3: cada página es su propio blob content-addressed (como los adjuntos);
   // el resto del payload (metadatos de libreta, integraciones, etc.) va en
   // un único blob aparte. Así un push solo sube lo que cambió de verdad.
-  final restPlain = utf8.encode(
-    jsonEncode(pack.payload.restJsonExcludingPages()),
-  );
-  final restCipher = await cloudPackEncryptPlainBlob(
-    plain: restPlain,
-    packKey: packKey,
-    role: 'device-sync-vault',
-  );
-  final vaultBlobId = await cloudPackBlobIdFromCipherBytes(restCipher);
+  //
+  // El jsonEncode+AES-GCM+SHA-256 de "resto" + páginas + adjuntos se manda
+  // de una vez a un isolate aparte en vez de uno a uno en el isolate de UI
+  // (era el pico de CPU más repetido del ciclo de sync: corre en cada push).
+  final packKeyBytes = Uint8List.fromList(await packKey.extractBytes());
+  final batchItems = <Map<String, Object?>>[
+    {
+      'id': '__rest__',
+      'role': 'device-sync-vault',
+      'json': pack.payload.restJsonExcludingPages(),
+    },
+    for (final page in pack.payload.pages)
+      {
+        'id': page.id,
+        'role': 'device-sync-page:${page.id}',
+        'json': VaultPayload.pageSliceJson(page, pack.payload.comments),
+      },
+    for (final a in pack.attachments)
+      {
+        'id': a.path,
+        'role': 'device-sync-att:${a.path}',
+        'bytes': a.bytes,
+      },
+  ];
+  final encrypted = await compute(_encryptPackItemsIsolate, {
+    'keyBytes': packKeyBytes,
+    'items': batchItems,
+  });
 
-  final pageEntries = <Map<String, String>>[];
+  final vaultBlobId = encrypted[0]['blobId'] as String;
   final cipherByBlobId = <String, Uint8List>{
-    vaultBlobId: restCipher,
+    vaultBlobId: encrypted[0]['cipher'] as Uint8List,
   };
 
-  for (final page in pack.payload.pages) {
-    final pagePlain = utf8.encode(
-      jsonEncode(VaultPayload.pageSliceJson(page, pack.payload.comments)),
-    );
-    final pageCipher = await cloudPackEncryptPlainBlob(
-      plain: pagePlain,
-      packKey: packKey,
-      role: 'device-sync-page:${page.id}',
-    );
-    final blobId = await cloudPackBlobIdFromCipherBytes(pageCipher);
-    cipherByBlobId[blobId] = pageCipher;
-    pageEntries.add({'pageId': page.id, 'blobId': blobId});
+  final pageEntries = <Map<String, String>>[];
+  final pageCount = pack.payload.pages.length;
+  for (var i = 0; i < pageCount; i++) {
+    final e = encrypted[1 + i];
+    final blobId = e['blobId'] as String;
+    cipherByBlobId[blobId] = e['cipher'] as Uint8List;
+    pageEntries.add({'pageId': e['id'] as String, 'blobId': blobId});
   }
 
   final attachmentEntries = <Map<String, String>>[];
-
-  for (final a in pack.attachments) {
-    final attCipher = await cloudPackEncryptPlainBlob(
-      plain: a.bytes,
-      packKey: packKey,
-      role: 'device-sync-att:${a.path}',
-    );
-    final blobId = await cloudPackBlobIdFromCipherBytes(attCipher);
-    cipherByBlobId[blobId] = attCipher;
+  for (var i = 0; i < pack.attachments.length; i++) {
+    final e = encrypted[1 + pageCount + i];
+    final a = pack.attachments[i];
+    final blobId = e['blobId'] as String;
+    cipherByBlobId[blobId] = e['cipher'] as Uint8List;
     attachmentEntries.add({
       'path': a.path,
       'blobId': blobId,
@@ -148,24 +207,24 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   }
 
   final allBlobIds = cipherByBlobId.keys.toSet();
-  var newBlobIds = allBlobIds.difference(previousBlobIds);
+  final newBlobIds = allBlobIds.difference(previousBlobIds);
   final supposedlyExisting = allBlobIds.intersection(previousBlobIds);
   // La caché de blobIds puede quedar obsoleta si otro dispositivo borró blobs.
   // Verificar existencia antes de omitir la subida (evita manifiestos rotos).
-  for (final blobId in supposedlyExisting) {
+  // Las comprobaciones HEAD son ligeras e independientes entre sí, así que se
+  // lanzan con concurrencia acotada en vez de una tras otra.
+  await mapConcurrent(supposedlyExisting.toList(), (blobId) async {
     final path = 'users/$storageUid/vaults/$vaultId/device-sync/blobs/$blobId';
-    final exists = await folioStorageObjectExists(
-      path,
-    );
+    final exists = await folioStorageObjectExists(path);
     if (!exists) {
-      newBlobIds = {...newBlobIds, blobId};
+      newBlobIds.add(blobId);
       AppLogger.warn(
         'incremental push: blob missing, will re-upload',
         tag: 'cloud_sync',
         context: {'vaultId': vaultId, 'blobId': blobId},
       );
     }
-  }
+  }, concurrency: 12);
   final obsoleteBlobIds = previousBlobIds.difference(allBlobIds);
   AppLogger.debug(
     'incremental push delta',
@@ -183,17 +242,16 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   var done = 0;
 
   final newBlobList = <Map<String, dynamic>>[];
-  for (final blobId in toUpload) {
+  // Payloads más pesados que las comprobaciones de existencia: concurrencia
+  // más baja para no saturar el uplink ni mantener muchos blobs en memoria.
+  await mapConcurrent(toUpload, (blobId) async {
     final cipher = cipherByBlobId[blobId]!;
     final path = 'users/$storageUid/vaults/$vaultId/device-sync/blobs/$blobId';
-    await folioStoragePutData(
-      path,
-      cipher,
-    );
+    await folioStoragePutData(path, cipher);
     newBlobList.add({'blobId': blobId, 'sizeBytes': cipher.length});
     done++;
     onProgress?.call(done, totalSteps, done / totalSteps);
-  }
+  }, concurrency: 4);
 
   // No borrar blobs obsoletos al instante: un pull concurrente del manifiesto
   // anterior puede recibir 404. La cuota ya descuenta vía deleteBlobs; el GC
@@ -515,15 +573,19 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     ...attSpecs.map((e) => e.blobId),
   };
   final total = toDownloadIds.length;
-  var done = 0;
 
-  Future<Uint8List> downloadBlob(String blobId) async {
-    final parts = manifestStoragePath.split('/');
-    if (parts.length < 6) {
-      throw StateError('Cannot resolve blob path from manifest');
-    }
-    final uid = parts[1];
-    final vaultId = parts[3];
+  final pathParts = manifestStoragePath.split('/');
+  if (pathParts.length < 6) {
+    throw StateError('Cannot resolve blob path from manifest');
+  }
+  final uid = pathParts[1];
+  final vaultId = pathParts[3];
+
+  // 1) Descarga concurrente de los ciphertexts que hagan falta (red). El
+  // progreso avanza aquí porque es la parte que domina el tiempo real.
+  final cipherByBlobId = <String, Uint8List>{};
+  var downloaded = 0;
+  await mapConcurrent(toDownloadIds.toList(), (blobId) async {
     final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
     try {
       final cipher = await folioStorageGetData(
@@ -533,10 +595,9 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
       if (cipher == null || cipher.isEmpty) {
         throw StateError('Missing device-sync blob $blobId');
       }
-      final clear = await cloudPackDecryptBytes(blob: cipher, packKey: packKey);
-      done++;
-      onProgress?.call(done, total, done / total);
-      return clear;
+      cipherByBlobId[blobId] = cipher;
+      downloaded++;
+      onProgress?.call(downloaded, total, total == 0 ? 1.0 : downloaded / total);
     } catch (e) {
       AppLogger.error(
         'incremental pull blob failed',
@@ -546,11 +607,30 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
       );
       throw StateError('device-sync blob missing or unreadable: $path');
     }
+  }, concurrency: 4);
+
+  // 2) Descifrado en lote en un isolate aparte (evita un AES-GCM por blob en
+  // el isolate de UI — antes intercalado con cada descarga).
+  final orderedIds = cipherByBlobId.keys.toList();
+  final decrypted = await compute(_decryptPackItemsIsolate, {
+    'keyBytes': Uint8List.fromList(await packKey.extractBytes()),
+    'ciphers': [for (final id in orderedIds) cipherByBlobId[id]!],
+  });
+  final plainByBlobId = <String, Uint8List>{
+    for (var i = 0; i < orderedIds.length; i++) orderedIds[i]: decrypted[i],
+  };
+
+  Uint8List blobPlain(String blobId) {
+    final v = plainByBlobId[blobId];
+    if (v == null) {
+      throw StateError('device-sync blob not fetched: $blobId');
+    }
+    return v;
   }
 
   final Map<String, dynamic> payloadJson;
   if (isV2) {
-    final payloadBytes = await downloadBlob(payloadBlobId);
+    final payloadBytes = blobPlain(payloadBlobId);
     final decodedPayload = jsonDecode(utf8.decode(payloadBytes));
     if (decodedPayload is! Map) {
       throw StateError('Invalid device-sync payload');
@@ -561,52 +641,45 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     if (canReuseRest) {
       decodedRest = knownLocalPayload.restJsonExcludingPages();
     } else {
-      final restBytes = await downloadBlob(payloadBlobId);
+      final restBytes = blobPlain(payloadBlobId);
       final decoded = jsonDecode(utf8.decode(restBytes));
       if (decoded is! Map) {
         throw StateError('Invalid device-sync vault blob');
       }
       decodedRest = Map<String, dynamic>.from(decoded);
     }
-    final pageSlices = <Map<String, dynamic>>[];
-    for (final spec in pageSpecs) {
+    final pageSlices = pageSpecs.map((spec) {
       if (canReusePage(spec)) {
-        pageSlices.add(
-          VaultPayload.pageSliceJson(
-            localPagesById[spec.pageId]!,
-            knownLocalPayload!.comments,
-          ),
+        return VaultPayload.pageSliceJson(
+          localPagesById[spec.pageId]!,
+          knownLocalPayload!.comments,
         );
-        continue;
       }
-      final pageBytes = await downloadBlob(spec.blobId);
+      final pageBytes = blobPlain(spec.blobId);
       final decodedSlice = jsonDecode(utf8.decode(pageBytes));
       if (decodedSlice is! Map) {
         throw StateError('Invalid device-sync page blob (${spec.pageId})');
       }
-      pageSlices.add(Map<String, dynamic>.from(decodedSlice));
-    }
+      return Map<String, dynamic>.from(decodedSlice);
+    }).toList();
     payloadJson = VaultPayload.mergeRestAndPageSlices(decodedRest, pageSlices);
   }
 
-  final attachments = <VaultSyncPackAttachment>[];
-  for (final spec in attSpecs) {
-    final bytes = await downloadBlob(spec.blobId);
-    attachments.add(
-      VaultSyncPackAttachment(
-        path: spec.path,
-        sha256Hex: spec.sha,
-        bytes: bytes,
-      ),
+  final attachments = attSpecs.map((spec) {
+    final bytes = blobPlain(spec.blobId);
+    return VaultSyncPackAttachment(
+      path: spec.path,
+      sha256Hex: spec.sha,
+      bytes: bytes,
     );
-  }
+  }).toList();
 
   final pack = VaultSyncPack(
     payload: VaultPayload.fromJson(Map<String, dynamic>.from(payloadJson)),
     attachments: attachments,
   );
 
-  final packBytes = Uint8List.fromList(pack.encodeUtf8());
+  final packBytes = Uint8List.fromList(await pack.encodeUtf8Async());
   AppLogger.info(
     'incremental pull ok',
     tag: 'cloud_sync',

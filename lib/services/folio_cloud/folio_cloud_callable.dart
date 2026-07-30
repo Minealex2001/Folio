@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../config/folio_backend_config.dart';
 import '../app_logger.dart';
 import 'folio_cloud_exception.dart';
+import 'folio_cloud_http_client.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_spring_callable_routes.dart';
 
@@ -116,11 +117,11 @@ Future<dynamic> _callFolioSpringRest(String name, Object? parameters) async {
     try {
       switch (route.method.toUpperCase()) {
         case 'GET':
-          resp = await http
+          resp = await folioCloudHttpClient
               .get(uri, headers: headers)
               .timeout(const Duration(seconds: 120));
         case 'PATCH':
-          resp = await http
+          resp = await folioCloudHttpClient
               .patch(
                 uri,
                 headers: headers,
@@ -128,7 +129,7 @@ Future<dynamic> _callFolioSpringRest(String name, Object? parameters) async {
               )
               .timeout(const Duration(seconds: 120));
         case 'PUT':
-          resp = await http
+          resp = await folioCloudHttpClient
               .put(
                 uri,
                 headers: headers,
@@ -136,12 +137,12 @@ Future<dynamic> _callFolioSpringRest(String name, Object? parameters) async {
               )
               .timeout(const Duration(seconds: 120));
         case 'DELETE':
-          resp = await http
+          resp = await folioCloudHttpClient
               .delete(uri, headers: headers)
               .timeout(const Duration(seconds: 120));
         case 'POST':
         default:
-          resp = await http
+          resp = await folioCloudHttpClient
               .post(
                 uri,
                 headers: headers,

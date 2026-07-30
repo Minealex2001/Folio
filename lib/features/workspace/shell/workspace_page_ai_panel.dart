@@ -325,7 +325,11 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
           heroTag: 'mobile_collab_room_fab',
           tooltip: l10n.collabMenuAction,
           onPressed: () => unawaited(_openCollaborationSheet()),
-          child: _buildCollabFabIcon(Theme.of(context).colorScheme),
+          child: ListenableBuilder(
+            listenable: _collab,
+            builder: (context, _) =>
+                _buildCollabFabIcon(Theme.of(context).colorScheme),
+          ),
         ),
       if (collabEnabled && aiEnabled) const SizedBox(width: 12),
       if (aiEnabled)

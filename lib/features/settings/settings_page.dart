@@ -60,6 +60,8 @@ import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_device_sync.dart';
+import '../../services/folio_cloud/folio_cloud_status_controller.dart';
+import '../folio_cloud/folio_cloud_status_settings_panel.dart';
 import '../../services/folio_cloud/folio_cloud_settings_sync.dart';
 import '../../services/folio_cloud/folio_cloud_account_lifecycle.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
@@ -160,6 +162,7 @@ class SettingsPage extends StatefulWidget {
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
+    this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     this.initialSection,
@@ -170,6 +173,7 @@ class SettingsPage extends StatefulWidget {
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
+  final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final String? initialSection;
@@ -1842,6 +1846,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                         );
                                       },
                                     ),
+                                    if (widget.cloudStatusController != null) ...[
+                                      const Divider(height: 1),
+                                      FolioCloudStatusSettingsPanel(
+                                        controller:
+                                            widget.cloudStatusController!,
+                                        scheme: scheme,
+                                        l10n: l10n,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

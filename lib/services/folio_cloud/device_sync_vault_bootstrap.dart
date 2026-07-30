@@ -531,7 +531,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
     return false;
   }
 
-  final pack = VaultSyncPack.decodeFlexible(packBytes);
+  final pack = await VaultSyncPack.decodeFlexibleAsync(packBytes);
   await materializeVaultSyncPackAttachmentsForVault(vaultId, pack);
   await headless.savePayload(
     vaultId: vaultId,

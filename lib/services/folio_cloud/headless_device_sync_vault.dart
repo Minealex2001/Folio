@@ -339,7 +339,7 @@ class HeadlessDeviceSyncVault {
       vaultId: vaultId,
       payload: payload,
     );
-    return Uint8List.fromList(pack.encodeUtf8());
+    return Uint8List.fromList(await pack.encodeUtf8Async());
   }
 
   /// True si en disco hay árbol v1 con páginas (aunque loadPayload falle).
@@ -362,7 +362,7 @@ class HeadlessDeviceSyncVault {
     VaultPayload? baseline,
   }) async {
     try {
-      final pack = VaultSyncPack.decodeFlexible(remotePackBytes);
+      final pack = await VaultSyncPack.decodeFlexibleAsync(remotePackBytes);
       await materializeVaultSyncPackAttachmentsForVault(vaultId, pack);
       final local = await loadPayload(vaultId, packKey);
       if (local == null) {

@@ -5,7 +5,9 @@
 
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:cryptography/cryptography.dart';
@@ -14,6 +16,53 @@ import 'vault_snapshot.dart';
 import 'p2p_sync_packager.dart';
 import 'vault_payload_converters.dart';
 import '../data/vault_payload.dart';
+
+/// Recorre [treeDirPath] y calcula SHA-256 de cada archivo. Top-level para
+/// poder correr en un isolate (`compute`) — recorrer + hashear el árbol
+/// entero es la operación de CPU más pesada del ciclo de sync y, sin
+/// aislarla, bloquea el hilo de UI en cada snapshot (tras cada push/pull).
+Future<List<Map<String, dynamic>>> _hashVaultTreeIsolate(
+  String treeDirPath,
+) async {
+  final entries = <Map<String, dynamic>>[];
+  final baseDir = Directory(treeDirPath);
+
+  Future<void> walk(Directory currentDir) async {
+    final items = currentDir.listSync();
+    for (final item in items) {
+      if (item is File) {
+        final relativePath =
+            p.relative(item.path, from: baseDir.path).replaceAll('\\', '/');
+        final bytes = await item.readAsBytes();
+        final digest = await Sha256().hash(bytes);
+        final sha256Hex =
+            digest.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        entries.add({
+          'path': relativePath,
+          'sha256': sha256Hex,
+          'sizeBytes': bytes.length,
+        });
+      } else if (item is Directory) {
+        await walk(item);
+      }
+    }
+  }
+
+  await walk(baseDir);
+  return entries;
+}
+
+/// Comprime [args] = [treeDirPath, vaultId, deviceId] a ZIP. Top-level para
+/// poder correr en isolate — la compresión de todo el árbol es el otro pico
+/// de CPU del ciclo de snapshot.
+Future<Uint8List> _compressTreeToZipIsolate(List<String> args) async {
+  final treeDirPath = args[0];
+  final vaultId = args[1];
+  final deviceId = args[2];
+  final packager = P2PSyncPackager(vaultId: vaultId, sourceDeviceId: deviceId);
+  final zipBytes = await packager.compressTreeToZip(Directory(treeDirPath));
+  return Uint8List.fromList(zipBytes);
+}
 
 class VaultSnapshotManager {
   final Directory vaultDir;
@@ -347,38 +396,11 @@ class VaultSnapshotManager {
   }
 
   /// Construye el manifest de archivos recursivamente desde [treeDir].
+  /// Recorrido + hash corren en un isolate aparte (`compute`) — es la
+  /// operación de CPU más cara del ciclo de sync y no debe bloquear la UI.
   Future<List<FileManifestEntry>> _buildFileManifest(Directory treeDir) async {
-    final entries = <FileManifestEntry>[];
-
-    await _walkTree(treeDir, treeDir, entries);
-
-    return entries;
-  }
-
-  /// Recorre recursivamente el árbol y calcula SHA-256 para cada archivo.
-  Future<void> _walkTree(
-    Directory baseDir,
-    Directory currentDir,
-    List<FileManifestEntry> entries,
-  ) async {
-    final items = currentDir.listSync();
-
-    for (final item in items) {
-      if (item is File) {
-        final relativePath =
-            p.relative(item.path, from: baseDir.path).replaceAll('\\', '/');
-        final bytes = await item.readAsBytes();
-        final sha256 = await _computeSha256(bytes);
-
-        entries.add(FileManifestEntry(
-          path: relativePath,
-          sha256: sha256,
-          sizeBytes: bytes.length,
-        ));
-      } else if (item is Directory) {
-        await _walkTree(baseDir, item, entries);
-      }
-    }
+    final raw = await compute(_hashVaultTreeIsolate, treeDir.path);
+    return raw.map(FileManifestEntry.fromJson).toList();
   }
 
   /// Computa el SHA-256 real de [bytes] (hex, 64 caracteres).
@@ -390,15 +412,17 @@ class VaultSnapshotManager {
   }
 
   /// Comprime el árbol a ZIP y lo guarda en <versions>/<snapshotId>.zip.
+  /// La compresión corre en isolate aparte (`compute`) por el mismo motivo
+  /// que [_buildFileManifest]: es CPU-intensiva y no debe bloquear la UI.
   Future<void> _compressAndStoreTreeSnapshot(
     String snapshotId,
     Directory treeDir,
   ) async {
-    final packager = P2PSyncPackager(
-      vaultId: p.basename(vaultDir.path),
-      sourceDeviceId: deviceId,
-    );
-    final zipBytes = await packager.compressTreeToZip(treeDir);
+    final zipBytes = await compute(_compressTreeToZipIsolate, [
+      treeDir.path,
+      p.basename(vaultDir.path),
+      deviceId,
+    ]);
     final zipFile = File(p.join(_versionsDir.path, '$snapshotId.zip'));
     await zipFile.writeAsBytes(zipBytes, flush: true);
   }

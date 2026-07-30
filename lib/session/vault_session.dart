@@ -6706,7 +6706,7 @@ class VaultSession extends ChangeNotifier {
     }
     try {
       final pack = await buildVaultSyncPackFromDisk(payload: payload);
-      return pack.encodeUtf8();
+      return await pack.encodeUtf8Async();
     } catch (_) {
       return VaultSyncPack(
         payload: payload,
@@ -6739,7 +6739,7 @@ class VaultSession extends ChangeNotifier {
       return (ok: false, changed: false);
     }
     try {
-      final pack = VaultSyncPack.decodeFlexible(rawBytes);
+      final pack = await VaultSyncPack.decodeFlexibleAsync(rawBytes);
       await materializeVaultSyncPackAttachments(pack);
 
       final localPayload = _buildVaultPayloadForPersist();
@@ -6859,7 +6859,9 @@ class VaultSession extends ChangeNotifier {
         return true;
       }
 
-      final pack = VaultSyncPack.decodeFlexible(entry.remoteSnapshotBytes);
+      final pack = await VaultSyncPack.decodeFlexibleAsync(
+        entry.remoteSnapshotBytes,
+      );
       await materializeVaultSyncPackAttachments(pack);
       final localPayload = _buildVaultPayloadForPersist();
       if (localPayload.pages.isNotEmpty && pack.payload.pages.isEmpty) {

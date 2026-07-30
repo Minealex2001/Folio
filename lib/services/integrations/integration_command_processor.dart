@@ -22,6 +22,7 @@ class IntegrationCommandProcessor {
   final VaultSession _session;
   final AppSettings _appSettings;
   Timer? _pollTimer;
+  Timer? _debounce;
   bool _processing = false;
 
   void bind() {
@@ -31,18 +32,28 @@ class IntegrationCommandProcessor {
 
   void dispose() {
     _session.removeListener(_onSessionChanged);
+    _debounce?.cancel();
+    _debounce = null;
     _pollTimer?.cancel();
     _pollTimer = null;
   }
 
   void _onSessionChanged() {
     if (_session.state != VaultFlowState.unlocked || !folioCloudHasSession()) {
+      _debounce?.cancel();
+      _debounce = null;
       _pollTimer?.cancel();
       _pollTimer = null;
       return;
     }
     _ensureListening();
-    unawaited(_processPending());
+    // `VaultSession` notifica en casi cada edición/cambio de página; se
+    // debounced para no llamar al backend en cada pulsación de tecla.
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 1200),
+      () => unawaited(_processPending()),
+    );
   }
 
   void _ensureListening() {

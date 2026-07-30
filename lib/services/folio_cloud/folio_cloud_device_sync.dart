@@ -97,6 +97,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   double? _transferProgress;
   int _blobsCompleted = 0;
   int _blobsTotal = 0;
+  DateTime? _lastProgressNotifyAt;
   final DeviceSyncVaultAckStore _ackStore = DeviceSyncVaultAckStore();
   final DeviceSyncPageManifestStore _pageManifestStore =
       DeviceSyncPageManifestStore();
@@ -564,7 +565,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       final raw = await _session.exportSyncSnapshotBytes();
       if (raw == null || raw.isEmpty) return;
 
-      final pack = VaultSyncPack.decodeFlexible(raw);
+      final pack = await VaultSyncPack.decodeFlexibleAsync(raw);
       final fp = VaultSyncMergeEngine.payloadFingerprintShort(pack.payload);
 
       if (shouldSkipEmptyDeviceSyncPush(
@@ -783,7 +784,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       try {
         final localRaw = await _session.exportSyncSnapshotBytes();
         if (localRaw != null && localRaw.isNotEmpty) {
-          knownLocalPayload = VaultSyncPack.decodeFlexible(localRaw).payload;
+          knownLocalPayload =
+              (await VaultSyncPack.decodeFlexibleAsync(localRaw)).payload;
         }
       } catch (_) {}
       final knownManifestVaultId = _boundVaultId ?? VaultPaths.activeVaultId ?? '';
@@ -1478,7 +1480,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _setStatus('idle');
       return;
     }
-    final pack = VaultSyncPack.decodeFlexible(localBytes);
+    final pack = await VaultSyncPack.decodeFlexibleAsync(localBytes);
     final localFp =
         VaultSyncMergeEngine.payloadFingerprintShort(pack.payload);
     if (shouldSkipEmptyDeviceSyncPush(
@@ -1718,6 +1720,19 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     _transferProgress = fraction;
     _blobsCompleted = done;
     _blobsTotal = total;
+    // Throttle: con muchos blobs pequeños esto puede llamarse muchas veces
+    // por segundo; los consumidores (barra de progreso) no necesitan más de
+    // ~5 Hz. El reset (fraction null) y la finalización (done >= total)
+    // siempre notifican, para no dejar la UI con un valor obsoleto.
+    final now = DateTime.now();
+    final isTerminal = fraction == null || total <= 0 || done >= total;
+    if (!isTerminal &&
+        _lastProgressNotifyAt != null &&
+        now.difference(_lastProgressNotifyAt!) <
+            const Duration(milliseconds: 200)) {
+      return;
+    }
+    _lastProgressNotifyAt = now;
     notifyListeners();
   }
 

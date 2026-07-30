@@ -4,8 +4,11 @@ import 'package:http/http.dart' as http;
 
 import '../../config/folio_backend_config.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_http_client.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_spring_storage.dart';
+
+const Duration _kPublishTimeout = Duration(seconds: 30);
 
 class FolioPublishResult {
   const FolioPublishResult({required this.publicUrl, required this.docId});
@@ -83,10 +86,10 @@ Future<http.Response> _springAuthorized(
   Future<http.Response> Function(Map<String, String> headers) send,
 ) async {
   var headers = await _springAuthHeaders();
-  var res = await send(headers);
+  var res = await send(headers).timeout(_kPublishTimeout);
   if (res.statusCode == 401) {
     headers = await _springAuthHeaders(forceRefresh: true);
-    res = await send(headers);
+    res = await send(headers).timeout(_kPublishTimeout);
   }
   return res;
 }
@@ -153,14 +156,14 @@ Future<FolioPublishResult> publishHtmlPage({
       '${FolioBackendConfig.apiV1Prefix}/published-pages/${existing.docId}',
     );
     res = await _springAuthorized(
-      (h) => http.put(uri, headers: h, body: body),
+      (h) => folioCloudHttpClient.put(uri, headers: h, body: body),
     );
   } else {
     final uri = Uri.parse(
       '${FolioBackendConfig.apiV1Prefix}/published-pages',
     );
     res = await _springAuthorized(
-      (h) => http.post(uri, headers: h, body: body),
+      (h) => folioCloudHttpClient.post(uri, headers: h, body: body),
     );
   }
   _ensureSpringOk(res);
@@ -178,7 +181,9 @@ Future<List<PublishedPageEntry>> listMyPublishedPages() async {
   final uri = Uri.parse(
     '${FolioBackendConfig.apiV1Prefix}/published-pages/mine',
   );
-  final res = await _springAuthorized((h) => http.get(uri, headers: h));
+  final res = await _springAuthorized(
+    (h) => folioCloudHttpClient.get(uri, headers: h),
+  );
   _ensureSpringOk(res);
   if (res.body.isEmpty) return const <PublishedPageEntry>[];
   final decoded = jsonDecode(res.body);
@@ -207,6 +212,8 @@ Future<void> deletePublishedPage(
   final uri = Uri.parse(
     '${FolioBackendConfig.apiV1Prefix}/published-pages/${entry.docId}',
   );
-  final res = await _springAuthorized((h) => http.delete(uri, headers: h));
+  final res = await _springAuthorized(
+    (h) => folioCloudHttpClient.delete(uri, headers: h),
+  );
   _ensureSpringOk(res, allowNoContent: true);
 }

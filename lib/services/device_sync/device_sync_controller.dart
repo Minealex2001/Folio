@@ -68,6 +68,7 @@ class DeviceSyncController extends ChangeNotifier {
 
   final List<SyncPeer> _peers = <SyncPeer>[];
   final Map<String, SyncPeer> _discoveredById = <String, SyncPeer>{};
+  DateTime? _lastHelloNotifyAt;
   final Map<String, _PendingPairAck> _pendingPairAcks =
       <String, _PendingPairAck>{};
   final Map<String, Completer<String?>> _pendingCodeRequests =
@@ -654,7 +655,9 @@ class DeviceSyncController extends ChangeNotifier {
     final deviceName = (map['deviceName'] as String? ?? '').trim();
     final pubKey = _stringField(map, 'pubKey');
     final now = DateTime.now().millisecondsSinceEpoch;
-    _discoveredById[deviceId] = SyncPeer(
+    final wasSearching = _state == SyncControllerState.searching;
+    final oldPeer = _discoveredById[deviceId];
+    final newPeer = SyncPeer(
       peerId: deviceId,
       deviceName: deviceName.isEmpty
           ? _localized('Dispositivo Folio', 'Folio device')
@@ -667,8 +670,9 @@ class DeviceSyncController extends ChangeNotifier {
       // para descubrimiento por LAN.
       publicKeyB64: pubKey.isEmpty ? null : pubKey,
     );
+    _discoveredById[deviceId] = newPeer;
     _maybePinPeerPublicKey(deviceId, pubKey);
-    if (_state == SyncControllerState.searching) {
+    if (wasSearching) {
       _state = SyncControllerState.active;
     }
     if (!isHelloReply) {
@@ -681,7 +685,24 @@ class DeviceSyncController extends ChangeNotifier {
         unawaited(_maybePullSnapshotFromPeer(deviceId));
       }
     }
-    notifyListeners();
+    // Un hello llega cada pocos segundos por cada peer visible; solo importa
+    // repintar la UI cuando cambia algo visible (peer nuevo, nombre, pairing,
+    // clave) o la búsqueda pasa a activa — el resto es solo "sigue vivo" y se
+    // throttlea para no generar un rebuild por cada paquete UDP.
+    final visibleChange = wasSearching ||
+        oldPeer == null ||
+        oldPeer.deviceName != newPeer.deviceName ||
+        oldPeer.paired != newPeer.paired ||
+        oldPeer.publicKeyB64 != newPeer.publicKeyB64;
+    if (visibleChange) {
+      _lastHelloNotifyAt = DateTime.now();
+      notifyListeners();
+    } else if (_lastHelloNotifyAt == null ||
+        DateTime.now().difference(_lastHelloNotifyAt!) >
+            const Duration(seconds: 2)) {
+      _lastHelloNotifyAt = DateTime.now();
+      notifyListeners();
+    }
   }
 
   Future<void> _consumePairRequest(Map map, InternetAddress remoteHost) async {

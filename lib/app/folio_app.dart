@@ -35,6 +35,7 @@ import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../services/folio_cloud/folio_cloud_settings_sync.dart';
+import '../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../services/app_logger.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
@@ -104,6 +105,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   late final IntegrationsBridgeController _integrationsBridge;
   late final DeviceSyncController _deviceSyncController;
   FolioCloudDeviceSyncController? _cloudDeviceSyncController;
+  FolioCloudStatusController? _cloudStatusController;
   FolioCloudSettingsSyncController? _cloudSettingsSyncController;
   bool? _lastCloudDeviceSyncShouldRun;
   bool _appProfileRestoreDialogShown = false;
@@ -249,6 +251,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       entitlements: _folioCloudEntitlements,
       onEvent: _showSnack,
     );
+    _cloudStatusController = FolioCloudStatusController();
+    _cloudStatusController!.start();
     _cloudSettingsSyncController = FolioCloudSettingsSyncController(
       appSettings: widget.appSettings,
       entitlements: _folioCloudEntitlements,
@@ -297,6 +301,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _deviceSyncController.dispose();
     unawaited(_cloudDeviceSyncController?.disposeController());
     _cloudDeviceSyncController?.dispose();
+    _cloudStatusController?.dispose();
+    _cloudStatusController = null;
     _cloudSettingsSyncController?.removeListener(_onCloudSettingsSync);
     unawaited(_cloudSettingsSyncController?.disposeController());
     _cloudSettingsSyncController?.dispose();
@@ -1190,6 +1196,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   void _syncCloudDeviceSyncForeground() {
     final foreground = _lifecycleActive && _windowFocused;
     _cloudDeviceSyncController?.setAppInForeground(foreground);
+    _cloudStatusController?.setAppInForeground(foreground);
   }
 
   Future<void> _handleOpenRequested() async {
@@ -1774,6 +1781,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
+        cloudStatusController: _cloudStatusController,
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
@@ -2764,6 +2772,7 @@ class _HomeByState extends StatelessWidget {
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
+    this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
@@ -2775,6 +2784,7 @@ class _HomeByState extends StatelessWidget {
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
+  final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final void Function([String? initialQuery]) onOpenSearch;
@@ -2817,6 +2827,7 @@ class _HomeByState extends StatelessWidget {
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,
+          cloudStatusController: cloudStatusController,
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,

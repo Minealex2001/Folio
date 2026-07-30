@@ -11,7 +11,6 @@ extension _WorkspacePageCollabModule on _WorkspacePageState {
   void _onCollabController() {
     if (!mounted) return;
     _updateCollabUnreadState();
-    _setStateSafe(() {});
   }
 
   bool _isCompactWorkspaceNow() {
@@ -194,10 +193,15 @@ extension _WorkspacePageCollabModule on _WorkspacePageState {
             width: 56,
             height: 56,
             child: Center(
-              child: _buildCollabFabIcon(
-                scheme,
-                iconColor: scheme.onSecondaryContainer,
-                iconSize: 28,
+              // Se refresca solo con `_collab`, no con toda la página, para
+              // que los mensajes remotos no repinten el editor/sidebar.
+              child: ListenableBuilder(
+                listenable: _collab,
+                builder: (context, _) => _buildCollabFabIcon(
+                  scheme,
+                  iconColor: scheme.onSecondaryContainer,
+                  iconSize: 28,
+                ),
               ),
             ),
           ),
