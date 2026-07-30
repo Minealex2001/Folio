@@ -1924,7 +1924,8 @@ class VaultSession extends ChangeNotifier {
     if (remaining.isNotEmpty) {
       await switchVault(remaining.first.id);
     } else {
-      await VaultPaths.setActiveVaultId(null);
+      await _registry.setActiveVaultId(null);
+      VaultPaths.setActiveVaultId(null);
     }
     notifyListeners();
   }

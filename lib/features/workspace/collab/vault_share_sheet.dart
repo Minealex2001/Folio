@@ -122,7 +122,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
         displayName: name,
         entitlements: widget.entitlements,
       );
-      final uid = await folioCloudCurrentUid();
+      final uid = folioCloudCurrentUid();
       if (uid == null || uid.isEmpty) {
         throw StateError('Not signed in');
       }
@@ -152,7 +152,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
   Future<void> _publishNow() async {
     await _run(() async {
       final vaultId = widget.session.vaultId!;
-      final uid = await folioCloudCurrentUid();
+      final uid = folioCloudCurrentUid();
       if (uid == null || uid.isEmpty) throw StateError('Not signed in');
       await syncVaultPublicViewIfEnabled(
         vaultId: vaultId,
@@ -172,7 +172,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
         throw StateError('Introduce un correo válido');
       }
       final vaultId = widget.session.vaultId!;
-      final uid = await folioCloudCurrentUid();
+      final uid = folioCloudCurrentUid();
       if (uid == null || uid.isEmpty) throw StateError('Not signed in');
       final keyBytes = await widget.session.exportSyncKeyBytesForSharing();
       final result = await inviteVaultMember(
