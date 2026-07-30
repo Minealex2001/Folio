@@ -503,7 +503,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
     } else {
       final cipher = await folioStorageGetData(
         packPath,
-        80 * 1024 * 1024,
+        kFolioStorageMaxObjectBytes,
       );
       if (cipher == null || cipher.isEmpty) {
         throw StateError('Empty sync pack');

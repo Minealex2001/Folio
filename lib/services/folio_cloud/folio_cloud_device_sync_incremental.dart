@@ -528,7 +528,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     try {
       final cipher = await folioStorageGetData(
         path,
-        80 * 1024 * 1024,
+        kFolioStorageMaxObjectBytes,
       );
       if (cipher == null || cipher.isEmpty) {
         throw StateError('Missing device-sync blob $blobId');

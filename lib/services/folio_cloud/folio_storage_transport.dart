@@ -3,15 +3,24 @@ import 'dart:typed_data';
 
 import 'folio_spring_storage.dart';
 
+/// Tope por objeto en el proxy Spring (debe coincidir con el backend).
+const int kFolioStorageMaxObjectBytes = 256 * 1024 * 1024;
+
 /// Sube bytes al proxy Spring `/api/v1/storage/objects`.
 Future<void> folioStoragePutData(String path, Uint8List data) async {
+  if (data.length > kFolioStorageMaxObjectBytes) {
+    throw FolioSpringStorageException(
+      400,
+      'Object too large (max ${kFolioStorageMaxObjectBytes ~/ (1024 * 1024)} MiB, got ${data.length})',
+    );
+  }
   await folioSpringStoragePutData(path, data);
 }
 
 /// Sube un archivo local. Devuelve el tamaño en bytes del archivo subido.
 Future<int> folioStoragePutFile(String path, File file) async {
   final bytes = await file.readAsBytes();
-  await folioSpringStoragePutData(path, bytes);
+  await folioStoragePutData(path, bytes);
   return bytes.length;
 }
 
@@ -31,7 +40,7 @@ Future<bool> folioStorageObjectExists(String path) async {
 
 /// Descarga a archivo local.
 Future<void> folioStorageWriteToFile(String path, File destination) async {
-  final data = await folioSpringStorageGetData(path, 80 * 1024 * 1024);
+  final data = await folioSpringStorageGetData(path, kFolioStorageMaxObjectBytes);
   if (data == null) {
     throw FolioSpringStorageException(404, 'Object not found');
   }

@@ -63,7 +63,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   static const Duration _pollIntervalForeground = Duration(seconds: 30);
   /// Poll de todas las libretas (incl. bloqueadas / no activas), solo en primer plano.
   static const Duration _allVaultsPollInterval = Duration(minutes: 15);
-  static const int _maxPackBytes = 80 * 1024 * 1024;
+  static const int _maxPackBytes = kFolioStorageMaxObjectBytes;
 
   Timer? _pushDebounceTimer;
   Timer? _pollTimer;
