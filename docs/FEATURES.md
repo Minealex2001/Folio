@@ -815,6 +815,12 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 - Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
 - **Modo Spring** (`FolioBackendConfig.useSpring`): sube HTML con `folioSpringStoragePutData` a `published/{uid}/{slug}.html` (`folioCloudCurrentUid`) y registra/actualiza el índice con `POST`/`PUT /api/v1/published-pages` (`storagePath`); listado `GET …/mine`; borrado `DELETE …/{id}` (el servidor elimina el objeto). Sin Firestore; usable en Windows. Modo Firebase sin cambios (`publishedPages` + Storage download URL).
 
+### Compartir libreta completa
+
+- **Enlace público vivo** (solo lectura en el navegador): `/api/v1/vault-shares/public/**`. Al activarlo se sube un view-pack JSON; en cada push de device-sync se republica si cambió el fingerprint. El viewer (`…/view`) hace poll y muestra cambios en casi tiempo real. Gate `publishWeb`. Aviso en UI: el contenido del enlace está en claro en el servidor.
+- **Invitar persona (editor)**: `/api/v1/vault-shares/members/**`. Correo + código E2E (`VaultShareCrypto`). Aparece en el listado del sidebar como «Compartidas conmigo»; **no puede eliminar** la libreta (solo abandonar). Sync vía device-sync del owner (`ownerUid` en meta/finalize + ACL storage).
+- Cliente: `folio_cloud_vault_share.dart`, `vault_share_sheet.dart`, `VaultEntry.ownership`, gates en `deleteVaultById` / `wipeVaultAndReset`.
+
 ### Cliente web (Vercel / dominios MineAlex)
 
 - Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción).

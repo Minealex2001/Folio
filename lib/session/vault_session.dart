@@ -20,6 +20,7 @@ import '../application/vault_persistence_controller.dart';
 import '../application/vault_search_index.dart';
 import '../core/errors/vault_corruption_exception.dart';
 import '../crypto/vault_crypto.dart';
+import '../crypto/vault_share_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
 import '../data/import/simple_html_blocks.dart';
@@ -77,6 +78,7 @@ import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
 import '../services/unlock_attempt_throttle.dart';
 import '../services/folio_cloud/device_sync_key_cache.dart';
+import '../services/folio_cloud/folio_cloud_vault_share.dart';
 import '../services/sync/sync_conflict_entry.dart';
 import '../services/sync/sync_conflict_store.dart';
 import '../services/sync/vault_sync_merge.dart';
@@ -1817,6 +1819,12 @@ class VaultSession extends ChangeNotifier {
   /// Elimina otra libreta (no la activa). Requiere que no sea la abierta.
   Future<void> deleteVaultById(String vaultId) async {
     await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry != null && !entry.canDelete) {
+      throw StateError(
+        'No puedes eliminar una libreta compartida. Usa «Abandonar libreta».',
+      );
+    }
     if (vaultId == VaultPaths.activeVaultId) {
       throw StateError(
         'No se puede borrar la libreta activa desde aquí; usa Borrar libreta.',
@@ -1827,6 +1835,121 @@ class VaultSession extends ChangeNotifier {
     await VaultPaths.deleteVaultDirectory(vaultId);
     await _registry.remove(vaultId);
     notifyListeners();
+  }
+
+  String? get vaultId => _vaultId;
+
+  String get vaultDisplayName {
+    final id = _vaultId;
+    if (id == null || id.isEmpty) return 'Libreta';
+    return _registry.entryFor(id)?.displayName ?? 'Libreta';
+  }
+
+  VaultEntry? registryEntryForActive() {
+    final id = _vaultId;
+    if (id == null) return null;
+    return _registry.entryFor(id);
+  }
+
+  bool get activeVaultCanDelete {
+    final e = registryEntryForActive();
+    return e?.canDelete ?? true;
+  }
+
+  /// Bytes de la clave de device-sync (DEK o plain pack key) para invitar editores.
+  Future<Uint8List> exportSyncKeyBytesForSharing() async {
+    final id = _vaultId;
+    if (id == null || id.isEmpty) {
+      throw StateError('No hay libreta activa');
+    }
+    final cached = await DeviceSyncKeyCache().read(id);
+    if (cached != null && cached.length == 32) return cached;
+    if (_dek != null && _dek!.length == 32) {
+      final bytes = Uint8List.fromList(_dek!);
+      await DeviceSyncKeyCache().save(id, bytes);
+      return bytes;
+    }
+    throw StateError(
+      'No hay clave de sync disponible. Desbloquea la libreta y sincroniza una vez.',
+    );
+  }
+
+  /// Tras aceptar una invitación: registra la libreta como compartida.
+  Future<void> materializeSharedVaultFromAccept(
+    Map<String, dynamic> accepted, {
+    required String shareCode,
+  }) async {
+    final ownerUid = '${accepted['ownerUid'] ?? ''}'.trim();
+    final vaultId = '${accepted['vaultId'] ?? ''}'.trim();
+    final displayName = '${accepted['displayName'] ?? 'Libreta compartida'}'.trim();
+    final dekWrap = '${accepted['dekWrapB64'] ?? ''}'.trim();
+    if (ownerUid.isEmpty || vaultId.isEmpty) {
+      throw StateError('Invitación incompleta');
+    }
+    if (dekWrap.isNotEmpty) {
+      final keyBytes = await VaultShareCrypto.unwrapKeyB64(
+        wrappedB64: dekWrap,
+        shareCode: shareCode,
+        ownerUid: ownerUid,
+        vaultId: vaultId,
+      );
+      await DeviceSyncKeyCache().save(vaultId, keyBytes);
+    }
+    await _registry.load();
+    await _registry.upsert(
+      VaultEntry(
+        id: vaultId,
+        displayName: displayName.isEmpty ? 'Libreta compartida' : displayName,
+        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ownership: VaultOwnership.shared,
+        ownerUid: ownerUid,
+        role: '${accepted['role'] ?? 'editor'}',
+        ownerDisplayName: accepted['ownerDisplayName']?.toString(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  Future<void> leaveSharedVaultLocal() async {
+    final id = _vaultId;
+    final entry = registryEntryForActive();
+    if (id == null || entry == null || !entry.isShared) {
+      throw StateError('La libreta activa no es compartida');
+    }
+    await lock();
+    await _quick.disable(id);
+    await VaultPaths.deleteVaultDirectory(id);
+    await _registry.remove(id);
+    final remaining = _registry.vaults;
+    if (remaining.isNotEmpty) {
+      await switchVault(remaining.first.id);
+    } else {
+      await VaultPaths.setActiveVaultId(null);
+    }
+    notifyListeners();
+  }
+
+  /// Sincroniza entradas shared-with-me al registro local.
+  Future<void> syncSharedVaultRegistryFromCloud() async {
+    try {
+      final result = await fetchSharedWithMe();
+      await _registry.load();
+      for (final remote in result.vaults) {
+        if (remote.vaultId.isEmpty || remote.ownerUid.isEmpty) continue;
+        await _registry.upsert(
+          VaultEntry(
+            id: remote.vaultId,
+            displayName: remote.displayName,
+            createdAtMs: DateTime.now().millisecondsSinceEpoch,
+            ownership: VaultOwnership.shared,
+            ownerUid: remote.ownerUid,
+            role: remote.role,
+            ownerDisplayName: remote.ownerDisplayName ?? remote.ownerEmail,
+          ),
+        );
+      }
+      notifyListeners();
+    } catch (_) {}
   }
 
   /// La UI debe haber verificado la identidad de la libreta **actual** (contraseña / Hello / passkey).
@@ -6950,6 +7073,11 @@ class VaultSession extends ChangeNotifier {
 
   /// Borra la libreta **activa** por completo y actualiza el registro.
   Future<void> wipeVaultAndReset() async {
+    if (!activeVaultCanDelete) {
+      throw StateError(
+        'No puedes eliminar una libreta compartida. Usa «Abandonar libreta».',
+      );
+    }
     _persistence.cancelPendingSave();
     _revisionIdleTimer?.cancel();
     _revisionIdleTimer = null;

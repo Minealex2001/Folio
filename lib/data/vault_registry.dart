@@ -7,34 +7,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'vault_entry.dart';
 import 'vault_paths.dart';
 
-/// Entrada del registro de libretas (metadatos en prefs, datos en disco por [id]).
-class VaultEntry {
-  const VaultEntry({
-    required this.id,
-    required this.displayName,
-    required this.createdAtMs,
-  });
-
-  final String id;
-  final String displayName;
-  final int createdAtMs;
-
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'displayName': displayName,
-    'createdAtMs': createdAtMs,
-  };
-
-  factory VaultEntry.fromJson(Map<String, Object?> j) {
-    return VaultEntry(
-      id: j['id']! as String,
-      displayName: j['displayName']! as String,
-      createdAtMs: (j['createdAtMs'] as num).toInt(),
-    );
-  }
-}
+export 'vault_entry.dart';
 
 /// Registro persistente de libretas y libreta activa.
 class VaultRegistry {
@@ -101,8 +77,24 @@ class VaultRegistry {
   }
 
   Future<void> add(VaultEntry entry) async {
-    if (_vaults.any((e) => e.id == entry.id)) return;
+    if (_vaults.any((e) => e.id == entry.id)) {
+      // Upsert shared metadata if already present.
+      _vaults = _vaults
+          .map((e) => e.id == entry.id ? entry : e)
+          .toList();
+      await _saveVaultsJson();
+      return;
+    }
     _vaults = [..._vaults, entry];
+    await _saveVaultsJson();
+  }
+
+  Future<void> upsert(VaultEntry entry) async {
+    if (_vaults.any((e) => e.id == entry.id)) {
+      _vaults = _vaults.map((e) => e.id == entry.id ? entry : e).toList();
+    } else {
+      _vaults = [..._vaults, entry];
+    }
     await _saveVaultsJson();
   }
 
@@ -118,11 +110,7 @@ class VaultRegistry {
     final t = displayName.trim();
     if (t.isEmpty) return;
     _vaults = _vaults
-        .map(
-          (e) => e.id == id
-              ? VaultEntry(id: e.id, displayName: t, createdAtMs: e.createdAtMs)
-              : e,
-        )
+        .map((e) => e.id == id ? e.copyWith(displayName: t) : e)
         .toList();
     await _saveVaultsJson();
   }

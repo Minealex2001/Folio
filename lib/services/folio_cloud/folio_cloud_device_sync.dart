@@ -28,6 +28,7 @@ import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
+import 'folio_cloud_vault_share.dart';
 import 'folio_storage_transport.dart';
 import 'headless_device_sync_vault.dart';
 
@@ -632,6 +633,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         oldManifestSize: _cachedManifestSize,
         oldPackPath: _cachedPackPath,
         oldPackSize: _cachedPackSize,
+        ownerUid: _session.registryEntryForActive()?.ownerUid ?? '',
         displayName: pack.payload.displayName,
         vaultMode: _session.vaultUsesEncryption ? 'encrypted' : 'plain',
         packKeyKind: packKeyKind,
@@ -675,6 +677,25 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           'manifestBytes': result.manifestSizeBytes,
         },
       );
+      // Live public share: republish view-pack when enabled.
+      unawaited(() async {
+        try {
+          await syncVaultPublicViewIfEnabled(
+            vaultId: vaultId,
+            ownerUid: uid,
+            displayName: pack.payload.displayName.isNotEmpty
+                ? pack.payload.displayName
+                : _session.vaultDisplayName,
+            pages: pack.payload.pages,
+          );
+        } catch (e) {
+          AppLogger.debug(
+            'public share view sync skipped',
+            tag: 'cloud_sync',
+            context: {'error': '$e'},
+          );
+        }
+      }());
       _setTransferProgress(null, 0, 0);
       _setStatus('idle');
       notifyListeners();

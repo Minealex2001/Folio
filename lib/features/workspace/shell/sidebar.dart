@@ -23,6 +23,7 @@ import 'sidebar/sidebar_footer.dart';
 import 'sidebar/sidebar_page_tree.dart';
 import 'sidebar/sidebar_recents.dart';
 import 'sidebar/sidebar_vault_toolbar.dart';
+import '../collab/vault_share_sheet.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -763,6 +764,12 @@ class _SidebarState extends State<Sidebar> {
               onSwitchVault: (vaultId) => unawaited(_confirmSwitchVault(vaultId)),
               onAddVault: () => unawaited(_addVault()),
               onRenameVault: () => unawaited(_renameActiveVault()),
+              onShareVault: () => unawaited(
+                showVaultShareSheet(
+                  context: context,
+                  session: session,
+                ),
+              ),
             ),
             if (showDeskTools)
               Padding(

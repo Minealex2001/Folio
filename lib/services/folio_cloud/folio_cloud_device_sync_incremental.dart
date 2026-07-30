@@ -79,17 +79,20 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   required int oldManifestSize,
   required String oldPackPath,
   required int oldPackSize,
+  String ownerUid = '',
   String displayName = '',
   String vaultMode = '',
   String packKeyKind = 'account',
   String dekAccountWrapB64 = '',
   DeviceSyncTransferProgress? onProgress,
 }) async {
+  final storageUid = ownerUid.trim().isNotEmpty ? ownerUid.trim() : uid;
   AppLogger.info(
     'incremental push start',
     tag: 'cloud_sync',
     context: {
       'vaultId': vaultId,
+      'ownerUid': storageUid,
       'prevBlobs': previousBlobIds.length,
       'pages': pack.payload.pages.length,
       'attachments': pack.attachments.length,
@@ -150,7 +153,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   // La caché de blobIds puede quedar obsoleta si otro dispositivo borró blobs.
   // Verificar existencia antes de omitir la subida (evita manifiestos rotos).
   for (final blobId in supposedlyExisting) {
-    final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
+    final path = 'users/$storageUid/vaults/$vaultId/device-sync/blobs/$blobId';
     final exists = await folioStorageObjectExists(
       path,
     );
@@ -182,7 +185,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   final newBlobList = <Map<String, dynamic>>[];
   for (final blobId in toUpload) {
     final cipher = cipherByBlobId[blobId]!;
-    final path = 'users/$uid/vaults/$vaultId/device-sync/blobs/$blobId';
+    final path = 'users/$storageUid/vaults/$vaultId/device-sync/blobs/$blobId';
     await folioStoragePutData(
       path,
       cipher,
@@ -215,7 +218,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   final stamp =
       DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
   final manifestPath =
-      'users/$uid/vaults/$vaultId/device-sync/manifests/manifest-$stamp.bin';
+      'users/$storageUid/vaults/$vaultId/device-sync/manifests/manifest-$stamp.bin';
   await folioStoragePutData(
     manifestPath,
     manifestCipher,
@@ -225,14 +228,15 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
 
   // Solo enviar rutas antiguas si coinciden con el vault actual; si no, el
   // backend responde invalid-argument (p. ej. caché de otra libreta).
-  final safeOldPack = _safeDeviceSyncPackPath(uid, vaultId, oldPackPath);
+  final safeOldPack = _safeDeviceSyncPackPath(storageUid, vaultId, oldPackPath);
   final safeOldManifest =
-      _safeDeviceSyncManifestPath(uid, vaultId, oldManifestPath);
+      _safeDeviceSyncManifestPath(storageUid, vaultId, oldManifestPath);
 
   final finalize = await callFolioHttpsCallable(
     'folioFinalizeDeviceSync',
     <String, dynamic>{
       'vaultId': vaultId,
+      if (storageUid != uid) 'ownerUid': storageUid,
       'syncFormatVersion': kDeviceSyncFormatVersion,
       'manifestStoragePath': manifestPath,
       'manifestSizeBytes': manifestCipher.length,

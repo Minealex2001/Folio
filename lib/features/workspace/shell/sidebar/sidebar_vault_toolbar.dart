@@ -14,6 +14,7 @@ class SidebarVaultToolbar extends StatelessWidget {
     required this.onSwitchVault,
     required this.onAddVault,
     required this.onRenameVault,
+    this.onShareVault,
   });
 
   final List<VaultEntry> vaults;
@@ -22,6 +23,7 @@ class SidebarVaultToolbar extends StatelessWidget {
   final ValueChanged<String> onSwitchVault;
   final VoidCallback onAddVault;
   final VoidCallback onRenameVault;
+  final VoidCallback? onShareVault;
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +114,29 @@ class SidebarVaultToolbar extends StatelessWidget {
       }
     }
     current ??= vaults.first;
+    final owned = vaults.where((e) => !e.isShared).toList();
+    final shared = vaults.where((e) => e.isShared).toList();
+
+    PopupMenuItem<String> vaultItem(VaultEntry e) {
+      return PopupMenuItem(
+        value: e.id,
+        child: ListTile(
+          leading: Icon(
+            e.isShared ? Icons.group_outlined : Icons.lock_outline,
+          ),
+          title: Text(e.displayName),
+          subtitle: e.isShared
+              ? Text(
+                  e.ownerDisplayName?.trim().isNotEmpty == true
+                      ? 'Compartida · ${e.ownerDisplayName}'
+                      : 'Compartida conmigo',
+                )
+              : null,
+          trailing: e.id == activeVaultId ? const Icon(Icons.check) : null,
+          contentPadding: EdgeInsets.zero,
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.all(FolioSpace.sm),
@@ -126,26 +151,44 @@ class SidebarVaultToolbar extends StatelessWidget {
             onAddVault();
           } else if (value == 'rename') {
             onRenameVault();
+          } else if (value == 'share') {
+            onShareVault?.call();
           } else {
             onSwitchVault(value);
           }
         },
         itemBuilder: (ctx) => [
-          for (final e in vaults)
+          if (owned.isNotEmpty) ...[
             PopupMenuItem(
-              value: e.id,
-              child: ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: Text(e.displayName),
-                trailing: e.id == activeVaultId ? const Icon(Icons.check) : null,
-                contentPadding: EdgeInsets.zero,
+              enabled: false,
+              child: Text(
+                'Mis libretas',
+                style: textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
+            for (final e in owned) vaultItem(e),
+          ],
+          if (shared.isNotEmpty) ...[
+            PopupMenuItem(
+              enabled: false,
+              child: Text(
+                'Compartidas conmigo',
+                style: textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (final e in shared) vaultItem(e),
+          ],
           const PopupMenuDivider(),
           PopupMenuItem(
             value: 'add',
             child: ListTile(
-              leading: Icon(Icons.add_circle_outline),
+              leading: const Icon(Icons.add_circle_outline),
               title: Text(l10n.addVault),
               contentPadding: EdgeInsets.zero,
             ),
@@ -153,11 +196,20 @@ class SidebarVaultToolbar extends StatelessWidget {
           PopupMenuItem(
             value: 'rename',
             child: ListTile(
-              leading: Icon(Icons.edit_outlined),
+              leading: const Icon(Icons.edit_outlined),
               title: Text(l10n.renameActiveVault),
               contentPadding: EdgeInsets.zero,
             ),
           ),
+          if (onShareVault != null)
+            PopupMenuItem(
+              value: 'share',
+              child: ListTile(
+                leading: const Icon(Icons.ios_share_outlined),
+                title: const Text('Compartir libreta'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
         ],
         child: Container(
           padding: const EdgeInsets.all(FolioSpace.sm),
@@ -174,7 +226,7 @@ class SidebarVaultToolbar extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.lock,
+                  current.isShared ? Icons.group : Icons.lock,
                   size: 20,
                   color: scheme.onPrimaryContainer,
                 ),
@@ -185,7 +237,9 @@ class SidebarVaultToolbar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.activeVaultLabel,
+                      current.isShared
+                          ? 'Compartida'
+                          : l10n.activeVaultLabel,
                       style: textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
