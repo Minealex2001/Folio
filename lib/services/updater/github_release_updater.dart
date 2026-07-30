@@ -47,41 +47,21 @@ class GitHubReleaseUpdater {
     }
 
     final currentVersion = await _currentVersion();
-    _GitHubRelease? release;
-    var releaseIsPrerelease = false;
-    switch (channel) {
-      case UpdateReleaseChannel.stable:
-        release = await _fetchLatestStableRelease();
-        releaseIsPrerelease = false;
-        break;
-      case UpdateReleaseChannel.beta:
-        // Canal beta: la actualización puede ser la última estable **o** la última
-        // pre-release, la que tenga semver mayor (y asset de instalador).
-        final ranked = await _pickBestBetaChannelRelease(currentVersion);
-        if (ranked != null) {
-          release = ranked.release;
-          releaseIsPrerelease = ranked.isPrerelease;
-        }
-        break;
-    }
-    if (release == null) {
+    final ranked = await _pickBestReleaseForChannel(
+      channel: channel,
+      currentVersion: currentVersion,
+    );
+    if (ranked == null) {
       return UpdateCheckResult.noUpdate(
         currentVersion: currentVersion,
         reason: channel == UpdateReleaseChannel.beta
             ? 'No hay en GitHub una versión estable o pre-release más nueva con instalador para esta plataforma.'
-            : null,
+            : 'No hay en GitHub una versión estable más nueva con instalador para esta plataforma.',
       );
-    }
-    final remoteVersion = release.parsedVersion;
-    if (remoteVersion == null) {
-      AppLogger.warn(
-        'No se pudo parsear tag semver del release',
-        tag: 'updater',
-        context: {'tagName': release.tagName},
-      );
-      return UpdateCheckResult.noUpdate(currentVersion: currentVersion);
     }
 
+    final release = ranked.release;
+    final remoteVersion = ranked.version;
     if (remoteVersion <= currentVersion) {
       return UpdateCheckResult.noUpdate(currentVersion: currentVersion);
     }
@@ -106,57 +86,67 @@ class GitHubReleaseUpdater {
       installerUrl: releaseAsset.browserDownloadUrl,
       installerSha256: releaseAsset.sha256Digest,
       publishedAt: release.publishedAt,
-      isPrerelease: releaseIsPrerelease,
+      isPrerelease: ranked.isPrerelease,
     );
   }
 
-  /// Para [UpdateReleaseChannel.beta]: elige entre última estable y última pre-release
-  /// la versión semver mayor (empate → preferir estable).
-  Future<_RankedRelease?> _pickBestBetaChannelRelease(
-    Version currentVersion,
-  ) async {
-    _GitHubRelease? stable;
-    try {
-      stable = await _fetchLatestStableRelease();
-    } catch (e, st) {
-      AppLogger.warn(
-        'Updater: no se pudo obtener release estable (canal beta)',
-        tag: 'updater',
-        context: {'error': e.toString(), 'stack': st.toString()},
-      );
-    }
-    _GitHubRelease? pre;
-    try {
-      pre = await _fetchLatestPrereleaseRelease();
-    } catch (e, st) {
-      AppLogger.warn(
-        'Updater: no se pudo listar pre-releases (canal beta)',
-        tag: 'updater',
-        context: {'error': e.toString(), 'stack': st.toString()},
-      );
-    }
-
+  /// Elige la mejor release elegible para el canal y la plataforma actual.
+  Future<_RankedRelease?> _pickBestReleaseForChannel({
+    required UpdateReleaseChannel channel,
+    required Version currentVersion,
+  }) async {
+    final releases = await _listReleases(perPage: 40);
     _RankedRelease? best;
-    void consider(_GitHubRelease? rel, bool isPre) {
-      if (rel == null) return;
-      final v = rel.parsedVersion;
-      if (v == null || v <= currentVersion) return;
-      if (_pickReleaseAssetForCurrentPlatform(rel.assets) == null) return;
-      if (best == null) {
-        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
-        return;
+    for (final release in releases) {
+      if (release.draft) continue;
+      if (channel == UpdateReleaseChannel.stable && release.prerelease) {
+        continue;
       }
-      if (v > best!.version) {
-        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
-      } else if (v == best!.version && !isPre && best!.isPrerelease) {
-        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
+      if (!_tagMatchesCurrentPlatform(release.tagName)) continue;
+      final version = release.parsedVersion;
+      if (version == null || version <= currentVersion) continue;
+      if (_pickReleaseAssetForCurrentPlatform(release.assets) == null) continue;
+
+      final isPre = release.prerelease;
+      final isGlobal = _isGlobalReleaseTag(release.tagName);
+      if (best == null) {
+        best = _RankedRelease(
+          release: release,
+          version: version,
+          isPrerelease: isPre,
+          isGlobalTag: isGlobal,
+        );
+        continue;
+      }
+      if (version > best.version) {
+        best = _RankedRelease(
+          release: release,
+          version: version,
+          isPrerelease: isPre,
+          isGlobalTag: isGlobal,
+        );
+      } else if (version == best.version) {
+        // Empate semver: preferir estable sobre pre; luego tag global.
+        if (!isPre && best.isPrerelease) {
+          best = _RankedRelease(
+            release: release,
+            version: version,
+            isPrerelease: isPre,
+            isGlobalTag: isGlobal,
+          );
+        } else if (isPre == best.isPrerelease && isGlobal && !best.isGlobalTag) {
+          best = _RankedRelease(
+            release: release,
+            version: version,
+            isPrerelease: isPre,
+            isGlobalTag: isGlobal,
+          );
+        }
       }
     }
-
-    consider(stable, false);
-    consider(pre, true);
     return best;
   }
+
 
   Future<ReleaseNotesResult?> fetchReleaseNotesForVersion({
     required String appVersion,
@@ -194,6 +184,13 @@ class GitHubReleaseUpdater {
       final withV = 'v$noV';
       if (expandedSeen.add(withV)) {
         expandedCandidates.add(withV);
+      }
+      // Tags por plataforma (v1.4.0-android, …).
+      for (final suffix in const ['android', 'windows', 'linux', 'macos']) {
+        final platformTag = 'v$noV-$suffix';
+        if (expandedSeen.add(platformTag)) {
+          expandedCandidates.add(platformTag);
+        }
       }
     }
 
@@ -355,33 +352,11 @@ class GitHubReleaseUpdater {
     return _parseSemver(name) ?? Version.none;
   }
 
-  Future<_GitHubRelease?> _fetchLatestStableRelease() async {
-    final uri = Uri.https(
-      'api.github.com',
-      '/repos/$owner/$repo/releases/latest',
-    );
-    final response = await _httpClient
-        .get(uri, headers: _headers())
-        .timeout(_apiTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'No se pudo consultar releases en GitHub: HTTP ${response.statusCode}',
-        uri: uri,
-      );
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Respuesta inválida de GitHub releases.');
-    }
-    return _GitHubRelease.fromJson(decoded);
-  }
-
-  /// Lista de releases (más recientes primero); primer prerelease no borrador.
-  Future<_GitHubRelease?> _fetchLatestPrereleaseRelease() async {
+  Future<List<_GitHubRelease>> _listReleases({int perPage = 40}) async {
     final uri = Uri.https(
       'api.github.com',
       '/repos/$owner/$repo/releases',
-      const {'per_page': '30'},
+      {'per_page': '$perPage'},
     );
     final response = await _httpClient
         .get(uri, headers: _headers())
@@ -396,13 +371,12 @@ class GitHubReleaseUpdater {
     if (decoded is! List<dynamic>) {
       throw const FormatException('Respuesta inválida de GitHub releases.');
     }
+    final out = <_GitHubRelease>[];
     for (final item in decoded) {
       if (item is! Map<String, dynamic>) continue;
-      if (item['draft'] == true) continue;
-      if (item['prerelease'] != true) continue;
-      return _GitHubRelease.fromJson(item);
+      out.add(_GitHubRelease.fromJson(item));
     }
-    return null;
+    return out;
   }
 
   Map<String, String> _headers() {
@@ -413,8 +387,37 @@ class GitHubReleaseUpdater {
     };
   }
 
+  /// Sufijos de tag por plataforma: `v1.4.0-android`, `v1.4.0-windows`, …
+  static final RegExp _platformTagSuffix = RegExp(
+    r'-(android|windows|linux|macos)$',
+    caseSensitive: false,
+  );
+
+  static String _stripPlatformTagSuffix(String tagOrVersion) {
+    final noV = tagOrVersion.trim().replaceFirst(RegExp(r'^v'), '');
+    return noV.replaceFirst(_platformTagSuffix, '');
+  }
+
+  static bool _isGlobalReleaseTag(String tagName) {
+    final noV = tagName.trim().replaceFirst(RegExp(r'^v'), '');
+    return !_platformTagSuffix.hasMatch(noV);
+  }
+
+  /// Tag global o de la plataforma actual (Windows/Android).
+  bool _tagMatchesCurrentPlatform(String tagName) {
+    final noV = tagName.trim().replaceFirst(RegExp(r'^v'), '');
+    final match = _platformTagSuffix.firstMatch(noV);
+    if (match == null) return true; // global
+    final platform = match.group(1)!.toLowerCase();
+    if (Platform.isAndroid) return platform == 'android';
+    if (Platform.isWindows) return platform == 'windows';
+    if (Platform.isLinux) return platform == 'linux';
+    if (Platform.isMacOS) return platform == 'macos';
+    return false;
+  }
+
   Version? _parseSemver(String input) {
-    final normalized = input.trim().replaceFirst(RegExp(r'^v'), '');
+    final normalized = _stripPlatformTagSuffix(input);
     try {
       return Version.parse(normalized);
     } catch (_) {
@@ -562,11 +565,13 @@ class _RankedRelease {
     required this.release,
     required this.version,
     required this.isPrerelease,
+    this.isGlobalTag = true,
   });
 
   final _GitHubRelease release;
   final Version version;
   final bool isPrerelease;
+  final bool isGlobalTag;
 }
 
 class _GitHubRelease {
@@ -576,6 +581,8 @@ class _GitHubRelease {
     required this.body,
     required this.assets,
     required this.publishedAt,
+    this.draft = false,
+    this.prerelease = false,
   });
 
   factory _GitHubRelease.fromJson(Map<String, dynamic> json) {
@@ -589,6 +596,8 @@ class _GitHubRelease {
       body: (json['body'] as String?)?.trim(),
       assets: assets,
       publishedAt: DateTime.tryParse((json['published_at'] as String?) ?? ''),
+      draft: json['draft'] == true,
+      prerelease: json['prerelease'] == true,
     );
   }
 
@@ -597,11 +606,14 @@ class _GitHubRelease {
   final String? body;
   final List<_GitHubReleaseAsset> assets;
   final DateTime? publishedAt;
+  final bool draft;
+  final bool prerelease;
 
   Version? get parsedVersion {
-    final normalized = tagName.replaceFirst(RegExp(r'^v'), '');
+    // Quitar sufijo de plataforma antes de parsear (v1.4.0-android → 1.4.0).
+    final stripped = GitHubReleaseUpdater._stripPlatformTagSuffix(tagName);
     try {
-      return Version.parse(normalized);
+      return Version.parse(stripped);
     } catch (_) {
       return null;
     }

@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_linux
   flutter_secure_storage_linux
+  gtk
   hotkey_manager_linux
   irondash_engine_context
   local_notifier

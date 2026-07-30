@@ -1,68 +1,41 @@
-# Script de compilación y publicación multiplataforma para Folio
-# Ver docs/RELEASES.md → sección FOLIO_DISTRIBUTION
+# Script de compilacion y publicacion multiplataforma para Folio
+# Ver docs/RELEASES.md
 #
-# Uso interactivo (menú):   .\builld_all.ps1
-# Uso directo (CI/scripts):  .\builld_all.ps1 -Action build-all -SkipAndroid -SkipLinux
+# Uso (solo menus interactivos):
+#   .\builld_all.ps1
 #
-# Acciones (-Action):
-#   menu        Mostrar el menú interactivo (por defecto sin argumentos).
-#   build-all   Compilar todo localmente (Windows + MSIX + APK + Linux + macOS si aplica) sin publicar.
-#   release     Compilar todas las formas posibles + RELEASE estable (enlaces → folio.minealexgames.com).
-#   prerelease  Igual, como PRE-RELEASE/Beta (enlaces → foliobeta.minealexgames.com).
-#   installer   Generar solo el instalador Windows (.exe) sin publicar.
-#   windows     Compilar solo Windows (canal GitHub) -> ZIP.
-#   store       Compilar solo Windows (Microsoft Store) -> MSIX.
-#   android     Compilar solo Android (APK + AAB).
-#   linux       Compilar solo Linux (bundle -> ZIP; nativo o via WSL).
-#   macos       Compilar solo macOS (.app -> ZIP; solo en macOS).
-#   notes       Publicar release "solo notas" (changelog) sin adjuntar artefactos.
-#   clean       Ejecutar flutter clean.
+# Elige en pantalla: publicar estable/beta, alcance global o por plataforma,
+# compilar localmente, etc. No hace falta pasar parametros.
+#
+# Tags: vX.Y.Z (global) o vX.Y.Z-android|windows|linux|macos
+# CI (GitHub Actions) puede seguir invocando con parametros internos; uso humano = menu.
 param(
-    # Accion a ejecutar. Vacio = menu interactivo (o build-all si se usa modo no interactivo/CI).
+    # Uso interno / CI. Dejar vacio → menu interactivo.
     [ValidateSet('', 'menu', 'build-all', 'release', 'prerelease', 'installer', 'windows', 'store', 'android', 'linux', 'macos', 'notes', 'clean')]
     [string] $Action = '',
-    # Carpeta de salida (por defecto [repo]/Output).
     [string] $Output = '',
-    # Vacio = no anade --dart-define (comportamiento legado en Windows).
     [string] $DistributionWindowsGitHub = 'github',
-    # Build MSIX / Partner Center (segundo build Windows).
     [string] $DistributionWindowsMicrosoftStore = 'microsoft_store',
-    # Builds APK pensados para Google Play.
     [string] $DistributionAndroid = 'play_store',
     [string] $DistributionLinux = 'github',
     [string] $DistributionMacOS = 'github',
-    # Omitir segundo build Windows + MSIX (p. ej. sin certificado / solo GitHub).
     [switch] $SkipMicrosoftStore,
-    # CI Windows no tiene Android SDK por defecto: usar en GitHub Actions y ejecutar APK en otro job.
     [switch] $SkipAndroid,
-    # Solo en maquinas Linux/WSL; en Windows se intenta WSL si esta disponible.
     [switch] $SkipLinux,
-    # Solo en macOS (no hay cross-compile desde Windows/Linux).
     [switch] $SkipMacOS,
-    # Origen de MS_STORE_* para --dart-define (por defecto functions/.env).
     [string] $MicrosoftStoreEnvFile = '',
-    # Ejecutar 'flutter clean' antes de compilar (evita caches CMake obsoletas al mover el repo).
     [switch] $Clean,
-    # Forzar modo no interactivo (no muestra menu; usa -Action o build-all).
     [switch] $NonInteractive,
-    # Tag de la release (por defecto v<semver de pubspec.yaml>).
     [string] $ReleaseTag = '',
-    # Rama/commit destino de la release en GitHub. Vacio = autodetectar (rama actual o por defecto del remoto).
     [string] $ReleaseTarget = '',
-    # Publicar como pre-release (canal Beta). release=estable, prerelease=beta.
     [switch] $PreRelease,
-    # Publicar como borrador (draft) en GitHub.
     [switch] $DraftRelease,
-    # Nueva version para pubspec.yaml antes de compilar (p. ej. 1.3.0 o 1.3.0+12). Vacio = mantener.
     [string] $BumpVersion = '',
-    # Notas Markdown de la release (inline). Si vacio y no hay -ReleaseNotesFile, en modo interactivo se pueden pegar.
     [string] $ReleaseNotes = '',
-    # Ruta a un .md con las notas de la release (prioridad sobre -ReleaseNotes).
     [string] $ReleaseNotesFile = '',
-    # Override de la base de la app web para enlaces (/s, reset, verify).
-    # Vacio = segun canal: prerelease→foliobeta, release→folio, resto→default del codigo.
     [string] $FolioWebBaseUrl = '',
-    # No pedir confirmaciones interactivas en flujos de publicacion.
+    [ValidateSet('global', 'android', 'windows', 'linux', 'macos')]
+    [string] $PlatformScope = 'global',
     [switch] $Yes
 )
 
@@ -810,6 +783,47 @@ function Resolve-ReleaseNotes {
     return $body
 }
 
+function Get-ReleaseTagForScope {
+    param(
+        [Parameter(Mandatory)] [string] $Semver,
+        [string] $Scope = 'global'
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseTag)) {
+        return $ReleaseTag.Trim()
+    }
+    $scopeNorm = $Scope.Trim().ToLowerInvariant()
+    if ($scopeNorm -eq 'global' -or [string]::IsNullOrWhiteSpace($scopeNorm)) {
+        return "v$Semver"
+    }
+    return "v$Semver-$scopeNorm"
+}
+
+function Get-OutputReleaseAssetsForScope {
+    param([string] $Scope = 'global')
+    $all = @(Get-OutputReleaseAssets)
+    $scopeNorm = $Scope.Trim().ToLowerInvariant()
+    if ($scopeNorm -eq 'global' -or [string]::IsNullOrWhiteSpace($scopeNorm)) {
+        return $all
+    }
+    $filtered = [System.Collections.Generic.List[string]]::new()
+    foreach ($path in $all) {
+        $leaf = Split-Path $path -Leaf
+        $include = $false
+        switch ($scopeNorm) {
+            'android' { $include = $leaf -like 'Folio-Android-*' }
+            'windows' {
+                $include = ($leaf -like 'Folio-Setup-*.exe') -or
+                    ($leaf -like 'Folio-Windows-GitHub-*.zip') -or
+                    ($leaf -like 'Folio-MicrosoftStore-*.msix')
+            }
+            'linux' { $include = $leaf -like 'Folio-Linux-*' }
+            'macos' { $include = $leaf -like 'Folio-macOS-*' }
+        }
+        if ($include) { $filtered.Add($path) }
+    }
+    return $filtered.ToArray()
+}
+
 function Publish-Release {
     param(
         [Parameter(Mandatory)] [string] $Tag,
@@ -820,14 +834,6 @@ function Publish-Release {
         [switch] $AsDraft
     )
     Assert-GhReady
-
-    & gh release view $Tag *> $null
-    if ($LASTEXITCODE -eq 0) {
-        throw "Ya existe una release para el tag '$Tag'. Sube la version (pubspec.yaml) o borra la release."
-    }
-    $global:LASTEXITCODE = 0
-
-    $target = Resolve-ReleaseTarget
 
     $assets = [System.Collections.Generic.List[string]]::new()
     if (-not [string]::IsNullOrWhiteSpace($InstallerPath)) {
@@ -843,6 +849,26 @@ function Publish-Release {
             $assets.Add($a)
         }
     }
+
+    & gh release view $Tag *> $null
+    $releaseExists = ($LASTEXITCODE -eq 0)
+    $global:LASTEXITCODE = 0
+
+    if ($releaseExists) {
+        if ($assets.Count -eq 0) {
+            throw "Ya existe la release '$Tag' y no hay assets nuevos que subir."
+        }
+        Write-Host "`n[release] El tag '$Tag' ya existe; subiendo/actualizando assets..." -ForegroundColor Cyan
+        foreach ($a in $assets) {
+            Write-Host "    - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+        }
+        & gh release upload $Tag @($assets.ToArray()) --clobber
+        Assert-LastExitCode 'gh release upload'
+        Write-Host "Assets actualizados en: $Tag" -ForegroundColor Green
+        return
+    }
+
+    $target = Resolve-ReleaseTarget
 
     $notesFile = $null
     try {
@@ -890,8 +916,9 @@ function Confirm-Action([string] $message) {
     return ($answer -match '^(s|si|y|yes)$')
 }
 
-# Flujo completo de publicacion (release o pre-release):
-# compila todas las formas de distribucion posibles y las adjunta a la release.
+# Flujo completo de publicacion (release o pre-release).
+# -PlatformScope global → tag vX.Y.Z (todas las plataformas no omitidas).
+# -PlatformScope android|windows|linux|macos → tag vX.Y.Z-<platform> (solo esa).
 function Invoke-PublishFlow {
     param([switch] $AsPreRelease)
 
@@ -899,8 +926,11 @@ function Invoke-PublishFlow {
         Set-PubspecVersion $BumpVersion
     }
 
+    $scope = $PlatformScope.Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($scope)) { $scope = 'global' }
+
     $semver = Get-PubspecSemver
-    $tag = if ([string]::IsNullOrWhiteSpace($ReleaseTag)) { "v$semver" } else { $ReleaseTag.Trim() }
+    $tag = Get-ReleaseTagForScope -Semver $semver -Scope $scope
 
     $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
     $script:FolioWebChannel = if ($AsPreRelease) { 'beta' } else { 'production' }
@@ -909,44 +939,130 @@ function Invoke-PublishFlow {
     } else {
         'https://folio.minealexgames.com'
     }
-    Write-Host "`n----------------------------------------------" -ForegroundColor DarkGray
-    Write-Host " $kind" -ForegroundColor Cyan
-    Write-Host "  Version pubspec : $(Get-PubspecVersionRaw)" -ForegroundColor Gray
-    Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
-    Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
-    Write-Host "  Enlaces web     : $webLinks (compartir / reset / verify)" -ForegroundColor Gray
-    Write-Host "  Artefactos      : instalador + ZIP Windows + MSIX + APK/AAB + Linux/macOS (si aplica)" -ForegroundColor Gray
-    Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 
-    if (-not (Confirm-Action "Compilar todas las formas posibles y publicar $tag ?")) {
-        Write-Host "Cancelado." -ForegroundColor Yellow
-        return
+    # Ajustar skips segun alcance de plataforma.
+    $prevSkipAndroid = $SkipAndroid
+    $prevSkipLinux = $SkipLinux
+    $prevSkipMacOS = $SkipMacOS
+    $prevSkipStore = $SkipMicrosoftStore
+    $buildWindows = $true
+    try {
+        switch ($scope) {
+            'android' {
+                $SkipAndroid = $false
+                $SkipLinux = $true
+                $SkipMacOS = $true
+                $SkipMicrosoftStore = $true
+                $buildWindows = $false
+            }
+            'windows' {
+                $SkipAndroid = $true
+                $SkipLinux = $true
+                $SkipMacOS = $true
+                $buildWindows = $true
+            }
+            'linux' {
+                $SkipAndroid = $true
+                $SkipLinux = $false
+                $SkipMacOS = $true
+                $SkipMicrosoftStore = $true
+                $buildWindows = $false
+            }
+            'macos' {
+                $SkipAndroid = $true
+                $SkipLinux = $true
+                $SkipMacOS = $false
+                $SkipMicrosoftStore = $true
+                $buildWindows = $false
+            }
+            default {
+                # global: respetar -Skip* del llamador
+                $buildWindows = $true
+            }
+        }
+
+        Write-Host "`n----------------------------------------------" -ForegroundColor DarkGray
+        Write-Host " $kind" -ForegroundColor Cyan
+        Write-Host "  Version pubspec : $(Get-PubspecVersionRaw)" -ForegroundColor Gray
+        Write-Host "  Alcance         : $scope" -ForegroundColor Gray
+        Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
+        Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
+        Write-Host "  Enlaces web     : $webLinks (compartir / reset / verify)" -ForegroundColor Gray
+        Write-Host "----------------------------------------------" -ForegroundColor DarkGray
+
+        if (-not (Confirm-Action "Compilar y publicar $tag (alcance=$scope) ?")) {
+            Write-Host "Cancelado." -ForegroundColor Yellow
+            return
+        }
+
+        $notesBody = Resolve-ReleaseNotes
+        if ($null -eq $notesBody) { $notesBody = '' }
+
+        Assert-GhReady
+
+        $needInstaller = $false
+        if ($scope -eq 'windows') { $needInstaller = $true }
+        elseif ($scope -eq 'global' -and $buildWindows) { $needInstaller = $true }
+
+        if ($Clean) { Invoke-FlutterClean }
+        Invoke-FlutterPubGet
+
+        if ($buildWindows) {
+            Build-WindowsGitHub
+            if (-not $SkipMicrosoftStore) {
+                Build-WindowsStore
+            } else {
+                Write-Host "`n[skip] Omitido: build Microsoft Store / MSIX (-SkipMicrosoftStore)." -ForegroundColor Magenta
+            }
+        } else {
+            Write-Host "`n[skip] Omitido: builds Windows (alcance=$scope)." -ForegroundColor Magenta
+        }
+
+        if (-not $SkipAndroid) {
+            Build-Android
+        } else {
+            Write-Host "`n[skip] Omitido: Android (-SkipAndroid / alcance)." -ForegroundColor Magenta
+        }
+
+        if ($SkipLinux) {
+            Write-Host "`n[skip] Omitido: Linux (-SkipLinux / alcance)." -ForegroundColor Magenta
+        } else {
+            Build-Linux -BestEffort
+        }
+
+        if ($SkipMacOS) {
+            Write-Host "`n[skip] Omitido: macOS (-SkipMacOS / alcance)." -ForegroundColor Magenta
+        } else {
+            Build-MacOS -BestEffort
+        }
+
+        if ($needInstaller) {
+            Write-Host "`n[installer] Generando instalador de Windows..." -ForegroundColor Yellow
+            $iscc = Find-Iscc
+            if ($iscc) {
+                Build-WindowsInstaller -ForceRebuild:$false
+            } else {
+                throw "No se encontro ISCC.exe (Inno Setup). Instalalo con 'winget install JRSoftware.InnoSetup'."
+            }
+        }
+
+        $assets = @(Get-OutputReleaseAssetsForScope -Scope $scope)
+        if ($assets.Count -eq 0) {
+            throw "No hay artefactos para publicar (alcance=$scope). Compila antes o revisa Output/."
+        }
+
+        Write-Host "`nArtefactos a publicar ($($assets.Count)):" -ForegroundColor Cyan
+        foreach ($a in $assets) {
+            Write-Host "  - $(Split-Path $a -Leaf)" -ForegroundColor Gray
+        }
+
+        Publish-Release -Tag $tag -AssetPaths $assets -NotesBody $notesBody -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
+    } finally {
+        $SkipAndroid = $prevSkipAndroid
+        $SkipLinux = $prevSkipLinux
+        $SkipMacOS = $prevSkipMacOS
+        $SkipMicrosoftStore = $prevSkipStore
     }
-
-    # Pedir notas antes del build largo (pegar Markdown o Enter = autogenerar).
-    $notesBody = Resolve-ReleaseNotes
-    if ($null -eq $notesBody) { $notesBody = '' }
-
-    Assert-GhReady
-
-    # Misma matriz que build-all; Linux/macOS en best-effort fuera de su host.
-    Invoke-BuildAll -RequireInstaller
-
-    $assets = Get-OutputReleaseAssets
-    $installer = Join-Path $OutputDir ("Folio-Setup-" + (Get-PubspecSemver) + ".exe")
-    if (-not (Test-Path -LiteralPath $installer)) {
-        throw "No se encontro el instalador obligatorio: $installer"
-    }
-    if ($assets.Count -eq 0) {
-        $assets = @($installer)
-    }
-
-    Write-Host "`nArtefactos a publicar ($($assets.Count)):" -ForegroundColor Cyan
-    foreach ($a in $assets) {
-        Write-Host "  - $(Split-Path $a -Leaf)" -ForegroundColor Gray
-    }
-
-    Publish-Release -Tag $tag -AssetPaths $assets -NotesBody $notesBody -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
 }
 
 # Flujo compilar todo localmente (comportamiento legado).
@@ -998,7 +1114,7 @@ function Invoke-BuildAll {
 }
 
 # ---------------------------------------------------------------------------
-# Menu interactivo
+# Menu interactivo (uso humano: solo selectores numerados)
 # ---------------------------------------------------------------------------
 
 function Show-Menu {
@@ -1008,19 +1124,19 @@ function Show-Menu {
     Write-Host "==================================================" -ForegroundColor Cyan
     Write-Host ("  Version actual (pubspec.yaml): {0}" -f (Get-PubspecVersionRaw)) -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  PUBLICAR" -ForegroundColor Yellow
-    Write-Host "   1) Publicar RELEASE estable en GitHub (todos los artefactos posibles)"
-    Write-Host "   2) Publicar PRE-RELEASE / Beta en GitHub (todos los artefactos posibles)"
-    Write-Host "   3) Publicar solo notas (changelog) sin artefactos"
+    Write-Host "  PUBLICAR EN GITHUB" -ForegroundColor Yellow
+    Write-Host "   1) RELEASE estable"
+    Write-Host "   2) PRE-RELEASE / Beta"
+    Write-Host "   3) Solo notas (changelog, sin artefactos)"
     Write-Host ""
     Write-Host "  COMPILAR (local, sin publicar)" -ForegroundColor Yellow
-    Write-Host "   4) Compilar TODO (Windows ZIP + MSIX + APK + AAB + Linux + macOS + Instalador)"
-    Write-Host "   5) Generar solo instalador Windows (.exe)"
-    Write-Host "   6) Windows (canal GitHub) -> ZIP"
-    Write-Host "   7) Windows (Microsoft Store) -> MSIX"
-    Write-Host "   8) Android (APK + AAB)"
-    Write-Host "   9) Linux (bundle -> ZIP; nativo o WSL)"
-    Write-Host "  10) macOS (.app -> ZIP; solo en Mac)"
+    Write-Host "   4) Compilar TODO (lo posible en este PC)"
+    Write-Host "   5) Solo instalador Windows (.exe)"
+    Write-Host "   6) Solo Windows GitHub (ZIP)"
+    Write-Host "   7) Solo Windows Microsoft Store (MSIX)"
+    Write-Host "   8) Solo Android (APK + AAB)"
+    Write-Host "   9) Solo Linux (ZIP)"
+    Write-Host "  10) Solo macOS (ZIP)"
     Write-Host ""
     Write-Host "  MANTENIMIENTO" -ForegroundColor Yellow
     Write-Host "  11) flutter clean"
@@ -1050,12 +1166,165 @@ function Show-Menu {
     }
 }
 
+# Devuelve 'global'|'android'|... o $null si cancela.
+function Read-PlatformScopeInteractive {
+    Write-Host ""
+    Write-Host "Alcance de publicacion (tag en GitHub):" -ForegroundColor Yellow
+    Write-Host "  1) Global     -> vX.Y.Z          (todas las plataformas que elijas)"
+    Write-Host "  2) Android    -> vX.Y.Z-android"
+    Write-Host "  3) Windows    -> vX.Y.Z-windows"
+    Write-Host "  4) Linux      -> vX.Y.Z-linux"
+    Write-Host "  5) macOS      -> vX.Y.Z-macos"
+    Write-Host "  0) Cancelar"
+    Write-Host ""
+    $ans = (Read-Host "Elige una opcion").Trim()
+    switch ($ans) {
+        '1' { return 'global' }
+        '2' { return 'android' }
+        '3' { return 'windows' }
+        '4' { return 'linux' }
+        '5' { return 'macos' }
+        '0' { return $null }
+        default {
+            Write-Host "Opcion no valida." -ForegroundColor Red
+            return $null
+        }
+    }
+}
+
+# Solo para alcance global: toggles numerados de que plataformas incluir.
+function Read-GlobalPlatformIncludesInteractive {
+    $includeWindows = $true
+    $includeMsix = $true
+    $includeAndroid = $true
+    $includeLinux = $true
+    $includeMacOS = $true
+
+    while ($true) {
+        $mark = {
+            param([bool]$on)
+            if ($on) { '[X]' } else { '[ ]' }
+        }
+        Write-Host ""
+        Write-Host "Release GLOBAL: elige plataformas a incluir" -ForegroundColor Yellow
+        Write-Host ("  1) Windows ZIP + instalador  {0}" -f (& $mark $includeWindows))
+        Write-Host ("  2) Microsoft Store (MSIX)    {0}" -f (& $mark $includeMsix))
+        Write-Host ("  3) Android (APK + AAB)       {0}" -f (& $mark $includeAndroid))
+        Write-Host ("  4) Linux                     {0}" -f (& $mark $includeLinux))
+        Write-Host ("  5) macOS                     {0}" -f (& $mark $includeMacOS))
+        Write-Host "  6) Continuar con esta seleccion"
+        Write-Host "  0) Cancelar"
+        Write-Host ""
+        $ans = (Read-Host "Elige (1-5 para alternar, 6 para seguir)").Trim()
+        switch ($ans) {
+            '1' { $includeWindows = -not $includeWindows }
+            '2' { $includeMsix = -not $includeMsix }
+            '3' { $includeAndroid = -not $includeAndroid }
+            '4' { $includeLinux = -not $includeLinux }
+            '5' { $includeMacOS = -not $includeMacOS }
+            '6' {
+                if (-not $includeWindows -and -not $includeAndroid -and -not $includeLinux -and -not $includeMacOS) {
+                    Write-Host "Debes incluir al menos una plataforma." -ForegroundColor Red
+                    continue
+                }
+                if ($includeMsix -and -not $includeWindows) {
+                    Write-Host "MSIX requiere Windows; se desactiva MSIX." -ForegroundColor Yellow
+                    $includeMsix = $false
+                }
+                return [pscustomobject]@{
+                    IncludeWindows = $includeWindows
+                    IncludeMsix    = $includeMsix
+                    IncludeAndroid = $includeAndroid
+                    IncludeLinux   = $includeLinux
+                    IncludeMacOS   = $includeMacOS
+                }
+            }
+            '0' { return $null }
+            default { Write-Host "Opcion no valida." -ForegroundColor Red }
+        }
+    }
+}
+
+# Notas: estable vs beta por menu.
+function Read-NotesChannelInteractive {
+    Write-Host ""
+    Write-Host "Canal de las notas:" -ForegroundColor Yellow
+    Write-Host "  1) RELEASE estable"
+    Write-Host "  2) PRE-RELEASE / Beta"
+    Write-Host "  0) Cancelar"
+    Write-Host ""
+    $ans = (Read-Host "Elige una opcion").Trim()
+    switch ($ans) {
+        '1' { return 'stable' }
+        '2' { return 'beta' }
+        '0' { return $null }
+        default {
+            Write-Host "Opcion no valida." -ForegroundColor Red
+            return $null
+        }
+    }
+}
+
+function Confirm-Action([string] $message) {
+    if ($Yes) { return $true }
+    Write-Host ""
+    Write-Host $message -ForegroundColor Yellow
+    Write-Host "  1) Si"
+    Write-Host "  2) No"
+    $answer = (Read-Host "Elige una opcion").Trim()
+    return ($answer -eq '1')
+}
+
 # Ejecuta una accion concreta.
 function Invoke-FolioAction([string] $act) {
     switch ($act) {
         'build-all' { Invoke-BuildAll }
-        'release'   { Invoke-PublishFlow }
-        'prerelease' { Invoke-PublishFlow -AsPreRelease }
+        'release' {
+            $scope = Read-PlatformScopeInteractive
+            if ($null -eq $scope) {
+                Write-Host "Cancelado." -ForegroundColor Yellow
+                return
+            }
+            $script:PlatformScope = $scope
+            if ($scope -eq 'global') {
+                $includes = Read-GlobalPlatformIncludesInteractive
+                if ($null -eq $includes) {
+                    Write-Host "Cancelado." -ForegroundColor Yellow
+                    return
+                }
+                $script:SkipAndroid = -not $includes.IncludeAndroid
+                $script:SkipLinux = -not $includes.IncludeLinux
+                $script:SkipMacOS = -not $includes.IncludeMacOS
+                $script:SkipMicrosoftStore = -not $includes.IncludeMsix
+                $script:FolioPublishSkipWindows = -not $includes.IncludeWindows
+            } else {
+                $script:FolioPublishSkipWindows = $false
+            }
+            Invoke-PublishFlow
+        }
+        'prerelease' {
+            $scope = Read-PlatformScopeInteractive
+            if ($null -eq $scope) {
+                Write-Host "Cancelado." -ForegroundColor Yellow
+                return
+            }
+            $script:PlatformScope = $scope
+            if ($scope -eq 'global') {
+                $includes = Read-GlobalPlatformIncludesInteractive
+                if ($null -eq $includes) {
+                    Write-Host "Cancelado." -ForegroundColor Yellow
+                    return
+                }
+                $script:SkipAndroid = -not $includes.IncludeAndroid
+                $script:SkipLinux = -not $includes.IncludeLinux
+                $script:SkipMacOS = -not $includes.IncludeMacOS
+                $script:SkipMicrosoftStore = -not $includes.IncludeMsix
+                $script:FolioPublishSkipWindows = -not $includes.IncludeWindows
+            } else {
+                $script:FolioPublishSkipWindows = $false
+            }
+            Invoke-PublishFlow -AsPreRelease
+        }
         'installer' {
             if ($Clean) { Invoke-FlutterClean }
             Invoke-FlutterPubGet
@@ -1087,12 +1356,24 @@ function Invoke-FolioAction([string] $act) {
             Build-MacOS
         }
         'notes' {
+            $channel = Read-NotesChannelInteractive
+            if ($null -eq $channel) {
+                Write-Host "Cancelado." -ForegroundColor Yellow
+                return
+            }
+            $scope = Read-PlatformScopeInteractive
+            if ($null -eq $scope) {
+                Write-Host "Cancelado." -ForegroundColor Yellow
+                return
+            }
+            $script:PlatformScope = $scope
             $semver = Get-PubspecSemver
-            $tag = if ([string]::IsNullOrWhiteSpace($ReleaseTag)) { "v$semver" } else { $ReleaseTag.Trim() }
+            $tag = Get-ReleaseTagForScope -Semver $semver -Scope $scope
+            $asPre = ($channel -eq 'beta')
             if (Confirm-Action "Publicar release solo-notas '$tag' ?") {
                 $notesBody = Resolve-ReleaseNotes
                 if ($null -eq $notesBody) { $notesBody = '' }
-                Publish-Release -Tag $tag -NotesBody $notesBody -AsPreRelease:$PreRelease -AsDraft:$DraftRelease
+                Publish-Release -Tag $tag -NotesBody $notesBody -AsPreRelease:$asPre -AsDraft:$DraftRelease
             } else {
                 Write-Host "Cancelado." -ForegroundColor Yellow
             }

@@ -1,18 +1,24 @@
-# Releases y actualizaciones (Windows)
+# Releases y actualizaciones
 
-Este documento define la convención para publicar releases en GitHub que sean compatibles con el actualizador integrado de Folio en Windows.
+Este documento define la convención para publicar releases en GitHub compatibles con el actualizador integrado de Folio (Windows `.exe` y Android `.apk`).
 
-## Convención de versiones
+## Convención de tags
 
-- El tag de release debe seguir semver estable: `vMAJOR.MINOR.PATCH`.
-- Ejemplos válidos: `v1.0.0`, `v1.2.3`.
-- El actualizador acepta el prefijo `v` opcional al parsear (`1.2.3` también se interpreta), pero la convención oficial del repositorio es usar `v`.
+| Tipo | Tag | Ejemplo |
+|------|-----|---------|
+| **Global** | `vMAJOR.MINOR.PATCH` | `v1.4.0` |
+| **Solo plataforma** | `vMAJOR.MINOR.PATCH-<platform>` | `v1.4.0-android`, `v1.4.0-windows`, `v1.4.0-linux`, `v1.4.0-macos` |
+
+- El prefijo `v` es la convención oficial; el parser también acepta tags sin `v`.
+- El sufijo `-android` / `-windows` / etc. **no** forma parte del semver: el updater lo elimina antes de comparar (`v1.4.0-android` ≡ versión `1.4.0`).
+- Canal **Beta** = flag GitHub `--prerelease` (aplica a tags globales y de plataforma).
+- Si un tag ya existe, `builld_all.ps1` hace `gh release upload --clobber` (añadir/actualizar assets) en lugar de fallar.
 
 ## Convención de nombres de assets
 
 | Asset | Uso |
 |--------|-----|
-| `Folio-Setup-MAJOR.MINOR.PATCH.exe` | Instalador Windows (Inno Setup). **Obligatorio** para el auto-updater en Windows. |
+| `Folio-Setup-MAJOR.MINOR.PATCH.exe` | Instalador Windows (Inno Setup). Necesario para auto-update en Windows. |
 | `Folio-Windows-GitHub-<ver>.zip` | Build portable Windows (canal GitHub). |
 | `Folio-MicrosoftStore-<ver>.msix` | Paquete para Partner Center / sideload Store. |
 | `Folio-Android-PlayStore-<ver>.apk` | APK Android (updater en Android y sideload). |
@@ -22,24 +28,29 @@ Este documento define la convención para publicar releases en GitHub que sean c
 
 - Ejemplo instalador: `Folio-Setup-1.3.0.exe`.
 - `<ver>` usa la versión de `pubspec.yaml` con `+` sustituido por `-` (p. ej. `1.3.0-12`).
-- El updater en Windows prioriza `.exe` que contenga `setup` o `installer` en el nombre; en Android prioriza `.apk`.
+- El updater en Windows prioriza `.exe` con `setup`/`installer` en el nombre; en Android prioriza `.apk`.
+
+## Cómo elige el updater
+
+1. Lista releases recientes de GitHub (no solo `releases/latest`).
+2. Filtra: no draft; canal estable → sin `--prerelease`; beta → estable o pre.
+3. Tag **global** o con sufijo de la plataforma actual (`-android` / `-windows`).
+4. Debe incluir asset instalable para esa plataforma.
+5. Gana la **mayor semver**; empate → preferir estable sobre pre, luego tag global sobre tag de plataforma.
+
+Así una pre-release solo Android (`v1.4.1-android`) no tapa updates de Windows, y un `v1.4.1-android` sí compite con un global `v1.4.0`.
 
 ## Checklist de publicación
 
-1. Incrementar `version` en `pubspec.yaml` (o usar `-BumpVersion` en el script).
-2. Ejecutar release/prerelease con `builld_all.ps1` (compila **todas** las formas posibles en el host actual).
-3. Crear release en GitHub con tag `vMAJOR.MINOR.PATCH` y adjuntar los assets generados.
-4. Publicar la release (o marcar pre-release para el canal Beta).
+1. Incrementar `version` en `pubspec.yaml` (o usar `-BumpVersion`).
+2. Ejecutar release/prerelease con `builld_all.ps1` y el alcance deseado (`-PlatformScope`).
+3. Confirmar el tag en GitHub (`vX.Y.Z` o `vX.Y.Z-<platform>`) y los assets.
 
-> **Linux / macOS desde Windows:** Linux se intenta vía **WSL** si Flutter+deps GTK están en la distro; macOS **no** se puede cross-compilar (hace falta un Mac o el job `macos` del workflow `folio-build-all`). Para una release completa multiplataforma, compila con Actions y adjunta los artefactos, o publica desde el script en cada host.
+> **Linux / macOS desde Windows:** Linux vía **WSL** si Flutter+GTK están en la distro; macOS requiere Mac o el job `macos` de `folio-build-all`.
 
 ## Betas (canal Beta en la app)
 
-En Ajustes → Acerca de puedes elegir el canal **Beta**. Ese modo usa la **última release de GitHub marcada como pre-release** (no borrador), no el endpoint `releases/latest`.
-
-- Al crear la release en GitHub, marca **“Set as a pre-release”** / **“This is a pre-release”**.
-- Misma convención de tag semver y mismo nombre de asset `.exe` que en releases estables.
-- Si no hay ninguna pre-release publicada, la app indicará que no hay betas disponibles.
+En Ajustes → Acerca de → canal **Beta**: el updater considera estables y pre-releases con asset para la plataforma (véase arriba).
 
 ## `FOLIO_DISTRIBUTION` (facturación Folio Cloud)
 
@@ -56,59 +67,71 @@ En builds `microsoft_store` y `play_store`, la app **no** ofrece descarga/instal
 
 ## Publicación local con `builld_all.ps1`
 
-Además del CI, puedes compilar y publicar desde tu máquina con el menú interactivo del script:
-
 ```powershell
 .\builld_all.ps1
 ```
 
-- **Opción 1 (RELEASE estable):** compila **todas** las formas de distribución posibles en el host (instalador `.exe`, ZIP Windows, MSIX, APK/AAB, Linux vía WSL si aplica, macOS solo en Mac) y ejecuta `gh release create v<semver> ...` adjuntando todos los assets. Antes de publicar pide pegar **notas Markdown** (o Enter para `--generate-notes`).
-- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta); mismas opciones de notas Markdown.
-- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar artefactos (también admite Markdown pegado o archivo).
+- **Opción 1 / 2:** RELEASE o PRE-RELEASE; el menú pregunta el **alcance** (global / android / windows / linux / macos).
+- **Opción 3:** solo notas (changelog) sin artefactos.
 
-Modo directo (sin menú), útil para automatizar:
+Modo directo:
 
 ```powershell
-# Release estable de la versión actual de pubspec.yaml
-.\builld_all.ps1 -Action release -Yes
+# Release global (tag vX.Y.Z)
+.\builld_all.ps1 -Action release -Yes -PlatformScope global
 
-# Pre-release subiendo antes la versión
-.\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes
+# Solo Android (tag vX.Y.Z-android), estable
+.\builld_all.ps1 -Action release -Yes -PlatformScope android
 
-# Notas Markdown desde archivo (release o prerelease)
+# Solo Windows como beta (tag vX.Y.Z-windows --prerelease)
+.\builld_all.ps1 -Action prerelease -Yes -PlatformScope windows
+
+# Pre-release global subiendo versión
+.\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes -PlatformScope global
+
+# Global omitiendo Android/Linux/macOS (sigue tag vX.Y.Z)
+.\builld_all.ps1 -Action release -Yes -PlatformScope global -SkipAndroid -SkipLinux -SkipMacOS
+
+# Notas Markdown
 .\builld_all.ps1 -Action release -Yes -ReleaseNotesFile .\CHANGELOG-release.md
-.\builld_all.ps1 -Action prerelease -Yes -ReleaseNotes "## Beta`n`n- Fix X"
-
-# Solo plataformas Windows (omitir Android/Linux/macOS)
-.\builld_all.ps1 -Action release -Yes -SkipAndroid -SkipLinux -SkipMacOS
 ```
 
 ### Enlaces web (folio vs foliobeta)
 
 | Canal del script | Enlaces embebidos en el binario (`FOLIO_WEB_BASE_URL`) |
 |---|---|
-| `-Action release` (menú 1) | `https://folio.minealexgames.com` |
-| `-Action prerelease` (menú 2) | `https://foliobeta.minealexgames.com` |
+| `-Action release` | `https://folio.minealexgames.com` |
+| `-Action prerelease` | `https://foliobeta.minealexgames.com` |
 
-Override manual: `-FolioWebBaseUrl https://foliobeta.minealexgames.com`.
+Override: `-FolioWebBaseUrl https://foliobeta.minealexgames.com`.
 
-**App web (Vercel):** el proyecto `folio` despliega con `vercel-build.sh`. Si el usuario abre `foliobeta…` o `folio…`, la web detecta el host solo (no hace falta dart-define en ese build). Añade el dominio `foliobeta.minealexgames.com` al mismo proyecto Vercel (o a un alias de Production/Preview) apuntando al deploy que quieras como beta.
+**App web (Vercel):** el host `folio` / `foliobeta` se detecta en runtime. **Backend (Railway):** `FOLIO_WEB_BASE_URL=https://folio.minealexgames.com` en prod.
 
-**Backend (correos / `publicUrl`):** en Railway, `FOLIO_WEB_BASE_URL=https://folio.minealexgames.com` (prod). Solo cambia a foliobeta si tienes un API de staging/beta.
+Requisitos: [GitHub CLI](https://cli.github.com/) autenticado e [Inno Setup](https://jrsoftware.org/isinfo.php) para releases que incluyen Windows. Parámetros útiles: `-PlatformScope`, `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-FolioWebBaseUrl`.
 
-Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-FolioWebBaseUrl`.
+> **Notas Markdown:** en modo interactivo pega el cuerpo y termina con `END`; Enter vacío usa `--generate-notes`. El script pasa Markdown a `gh` vía `--notes-file`.
 
-> **Notas Markdown:** en modo interactivo (menú 1/2/3), pega el cuerpo y termina con una línea `END`; Enter vacío en la primera línea usa `--generate-notes`. Con `-Yes` / `-NonInteractive` sin `-ReleaseNotes`/`-ReleaseNotesFile` también se autogeneran. El script pasa el Markdown a `gh` vía `--notes-file` (archivo temporal UTF-8).
-
-> El `target_commitish` se resuelve automáticamente: si omites `-ReleaseTarget`, el script usa la rama actual (si existe en `origin`) o la rama por defecto del remoto (`main`). GitHub crea el tag apuntando al **último commit de esa rama en el remoto**, así que empuja tus cambios antes de publicar.
+> El `target_commitish` se resuelve automáticamente (rama actual en `origin` o rama por defecto). Empuja tus cambios antes de publicar.
 
 ## Workflow «Folio build all» (GitHub Actions)
 
-- Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual: **Actions → Folio build all → Run workflow**).
-- Jobs en paralelo: **Windows** (`builld_all.ps1 -SkipAndroid -SkipLinux -SkipMacOS`), **Android** (APK + AAB), **Linux** (ZIP del bundle) y **macOS** (ZIP del `.app`). Artefactos: `folio-output-windows`, `folio-output-android`, `folio-output-linux`, `folio-output-macos`.
-- Opcional: secret **`FOLIO_MS_STORE_ENV`** (texto multilínea con líneas `MS_STORE_*=…`) para inyectar ids de producto en el build Store del job Windows; sin él, el paso MSIX puede fallar si faltan defines (marca **Omitir MSIX** en el workflow si solo quieres el ZIP GitHub).
+- Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual).
+- Jobs: Windows, Android, Linux, macOS → artifacts. Puedes adjuntarlos a un tag global o de plataforma con `gh release upload`.
+
+## OAuth móvil (redirect URIs)
+
+En Android/iOS el OAuth de integraciones usa deep link `folio://oauth/<provider>/callback` (no loopback). Registrar en cada IdP:
+
+| Provider | Redirect URI |
+|----------|----------------|
+| Jira (Atlassian) | `folio://oauth/jira/callback` |
+| Spotify | `folio://oauth/spotify/callback` |
+| Slack | `folio://oauth/slack/callback` |
+| Teams (Azure) | `folio://oauth/teams/callback` |
+
+Desktop sigue usando `http://127.0.0.1:45747–45750/callback`. El backend acepta ambos.
 
 ## Notas operativas
 
-- El repositorio puede ser privado durante desarrollo, pero el updater se apoya en el endpoint público de releases para producción.
-- Si el nombre del `.exe` no respeta esta convención, la detección automática puede fallar.
+- El updater se apoya en el endpoint público de releases para producción.
+- Si el nombre del `.exe`/`.apk` no respeta la convención, la detección automática puede fallar.

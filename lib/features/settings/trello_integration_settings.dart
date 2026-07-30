@@ -2,13 +2,13 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/integration_settings_widgets.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/trello_integration_state.dart';
+import '../../services/oauth/oauth_launch.dart';
 import '../../services/trello/trello_api_client.dart';
 import '../../services/trello/trello_auth_config.dart';
 import '../../session/vault_session.dart';
@@ -208,7 +208,7 @@ class _AddConnectionFormState extends State<_AddConnectionForm> {
       '?expiration=never&name=Folio&scope=read,write&response_type=token'
       '&key=${TrelloAuthConfig.officialApiKey}',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchOAuthAuthorizeUrl(uri);
   }
 
   @override

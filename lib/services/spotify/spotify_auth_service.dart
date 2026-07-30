@@ -12,11 +12,14 @@ import '../../config/folio_local_secrets.dart';
 import '../../models/spotify_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
-import '../folio_cloud/folio_cloud_callable.dart';
 import 'spotify_auth_config.dart';
 import 'spotify_auth_errors.dart';
 import '../../services/folio_cloud/folio_cloud_identity.dart';
 import '../../config/folio_backend_config.dart';
+import '../oauth/oauth_deep_link_io.dart'
+    if (dart.library.html) '../oauth/oauth_deep_link_stub.dart' as deeplink;
+import '../oauth/oauth_launch.dart';
+import '../oauth/oauth_mobile.dart';
 import 'spotify_oauth_loopback_io.dart'
     if (dart.library.html) 'spotify_oauth_loopback_stub.dart' as loopback;
 import 'spotify_oauth_web_stub.dart'
@@ -61,10 +64,82 @@ class SpotifyAuthService {
         cancelToken: cancelToken,
       );
     }
+    if (oauthUsesMobileDeepLink) {
+      return _connectMobile(
+        label: label,
+        scopes: scopes,
+        cancelToken: cancelToken,
+      );
+    }
     return _connectLoopback(
       label: label,
       scopes: scopes,
       cancelToken: cancelToken,
+    );
+  }
+
+  Future<SpotifyConnection> _connectMobile({
+    required String label,
+    required List<String> scopes,
+    SpotifyAuthCancelToken? cancelToken,
+  }) async {
+    final clientId = spotifyClientId();
+    if (clientId.isEmpty) {
+      throw StateError(
+        'Falta SPOTIFY_OAUTH_CLIENT_ID. Configúralo en folio_local_secrets.dart '
+        'o con --dart-define=SPOTIFY_OAUTH_CLIENT_ID=...',
+      );
+    }
+
+    final redirectUri = SpotifyAuthConfig.mobileRedirectUri;
+    final state = _randomToken(16);
+    final codeVerifier = _randomToken(64);
+    final codeChallenge = await _pkceCodeChallenge(codeVerifier);
+
+    final authUri = Uri.https('accounts.spotify.com', '/authorize', {
+      'client_id': clientId,
+      'response_type': 'code',
+      'redirect_uri': redirectUri.toString(),
+      'state': state,
+      'scope': scopes.join(' '),
+      'code_challenge_method': 'S256',
+      'code_challenge': codeChallenge,
+    });
+
+    AppLogger.info(
+      'Launching Spotify OAuth (mobile)',
+      tag: 'spotify',
+      context: {'redirectUri': redirectUri.toString()},
+    );
+
+    final codeFuture = deeplink.awaitMobileOAuthCode(
+      provider: SpotifyAuthConfig.oauthProvider,
+      expectedState: state,
+      whenCancelled: cancelToken?.whenCancelled,
+    );
+
+    final opened = await launchOAuthAuthorizeUrl(authUri);
+    if (!opened) {
+      cancelToken?.cancel();
+      throw StateError(
+        'No se pudo abrir el navegador para OAuth de Spotify. '
+        'Abre manualmente esta URL:\n$authUri',
+      );
+    }
+
+    final code = await codeFuture;
+
+    final tokenJson = await _exchangeCode(
+      code: code,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      codeVerifier: codeVerifier,
+    );
+
+    return _connectionFromTokenJson(
+      tokenJson: tokenJson,
+      label: label,
+      accessTokenOverride: null,
     );
   }
 
@@ -109,9 +184,7 @@ class SpotifyAuthService {
       whenCancelled: cancelToken?.whenCancelled,
     );
 
-    final opened =
-        await launchUrl(authUri, mode: LaunchMode.externalApplication) ||
-        await launchUrl(authUri, mode: LaunchMode.platformDefault);
+    final opened = await launchOAuthAuthorizeUrl(authUri);
     if (!opened) {
       cancelToken?.cancel();
       throw StateError(
@@ -184,6 +257,8 @@ class SpotifyAuthService {
       whenCancelled: cancelToken?.whenCancelled,
     );
 
+    // En web abrir en pestaña nueva; en el resto de plataformas el helper
+    // no aplica aquí porque este método solo se llama con kIsWeb.
     final opened = await launchUrl(
       authUri,
       mode: LaunchMode.platformDefault,

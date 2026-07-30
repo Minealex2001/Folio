@@ -5,7 +5,6 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
@@ -13,10 +12,14 @@ import '../../core/errors/folio_exception.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
-import '../folio_cloud/folio_cloud_callable.dart';
+import '../oauth/oauth_deep_link_io.dart'
+    if (dart.library.html) '../oauth/oauth_deep_link_stub.dart' as deeplink;
+import '../oauth/oauth_launch.dart';
+import '../oauth/oauth_mobile.dart';
 
 import '../../services/folio_cloud/folio_cloud_identity.dart';
 import '../../config/folio_backend_config.dart';
+
 class JiraAuthCancelledException extends FolioException {
   const JiraAuthCancelledException() : super('OAuth cancelado por el usuario.');
 }
@@ -45,11 +48,17 @@ class JiraAuthService {
   /// Importante: NO usar/embeder Client Secret en una app cliente.
   static const String _officialCloudClientId = '7HEIa3N2dGmMWWscFmYnjGRLNSjzg8hI';
 
-  /// Puerto fijo para OAuth loopback.
+  /// Puerto fijo para OAuth loopback (desktop).
   ///
   /// Atlassian requiere que el redirect URI registrado coincida exactamente,
   /// así que no podemos usar puertos aleatorios.
   static const int _oauthLoopbackPort = 45747;
+
+  static const String oauthProvider = 'jira';
+
+  /// Redirect Android/iOS: registrar en Atlassian Developer Console.
+  static Uri get mobileRedirectUri =>
+      OAuthMobileRedirect.callbackUri(oauthProvider);
 
   static String jiraCloudClientSecret() {
     const define = String.fromEnvironment('JIRA_OAUTH_CLIENT_SECRET');
@@ -108,23 +117,27 @@ class JiraAuthService {
         overrideClientId.trim().isNotEmpty ? overrideClientId.trim() : jiraCloudClientId();
     final clientSecret = jiraCloudClientSecret().trim();
 
-    // Loopback callback (puerto fijo).
-    HttpServer server;
-    try {
-      server = await HttpServer.bind(
-        InternetAddress.loopbackIPv4,
-        _oauthLoopbackPort,
-        shared: false,
-      );
-    } catch (e) {
-      throw StateError(
-        'No se pudo abrir el callback OAuth en http://127.0.0.1:$_oauthLoopbackPort/callback. '
-        'Comprueba que el puerto $_oauthLoopbackPort esté libre y vuelve a intentar. '
-        'Detalle: $e',
-      );
+    final useMobile = oauthUsesMobileDeepLink;
+    final redirectUri = useMobile
+        ? mobileRedirectUri
+        : Uri.parse('http://127.0.0.1:$_oauthLoopbackPort/callback');
+
+    HttpServer? server;
+    if (!useMobile) {
+      try {
+        server = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          _oauthLoopbackPort,
+          shared: false,
+        );
+      } catch (e) {
+        throw StateError(
+          'No se pudo abrir el callback OAuth en http://127.0.0.1:$_oauthLoopbackPort/callback. '
+          'Comprueba que el puerto $_oauthLoopbackPort esté libre y vuelve a intentar. '
+          'Detalle: $e',
+        );
+      }
     }
-    final redirectUri =
-        Uri.parse('http://127.0.0.1:$_oauthLoopbackPort/callback');
 
     final state = _randomToken(16);
     // PKCE real (RFC 7636): el redirect loopback exclusivo (RFC 8252) ya
@@ -148,28 +161,40 @@ class JiraAuthService {
     AppLogger.info(
       'Launching Jira Cloud OAuth',
       tag: 'jira',
-      context: {'redirectUri': redirectUri.toString()},
+      context: {
+        'redirectUri': redirectUri.toString(),
+        'mobile': useMobile,
+      },
     );
 
-    // En Windows algunos entornos devuelven `true` pero no abren nada con ciertos modos.
-    // Probamos dos modos antes de fallar.
-    final openedExternal =
-        await launchUrl(authUri, mode: LaunchMode.externalApplication);
-    final openedDefault =
-        openedExternal ? true : await launchUrl(authUri, mode: LaunchMode.platformDefault);
-    if (!openedExternal && !openedDefault) {
-      await server.close(force: true);
+    final Future<String> codeFuture;
+    if (useMobile) {
+      codeFuture = deeplink.awaitMobileOAuthCode(
+        provider: oauthProvider,
+        expectedState: state,
+        whenCancelled: cancelToken?.whenCancelled,
+      );
+    } else {
+      codeFuture = _awaitOAuthCode(
+        server!,
+        expectedState: state,
+        cancelToken: cancelToken,
+      );
+    }
+
+    final opened = await launchOAuthAuthorizeUrl(authUri);
+    if (!opened) {
+      cancelToken?.cancel();
+      if (server != null) {
+        await server.close(force: true);
+      }
       throw StateError(
         'No se pudo abrir el navegador para OAuth de Jira. '
         'Abre manualmente esta URL:\n$authUri',
       );
     }
 
-    final code = await _awaitOAuthCode(
-      server,
-      expectedState: state,
-      cancelToken: cancelToken,
-    );
+    final code = await codeFuture;
 
     final Map<String, dynamic> tokenJson;
     if (clientSecret.isNotEmpty) {

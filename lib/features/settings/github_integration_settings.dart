@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_skeletons.dart';
@@ -10,6 +9,7 @@ import '../../app/widgets/integration_settings_widgets.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/github_integration_state.dart';
 import '../../services/github/github_api_client.dart';
+import '../../services/oauth/oauth_launch.dart';
 import '../../session/vault_session.dart';
 
 const List<String> kGitHubPriorities = ['low', 'medium', 'high'];
@@ -207,7 +207,7 @@ class _AddConnectionFormState extends State<_AddConnectionForm> {
       'https://github.com/settings/tokens/new'
       '?scopes=repo&description=Folio',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchOAuthAuthorizeUrl(uri);
   }
 
   @override

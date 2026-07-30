@@ -5,15 +5,18 @@ import 'dart:math';
 import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
 import '../../models/teams_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
+import '../oauth/oauth_deep_link_io.dart'
+    if (dart.library.html) '../oauth/oauth_deep_link_stub.dart' as deeplink;
+import '../oauth/oauth_launch.dart';
 import '../oauth/oauth_loopback_io.dart'
     if (dart.library.html) '../oauth/oauth_loopback_stub.dart' as loopback;
+import '../oauth/oauth_mobile.dart';
 import 'teams_auth_config.dart';
 
 import '../../services/folio_cloud/folio_cloud_identity.dart';
@@ -68,7 +71,10 @@ class TeamsAuthService {
       throw StateError('Se requiere sesión Folio Cloud para OAuth de Teams.');
     }
 
-    final redirectUri = TeamsAuthConfig.loopbackRedirectUri;
+    final useMobile = oauthUsesMobileDeepLink;
+    final redirectUri = useMobile
+        ? TeamsAuthConfig.mobileRedirectUri
+        : TeamsAuthConfig.loopbackRedirectUri;
     final state = _randomToken(16);
     final codeVerifier = _randomToken(64);
     final codeChallenge = await _pkceCodeChallenge(codeVerifier);
@@ -86,15 +92,19 @@ class TeamsAuthService {
       },
     );
 
-    final codeFuture = loopback.awaitLoopbackOAuthCode(
-      port: TeamsAuthConfig.oauthLoopbackPort,
-      expectedState: state,
-      whenCancelled: cancelToken?.whenCancelled,
-    );
+    final codeFuture = useMobile
+        ? deeplink.awaitMobileOAuthCode(
+            provider: TeamsAuthConfig.oauthProvider,
+            expectedState: state,
+            whenCancelled: cancelToken?.whenCancelled,
+          )
+        : loopback.awaitLoopbackOAuthCode(
+            port: TeamsAuthConfig.oauthLoopbackPort,
+            expectedState: state,
+            whenCancelled: cancelToken?.whenCancelled,
+          );
 
-    final opened =
-        await launchUrl(authUri, mode: LaunchMode.externalApplication) ||
-        await launchUrl(authUri, mode: LaunchMode.platformDefault);
+    final opened = await launchOAuthAuthorizeUrl(authUri);
     if (!opened) {
       cancelToken?.cancel();
       throw StateError('No se pudo abrir el navegador para OAuth de Teams.');
