@@ -51,6 +51,8 @@ if ([string]::IsNullOrWhiteSpace($Output)) {
 # Canal de enlaces web embebidos en el binario (production | beta | '').
 # Lo fija Invoke-PublishFlow; build local sin publicar deja el default del codigo.
 $script:FolioWebChannel = ''
+# Si el menu global desmarca Windows, no se compila instalador/ZIP Windows.
+$script:FolioPublishSkipWindows = $false
 
 # ---------------------------------------------------------------------------
 # Utilidades comunes
@@ -910,15 +912,8 @@ function Publish-Release {
     }
 }
 
-function Confirm-Action([string] $message) {
-    if ($Yes) { return $true }
-    $answer = Read-Host "$message [s/N]"
-    return ($answer -match '^(s|si|y|yes)$')
-}
-
 # Flujo completo de publicacion (release o pre-release).
-# -PlatformScope global → tag vX.Y.Z (todas las plataformas no omitidas).
-# -PlatformScope android|windows|linux|macos → tag vX.Y.Z-<platform> (solo esa).
+# Alcance: global (vX.Y.Z) o plataforma (vX.Y.Z-<platform>), elegido por menu.
 function Invoke-PublishFlow {
     param([switch] $AsPreRelease)
 
@@ -945,6 +940,7 @@ function Invoke-PublishFlow {
     $prevSkipLinux = $SkipLinux
     $prevSkipMacOS = $SkipMacOS
     $prevSkipStore = $SkipMicrosoftStore
+    $prevSkipWindows = $script:FolioPublishSkipWindows
     $buildWindows = $true
     try {
         switch ($scope) {
@@ -976,8 +972,8 @@ function Invoke-PublishFlow {
                 $buildWindows = $false
             }
             default {
-                # global: respetar -Skip* del llamador
-                $buildWindows = $true
+                # global: Skip* y FolioPublishSkipWindows vienen del menu de plataformas
+                $buildWindows = -not $script:FolioPublishSkipWindows
             }
         }
 
@@ -1012,7 +1008,7 @@ function Invoke-PublishFlow {
             if (-not $SkipMicrosoftStore) {
                 Build-WindowsStore
             } else {
-                Write-Host "`n[skip] Omitido: build Microsoft Store / MSIX (-SkipMicrosoftStore)." -ForegroundColor Magenta
+                Write-Host "`n[skip] Omitido: build Microsoft Store / MSIX." -ForegroundColor Magenta
             }
         } else {
             Write-Host "`n[skip] Omitido: builds Windows (alcance=$scope)." -ForegroundColor Magenta
@@ -1021,17 +1017,17 @@ function Invoke-PublishFlow {
         if (-not $SkipAndroid) {
             Build-Android
         } else {
-            Write-Host "`n[skip] Omitido: Android (-SkipAndroid / alcance)." -ForegroundColor Magenta
+            Write-Host "`n[skip] Omitido: Android." -ForegroundColor Magenta
         }
 
         if ($SkipLinux) {
-            Write-Host "`n[skip] Omitido: Linux (-SkipLinux / alcance)." -ForegroundColor Magenta
+            Write-Host "`n[skip] Omitido: Linux." -ForegroundColor Magenta
         } else {
             Build-Linux -BestEffort
         }
 
         if ($SkipMacOS) {
-            Write-Host "`n[skip] Omitido: macOS (-SkipMacOS / alcance)." -ForegroundColor Magenta
+            Write-Host "`n[skip] Omitido: macOS." -ForegroundColor Magenta
         } else {
             Build-MacOS -BestEffort
         }
@@ -1062,6 +1058,7 @@ function Invoke-PublishFlow {
         $SkipLinux = $prevSkipLinux
         $SkipMacOS = $prevSkipMacOS
         $SkipMicrosoftStore = $prevSkipStore
+        $script:FolioPublishSkipWindows = $prevSkipWindows
     }
 }
 
@@ -1394,10 +1391,11 @@ function Invoke-FolioAction([string] $act) {
 Set-Location -LiteralPath $RepoRoot
 Ensure-OutputDir
 
-Write-Host "Folio - build & release" -ForegroundColor Cyan
+Write-Host "Folio - build & release (menus)" -ForegroundColor Cyan
 Write-Host "Salida: $OutputDir" -ForegroundColor Gray
+Write-Host "Ejecuta sin parametros y elige en pantalla." -ForegroundColor Gray
 
-# Invocacion no interactiva (CI / parametros directos)?
+# Invocacion no interactiva solo para CI (si llegan Skip*/NonInteractive/Action).
 $legacyInvocation = $SkipAndroid -or $SkipLinux -or $SkipMacOS -or $SkipMicrosoftStore -or $NonInteractive
 
 if ([string]::IsNullOrWhiteSpace($Action)) {

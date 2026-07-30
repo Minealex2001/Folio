@@ -42,8 +42,8 @@ Así una pre-release solo Android (`v1.4.1-android`) no tapa updates de Windows,
 
 ## Checklist de publicación
 
-1. Incrementar `version` en `pubspec.yaml` (o usar `-BumpVersion`).
-2. Ejecutar release/prerelease con `builld_all.ps1` y el alcance deseado (`-PlatformScope`).
+1. Incrementar `version` en `pubspec.yaml` (opción 12 del menú, o a mano).
+2. Ejecutar `.\builld_all.ps1` y seguir los menús (canal → alcance → plataformas si aplica).
 3. Confirmar el tag en GitHub (`vX.Y.Z` o `vX.Y.Z-<platform>`) y los assets.
 
 > **Linux / macOS desde Windows:** Linux vía **WSL** si Flutter+GTK están en la distro; macOS requiere Mac o el job `macos` de `folio-build-all`.
@@ -67,51 +67,34 @@ En builds `microsoft_store` y `play_store`, la app **no** ofrece descarga/instal
 
 ## Publicación local con `builld_all.ps1`
 
+Todo el flujo humano es por **menús numerados** (sin flags):
+
 ```powershell
 .\builld_all.ps1
 ```
 
-- **Opción 1 / 2:** RELEASE o PRE-RELEASE; el menú pregunta el **alcance** (global / android / windows / linux / macos).
-- **Opción 3:** solo notas (changelog) sin artefactos.
+1. Elige **RELEASE estable**, **PRE-RELEASE / Beta** o **solo notas**.
+2. Elige el **alcance**: Global / Android / Windows / Linux / macOS  
+   (tag `vX.Y.Z` o `vX.Y.Z-<plataforma>`).
+3. Si eliges **Global**, un segundo menú te deja marcar/desmarcar plataformas (Windows, MSIX, Android, Linux, macOS).
+4. Confirmas con **1) Sí / 2) No** y pegas notas Markdown (o Enter para autogenerar).
 
-Modo directo:
-
-```powershell
-# Release global (tag vX.Y.Z)
-.\builld_all.ps1 -Action release -Yes -PlatformScope global
-
-# Solo Android (tag vX.Y.Z-android), estable
-.\builld_all.ps1 -Action release -Yes -PlatformScope android
-
-# Solo Windows como beta (tag vX.Y.Z-windows --prerelease)
-.\builld_all.ps1 -Action prerelease -Yes -PlatformScope windows
-
-# Pre-release global subiendo versión
-.\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes -PlatformScope global
-
-# Global omitiendo Android/Linux/macOS (sigue tag vX.Y.Z)
-.\builld_all.ps1 -Action release -Yes -PlatformScope global -SkipAndroid -SkipLinux -SkipMacOS
-
-# Notas Markdown
-.\builld_all.ps1 -Action release -Yes -ReleaseNotesFile .\CHANGELOG-release.md
-```
+Compilar sin publicar, limpiar o cambiar versión también están en el mismo menú.
 
 ### Enlaces web (folio vs foliobeta)
 
-| Canal del script | Enlaces embebidos en el binario (`FOLIO_WEB_BASE_URL`) |
+| Elección en el menú | Enlaces embebidos (`FOLIO_WEB_BASE_URL`) |
 |---|---|
-| `-Action release` | `https://folio.minealexgames.com` |
-| `-Action prerelease` | `https://foliobeta.minealexgames.com` |
-
-Override: `-FolioWebBaseUrl https://foliobeta.minealexgames.com`.
+| RELEASE estable | `https://folio.minealexgames.com` |
+| PRE-RELEASE / Beta | `https://foliobeta.minealexgames.com` |
 
 **App web (Vercel):** el host `folio` / `foliobeta` se detecta en runtime. **Backend (Railway):** `FOLIO_WEB_BASE_URL=https://folio.minealexgames.com` en prod.
 
-Requisitos: [GitHub CLI](https://cli.github.com/) autenticado e [Inno Setup](https://jrsoftware.org/isinfo.php) para releases que incluyen Windows. Parámetros útiles: `-PlatformScope`, `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-FolioWebBaseUrl`.
+Requisitos: [GitHub CLI](https://cli.github.com/) autenticado e [Inno Setup](https://jrsoftware.org/isinfo.php) cuando publiques Windows.
 
-> **Notas Markdown:** en modo interactivo pega el cuerpo y termina con `END`; Enter vacío usa `--generate-notes`. El script pasa Markdown a `gh` vía `--notes-file`.
+> **Notas Markdown:** pega el cuerpo y termina con una línea `END`; Enter vacío en la primera línea usa notas autogeneradas.
 
-> El `target_commitish` se resuelve automáticamente (rama actual en `origin` o rama por defecto). Empuja tus cambios antes de publicar.
+> El destino del tag se resuelve automáticamente (rama actual en `origin` o rama por defecto). Empuja tus cambios antes de publicar.
 
 ## Workflow «Folio build all» (GitHub Actions)
 
