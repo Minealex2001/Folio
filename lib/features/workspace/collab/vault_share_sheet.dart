@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/ui_tokens.dart';
+import '../../../config/folio_web_urls.dart';
 import '../../../crypto/vault_share_crypto.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_identity.dart';
@@ -67,6 +68,13 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
     _acceptIdCtrl.dispose();
     _acceptCodeCtrl.dispose();
     super.dispose();
+  }
+
+  String _displayPublicUrl(VaultPublicShareState state) {
+    return FolioWebUrls.resolveVaultPublicShareUrl(
+      token: state.token,
+      publicUrlFromApi: state.publicUrl,
+    );
   }
 
   Future<void> _refresh() async {
@@ -260,7 +268,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                 const SizedBox(height: FolioSpace.sm),
                 if (_public?.enabled == true) ...[
                   SelectableText(
-                    _public!.publicUrl ?? '',
+                    _displayPublicUrl(_public!),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: FolioSpace.sm),
@@ -272,8 +280,8 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                         onPressed: _busy
                             ? null
                             : () async {
-                                final url = _public?.publicUrl;
-                                if (url == null || url.isEmpty) return;
+                                final url = _displayPublicUrl(_public!);
+                                if (url.isEmpty) return;
                                 await Clipboard.setData(ClipboardData(text: url));
                               },
                         child: const Text('Copiar enlace'),

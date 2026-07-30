@@ -817,13 +817,13 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 ### Compartir libreta completa
 
-- **Enlace público vivo** (solo lectura en el navegador): `/api/v1/vault-shares/public/**`. Al activarlo se sube un view-pack JSON; en cada push de device-sync se republica si cambió el fingerprint. El viewer (`…/view`) hace poll y muestra cambios en casi tiempo real. Gate `publishWeb`. Aviso en UI: el contenido del enlace está en claro en el servidor.
+- **Enlace público vivo** (solo lectura en el navegador): API `/api/v1/vault-shares/public/**`; la URL que se copia/comparte es **`/s/{token}`** en la app web — **`https://folio.minealexgames.com`** (prod) o **`https://foliobeta.minealexgames.com`** (si la sesión web corre en beta, o con `--dart-define=FOLIO_WEB_BASE_URL=…`). Flutter web hace poll meta/content. El viewer HTML legacy `…/view` en el API queda como fallback. Gate `publishWeb`. Aviso en UI: el contenido del enlace está en claro en el servidor.
 - **Invitar persona (editor)**: `/api/v1/vault-shares/members/**`. Correo + código E2E (`VaultShareCrypto`). Aparece en el listado del sidebar como «Compartidas conmigo»; **no puede eliminar** la libreta (solo abandonar). Sync vía device-sync del owner (`ownerUid` en meta/finalize + ACL storage).
-- Cliente: `folio_cloud_vault_share.dart`, `vault_share_sheet.dart`, `VaultEntry.ownership`, gates en `deleteVaultById` / `wipeVaultAndReset`.
+- Cliente: `folio_cloud_vault_share.dart`, `folio_web_urls.dart` (prod + foliobeta), `vault_share_sheet.dart`, rutas web `PublicVaultSharePage` / reset / verify, `VaultEntry.ownership`, gates en `deleteVaultById` / `wipeVaultAndReset`.
 
 ### Cliente web (Vercel / dominios MineAlex)
 
-- Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción).
+- Build estático Flutter web desplegado en Vercel (`vercel.json`, `vercel-build.sh`); hosts canónicos: **https://foliobeta.minealexgames.com** (beta) y **https://folio.minealexgames.com** (producción). Las rutas públicas (`/s/…`, `/reset-password`, `/verify-email`) funcionan en ambos vía rewrite a `index.html`.
 - Lecturas/escrituras de Firebase Storage desde el browser requieren CORS en el bucket (`storage-cors.json` → `gs://folio-minealexgames.firebasestorage.app`). Incluye `*` para que `flutter run -d chrome` (`localhost:<puerto>`) no falle; las reglas Auth siguen protegiendo objetos. Detalle: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md) («Storage CORS»).
 - Esos mismos hosts deben estar en Firebase Auth → Authorized domains.
 - Si Vercel **Deployment Protection** (SSO) está activo en Production, la app y `manifest.json` redirigen al login de Vercel; desactivar protección pública en beta/prod o limitarla a previews.
@@ -1788,7 +1788,7 @@ curl -X POST http://127.0.0.1:18080/api/v1/admin/entitlements/grant-cloud `
 - Filtro JWT fail-closed; públicos: health, register/login/refresh/verify-email/forgot/reset-password y Swagger.
 - `POST /auth/refresh` con rotación; reuso de refresh revocado invalida la cadena del usuario.
 - `POST /auth/logout` y `POST /auth/resend-verification` requieren Bearer.
-- Verificación de email y forgot/reset password vía **Resend** (sin `RESEND_API_KEY` en local, se loguean); formulario HTML en `GET /reset-password`; reset revoca todos los refresh tokens.
+- Verificación de email y forgot/reset password vía **Resend** (sin `RESEND_API_KEY` en local, se loguean). Los correos enlazan a la **app oficial** (`FOLIO_WEB_BASE_URL`: `/verify-email?token=…`, `/reset-password?token=…`). El HTML legacy `GET /reset-password` y `GET /api/v1/auth/verify-email` en el API quedan como fallback. Reset revoca todos los refresh tokens.
 
 **Cuenta (Fase 10):** `GET /account/me`, `POST /account/ensure` (idempotente, puerto de `ensureUserDocExists`), `PATCH /account/display-name` (máx. 80, colapsa espacios; propagación a familia en Fase 15).
 

@@ -207,6 +207,30 @@ Future<VaultPublicShareState> fetchVaultPublicShareMine(String vaultId) async {
   return VaultPublicShareState.fromJson(_decodeMap(res.body));
 }
 
+/// Meta pública (sin auth) — viewer web `/s/{token}`.
+Future<Map<String, dynamic>> fetchVaultPublicMetaUnauthed(String token) async {
+  final res = await http.get(
+    Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}',
+    ),
+    headers: const {'Accept': 'application/json'},
+  );
+  _ensureOk(res);
+  return _decodeMap(res.body);
+}
+
+/// Contenido del view-pack público (sin auth).
+Future<Map<String, dynamic>> fetchVaultPublicContentUnauthed(String token) async {
+  final res = await http.get(
+    Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/vault-shares/public/${Uri.encodeComponent(token)}/content',
+    ),
+    headers: const {'Accept': 'application/json'},
+  );
+  _ensureOk(res);
+  return _decodeMap(res.body);
+}
+
 Future<void> revokeVaultPublicShare(String vaultId) async {
   final res = await _authorized(
     (h) => http.post(

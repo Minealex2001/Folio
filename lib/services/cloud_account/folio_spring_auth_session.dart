@@ -177,6 +177,13 @@ class FolioSpringAuthSession extends ChangeNotifier {
     });
   }
 
+  /// Confirma email con el token del enlace (ruta web `/verify-email`).
+  Future<void> verifyEmailToken(String token) async {
+    final uri =
+        Uri.parse('${FolioBackendConfig.apiV1Prefix}/auth/verify-email');
+    await _postJson(uri, {'token': token.trim()});
+  }
+
   Future<void> resendVerification() async {
     final token = await getAccessToken();
     if (token == null) {

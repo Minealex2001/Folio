@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:system_theme/system_theme.dart';
 
@@ -12,6 +10,8 @@ import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
+import 'config/folio_web_urls.dart';
+import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/folio_diagnostic_reporter.dart';
@@ -38,6 +38,24 @@ Future<void> main(List<String> args) async {
       // Cualquier AppLogger.error(...) (crash o no) dispara un intento de
       // auto-report — ver FolioDiagnosticReporter.maybeReportLoggedError.
       AppLogger.setOnError(FolioDiagnosticReporter.maybeReportLoggedError);
+
+      // Rutas públicas web (enlace de libreta, reset/verify email): sin vault lock.
+      if (kIsWeb) {
+        final publicRoute = FolioWebPublicRoute.match(Uri.base);
+        if (publicRoute != null) {
+          FlutterError.onError = (details) {
+            FlutterError.presentError(details);
+            AppLogger.error(
+              'Flutter framework error',
+              tag: 'crash',
+              error: details.exception,
+              stackTrace: details.stack,
+            );
+          };
+          runApp(FolioWebPublicApp(route: publicRoute));
+          return;
+        }
+      }
 
       // Opcional: `.env` en disco (solo dart:io). Los secretos habituales van en
       // `lib/config/folio_local_secrets.dart` (y en web solo eso o --dart-define).

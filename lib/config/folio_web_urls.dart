@@ -1,0 +1,175 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+/// Origen de la app web oficial (enlaces de usuario: shares, reset, verify).
+///
+/// Hosts canónicos:
+/// - producción: [productionBaseUrl] (`folio.minealexgames.com`)
+/// - beta: [betaBaseUrl] (`foliobeta.minealexgames.com`)
+///
+/// En Flutter web, si la página corre en beta o prod, los links usan ese origen.
+/// Override opcional: `--dart-define=FOLIO_WEB_BASE_URL=https://foliobeta.minealexgames.com`
+/// (p. ej. builds de escritorio que deben copiar enlaces beta).
+class FolioWebUrls {
+  FolioWebUrls._();
+
+  static const String productionBaseUrl = 'https://folio.minealexgames.com';
+  static const String productionHost = 'folio.minealexgames.com';
+  static const String betaBaseUrl = 'https://foliobeta.minealexgames.com';
+  static const String betaHost = 'foliobeta.minealexgames.com';
+
+  static const String _webBaseUrlDefine = String.fromEnvironment(
+    'FOLIO_WEB_BASE_URL',
+    defaultValue: '',
+  );
+
+  /// `true` si [host] es la app oficial (prod o beta), con o sin subdominio.
+  static bool isOfficialFolioWebHost(String? host) {
+    final h = (host ?? '').trim().toLowerCase();
+    if (h.isEmpty) return false;
+    return h == productionHost ||
+        h == betaHost ||
+        h.endsWith('.$productionHost') ||
+        h.endsWith('.$betaHost');
+  }
+
+  static bool isBetaWebHost(String? host) {
+    final h = (host ?? '').trim().toLowerCase();
+    return h == betaHost || h.endsWith('.$betaHost');
+  }
+
+  static bool isProductionWebHost(String? host) {
+    final h = (host ?? '').trim().toLowerCase();
+    return h == productionHost || h.endsWith('.$productionHost');
+  }
+
+  /// Base sin barra final (prod / beta / define / localhost).
+  static String get folioWebBaseUrl => resolveWebBaseUrl(
+        isWeb: kIsWeb,
+        currentUri: kIsWeb ? Uri.base : null,
+        defineOverride: _webBaseUrlDefine,
+      );
+
+  /// Resuelve la base de la app web. Expuesto para tests.
+  static String resolveWebBaseUrl({
+    required bool isWeb,
+    Uri? currentUri,
+    String? defineOverride,
+  }) {
+    final fromDefine = (defineOverride ?? '').trim().replaceAll(RegExp(r'/+$'), '');
+    if (fromDefine.isNotEmpty) return fromDefine;
+
+    if (isWeb && currentUri != null) {
+      final host = currentUri.host.toLowerCase();
+      if (isBetaWebHost(host) || isProductionWebHost(host)) {
+        return currentUri.origin.replaceAll(RegExp(r'/+$'), '');
+      }
+      if (host == 'localhost' ||
+          host == '127.0.0.1' ||
+          host.endsWith('.localhost')) {
+        return currentUri.origin.replaceAll(RegExp(r'/+$'), '');
+      }
+    }
+    return productionBaseUrl;
+  }
+
+  static String vaultPublicShareUrl(String token) {
+    final t = token.trim();
+    if (t.isEmpty) return folioWebBaseUrl;
+    return '$folioWebBaseUrl/s/${Uri.encodeComponent(t)}';
+  }
+
+  /// URL a mostrar/copiar: prioriza [token] + base local (prod/beta).
+  /// Si solo hay [publicUrlFromApi], reescribe hosts oficiales y el viewer legacy del API.
+  static String resolveVaultPublicShareUrl({
+    String? token,
+    String? publicUrlFromApi,
+  }) {
+    final t = token?.trim() ?? '';
+    if (t.isNotEmpty) return vaultPublicShareUrl(t);
+
+    final raw = publicUrlFromApi?.trim() ?? '';
+    if (raw.isEmpty) return folioWebBaseUrl;
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return raw;
+
+    // Legacy: …/api/v1/vault-shares/public/{token}/view → /s/{token}
+    final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    final viewIdx = segs.indexOf('view');
+    if (viewIdx > 0 && segs[viewIdx - 1].isNotEmpty) {
+      final maybeToken = segs[viewIdx - 1];
+      final publicIdx = segs.indexOf('public');
+      if (publicIdx >= 0 && publicIdx + 1 == viewIdx - 1) {
+        return vaultPublicShareUrl(maybeToken);
+      }
+    }
+
+    // …/s/{token} en folio o foliobeta → reescribe al origen actual
+    if (segs.length >= 2 && segs[0] == 's' && segs[1].isNotEmpty) {
+      return vaultPublicShareUrl(Uri.decodeComponent(segs[1]));
+    }
+
+    if (isOfficialFolioWebHost(uri.host)) {
+      return '$folioWebBaseUrl${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}';
+    }
+
+    return raw;
+  }
+
+  static String resetPasswordUrl(String token) {
+    return Uri.parse('$folioWebBaseUrl/reset-password')
+        .replace(queryParameters: {'token': token.trim()})
+        .toString();
+  }
+
+  static String verifyEmailUrl(String token) {
+    return Uri.parse('$folioWebBaseUrl/verify-email')
+        .replace(queryParameters: {'token': token.trim()})
+        .toString();
+  }
+}
+
+/// Rutas públicas de Flutter web (sin vault lock / onboarding).
+/// Válidas en `folio.minealexgames.com` y `foliobeta.minealexgames.com`.
+sealed class FolioWebPublicRoute {
+  const FolioWebPublicRoute();
+
+  static FolioWebPublicRoute? match(Uri uri) {
+    final path = uri.path;
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+
+    if (segments.length == 2 && segments[0] == 's') {
+      final token = Uri.decodeComponent(segments[1]).trim();
+      if (token.isNotEmpty) return FolioWebPublicShareRoute(token);
+    }
+
+    if (path == '/reset-password' ||
+        (segments.length == 1 && segments[0] == 'reset-password')) {
+      final token = (uri.queryParameters['token'] ?? '').trim();
+      return FolioWebResetPasswordRoute(token);
+    }
+
+    if (path == '/verify-email' ||
+        (segments.length == 1 && segments[0] == 'verify-email')) {
+      final token = (uri.queryParameters['token'] ?? '').trim();
+      return FolioWebVerifyEmailRoute(token);
+    }
+
+    return null;
+  }
+}
+
+final class FolioWebPublicShareRoute extends FolioWebPublicRoute {
+  const FolioWebPublicShareRoute(this.token);
+  final String token;
+}
+
+final class FolioWebResetPasswordRoute extends FolioWebPublicRoute {
+  const FolioWebResetPasswordRoute(this.token);
+  final String token;
+}
+
+final class FolioWebVerifyEmailRoute extends FolioWebPublicRoute {
+  const FolioWebVerifyEmailRoute(this.token);
+  final String token;
+}
