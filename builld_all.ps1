@@ -7,8 +7,8 @@
 # Acciones (-Action):
 #   menu        Mostrar el menú interactivo (por defecto sin argumentos).
 #   build-all   Compilar todo localmente (Windows + MSIX + APK + Linux + macOS si aplica) sin publicar.
-#   release     Compilar TODAS las formas de distribucion posibles y publicar RELEASE estable en GitHub.
-#   prerelease  Igual que release, pero como PRE-RELEASE (canal Beta).
+#   release     Compilar todas las formas posibles + RELEASE estable (enlaces → folio.minealexgames.com).
+#   prerelease  Igual, como PRE-RELEASE/Beta (enlaces → foliobeta.minealexgames.com).
 #   installer   Generar solo el instalador Windows (.exe) sin publicar.
 #   windows     Compilar solo Windows (canal GitHub) -> ZIP.
 #   store       Compilar solo Windows (Microsoft Store) -> MSIX.
@@ -59,6 +59,9 @@ param(
     [string] $ReleaseNotes = '',
     # Ruta a un .md con las notas de la release (prioridad sobre -ReleaseNotes).
     [string] $ReleaseNotesFile = '',
+    # Override de la base de la app web para enlaces (/s, reset, verify).
+    # Vacio = segun canal: prerelease→foliobeta, release→folio, resto→default del codigo.
+    [string] $FolioWebBaseUrl = '',
     # No pedir confirmaciones interactivas en flujos de publicacion.
     [switch] $Yes
 )
@@ -72,6 +75,10 @@ if ([string]::IsNullOrWhiteSpace($Output)) {
     $OutputDir = $Output.Trim()
 }
 
+# Canal de enlaces web embebidos en el binario (production | beta | '').
+# Lo fija Invoke-PublishFlow; build local sin publicar deja el default del codigo.
+$script:FolioWebChannel = ''
+
 # ---------------------------------------------------------------------------
 # Utilidades comunes
 # ---------------------------------------------------------------------------
@@ -82,6 +89,30 @@ function Get-FolioDistributionArg([string] $value) {
         return $null
     }
     return '--dart-define=FOLIO_DISTRIBUTION=' + $value.Trim()
+}
+
+# Enlaces de usuario (compartir libreta, reset/verify). Desktop/móvil no tienen Uri.base de la web.
+function Get-FolioWebBaseUrlArg {
+    if (-not [string]::IsNullOrWhiteSpace($FolioWebBaseUrl)) {
+        $base = $FolioWebBaseUrl.Trim().TrimEnd('/')
+        Write-Host "   -> FOLIO_WEB_BASE_URL=$base (override -FolioWebBaseUrl)" -ForegroundColor Gray
+        return "--dart-define=FOLIO_WEB_BASE_URL=$base"
+    }
+    switch ($script:FolioWebChannel) {
+        'beta' {
+            $base = 'https://foliobeta.minealexgames.com'
+            Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal Beta / prerelease)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_WEB_BASE_URL=$base"
+        }
+        'production' {
+            $base = 'https://folio.minealexgames.com'
+            Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_WEB_BASE_URL=$base"
+        }
+        default {
+            return $null
+        }
+    }
 }
 
 # Une argumentos extra a flutter sin el bug de PowerShell: @($string) splitea por caracteres.
@@ -386,7 +417,8 @@ function ConvertTo-WslPath([string] $windowsPath) {
 function Build-WindowsGitHub {
     Write-Host "`n[win] Compilando Windows (Release, canal GitHub)..." -ForegroundColor Cyan
     $winGhArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
-        (Get-FolioDistributionArg $DistributionWindowsGitHub)
+        (Get-FolioDistributionArg $DistributionWindowsGitHub),
+        (Get-FolioWebBaseUrlArg)
     )
     & flutter @winGhArgs
     Assert-LastExitCode 'flutter build windows (GitHub)'
@@ -403,7 +435,8 @@ function Build-WindowsStore {
     }
     $winMsArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
         (Get-FolioDistributionArg $DistributionWindowsMicrosoftStore),
-        (Get-MicrosoftStoreDartDefinesFromEnv -EnvFilePath $msEnv)
+        (Get-MicrosoftStoreDartDefinesFromEnv -EnvFilePath $msEnv),
+        (Get-FolioWebBaseUrlArg)
     )
     & flutter @winMsArgs
     Assert-LastExitCode 'flutter build windows (Microsoft Store)'
@@ -420,7 +453,8 @@ function Build-WindowsStore {
 function Build-Android {
     Write-Host "`n[android] Compilando Android (APK Release)..." -ForegroundColor Cyan
     $apkArgs = Merge-FlutterDartDefines @('build', 'apk', '--release') @(
-        (Get-FolioDistributionArg $DistributionAndroid)
+        (Get-FolioDistributionArg $DistributionAndroid),
+        (Get-FolioWebBaseUrlArg)
     )
     & flutter @apkArgs
     Assert-LastExitCode 'flutter build apk'
@@ -429,7 +463,8 @@ function Build-Android {
 
     Write-Host "`n[android] Compilando Android (AAB Release)..." -ForegroundColor Cyan
     $aabArgs = Merge-FlutterDartDefines @('build', 'appbundle', '--release') @(
-        (Get-FolioDistributionArg $DistributionAndroid)
+        (Get-FolioDistributionArg $DistributionAndroid),
+        (Get-FolioWebBaseUrlArg)
     )
     & flutter @aabArgs
     Assert-LastExitCode 'flutter build appbundle'
@@ -440,7 +475,8 @@ function Build-Android {
 function Build-LinuxNative {
     Write-Host "`n[linux] Compilando Linux nativo (Release)..." -ForegroundColor Cyan
     $linuxArgs = Merge-FlutterDartDefines @('build', 'linux', '--release') @(
-        (Get-FolioDistributionArg $DistributionLinux)
+        (Get-FolioDistributionArg $DistributionLinux),
+        (Get-FolioWebBaseUrlArg)
     )
     & flutter @linuxArgs
     Assert-LastExitCode 'flutter build linux'
@@ -456,6 +492,11 @@ function Build-LinuxViaWsl {
     $distDefine = ''
     if (-not [string]::IsNullOrWhiteSpace($DistributionLinux)) {
         $distDefine = "--dart-define=FOLIO_DISTRIBUTION=$($DistributionLinux.Trim())"
+    }
+    $webDefine = ''
+    $webArg = Get-FolioWebBaseUrlArg
+    if (-not [string]::IsNullOrWhiteSpace($webArg)) {
+        $webDefine = [string]$webArg
     }
     $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
     $zipName = "Folio-Linux-GitHub-${verSafe}.zip"
@@ -473,7 +514,7 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 127
 fi
 flutter pub get
-flutter build linux --release $distDefine
+flutter build linux --release $distDefine $webDefine
 mkdir -p '$wslOut'
 rm -f '$wslOut/$zipName'
 (cd build/linux/x64/release && zip -r '$wslOut/$zipName' bundle)
@@ -534,7 +575,8 @@ function Build-MacOS {
     try {
         Write-Host "`n[macos] Compilando macOS (Release)..." -ForegroundColor Cyan
         $macArgs = Merge-FlutterDartDefines @('build', 'macos', '--release') @(
-            (Get-FolioDistributionArg $DistributionMacOS)
+            (Get-FolioDistributionArg $DistributionMacOS),
+            (Get-FolioWebBaseUrlArg)
         )
         & flutter @macArgs
         Assert-LastExitCode 'flutter build macos'
@@ -861,11 +903,18 @@ function Invoke-PublishFlow {
     $tag = if ([string]::IsNullOrWhiteSpace($ReleaseTag)) { "v$semver" } else { $ReleaseTag.Trim() }
 
     $kind = if ($AsPreRelease) { 'PRE-RELEASE (Beta)' } else { 'RELEASE estable' }
+    $script:FolioWebChannel = if ($AsPreRelease) { 'beta' } else { 'production' }
+    $webLinks = if ($AsPreRelease) {
+        'https://foliobeta.minealexgames.com'
+    } else {
+        'https://folio.minealexgames.com'
+    }
     Write-Host "`n----------------------------------------------" -ForegroundColor DarkGray
     Write-Host " $kind" -ForegroundColor Cyan
     Write-Host "  Version pubspec : $(Get-PubspecVersionRaw)" -ForegroundColor Gray
     Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
     Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
+    Write-Host "  Enlaces web     : $webLinks (compartir / reset / verify)" -ForegroundColor Gray
     Write-Host "  Artefactos      : instalador + ZIP Windows + MSIX + APK/AAB + Linux/macOS (si aplica)" -ForegroundColor Gray
     Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 

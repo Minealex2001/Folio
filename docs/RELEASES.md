@@ -83,7 +83,20 @@ Modo directo (sin menú), útil para automatizar:
 .\builld_all.ps1 -Action release -Yes -SkipAndroid -SkipLinux -SkipMacOS
 ```
 
-Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`.
+### Enlaces web (folio vs foliobeta)
+
+| Canal del script | Enlaces embebidos en el binario (`FOLIO_WEB_BASE_URL`) |
+|---|---|
+| `-Action release` (menú 1) | `https://folio.minealexgames.com` |
+| `-Action prerelease` (menú 2) | `https://foliobeta.minealexgames.com` |
+
+Override manual: `-FolioWebBaseUrl https://foliobeta.minealexgames.com`.
+
+**App web (Vercel):** el proyecto `folio` despliega con `vercel-build.sh`. Si el usuario abre `foliobeta…` o `folio…`, la web detecta el host solo (no hace falta dart-define en ese build). Añade el dominio `foliobeta.minealexgames.com` al mismo proyecto Vercel (o a un alias de Production/Preview) apuntando al deploy que quieras como beta.
+
+**Backend (correos / `publicUrl`):** en Railway, `FOLIO_WEB_BASE_URL=https://folio.minealexgames.com` (prod). Solo cambia a foliobeta si tienes un API de staging/beta.
+
+Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Opcional: WSL con Flutter para Linux; host macOS para el `.app`. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget`, `-ReleaseNotes`, `-ReleaseNotesFile`, `-DraftRelease`, `-Clean`, `-SkipMicrosoftStore`, `-SkipAndroid`, `-SkipLinux`, `-SkipMacOS`, `-FolioWebBaseUrl`.
 
 > **Notas Markdown:** en modo interactivo (menú 1/2/3), pega el cuerpo y termina con una línea `END`; Enter vacío en la primera línea usa `--generate-notes`. Con `-Yes` / `-NonInteractive` sin `-ReleaseNotes`/`-ReleaseNotesFile` también se autogeneran. El script pasa el Markdown a `gh` vía `--notes-file` (archivo temporal UTF-8).
 

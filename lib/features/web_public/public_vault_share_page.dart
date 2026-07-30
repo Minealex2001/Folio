@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
 import '../../services/folio_cloud/folio_cloud_vault_share.dart';
+import '../../session/vault_session.dart';
+import '../workspace/editor/block_editor.dart';
+import '../workspace/shell/sidebar/sidebar_page_tree.dart';
 
-/// Viewer de libreta pública en `https://folio…/s/{token}` (poll meta/content).
+/// Viewer de libreta pública en `…/s/{token}`: shell Folio + [BlockEditor] read-only.
 class PublicVaultSharePage extends StatefulWidget {
   const PublicVaultSharePage({super.key, required this.token});
 
@@ -18,17 +22,22 @@ class PublicVaultSharePage extends StatefulWidget {
 class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
   static const _pollInterval = Duration(seconds: 8);
 
+  late final VaultSession _session;
+  late final AppSettings _appSettings;
   Timer? _timer;
   String _title = 'Folio';
   String _status = 'Cargando…';
   String? _error;
   int _rev = -1;
-  Map<String, dynamic>? _data;
-  String? _currentPageId;
+  String? _fingerprint;
+  final Set<String> _collapsed = {};
+  bool _ready = false;
 
   @override
   void initState() {
     super.initState();
+    _session = VaultSession();
+    _appSettings = AppSettings();
     unawaited(_tick());
     _timer = Timer.periodic(_pollInterval, (_) => unawaited(_tick()));
   }
@@ -36,6 +45,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _session.dispose();
     super.dispose();
   }
 
@@ -44,27 +54,38 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
       final meta = await fetchVaultPublicMetaUnauthed(widget.token);
       final name = '${meta['displayName'] ?? ''}'.trim();
       final rev = (meta['rev'] as num?)?.toInt() ?? 0;
+      final fp = '${meta['fingerprint'] ?? ''}';
       if (!mounted) return;
       if (name.isNotEmpty) {
         setState(() => _title = name);
       }
-      if (rev == _rev && _data != null) {
+
+      final unchanged =
+          rev == _rev && fp == (_fingerprint ?? '') && _ready;
+      if (unchanged) {
         setState(() {
           _error = null;
           _status = 'Al día · rev $_rev';
         });
         return;
       }
+
       final content = await fetchVaultPublicContentUnauthed(widget.token);
       if (!mounted) return;
+      final pages = hydrateVaultPublicViewPages(content);
+      _session.loadPublicReadOnlySnapshot(
+        pages,
+        preferredPageId: _session.selectedPageId,
+      );
       setState(() {
-        _data = content;
         _rev = rev;
+        _fingerprint = fp;
         _error = null;
+        _ready = true;
         _status = 'Actualizado · rev $rev';
-        final pages = _pages;
-        if (_currentPageId == null && pages.isNotEmpty) {
-          _currentPageId = '${pages.first['id'] ?? ''}';
+        if (name.isEmpty) {
+          final dn = '${content['displayName'] ?? ''}'.trim();
+          if (dn.isNotEmpty) _title = dn;
         }
       });
     } catch (e) {
@@ -76,60 +97,45 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
     }
   }
 
-  List<Map<String, dynamic>> get _pages {
-    final raw = _data?['pages'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => e.map((k, v) => MapEntry('$k', v)))
-        .toList();
-  }
-
-  Map<String, dynamic>? get _currentPage {
-    final pages = _pages;
-    if (pages.isEmpty) return null;
-    final id = _currentPageId;
-    if (id != null) {
-      for (final p in pages) {
-        if ('${p['id']}' == id) return p;
-      }
-    }
-    return pages.first;
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final pages = _pages;
-    final page = _currentPage;
-    final wide = MediaQuery.sizeOf(context).width >= 800;
+    final wide = MediaQuery.sizeOf(context).width >= 900;
 
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Material(
-            color: scheme.surface.withValues(alpha: 0.92),
+            color: scheme.surfaceContainerLow,
             child: SafeArea(
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: FolioSpace.lg,
-                  vertical: FolioSpace.md,
+                  vertical: FolioSpace.sm,
                 ),
                 child: Row(
                   children: [
+                    Text(
+                      'Folio',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(width: FolioSpace.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             _title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'Solo lectura · Folio',
+                            'Solo lectura',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
@@ -148,7 +154,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
             ),
           ),
           Divider(height: 1, color: scheme.outlineVariant),
-          if (_error != null && _data == null)
+          if (_error != null && !_ready)
             Expanded(
               child: Center(
                 child: Padding(
@@ -161,43 +167,65 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
                 ),
               ),
             )
+          else if (!_ready)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
           else
             Expanded(
-              child: wide
-                  ? Row(
+              child: ListenableBuilder(
+                listenable: _session,
+                builder: (context, _) {
+                  final nav = _PublicShareNav(
+                    session: _session,
+                    collapsed: _collapsed,
+                    onToggleCollapsed: (id) {
+                      setState(() {
+                        if (_collapsed.contains(id)) {
+                          _collapsed.remove(id);
+                        } else {
+                          _collapsed.add(id);
+                        }
+                      });
+                    },
+                    onSelect: _session.selectPage,
+                  );
+                  final editor = _PublicShareEditor(
+                    session: _session,
+                    appSettings: _appSettings,
+                  );
+                  if (wide) {
+                    return Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          width: 240,
-                          child: _NavList(
-                            pages: pages,
-                            currentId: '${page?['id'] ?? ''}',
-                            onSelect: (id) =>
-                                setState(() => _currentPageId = id),
+                          width: 280,
+                          child: Material(
+                            color: scheme.surfaceContainerLowest,
+                            child: nav,
                           ),
                         ),
                         VerticalDivider(
                           width: 1,
                           color: scheme.outlineVariant,
                         ),
-                        Expanded(child: _PageBody(page: page)),
+                        Expanded(child: editor),
                       ],
-                    )
-                  : Column(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.sizeOf(context).height * 0.28,
-                          child: _NavList(
-                            pages: pages,
-                            currentId: '${page?['id'] ?? ''}',
-                            onSelect: (id) =>
-                                setState(() => _currentPageId = id),
-                          ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.28,
+                        child: Material(
+                          color: scheme.surfaceContainerLowest,
+                          child: nav,
                         ),
-                        Divider(height: 1, color: scheme.outlineVariant),
-                        Expanded(child: _PageBody(page: page)),
-                      ],
-                    ),
+                      ),
+                      Divider(height: 1, color: scheme.outlineVariant),
+                      Expanded(child: editor),
+                    ],
+                  );
+                },
+              ),
             ),
         ],
       ),
@@ -205,163 +233,145 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
   }
 }
 
-class _NavList extends StatelessWidget {
-  const _NavList({
-    required this.pages,
-    required this.currentId,
+class _PublicShareNav extends StatelessWidget {
+  const _PublicShareNav({
+    required this.session,
+    required this.collapsed,
+    required this.onToggleCollapsed,
     required this.onSelect,
   });
 
-  final List<Map<String, dynamic>> pages;
-  final String currentId;
+  final VaultSession session;
+  final Set<String> collapsed;
+  final ValueChanged<String> onToggleCollapsed;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final pages = session.activePages;
     if (pages.isEmpty) {
       return const Center(child: Text('Sin páginas'));
     }
+    final built = buildSidebarVisiblePageRows(
+      pages,
+      pageOrderForParent: session.pageOrderForParent,
+      isCollapsed: collapsed.contains,
+    );
+    final scheme = Theme.of(context).colorScheme;
     return ListView.builder(
-      padding: const EdgeInsets.all(FolioSpace.sm),
-      itemCount: pages.length,
+      padding: const EdgeInsets.symmetric(
+        vertical: FolioSpace.sm,
+        horizontal: FolioSpace.xs,
+      ),
+      itemCount: built.rows.length,
       itemBuilder: (context, i) {
-        final p = pages[i];
-        final id = '${p['id'] ?? ''}';
-        final emoji = '${p['emoji'] ?? ''}'.trim();
-        final title = '${p['title'] ?? 'Sin título'}';
-        final selected = id == currentId;
-        return ListTile(
-          dense: true,
-          selected: selected,
-          selectedTileColor: scheme.primary.withValues(alpha: 0.12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(FolioRadius.md),
+        final row = built.rows[i];
+        final page = row.page;
+        final selected = page.id == session.selectedPageId;
+        final hasChildren = built.hasChildrenById[page.id] == true;
+        final emoji = page.emoji?.trim() ?? '';
+        return Padding(
+          padding: EdgeInsets.only(left: row.indent),
+          child: ListTile(
+            dense: true,
+            selected: selected,
+            selectedTileColor: scheme.primary.withValues(alpha: 0.12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+            leading: hasChildren
+                ? IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 28,
+                      height: 28,
+                    ),
+                    onPressed: () => onToggleCollapsed(page.id),
+                    icon: Icon(
+                      collapsed.contains(page.id)
+                          ? Icons.chevron_right
+                          : Icons.expand_more,
+                      size: 18,
+                    ),
+                  )
+                : const SizedBox(width: 28),
+            title: Text(
+              emoji.isEmpty ? page.title : '$emoji ${page.title}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () => onSelect(page.id),
           ),
-          title: Text(
-            emoji.isEmpty ? title : '$emoji $title',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          onTap: () => onSelect(id),
         );
       },
     );
   }
 }
 
-class _PageBody extends StatelessWidget {
-  const _PageBody({required this.page});
+class _PublicShareEditor extends StatelessWidget {
+  const _PublicShareEditor({
+    required this.session,
+    required this.appSettings,
+  });
 
-  final Map<String, dynamic>? page;
+  final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   Widget build(BuildContext context) {
+    final page = session.selectedPage;
     if (page == null) {
       return Center(
         child: Text(
-          'Cargando contenido…',
+          'Selecciona una página',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       );
     }
-    final emoji = '${page!['emoji'] ?? ''}'.trim();
-    final title = '${page!['title'] ?? 'Sin título'}';
-    final blocks = page!['blocks'];
-    final blockList = blocks is List
-        ? blocks.whereType<Map>().map((e) => e.map((k, v) => MapEntry('$k', v)))
-        : const <Map<String, dynamic>>[];
+    final scheme = Theme.of(context).colorScheme;
+    final emoji = page.emoji?.trim() ?? '';
+    final maxWidth = appSettings.editorContentWidth;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        FolioSpace.xl,
-        FolioSpace.lg,
-        FolioSpace.xl,
-        FolioSpace.xl,
-      ),
-      children: [
-        Text(
-          emoji.isEmpty ? title : '$emoji $title',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        ..._renderBlocks(context, blockList.toList()),
-      ],
-    );
-  }
-
-  List<Widget> _renderBlocks(
-    BuildContext context,
-    List<Map<String, dynamic>> blocks,
-  ) {
-    final out = <Widget>[];
-    final bullets = <Widget>[];
-
-    void flushBullets() {
-      if (bullets.isEmpty) return;
-      out.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: FolioSpace.sm),
+    return ColoredBox(
+      color: scheme.surface,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth + FolioSpace.xl * 2),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: bullets.toList(),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.xl,
+                  FolioSpace.lg,
+                  FolioSpace.xl,
+                  FolioSpace.sm,
+                ),
+                child: Text(
+                  emoji.isEmpty ? page.title : '$emoji ${page.title}',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              Expanded(
+                child: KeyedSubtree(
+                  key: ValueKey('${page.id}-${session.contentEpoch}'),
+                  child: BlockEditor(
+                    session: session,
+                    appSettings: appSettings,
+                    readOnlyMode: true,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      );
-      bullets.clear();
-    }
-
-    for (final b in blocks) {
-      final type = '${b['type'] ?? 'paragraph'}';
-      final text = '${b['text'] ?? ''}';
-      if (type == 'bulleted_list_item' || type == 'bullet') {
-        bullets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: FolioSpace.sm, bottom: 4),
-            child: Text('• $text'),
-          ),
-        );
-        continue;
-      }
-      flushBullets();
-      out.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: FolioSpace.sm),
-          child: _blockWidget(context, type, text),
-        ),
-      );
-    }
-    flushBullets();
-    return out;
-  }
-
-  Widget _blockWidget(BuildContext context, String type, String text) {
-    final theme = Theme.of(context).textTheme;
-    return switch (type) {
-      'h1' => Text(text, style: theme.headlineMedium),
-      'h2' => Text(text, style: theme.headlineSmall),
-      'h3' => Text(text, style: theme.titleLarge),
-      'quote' => Padding(
-          padding: const EdgeInsets.only(left: FolioSpace.md),
-          child: Text(
-            text,
-            style: theme.bodyLarge?.copyWith(fontStyle: FontStyle.italic),
-          ),
-        ),
-      'code' || 'code_block' => Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(FolioSpace.md),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(FolioRadius.sm),
-          ),
-          child: Text(text, style: theme.bodyMedium?.copyWith(fontFamily: 'monospace')),
-        ),
-      'divider' => const Divider(),
-      'numbered_list_item' || 'number' => Text('1. $text'),
-      _ => Text(text, style: theme.bodyLarge),
-    };
+      ),
+    );
   }
 }

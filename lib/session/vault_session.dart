@@ -315,6 +315,7 @@ class VaultSession extends ChangeNotifier {
       buildPayload: _buildVaultPayloadForPersist,
       savePayload: (payload) => _repo.savePayload(payload, _dek),
       canPersist: () =>
+          !_publicReadOnlyView &&
           _state == VaultFlowState.unlocked &&
           (!vaultUsesEncryption || _dek != null),
     );
@@ -369,6 +370,10 @@ class VaultSession extends ChangeNotifier {
   VaultFlowState _state = VaultFlowState.initializing;
   List<int>? _dek;
   List<FolioPage> _pages = [];
+
+  /// Vista pública `/s/{token}`: páginas en memoria, sin persistir ni DEK.
+  bool _publicReadOnlyView = false;
+  bool get isPublicReadOnlyView => _publicReadOnlyView;
 
   /// Orden persistido del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
   final Map<String, List<String>> _pageOrderByParent = {};
@@ -683,6 +688,29 @@ class VaultSession extends ChangeNotifier {
     _state = VaultFlowState.unlocked;
     _vaultUsesEncryption = false;
     _vaultFormatVersion = formatVersion;
+  }
+
+  /// Carga un snapshot público (enlace `/s/{token}`) en memoria, sin libreta local.
+  /// No persiste; [BlockEditor] puede usarse con `readOnlyMode: true`.
+  void loadPublicReadOnlySnapshot(
+    List<FolioPage> pages, {
+    String? preferredPageId,
+  }) {
+    final keepId = preferredPageId ?? _selectedPageId;
+    _publicReadOnlyView = true;
+    _vaultUsesEncryption = true;
+    _dek = null;
+    _pages = List<FolioPage>.from(pages);
+    _state = VaultFlowState.unlocked;
+    _ensureOrderForCurrentPages();
+    if (keepId != null &&
+        _pages.any((p) => p.id == keepId && !p.isTrashed)) {
+      _selectedPageId = keepId;
+    } else {
+      _pickInitialSelection();
+    }
+    _contentEpoch++;
+    notifyListeners();
   }
 
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);

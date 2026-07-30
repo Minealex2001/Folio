@@ -133,7 +133,7 @@ Map<String, dynamic> _decodeMap(String body) {
   return decoded.map((k, v) => MapEntry('$k', v));
 }
 
-/// Vista pública sanitizada de la libreta (sin secretos).
+/// Vista pública sanitizada de la libreta (sin secretos ni rutas locales).
 Map<String, dynamic> buildVaultPublicViewPack({
   required String vaultId,
   required String displayName,
@@ -145,27 +145,44 @@ Map<String, dynamic> buildVaultPublicViewPack({
     'vaultId': vaultId,
     'displayName': displayName,
     'updatedAt': DateTime.now().toUtc().toIso8601String(),
-    'pages': visible
-        .map(
-          (p) => <String, dynamic>{
-            'id': p.id,
-            'title': p.title,
-            if (p.emoji != null && p.emoji!.trim().isNotEmpty) 'emoji': p.emoji,
-            if (p.parentId != null) 'parentId': p.parentId,
-            if (p.isFolder) 'isFolder': true,
-            'blocks': p.blocks
-                .map(
-                  (b) => <String, dynamic>{
-                    'id': b.id,
-                    'type': b.type,
-                    'text': b.text,
-                  },
-                )
-                .toList(),
-          },
-        )
-        .toList(),
+    'pages': visible.map(_publicPageJson).toList(),
   };
+}
+
+Map<String, dynamic> _publicPageJson(FolioPage p) {
+  final j = Map<String, dynamic>.from(p.toJson());
+  j.remove('collabJoinCode');
+  j.remove('collabRoomId');
+  j.remove('lastImportInfo');
+  final rawBlocks = j['blocks'];
+  if (rawBlocks is List) {
+    j['blocks'] = rawBlocks.map((raw) {
+      if (raw is! Map) return raw;
+      final b = Map<String, dynamic>.from(raw);
+      final url = b['url']?.toString();
+      if (url != null && !_isPublicHttpOrDataUrl(url)) {
+        b.remove('url');
+      }
+      return b;
+    }).toList();
+  }
+  return j;
+}
+
+bool _isPublicHttpOrDataUrl(String url) {
+  final u = url.trim().toLowerCase();
+  return u.startsWith('https://') ||
+      u.startsWith('http://') ||
+      u.startsWith('data:');
+}
+
+List<FolioPage> hydrateVaultPublicViewPages(Map<String, dynamic> content) {
+  final raw = content['pages'];
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map>()
+      .map((e) => FolioPage.fromJson(e.map((k, v) => MapEntry('$k', v))))
+      .toList();
 }
 
 String fingerprintViewPack(Map<String, dynamic> pack) {

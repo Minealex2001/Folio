@@ -817,7 +817,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 ### Compartir libreta completa
 
-- **Enlace público vivo** (solo lectura en el navegador): API `/api/v1/vault-shares/public/**`; la URL que se copia/comparte es **`/s/{token}`** en la app web — **`https://folio.minealexgames.com`** (prod) o **`https://foliobeta.minealexgames.com`** (si la sesión web corre en beta, o con `--dart-define=FOLIO_WEB_BASE_URL=…`). Flutter web hace poll meta/content. El viewer HTML legacy `…/view` en el API queda como fallback. Gate `publishWeb`. Aviso en UI: el contenido del enlace está en claro en el servidor.
+- **Enlace público vivo** (solo lectura en el navegador): API `/api/v1/vault-shares/public/**`; la URL que se copia/comparte es **`/s/{token}`** en la app web — **`https://folio.minealexgames.com`** (prod) o **`https://foliobeta.minealexgames.com`** (si la sesión web corre en beta, o con `--dart-define=FOLIO_WEB_BASE_URL=…`). La ruta monta la **misma app** (`BlockEditor` + árbol de páginas en solo lectura), no un HTML aparte. Poll meta/content. Gate `publishWeb`. Aviso en UI: el contenido del enlace está en claro en el servidor.
 - **Invitar persona (editor)**: `/api/v1/vault-shares/members/**`. Correo + código E2E (`VaultShareCrypto`). Aparece en el listado del sidebar como «Compartidas conmigo»; **no puede eliminar** la libreta (solo abandonar). Sync vía device-sync del owner (`ownerUid` en meta/finalize + ACL storage).
 - Cliente: `folio_cloud_vault_share.dart`, `folio_web_urls.dart` (prod + foliobeta), `vault_share_sheet.dart`, rutas web `PublicVaultSharePage` / reset / verify, `VaultEntry.ownership`, gates en `deleteVaultById` / `wipeVaultAndReset`.
 
