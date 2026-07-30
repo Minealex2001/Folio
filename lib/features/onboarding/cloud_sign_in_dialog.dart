@@ -14,11 +14,13 @@ class CloudSignInDialog extends StatefulWidget {
     required this.l10n,
     required this.cloud,
     required this.onAuthError,
+    this.onForgotPassword,
   });
 
   final AppLocalizations l10n;
   final CloudAccountController cloud;
   final String Function(String code) onAuthError;
+  final VoidCallback? onForgotPassword;
 
   @override
   State<CloudSignInDialog> createState() => _CloudSignInDialogState();
@@ -73,6 +75,40 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
   }
 
+  Future<void> _requestPasswordReset() async {
+    if (widget.onForgotPassword != null) {
+      widget.onForgotPassword!();
+      return;
+    }
+    final email = _email.text.trim();
+    if (!_isValidEmail(email)) {
+      setState(() => _emailError = widget.l10n.cloudAuthErrorInvalidEmail);
+      _formKey.currentState?.validate();
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await widget.cloud.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      setState(() {
+        _generalError = widget.l10n.cloudPasswordResetSent;
+        _loading = false;
+      });
+    } on FolioAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _generalError = widget.onAuthError(e.code);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _generalError = '$e';
+        _loading = false;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     setState(() {
       _emailError = null;
@@ -93,7 +129,9 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
       if (mounted) {
         setState(() {
           final errorMsg = widget.onAuthError(e.code);
-          if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          if (e.code == 'password-reset-required') {
+            _generalError = errorMsg;
+          } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
             _passwordError = errorMsg;
           } else if (e.code == 'invalid-email' || e.code == 'user-not-found') {
             _emailError = errorMsg;
@@ -152,6 +190,15 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
                   message: _generalError!,
                   margin: const EdgeInsets.only(bottom: 12),
                 ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _loading ? null : _requestPasswordReset,
+                    icon: const Icon(Icons.lock_reset_rounded, size: 18),
+                    label: Text(l10n.cloudAccountForgotPassword),
+                  ),
+                ),
+                const SizedBox(height: 8),
               ],
               TextFormField(
                 controller: _email,

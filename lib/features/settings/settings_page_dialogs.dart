@@ -29,6 +29,7 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
   var _obscurePassword = true;
   var _obscureConfirm = true;
   var _loading = false;
+  String? _generalError;
 
   @override
   void initState() {
@@ -58,7 +59,10 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final email = _email.text.trim();
     final pass = _password.text;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _generalError = null;
+    });
     try {
       if (_modeRegister) {
         await widget.cloudAuthController.createUserWithEmailAndPassword(
@@ -75,12 +79,17 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
       Navigator.of(context).pop(pass);
     } on FolioAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text(widget.onAuthError(e.code)),
-        ),
-      );
+      final msg = widget.onAuthError(e.code);
+      if (e.code == 'password-reset-required') {
+        setState(() => _generalError = msg);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(msg),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +144,21 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
                 height: 1.4,
               ),
             ),
+            if (_generalError != null) ...[
+              const SizedBox(height: 12),
+              FolioErrorCard(
+                title: l10n.cloudAuthDialogTitleReset,
+                message: _generalError!,
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _loading ? null : widget.onForgotPassword,
+                  icon: const Icon(Icons.lock_reset_rounded, size: 18),
+                  label: Text(l10n.cloudAccountForgotPassword),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             SegmentedButton<bool>(
               segments: [
@@ -315,6 +339,14 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
   }
 }
 
+class _PasswordResetDialogResult {
+  const _PasswordResetDialogResult.email(this.email) : useToken = false;
+  const _PasswordResetDialogResult.token() : email = null, useToken = true;
+
+  final String? email;
+  final bool useToken;
+}
+
 class _CloudPasswordResetDialog extends StatefulWidget {
   const _CloudPasswordResetDialog({required this.l10n, this.fixedEmail});
 
@@ -361,7 +393,9 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pop(_email.text.trim());
+    Navigator.of(context).pop(
+      _PasswordResetDialogResult.email(_email.text.trim()),
+    );
   }
 
   @override
@@ -419,6 +453,16 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
                 return null;
               },
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(
+                  const _PasswordResetDialogResult.token(),
+                ),
+                child: Text(l10n.cloudAuthHaveResetToken),
+              ),
+            ),
           ],
         ),
       ),
@@ -428,6 +472,169 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
           child: Text(l10n.cancel),
         ),
         FilledButton(onPressed: _submit, child: Text(l10n.continueAction)),
+      ],
+    );
+  }
+}
+
+class _CloudPasswordResetWithTokenDialog extends StatefulWidget {
+  const _CloudPasswordResetWithTokenDialog({
+    required this.l10n,
+    required this.cloud,
+    required this.onAuthError,
+  });
+
+  final AppLocalizations l10n;
+  final CloudAccountController cloud;
+  final String Function(String code) onAuthError;
+
+  @override
+  State<_CloudPasswordResetWithTokenDialog> createState() =>
+      _CloudPasswordResetWithTokenDialogState();
+}
+
+class _CloudPasswordResetWithTokenDialogState
+    extends State<_CloudPasswordResetWithTokenDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _token = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  var _obscurePassword = true;
+  var _obscureConfirm = true;
+  var _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _token.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await widget.cloud.resetPasswordWithToken(
+        token: _token.text.trim(),
+        newPassword: _password.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on FolioAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = widget.onAuthError(e.code));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    return FolioDialog(
+      contentWidth: 420,
+      title: Text(
+        l10n.cloudAuthDialogTitleResetWithToken,
+        style: Theme.of(
+          context,
+        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.cloudAuthResetTokenHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              FolioErrorCard(
+                title: l10n.cloudAuthDialogTitleReset,
+                message: _error!,
+              ),
+            ],
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _token,
+              enabled: !_loading,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: l10n.cloudAuthResetTokenLabel,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.vpn_key_outlined),
+              ),
+              validator: (v) {
+                if ((v ?? '').trim().isEmpty) {
+                  return l10n.cloudAuthValidationRequired;
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            FolioPasswordField(
+              controller: _password,
+              labelText: l10n.cloudAccountPasswordLabel,
+              obscureText: _obscurePassword,
+              onToggleObscure: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+              showPasswordTooltip: l10n.showPassword,
+              hidePasswordTooltip: l10n.hidePassword,
+              enabled: !_loading,
+              validator: (v) {
+                final s = v ?? '';
+                if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                if (s.length < 8) return l10n.cloudAuthValidationPasswordShort;
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            FolioPasswordField(
+              controller: _confirm,
+              labelText: l10n.cloudAuthConfirmPasswordLabel,
+              obscureText: _obscureConfirm,
+              onToggleObscure: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
+              showPasswordTooltip: l10n.showPassword,
+              hidePasswordTooltip: l10n.hidePassword,
+              enabled: !_loading,
+              validator: (v) {
+                final s = v ?? '';
+                if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                if (s != _password.text) {
+                  return l10n.cloudAuthValidationConfirmMismatch;
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+              : Text(l10n.save),
+        ),
       ],
     );
   }

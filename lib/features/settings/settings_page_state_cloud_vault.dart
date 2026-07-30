@@ -65,11 +65,17 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       }
     }
     if (!mounted) return;
-    final email = await showDialog<String?>(
+    final choice = await showDialog<_PasswordResetDialogResult>(
       context: context,
       builder: (ctx) =>
           _CloudPasswordResetDialog(l10n: l10n, fixedEmail: fixedEmail),
     );
+    if (choice == null || !mounted) return;
+    if (choice.useToken) {
+      await _showCloudPasswordResetWithTokenDialog();
+      return;
+    }
+    final email = choice.email;
     if (email == null || email.isEmpty) return;
     try {
       await _cloud.sendPasswordResetEmail(email);
@@ -77,11 +83,31 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.cloudPasswordResetSent)));
+      await _showCloudPasswordResetWithTokenDialog();
     } on FolioAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),
       );
+    }
+  }
+
+  Future<void> _showCloudPasswordResetWithTokenDialog() async {
+    if (!_cloud.isAvailable) return;
+    final l10n = AppLocalizations.of(context);
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _CloudPasswordResetWithTokenDialog(
+        l10n: l10n,
+        cloud: _cloud,
+        onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
+      ),
+    );
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.cloudPasswordResetDone)));
     }
   }
 
@@ -91,9 +117,12 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
     try {
       await _cloud.sendEmailVerification();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.cloudAccountVerificationSent)),
-      );
+      // Si el servidor ya lo tenía verificado, el flag local se actualizó y el
+      // banner desaparece; mostramos el mensaje de "ya verificado".
+      final msg = _cloud.emailVerified
+          ? l10n.cloudAccountVerificationNowVerified
+          : l10n.cloudAccountVerificationSent;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } on FolioAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

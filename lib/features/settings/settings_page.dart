@@ -532,6 +532,10 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_loadTaskCapturePrefs());
     unawaited(_loadVaultBackupPrefs());
     unawaited(_refreshOnDeviceAiInfo());
+    // Si el flag local dice "sin verificar", consulta el servidor (evita banner fantasma).
+    if (_cloud.isSignedIn && !_cloud.emailVerified) {
+      unawaited(_cloud.reloadCurrentUser());
+    }
   }
 
   void _onCloudOrFolioChanged() {

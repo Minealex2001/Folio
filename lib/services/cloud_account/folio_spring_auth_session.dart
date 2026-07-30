@@ -165,6 +165,18 @@ class FolioSpringAuthSession extends ChangeNotifier {
     await _postJson(uri, {'email': email.trim()});
   }
 
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    final uri =
+        Uri.parse('${FolioBackendConfig.apiV1Prefix}/auth/reset-password');
+    await _postJson(uri, {
+      'token': token.trim(),
+      'newPassword': newPassword,
+    });
+  }
+
   Future<void> resendVerification() async {
     final token = await getAccessToken();
     if (token == null) {
@@ -319,7 +331,7 @@ class FolioSpringAuthSession extends ChangeNotifier {
       uid: sub,
       email: claimEmail,
       displayName: _profile?.displayName,
-      emailVerified: _profile?.emailVerified ?? false,
+      emailVerified: resp['emailVerified'] == true,
     );
     await _storage.write(key: _kAccess, value: access);
     await _storage.write(key: _kRefresh, value: refresh);
@@ -382,7 +394,7 @@ class FolioSpringAuthSession extends ChangeNotifier {
         final msg = _errorMessage(res.body) ??
             'HTTP ${res.statusCode} ${uri.path}';
         throw FolioSpringAuthException(
-          code: res.statusCode == 401 ? 'invalid-credential' : 'unknown',
+          code: _mapAuthErrorCode(res.statusCode, res.body),
           message: msg,
           statusCode: res.statusCode,
         );
@@ -466,4 +478,39 @@ String? _errorMessage(String body) {
   final collapsed = body.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (collapsed.length > 180) return '${collapsed.substring(0, 180)}…';
   return collapsed.isEmpty ? null : collapsed;
+}
+
+String? _apiErrorField(String body) {
+  if (body.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map) {
+      final err = decoded['error'];
+      if (err != null) {
+        final s = err.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+String _mapAuthErrorCode(int statusCode, String body) {
+  final apiError = _apiErrorField(body);
+  if (apiError != null) {
+    return switch (apiError) {
+      'password_reset_required' => 'password-reset-required',
+      'invalid_credentials' => 'invalid-credential',
+      'invalid_refresh' => 'invalid-credential',
+      'invalid_token' => 'invalid-token',
+      'token_used' => 'token-used',
+      'token_expired' => 'token-expired',
+      'already_verified' => 'already-verified',
+      'user_not_found' => 'user-not-found',
+      _ => apiError.replaceAll('_', '-'),
+    };
+  }
+  if (statusCode == 401) return 'invalid-credential';
+  if (statusCode == 409) return 'email-already-in-use';
+  return 'unknown';
 }

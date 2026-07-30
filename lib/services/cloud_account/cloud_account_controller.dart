@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../app_logger.dart';
 import '../folio_cloud/folio_cloud_exception.dart';
+import '../folio_cloud/folio_spring_account_me.dart';
 import 'folio_spring_auth_session.dart';
 
 /// Cuenta Folio Cloud (JWT Spring). Tras Fase 30 no hay Firebase Auth.
@@ -150,6 +151,28 @@ class CloudAccountController extends ChangeNotifier {
     }
   }
 
+  Future<void> resetPasswordWithToken({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _spring
+          .resetPassword(token: token, newPassword: newPassword)
+          .timeout(_authNetworkTimeout);
+      AppLogger.info('passwordReset completed (spring)', tag: 'auth');
+    } on TimeoutException catch (e, st) {
+      AppLogger.error(
+        'passwordReset complete timeout',
+        tag: 'auth',
+        error: e,
+        stackTrace: st,
+      );
+      throw FolioAuthException(code: 'network-request-failed');
+    } on FolioSpringAuthException catch (e) {
+      throw FolioAuthException(code: e.code, message: e.message);
+    }
+  }
+
   Future<void> signOut() async {
     AppLogger.info(
       'signOut (spring)',
@@ -160,6 +183,23 @@ class CloudAccountController extends ChangeNotifier {
   }
 
   Future<void> reloadCurrentUser() async {
+    try {
+      final me = await folioSpringFetchAccountMeAsUserDoc();
+      if (me != null) {
+        final verified = me['emailVerifiedAt'] != null;
+        final dn = me['displayName']?.toString();
+        await _spring.updateLocalProfile(
+          displayName: (dn != null && dn.trim().isNotEmpty) ? dn.trim() : null,
+          emailVerified: verified,
+        );
+      }
+    } catch (e, st) {
+      AppLogger.warn(
+        'reloadCurrentUser failed',
+        tag: 'auth',
+        context: {'error': '$e', 'stack': '$st'},
+      );
+    }
     notifyListeners();
   }
 
@@ -167,6 +207,10 @@ class CloudAccountController extends ChangeNotifier {
     try {
       await _spring.resendVerification();
     } on FolioSpringAuthException catch (e) {
+      if (e.code == 'already-verified') {
+        await _spring.updateLocalProfile(emailVerified: true);
+        return;
+      }
       throw FolioAuthException(code: e.code, message: e.message);
     }
   }

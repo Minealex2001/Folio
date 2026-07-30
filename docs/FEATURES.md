@@ -1788,7 +1788,7 @@ curl -X POST http://127.0.0.1:18080/api/v1/admin/entitlements/grant-cloud `
 - Filtro JWT fail-closed; públicos: health, register/login/refresh/verify-email/forgot/reset-password y Swagger.
 - `POST /auth/refresh` con rotación; reuso de refresh revocado invalida la cadena del usuario.
 - `POST /auth/logout` y `POST /auth/resend-verification` requieren Bearer.
-- Verificación de email y forgot/reset password vía Mailpit en local; reset revoca todos los refresh tokens.
+- Verificación de email y forgot/reset password vía **Resend** (sin `RESEND_API_KEY` en local, se loguean); formulario HTML en `GET /reset-password`; reset revoca todos los refresh tokens.
 
 **Cuenta (Fase 10):** `GET /account/me`, `POST /account/ensure` (idempotente, puerto de `ensureUserDocExists`), `PATCH /account/display-name` (máx. 80, colapsa espacios; propagación a familia en Fase 15).
 

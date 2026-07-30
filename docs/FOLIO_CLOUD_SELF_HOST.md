@@ -70,7 +70,7 @@ Servicios:
 | `api` | **18080** (→8080 contenedor) | Spring Boot, perfil `docker`. Configurable con `API_HOST_PORT` |
 | `postgres` | 5432 | Volumen `folio_pg_data` |
 | `minio` | 9000 / 9001 | API S3 + consola; volumen `folio_minio_data` |
-| `mailpit` | 1025 / 8025 | Solo desarrollo / prueba de emails |
+| `mailpit` | 1025 / 8025 | Legacy opcional (el API usa Resend; sin `RESEND_API_KEY` solo logs) |
 
 **Windows:** no uses `http://localhost:8080`. En muchos equipos `127.0.0.1:8080` lo ocupa el remote debugging CEF/Cursor; Dart resuelve `localhost` a IPv4 y el cliente ve 404 en rutas de Folio. Preferir `http://127.0.0.1:18080`.
 
@@ -92,7 +92,7 @@ Si el API está en otra máquina o detrás de un proxy, usa esa URL (sin barra f
 
 - JDBC: `jdbc:postgresql://postgres:5432/folio`
 - MinIO: `http://minio:9000`
-- SMTP: `mailpit:1025`
+- Correo: Resend vía `RESEND_API_KEY` / `MAIL_FROM` (sin clave → solo logs)
 
 El `docker-compose.yml` fuerza esas URLs en el servicio `api` aunque `.env` tenga `localhost` (útil para el flujo Maven en el host).
 
@@ -101,7 +101,7 @@ El `docker-compose.yml` fuerza esas URLs en el servicio `api` aunque `.env` teng
 Sigue válido el flujo anterior:
 
 ```powershell
-docker compose -f backend/docker-compose.yml up -d postgres minio mailpit
+docker compose -f backend/docker-compose.yml up -d postgres minio
 mvn -f backend/pom.xml spring-boot:run
 ```
 
@@ -111,7 +111,7 @@ Perfil por defecto: `dev` (`application-dev.yml` → localhost).
 
 1. **Secretos**: `JWT_SIGNING_SECRET` largo y aleatorio; cambia `POSTGRES_PASSWORD`, `S3_ACCESS_KEY` / `S3_SECRET_KEY`.
 2. **Volúmenes**: no borres `folio_pg_data` / `folio_minio_data` en `docker compose down -v`.
-3. **Correo**: sustituye Mailpit por SMTP real; no publiques `:8025` ni dependas del servicio `mailpit`.
+3. **Correo**: configura `RESEND_API_KEY` y un `MAIL_FROM` de dominio verificado en [Resend](https://resend.com); no publiques `:8025` ni dependas del servicio `mailpit` (legacy).
 4. **TLS**: pon un reverse proxy (Caddy/nginx/Traefik) delante del puerto del API (`API_HOST_PORT`, por defecto 18080) y alinea `APP_PUBLIC_BASE_URL`.
 5. **Integraciones opcionales**: Stripe, OpenAI, Slack, etc. solo si las necesitas — ver `.env.example` y [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md).
 6. **Object storage**: puedes apuntar `S3_*` a un S3 real / R2 / etc. y omitir MinIO.

@@ -1770,6 +1770,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return l10n.cloudAuthErrorWeakPassword;
       case 'invalid-credential':
         return l10n.cloudAuthErrorInvalidCredential;
+      case 'password-reset-required':
+        return l10n.cloudAuthErrorPasswordResetRequired;
+      case 'invalid-token':
+        return l10n.cloudAuthErrorInvalidToken;
+      case 'token-expired':
+        return l10n.cloudAuthErrorTokenExpired;
+      case 'token-used':
+        return l10n.cloudAuthErrorTokenUsed;
+      case 'already-verified':
+        return l10n.cloudAccountVerificationNowVerified;
       case 'network-request-failed':
         return l10n.cloudAuthErrorNetwork;
       case 'too-many-requests':
