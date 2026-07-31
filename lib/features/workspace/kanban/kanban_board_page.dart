@@ -20,6 +20,7 @@ import '../../../services/github/github_sync_service.dart';
 import '../../../services/gitlab/gitlab_sync_service.dart';
 import '../tasks/task_details_panel.dart';
 import 'kanban_integration_sync_controller.dart';
+import 'kanban_persistence_controller.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
 
@@ -63,11 +64,13 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   TaskRef? _openTask;
   var _detailsFullScreen = false;
   final _integrationSync = KanbanIntegrationSyncController();
+  late final KanbanPersistenceController _persistence;
 
   @override
   void initState() {
     super.initState();
     widget.session.addListener(_onSession);
+    _persistence = KanbanPersistenceController(widget.session);
   }
 
   @override
@@ -468,185 +471,6 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     });
   }
 
-  void _persistKanbanData(String pageId, String blockId, FolioKanbanData data) {
-    if (blockId.trim().isEmpty) return;
-    widget.session.updateBlockText(pageId, blockId, data.encode());
-  }
-
-  /// Un Kanban solo puede tener una integración (Jira XOR YouTrack XOR Trello XOR GitHub XOR GitLab).
-  FolioKanbanData _normalizeExclusiveKanbanIntegration(FolioKanbanData data) {
-    final hasJira = (data.jiraSourceId ?? '').trim().isNotEmpty;
-    final hasYt = (data.youtrackSourceId ?? '').trim().isNotEmpty;
-    final hasTr = (data.trelloSourceId ?? '').trim().isNotEmpty;
-    final hasGh = (data.githubSourceId ?? '').trim().isNotEmpty;
-    final hasGl = (data.gitlabSourceId ?? '').trim().isNotEmpty;
-    final count = (hasJira ? 1 : 0) +
-        (hasYt ? 1 : 0) +
-        (hasTr ? 1 : 0) +
-        (hasGh ? 1 : 0) +
-        (hasGl ? 1 : 0);
-    if (count <= 1) return data;
-    if (hasJira) {
-      return data.copyWith(
-        youtrackSourceId: null,
-        youtrackAutoImport: false,
-        youtrackCreateIssuesOnQuickAdd: false,
-        trelloSourceId: null,
-        trelloAutoImport: false,
-        trelloCreateCardsOnQuickAdd: false,
-        githubSourceId: null,
-        githubAutoImport: false,
-        githubCreateIssuesOnQuickAdd: false,
-        gitlabSourceId: null,
-        gitlabAutoImport: false,
-        gitlabCreateIssuesOnQuickAdd: false,
-      );
-    }
-    if (hasYt) {
-      return data.copyWith(
-        trelloSourceId: null,
-        trelloAutoImport: false,
-        trelloCreateCardsOnQuickAdd: false,
-        githubSourceId: null,
-        githubAutoImport: false,
-        githubCreateIssuesOnQuickAdd: false,
-        gitlabSourceId: null,
-        gitlabAutoImport: false,
-        gitlabCreateIssuesOnQuickAdd: false,
-      );
-    }
-    if (hasTr) {
-      return data.copyWith(
-        githubSourceId: null,
-        githubAutoImport: false,
-        githubCreateIssuesOnQuickAdd: false,
-        gitlabSourceId: null,
-        gitlabAutoImport: false,
-        gitlabCreateIssuesOnQuickAdd: false,
-      );
-    }
-    if (hasGh) {
-      return data.copyWith(
-        gitlabSourceId: null,
-        gitlabAutoImport: false,
-        gitlabCreateIssuesOnQuickAdd: false,
-      );
-    }
-    return data;
-  }
-
-  FolioKanbanData _selectKanbanIntegration({
-    required FolioKanbanData data,
-    required String provider,
-    required String? sourceId,
-  }) {
-    final clear = sourceId == null || sourceId.trim().isEmpty;
-    switch (provider) {
-      case 'jira':
-        if (clear) {
-          return data.copyWith(
-            jiraSourceId: null,
-            jiraAutoImport: false,
-            jiraCreateIssuesOnQuickAdd: false,
-          );
-        }
-        return data.copyWith(
-          jiraSourceId: sourceId,
-          youtrackSourceId: null,
-          youtrackAutoImport: false,
-          youtrackCreateIssuesOnQuickAdd: false,
-          trelloSourceId: null,
-          trelloAutoImport: false,
-          trelloCreateCardsOnQuickAdd: false,
-        );
-      case 'youtrack':
-        if (clear) {
-          return data.copyWith(
-            youtrackSourceId: null,
-            youtrackAutoImport: false,
-            youtrackCreateIssuesOnQuickAdd: false,
-          );
-        }
-        return data.copyWith(
-          youtrackSourceId: sourceId,
-          jiraSourceId: null,
-          jiraAutoImport: false,
-          jiraCreateIssuesOnQuickAdd: false,
-          trelloSourceId: null,
-          trelloAutoImport: false,
-          trelloCreateCardsOnQuickAdd: false,
-        );
-      case 'trello':
-        if (clear) {
-          return data.copyWith(
-            trelloSourceId: null,
-            trelloAutoImport: false,
-            trelloCreateCardsOnQuickAdd: false,
-          );
-        }
-        return data.copyWith(
-          trelloSourceId: sourceId,
-          jiraSourceId: null,
-          jiraAutoImport: false,
-          jiraCreateIssuesOnQuickAdd: false,
-          youtrackSourceId: null,
-          youtrackAutoImport: false,
-          youtrackCreateIssuesOnQuickAdd: false,
-          githubSourceId: null,
-          githubAutoImport: false,
-          githubCreateIssuesOnQuickAdd: false,
-        );
-      case 'github':
-        if (clear) {
-          return data.copyWith(
-            githubSourceId: null,
-            githubAutoImport: false,
-            githubCreateIssuesOnQuickAdd: false,
-          );
-        }
-        return data.copyWith(
-          githubSourceId: sourceId,
-          jiraSourceId: null,
-          jiraAutoImport: false,
-          jiraCreateIssuesOnQuickAdd: false,
-          youtrackSourceId: null,
-          youtrackAutoImport: false,
-          youtrackCreateIssuesOnQuickAdd: false,
-          trelloSourceId: null,
-          trelloAutoImport: false,
-          trelloCreateCardsOnQuickAdd: false,
-          gitlabSourceId: null,
-          gitlabAutoImport: false,
-          gitlabCreateIssuesOnQuickAdd: false,
-        );
-      case 'gitlab':
-        if (clear) {
-          return data.copyWith(
-            gitlabSourceId: null,
-            gitlabAutoImport: false,
-            gitlabCreateIssuesOnQuickAdd: false,
-          );
-        }
-        return data.copyWith(
-          gitlabSourceId: sourceId,
-          jiraSourceId: null,
-          jiraAutoImport: false,
-          jiraCreateIssuesOnQuickAdd: false,
-          youtrackSourceId: null,
-          youtrackAutoImport: false,
-          youtrackCreateIssuesOnQuickAdd: false,
-          trelloSourceId: null,
-          trelloAutoImport: false,
-          trelloCreateCardsOnQuickAdd: false,
-          githubSourceId: null,
-          githubAutoImport: false,
-          githubCreateIssuesOnQuickAdd: false,
-        );
-      default:
-        return data;
-    }
-  }
-
   Future<void> _renameColumn({
     required String pageId,
     required String kanbanBlockId,
@@ -691,7 +515,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       title: nextTitle.trim(),
       colorArgb: cols[index].colorArgb,
     );
-    _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
+    _persistence.persist(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
   Future<void> _pickColumnColor({
@@ -749,7 +573,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       title: cols[index].title,
       colorArgb: selected,
     );
-    _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
+    _persistence.persist(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
   Future<void> _addColumn({
@@ -792,7 +616,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     final id = 'col_${DateTime.now().microsecondsSinceEpoch}';
     final cols = List<FolioKanbanColumnSpec>.from(data.columns)
       ..add(FolioKanbanColumnSpec(id: id, title: title.trim()));
-    _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
+    _persistence.persist(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
   void _moveColumn({
@@ -808,7 +632,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     final tmp = cols[index];
     cols[index] = cols[next];
     cols[next] = tmp;
-    _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
+    _persistence.persist(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
   void _deleteColumn({
@@ -820,7 +644,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     if (data.columns.length <= 1) return;
     final cols = List<FolioKanbanColumnSpec>.from(data.columns)
       ..removeAt(index);
-    _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
+    _persistence.persist(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
   Future<void> _openKanbanSettingsSheet({
@@ -829,13 +653,13 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }) async {
     final l10n = AppLocalizations.of(context);
     // Legacy: si hay más de una integración, dejar solo una.
-    final normalized = _normalizeExclusiveKanbanIntegration(cfg.data);
+    final normalized = _persistence.normalizeExclusiveIntegration(cfg.data);
     if ((normalized.jiraSourceId ?? '') != (cfg.data.jiraSourceId ?? '') ||
         (normalized.youtrackSourceId ?? '') != (cfg.data.youtrackSourceId ?? '') ||
         (normalized.trelloSourceId ?? '') != (cfg.data.trelloSourceId ?? '') ||
         (normalized.githubSourceId ?? '') != (cfg.data.githubSourceId ?? '') ||
         (normalized.gitlabSourceId ?? '') != (cfg.data.gitlabSourceId ?? '')) {
-      _persistKanbanData(page.id, cfg.blockId, normalized);
+      _persistence.persist(page.id, cfg.blockId, normalized);
     }
     await showModalBottomSheet<void>(
       context: context,
@@ -922,7 +746,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                             selected: {data.viewMode},
                             onSelectionChanged: (s) {
                               if (s.isEmpty) return;
-                              _persistKanbanData(
+                              _persistence.persist(
                                 latestPage.id,
                                 latestCfg.blockId,
                                 data.copyWith(viewMode: s.first),
@@ -1068,10 +892,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                         sourceId = parts.sublist(1).join(':');
                                       }
                                       if (provider.isEmpty) return;
-                                      _persistKanbanData(
+                                      _persistence.persist(
                                         latestPage.id,
                                         latestCfg.blockId,
-                                        _selectKanbanIntegration(
+                                        _persistence.selectIntegration(
                                           data: data,
                                           provider: provider,
                                           sourceId: sourceId,
@@ -1102,7 +926,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                             data.copyWith(githubAutoImport: v),
                                           _ => data,
                                         };
-                                        _persistKanbanData(
+                                        _persistence.persist(
                                           latestPage.id,
                                           latestCfg.blockId,
                                           next,
@@ -1130,7 +954,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                               githubCreateIssuesOnQuickAdd: v),
                                           _ => data,
                                         };
-                                        _persistKanbanData(
+                                        _persistence.persist(
                                           latestPage.id,
                                           latestCfg.blockId,
                                           next,
