@@ -118,6 +118,7 @@ part 'block_editor/block_editor_state_collab_media.dart';
 part 'block_editor/block_editor_state_media_picking.dart';
 part 'block_editor/block_editor_state_context_menu.dart';
 part 'block_editor/block_editor_state_multi_select.dart';
+part 'block_editor/block_editor_state_format_toolbar.dart';
 part 'block_editor/block_list_row.dart';
 part 'block_editor/special_row_chrome.dart';
 part 'block_editor/state_tail_and_fill.dart';
