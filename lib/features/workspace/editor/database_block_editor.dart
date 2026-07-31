@@ -148,24 +148,26 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   String _defaultViewName(FolioDbViewType type) {
     switch (type) {
       case FolioDbViewType.table:
-        return _t('Tabla', 'Table');
+        return AppLocalizations.of(context).blockTypeTableLabel;
       case FolioDbViewType.list:
-        return _t('Lista', 'List');
+        return AppLocalizations.of(context).driveViewList;
       case FolioDbViewType.board:
-        return _t('Tablero', 'Board');
+        return AppLocalizations.of(context).jiraBoard;
       case FolioDbViewType.calendar:
-        return _t('Calendario', 'Calendar');
+        return AppLocalizations.of(context).databaseCalendarLabel;
       case FolioDbViewType.gallery:
-        return _t('Galería', 'Gallery');
+        return AppLocalizations.of(context).databaseGalleryLabel;
       case FolioDbViewType.timeline:
-        return _t('Línea de tiempo', 'Timeline');
+        return AppLocalizations.of(context).databaseTimelineLabel;
     }
   }
 
   String _uniqueViewName(String base) {
     final names = _data.views.map((v) => v.name.trim().toLowerCase()).toSet();
     var candidate = base.trim();
-    if (candidate.isEmpty) candidate = _t('Vista', 'View');
+    if (candidate.isEmpty) {
+      candidate = AppLocalizations.of(context).databaseViewLabel;
+    }
     if (!names.contains(candidate.toLowerCase())) return candidate;
     var n = 2;
     while (names.contains('$candidate $n'.toLowerCase())) {
@@ -177,19 +179,23 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   Future<void> _showCreateViewDialog() async {
     final active = _activeView;
     final nameCtrl = TextEditingController(
-      text: _uniqueViewName('${active.name} ${_t('copia', 'copy')}'),
+      text: _uniqueViewName(
+        '${active.name} ${AppLocalizations.of(context).databaseCopySuffix}',
+      ),
     );
     var selectedType = active.type;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(_t('Nueva vista', 'New view')),
+        title: Text(AppLocalizations.of(context).databaseNewView),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: InputDecoration(labelText: _t('Nombre', 'Name')),
+              decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).nameLabel,
+            ),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<FolioDbViewType>(
@@ -211,11 +217,11 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(_t('Cancelar', 'Cancel')),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(_t('Crear', 'Create')),
+            child: Text(AppLocalizations.of(context).createAction),
           ),
         ],
       ),
@@ -279,20 +285,22 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(_t('Renombrar vista', 'Rename view')),
+        title: Text(AppLocalizations.of(context).databaseRenameView),
         content: TextField(
           controller: ctrl,
-          decoration: InputDecoration(labelText: _t('Nombre', 'Name')),
+          decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).nameLabel,
+            ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(_t('Cancelar', 'Cancel')),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(_t('Guardar', 'Save')),
+            child: Text(AppLocalizations.of(context).save),
           ),
         ],
       ),
@@ -316,7 +324,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     final active = _activeView;
     final clone = FolioDbView(
       id: 'v_${_uuid.v4()}',
-      name: _uniqueViewName('${active.name} ${_t('copia', 'copy')}'),
+      name: _uniqueViewName(
+        '${active.name} ${AppLocalizations.of(context).databaseCopySuffix}',
+      ),
       type: active.type,
       groupByPropertyId: active.groupByPropertyId,
       calendarDatePropertyId: active.calendarDatePropertyId,
@@ -375,7 +385,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 Text(
-                  _t('Propiedades visibles', 'Visible properties'),
+                  AppLocalizations.of(context).databaseVisibleProperties,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -459,10 +469,6 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     setState(() {});
   }
 
-  bool get _isEs => Localizations.localeOf(
-    context,
-  ).languageCode.toLowerCase().startsWith('es');
-
   bool get _isEditMode => _mode == _DatabaseViewMode.edit;
 
   Color get _canvasColor => Color.alphaBlend(
@@ -474,8 +480,6 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
 
   Color get _subtleBorder =>
       widget.scheme.outlineVariant.withValues(alpha: 0.55);
-
-  String _t(String es, String en) => _isEs ? es : en;
 
   @override
   Widget build(BuildContext context) {
@@ -510,10 +514,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 ),
                 isDense: true,
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                labelText: _t(
-                  'Filtro rápido (columna principal)',
-                  'Quick filter (main column)',
-                ),
+                labelText: AppLocalizations.of(
+                  context,
+                ).databaseQuickFilterMainColumn,
               ),
               onSubmitted: (_) {
                 _applyQuickFilter(active);
@@ -555,25 +558,25 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                   BlockButton.secondaryIcon(
                     onPressed: _addProperty,
                     icon: Icons.view_column_rounded,
-                    label: _t('Añadir propiedad', 'Add property'),
+                    label: AppLocalizations.of(context).propAdd,
                   ),
                 BlockButton.secondaryIcon(
                   onPressed: _isEditMode
                       ? () => _showVisiblePropertiesSheet(active)
                       : null,
                   icon: Icons.tune_rounded,
-                  label: _t('Propiedades visibles', 'Visible properties'),
+                  label: AppLocalizations.of(context).databaseVisibleProperties,
                 ),
                 if (_isEditMode)
                   BlockButton.primaryIcon(
                     onPressed: _addRow,
                     icon: Icons.add_rounded,
-                    label: _t('Nueva fila', 'New row'),
+                    label: AppLocalizations.of(context).databaseNewRow,
                   ),
                 BlockButton.secondaryIcon(
                   onPressed: () => _applyQuickFilter(active),
                   icon: Icons.filter_alt_outlined,
-                  label: _t('Aplicar filtro', 'Apply filter'),
+                  label: AppLocalizations.of(context).databaseApplyFilter,
                 ),
                 if (_isEditMode)
                   BlockButton.secondaryIcon(
@@ -600,8 +603,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
 
   Widget _buildTopBar(FolioDbView active) {
     final statusLabel = _isEditMode
-        ? _t('Editable', 'Editable')
-        : _t('Bloqueada', 'Locked');
+        ? AppLocalizations.of(context).databaseEditableLabel
+        : AppLocalizations.of(context).databaseLockedLabel;
     final statusIcon = _isEditMode
         ? Icons.lock_open_rounded
         : Icons.lock_rounded;
@@ -618,7 +621,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           TextButton.icon(
             onPressed: _isEditMode ? _showCreateViewDialog : null,
             icon: const Icon(Icons.add_rounded, size: 16),
-            label: Text(_t('Vista', 'View')),
+            label: Text(AppLocalizations.of(context).databaseViewLabel),
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
               foregroundColor: widget.scheme.onSurfaceVariant,
@@ -649,19 +652,19 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           ),
         ),
         IconButton(
-          tooltip: _t('Aplicar filtro', 'Apply filter'),
+          tooltip: AppLocalizations.of(context).databaseApplyFilter,
           onPressed: () => _applyQuickFilter(active),
           icon: const Icon(Icons.filter_alt_outlined, size: 18),
         ),
         IconButton(
-          tooltip: _t('Propiedades visibles', 'Visible properties'),
+          tooltip: AppLocalizations.of(context).databaseVisibleProperties,
           onPressed: _isEditMode
               ? () => _showVisiblePropertiesSheet(active)
               : null,
           icon: const Icon(Icons.tune_rounded, size: 18),
         ),
         PopupMenuButton<String>(
-          tooltip: _t('Opciones de vista', 'View options'),
+          tooltip: AppLocalizations.of(context).databaseViewOptions,
           enabled: _isEditMode,
           onSelected: (value) {
             if (value == 'rename') {
@@ -679,7 +682,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 children: [
                   const Icon(Icons.drive_file_rename_outline_rounded, size: 18),
                   const SizedBox(width: 8),
-                  Text(_t('Renombrar vista', 'Rename view')),
+                  Text(AppLocalizations.of(context).databaseRenameView),
                 ],
               ),
             ),
@@ -689,7 +692,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 children: [
                   const Icon(Icons.copy_all_rounded, size: 18),
                   const SizedBox(width: 8),
-                  Text(_t('Duplicar vista', 'Duplicate view')),
+                  Text(AppLocalizations.of(context).databaseDuplicateView),
                 ],
               ),
             ),
@@ -700,7 +703,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 children: [
                   const Icon(Icons.delete_outline_rounded, size: 18),
                   const SizedBox(width: 8),
-                  Text(_t('Eliminar vista', 'Delete view')),
+                  Text(AppLocalizations.of(context).databaseDeleteView),
                 ],
               ),
             ),
@@ -713,7 +716,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         BlockButton.primaryIcon(
           onPressed: _isEditMode ? _addRow : null,
           icon: Icons.add_rounded,
-          label: _t('Nuevo', 'New'),
+          label: AppLocalizations.of(context).databaseNewButtonLabel,
         ),
       ],
     );
@@ -783,7 +786,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              _t('Propiedades', 'Properties'),
+              AppLocalizations.of(context).propTitle,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
@@ -798,7 +801,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                       initialValue: p.name,
                       decoration: InputDecoration(
                         isDense: true,
-                        labelText: _t('Título', 'Title'),
+                        labelText: AppLocalizations.of(context).titleLabel,
                       ),
                       onChanged: (v) {
                         p.name = v.trim().isEmpty ? p.name : v.trim();
@@ -826,12 +829,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _t('Configurar', 'Configure'),
+                    tooltip: AppLocalizations.of(context).databaseConfigureLabel,
                     onPressed: () => _showPropertyConfigDialog(p),
                     icon: const Icon(Icons.tune_rounded),
                   ),
                   IconButton(
-                    tooltip: _t('Eliminar', 'Delete'),
+                    tooltip: AppLocalizations.of(context).delete,
                     onPressed: _data.properties.length <= 1
                         ? null
                         : () {
@@ -893,12 +896,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               children: [
                 const Icon(Icons.account_tree_outlined, size: 18),
                 const SizedBox(width: 8),
-                Text(_t('Constructor de consulta', 'Query builder')),
+                Text(AppLocalizations.of(context).databaseQueryBuilder),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () => _addFilterCondition(active),
                   icon: const Icon(Icons.add, size: 16),
-                  label: Text(_t('Filtro', 'Filter')),
+                  label: Text(AppLocalizations.of(context).databaseFilterLabel),
                 ),
                 TextButton.icon(
                   onPressed: () => _addSort(active),
@@ -912,14 +915,14 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     setState(() {});
                   },
                   icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
-                  label: Text(_t('Quitar filtros', 'Clear filters')),
+                  label: Text(AppLocalizations.of(context).databaseClearFilters),
                 ),
               ],
             ),
             if (group != null) ...[
               Row(
                 children: [
-                  Text(_t('Lógica:', 'Logic:')),
+                  Text(AppLocalizations.of(context).databaseLogicLabel),
                   const SizedBox(width: 8),
                   DropdownButton<FolioDbLogicalOperator>(
                     value: group.logical,
@@ -1004,7 +1007,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                         initialValue: '${c.value ?? ''}',
                         decoration: InputDecoration(
                           isDense: true,
-                          labelText: _t('Valor', 'Value'),
+                          labelText: AppLocalizations.of(context).databaseValueLabel,
                         ),
                         onChanged: (v) {
                           group.conditions[i] = FolioDbFilterCondition(
@@ -1017,7 +1020,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                       ),
                     ),
                     IconButton(
-                      tooltip: _t('Quitar filtro', 'Remove filter'),
+                      tooltip: AppLocalizations.of(context).databaseRemoveFilter,
                       onPressed: () {
                         group.conditions.removeAt(i);
                         if (group.conditions.isEmpty && group.groups.isEmpty) {
@@ -1075,7 +1078,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     ),
                     Text(l10n.databaseSortDescending),
                     IconButton(
-                      tooltip: _t('Quitar sort', 'Remove sort'),
+                      tooltip: AppLocalizations.of(context).databaseRemoveSort,
                       onPressed: () {
                         active.sorts.removeAt(i);
                         _emit();
@@ -1156,7 +1159,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     ),
                     if (_isEditMode)
                       PopupMenuButton<String>(
-                        tooltip: _t('Acciones de fila', 'Row actions'),
+                        tooltip: AppLocalizations.of(context).databaseRowActions,
                         onSelected: (value) {
                           if (value == 'duplicate') {
                             _duplicateRow(r);
@@ -1167,11 +1170,15 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             value: 'duplicate',
-                            child: Text(_t('Duplicar fila', 'Duplicate row')),
+                            child: Text(
+                              AppLocalizations.of(context).databaseDuplicateRow,
+                            ),
                           ),
                           PopupMenuItem(
                             value: 'delete',
-                            child: Text(_t('Eliminar fila', 'Delete row')),
+                            child: Text(
+                              AppLocalizations.of(context).databaseDeleteRow,
+                            ),
                           ),
                         ],
                       ),
@@ -1225,7 +1232,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               if (_isEditMode)
                 DataCell(
                   PopupMenuButton<String>(
-                    tooltip: _t('Acciones de fila', 'Row actions'),
+                    tooltip: AppLocalizations.of(context).databaseRowActions,
                     onSelected: (value) {
                       if (value == 'duplicate') {
                         _duplicateRow(r);
@@ -1236,11 +1243,15 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     itemBuilder: (_) => [
                       PopupMenuItem(
                         value: 'duplicate',
-                        child: Text(_t('Duplicar fila', 'Duplicate row')),
+                        child: Text(
+                          AppLocalizations.of(context).databaseDuplicateRow,
+                        ),
                       ),
                       PopupMenuItem(
                         value: 'delete',
-                        child: Text(_t('Eliminar fila', 'Delete row')),
+                        child: Text(
+                          AppLocalizations.of(context).databaseDeleteRow,
+                        ),
                       ),
                     ],
                     child: const Icon(Icons.more_horiz_rounded, size: 18),
@@ -1270,7 +1281,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               ),
             ),
           ),
-          if (_isEditMode) DataColumn(label: Text(_t('Acciones', 'Actions'))),
+          if (_isEditMode)
+            DataColumn(
+              label: Text(AppLocalizations.of(context).aiAttachMenuSectionActions),
+            ),
         ],
       ),
     );
@@ -1295,7 +1309,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         children: [
           Expanded(
             child: Text(
-              cached.isEmpty ? _t('Sin valor', 'No value') : cached,
+              cached.isEmpty
+                  ? AppLocalizations.of(context).databaseNoValue
+                  : cached,
               style: cached.isEmpty
                   ? widget.textTheme.bodySmall?.copyWith(
                       color: widget.scheme.onSurface.withValues(alpha: 0.45),
@@ -1307,7 +1323,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           if (widget.aiService != null && editable)
             IconButton(
               icon: const Icon(FolioIcons.quill, size: 16),
-              tooltip: _t('Generar con IA', 'Generate with AI'),
+              tooltip: AppLocalizations.of(context).databaseGenerateWithAi,
               onPressed: () => _generateAiPropertyValue(row, property),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -1408,28 +1424,28 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               ),
             ActionChip(
               avatar: const Icon(Icons.add_rounded, size: 14),
-              label: Text(_t('Añadir', 'Add')),
+              label: Text(AppLocalizations.of(context).add),
               onPressed: () async {
                 final ctrl = TextEditingController();
                 final tag = await showDialog<String>(
                   context: context,
                   builder: (ctx) => FolioDialog(
-                    title: Text(_t('Añadir etiqueta', 'Add tag')),
+                    title: Text(AppLocalizations.of(context).tagAdd),
                     content: TextField(
                       controller: ctrl,
                       autofocus: true,
                       decoration: InputDecoration(
-                        labelText: _t('Etiqueta', 'Tag'),
+                        labelText: AppLocalizations.of(context).taskAliasTagLabel,
                       ),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: Text(_t('Cancelar', 'Cancel')),
+                        child: Text(AppLocalizations.of(context).cancel),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-                        child: Text(_t('Guardar', 'Save')),
+                        child: Text(AppLocalizations.of(context).save),
                       ),
                     ],
                   ),
@@ -1445,7 +1461,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         final value = (raw ?? '').toString();
         return OutlinedButton.icon(
           icon: const Icon(Icons.calendar_today_rounded, size: 14),
-          label: Text(value.isEmpty ? _t('Sin fecha', 'No date') : value),
+          label: Text(
+            value.isEmpty ? AppLocalizations.of(context).databaseNoDate : value,
+          ),
           onPressed: () async {
             final initial = DateTime.tryParse(value) ?? DateTime.now();
             final picked = await showDatePicker(
@@ -1588,7 +1606,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     TextField(
                       controller: formulaCtrl,
                       decoration: InputDecoration(
-                        labelText: _t('Fórmula', 'Formula'),
+                        labelText: AppLocalizations.of(context).databaseFormulaLabel,
                         hintText: dlgL10n.databaseFormulaHintExample,
                       ),
                     ),
@@ -1811,7 +1829,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     if (groupProperty == null) {
       return Text(l10n.databaseGroupPropertyMissing);
     }
-    final emptyLabel = _t('Sin estado', 'No status');
+    final emptyLabel = AppLocalizations.of(context).databaseNoStatus;
     final groups = <String, List<FolioDbRow>>{};
     if (groupProperty.type == FolioDbPropertyType.select &&
         groupProperty.options.isNotEmpty) {
@@ -1866,7 +1884,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     ...e.value.map((r) {
                       final titleProp = _data.properties.first.id;
                       final title =
-                          (r.values[titleProp] ?? _t('Sin título', 'Untitled'))
+                          (r.values[titleProp] ??
+                                  AppLocalizations.of(context).untitled)
                               .toString();
                       return LongPressDraggable<FolioDbRow>(
                         data: r,
@@ -2030,7 +2049,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        title.isEmpty ? _t('Sin título', 'Untitled') : title,
+                        title.isEmpty
+                            ? AppLocalizations.of(context).untitled
+                            : title,
                         style: widget.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -2052,10 +2073,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     final startPropId = view.timelineStartDatePropertyId;
     if (startPropId == null) {
       return Text(
-        _t(
-          'Configura una propiedad de fecha de inicio en los ajustes de vista.',
-          'Configure a start date property in view settings.',
-        ),
+        AppLocalizations.of(context).databaseConfigureStartDateProperty,
       );
     }
     final endPropId = view.timelineEndDatePropertyId;
@@ -2076,7 +2094,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       dated.add((row: r, start: start, end: end));
     }
     if (dated.isEmpty) {
-      return Text(_t('No hay filas con fechas.', 'No rows with dates.'));
+      return Text(AppLocalizations.of(context).databaseNoRowsWithDates);
     }
 
     final minDate = dated
@@ -2170,7 +2188,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                         ),
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          title.isEmpty ? _t('Sin título', 'Untitled') : title,
+                          title.isEmpty
+                              ? AppLocalizations.of(context).untitled
+                              : title,
                           style: widget.textTheme.labelSmall?.copyWith(
                             color: widget.scheme.onPrimaryContainer,
                           ),
