@@ -1443,9 +1443,9 @@ Es una capacidad **desactivada por defecto y solo disponible en desktop** (Windo
 ### Cómo activarlo
 
 1. Ajustes → sección de IA → interruptor **«Servidor MCP local (beta)»**.
-2. Al activarlo, Folio arranca un servidor HTTP en `127.0.0.1:45833` (puerto **fijo**, distinto de Integraciones `45831` y Run2Doc `45832`) y usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
-3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45833/mcp`), necesarios para configurar el cliente MCP externo. Solo se muestra «Activo» si el `bind` del puerto tuvo éxito.
-4. Al desactivarlo (o cerrar Folio), el servidor se detiene — el token guardado sigue válido la próxima vez que se active.
+2. Al activarlo, Folio enruta el endpoint `/mcp` a través del bridge de Integraciones, que ya escucha en `127.0.0.1:45831` (puerto **fijo**, siempre activo) — el MCP local ya no bindea su propio puerto. Se usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
+3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45831/mcp`), necesarios para configurar el cliente MCP externo.
+4. Al desactivarlo, `/mcp` deja de enrutarse (404) — el bridge de Integraciones en sí sigue activo para el resto de sus endpoints. El token guardado sigue válido la próxima vez que se reactive el MCP.
 
 ### Configuración en Cursor (`mcp.json`)
 
@@ -1464,7 +1464,7 @@ Ejemplo Cursor:
 {
   "mcpServers": {
     "folio": {
-      "url": "http://127.0.0.1:45833/mcp",
+      "url": "http://127.0.0.1:45831/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
       }
@@ -1483,7 +1483,7 @@ Ejemplo Claude Desktop (puente HTTP→stdio):
       "args": [
         "-y",
         "mcp-remote@latest",
-        "http://127.0.0.1:45833/mcp",
+        "http://127.0.0.1:45831/mcp",
         "--allow-http",
         "--header",
         "Authorization:${AUTH_HEADER}"
@@ -1504,7 +1504,7 @@ Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga 
 - Respuestas JSON (`application/json`); `GET`/`DELETE` responden `405` (sin SSE). Tras `initialize` se envía `Mcp-Session-Id`.
 - Versiones de protocolo negociadas: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25` (preferida `2025-03-26`).
 - Toda petición requiere la cabecera `Authorization: Bearer <token>`; sin ella, o con un token distinto, el servidor responde `401` y un error JSON-RPC `-32001`.
-- El servidor **solo** bindea a `127.0.0.1` (loopback) — nunca escucha en una interfaz de red. Valida `Origin` si viene presente (solo localhost / 127.0.0.1).
+- El servidor **solo** escucha en `127.0.0.1` (loopback, vía el bridge de Integraciones que lo hospeda) — nunca en una interfaz de red. Valida `Origin` si viene presente (solo localhost / 127.0.0.1).
 
 ### Catálogo de acciones expuestas
 
@@ -1541,7 +1541,7 @@ El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuari
 
 - Apagado por defecto (opt-in explícito).
 - Solo loopback, nunca red.
-- Puerto fijo `45833` (Integraciones `45831`, Run2Doc `45832`); token Bearer persistente (no rota en cada arranque).
+- Comparte el puerto fijo `45831` del bridge de Integraciones (Run2Doc es un cliente identificado por `clientAppId`, no un servicio aparte); token Bearer persistente (no rota en cada arranque).
 - Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
 - Lectura de contenido acotada a la allowlist MCP de la libreta (más confirmación la primera vez); escritura/gestión siguen el catálogo completo una vez el cliente está aprobado.
 - Revocar el cliente o vaciar la allowlist corta el acceso a contenido ya autorizado.
@@ -1741,9 +1741,9 @@ Correcciones derivadas de la revisión integral del repositorio (seguridad, dato
 
 ### Pendiente (deuda conocida)
 
-- `database_block_editor.dart` y partes de `settings_page.dart` / `kanban_board_page.dart` aún usan `_t(es,en)` o ternarios manuales; migración gradual a `.arb`.
-- División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
-- Unificación de bridges `integrations_bridge` / `run2doc_bridge` / MCP (puertos ya separados: 45831 / 45832 / 45833).
+- `database_block_editor.dart` migrado a `.arb` (v0.8.0); quedan clones de `_t(es,en)` en `block_editor_state.dart` y `folio_in_app_checkout_dialog.dart`, y ternarios manuales sueltos en `settings_page.dart` / `kanban_board_page.dart`.
+- División de monolitos: `block_editor_state.dart` (debug API, media colaborativa/local, menú contextual, multi-selección, format toolbar + Quill Copilot ya extraídos a mixins), `kanban_board_page.dart` (sync de integraciones y persistencia ya extraídos a controllers) y `settings_page.dart` (filtro de búsqueda y sección "Acerca de" ya extraídos) parcialmente troceados en v0.8.0; el resto queda para milestones futuros.
+- Unificación de bridges completada (v0.8.0): `run2doc_bridge` (puerto 45832) eliminado por no usarse; MCP ya no bindea su propio puerto (45833) — se enruta a través de `integrations_bridge` en 45831.
 - Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.
 
 ## Backend Spring Boot (migración Firebase → Spring) — Fases 1–10

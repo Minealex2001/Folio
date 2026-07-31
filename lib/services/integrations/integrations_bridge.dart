@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/errors/folio_exception.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../local_bridge/local_bridge_http.dart';
+import '../mcp/folio_mcp_server.dart';
 import 'integrations_markdown_codec.dart';
 
 class IntegrationsClientIdentity {
@@ -501,9 +502,17 @@ class IntegrationsBridgeController {
   IntegrationsLaunchSession? _activeSession;
   Timer? _expiryTimer;
   int _port;
+  FolioMcpServer? _mcpServer;
 
   IntegrationsLaunchSession? get activeSession => _activeSession;
   int get port => _port;
+
+  /// Enruta peticiones `/mcp` a [server] (vía [FolioMcpServer.handleRequest])
+  /// mientras esté activo. `null` responde 404 a `/mcp` -- usado cuando
+  /// `AppSettings.mcpServerEnabled` está desactivado.
+  void setMcpServer(FolioMcpServer? server) {
+    _mcpServer = server;
+  }
 
   Future<void> start() async {
     if (_server != null) return;
@@ -595,6 +604,16 @@ class IntegrationsBridgeController {
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
+    if (request.uri.path == FolioMcpServer.endpointPath) {
+      final mcp = _mcpServer;
+      if (mcp == null) {
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+        return;
+      }
+      await mcp.handleRequest(request);
+      return;
+    }
     final corsOrigin = _resolvedCorsOrigin(request);
     if (corsOrigin != null) {
       _applyCorsHeaders(request.response, corsOrigin);

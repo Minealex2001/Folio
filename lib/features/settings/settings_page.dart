@@ -13,6 +13,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../services/integrations/integrations_bridge.dart'
+    show IntegrationsLaunchSession;
 import '../../services/mcp/folio_mcp_server.dart';
 import '../../services/mcp/folio_mcp_server_status.dart';
 import '../../models/quill_system_prompt.dart';
@@ -209,7 +211,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, info, _) {
         final enabled = _app.mcpServerEnabled;
         final endpoint = FolioMcpServer.endpointUrl(
-          port: info?.port ?? FolioMcpServer.defaultPort,
+          port: info?.port ?? IntegrationsLaunchSession.fixedPort,
         );
         final token = (info?.authToken ?? _app.mcpServerAuthToken).trim();
         final showDetails = enabled && token.isNotEmpty;

@@ -131,6 +131,71 @@ void main() {
     expect(server.authToken, 'test-token-fixed');
   });
 
+  group('prepareToken (unificación con el bridge de Integraciones)', () {
+    test('fija el token sin bindear HttpServer propio', () async {
+      final unbound = FolioMcpServer(
+        FolioToolRegistry(session),
+        onApproveClient: approvals.onApproveClient,
+        isClientApproved: approvals.isClientApproved,
+        onClientObserved: approvals.onClientObserved,
+      );
+      unbound.prepareToken(authToken: 'shared-token');
+
+      expect(unbound.authToken, 'shared-token');
+      expect(unbound.isRunning, isFalse);
+      expect(unbound.port, isNull);
+    });
+
+    test('sin authToken explícito, genera uno nuevo', () {
+      final unbound = FolioMcpServer(
+        FolioToolRegistry(session),
+        onApproveClient: approvals.onApproveClient,
+        isClientApproved: approvals.isClientApproved,
+        onClientObserved: approvals.onClientObserved,
+      );
+      unbound.prepareToken();
+
+      expect(unbound.authToken, isNotNull);
+      expect(unbound.authToken, isNotEmpty);
+    });
+
+    test('handleRequest() es invocable directamente sobre un HttpServer externo', () async {
+      final unbound = FolioMcpServer(
+        FolioToolRegistry(session),
+        onApproveClient: approvals.onApproveClient,
+        isClientApproved: approvals.isClientApproved,
+        onClientObserved: approvals.onClientObserved,
+      );
+      unbound.prepareToken(authToken: 'external-token');
+
+      final external = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      external.listen(unbound.handleRequest, onError: (_) {});
+      addTearDown(() => external.close(force: true));
+
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(
+          Uri.parse('http://127.0.0.1:${external.port}/mcp'),
+        );
+        req.headers.contentType = ContentType.json;
+        req.headers.set(
+          HttpHeaders.authorizationHeader,
+          'Bearer external-token',
+        );
+        req.write(jsonEncode({'jsonrpc': '2.0', 'id': 1, 'method': 'ping'}));
+        final res = await req.close();
+        final body = await utf8.decodeStream(res);
+        // ping requires an active session; expect the JSON-RPC error shape,
+        // not a transport-level failure -- confirms handleRequest ran.
+        expect(res.statusCode, 200);
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error']['code'], -32002);
+      } finally {
+        client.close(force: true);
+      }
+    });
+  });
+
   test('defaultPort es estático (45833) y endpointUrl apunta a /mcp', () {
     expect(FolioMcpServer.defaultPort, 45833);
     expect(

@@ -808,34 +808,33 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return tracked;
   }
 
+  /// El servidor MCP ya no bindea su propio puerto (45833): se enruta a
+  /// través del bridge de Integraciones (45831, siempre activo) vía
+  /// `_integrationsBridge.setMcpServer(...)`. `prepareToken()` solo genera/
+  /// fija el token Bearer, no hace I/O, así que ya no puede "fallar" un bind
+  /// como antes -- se quita el manejo de error asociado.
   Future<void> _applyMcpServerSettingsBody() async {
     final wantsEnabled = widget.appSettings.mcpServerEnabled && mcpServerSupported;
     final server = _mcpServer;
     if (!wantsEnabled) {
-      if (server != null && server.isRunning) {
+      if (server != null) {
         await server.stop();
       }
       _mcpServer = null;
+      _integrationsBridge.setMcpServer(null);
       folioMcpServerStatus.value = null;
       return;
     }
     // Sin notify: si generamos token aquí, notifyListeners reentraría en
-    // `_onSettings` → otro `_applyMcpServerSettings` y el 2º bind falla.
+    // `_onSettings` → otro `_applyMcpServerSettings`.
     final token = await widget.appSettings.ensureMcpServerAuthToken(notify: false);
-    // Reinicia si ya corría en otro puerto/token (migración a puerto fijo).
-    if (server != null && server.isRunning) {
-      final samePort = server.port == FolioMcpServer.defaultPort;
-      final sameToken = server.authToken == token;
-      if (samePort && sameToken) {
-        folioMcpServerStatus.value = FolioMcpServerInfo(
-          port: server.port!,
-          authToken: server.authToken!,
-          isRunning: true,
-        );
-        return;
-      }
-      await server.stop();
-      _mcpServer = null;
+    if (server != null && server.authToken == token) {
+      folioMcpServerStatus.value = FolioMcpServerInfo(
+        port: _integrationsBridge.port,
+        authToken: server.authToken!,
+        isRunning: true,
+      );
+      return;
     }
     final active = FolioMcpServer(
       FolioToolRegistry(
@@ -846,34 +845,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       isClientApproved: _isMcpClientApproved,
       onClientObserved: _syncObservedMcpClient,
     );
+    active.prepareToken(authToken: token);
     _mcpServer = active;
-    try {
-      final port = await active.start(
-        port: FolioMcpServer.defaultPort,
-        authToken: token,
-      );
-      folioMcpServerStatus.value = FolioMcpServerInfo(
-        port: port,
-        authToken: active.authToken!,
-        isRunning: true,
-      );
-      AppLogger.info(
-        'Servidor MCP local en ${FolioMcpServer.endpointUrl(port: port)}',
-        tag: 'mcp',
-      );
-      if (mounted) setState(() {});
-    } catch (e) {
-      _mcpServer = null;
-      // Publicamos puerto/token para copiar mcp.json, pero marcamos el fallo
-      // para que Ajustes no diga «Activo» si el bind no respondió.
-      folioMcpServerStatus.value = FolioMcpServerInfo(
-        port: FolioMcpServer.defaultPort,
-        authToken: token,
-        isRunning: false,
-        errorMessage: '$e',
-      );
-      AppLogger.error('No se pudo arrancar el servidor MCP local', tag: 'mcp', error: e);
-    }
+    _integrationsBridge.setMcpServer(active);
+    folioMcpServerStatus.value = FolioMcpServerInfo(
+      port: _integrationsBridge.port,
+      authToken: active.authToken!,
+      isRunning: true,
+    );
+    AppLogger.info(
+      'Servidor MCP local en ${FolioMcpServer.endpointUrl(port: _integrationsBridge.port)}',
+      tag: 'mcp',
+    );
+    if (mounted) setState(() {});
   }
 
   void _applyDeviceSyncSettings() {
