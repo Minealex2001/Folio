@@ -114,17 +114,12 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
   List<_SettingsSectionNavItem> _filterDesktopSections(
     List<_SettingsSectionNavItem> all,
   ) {
-    final q = _settingsSectionFilterController.text.trim().toLowerCase();
-    if (q.isEmpty) return all;
-    return all
-        .where((s) {
-          if (s.label.toLowerCase().contains(q)) return true;
-          for (final extra in s.searchExtra) {
-            if (extra.toLowerCase().contains(q)) return true;
-          }
-          return false;
-        })
-        .toList(growable: false);
+    return const SettingsSearchFilter().filter(
+      all,
+      _settingsSectionFilterController.text,
+      label: (s) => s.label,
+      searchExtra: (s) => s.searchExtra,
+    );
   }
 
   String _scheduledVaultBackupIntervalSummary(

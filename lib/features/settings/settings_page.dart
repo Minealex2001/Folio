@@ -32,6 +32,7 @@ import '../../app/widgets/folio_error_card.dart';
 import '../../app/widgets/integration_settings_widgets.dart';
 import '../../app/widgets/web_desktop_only_notice.dart';
 import 'in_app_shortcut_capture_dialog.dart';
+import 'settings_search_filter.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_registry.dart';
