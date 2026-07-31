@@ -19,6 +19,7 @@ import '../../../services/trello/trello_sync_service.dart';
 import '../../../services/github/github_sync_service.dart';
 import '../../../services/gitlab/gitlab_sync_service.dart';
 import '../tasks/task_details_panel.dart';
+import 'kanban_integration_sync_controller.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
 
@@ -61,11 +62,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   var _warnedMultipleKanban = false;
   TaskRef? _openTask;
   var _detailsFullScreen = false;
-  var _jiraSyncBusy = false;
-  var _youtrackSyncBusy = false;
-  var _trelloSyncBusy = false;
-  var _githubSyncBusy = false;
-  var _gitlabSyncBusy = false;
+  final _integrationSync = KanbanIntegrationSyncController();
 
   @override
   void initState() {
@@ -79,222 +76,212 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     super.dispose();
   }
 
-  Future<void> _syncYouTrack({required String youtrackSourceId}) async {
-    if (_youtrackSyncBusy) return;
-    setState(() => _youtrackSyncBusy = true);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(isEs ? 'YouTrack: sincronizando (pull).' : 'YouTrack: syncing (pull).'),
-        ),
-      );
-      final pull = await const YouTrackSyncService().pullIssuesIntoPage(
-        session: widget.session,
-        pageId: widget.pageId,
-        youtrackSourceId: youtrackSourceId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(isEs ? 'YouTrack: pull OK - ahora push.' : 'YouTrack: pull OK - now push.'),
-        ),
-      );
-      final push = await const YouTrackSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs
-                ? 'YouTrack: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
-                : 'YouTrack: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+  Future<void> _syncYouTrack({required String youtrackSourceId}) {
+    return _integrationSync.run('youtrack', () async {
+      final isEs = Localizations.localeOf(context).languageCode == 'es';
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(isEs ? 'YouTrack: sincronizando (pull).' : 'YouTrack: syncing (pull).'),
           ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Error YouTrack: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _youtrackSyncBusy = false);
-    }
-  }
-
-  Future<void> _syncTrello({required String trelloSourceId}) async {
-    if (_trelloSyncBusy) return;
-    setState(() => _trelloSyncBusy = true);
-    final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      // Push primero: subir cambios locales (p. ej. subtareas) antes de que el
-      // pull pueda sobrescribirlos o marcar conflicto.
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.kanbanTrelloSyncingPush)),
-      );
-      final push = await const TrelloSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.kanbanTrelloPushOkPull)),
-      );
-      final pull = await const TrelloSyncService().pullCardsIntoPage(
-        session: widget.session,
-        pageId: widget.pageId,
-        trelloSourceId: trelloSourceId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.kanbanTrelloSyncResult(
-              push.pushed,
-              push.skipped,
-              pull.pulled,
-              pull.created,
-              pull.updated,
+        );
+        final pull = await const YouTrackSyncService().pullIssuesIntoPage(
+          session: widget.session,
+          pageId: widget.pageId,
+          youtrackSourceId: youtrackSourceId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(isEs ? 'YouTrack: pull OK - ahora push.' : 'YouTrack: pull OK - now push.'),
+          ),
+        );
+        final push = await const YouTrackSyncService().pushLinkedTasksFromPage(
+          session: widget.session,
+          pageId: widget.pageId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs
+                  ? 'YouTrack: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                  : 'YouTrack: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
             ),
           ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.kanbanTrelloError('$e')),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _trelloSyncBusy = false);
-    }
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error YouTrack: $e')),
+        );
+      }
+    }, onStateChanged: () { if (mounted) setState(() {}); });
   }
 
-  Future<void> _syncJira({required String jiraSourceId}) async {
-    if (_jiraSyncBusy) return;
-    setState(() => _jiraSyncBusy = true);
-    final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.kanbanJiraSyncingPull),
-        ),
-      );
-      final pull = await const JiraSyncService().pullIssuesIntoPage(
-        session: widget.session,
-        pageId: widget.pageId,
-        jiraSourceId: jiraSourceId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.kanbanJiraPullOkPush),
-        ),
-      );
-      final push = await const JiraSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs
-                ? 'Jira: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
-                : 'Jira: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+  Future<void> _syncTrello({required String trelloSourceId}) {
+    return _integrationSync.run('trello', () async {
+      final l10n = AppLocalizations.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        // Push primero: subir cambios locales (p. ej. subtareas) antes de que el
+        // pull pueda sobrescribirlos o marcar conflicto.
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.kanbanTrelloSyncingPush)),
+        );
+        final push = await const TrelloSyncService().pushLinkedTasksFromPage(
+          session: widget.session,
+          pageId: widget.pageId,
+        );
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.kanbanTrelloPushOkPull)),
+        );
+        final pull = await const TrelloSyncService().pullCardsIntoPage(
+          session: widget.session,
+          pageId: widget.pageId,
+          trelloSourceId: trelloSourceId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.kanbanTrelloSyncResult(
+                push.pushed,
+                push.skipped,
+                pull.pulled,
+                pull.created,
+                pull.updated,
+              ),
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(folioFormatJiraError(e, l10n, isEs: isEs))),
-      );
-    } finally {
-      if (mounted) setState(() => _jiraSyncBusy = false);
-    }
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.kanbanTrelloError('$e')),
+          ),
+        );
+      }
+    }, onStateChanged: () { if (mounted) setState(() {}); });
   }
 
-  Future<void> _syncGitHub({required String githubSourceId}) async {
-    if (_githubSyncBusy) return;
-    setState(() => _githubSyncBusy = true);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      // Push primero: subir cambios locales antes de que el pull pueda
-      // sobrescribirlos o marcar conflicto.
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs ? 'GitHub: sincronizando (push).' : 'GitHub: syncing (push).',
+  Future<void> _syncJira({required String jiraSourceId}) {
+    return _integrationSync.run('jira', () async {
+      final l10n = AppLocalizations.of(context);
+      final isEs = Localizations.localeOf(context).languageCode == 'es';
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.kanbanJiraSyncingPull),
           ),
-        ),
-      );
-      final push = await const GitHubSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      final pull = await const GitHubSyncService().pullIssuesIntoPage(
-        session: widget.session,
-        pageId: widget.pageId,
-        githubSourceId: githubSourceId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs
-                ? 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
-                : 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+        );
+        final pull = await const JiraSyncService().pullIssuesIntoPage(
+          session: widget.session,
+          pageId: widget.pageId,
+          jiraSourceId: jiraSourceId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.kanbanJiraPullOkPush),
           ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Error GitHub: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _githubSyncBusy = false);
-    }
+        );
+        final push = await const JiraSyncService().pushLinkedTasksFromPage(
+          session: widget.session,
+          pageId: widget.pageId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs
+                  ? 'Jira: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                  : 'Jira: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+            ),
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(folioFormatJiraError(e, l10n, isEs: isEs))),
+        );
+      }
+    }, onStateChanged: () { if (mounted) setState(() {}); });
   }
 
-  Future<void> _syncGitLab({required String gitlabSourceId}) async {
-    if (_gitlabSyncBusy) return;
-    setState(() => _gitlabSyncBusy = true);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      // Push primero: subir cambios locales antes de que el pull pueda
-      // sobrescribirlos o marcar conflicto.
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs ? 'GitLab: sincronizando (push).' : 'GitLab: syncing (push).',
+  Future<void> _syncGitHub({required String githubSourceId}) {
+    return _integrationSync.run('github', () async {
+      final isEs = Localizations.localeOf(context).languageCode == 'es';
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        // Push primero: subir cambios locales antes de que el pull pueda
+        // sobrescribirlos o marcar conflicto.
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs ? 'GitHub: sincronizando (push).' : 'GitHub: syncing (push).',
+            ),
           ),
-        ),
-      );
-      final push = await const GitLabSyncService().pushLinkedTasksFromPage(
-        session: widget.session,
-        pageId: widget.pageId,
-      );
-      final pull = await const GitLabSyncService().pullIssuesIntoPage(
-        session: widget.session,
-        pageId: widget.pageId,
-        gitlabSourceId: gitlabSourceId,
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isEs
-                ? 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
-                : 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+        );
+        final push = await const GitHubSyncService().pushLinkedTasksFromPage(
+          session: widget.session,
+          pageId: widget.pageId,
+        );
+        final pull = await const GitHubSyncService().pullIssuesIntoPage(
+          session: widget.session,
+          pageId: widget.pageId,
+          githubSourceId: githubSourceId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs
+                  ? 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                  : 'GitHub: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Error GitLab: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _gitlabSyncBusy = false);
-    }
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error GitHub: $e')),
+        );
+      }
+    }, onStateChanged: () { if (mounted) setState(() {}); });
+  }
+
+  Future<void> _syncGitLab({required String gitlabSourceId}) {
+    return _integrationSync.run('gitlab', () async {
+      final isEs = Localizations.localeOf(context).languageCode == 'es';
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        // Push primero: subir cambios locales antes de que el pull pueda
+        // sobrescribirlos o marcar conflicto.
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs ? 'GitLab: sincronizando (push).' : 'GitLab: syncing (push).',
+            ),
+          ),
+        );
+        final push = await const GitLabSyncService().pushLinkedTasksFromPage(
+          session: widget.session,
+          pageId: widget.pageId,
+        );
+        final pull = await const GitLabSyncService().pullIssuesIntoPage(
+          session: widget.session,
+          pageId: widget.pageId,
+          gitlabSourceId: gitlabSourceId,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isEs
+                  ? 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (omitidos ${push.skipped})'
+                  : 'GitLab: pull ${pull.pulled} · +${pull.created} · ~${pull.updated} · push ${push.pushed} (skipped ${push.skipped})',
+            ),
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error GitLab: $e')),
+        );
+      }
+    }, onStateChanged: () { if (mounted) setState(() {}); });
   }
 
   void _onSession() {
@@ -1346,10 +1333,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 tooltip: isEs
                     ? 'Sincronizar Jira (pull + push)'
                     : 'Sync Jira (pull + push)',
-                onPressed: _jiraSyncBusy
+                onPressed: _integrationSync.isBusy('jira')
                     ? null
                     : () => _syncJira(jiraSourceId: data.jiraSourceId!.trim()),
-                icon: _jiraSyncBusy
+                icon: _integrationSync.isBusy('jira')
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.sync_rounded),
               ),
@@ -1360,10 +1347,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 tooltip: isEs
                     ? 'Sincronizar YouTrack (pull + push)'
                     : 'Sync YouTrack (pull + push)',
-                onPressed: _youtrackSyncBusy
+                onPressed: _integrationSync.isBusy('youtrack')
                     ? null
                     : () => _syncYouTrack(youtrackSourceId: data.youtrackSourceId!.trim()),
-                icon: _youtrackSyncBusy
+                icon: _integrationSync.isBusy('youtrack')
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.sync_rounded, color: Colors.orange),
               ),
@@ -1372,10 +1359,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
             if ((data.trelloSourceId ?? '').trim().isNotEmpty)
               IconButton(
                 tooltip: l10n.kanbanTrelloSyncTooltip,
-                onPressed: _trelloSyncBusy
+                onPressed: _integrationSync.isBusy('trello')
                     ? null
                     : () => _syncTrello(trelloSourceId: data.trelloSourceId!.trim()),
-                icon: _trelloSyncBusy
+                icon: _integrationSync.isBusy('trello')
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const SizedBox(
                         width: 22,
@@ -1393,10 +1380,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 tooltip: isEs
                     ? 'Sincronizar GitHub (push + pull)'
                     : 'Sync GitHub (push + pull)',
-                onPressed: _githubSyncBusy
+                onPressed: _integrationSync.isBusy('github')
                     ? null
                     : () => _syncGitHub(githubSourceId: data.githubSourceId!.trim()),
-                icon: _githubSyncBusy
+                icon: _integrationSync.isBusy('github')
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const SizedBox(
                         width: 22,
@@ -1414,10 +1401,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 tooltip: isEs
                     ? 'Sincronizar GitLab (push + pull)'
                     : 'Sync GitLab (push + pull)',
-                onPressed: _gitlabSyncBusy
+                onPressed: _integrationSync.isBusy('gitlab')
                     ? null
                     : () => _syncGitLab(gitlabSourceId: data.gitlabSourceId!.trim()),
-                icon: _gitlabSyncBusy
+                icon: _integrationSync.isBusy('gitlab')
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const SizedBox(
                         width: 22,
