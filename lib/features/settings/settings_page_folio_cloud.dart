@@ -755,7 +755,14 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           color: scheme.primary,
                           size: 18,
                         ),
-                        label: Text(l10n.cloudAccountEmailVerified),
+                        label: Text(
+                          snap.studentVerifiedUntil != null
+                              ? l10n.folioCloudStudentVerifiedUntil(
+                                  MaterialLocalizations.of(context)
+                                      .formatShortDate(snap.studentVerifiedUntil!),
+                                )
+                              : l10n.cloudAccountEmailVerified,
+                        ),
                       )
                     else
                       OutlinedButton(
@@ -766,6 +773,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (snap.studentVerificationExpiringSoon) ...[
+                  const SizedBox(height: 8),
+                  Material(
+                    color: scheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: scheme.onErrorContainer,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.folioCloudStudentVerifyExpiringBanner(
+                                snap.studentVerificationDaysRemaining ?? 0,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _showStudentVerificationDialog(context),
+                            child: Text(l10n.folioCloudStudentReverifyButton),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: busy ? null : onRefreshBilling,
@@ -773,6 +818,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   label: Text(l10n.folioCloudRefreshFromStripe),
                 ),
               ] else ...[
+                if (snap.studentVerificationExpiringSoon) ...[
+                  Material(
+                    color: scheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: scheme.onErrorContainer,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.folioCloudStudentVerifyExpiringBanner(
+                                snap.studentVerificationDaysRemaining ?? 0,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _showStudentVerificationDialog(context),
+                            child: Text(l10n.folioCloudStudentReverifyButton),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton.icon(
                   onPressed: busy
                       ? null

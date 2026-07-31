@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/folio_backend_config.dart';
@@ -12,6 +13,14 @@ import 'folio_spring_callable_routes.dart';
 
 /// Tras Fase 30 todas las callables van por HTTP Spring.
 bool get folioHttpsCallableUsesHttp => true;
+
+/// Hook solo para tests: si se asigna, sustituye por completo la llamada de
+/// red real en [callFolioHttpsCallable] (evita mockear HTTP/tokens para
+/// probar lógica que depende de callables, p. ej. el loop de subida de notas
+/// de reunión). Debe quedar en `null` fuera de tests.
+@visibleForTesting
+Future<dynamic> Function(String name, Object? parameters)?
+    debugCallFolioHttpsCallableOverride;
 
 String _trimLeadingBom(String s) {
   var t = s.trimLeft();
@@ -46,6 +55,9 @@ Future<dynamic> callFolioHttpsCallable(
   String name, [
   Object? parameters,
 ]) async {
+  final override = debugCallFolioHttpsCallableOverride;
+  if (override != null) return override(name, parameters);
+
   AppLogger.debug(
     'callable call',
     tag: 'cloud_sync',

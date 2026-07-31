@@ -158,5 +158,34 @@ void main() {
       expect(session.selectedPage!.blocks.length, 1);
       expect(session.selectedPage!.blocks.first.id, firstId);
     });
+
+    test(
+      'updateBlockTextStreaming no genera entradas de undo (a diferencia de updateBlockText)',
+      () {
+        final session = VaultSession();
+        session.addPage();
+
+        final page = session.selectedPage!;
+        final pageId = page.id;
+        final blockId = page.blocks.first.id;
+
+        // Simula varios deltas de transcripción de una nota de reunión: cada
+        // uno cambia el texto, pero no debe quedar nada que deshacer.
+        session.updateBlockTextStreaming(pageId, blockId, 'Hola');
+        session.updateBlockTextStreaming(pageId, blockId, 'Hola mundo');
+        session.updateBlockTextStreaming(pageId, blockId, 'Hola mundo final');
+        expect(session.selectedPage!.blocks.first.text, 'Hola mundo final');
+
+        session.undoPageEdits(pageId: pageId);
+        expect(session.selectedPage!.blocks.first.text, 'Hola mundo final');
+
+        // En cambio, updateBlockText (edición normal) sí deja una entrada.
+        session.updateBlockText(pageId, blockId, 'Editado a mano');
+        expect(session.selectedPage!.blocks.first.text, 'Editado a mano');
+
+        session.undoPageEdits(pageId: pageId);
+        expect(session.selectedPage!.blocks.first.text, 'Hola mundo final');
+      },
+    );
   });
 }

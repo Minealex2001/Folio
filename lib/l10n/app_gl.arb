@@ -327,6 +327,8 @@
   "meetingNoteProviderCloudCost": "1 Tinta por cada 5 min. [cite: 27] gravados",
   "meetingNoteCloudFallbackNotice": "Nube non dispoñible. Usando Whisper local.",
   "meetingNoteCloudInkExhaustedNotice": "Tinta insuficiente. [cite: 28] Cambiando a Whisper local.",
+  "meetingNoteCloudUploadCancelledNotice": "Envío á nube cancelado. Consérvase a transcrición local.",
+  "meetingNoteRetryCloudUpload": "Reintentar a transcrición na nube",
   "meetingNoteCloudRecordingBadge": "Quill Cloud | Idioma: {language}",
   "@meetingNoteCloudRecordingBadge": {
     "placeholders": {
@@ -395,6 +397,8 @@
   },
   "meetingNoteSystemAudioCaptured": "Audio do sistema capturado",
   "meetingNoteStop": "Parar",
+  "meetingNoteStopping": "Parando…",
+  "meetingNoteCancelUpload": "Cancelar envío",
   "meetingNoteWaitingTranscription": "Agardando pola transcrición…",
   "meetingNoteTranscribing": "Transcribindo…",
   "meetingNoteTranscriptionTitle": "Transcrición",
@@ -1411,13 +1415,19 @@
   ,"folioCloudFamilyLeaveButton": "Saír da familia"
   ,"folioCloudStudentVerifyButton": "Verificar correo estudante"
   ,"folioCloudStudentVerifySuccess": "Conta de estudante verificada!"
+  ,"folioCloudStudentVerifyEmailSent": "Enviámosche unha ligazón ao teu correo institucional. Ábrea para completar a verificación (válida 24 h)."
   ,"folioCloudStudentVerifyFail": "O correo non califica como estudante (universidade recoñecida ou educación non universitaria en España)."
   ,"folioCloudStudentVerifyDialogTitle": "Verificación de estudante"
-  ,"folioCloudStudentVerifyDialogDesc": "Introduce a túa dirección de correo electrónico institucional para verificar a túa elixibilidade na tarifa para estudantes de Folio Cloud."
+  ,"folioCloudStudentVerifyDialogDesc": "Introduce o teu correo institucional. Enviarémosche unha ligazón para confirmar que é teu e activar a tarifa de estudante durante 4 anos."
   ,"folioCloudStudentVerifyDialogLabel": "Correo electrónico institucional"
   ,"folioCloudStudentVerifyDialogHint": "usuario@uji.es, usuario@strath.ac.uk, usuario@educa.jcyl.es"
   ,"folioCloudStudentVerifyDialogHelp": "Admite universidades de todo o mundo e dominios rexionais de educación non universitaria en España (institutos e FP)."
-  ,"folioCloudStudentVerifyDialogAction": "Verificar agora"
+  ,"folioCloudStudentVerifyDialogAction": "Enviar ligazón"
+  ,"folioCloudStudentVerifiedUntil": "Verificado ata {date}"
+  ,"@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}}
+  ,"folioCloudStudentVerifyExpiringBanner": "A túa verificación de estudante caduca en {days} días. Volve verificar o correo ou pasarás ao plan completo."
+  ,"@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}}
+  ,"folioCloudStudentReverifyButton": "Volver verificar"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "A túa caderno é local. [cite: 89] A nube funciona cando ti queres."
   ,"folioCloudPitchSubhead": "Un plan mensual desbloquea as copias cifradas, a Quill na nube con saldo mensual de tinta e a publicación web—só para o que escollas compartir."

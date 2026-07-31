@@ -696,10 +696,14 @@ class VaultSession extends ChangeNotifier {
   /// Para tests que operan sobre el vault sin pasar por [bootstrap].
   /// [formatVersion] permite ejercitar el camino v1 (árbol) sin migrar de
   /// verdad; por defecto se mantiene v0 para no romper llamadores existentes.
+  /// [encrypted] permite ejercitar caminos que solo corren en libretas
+  /// cifradas (p. ej. el guardado de notas de reunión en `lock()`) sin pasar
+  /// por el flujo real de cifrado/DEK; por defecto false para no romper
+  /// llamadores existentes.
   @visibleForTesting
-  void debugMarkUnlockedForTests({int formatVersion = 0}) {
+  void debugMarkUnlockedForTests({int formatVersion = 0, bool encrypted = false}) {
     _state = VaultFlowState.unlocked;
-    _vaultUsesEncryption = false;
+    _vaultUsesEncryption = encrypted;
     _vaultFormatVersion = formatVersion;
   }
 
@@ -2935,7 +2939,11 @@ class VaultSession extends ChangeNotifier {
     // llegar a él.
     await flushPendingSave();
     if (!vaultUsesEncryption) return;
-    unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
+    // Guardado acotado (best-effort) de una nota de reunión activa antes de
+    // bloquear — evita perder la grabación en curso si el usuario bloquea la
+    // bóveda a mitad de una reunión (ver Bug de pérdida de datos).
+    await MeetingNoteSessionController.instance
+        .saveActiveRecordingBeforeTeardown(budget: const Duration(seconds: 12));
     await _persistLastSelectedPageBeforeLock();
     // Asegura DEK en caché para sync en segundo plano tras bloquear.
     await _cacheDeviceSyncKeyAfterUnlock();
@@ -4964,6 +4972,28 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: blockId,
       );
     }
+    b.text = text;
+    _scheduleCoalescedTypingNotify();
+    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+  }
+
+  /// Variante de [updateBlockText] para actualizaciones de alta frecuencia
+  /// generadas por la máquina (p. ej. deltas de transcripción de notas de
+  /// reunión, uno cada ~15s durante toda la grabación) en vez de tecleo de
+  /// usuario. A diferencia de [updateBlockText], no llama a
+  /// `_rememberUndoBeforePageMutation`: ese método serializa a JSON la
+  /// página completa en cada llamada para calcular su fingerprint, y como el
+  /// texto cambia en cada delta, el coalescing de 900ms nunca evita ese
+  /// trabajo — en grabaciones largas o páginas con muchos bloques esto era
+  /// una causa real de lentitud/jank en el isolate de UI. No hace falta
+  /// granularidad de undo por delta: `stop()` ya llama a `updateBlockText`
+  /// una vez al terminar la grabación, lo que basta para deshacer la sesión
+  /// completa de una vez.
+  void updateBlockTextStreaming(String pageId, String blockId, String text) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
     b.text = text;
     _scheduleCoalescedTypingNotify();
     scheduleSave(trackRevisionForPageId: pageId, notify: false);
@@ -7556,7 +7586,15 @@ class VaultSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(MeetingNoteSessionController.instance.cancelAndTeardown());
+    // dispose() es síncrono y no puede esperar un guardado; el camino
+    // principal para no perder una grabación activa al cerrar la app es el
+    // interceptor de cierre de ventana (async) en folio_app.dart, que llama
+    // a saveActiveRecordingBeforeTeardown() y lo espera antes de destruir la
+    // ventana. Esto es solo una red de seguridad best-effort para los demás
+    // casos en que dispose() se dispara (p.ej. al cambiar de libreta).
+    unawaited(
+      MeetingNoteSessionController.instance.saveActiveRecordingBeforeTeardown(),
+    );
     _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();

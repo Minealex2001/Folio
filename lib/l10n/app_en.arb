@@ -326,6 +326,8 @@
   "meetingNoteProviderCloudCost": "1 Ink per 5 min. recorded",
   "meetingNoteCloudFallbackNotice": "Cloud unavailable. Using local Whisper.",
   "meetingNoteCloudInkExhaustedNotice": "Insufficient Ink. Switching to local Whisper.",
+  "meetingNoteCloudUploadCancelledNotice": "Cloud upload cancelled. Kept your local transcript.",
+  "meetingNoteRetryCloudUpload": "Retry cloud transcription",
   "meetingNoteCloudRecordingBadge": "Quill Cloud | Language: {language}",
   "@meetingNoteCloudRecordingBadge": {
     "placeholders": {
@@ -393,6 +395,8 @@
   },
   "meetingNoteSystemAudioCaptured": "System audio captured",
   "meetingNoteStop": "Stop",
+  "meetingNoteStopping": "Stopping…",
+  "meetingNoteCancelUpload": "Cancel upload",
   "meetingNoteWaitingTranscription": "Waiting for transcription…",
   "meetingNoteTranscribing": "Transcribing…",
   "meetingNoteTranscriptionTitle": "Transcription",
@@ -1408,13 +1412,19 @@
   ,"folioCloudFamilyLeaveButton": "Leave family"
   ,"folioCloudStudentVerifyButton": "Verify student email"
   ,"folioCloudStudentVerifySuccess": "Student account verified!"
+  ,"folioCloudStudentVerifyEmailSent": "We sent a link to your institutional email. Open it to finish verification (valid for 24 hours)."
   ,"folioCloudStudentVerifyFail": "Email does not qualify as student (recognized university or Spanish non-university education)."
   ,"folioCloudStudentVerifyDialogTitle": "Student verification"
-  ,"folioCloudStudentVerifyDialogDesc": "Enter your institutional email address to verify your eligibility for the Folio Cloud student rate."
+  ,"folioCloudStudentVerifyDialogDesc": "Enter your institutional email. We will send a link to confirm it is yours and unlock the student rate for 4 years."
   ,"folioCloudStudentVerifyDialogLabel": "Institutional email address"
   ,"folioCloudStudentVerifyDialogHint": "user@uji.es, user@strath.ac.uk, user@educa.jcyl.es"
   ,"folioCloudStudentVerifyDialogHelp": "Supports universities worldwide and Spanish regional non-university education domains (secondary schools and vocational training)."
-  ,"folioCloudStudentVerifyDialogAction": "Verify now"
+  ,"folioCloudStudentVerifyDialogAction": "Send link"
+  ,"folioCloudStudentVerifiedUntil": "Verified until {date}"
+  ,"@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}}
+  ,"folioCloudStudentVerifyExpiringBanner": "Your student verification expires in {days} days. Re-verify your email or you will move to the full plan."
+  ,"@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}}
+  ,"folioCloudStudentReverifyButton": "Re-verify"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Your notebook stays local. The cloud works when you want it."
   ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted Quill Cloud with a monthly ink allowance, and publishing to the web—only for what you choose to share."

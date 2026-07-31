@@ -326,6 +326,8 @@
   "meetingNoteProviderCloudCost": "1 Tinta por cada 5 min. grabados",
   "meetingNoteCloudFallbackNotice": "Cloud no disponible. Usando Whisper local.",
   "meetingNoteCloudInkExhaustedNotice": "Tinta insuficiente. Cambiando a Whisper local.",
+  "meetingNoteCloudUploadCancelledNotice": "Subida a la nube cancelada. Se conservó la transcripción local.",
+  "meetingNoteRetryCloudUpload": "Reintentar transcripción en la nube",
   "meetingNoteCloudRecordingBadge": "Quill Cloud | Idioma: {language}",
   "@meetingNoteCloudRecordingBadge": {
     "placeholders": {
@@ -393,6 +395,8 @@
   },
   "meetingNoteSystemAudioCaptured": "Audio del sistema capturado",
   "meetingNoteStop": "Detener",
+  "meetingNoteStopping": "Deteniendo…",
+  "meetingNoteCancelUpload": "Cancelar subida",
   "meetingNoteWaitingTranscription": "Esperando transcripción…",
   "meetingNoteTranscribing": "Transcribiendo…",
   "meetingNoteTranscriptionTitle": "Transcripción",
@@ -1406,13 +1410,19 @@
   ,"folioCloudFamilyLeaveButton": "Salir de la familia"
   ,"folioCloudStudentVerifyButton": "Verificar correo estudiante"
   ,"folioCloudStudentVerifySuccess": "¡Cuenta de estudiante verificada!"
+  ,"folioCloudStudentVerifyEmailSent": "Te hemos enviado un enlace a tu correo institucional. Ábrelo para completar la verificación (válido 24 h)."
   ,"folioCloudStudentVerifyFail": "El correo no califica como estudiante (universidad reconocida o educación no universitaria en España)."
   ,"folioCloudStudentVerifyDialogTitle": "Verificación de estudiante"
-  ,"folioCloudStudentVerifyDialogDesc": "Introduce tu dirección de correo electrónico institucional para verificar tu elegibilidad en la tarifa para estudiantes de Folio Cloud."
+  ,"folioCloudStudentVerifyDialogDesc": "Introduce tu correo institucional. Te enviaremos un enlace para confirmar que es tuyo y activar la tarifa de estudiante durante 4 años."
   ,"folioCloudStudentVerifyDialogLabel": "Correo electrónico institucional"
   ,"folioCloudStudentVerifyDialogHint": "usuario@uji.es, usuario@strath.ac.uk, usuario@educa.jcyl.es"
   ,"folioCloudStudentVerifyDialogHelp": "Admite universidades de todo el mundo y dominios regionales de educación no universitaria en España (institutos y FP)."
-  ,"folioCloudStudentVerifyDialogAction": "Verificar ahora"
+  ,"folioCloudStudentVerifyDialogAction": "Enviar enlace"
+  ,"folioCloudStudentVerifiedUntil": "Verificado hasta {date}"
+  ,"@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}}
+  ,"folioCloudStudentVerifyExpiringBanner": "Tu verificación de estudiante caduca en {days} días. Vuelve a verificar tu correo o pasarás al plan completo."
+  ,"@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}}
+  ,"folioCloudStudentReverifyButton": "Volver a verificar"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres."
   ,"folioCloudPitchSubhead": "Un plan mensual desbloquea copias cifradas, Quill alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir."

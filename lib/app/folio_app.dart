@@ -49,6 +49,7 @@ import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integration_command_processor.dart';
 import '../services/spotify/spotify_playback_controller.dart';
 import '../services/media/media_playback_router.dart';
+import '../services/meeting_note_session_controller.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -1260,6 +1261,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   Future<void> _handleExitRequested() async {
+    // Guarda de forma acotada una nota de reunión activa antes de cerrar —
+    // dispose() de VaultSession es síncrono y no puede esperar esto, así que
+    // este interceptor de cierre de ventana (async, corre antes de destruir
+    // la ventana) es el punto correcto para hacerlo sin perder la grabación.
+    await MeetingNoteSessionController.instance
+        .saveActiveRecordingBeforeTeardown();
     await SystemNavigator.pop();
   }
 

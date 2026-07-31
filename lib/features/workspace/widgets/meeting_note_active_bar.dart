@@ -33,13 +33,16 @@ class MeetingNoteActiveBar extends StatelessWidget {
         final isCloud =
             controller.state == MeetingNoteSessionState.cloudProcessing;
         final isSetup = controller.state == MeetingNoteSessionState.setup;
+        final isStopping = controller.isStopping;
         final onMeetingPage = session.selectedPageId == controller.pageId;
 
-        final subtitle = isCloud
-            ? l10n.meetingNoteCloudProcessing
-            : isSetup
-                ? l10n.meetingNotePreparing
-                : l10n.meetingNoteRecordingTime(mm, ss);
+        final subtitle = isStopping
+            ? l10n.meetingNoteStopping
+            : isCloud
+                ? l10n.meetingNoteCloudProcessing
+                : isSetup
+                    ? l10n.meetingNotePreparing
+                    : l10n.meetingNoteRecordingTime(mm, ss);
 
         final bg = scheme.surfaceContainerHighest.withValues(alpha: 0.92);
         final fg = scheme.onSurface;
@@ -101,17 +104,33 @@ class MeetingNoteActiveBar extends StatelessWidget {
                     ),
                     onPressed: controller.goToMeetingPage,
                   ),
-                if (!isCloud)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    tooltip: l10n.meetingNoteStop,
-                    icon: Icon(
-                      Icons.stop_rounded,
-                      size: 20,
-                      color: scheme.error,
-                    ),
-                    onPressed: () => unawaited(controller.stop()),
-                  ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isCloud
+                      ? l10n.meetingNoteCancelUpload
+                      : l10n.meetingNoteStop,
+                  icon: isStopping
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: scheme.error,
+                          ),
+                        )
+                      : Icon(
+                          Icons.stop_rounded,
+                          size: 20,
+                          color: scheme.error,
+                        ),
+                  onPressed: isStopping
+                      ? null
+                      : () => unawaited(
+                            isCloud
+                                ? controller.cancelCloudProcessingAndAwait()
+                                : controller.stop(),
+                          ),
+                ),
               ],
             ),
           ),

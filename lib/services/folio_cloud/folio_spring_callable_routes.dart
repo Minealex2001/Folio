@@ -112,6 +112,15 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'ai/transcribe',
   ),
+  'folioCloudTranscribeStart': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'ai/transcribe-async',
+  ),
+  'folioCloudTranscribeStatus': FolioSpringApiRoute(
+    method: 'GET',
+    pathBuilder: (p) => 'ai/transcribe-async/${_req(p, 'jobId')}',
+    omitBody: true,
+  ),
 
   // Vault backups
   'folioFinalizeCloudPack': FolioSpringApiRoute(

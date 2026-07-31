@@ -277,6 +277,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     return switch (_controller.cloudFallbackNoticeCode) {
       'ink_exhausted' => l10n.meetingNoteCloudInkExhaustedNotice,
       'cloud_fallback' => l10n.meetingNoteCloudFallbackNotice,
+      'cloud_upload_cancelled' => l10n.meetingNoteCloudUploadCancelledNotice,
       _ => null,
     };
   }
@@ -549,6 +550,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     final transcribing = _isThisSession && _controller.transcribing;
     final systemAudio =
         _isThisSession && _controller.systemAudioCapturing;
+    final stopping = _isThisSession && _controller.isStopping;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -604,13 +606,25 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 ),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              onPressed: _stopRecording,
+              onPressed: stopping ? null : _stopRecording,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.stop_rounded, size: 16),
+                  if (stopping)
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: widget.scheme.onErrorContainer,
+                      ),
+                    )
+                  else
+                    const Icon(Icons.stop_rounded, size: 16),
                   const SizedBox(width: 4),
-                  Text(l10n.meetingNoteStop),
+                  Text(
+                    stopping ? l10n.meetingNoteStopping : l10n.meetingNoteStop,
+                  ),
                 ],
               ),
             ),
@@ -678,12 +692,33 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l10n.meetingNoteCloudProcessing,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: widget.scheme.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.meetingNoteCloudProcessing,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: widget.scheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (_isThisSession)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: widget.scheme.error,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () =>
+                    unawaited(_controller.cancelCloudProcessingAndAwait()),
+                icon: const Icon(Icons.stop_rounded, size: 16),
+                label: Text(l10n.meetingNoteCancelUpload),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         LinearProgressIndicator(value: progress?.toDouble()),
@@ -801,6 +836,25 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 ),
               ),
             ],
+          ),
+        ],
+        if (_isThisSession && _controller.canRetryCloudUpload) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  unawaited(_controller.retryCloudProcessing()),
+              icon: const Icon(Icons.cloud_upload_rounded, size: 16),
+              label: Text(l10n.meetingNoteRetryCloudUpload),
+            ),
           ),
         ],
       ],

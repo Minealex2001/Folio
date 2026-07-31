@@ -257,10 +257,21 @@ class MeetingWorkerHost {
     await _chunkSub?.cancel();
     _chunkSub = null;
 
-    // Esperar a que terminen los chunks en vuelo.
-    try {
-      await _chunkChain.timeout(const Duration(minutes: 5));
-    } catch (_) {}
+    final fast = msg['fast'] == true;
+    if (!fast) {
+      // Esperar a que terminen los chunks en vuelo, acotado: si Whisper va
+      // atrasado (modelo grande, hardware lento, muchos chunks en cola),
+      // antes esto podía tardar hasta 5 minutos en responder al comando
+      // `stop` — el usuario veía "Detener" sin ningún efecto durante ese
+      // rato. Con este límite se pierde como mucho la transcripción del
+      // último tramo en cola, pero el botón siempre responde en segundos.
+      try {
+        await _chunkChain.timeout(const Duration(seconds: 20));
+      } catch (_) {}
+    }
+    // En modo fast (guardado acotado antes de bloquear/cerrar la app) no
+    // esperamos la transcripción del último chunk en vuelo — solo el WAV ya
+    // capturado, para no bloquear al llamador más de unos segundos.
 
     final sid = _diarizationSessionId;
     if (sid != null) {

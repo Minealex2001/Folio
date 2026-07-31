@@ -162,6 +162,8 @@ class FolioCloudSnapshot {
     this.isFamily = false,
     this.isStudent = false,
     this.isStudentVerified = false,
+    this.studentVerifiedUntil,
+    this.studentEmail,
     this.familyOwnerUid,
     this.familySeats = 0,
     this.accountDeletionScheduledFor,
@@ -185,8 +187,24 @@ class FolioCloudSnapshot {
   final bool isFamily;
   final bool isStudent;
   final bool isStudentVerified;
+  /// End of the 4-year student verification window (UTC/local from server ISO).
+  final DateTime? studentVerifiedUntil;
+  final String? studentEmail;
   final String? familyOwnerUid;
   final int familySeats;
+
+  /// Days left until [studentVerifiedUntil]; null if not verified / no date.
+  int? get studentVerificationDaysRemaining {
+    final until = studentVerifiedUntil;
+    if (!isStudentVerified || until == null) return null;
+    final days = until.difference(DateTime.now()).inDays;
+    return days < 0 ? 0 : days;
+  }
+
+  bool get studentVerificationExpiringSoon {
+    final days = studentVerificationDaysRemaining;
+    return days != null && days <= 30;
+  }
 
   /// Si no es null, la cuenta tiene borrado programado (gracia de 30 días).
   final DateTime? accountDeletionScheduledFor;
@@ -259,6 +277,8 @@ class FolioCloudSnapshot {
     isFamily: false,
     isStudent: false,
     isStudentVerified: false,
+    studentVerifiedUntil: null,
+    studentEmail: null,
     familyOwnerUid: null,
     familySeats: 0,
     accountDeletionScheduledFor: null,
@@ -321,6 +341,8 @@ class FolioCloudSnapshot {
         isFamily: false,
         isStudent: false,
         isStudentVerified: false,
+        studentVerifiedUntil: null,
+        studentEmail: null,
         familyOwnerUid: null,
         familySeats: 0,
         accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
@@ -375,11 +397,20 @@ class FolioCloudSnapshot {
       isFamily: _folioBool(m['isFamily']),
       isStudent: _folioBool(m['isStudent']),
       isStudentVerified: _folioBool(m['studentVerified']),
+      studentVerifiedUntil: _parseInstant(m['studentVerifiedUntil']),
+      studentEmail: m['studentEmail']?.toString(),
       familyOwnerUid: m['familyOwnerUid']?.toString(),
       familySeats: seatsVal,
       accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
+  }
+
+  static DateTime? _parseInstant(Object? v) {
+    if (v == null) return null;
+    if (v is DateTime) return v.toLocal();
+    if (v is String) return DateTime.tryParse(v)?.toLocal();
+    return null;
   }
 }
 
@@ -537,6 +568,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         isFamily: prev.isFamily,
         isStudent: prev.isStudent,
         isStudentVerified: prev.isStudentVerified,
+        studentVerifiedUntil: prev.studentVerifiedUntil,
+        studentEmail: prev.studentEmail,
         familyOwnerUid: prev.familyOwnerUid,
         familySeats: prev.familySeats,
         accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
@@ -581,6 +614,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       isFamily: prev.isFamily,
       isStudent: prev.isStudent,
       isStudentVerified: prev.isStudentVerified,
+      studentVerifiedUntil: prev.studentVerifiedUntil,
+      studentEmail: prev.studentEmail,
       familyOwnerUid: prev.familyOwnerUid,
       familySeats: prev.familySeats,
       accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
