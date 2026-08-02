@@ -209,77 +209,97 @@ class _SidebarTileState extends State<SidebarTile> {
                   ]
                 : [],
           ),
-          child: InkWell(
-            onTap: () {
-              if (isFolder) {
-                widget.onToggleCollapsed();
-              } else {
-                widget.onTap();
-              }
-            },
-            onDoubleTap: widget.onDoubleTap,
-            child: Semantics(
-              selected: selected,
-              button: true,
-              label: page.title,
-              value: hasChildren
-                  ? (collapsed
-                        ? l10n.sidebarItemCollapsedSemantics
-                        : l10n.sidebarItemExpandedSemantics)
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: FolioSpace.xs,
-                  vertical: FolioSpace.xs,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
-                    // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
-                    final allowInlineActions =
-                        (showRowActions || _menuOpen) &&
-                        constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
-                    return Row(
-                      children: [
-                        // Selection bar indicator
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: selected ? 3 : 0,
-                          height: selected ? 16 : 0,
-                          margin: EdgeInsets.only(right: selected ? 6 : 0),
-                          decoration: BoxDecoration(
-                            color: scheme.primary,
-                            borderRadius: BorderRadius.circular(999),
+          // Material local + sin splash: al seleccionar, el tile se reconstruye
+          // y un InkWell colgado del Material del Scaffold deja el ink huérfano
+          // (assertion `referenceBox.attached` en paint).
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            child: InkWell(
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              borderRadius: BorderRadius.circular(FolioRadius.lg),
+              onTap: () {
+                if (isFolder) {
+                  widget.onToggleCollapsed();
+                } else {
+                  widget.onTap();
+                }
+              },
+              onDoubleTap: widget.onDoubleTap,
+              child: Semantics(
+                selected: selected,
+                button: true,
+                label: page.title,
+                value: hasChildren
+                    ? (collapsed
+                          ? l10n.sidebarItemCollapsedSemantics
+                          : l10n.sidebarItemExpandedSemantics)
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FolioSpace.xs,
+                    vertical: FolioSpace.xs,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
+                      // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
+                      final allowInlineActions =
+                          (showRowActions || _menuOpen) &&
+                          constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
+                      return Row(
+                        children: [
+                          // Selection bar indicator
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: selected ? 3 : 0,
+                            height: selected ? 16 : 0,
+                            margin: EdgeInsets.only(right: selected ? 6 : 0),
+                            decoration: BoxDecoration(
+                              color: scheme.primary,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              if (hasChildren)
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                    FolioRadius.sm,
-                                  ),
-                                  onTap: widget.onToggleCollapsed,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(
-                                      FolioSpace.xxs,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                if (hasChildren)
+                                  Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(
+                                      FolioRadius.sm,
                                     ),
-                                    child: AnimatedRotation(
-                                      turns: collapsed ? 0 : 0.25,
-                                      duration: const Duration(
-                                        milliseconds: 200,
+                                    child: InkWell(
+                                      splashFactory: NoSplash.splashFactory,
+                                      overlayColor:
+                                          const WidgetStatePropertyAll(
+                                            Colors.transparent,
+                                          ),
+                                      borderRadius: BorderRadius.circular(
+                                        FolioRadius.sm,
                                       ),
-                                      child: Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 18,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
+                                      onTap: widget.onToggleCollapsed,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(
+                                          FolioSpace.xxs,
+                                        ),
+                                        child: AnimatedRotation(
+                                          turns: collapsed ? 0 : 0.25,
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          child: Icon(
+                                            Icons.chevron_right_rounded,
+                                            size: 18,
+                                            color: selected
+                                                ? scheme.onSecondaryContainer
+                                                : scheme.onSurfaceVariant,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                )
+                                  )
                               else
                                 const SizedBox(width: 18),
                               const SizedBox(width: FolioSpace.xxs),
@@ -338,7 +358,16 @@ class _SidebarTileState extends State<SidebarTile> {
                                         IconButton(
                                           icon: const Icon(Icons.add, size: 18),
                                           tooltip: l10n.subpage,
+                                          padding: EdgeInsets.zero,
                                           visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          style: IconButton.styleFrom(
+                                            tapTargetSize:
+                                                MaterialTapTargetSize.shrinkWrap,
+                                          ),
                                           color: selected
                                               ? scheme.onSecondaryContainer
                                               : scheme.onSurfaceVariant,
@@ -350,6 +379,11 @@ class _SidebarTileState extends State<SidebarTile> {
                                           size: 18,
                                         ),
                                         tooltip: l10n.workspaceMoreActionsTooltip,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 36,
+                                          minHeight: 36,
+                                        ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(FolioRadius.md),
                                         ),
@@ -456,6 +490,7 @@ class _SidebarTileState extends State<SidebarTile> {
                   },
                 ),
               ),
+            ),
             ),
           ),
         ),

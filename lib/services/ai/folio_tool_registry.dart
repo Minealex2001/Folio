@@ -212,8 +212,11 @@ class FolioToolRegistry {
     description:
         'Crea una página nueva en la libreta con un título y una lista de '
         'bloques de contenido ya redactados por el modelo. '
-        'Obligatorio: "blocks" con contenido sustancial (varios bloques con texto); '
-        'nunca crear una página vacía. Si piden diagramas, incluye type=mermaid.',
+        'Obligatorio: "blocks" con contenido sustancial y variado (mínimo 12–20 '
+        'bloques: intro, varias secciones con h2/h3, párrafos, listas, y al menos '
+        'un elemento no-párrafo como tabla, callout o mermaid); nunca crear una '
+        'página vacía ni solo con párrafos cortos sueltos. Si piden diagramas, '
+        'incluye type=mermaid.',
     parameters: [
       AiToolParam(
         name: 'title',
@@ -304,7 +307,11 @@ class FolioToolRegistry {
     name: 'replace_page_blocks',
     description:
         'Reemplaza todo el contenido de una página (todos sus bloques) por '
-        'una nueva lista de bloques. Útil para resumir o reescribir la página.',
+        'una nueva lista de bloques. Útil para resumir o reescribir la página. '
+        'PREFIERE esta tool sobre edit_page_blocks cuando el pedido del usuario '
+        'es abierto (p. ej. "mejora esto", "reescribe", "rehaz esta página"): '
+        'una reescritura completa y sustancial da mejor resultado que muchas '
+        'operaciones puntuales pequeñas.',
     parameters: [
       AiToolParam(
         name: 'pageId',
@@ -343,7 +350,10 @@ class FolioToolRegistry {
     description:
         'Aplica una lista de operaciones puntuales sobre los bloques de una '
         'página existente: update_block_text, delete_block, insert_after, '
-        'insert_before.',
+        'insert_before. Úsala SOLO para cambios acotados y quirúrgicos (corregir '
+        'un dato, actualizar una sección concreta, arreglar un typo). Para '
+        'reescrituras o mejoras abiertas de la página completa, usa '
+        'replace_page_blocks en su lugar.',
     parameters: [
       AiToolParam(
         name: 'pageId',

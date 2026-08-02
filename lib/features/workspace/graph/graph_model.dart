@@ -20,12 +20,15 @@ class GraphNodeData {
     required this.label,
     required this.isFolder,
     this.emoji,
+    /// Id de la carpeta que colorea este nodo (ella misma si es carpeta).
+    this.colorGroupId,
   });
 
   final String id;
   final String label;
   final bool isFolder;
   final String? emoji;
+  final String? colorGroupId;
 }
 
 class VaultGraphData {
@@ -36,6 +39,25 @@ class VaultGraphData {
 
   final List<GraphNodeData> nodes;
   final List<GraphEdge> edges;
+}
+
+/// Carpeta más cercana en la jerarquía `parentId` (o el propio id si es carpeta).
+String? resolveGraphColorGroupId(
+  FolioPage page,
+  Map<String, FolioPage> byId,
+) {
+  if (page.isFolder) return page.id;
+  var current = page;
+  final seen = <String>{page.id};
+  while (true) {
+    final parentId = current.parentId?.trim();
+    if (parentId == null || parentId.isEmpty) return null;
+    if (!seen.add(parentId)) return null;
+    final parent = byId[parentId];
+    if (parent == null) return null;
+    if (parent.isFolder) return parent.id;
+    current = parent;
+  }
 }
 
 /// Construye nodos y aristas del grafo a partir de páginas activas,
@@ -111,6 +133,7 @@ VaultGraphData buildVaultGraph({
           label: p.title.trim().isEmpty ? '…' : p.title.trim(),
           isFolder: p.isFolder,
           emoji: p.emoji,
+          colorGroupId: resolveGraphColorGroupId(p, byId),
         ),
       )
       .toList(growable: false);

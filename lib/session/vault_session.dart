@@ -373,6 +373,23 @@ class VaultSession extends ChangeNotifier {
   Future<void> Function()? onBeforeLeaveVault;
   /// Antes de cambiar de página seleccionada (había otra página abierta).
   Future<void> Function()? onBeforeLeavePage;
+  /// Se llama tras mover una libreta a la papelera localmente, para avisar a
+  /// la nube (device-sync) si hay sync activado. Fire-and-forget: no bloquea
+  /// el borrado local ni falla si no hay red.
+  Future<void> Function(String vaultId, String displayName)?
+  onVaultDeletedLocally;
+  /// Se llama tras restaurar localmente una libreta de la papelera, para
+  /// avisar a la nube (fire-and-forget).
+  Future<void> Function(String vaultId)? onVaultRestoredLocally;
+  /// Se llama tras purgar definitivamente una libreta local, para avisar a
+  /// la nube (fire-and-forget).
+  Future<void> Function(String vaultId)? onVaultPurgedLocally;
+  /// Devuelve las libretas en papelera en la nube que este dispositivo nunca
+  /// materializó localmente ("fantasma"), para completar la vista de papelera.
+  Future<List<VaultTrashEntry>> Function()? onFetchRemoteOnlyTrash;
+  /// Restaura en la nube y descarga por primera vez una libreta fantasma.
+  /// Devuelve true si quedó materializada localmente.
+  Future<bool> Function(String vaultId)? onMaterializeGhostVault;
   AiService? _aiService;
 
   static const _uuid = Uuid();
@@ -913,6 +930,20 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final now = DateTime.now();
     final stack = _undoByPage.putIfAbsent(pageId, () => []);
+
+    // Chequeo barato de la ventana de coalescing ANTES del fingerprint caro
+    // (jsonEncode de toda la página): en páginas con miles de bloques,
+    // calcular el fingerprint en cada pulsación es O(n) y domina el costo
+    // de tipear. Mientras estemos dentro de la ventana, el resultado es el
+    // mismo (no se empuja snapshot) sin necesidad de conocer el fingerprint.
+    if (isTyping) {
+      final lastAt = _lastUndoTypingCaptureAt[pageId];
+      if (lastAt != null &&
+          now.difference(lastAt) <= _undoTypingCoalesceWindow) {
+        return;
+      }
+    }
+
     final fp = folioPageContentFingerprint(page);
     if (stack.isNotEmpty && stack.last.fingerprint == fp) {
       if (isTyping) {
@@ -922,11 +953,6 @@ class VaultSession extends ChangeNotifier {
     }
 
     if (isTyping) {
-      final lastAt = _lastUndoTypingCaptureAt[pageId];
-      if (lastAt != null &&
-          now.difference(lastAt) <= _undoTypingCoalesceWindow) {
-        return;
-      }
       _lastUndoTypingCaptureAt[pageId] = now;
     } else {
       _lastUndoTypingCaptureAt.remove(pageId);
@@ -1707,6 +1733,7 @@ class VaultSession extends ChangeNotifier {
     bool createStarterPages = true,
     List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
     bool includeQuillStarterPage = false,
+    int? kdfProfile,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -1736,6 +1763,7 @@ class VaultSession extends ChangeNotifier {
       starterL10n: createStarterPages ? _titleL10n : null,
       usageIntents: usageIntents,
       includeQuillStarterPage: includeQuillStarterPage,
+      kdfProfile: kdfProfile,
     );
     _vaultUsesEncryption = encrypted;
     _dek = dek?.toList();
@@ -1749,19 +1777,24 @@ class VaultSession extends ChangeNotifier {
     _restartIdleLockTimer();
     _resumeVaultIdAfterNewVault = null;
 
-    // M5: las libretas nuevas nacen directamente en v1 (Beta: sin v0 previo
-    // que migrar, no tiene sentido crearlas en el formato legacy).
+    // M5: en nativo las libretas nuevas nacen en v1 (Beta: sin v0 previo
+    // que migrar). En web no hay árbol FS: se queda en blob IndexedDB
+    // (VaultStorage / formato v0).
     await _ensureFormatHandlerReady();
-    _vaultFormatVersion = 1;
-    await _initSnapshotManager();
+    if (!kIsWeb) {
+      _vaultFormatVersion = 1;
+      await _initSnapshotManager();
+    }
 
     notifyListeners();
     await persistNow();
-    await VaultMigrationTool.writeTreeFormatVersion(1);
-    final fp = VaultIntegrity.fingerprintPages(
-      _buildVaultPayloadForPersist(),
-    );
-    await VaultMigrationTool.writeV1VerifiedMarker(fp);
+    if (!kIsWeb) {
+      await VaultMigrationTool.writeTreeFormatVersion(1);
+      final fp = VaultIntegrity.fingerprintPages(
+        _buildVaultPayloadForPersist(),
+      );
+      await VaultMigrationTool.writeV1VerifiedMarker(fp);
+    }
   }
 
   /// Añade una libreta vacía y pasa a onboarding (el usuario debe completar contraseña o import).
@@ -1876,7 +1909,144 @@ class VaultSession extends ChangeNotifier {
       );
     }
     if (!_registry.containsVault(vaultId)) return;
+    final displayName = entry?.displayName ?? '';
     await _quick.disable(vaultId);
+    await _registry.trash(vaultId);
+    notifyListeners();
+    unawaited(onVaultDeletedLocally?.call(vaultId, displayName));
+  }
+
+  /// Retención de la papelera de libretas: igual que la de páginas.
+  static const Duration vaultTrashRetention = Duration(days: 30);
+
+  /// Ids de libretas en papelera **localmente** (con copia en disco en este
+  /// dispositivo). Usado por la reconciliación de sync para saber qué
+  /// libretas locales ya están en papelera vs. cuáles hay que mover/restaurar.
+  Future<Set<String>> locallyTrashedVaultIds() async {
+    await _registry.load();
+    return {for (final e in _registry.trashedVaults) e.id};
+  }
+
+  /// Libretas en papelera: locales (con copia en disco) + "fantasma"
+  /// (borradas en otro dispositivo, nunca materializadas en este).
+  Future<List<VaultTrashEntry>> loadTrashedVaultEntries() async {
+    await _registry.load();
+    final local = _registry.trashedVaults
+        .map(
+          (e) => VaultTrashEntry(
+            vaultId: e.id,
+            displayName: e.displayName,
+            trashedAt: e.trashedAt!,
+            hasLocalCopy: true,
+          ),
+        )
+        .toList();
+    final localIds = {for (final e in local) e.vaultId};
+    List<VaultTrashEntry> remoteOnly = const [];
+    try {
+      remoteOnly = await onFetchRemoteOnlyTrash?.call() ?? const [];
+    } catch (_) {
+      remoteOnly = const [];
+    }
+    for (final r in remoteOnly) {
+      if (!localIds.contains(r.vaultId)) local.add(r);
+    }
+    local.sort((a, b) => b.trashedAt.compareTo(a.trashedAt));
+    return local;
+  }
+
+  /// Restaura una libreta de la papelera. Si nunca se materializó en este
+  /// dispositivo (entrada fantasma), delega la descarga en
+  /// [onMaterializeGhostVault].
+  Future<void> restoreVault(String vaultId) async {
+    await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry != null && entry.isTrashed) {
+      await _registry.restoreFromTrash(vaultId);
+      notifyListeners();
+      unawaited(onVaultRestoredLocally?.call(vaultId));
+      return;
+    }
+    final ok = await onMaterializeGhostVault?.call(vaultId) ?? false;
+    if (!ok) {
+      throw StateError('No se pudo restaurar la libreta.');
+    }
+    notifyListeners();
+  }
+
+  /// Elimina definitivamente una libreta de la papelera (local + nube).
+  Future<void> permanentlyDeleteVault(String vaultId) async {
+    await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry != null) {
+      await VaultPaths.deleteVaultDirectory(vaultId);
+      await _registry.remove(vaultId);
+      notifyListeners();
+    }
+    unawaited(onVaultPurgedLocally?.call(vaultId));
+  }
+
+  Future<void> emptyVaultTrash() async {
+    await _registry.load();
+    for (final e in _registry.trashedVaults) {
+      await permanentlyDeleteVault(e.id);
+    }
+    final remoteOnly = await onFetchRemoteOnlyTrash?.call() ?? const [];
+    for (final r in remoteOnly) {
+      unawaited(onVaultPurgedLocally?.call(r.vaultId));
+    }
+  }
+
+  /// Barrido local: borra archivos en disco de libretas cuya papelera superó
+  /// la retención. Independiente del job de purga del backend — solo limpia
+  /// espacio local; la fila remota se purga sola con el tiempo.
+  Future<void> purgeExpiredVaultTrash({
+    Duration retention = vaultTrashRetention,
+  }) async {
+    await _registry.load();
+    final now = DateTime.now();
+    var changed = false;
+    for (final e in _registry.trashedVaults) {
+      final trashedAt = e.trashedAt;
+      if (trashedAt == null) continue;
+      if (now.difference(trashedAt) >= retention) {
+        await VaultPaths.deleteVaultDirectory(e.id);
+        await _registry.remove(e.id);
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
+  /// Aplica localmente un tombstone remoto (otro dispositivo mandó la
+  /// libreta a la papelera). No reenvía nada a la nube. Nunca toca la libreta
+  /// activa/abierta en este momento — se difiere hasta que se cierre.
+  Future<void> applyRemoteTrash(String vaultId) async {
+    await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry == null || entry.isTrashed) return;
+    if (vaultId == VaultPaths.activeVaultId) return;
+    await _quick.disable(vaultId);
+    await _registry.trash(vaultId);
+    notifyListeners();
+  }
+
+  /// Alguien restauró desde otro dispositivo (o revivió con un push real):
+  /// deshace la papelera local si la teníamos marcada.
+  Future<void> applyRemoteRestore(String vaultId) async {
+    await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry == null || !entry.isTrashed) return;
+    await _registry.restoreFromTrash(vaultId);
+    notifyListeners();
+  }
+
+  /// Alguien vació la papelera desde otro dispositivo (purga definitiva):
+  /// borra también la copia local si la teníamos en papelera.
+  Future<void> applyRemotePurge(String vaultId) async {
+    await _registry.load();
+    final entry = _registry.entryFor(vaultId);
+    if (entry == null || !entry.isTrashed) return;
     await VaultPaths.deleteVaultDirectory(vaultId);
     await _registry.remove(vaultId);
     notifyListeners();
@@ -2678,6 +2848,10 @@ class VaultSession extends ChangeNotifier {
       _restartIdleLockTimer();
       await _initSnapshotManager();
       await _cacheDeviceSyncKeyAfterUnlock();
+      // Migración transparente: si vault.keys usa un perfil Argon2id
+      // antiguo, re-envolverlo con el perfil actual en segundo plano. No
+      // bloquea la UI ni el desbloqueo (best-effort dentro del propio repo).
+      unawaited(_repo.upgradeKdfIfNeeded(password));
       AppLogger.info(
         'unlockWithPassword ok',
         tag: 'vault',
@@ -3367,6 +3541,53 @@ class VaultSession extends ChangeNotifier {
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..[index] = message;
     _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
+      id: current.id,
+      title: current.title,
+      messages: nextMessages,
+      attachmentPaths: current.attachmentPaths,
+      includePageContext: current.includePageContext,
+      contextPageIds: current.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Quita un mensaje por índice de un hilo por `chatId` — usado para
+  /// retirar el placeholder de streaming si la petición falla antes de
+  /// llegar a una respuesta (mismo comportamiento que antes: sin mensaje de
+  /// asistente en el hilo cuando la petición falla).
+  void removeMessageInAiChatById(String chatId, int index) {
+    final i = _aiChatIndexById(chatId);
+    if (i < 0) return;
+    final current = _aiChatThreads[i];
+    if (index < 0 || index >= current.messages.length) return;
+    final nextMessages = List<AiChatMessage>.from(current.messages)
+      ..removeAt(index);
+    _aiChatThreads[i] = AiChatThreadData(
+      id: current.id,
+      title: current.title,
+      messages: nextMessages,
+      attachmentPaths: current.attachmentPaths,
+      includePageContext: current.includePageContext,
+      contextPageIds: current.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Como [updateMessageInActiveAiChat] pero por `chatId` en vez de asumir
+  /// que el hilo objetivo sigue siendo el activo — necesario para el
+  /// streaming en vivo, donde el usuario puede cambiar de pestaña de chat
+  /// mientras la respuesta sigue llegando (mismo patrón defensivo que
+  /// [appendMessageToAiChatById]).
+  void updateMessageInAiChatById(String chatId, int index, AiChatMessage message) {
+    final i = _aiChatIndexById(chatId);
+    if (i < 0) return;
+    final current = _aiChatThreads[i];
+    if (index < 0 || index >= current.messages.length) return;
+    final nextMessages = List<AiChatMessage>.from(current.messages)
+      ..[index] = message;
+    _aiChatThreads[i] = AiChatThreadData(
       id: current.id,
       title: current.title,
       messages: nextMessages,
@@ -7136,9 +7357,10 @@ class VaultSession extends ChangeNotifier {
       return;
     }
 
+    final displayName = _registry.entryFor(id)?.displayName ?? '';
     await _quick.disable(id);
-    await VaultPaths.deleteVaultDirectory(id);
-    await _registry.remove(id);
+    await _registry.trash(id);
+    unawaited(onVaultDeletedLocally?.call(id, displayName));
 
     _dek = null;
     _pages = [];
@@ -7197,6 +7419,34 @@ class VaultSession extends ChangeNotifier {
         await _quick.enableWithDek(vid, Uint8List.fromList(_dek!));
       }
     }
+    touchActivity();
+  }
+
+  /// Perfil Argon2id actual de la libreta (`VaultCrypto.profileBalanced`,
+  /// `VaultCrypto.profileHardened`, `0` = legacy pendiente de auto-heal, o
+  /// `null` si la libreta no usa contraseña). Para mostrar el estado en
+  /// Ajustes > Seguridad.
+  Future<int?> currentKdfProfile() => _repo.currentKdfProfile();
+
+  /// Acción explícita del usuario: sube el perfil Argon2id de la libreta a
+  /// `VaultCrypto.profileHardened` con la misma contraseña. A diferencia del
+  /// auto-heal silencioso de legacy→Balanceado que ya corre al desbloquear,
+  /// esto requiere que el usuario lo pida y propaga errores (p. ej.
+  /// contraseña incorrecta) para que la UI los muestre.
+  Future<void> upgradeToHardenedEncryption(String currentPassword) async {
+    if (!vaultUsesEncryption) {
+      throw StateError('Esta libreta no usa contraseña');
+    }
+    if (_dek == null) {
+      throw StateError('Libreta no desbloqueada');
+    }
+    final currentOk = await verifyPasswordMatchesUnlockedSession(
+      currentPassword,
+    );
+    if (!currentOk) {
+      throw StateError('Contraseña actual incorrecta');
+    }
+    await _repo.upgradeToHardenedProfile(currentPassword);
     touchActivity();
   }
 
@@ -7488,7 +7738,16 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// M5: Helpers
+  static const _webDeviceIdPrefsKey = 'folio_vault_session_device_id';
+
   Future<String> _getDeviceId() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final existing = (prefs.getString(_webDeviceIdPrefsKey) ?? '').trim();
+      if (existing.isNotEmpty) return existing;
+      await prefs.setString(_webDeviceIdPrefsKey, 'web');
+      return 'web';
+    }
     try {
       return Platform.localHostname;
     } catch (_) {

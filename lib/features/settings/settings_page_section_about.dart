@@ -28,6 +28,11 @@ extension _SettingsPageAboutSection on _SettingsPageState {
                 description: l10n.settingsAboutHeroDescription,
               ),
               const Divider(height: 1),
+              ..._buildPrivacyDiagnosticsChildren(
+                l10n: l10n,
+                scheme: scheme,
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline_rounded),
                 title: Text(l10n.installedVersion),

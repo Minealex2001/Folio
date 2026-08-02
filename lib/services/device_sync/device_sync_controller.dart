@@ -146,6 +146,7 @@ class DeviceSyncController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    if (kIsWeb) return;
     if (_state != SyncControllerState.stopped) return;
     _state = SyncControllerState.searching;
     notifyListeners();
@@ -206,6 +207,7 @@ class DeviceSyncController extends ChangeNotifier {
   }
 
   void refreshSettingsSnapshot() {
+    if (kIsWeb) return;
     if (!_settings.syncEnabled && _state != SyncControllerState.stopped) {
       unawaited(stop());
       return;

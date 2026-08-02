@@ -72,6 +72,10 @@
       "min": {"type": "int"}
     }
   },
+  "vaultKdfProfileTitle": "Encryption security level",
+  "vaultKdfProfileBalanced": "Balanced",
+  "vaultKdfProfileHardened": "Hardened",
+  "vaultKdfProfileHint": "Hardened takes longer to unlock but better resists brute-force attacks. You can change it later from Settings.",
   "createStarterPagesTitle": "Create starter help pages",
   "createStarterPagesBody": "Adds a personalized starter guide based on how you plan to use Folio. You can delete those pages later.",
   "passwordLabel": "Password",
@@ -154,6 +158,8 @@
   "lockOnMinimize": "Lock when minimized",
   "changeMasterPassword": "Change master password",
   "requiresCurrentPassword": "Requires current password",
+  "upgradeToHardenedEncryptionTitle": "Upgrade to hardened encryption",
+  "upgradeToHardenedEncryptionSnack": "Encryption upgraded to hardened",
   "lockAutoByInactivity": "Auto-lock after inactivity",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
@@ -751,6 +757,7 @@
   "aiAlwaysShowThought": "Always show Quill thought",
   "aiAlwaysShowThoughtHint": "If disabled, it appears collapsed with an arrow in each message.",
   "aiBetaBadge": "BETA",
+  "aiManageQuillInstructionsTooltip": "Manage Quill instructions",
   "aiBetaEnableTitle": "Quill is in BETA",
   "aiBetaEnableBody": "This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?",
   "aiBetaEnableConfirm": "Enable BETA",
@@ -1073,6 +1080,7 @@
   ,"aiCopiedToClipboard": "Copied to clipboard"
   ,"aiHelpful": "Helpful"
   ,"aiNotHelpful": "Not helpful"
+  ,"aiRegenerate": "Regenerate response"
   ,"aiThinkingMessage": "Quill is thinking..."
   ,"aiMessageTimestampNow": "now"
   ,"aiMessageTimestampMinutes": "{n} min ago"
@@ -2262,10 +2270,13 @@
   ,"settingsSectionDeviceSyncNav": "Device sync"
   ,"settingsSectionVault": "Notebook"
   ,"settingsSectionVaultHeroDescription": "Unlock security, backups, scheduled copies to disk, and data management for this device."
-  ,"settingsSectionUiWorkspace": "Interface & desktop"
-  ,"settingsSectionUiWorkspaceHeroDescription": "Theme, language, scaling, editor layout, desktop options, and keyboard shortcuts."
+  ,"settingsSectionAppearance": "Appearance"
+  ,"settingsSectionAppearanceHeroDescription": "Theme, language, scaling, editor layout, and custom icons."
+  ,"settingsSectionDesktop": "Desktop"
+  ,"settingsSectionDesktopHeroDescription": "Global shortcuts, system tray, window behavior, and in-app keyboard shortcuts."
   ,"settingsSubsectionVaultBackupImport": "Backups & import"
   ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup"
+  ,"settingsSubsectionVaultScheduledAdvanced": "Automatic backup & NAS/WebDAV"
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Data (danger zone)"
   ,"folioCloudSubsectionAccount": "Account"
@@ -2344,6 +2355,26 @@
   ,"sidebarTrashCountBadge": "{count}"
   ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
   ,"sidebarTrashClose": "Close"
+  ,"vaultTrashTitle": "Notebook trash"
+  ,"vaultTrashOpenTooltip": "Notebook trash"
+  ,"vaultTrashEmpty": "No notebooks in the trash"
+  ,"vaultTrashRetentionHint": "Notebooks are permanently deleted after 30 days."
+  ,"vaultTrashRestore": "Restore"
+  ,"vaultTrashDeleteForever": "Delete permanently"
+  ,"vaultTrashEmptyAction": "Empty trash"
+  ,"vaultTrashEmptyConfirm": "Empty the notebook trash? This cannot be undone."
+  ,"vaultTrashDeleteForeverConfirm": "Permanently delete «{title}»? This cannot be undone."
+  ,"@vaultTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"vaultTrashDaysLeft": "{days} days left"
+  ,"@vaultTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"vaultTrashNotOnThisDevice": "Not on this device"
+  ,"vaultTrashRestoring": "Restoring…"
+  ,"vaultTrashRestoreFailed": "Couldn't restore the notebook."
+  ,"vaultDeletedToTrashSnack": "Notebook moved to trash."
+  ,"vaultTrashConflictBanner": "“{title}” was deleted on another device, but this device has unsynced changes."
+  ,"@vaultTrashConflictBanner": {"placeholders": {"title": {}}}
+  ,"vaultTrashConflictKeepLocal": "Keep it here"
+  ,"vaultTrashConflictMoveToTrash": "Move to trash"
   ,"settingsStripeSubscriptionRefreshed": "Folio Cloud billing updated."
   ,"settingsStripeBillingPortalUnavailable": "Billing portal unavailable."
   ,"settingsCouldNotOpenLink": "Could not open the link."
@@ -2504,7 +2535,7 @@
   ,"settingsAiSnackSignInCloudAccount": "Sign in to your cloud account (Settings)."
   ,"settingsAiProviderSwitchFailed": "Could not switch Quill provider: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
-  ,"settingsAboutHeroDescription": "Build version, release notes, and your update channel. Use the list below to check for updates."
+  ,"settingsAboutHeroDescription": "Privacy, diagnostics, build version, release notes, and your update channel."
   ,"settingsOpenReleaseNotes": "Open release notes"
   ,"settingsUpdateChannelLabel": "Channel"
   ,"settingsUpdateChannelRelease": "Release"
@@ -2588,13 +2619,54 @@
   ,"settingsAutoCrashReportsTitle": "Send error diagnostics automatically"
   ,"settingsAutoCrashReportsSubtitle": "On by default: when an error happens (crash or not), a short log excerpt is sent to Folio to help fix it. You can turn this off here."
   ,"settingsReportBugButton": "Report a bug"
-  ,"settingsPrivacyFootnote": "You can attach a note; an issue page may open in the browser."
+  ,"settingsPrivacyFootnote": "Describe the problem; with a Folio Cloud account you can track the report until it is closed."
   ,"settingsReportBugDialogTitle": "Report a bug"
-  ,"settingsReportBugDialogBody": "We will send anonymous metadata, a short log tail, and your note. Then you can open the issue tracker."
-  ,"settingsReportBugNoteLabel": "What happened? (optional)"
-  ,"settingsReportBugSend": "Send and continue"
+  ,"settingsReportBugDialogBodySignedIn": "We will send anonymous metadata, a short log excerpt, and your description to Folio. The report will stay visible here until we close it."
+  ,"settingsReportBugDialogBodyGuest": "We will send anonymous metadata, a short log excerpt, and your description to Folio. With an account you can track the report and add more details to help us fix it."
+  ,"settingsReportBugSignInCta": "Sign in or create an account"
+  ,"settingsReportBugAccountSignedIn": "Signed in"
+  ,"settingsReportBugAccountGuest": "No account"
+  ,"settingsReportBugMetaPreview": "Platform: {platform} · Version: {version} · Channel: {channel} · Account: {account}"
+  ,"@settingsReportBugMetaPreview": {
+    "placeholders": {
+      "platform": {},
+      "version": {},
+      "channel": {},
+      "account": {}
+    }
+  }
+  ,"settingsReportBugNoteLabel": "What happened?"
+  ,"settingsReportBugStepsLabel": "Steps to reproduce (optional)"
+  ,"settingsReportBugSend": "Send"
   ,"settingsReportBugSentOk": "Diagnostic sent."
+  ,"settingsReportBugSentOkWithId": "Diagnostic sent ({id})."
+  ,"@settingsReportBugSentOkWithId": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugSentOkLocalOnly": "Diagnostic saved. YouTrack tracking is unavailable right now."
   ,"settingsReportBugSentFail": "Could not send diagnostic. Check your connection or try again later."
+  ,"settingsReportBugOpenTitle": "Open report ({id})"
+  ,"@settingsReportBugOpenTitle": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugOpenTitleGeneric": "Open report"
+  ,"settingsReportBugOpenSubtitle": "Pending review"
+  ,"settingsReportBugAppendAction": "Add info"
+  ,"settingsReportBugAppendTitle": "Add information"
+  ,"settingsReportBugAppendBody": "This will be added to report {id}."
+  ,"@settingsReportBugAppendBody": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugAppendNoteLabel": "Additional information"
+  ,"settingsReportBugAppendSend": "Send"
+  ,"settingsReportBugAppendOk": "Information added to the report."
+  ,"settingsReportBugAppendFail": "Could not add the information. Try again later."
   ,"zenModeEnter": "Zen mode"
   ,"zenModeExit": "Exit zen mode"
   ,"zenFullscreenEnter": "Enter fullscreen"

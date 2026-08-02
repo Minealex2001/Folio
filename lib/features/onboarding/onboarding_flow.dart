@@ -70,6 +70,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _obscureNotionPassword = true;
   var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
+  var _draftKdfProfile = VaultCrypto.profileHardened;
   var _createStarterPages = true;
   List<FolioUsageIntent> _selectedUsageIntents = const [FolioUsageIntent.notes];
   String? _usageProfileError;
@@ -713,6 +714,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _finishCreate() async {
+    // Si un TextField (p. ej. contraseña) conserva el foco aquí, su cursor
+    // parpadeante sigue vivo cuando el switch de _HomeByState desmonta todo
+    // el árbol de OnboardingFlow (y dispone _password/_confirm) en cuanto
+    // completeOnboarding() notifica el cambio de estado — eso corrompe el
+    // frame ("TextEditingController was used after being disposed" y la
+    // cascada de GlobalKey duplicado que sigue). Quitar el foco antes de
+    // arrancar evita que quede nada enganchado a esos controllers.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _busy = true;
       _error = null;
@@ -734,6 +743,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         includeQuillStarterPage: _flowSteps.contains(
           _OnboardingStepId.quillIntro,
         ),
+        kdfProfile: _createWithoutEncryption ? null : _draftKdfProfile,
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
       AppLogger.info('finishCreate ok', tag: 'onboarding');
@@ -2229,6 +2239,41 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             setState(() => _obscureConfirm = !_obscureConfirm);
           },
           onSubmitted: (_) => _nextCreatePassword(),
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        Text(
+          AppLocalizations.of(context).vaultKdfProfileTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        SegmentedButton<int>(
+          segments: [
+            ButtonSegment<int>(
+              value: VaultCrypto.profileBalanced,
+              label: Text(AppLocalizations.of(context).vaultKdfProfileBalanced),
+              icon: const Icon(Icons.speed_rounded, size: 18),
+            ),
+            ButtonSegment<int>(
+              value: VaultCrypto.profileHardened,
+              label: Text(AppLocalizations.of(context).vaultKdfProfileHardened),
+              icon: const Icon(Icons.security_rounded, size: 18),
+            ),
+          ],
+          selected: {_draftKdfProfile},
+          onSelectionChanged: _busy
+              ? null
+              : (s) {
+                  setState(() => _draftKdfProfile = s.first);
+                },
+        ),
+        const SizedBox(height: FolioSpace.xs),
+        Text(
+          AppLocalizations.of(context).vaultKdfProfileHint,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: FolioSpace.xl),
         _onboardingBottomActions(

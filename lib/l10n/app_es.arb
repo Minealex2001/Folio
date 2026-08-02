@@ -72,6 +72,10 @@
       "min": {"type": "int"}
     }
   },
+  "vaultKdfProfileTitle": "Nivel de seguridad del cifrado",
+  "vaultKdfProfileBalanced": "Balanceado",
+  "vaultKdfProfileHardened": "Reforzado",
+  "vaultKdfProfileHint": "Reforzado tarda más al desbloquear pero resiste mejor los ataques de fuerza bruta. Podrás cambiarlo más adelante desde Ajustes.",
   "createStarterPagesTitle": "Crear folios iniciales de ayuda",
   "createStarterPagesBody": "Añade una guía inicial personalizada según cómo vayas a usar Folio. Podrás borrar esas folios después.",
   "passwordLabel": "Contraseña",
@@ -154,6 +158,8 @@
   "lockOnMinimize": "Bloquear al minimizar",
   "changeMasterPassword": "Cambiar contraseña maestra",
   "requiresCurrentPassword": "Requiere contraseña actual",
+  "upgradeToHardenedEncryptionTitle": "Actualizar a cifrado reforzado",
+  "upgradeToHardenedEncryptionSnack": "Cifrado actualizado a reforzado",
   "lockAutoByInactivity": "Bloqueo automático por inactividad",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
@@ -1071,6 +1077,7 @@
   ,"aiCopiedToClipboard": "Copiado al portapapeles"
   ,"aiHelpful": "Útil"
   ,"aiNotHelpful": "No útil"
+  ,"aiRegenerate": "Regenerar respuesta"
   ,"aiThinkingMessage": "Quill está pensando..."
   ,"aiMessageTimestampNow": "ahora"
   ,"aiMessageTimestampMinutes": "hace {n} min"
@@ -2260,10 +2267,13 @@
   ,"settingsSectionDeviceSyncNav": "Sincronización"
   ,"settingsSectionVault": "Libreta"
   ,"settingsSectionVaultHeroDescription": "Seguridad al desbloquear, copias, programación a disco y gestión de datos en este dispositivo."
-  ,"settingsSectionUiWorkspace": "Interfaz y escritorio"
-  ,"settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opciones de escritorio y atajos de teclado."
+  ,"settingsSectionAppearance": "Apariencia"
+  ,"settingsSectionAppearanceHeroDescription": "Tema, idioma, escala, editor e iconos personalizados."
+  ,"settingsSectionDesktop": "Escritorio"
+  ,"settingsSectionDesktopHeroDescription": "Atajos globales, bandeja del sistema, comportamiento de la ventana y teclado en la app."
   ,"settingsSubsectionVaultBackupImport": "Copias e importación"
   ,"settingsSubsectionVaultScheduledLocal": "Copia programada"
+  ,"settingsSubsectionVaultScheduledAdvanced": "Copia automática y NAS/WebDAV"
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Datos (zona peligrosa)"
   ,"folioCloudSubsectionAccount": "Cuenta"
@@ -2342,6 +2352,26 @@
   ,"sidebarTrashCountBadge": "{count}"
   ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
   ,"sidebarTrashClose": "Cerrar"
+  ,"vaultTrashTitle": "Papelera de libretas"
+  ,"vaultTrashOpenTooltip": "Papelera de libretas"
+  ,"vaultTrashEmpty": "No hay libretas en la papelera"
+  ,"vaultTrashRetentionHint": "Las libretas se eliminan definitivamente a los 30 días."
+  ,"vaultTrashRestore": "Restaurar"
+  ,"vaultTrashDeleteForever": "Eliminar definitivamente"
+  ,"vaultTrashEmptyAction": "Vaciar papelera"
+  ,"vaultTrashEmptyConfirm": "¿Vaciar la papelera de libretas? Esta acción no se puede deshacer."
+  ,"vaultTrashDeleteForeverConfirm": "¿Eliminar «{title}» de forma definitiva? Esta acción no se puede deshacer."
+  ,"@vaultTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"vaultTrashDaysLeft": "Quedan {days} días"
+  ,"@vaultTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"vaultTrashNotOnThisDevice": "No está en este dispositivo"
+  ,"vaultTrashRestoring": "Restaurando…"
+  ,"vaultTrashRestoreFailed": "No se pudo restaurar la libreta."
+  ,"vaultDeletedToTrashSnack": "Libreta movida a la papelera."
+  ,"vaultTrashConflictBanner": "«{title}» se borró en otro dispositivo, pero aquí tiene cambios sin sincronizar."
+  ,"@vaultTrashConflictBanner": {"placeholders": {"title": {}}}
+  ,"vaultTrashConflictKeepLocal": "Conservar aquí"
+  ,"vaultTrashConflictMoveToTrash": "Mover a la papelera"
   ,"settingsStripeSubscriptionRefreshed": "Facturación Folio Cloud actualizada."
   ,"settingsStripeBillingPortalUnavailable": "Portal de facturación no disponible."
   ,"settingsCouldNotOpenLink": "No se pudo abrir el enlace."
@@ -2501,7 +2531,7 @@
   ,"settingsAiSnackSignInCloudAccount": "Inicia sesión en la cuenta en la nube (Ajustes)."
   ,"settingsAiProviderSwitchFailed": "Error al cambiar proveedor: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
-  ,"settingsAboutHeroDescription": "Versión del build, notas de publicación y canal de actualización. Las acciones están en la lista de abajo."
+  ,"settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación y canal de actualización."
   ,"settingsOpenReleaseNotes": "Ver notas de versión"
   ,"settingsUpdateChannelLabel": "Canal"
   ,"settingsUpdateChannelRelease": "Release"
@@ -2585,13 +2615,54 @@
   ,"settingsAutoCrashReportsTitle": "Enviar diagnósticos de errores automáticamente"
   ,"settingsAutoCrashReportsSubtitle": "Activado por defecto: si ocurre un error (grave o no), se envía un fragmento del registro a Folio para ayudar a solucionarlo. Puedes desactivarlo aquí."
   ,"settingsReportBugButton": "Reportar un error"
-  ,"settingsPrivacyFootnote": "Puedes añadir una nota; puede abrirse el enlace de incidencias en el navegador."
+  ,"settingsPrivacyFootnote": "Describe el problema; con cuenta Folio Cloud puedes seguir el reporte hasta que se cierre."
   ,"settingsReportBugDialogTitle": "Reportar un error"
-  ,"settingsReportBugDialogBody": "Enviaremos metadatos anónimos, un trozo del log y tu nota. Después podrás abrir el gestor de incidencias."
-  ,"settingsReportBugNoteLabel": "¿Qué ocurrió? (opcional)"
-  ,"settingsReportBugSend": "Enviar y continuar"
+  ,"settingsReportBugDialogBodySignedIn": "Enviaremos metadatos anónimos, un trozo del log y tu descripción a Folio. El reporte quedará visible aquí hasta que lo cerremos."
+  ,"settingsReportBugDialogBodyGuest": "Enviaremos metadatos anónimos, un trozo del log y tu descripción a Folio. Con una cuenta podrás seguir el reporte y añadir más datos para ayudarnos a solucionarlo."
+  ,"settingsReportBugSignInCta": "Iniciar sesión o crear cuenta"
+  ,"settingsReportBugAccountSignedIn": "Sesión iniciada"
+  ,"settingsReportBugAccountGuest": "Sin cuenta"
+  ,"settingsReportBugMetaPreview": "Plataforma: {platform} · Versión: {version} · Canal: {channel} · Cuenta: {account}"
+  ,"@settingsReportBugMetaPreview": {
+    "placeholders": {
+      "platform": {},
+      "version": {},
+      "channel": {},
+      "account": {}
+    }
+  }
+  ,"settingsReportBugNoteLabel": "¿Qué ocurrió?"
+  ,"settingsReportBugStepsLabel": "Pasos para reproducir (opcional)"
+  ,"settingsReportBugSend": "Enviar"
   ,"settingsReportBugSentOk": "Diagnóstico enviado."
+  ,"settingsReportBugSentOkWithId": "Diagnóstico enviado ({id})."
+  ,"@settingsReportBugSentOkWithId": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugSentOkLocalOnly": "Diagnóstico guardado. El seguimiento en YouTrack no está disponible ahora."
   ,"settingsReportBugSentFail": "No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde."
+  ,"settingsReportBugOpenTitle": "Reporte abierto ({id})"
+  ,"@settingsReportBugOpenTitle": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugOpenTitleGeneric": "Reporte abierto"
+  ,"settingsReportBugOpenSubtitle": "Pendiente de revisión"
+  ,"settingsReportBugAppendAction": "Añadir info"
+  ,"settingsReportBugAppendTitle": "Añadir información"
+  ,"settingsReportBugAppendBody": "Se añadirá al reporte {id}."
+  ,"@settingsReportBugAppendBody": {
+    "placeholders": {
+      "id": {}
+    }
+  }
+  ,"settingsReportBugAppendNoteLabel": "Información adicional"
+  ,"settingsReportBugAppendSend": "Enviar"
+  ,"settingsReportBugAppendOk": "Información añadida al reporte."
+  ,"settingsReportBugAppendFail": "No se pudo añadir la información. Inténtalo más tarde."
   ,"zenModeEnter": "Modo zen"
   ,"zenModeExit": "Salir del modo zen"
   ,"zenFullscreenEnter": "Pantalla completa"

@@ -280,6 +280,10 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     );
   }
 
+  Future<void> _openVaultTrash() async {
+    await showVaultTrashSheet(context: context, session: _s);
+  }
+
   Future<void> _openWipeFlow() async {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
@@ -541,14 +545,29 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     }
   }
 
+  Future<void> _openUpgradeToHardenedEncryptionFlow() async {
+    if (_s.state != VaultFlowState.unlocked) return;
+    final upgraded = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _UpgradeToHardenedEncryptionDialog(session: _s),
+    );
+    if (upgraded == true && mounted) {
+      _snack(AppLocalizations.of(context).upgradeToHardenedEncryptionSnack);
+      unawaited(_refreshSecurityFlags());
+    }
+  }
+
   String _getSectionTitle(AppLocalizations l10n, _SettingsSectionId sectionId) {
     switch (sectionId) {
       case _SettingsSectionId.cloud:
         return l10n.cloudAccountSectionTitle;
       case _SettingsSectionId.vault:
         return l10n.settingsSectionVault;
-      case _SettingsSectionId.uiWorkspace:
-        return l10n.settingsSectionUiWorkspace;
+      case _SettingsSectionId.appearance:
+        return l10n.settingsSectionAppearance;
+      case _SettingsSectionId.desktop:
+        return l10n.settingsSectionDesktop;
       case _SettingsSectionId.ai:
         return l10n.ai;
       case _SettingsSectionId.sync:
@@ -652,7 +671,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
 
     final List<_SearchItem> items = [
       _SearchItem(
-        category: _SettingsSectionId.uiWorkspace,
+        category: _SettingsSectionId.appearance,
         title: l10n.settingsSearchThemeTitle,
         description: l10n.settingsSearchThemeDesc,
         keywords: isEs
@@ -712,7 +731,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         ),
       ),
       _SearchItem(
-        category: _SettingsSectionId.uiWorkspace,
+        category: _SettingsSectionId.appearance,
         title: l10n.settingsSearchLangTitle,
         description: l10n.settingsSearchLangDesc,
         keywords: isEs

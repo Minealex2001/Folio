@@ -200,6 +200,18 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'vault/device-sync/plain-secret/ensure',
   ),
+  'folioTrashDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/trash',
+  ),
+  'folioRestoreDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/restore',
+  ),
+  'folioPurgeDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/purge',
+  ),
 
   // Profiles
   'folioGetAppProfileMeta': FolioSpringApiRoute(

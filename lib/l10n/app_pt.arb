@@ -72,6 +72,10 @@
       "min": {"type": "int"}
     }
   },
+  "vaultKdfProfileTitle": "Nível de segurança da criptografia",
+  "vaultKdfProfileBalanced": "Equilibrado",
+  "vaultKdfProfileHardened": "Reforçado",
+  "vaultKdfProfileHint": "Reforçado demora mais para desbloquear, mas resiste melhor a ataques de força bruta. Você poderá alterá-lo depois em Configurações.",
   "createStarterPagesTitle": "Criar fólios de ajuda iniciais",
   "createStarterPagesBody": "Adiciona um guia inicial personalizado conforme a forma como você pretende usar o Folio. Você pode excluir essas fólios depois.",
   "passwordLabel": "Senha",
@@ -154,6 +158,8 @@
   "lockOnMinimize": "Bloquear ao minimizar",
   "changeMasterPassword": "Alterar senha mestra",
   "requiresCurrentPassword": "Requer a senha atual",
+  "upgradeToHardenedEncryptionTitle": "Atualizar para criptografia reforçada",
+  "upgradeToHardenedEncryptionSnack": "Criptografia atualizada para reforçada",
   "lockAutoByInactivity": "Bloqueio automático por inatividade",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
@@ -752,6 +758,7 @@
   "aiAlwaysShowThought": "Sempre mostrar pensamento da Quill",
   "aiAlwaysShowThoughtHint": "Se desativado, ele aparece recolhido com uma seta em cada mensagem.",
   "aiBetaBadge": "BETA",
+  "aiManageQuillInstructionsTooltip": "Gerir instruções do Quill",
   "aiBetaEnableTitle": "A Quill está em BETA",
   "aiBetaEnableBody": "Este recurso está atualmente em BETA e pode falhar ou se comportar de forma inesperada.\n\nDeseja ativá-lo mesmo assim?",
   "aiBetaEnableConfirm": "Ativar BETA",
@@ -1074,6 +1081,7 @@
   "aiCopiedToClipboard": "Copiado para a área de transferência",
   "aiHelpful": "Útil",
   "aiNotHelpful": "Não é útil",
+  "aiRegenerate": "Regenerar resposta",
   "aiThinkingMessage": "Quill está pensando...",
   "aiMessageTimestampNow": "agora",
   "aiMessageTimestampMinutes": "{n} min atrás",
@@ -1297,6 +1305,7 @@
   "syncConflictMergeOpenPage": "Ir ao fólio",
   "syncConflictMergePreviewTitle": "Resultado fundido",
   "syncConflictMergeHunksTitle": "Alterações por trechos",
+  "syncConflictMergeOriginalTitle": "Original (antes de qualquer uma das duas alterações)",
   "syncConflictMergePageUntitled": "Sem título",
   "syncConflictMergeMissingPage": "Fólio não encontrada",
   "syncConflictMergeLegacyTitle": "Conflito de caderno",
@@ -2260,8 +2269,10 @@
   "settingsSectionDeviceSyncNav": "Sincronização",
   "settingsSectionVault": "Caderno",
   "settingsSectionVaultHeroDescription": "Segurança ao desbloquear, cópias, agendamento em disco e gestão de dados neste dispositivo.",
-  "settingsSectionUiWorkspace": "Interface e área de trabalho",
-  "settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opções de desktop e atalhos de teclado.",
+  "settingsSectionAppearance": "Aparência",
+  "settingsSectionAppearanceHeroDescription": "Tema, idioma, escala, editor e ícones personalizados.",
+  "settingsSectionDesktop": "Área de trabalho",
+  "settingsSectionDesktopHeroDescription": "Atalhos globais, bandeja do sistema, comportamento da janela e teclado no app.",
   "settingsSubsectionVaultBackupImport": "Cópias e importação",
   "settingsSubsectionVaultScheduledLocal": "Backup agendado",
   "settingsSubsectionDrive": "Drive",
@@ -2342,6 +2353,26 @@
   "sidebarTrashCountBadge": "{count}",
   "@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}},
   "sidebarTrashClose": "Fechar",
+  "vaultTrashTitle": "Lixeira de cadernos",
+  "vaultTrashOpenTooltip": "Lixeira de cadernos",
+  "vaultTrashEmpty": "Não há cadernos na lixeira",
+  "vaultTrashRetentionHint": "Os cadernos são eliminados definitivamente após 30 dias.",
+  "vaultTrashRestore": "Restaurar",
+  "vaultTrashDeleteForever": "Eliminar definitivamente",
+  "vaultTrashEmptyAction": "Esvaziar lixeira",
+  "vaultTrashEmptyConfirm": "Esvaziar a lixeira de cadernos? Esta ação não pode ser anulada.",
+  "vaultTrashDeleteForeverConfirm": "Eliminar «{title}» de forma definitiva? Esta ação não pode ser anulada.",
+  "@vaultTrashDeleteForeverConfirm": {"placeholders": {"title": {}}},
+  "vaultTrashDaysLeft": "Restam {days} dias",
+  "@vaultTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "vaultTrashNotOnThisDevice": "Não está neste dispositivo",
+  "vaultTrashRestoring": "A restaurar…",
+  "vaultTrashRestoreFailed": "Não foi possível restaurar o caderno.",
+  "vaultDeletedToTrashSnack": "Caderno movido para a lixeira.",
+  "vaultTrashConflictBanner": "«{title}» foi apagado noutro dispositivo, mas aqui tem alterações sem sincronizar.",
+  "@vaultTrashConflictBanner": {"placeholders": {"title": {}}},
+  "vaultTrashConflictKeepLocal": "Manter aqui",
+  "vaultTrashConflictMoveToTrash": "Mover para a lixeira",
   "settingsStripeSubscriptionRefreshed": "Faturação Folio Cloud atualizada.",
   "settingsStripeBillingPortalUnavailable": "Portal de faturação indisponível.",
   "settingsCouldNotOpenLink": "Não foi possível abrir a ligação.",
@@ -2502,7 +2533,7 @@
   "settingsAiSnackSignInCloudAccount": "Inicie sessão na conta na nuvem (Definições).",
   "settingsAiProviderSwitchFailed": "Não foi possível mudar o fornecedor de Quill: {error}",
   "@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}},
-  "settingsAboutHeroDescription": "Versão do build, notas de lançamento e canal de atualização. As ações estão na lista abaixo.",
+  "settingsAboutHeroDescription": "Privacidade, diagnósticos, versão do build, notas de lançamento e canal de atualização.",
   "settingsOpenReleaseNotes": "Ver notas de versão",
   "settingsUpdateChannelLabel": "Canal",
   "settingsUpdateChannelRelease": "Release",
@@ -2586,13 +2617,54 @@
   "settingsAutoCrashReportsTitle": "Enviar diagnósticos de erros automaticamente",
   "settingsAutoCrashReportsSubtitle": "Ativado por padrão: se ocorrer um erro (grave ou não), envia-se um excerto do registo para o Folio para ajudar a corrigi-lo. Pode desativar isto aqui.",
   "settingsReportBugButton": "Reportar um erro",
-  "settingsPrivacyFootnote": "Pode acrescentar uma nota; pode abrir-se a fólio de incidências no navegador.",
+  "settingsPrivacyFootnote": "Descreva o problema; com uma conta Folio Cloud pode acompanhar o relatório até ser fechado.",
   "settingsReportBugDialogTitle": "Reportar um erro",
-  "settingsReportBugDialogBody": "Enviaremos metadados anónimos, um excerto do registo e a sua nota. Depois pode abrir o gestor de incidências.",
-  "settingsReportBugNoteLabel": "O que aconteceu? (opcional)",
-  "settingsReportBugSend": "Enviar e continuar",
+  "settingsReportBugDialogBodySignedIn": "Enviaremos metadados anónimos, um excerto do registo e a sua descrição para o Folio. O relatório permanecerá visível aqui até o fecharmos.",
+  "settingsReportBugDialogBodyGuest": "Enviaremos metadados anónimos, um excerto do registo e a sua descrição para o Folio. Com uma conta pode acompanhar o relatório e acrescentar mais dados para nos ajudar a corrigi-lo.",
+  "settingsReportBugSignInCta": "Iniciar sessão ou criar conta",
+  "settingsReportBugAccountSignedIn": "Sessão iniciada",
+  "settingsReportBugAccountGuest": "Sem conta",
+  "settingsReportBugMetaPreview": "Plataforma: {platform} · Versão: {version} · Canal: {channel} · Conta: {account}",
+  "@settingsReportBugMetaPreview": {
+    "placeholders": {
+      "platform": {},
+      "version": {},
+      "channel": {},
+      "account": {}
+    }
+  },
+  "settingsReportBugNoteLabel": "O que aconteceu?",
+  "settingsReportBugStepsLabel": "Passos para reproduzir (opcional)",
+  "settingsReportBugSend": "Enviar",
   "settingsReportBugSentOk": "Diagnóstico enviado.",
-  "settingsReportBugSentFail": "Não foi possível enviar o diagnóstico. Verifique a ligação ou tente mais tarde."
+  "settingsReportBugSentOkWithId": "Diagnóstico enviado ({id}).",
+  "@settingsReportBugSentOkWithId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugSentOkLocalOnly": "Diagnóstico guardado. O acompanhamento no YouTrack não está disponível agora.",
+  "settingsReportBugSentFail": "Não foi possível enviar o diagnóstico. Verifique a ligação ou tente mais tarde.",
+  "settingsReportBugOpenTitle": "Relatório aberto ({id})",
+  "@settingsReportBugOpenTitle": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugOpenTitleGeneric": "Relatório aberto",
+  "settingsReportBugOpenSubtitle": "Pendente de revisão",
+  "settingsReportBugAppendAction": "Acrescentar info",
+  "settingsReportBugAppendTitle": "Acrescentar informação",
+  "settingsReportBugAppendBody": "Será acrescentado ao relatório {id}.",
+  "@settingsReportBugAppendBody": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugAppendNoteLabel": "Informação adicional",
+  "settingsReportBugAppendSend": "Enviar",
+  "settingsReportBugAppendOk": "Informação acrescentada ao relatório.",
+  "settingsReportBugAppendFail": "Não foi possível acrescentar a informação. Tente mais tarde."
   ,"zenModeEnter": "Modo zen"
   ,"zenModeExit": "Sair do modo zen"
   ,"zenFullscreenEnter": "Ecrã completo"
@@ -3539,6 +3611,76 @@
   ,"cloudAccountDisplayNameFailed": "Não foi possível atualizar o nome: {error}"
   ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"cloudAccountDisplayNameRequired": "Introduza um nome visível"
+  ,"folioCloudStatusSubsectionTitle": "Estado do serviço"
+  ,"folioCloudSettingsTabAccount": "Conta"
+  ,"folioCloudSettingsTabPlan": "Plano e sync"
+  ,"folioCloudSettingsTabStatus": "Estado"
+  ,"folioCloudSettingsSummaryGuest": "Não ligado"
+  ,"folioCloudSettingsSummarySignIn": "Iniciar sessão"
+  ,"folioCloudSettingsStatusChipIncident": "Incidente"
+  ,"folioCloudStatusHistoryCollapsed": "Histórico recente"
+  ,"folioCloudStatusOpenWebMore": "Ver mais na web"
+  ,"folioCloudStatusRefresh": "Atualizar estado"
+  ,"folioCloudStatusLoadError": "Não foi possível carregar o estado"
+  ,"folioCloudStatusLoadErrorHint": "Verifique a ligação e tente novamente."
+  ,"folioCloudStatusEmpty": "Sem dados de estado"
+  ,"folioCloudStatusEmptyHint": "Toque em atualizar para consultar o Folio Cloud."
+  ,"folioCloudStatusCheckedAt": "Verificado: {when}"
+  ,"@folioCloudStatusCheckedAt": {"placeholders": {"when": {"type": "String"}}}
+  ,"folioCloudStatusAggregateOk": "Tudo operacional"
+  ,"folioCloudStatusAggregateDegraded": "Serviço degradado"
+  ,"folioCloudStatusAggregatePartial": "Interrupção parcial"
+  ,"folioCloudStatusAggregateDown": "Serviço indisponível"
+  ,"folioCloudStatusServiceApi": "Folio Cloud API"
+  ,"folioCloudStatusServiceDatabase": "Base de dados"
+  ,"folioCloudStatusServiceBucket": "Armazenamento"
+  ,"folioCloudStatusServiceQuill": "Quill Cloud"
+  ,"folioCloudStatusServiceStripe": "Stripe"
+  ,"folioCloudStatusServiceResend": "Resend (email)"
+  ,"folioCloudStatusServiceJira": "Jira"
+  ,"folioCloudStatusServiceSlack": "Slack"
+  ,"folioCloudStatusServiceTeams": "Microsoft Teams"
+  ,"folioCloudStatusServiceSpotify": "Spotify"
+  ,"folioCloudStatusServiceMicrosoftStore": "Microsoft Store"
+  ,"folioCloudStatusServiceCommunityTemplates": "Loja de modelos"
+  ,"folioCloudStatusServiceCollab": "Colaboração em tempo real"
+  ,"folioCloudStatusServiceVaultShare": "Páginas partilhadas"
+  ,"folioCloudStatusServiceDeviceSync": "Sincronização de dispositivos"
+  ,"folioCloudStatusServiceIntegrations": "Integrações"
+  ,"folioCloudStatusServiceOk": "Operacional"
+  ,"folioCloudStatusServiceDegraded": "Degradado"
+  ,"folioCloudStatusServicePartial": "Interrupção parcial"
+  ,"folioCloudStatusServiceDown": "Indisponível"
+  ,"folioCloudStatusServiceUnconfigured": "Não configurado"
+  ,"folioCloudStatusLatencyMs": "{ms} ms"
+  ,"@folioCloudStatusLatencyMs": {"placeholders": {"ms": {"type": "int"}}}
+  ,"folioCloudStatusIncidentsTitle": "Incidentes e manutenções"
+  ,"folioCloudStatusHistoryTitle": "Histórico recente"
+  ,"folioCloudStatusHistoryLine": "{uptime}% uptime · {ok}/{total} checks"
+  ,"@folioCloudStatusHistoryLine": {"placeholders": {"uptime": {"type": "String"}, "ok": {"type": "int"}, "total": {"type": "int"}}}
+  ,"folioCloudStatusOpenWeb": "Abrir estado na web"
+  ,"folioCloudStatusTypeIncident": "Incidente"
+  ,"folioCloudStatusTypeMaintenance": "Manutenção"
+  ,"folioCloudStatusAffectedServices": "Afeta: {services}"
+  ,"@folioCloudStatusAffectedServices": {"placeholders": {"services": {"type": "String"}}}
+  ,"folioCloudStatusIncidentInvestigating": "A investigar"
+  ,"folioCloudStatusIncidentIdentified": "Identificado"
+  ,"folioCloudStatusIncidentMonitoring": "A monitorizar"
+  ,"folioCloudStatusIncidentResolved": "Resolvido"
+  ,"folioCloudStatusIncidentScheduled": "Agendado"
+  ,"folioCloudStatusIncidentInProgress": "Em curso"
+  ,"folioCloudStatusImpactMajorOutage": "Interrupção grave"
+  ,"folioCloudStatusImpactPartialOutage": "Interrupção parcial"
+  ,"folioCloudStatusImpactDegraded": "Degradado"
+  ,"folioCloudStatusBannerDown": "O Folio Cloud não está disponível"
+  ,"folioCloudStatusBannerPartial": "O Folio Cloud tem uma interrupção parcial"
+  ,"folioCloudStatusBannerDegraded": "O Folio Cloud funciona com limitações"
+  ,"folioCloudStatusBannerIncidentHint": "{type} em curso. Algumas funções podem falhar."
+  ,"@folioCloudStatusBannerIncidentHint": {"placeholders": {"type": {"type": "String"}}}
+  ,"folioCloudStatusBannerGenericHint": "Algumas funções da nuvem podem falhar temporariamente."
+  ,"folioCloudStatusBannerDetails": "Ver detalhe"
+  ,"folioCloudStatusBannerMoreInfo": "Mais info"
+  ,"folioCloudStatusBannerDismiss": "Fechar"
   ,"databaseCalendarLabel": "Calendário"
   ,"databaseGalleryLabel": "Galeria"
   ,"databaseTimelineLabel": "Linha do tempo"

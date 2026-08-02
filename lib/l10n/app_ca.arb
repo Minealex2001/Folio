@@ -72,6 +72,10 @@
       "min": {"type": "int"}
     }
   },
+  "vaultKdfProfileTitle": "Nivell de seguretat del xifratge",
+  "vaultKdfProfileBalanced": "Equilibrat",
+  "vaultKdfProfileHardened": "Reforçat",
+  "vaultKdfProfileHint": "Reforçat triga més a desbloquejar-se però resisteix millor els atacs de força bruta. El podràs canviar més endavant des dels Ajustos.",
   "createStarterPagesTitle": "Crea fòlis d'ajuda inicials",
   "createStarterPagesBody": "Afegeix una guia inicial personalitzada segons com faràs servir Folio. Pots suprimir aquestes fòlis més tard.",
   "passwordLabel": "Contrasenya",
@@ -154,6 +158,8 @@
   "lockOnMinimize": "Bloqueja en minimitzar",
   "changeMasterPassword": "Canvia la contrasenya mestra",
   "requiresCurrentPassword": "Requereix la contrasenya actual",
+  "upgradeToHardenedEncryptionTitle": "Actualitza a xifratge reforçat",
+  "upgradeToHardenedEncryptionSnack": "Xifratge actualitzat a reforçat",
   "lockAutoByInactivity": "Bloqueig automàtic per inactivitat",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
@@ -752,6 +758,7 @@
   "aiAlwaysShowThought": "Mostra sempre el pensament de la Quill",
   "aiAlwaysShowThoughtHint": "Si està desactivat, apareix replegat amb una fletxa a cada missatge.",
   "aiBetaBadge": "BETA",
+  "aiManageQuillInstructionsTooltip": "Gestionar instruccions de Quill",
   "aiBetaEnableTitle": "L'Quill està en fase BETA",
   "aiBetaEnableBody": "Aquesta funció està actualment en BETA i pot fallar o comportar-se de manera inesperada.\n\nVols activar-la igualment?",
   "aiBetaEnableConfirm": "Activa la BETA",
@@ -1074,6 +1081,7 @@
   "aiCopiedToClipboard": "Copiat al porta-retalls",
   "aiHelpful": "Útil",
   "aiNotHelpful": "No és útil",
+  "aiRegenerate": "Regenerar resposta",
   "aiThinkingMessage": "El Quill està pensant...",
   "aiMessageTimestampNow": "ara mateix",
   "aiMessageTimestampMinutes": "fa {n} min",
@@ -2261,8 +2269,10 @@
   "settingsSectionDeviceSyncNav": "Sincronització",
   "settingsSectionVault": "Llibreta",
   "settingsSectionVaultHeroDescription": "Seguretat en desbloquejar, còpies, programació a disc i gestió de dades en aquest dispositiu.",
-  "settingsSectionUiWorkspace": "Interfície i escriptori",
-  "settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opcions d'escriptori i dreceres de teclat.",
+  "settingsSectionAppearance": "Aparença",
+  "settingsSectionAppearanceHeroDescription": "Tema, idioma, escala, editor i icones personalitzades.",
+  "settingsSectionDesktop": "Escriptori",
+  "settingsSectionDesktopHeroDescription": "Dreceres globals, safata del sistema, comportament de la finestra i teclat a l'app.",
   "settingsSubsectionVaultBackupImport": "Còpies i importació",
   "settingsSubsectionVaultScheduledLocal": "Còpia programada",
   "settingsSubsectionDrive": "Drive",
@@ -2343,6 +2353,26 @@
   "sidebarTrashCountBadge": "{count}",
   "@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}},
   "sidebarTrashClose": "Tancar",
+  "vaultTrashTitle": "Paperera de llibretes",
+  "vaultTrashOpenTooltip": "Paperera de llibretes",
+  "vaultTrashEmpty": "No hi ha llibretes a la paperera",
+  "vaultTrashRetentionHint": "Les llibretes se suprimeixen definitivament al cap de 30 dies.",
+  "vaultTrashRestore": "Restaurar",
+  "vaultTrashDeleteForever": "Eliminar definitivament",
+  "vaultTrashEmptyAction": "Buidar paperera",
+  "vaultTrashEmptyConfirm": "Vols buidar la paperera de llibretes? Aquesta acció no es pot desfer.",
+  "vaultTrashDeleteForeverConfirm": "Vols eliminar «{title}» de forma definitiva? Aquesta acció no es pot desfer.",
+  "@vaultTrashDeleteForeverConfirm": {"placeholders": {"title": {}}},
+  "vaultTrashDaysLeft": "Queden {days} dies",
+  "@vaultTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "vaultTrashNotOnThisDevice": "No és en aquest dispositiu",
+  "vaultTrashRestoring": "Restaurant…",
+  "vaultTrashRestoreFailed": "No s'ha pogut restaurar la llibreta.",
+  "vaultDeletedToTrashSnack": "Llibreta moguda a la paperera.",
+  "vaultTrashConflictBanner": "«{title}» s'ha esborrat en un altre dispositiu, però aquí té canvis sense sincronitzar.",
+  "@vaultTrashConflictBanner": {"placeholders": {"title": {}}},
+  "vaultTrashConflictKeepLocal": "Conservar aquí",
+  "vaultTrashConflictMoveToTrash": "Moure a la paperera",
   "settingsStripeSubscriptionRefreshed": "Facturació Folio Cloud actualitzada.",
   "settingsStripeBillingPortalUnavailable": "Portal de facturació no disponible.",
   "settingsCouldNotOpenLink": "No s'ha pogut obrir l'enllaç.",
@@ -2503,7 +2533,7 @@
   "settingsAiSnackSignInCloudAccount": "Inicia sessió al compte al núvol (Ajustos).",
   "settingsAiProviderSwitchFailed": "No s'ha pogut canviar el proveïdor d'Quill: {error}",
   "@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}},
-  "settingsAboutHeroDescription": "Versió del build, notes de la versió i canal d'actualització. Les accions són a la llista de sota.",
+  "settingsAboutHeroDescription": "Privacitat, diagnòstics, versió del build, notes de la versió i canal d'actualització.",
   "settingsOpenReleaseNotes": "Veure notes de la versió",
   "settingsUpdateChannelLabel": "Canal",
   "settingsUpdateChannelRelease": "Release",
@@ -2587,13 +2617,54 @@
   "settingsAutoCrashReportsTitle": "Enviar diagnòstics d'errors automàticament",
   "settingsAutoCrashReportsSubtitle": "Activat per defecte: si hi ha un error (greu o no), s'envia un tall del registre a Folio per ajudar a solucionar-lo. Ho pots desactivar aquí.",
   "settingsReportBugButton": "Informar d'un error",
-  "settingsPrivacyFootnote": "Podeu afegir una nota; es pot obrir l'enllaç d'incidències al navegador.",
+  "settingsPrivacyFootnote": "Descriviu el problema; amb un compte Folio Cloud podeu fer seguiment fins que es tanqui.",
   "settingsReportBugDialogTitle": "Informar d'un error",
-  "settingsReportBugDialogBody": "Enviarem metadades anònimes, un tall del registre i la vostra nota. Després podreu obrir el gestor d'incidències.",
-  "settingsReportBugNoteLabel": "Què ha passat? (opcional)",
-  "settingsReportBugSend": "Enviar i continuar",
+  "settingsReportBugDialogBodySignedIn": "Enviarem metadades anònimes, un tall del registre i la vostra descripció a Folio. L'informe romandrà visible aquí fins que el tanquem.",
+  "settingsReportBugDialogBodyGuest": "Enviarem metadades anònimes, un tall del registre i la vostra descripció a Folio. Amb un compte podreu fer seguiment i afegir més dades per ajudar-nos a solucionar-ho.",
+  "settingsReportBugSignInCta": "Iniciar sessió o crear un compte",
+  "settingsReportBugAccountSignedIn": "Sessió iniciada",
+  "settingsReportBugAccountGuest": "Sense compte",
+  "settingsReportBugMetaPreview": "Plataforma: {platform} · Versió: {version} · Canal: {channel} · Compte: {account}",
+  "@settingsReportBugMetaPreview": {
+    "placeholders": {
+      "platform": {},
+      "version": {},
+      "channel": {},
+      "account": {}
+    }
+  },
+  "settingsReportBugNoteLabel": "Què ha passat?",
+  "settingsReportBugStepsLabel": "Passos per reproduir (opcional)",
+  "settingsReportBugSend": "Enviar",
   "settingsReportBugSentOk": "Diagnòstic enviat.",
-  "settingsReportBugSentFail": "No s'ha pogut enviar el diagnòstic. Reviseu la connexió o torneu-ho a provar més tard."
+  "settingsReportBugSentOkWithId": "Diagnòstic enviat ({id}).",
+  "@settingsReportBugSentOkWithId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugSentOkLocalOnly": "Diagnòstic desat. El seguiment a YouTrack no està disponible ara.",
+  "settingsReportBugSentFail": "No s'ha pogut enviar el diagnòstic. Reviseu la connexió o torneu-ho a provar més tard.",
+  "settingsReportBugOpenTitle": "Informe obert ({id})",
+  "@settingsReportBugOpenTitle": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugOpenTitleGeneric": "Informe obert",
+  "settingsReportBugOpenSubtitle": "Pendent de revisió",
+  "settingsReportBugAppendAction": "Afegir info",
+  "settingsReportBugAppendTitle": "Afegir informació",
+  "settingsReportBugAppendBody": "S'afegirà a l'informe {id}.",
+  "@settingsReportBugAppendBody": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugAppendNoteLabel": "Informació addicional",
+  "settingsReportBugAppendSend": "Enviar",
+  "settingsReportBugAppendOk": "Informació afegida a l'informe.",
+  "settingsReportBugAppendFail": "No s'ha pogut afegir la informació. Torneu-ho a provar més tard."
   ,"zenModeEnter": "Mode zen"
   ,"zenModeExit": "Sortir del mode zen"
   ,"zenFullscreenEnter": "Pantalla completa"
@@ -3540,6 +3611,76 @@
   ,"cloudAccountDisplayNameFailed": "No s'ha pogut actualitzar el nom: {error}"
   ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"cloudAccountDisplayNameRequired": "Introdueix un nom visible"
+  ,"folioCloudStatusSubsectionTitle": "Estat del servei"
+  ,"folioCloudSettingsTabAccount": "Compte"
+  ,"folioCloudSettingsTabPlan": "Pla i sync"
+  ,"folioCloudSettingsTabStatus": "Estat"
+  ,"folioCloudSettingsSummaryGuest": "No connectat"
+  ,"folioCloudSettingsSummarySignIn": "Iniciar sessió"
+  ,"folioCloudSettingsStatusChipIncident": "Incidència"
+  ,"folioCloudStatusHistoryCollapsed": "Historial recent"
+  ,"folioCloudStatusOpenWebMore": "Veure més a la web"
+  ,"folioCloudStatusRefresh": "Actualitzar estat"
+  ,"folioCloudStatusLoadError": "No s'ha pogut carregar l'estat"
+  ,"folioCloudStatusLoadErrorHint": "Comprova la connexió i torna-ho a provar."
+  ,"folioCloudStatusEmpty": "Sense dades d'estat"
+  ,"folioCloudStatusEmptyHint": "Prem actualitzar per consultar Folio Cloud."
+  ,"folioCloudStatusCheckedAt": "Comprovat: {when}"
+  ,"@folioCloudStatusCheckedAt": {"placeholders": {"when": {"type": "String"}}}
+  ,"folioCloudStatusAggregateOk": "Tot operatiu"
+  ,"folioCloudStatusAggregateDegraded": "Servei degradat"
+  ,"folioCloudStatusAggregatePartial": "Caiguda parcial"
+  ,"folioCloudStatusAggregateDown": "Servei no disponible"
+  ,"folioCloudStatusServiceApi": "Folio Cloud API"
+  ,"folioCloudStatusServiceDatabase": "Base de dades"
+  ,"folioCloudStatusServiceBucket": "Emmagatzematge"
+  ,"folioCloudStatusServiceQuill": "Quill Cloud"
+  ,"folioCloudStatusServiceStripe": "Stripe"
+  ,"folioCloudStatusServiceResend": "Resend (email)"
+  ,"folioCloudStatusServiceJira": "Jira"
+  ,"folioCloudStatusServiceSlack": "Slack"
+  ,"folioCloudStatusServiceTeams": "Microsoft Teams"
+  ,"folioCloudStatusServiceSpotify": "Spotify"
+  ,"folioCloudStatusServiceMicrosoftStore": "Microsoft Store"
+  ,"folioCloudStatusServiceCommunityTemplates": "Botiga de plantilles"
+  ,"folioCloudStatusServiceCollab": "Col·laboració en temps real"
+  ,"folioCloudStatusServiceVaultShare": "Pàgines compartides"
+  ,"folioCloudStatusServiceDeviceSync": "Sincronització de dispositius"
+  ,"folioCloudStatusServiceIntegrations": "Integracions"
+  ,"folioCloudStatusServiceOk": "Operatiu"
+  ,"folioCloudStatusServiceDegraded": "Degradat"
+  ,"folioCloudStatusServicePartial": "Caiguda parcial"
+  ,"folioCloudStatusServiceDown": "Caigut"
+  ,"folioCloudStatusServiceUnconfigured": "No configurat"
+  ,"folioCloudStatusLatencyMs": "{ms} ms"
+  ,"@folioCloudStatusLatencyMs": {"placeholders": {"ms": {"type": "int"}}}
+  ,"folioCloudStatusIncidentsTitle": "Incidències i manteniments"
+  ,"folioCloudStatusHistoryTitle": "Historial recent"
+  ,"folioCloudStatusHistoryLine": "{uptime}% uptime · {ok}/{total} checks"
+  ,"@folioCloudStatusHistoryLine": {"placeholders": {"uptime": {"type": "String"}, "ok": {"type": "int"}, "total": {"type": "int"}}}
+  ,"folioCloudStatusOpenWeb": "Obrir estat a la web"
+  ,"folioCloudStatusTypeIncident": "Incidència"
+  ,"folioCloudStatusTypeMaintenance": "Manteniment"
+  ,"folioCloudStatusAffectedServices": "Afecta a: {services}"
+  ,"@folioCloudStatusAffectedServices": {"placeholders": {"services": {"type": "String"}}}
+  ,"folioCloudStatusIncidentInvestigating": "Investigant"
+  ,"folioCloudStatusIncidentIdentified": "Identificat"
+  ,"folioCloudStatusIncidentMonitoring": "Supervisant"
+  ,"folioCloudStatusIncidentResolved": "Resolt"
+  ,"folioCloudStatusIncidentScheduled": "Programat"
+  ,"folioCloudStatusIncidentInProgress": "En curs"
+  ,"folioCloudStatusImpactMajorOutage": "Caiguda major"
+  ,"folioCloudStatusImpactPartialOutage": "Caiguda parcial"
+  ,"folioCloudStatusImpactDegraded": "Degradat"
+  ,"folioCloudStatusBannerDown": "Folio Cloud no està disponible"
+  ,"folioCloudStatusBannerPartial": "Folio Cloud té una caiguda parcial"
+  ,"folioCloudStatusBannerDegraded": "Folio Cloud funciona amb limitacions"
+  ,"folioCloudStatusBannerIncidentHint": "{type} en curs. Algunes funcions poden fallar."
+  ,"@folioCloudStatusBannerIncidentHint": {"placeholders": {"type": {"type": "String"}}}
+  ,"folioCloudStatusBannerGenericHint": "Algunes funcions del núvol poden fallar temporalment."
+  ,"folioCloudStatusBannerDetails": "Veure detall"
+  ,"folioCloudStatusBannerMoreInfo": "Més info"
+  ,"folioCloudStatusBannerDismiss": "Tancar"
   ,"databaseCalendarLabel": "Calendari"
   ,"databaseGalleryLabel": "Galeria"
   ,"databaseTimelineLabel": "Línia de temps"

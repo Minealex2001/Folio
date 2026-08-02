@@ -397,11 +397,23 @@ class _SidebarState extends State<Sidebar> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () {
+              // Quitar el foco del TextField antes de cerrar el diálogo: si
+              // sigue enfocado mientras se anima la salida y luego se
+              // dispone `controller` (fuera del diálogo, ver más abajo), el
+              // cursor parpadeante puede seguir usando el controller ya
+              // liberado y corromper el frame ("TextEditingController was
+              // used after being disposed" → cascada de GlobalKey duplicado).
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.pop(ctx, false);
+            },
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.pop(ctx, true);
+            },
             child: Text(l10n.save),
           ),
         ],

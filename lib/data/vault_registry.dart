@@ -26,7 +26,16 @@ class VaultRegistry {
   List<VaultEntry> _vaults = [];
   String? _activeVaultId;
 
-  List<VaultEntry> get vaults => List.unmodifiable(_vaults);
+  /// Libretas activas (no en papelera) — lo que usa el resto de la app.
+  List<VaultEntry> get vaults =>
+      List.unmodifiable(_vaults.where((e) => !e.isTrashed));
+
+  /// Todas las libretas registradas localmente, incluidas las de la papelera.
+  List<VaultEntry> get allVaults => List.unmodifiable(_vaults);
+
+  /// Solo las libretas en papelera localmente (con copia local de archivos).
+  List<VaultEntry> get trashedVaults =>
+      List.unmodifiable(_vaults.where((e) => e.isTrashed));
 
   String? get activeVaultId => _activeVaultId;
 
@@ -104,6 +113,26 @@ class VaultRegistry {
     if (_activeVaultId == id) {
       await setActiveVaultId(null);
     }
+  }
+
+  /// Mueve una libreta a la papelera: sigue en el registro (y sus archivos en
+  /// disco), pero deja de aparecer en [vaults]/el selector.
+  Future<void> trash(String id) async {
+    _vaults = _vaults
+        .map((e) => e.id == id ? e.copyWith(trashedAt: DateTime.now()) : e)
+        .toList();
+    await _saveVaultsJson();
+    if (_activeVaultId == id) {
+      await setActiveVaultId(null);
+    }
+  }
+
+  /// Saca una libreta de la papelera (undo del [trash]).
+  Future<void> restoreFromTrash(String id) async {
+    _vaults = _vaults
+        .map((e) => e.id == id ? e.copyWith(clearTrashedAt: true) : e)
+        .toList();
+    await _saveVaultsJson();
   }
 
   Future<void> rename(String id, String displayName) async {

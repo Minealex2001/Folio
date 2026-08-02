@@ -109,6 +109,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   FolioCloudStatusController? _cloudStatusController;
   FolioCloudSettingsSyncController? _cloudSettingsSyncController;
   bool? _lastCloudDeviceSyncShouldRun;
+  bool? _lastSettingsSyncShouldRun;
   bool _appProfileRestoreDialogShown = false;
   String? _installedVersionLabel;
   var _openingByHotkey = false;
@@ -275,6 +276,24 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.onBeforeLeavePage = () async {
       await _cloudDeviceSyncController?.flushPushIfPending();
     };
+    widget.session.onVaultDeletedLocally = (vaultId, displayName) =>
+        _cloudDeviceSyncController?.notifyVaultDeletedLocally(
+              vaultId,
+              displayName,
+            ) ??
+        Future.value();
+    widget.session.onVaultRestoredLocally = (vaultId) =>
+        _cloudDeviceSyncController?.notifyVaultRestoredLocally(vaultId) ??
+        Future.value();
+    widget.session.onVaultPurgedLocally = (vaultId) =>
+        _cloudDeviceSyncController?.notifyVaultPurgedLocally(vaultId) ??
+        Future.value();
+    widget.session.onFetchRemoteOnlyTrash = () =>
+        _cloudDeviceSyncController?.listRemoteOnlyTrash() ??
+        Future.value(const []);
+    widget.session.onMaterializeGhostVault = (vaultId) =>
+        _cloudDeviceSyncController?.materializeGhostVault(vaultId) ??
+        Future.value(false);
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
@@ -299,6 +318,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.onPersisted = null;
     widget.session.onBeforeLeaveVault = null;
     widget.session.onBeforeLeavePage = null;
+    widget.session.onVaultDeletedLocally = null;
+    widget.session.onVaultRestoredLocally = null;
+    widget.session.onVaultPurgedLocally = null;
+    widget.session.onFetchRemoteOnlyTrash = null;
+    widget.session.onMaterializeGhostVault = null;
     _deviceSyncController.dispose();
     unawaited(_cloudDeviceSyncController?.disposeController());
     _cloudDeviceSyncController?.dispose();
@@ -338,8 +362,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       SpotifyPlaybackController.instance.detachSession();
       MediaPlaybackRouter.instance.detachSession();
       // Device-sync sigue en segundo plano (headless) aunque la libreta esté
-      // bloqueada; solo se cierra la UI del workspace.
-      unawaited(_cloudSettingsSyncController?.stopWatching());
+      // bloqueada; settings sync no — requiere vault unlocked (no reiniciar
+      // solo por sesión cloud).
+      unawaited(_syncCloudSettingsSyncLifecycle());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final nav = _navKey.currentState;
         if (nav == null || !nav.mounted) return;
@@ -772,6 +797,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _applySessionSecurityPolicy();
     _applyAiSettings();
     _applyDeviceSyncSettings();
+    // Settings-cloud sync: lifecycle propio (cachea shouldRun), no acoplado
+    // a cada refresh de LAN device-sync.
+    unawaited(_syncCloudSettingsSyncLifecycle());
     _applyDesktopSettingsIfNeeded();
     unawaited(_applyMcpServerSettings());
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
@@ -863,7 +891,6 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   void _applyDeviceSyncSettings() {
     _deviceSyncController.refreshSettingsSnapshot();
     unawaited(_syncCloudDeviceSyncLifecycle());
-    unawaited(_syncCloudSettingsSyncLifecycle());
   }
 
   /// Solo relanza/para el controlador cuando el estado efectivo
@@ -894,25 +921,41 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _syncCloudSettingsSyncLifecycle() async {
+  /// Arranca/para settings sync solo cuando el estado efectivo cambia
+  /// (misma idea que device sync). Exige vault unlocked: con locked no se
+  /// relanza solo por `folioCloudHasSession()` (evita storm de meta tras
+  /// `stopWatching` en lock + `_onSettings`).
+  Future<void> _syncCloudSettingsSyncLifecycle({bool force = false}) async {
     final ctrl = _cloudSettingsSyncController;
     if (ctrl == null) return;
+    // isEnabled ya exige sesión cloud; no OR-ear hasSession con locked.
     final shouldRun = ctrl.isEnabled &&
-        (widget.session.state == VaultFlowState.unlocked ||
-            folioCloudHasSession());
+        widget.session.state == VaultFlowState.unlocked;
+    if (!force && shouldRun == _lastSettingsSyncShouldRun) return;
     AppLogger.debug(
       'settings sync lifecycle',
       tag: 'settings_sync',
       context: {
         'shouldRun': shouldRun,
+        'force': force,
+        'prev': _lastSettingsSyncShouldRun,
         'enabled': ctrl.isEnabled,
         'vaultState': widget.session.state.name,
       },
     );
     if (shouldRun) {
-      await ctrl.start();
+      try {
+        await ctrl.start();
+        _lastSettingsSyncShouldRun = true;
+      } catch (e) {
+        // No cachear éxito: un fallo de meta/start debe permitir reintento
+        // en el próximo notify (p. ej. tras corte HTTP).
+        _lastSettingsSyncShouldRun = null;
+        rethrow;
+      }
     } else {
       await ctrl.stopWatching();
+      _lastSettingsSyncShouldRun = false;
     }
   }
 

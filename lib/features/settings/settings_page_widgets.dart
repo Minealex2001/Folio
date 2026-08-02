@@ -26,8 +26,10 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.cloud_outlined;
       case _SettingsSectionId.vault:
         return Icons.lock_outline_rounded;
-      case _SettingsSectionId.uiWorkspace:
+      case _SettingsSectionId.appearance:
         return Icons.palette_outlined;
+      case _SettingsSectionId.desktop:
+        return Icons.desktop_windows_rounded;
       case _SettingsSectionId.ai:
         return FolioIcons.quillOutlined;
       case _SettingsSectionId.sync:
@@ -231,10 +233,15 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         gradientColors = const [Color(0xFFAB47BC), Color(0xFF7B1FA2)];
         subtitle = 'Copia de seguridad, seguridad y datos';
         break;
-      case _SettingsSectionId.uiWorkspace:
+      case _SettingsSectionId.appearance:
         icon = Icons.palette_outlined;
         gradientColors = const [Color(0xFFFF7043), Color(0xFFE64A19)];
-        subtitle = 'Temas, atajos de teclado y más';
+        subtitle = widget.l10n.settingsSectionAppearanceHeroDescription;
+        break;
+      case _SettingsSectionId.desktop:
+        icon = Icons.desktop_windows_rounded;
+        gradientColors = const [Color(0xFF5C6BC0), Color(0xFF3949AB)];
+        subtitle = widget.l10n.settingsSectionDesktopHeroDescription;
         break;
       case _SettingsSectionId.ai:
         icon = FolioIcons.quillOutlined;

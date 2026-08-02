@@ -52,6 +52,9 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   Timer? _vaultPushTimer;
   Timer? _pollTimer;
   StreamSubscription<void>? _metaSub;
+  /// True mientras el ciclo start()/daily-check está activo. Evita que
+  /// `start()` haga stop+refreshMeta si ya está watching.
+  bool _watching = false;
   bool _appDirty = false;
   bool _pushInFlight = false;
   bool _pullInFlight = false;
@@ -91,8 +94,9 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   void _onSettingsChanged() => markAppProfileDirty();
 
   Future<void> start() async {
-    await stopWatching();
+    if (_watching) return;
     if (!isEnabled) return;
+    _watching = true;
     final uid = folioCloudCurrentUid();
     if (uid != null &&
         _settings.cloudAppProfileAckUid == uid &&
@@ -100,8 +104,14 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
         _lastAppFp.isEmpty) {
       _lastAppFp = _settings.cloudAppProfileAckFingerprint;
     }
-    await _refreshMetaOnce(promptIfNewer: true);
-    _startDailyCheck();
+    try {
+      await _refreshMetaOnce(promptIfNewer: true);
+      if (!_watching) return;
+      _startDailyCheck();
+    } catch (_) {
+      _watching = false;
+      rethrow;
+    }
   }
 
   /// Fallback cuando no hay listener de Firestore en tiempo real: comprueba
@@ -116,6 +126,7 @@ class FolioCloudSettingsSyncController extends ChangeNotifier {
   }
 
   Future<void> stopWatching() async {
+    _watching = false;
     await _metaSub?.cancel();
     _metaSub = null;
     _pollTimer?.cancel();

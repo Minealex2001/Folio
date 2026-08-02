@@ -125,10 +125,13 @@ jobs:
         env:
           JIRA_OAUTH_CLIENT_SECRET: ${{ secrets.JIRA_OAUTH_CLIENT_SECRET }}
         run: |
+          # Release estable oficial (merge a master): backend de produccion,
+          # no el default de beta compilado en folio_local_secrets.dart.
+          $backendDefine = '--dart-define=FOLIO_BACKEND_BASE_URL=https://backendfolio.minealexgames.com'
           if ($env:JIRA_OAUTH_CLIENT_SECRET -and $env:JIRA_OAUTH_CLIENT_SECRET.Trim().Length -gt 0) {
-            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=JIRA_OAUTH_CLIENT_SECRET=$env:JIRA_OAUTH_CLIENT_SECRET
+            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github $backendDefine --dart-define=JIRA_OAUTH_CLIENT_SECRET=$env:JIRA_OAUTH_CLIENT_SECRET
           } else {
-            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github
+            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github $backendDefine
           }
 
       - name: Install Inno Setup

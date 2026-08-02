@@ -923,24 +923,29 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     scheme: scheme,
                     icon: Icons.calendar_month_outlined,
                     label: l10n.folioCloudInkMonthly,
-                    valueText:
-                        l10n.folioCloudInkCount(snap.ink.monthlyBalance),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(snap.ink.monthlyBalance),
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(
                     scheme: scheme,
                     icon: Icons.shopping_bag_outlined,
                     label: l10n.folioCloudInkPurchased,
-                    valueText: l10n.folioCloudInkCount(
-                      snap.ink.purchasedBalance,
-                    ),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(
+                            snap.ink.purchasedBalance,
+                          ),
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(
                     scheme: scheme,
                     icon: Icons.water_drop_outlined,
                     label: l10n.folioCloudInkTotal,
-                    valueText: l10n.folioCloudInkCount(snap.ink.totalInk),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(snap.ink.totalInk),
                     minWidth: cardMin,
                   ),
                 ],
@@ -948,7 +953,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             },
           ),
         ),
-        if (snap.ink.purchasedBalance > 0)
+        if (!snap.folioStaff && snap.ink.purchasedBalance > 0)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
             child: Text(
@@ -1014,20 +1019,21 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   ),
                 Builder(
                   builder: (context) {
+                    final unlimited = snap.folioStaff;
                     final quota = snap.backupQuotaBytes;
                     final usedBytes = snap.backupUsedBytes;
                     final remainingBytes = quota > 0
                         ? (quota - usedBytes).clamp(0, quota)
                         : 0;
-                    final determinate = quota > 0;
-                    final usedLabel = determinate
-                        ? fmtStorageBytes(usedBytes)
-                        : '…';
+                    final determinate = !unlimited && quota > 0;
+                    final usedLabel = fmtStorageBytes(usedBytes);
                     final quotaLabel =
-                        determinate ? fmtStorageBytes(quota) : '…';
-                    final remainingLabel = determinate
-                        ? fmtStorageBytes(remainingBytes)
-                        : '…';
+                        unlimited ? '∞' : (determinate ? fmtStorageBytes(quota) : '…');
+                    final remainingLabel = unlimited
+                        ? '∞'
+                        : (determinate
+                            ? fmtStorageBytes(remainingBytes)
+                            : '…');
                     final pct = determinate
                         ? ((usedBytes / quota) * 100).round().clamp(0, 100)
                         : null;
@@ -1044,7 +1050,15 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (pct != null)
+                            if (unlimited)
+                              Text(
+                                '∞',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: scheme.primary,
+                                ),
+                              )
+                            else if (pct != null)
                               Text(
                                 l10n.folioCloudBackupStorageBarPercent(pct),
                                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1058,9 +1072,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
-                            value: determinate
-                                ? (usedBytes / quota).clamp(0.0, 1.0)
-                                : null,
+                            value: unlimited
+                                ? 0
+                                : (determinate
+                                    ? (usedBytes / quota).clamp(0.0, 1.0)
+                                    : null),
                             minHeight: 10,
                             backgroundColor: scheme.surfaceContainerHighest,
                             valueColor: AlwaysStoppedAnimation<Color>(
@@ -1072,7 +1088,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          determinate
+                          determinate || unlimited
                               ? l10n.folioCloudBackupStorageBarDetail(
                                   usedLabel,
                                   quotaLabel,
@@ -2101,7 +2117,8 @@ class _SettingsSectionNavItem {
 enum _SettingsSectionId {
   cloud,
   vault,
-  uiWorkspace,
+  appearance,
+  desktop,
   ai,
   sync,
   integrations,

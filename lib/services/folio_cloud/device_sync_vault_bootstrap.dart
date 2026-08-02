@@ -27,6 +27,8 @@ class DeviceSyncRemoteVaultInfo {
     required this.rev,
     required this.contentFingerprint,
     required this.hasCloudPack,
+    this.trashed = false,
+    this.trashedAt,
   });
 
   final String vaultId;
@@ -35,6 +37,10 @@ class DeviceSyncRemoteVaultInfo {
   final int rev;
   final String contentFingerprint;
   final bool hasCloudPack;
+
+  /// true si la libreta está en la papelera en la nube.
+  final bool trashed;
+  final DateTime? trashedAt;
 
   bool get isPlain => vaultMode.trim().toLowerCase() == 'plain';
 }
@@ -119,6 +125,7 @@ Future<List<DeviceSyncRemoteVaultInfo>> listRemoteDeviceSyncVaults() async {
     final rev = revRaw is num
         ? revRaw.toInt()
         : int.tryParse('$revRaw') ?? 0;
+    final trashedAtRaw = item['trashedAt'];
     out.add(
       DeviceSyncRemoteVaultInfo(
         vaultId: id,
@@ -127,6 +134,10 @@ Future<List<DeviceSyncRemoteVaultInfo>> listRemoteDeviceSyncVaults() async {
         rev: rev,
         contentFingerprint: '${item['contentFingerprint'] ?? ''}'.trim(),
         hasCloudPack: item['hasCloudPack'] == true,
+        trashed: item['trashed'] == true,
+        trashedAt: trashedAtRaw is String
+            ? DateTime.tryParse(trashedAtRaw)
+            : null,
       ),
     );
   }
@@ -328,6 +339,15 @@ Future<SecretKey?> adoptDeviceSyncPackKeyFromBootstrap({
   }
 }
 
+/// True when wire decrypt failed due to wrong pack key (safe to try the next).
+/// Non-MAC errors (blob missing, 404, etc.) must not be masked as decrypt MAC.
+bool isDeviceSyncWireMacFailure(Object e) {
+  if (e is SecretBoxAuthenticationError) return true;
+  final msg = '$e'.toLowerCase();
+  return msg.contains('secretboxauthenticationerror') ||
+      msg.contains('wrong message authentication code');
+}
+
 /// Crea en local una libreta que solo existe en la nube y aplica el pack remoto.
 Future<bool> materializeRemoteDeviceSyncVault({
   required DeviceSyncRemoteVaultInfo remote,
@@ -337,6 +357,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
   final uid = folioCloudCurrentUid();
   if (uid == null) return false;
   if (!remote.hasCloudPack) return false;
+  if (remote.trashed) return false;
 
   final vaultId = remote.vaultId;
   final registry = VaultRegistry.instance;
@@ -412,7 +433,24 @@ Future<bool> materializeRemoteDeviceSyncVault({
       '$prefix/dek.accountwrap.bin',
       256 * 1024,
     );
-    if (wrap == null || wrap.isEmpty) {
+    List<int>? wrapBytes = wrap;
+    if (wrapBytes == null || wrapBytes.isEmpty) {
+      // Fallback: wrap en sync meta (Firestore/API), igual que adoptFromBootstrap.
+      final b64 = '${syncMeta?['dekAccountWrapB64'] ?? ''}'.trim();
+      if (b64.isNotEmpty) {
+        try {
+          wrapBytes = base64Decode(b64);
+        } catch (e) {
+          AppLogger.warn(
+            'materialize: dekAccountWrapB64 decode failed',
+            tag: 'cloud_sync',
+            context: {'vaultId': vaultId, 'error': '$e'},
+          );
+          wrapBytes = null;
+        }
+      }
+    }
+    if (wrapBytes == null || wrapBytes.isEmpty) {
       AppLogger.warn(
         'materialize skipped: missing dek.accountwrap (re-sync from source device)',
         tag: 'cloud_sync',
@@ -422,7 +460,7 @@ Future<bool> materializeRemoteDeviceSyncVault({
     }
     try {
       final clear = await cloudPackDecryptBytes(
-        blob: wrap,
+        blob: wrapBytes,
         packKey: accountKey,
       );
       if (clear.length != VaultCrypto.dekLength) {
@@ -589,6 +627,8 @@ Future<Uint8List> _decryptDeviceSyncWirePack({
     try {
       return await decryptWith(key);
     } catch (e) {
+      // Solo reintentar ante MAC; blob-missing / 404 deben propagarse.
+      if (!isDeviceSyncWireMacFailure(e)) rethrow;
       lastError = e;
     }
   }

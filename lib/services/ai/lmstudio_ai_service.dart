@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'ai_service.dart';
 import 'ai_types.dart';
+import 'openai_compatible_sse.dart';
 
 class LmStudioAiService implements AiService {
   LmStudioAiService({
@@ -23,6 +24,63 @@ class LmStudioAiService implements AiService {
   @override
   bool get supportsNativeToolCalling => false;
 
+  Map<String, dynamic> _buildPayload(AiCompletionRequest request) {
+    final textAttachments = request.attachments
+        .where((a) => !a.mimeType.startsWith('image/'))
+        .toList();
+    final imageAttachments = request.attachments
+        .where((a) => a.mimeType.startsWith('image/'))
+        .toList();
+    final userMessageContent = imageAttachments.isEmpty
+        ? _buildPrompt(request)
+        : <Map<String, dynamic>>[
+            {
+              'type': 'text',
+              'text': _buildPromptWithTextAttachments(
+                request.prompt,
+                textAttachments,
+              ),
+            },
+            ...imageAttachments.map(
+              (a) => {
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:${a.mimeType};base64,${a.content.trim()}',
+                },
+              },
+            ),
+          ];
+    final payload = <String, dynamic>{
+      'model': request.model == 'auto' ? defaultModel : request.model,
+      'messages': [
+        if ((request.systemPrompt ?? '').trim().isNotEmpty)
+          {'role': 'system', 'content': request.systemPrompt!.trim()},
+        ...request.messages.map(
+          (m) => {'role': m.role, 'content': m.content},
+        ),
+        {'role': 'user', 'content': userMessageContent},
+      ],
+    };
+    if (request.maxTokens != null) payload['max_tokens'] = request.maxTokens;
+    if (request.temperature != null) payload['temperature'] = request.temperature;
+    if (request.topK != null) payload['top_k'] = request.topK;
+    if (request.topP != null) payload['top_p'] = request.topP;
+    if (request.stop != null && request.stop!.isNotEmpty) {
+      payload['stop'] = request.stop;
+    }
+    if (request.responseSchema != null) {
+      payload['response_format'] = <String, dynamic>{
+        'type': 'json_schema',
+        'json_schema': <String, dynamic>{
+          'name': 'quill_response',
+          'strict': true,
+          'schema': request.responseSchema,
+        },
+      };
+    }
+    return payload;
+  }
+
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
@@ -30,82 +88,7 @@ class LmStudioAiService implements AiService {
       final endpoint = baseUrl.resolve('/v1/chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
-      final textAttachments = request.attachments
-          .where((a) => !a.mimeType.startsWith('image/'))
-          .toList();
-      final imageAttachments = request.attachments
-          .where((a) => a.mimeType.startsWith('image/'))
-          .toList();
-      final userMessageContent = imageAttachments.isEmpty
-          ? _buildPrompt(request)
-          : <Map<String, dynamic>>[
-              {
-                'type': 'text',
-                'text': _buildPromptWithTextAttachments(
-                  request.prompt,
-                  textAttachments,
-                ),
-              },
-              ...imageAttachments.map(
-                (a) => {
-                  'type': 'image_url',
-                  'image_url': {
-                    'url': 'data:${a.mimeType};base64,${a.content.trim()}',
-                  },
-                },
-              ),
-            ];
-      final payload = <String, dynamic>{
-        'model': request.model == 'auto' ? defaultModel : request.model,
-        'messages': [
-          if ((request.systemPrompt ?? '').trim().isNotEmpty)
-            {'role': 'system', 'content': request.systemPrompt!.trim()},
-          ...request.messages.map(
-            (m) => {'role': m.role, 'content': m.content},
-          ),
-          {'role': 'user', 'content': userMessageContent},
-        ],
-      };
-      if (request.maxTokens != null) payload['max_tokens'] = request.maxTokens;
-      if (request.temperature != null) payload['temperature'] = request.temperature;
-      if (request.topK != null) payload['top_k'] = request.topK;
-      if (request.topP != null) payload['top_p'] = request.topP;
-      if (request.stop != null && request.stop!.isNotEmpty) {
-        payload['stop'] = request.stop;
-      }
-      if (request.responseSchema != null) {
-        payload['response_format'] = <String, dynamic>{
-          'type': 'json_schema',
-          'json_schema': <String, dynamic>{
-            'name': 'quill_response',
-            'strict': true,
-            'schema': request.responseSchema,
-          },
-        };
-      }
-      if (request.temperature != null) {
-        payload['temperature'] = request.temperature;
-      }
-      if (request.topK != null) {
-        payload['top_k'] = request.topK;
-      }
-      if (request.topP != null) {
-        payload['top_p'] = request.topP;
-      }
-      if (request.stop != null && request.stop!.isNotEmpty) {
-        payload['stop'] = request.stop;
-      }
-      if (request.responseSchema != null) {
-        payload['response_format'] = <String, dynamic>{
-          'type': 'json_schema',
-          'json_schema': <String, dynamic>{
-            'name': 'quill_response',
-            'strict': true,
-            'schema': request.responseSchema,
-          },
-        };
-      }
-      httpReq.write(jsonEncode(payload));
+      httpReq.write(jsonEncode(_buildPayload(request)));
       final response = await httpReq.close().timeout(timeout);
       final body = await utf8.decodeStream(response).timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -123,21 +106,9 @@ class LmStudioAiService implements AiService {
         throw StateError('LM Studio devolvió respuesta vacía');
       }
       final usageRaw = json['usage'];
-      AiTokenUsage? usage;
-      if (usageRaw is Map) {
-        final u = Map<String, dynamic>.from(usageRaw);
-        int? asInt(dynamic v) {
-          if (v is int) return v;
-          if (v is num) return v.round();
-          return null;
-        }
-
-        usage = AiTokenUsage(
-          promptTokens: asInt(u['prompt_tokens']),
-          completionTokens: asInt(u['completion_tokens']),
-          totalTokens: asInt(u['total_tokens']),
-        );
-      }
+      final usage = usageRaw is Map
+          ? parseOpenAiCompatibleUsageMap(Map<String, dynamic>.from(usageRaw))
+          : null;
       return AiCompletionResult(
         text: content,
         provider: providerName,
@@ -149,18 +120,30 @@ class LmStudioAiService implements AiService {
     }
   }
 
-  // TODO(quill-tools): streaming real pendiente (requiere parsear SSE del
-  // runtime cargado); de momento emite el resultado completo como un único
-  // chunk final, igual que Folio Cloud.
+  /// Streaming real vía SSE. LM Studio expone el mismo formato de wire que
+  /// la API de OpenAI Chat Completions (`stream: true` + `data: {...}` /
+  /// `data: [DONE]`), así que reutiliza el mismo parser que
+  /// `OpenAiCompatibleAiService` en vez de duplicar el bucle SSE.
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
-    final result = await complete(request);
-    yield AiCompletionChunk(
-      textDelta: result.text,
-      isFinal: true,
-      usage: result.usage,
-      toolCalls: result.toolCalls,
-    );
+    final client = HttpClient();
+    try {
+      final endpoint = baseUrl.resolve('/v1/chat/completions');
+      final httpReq = await client.postUrl(endpoint).timeout(timeout);
+      httpReq.headers.contentType = ContentType.json;
+      final payload = _buildPayload(request)..['stream'] = true;
+      httpReq.write(jsonEncode(payload));
+
+      final response = await httpReq.close().timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await utf8.decodeStream(response).timeout(timeout);
+        throw StateError('LM Studio respondió ${response.statusCode}: $body');
+      }
+
+      yield* parseOpenAiCompatibleSseStream(response);
+    } finally {
+      client.close(force: true);
+    }
   }
 
   @override

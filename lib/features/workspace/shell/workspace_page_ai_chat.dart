@@ -46,19 +46,76 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       _supersedePendingPlansInChat(targetChatId);
     }
 
+    // El modo Plan sigue sin streaming (la respuesta se renderiza como
+    // tarjeta de plan, no como burbuja de texto normal) — se mantiene el
+    // comportamiento de siempre: se añade el mensaje completo al terminar.
+    if (_planModeEnabled) {
+      try {
+        final outcome = await _runAiFromChat(
+          text,
+          threadMessages,
+          includePageContext: includePageContext,
+          contextPageIds: contextPageIds,
+        );
+        if (!mounted) return;
+        if (_activeChat.id == targetChatId) {
+          _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
+        }
+        _s.appendMessageToAiChatById(
+          targetChatId,
+          AiChatMessage.now(
+            role: 'assistant',
+            content: outcome.reply,
+            agentApplySnapshot: outcome.agentApplySnapshot,
+            agentPlan: outcome.agentPlan,
+            toolCalls: outcome.toolCalls,
+            toolErrors: outcome.toolErrors,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        _handleAiChatError(e);
+      } finally {
+        if (mounted) {
+          _setStateSafe(() {
+            _aiChatBusy = false;
+            _aiToolActivityLabel = null;
+          });
+        }
+      }
+      return;
+    }
+
+    // Camino normal (tool-calling): placeholder vacío + streaming en vivo.
+    final placeholderIndex = threadMessages.length;
+    final placeholderKey = '$targetChatId#$placeholderIndex';
+    _s.appendMessageToAiChatById(
+      targetChatId,
+      AiChatMessage.now(role: 'assistant', content: ''),
+    );
+    _setStateSafe(() => _aiStreamingMessageKeys.add(placeholderKey));
     try {
       final outcome = await _runAiFromChat(
         text,
         threadMessages,
         includePageContext: includePageContext,
         contextPageIds: contextPageIds,
+        onReplyDelta: (textSoFar) {
+          if (!mounted) return;
+          _s.updateMessageInAiChatById(
+            targetChatId,
+            placeholderIndex,
+            AiChatMessage.now(role: 'assistant', content: textSoFar),
+          );
+        },
       );
       if (!mounted) return;
       if (_activeChat.id == targetChatId) {
         _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
       }
-      _s.appendMessageToAiChatById(
+      _s.updateMessageInAiChatById(
         targetChatId,
+        placeholderIndex,
         AiChatMessage.now(
           role: 'assistant',
           content: outcome.reply,
@@ -69,22 +126,108 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         ),
       );
     } catch (e) {
+      _s.removeMessageInAiChatById(targetChatId, placeholderIndex);
       if (!mounted) return;
-      final l10n = AppLocalizations.of(context);
-      if (e is FolioCloudAiException && e.isInkExhausted) {
-        await showFolioCloudAiInkExhaustedDialog(
-          context,
-          onOpenSettings: _openSettings,
-          onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
-        );
-      } else {
-        _snack(l10n.aiErrorWithDetails(e), error: true);
-      }
+      _handleAiChatError(e);
     } finally {
       if (mounted) {
         _setStateSafe(() {
           _aiChatBusy = false;
           _aiToolActivityLabel = null;
+          _aiStreamingMessageKeys.remove(placeholderKey);
+          _aiTypewriterActiveMessageKeys.remove(placeholderKey);
+        });
+      }
+    }
+  }
+
+  void _handleAiChatError(Object e) {
+    final l10n = AppLocalizations.of(context);
+    if (e is FolioCloudAiException && e.isInkExhausted) {
+      unawaited(
+        showFolioCloudAiInkExhaustedDialog(
+          context,
+          onOpenSettings: _openSettings,
+          onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
+        ),
+      );
+    } else {
+      _snack(l10n.aiErrorWithDetails(e), error: true);
+    }
+  }
+
+  /// Reenvía el turno de usuario que precede a [messageIndex] (el último
+  /// mensaje de Quill del hilo) y reemplaza esa respuesta in situ — mismo
+  /// mecanismo de streaming que `_sendAiChat`, sin añadir mensajes nuevos.
+  Future<void> _regenerateAiMessage(int messageIndex) async {
+    if (_aiChatBusy) return;
+    final targetChat = _activeChat;
+    final targetChatId = targetChat.id;
+    if (messageIndex != targetChat.messages.length - 1) return;
+    if (messageIndex <= 0) return;
+    final original = targetChat.messages[messageIndex];
+    if (original.role != 'assistant') return;
+    final userTurn = targetChat.messages[messageIndex - 1];
+    if (userTurn.role != 'user') return;
+    final text = userTurn.content.trim();
+    if (text.isEmpty) return;
+
+    final includePageContext = targetChat.includePageContext;
+    final contextPageIds = List<String>.from(targetChat.contextPageIds);
+    final threadMessages = targetChat.messages.sublist(0, messageIndex - 1);
+    final placeholderKey = '$targetChatId#$messageIndex';
+
+    _setStateSafe(() {
+      _aiChatBusy = true;
+      _aiStreamingMessageKeys.add(placeholderKey);
+    });
+    _s.updateMessageInAiChatById(
+      targetChatId,
+      messageIndex,
+      AiChatMessage.now(role: 'assistant', content: ''),
+    );
+    try {
+      final outcome = await _runAiFromChat(
+        text,
+        threadMessages,
+        includePageContext: includePageContext,
+        contextPageIds: contextPageIds,
+        onReplyDelta: (textSoFar) {
+          if (!mounted) return;
+          _s.updateMessageInAiChatById(
+            targetChatId,
+            messageIndex,
+            AiChatMessage.now(role: 'assistant', content: textSoFar),
+          );
+        },
+      );
+      if (!mounted) return;
+      if (_activeChat.id == targetChatId) {
+        _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
+      }
+      _s.updateMessageInAiChatById(
+        targetChatId,
+        messageIndex,
+        AiChatMessage.now(
+          role: 'assistant',
+          content: outcome.reply,
+          agentApplySnapshot: outcome.agentApplySnapshot,
+          agentPlan: outcome.agentPlan,
+          toolCalls: outcome.toolCalls,
+          toolErrors: outcome.toolErrors,
+        ),
+      );
+    } catch (e) {
+      _s.updateMessageInAiChatById(targetChatId, messageIndex, original);
+      if (!mounted) return;
+      _handleAiChatError(e);
+    } finally {
+      if (mounted) {
+        _setStateSafe(() {
+          _aiChatBusy = false;
+          _aiToolActivityLabel = null;
+          _aiStreamingMessageKeys.remove(placeholderKey);
+          _aiTypewriterActiveMessageKeys.remove(placeholderKey);
         });
       }
     }
@@ -111,6 +254,9 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     List<AiChatMessage> threadMessages, {
     required bool includePageContext,
     required List<String> contextPageIds,
+    /// Streaming en vivo del texto de respuesta final (solo camino de
+    /// tool-calling; el modo Plan sigue sin streaming, ver `_sendAiChat`).
+    void Function(String textSoFar)? onReplyDelta,
   }) async {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -138,6 +284,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         cloudInkOperation: op,
         extraContextSections: extra,
         systemPromptOverride: preset.prompt,
+        systemPromptOverrideIsNarrowTask: preset.isNarrowTask,
       );
     }
 
@@ -152,8 +299,10 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       cloudInkOperation: op,
       extraContextSections: extra,
       systemPromptOverride: preset.prompt,
+      systemPromptOverrideIsNarrowTask: preset.isNarrowTask,
       useToolCalling: widget.appSettings.quillToolCallingEnabled,
       onToolEvent: _onAiToolEvent,
+      onReplyDelta: onReplyDelta,
     );
   }
 

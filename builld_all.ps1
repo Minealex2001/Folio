@@ -34,6 +34,7 @@ param(
     [string] $ReleaseNotes = '',
     [string] $ReleaseNotesFile = '',
     [string] $FolioWebBaseUrl = '',
+    [string] $FolioBackendBaseUrl = '',
     [ValidateSet('global', 'android', 'windows', 'linux', 'macos')]
     [string] $PlatformScope = 'global',
     [switch] $Yes
@@ -83,6 +84,33 @@ function Get-FolioWebBaseUrlArg {
             $base = 'https://folio.minealexgames.com'
             Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
             return "--dart-define=FOLIO_WEB_BASE_URL=$base"
+        }
+        default {
+            return $null
+        }
+    }
+}
+
+# Backend Spring (API). Mismo canal que Get-FolioWebBaseUrlArg: beta para
+# prerelease, produccion para release estable. Sin -AsPreRelease/-AsRelease
+# (build local suelto, sin publicar) deja el default compilado en
+# folio_local_secrets.dart (= beta).
+function Get-FolioBackendBaseUrlArg {
+    if (-not [string]::IsNullOrWhiteSpace($FolioBackendBaseUrl)) {
+        $base = $FolioBackendBaseUrl.Trim().TrimEnd('/')
+        Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (override -FolioBackendBaseUrl)" -ForegroundColor Gray
+        return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
+    }
+    switch ($script:FolioWebChannel) {
+        'beta' {
+            $base = 'https://backendfoliobeta.minealexgames.com'
+            Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal Beta / prerelease)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
+        }
+        'production' {
+            $base = 'https://backendfolio.minealexgames.com'
+            Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
         }
         default {
             return $null
@@ -393,7 +421,8 @@ function Build-WindowsGitHub {
     Write-Host "`n[win] Compilando Windows (Release, canal GitHub)..." -ForegroundColor Cyan
     $winGhArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
         (Get-FolioDistributionArg $DistributionWindowsGitHub),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @winGhArgs
     Assert-LastExitCode 'flutter build windows (GitHub)'
@@ -411,7 +440,8 @@ function Build-WindowsStore {
     $winMsArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
         (Get-FolioDistributionArg $DistributionWindowsMicrosoftStore),
         (Get-MicrosoftStoreDartDefinesFromEnv -EnvFilePath $msEnv),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @winMsArgs
     Assert-LastExitCode 'flutter build windows (Microsoft Store)'
@@ -429,7 +459,8 @@ function Build-Android {
     Write-Host "`n[android] Compilando Android (APK Release)..." -ForegroundColor Cyan
     $apkArgs = Merge-FlutterDartDefines @('build', 'apk', '--release') @(
         (Get-FolioDistributionArg $DistributionAndroid),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @apkArgs
     Assert-LastExitCode 'flutter build apk'
@@ -439,7 +470,8 @@ function Build-Android {
     Write-Host "`n[android] Compilando Android (AAB Release)..." -ForegroundColor Cyan
     $aabArgs = Merge-FlutterDartDefines @('build', 'appbundle', '--release') @(
         (Get-FolioDistributionArg $DistributionAndroid),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @aabArgs
     Assert-LastExitCode 'flutter build appbundle'
@@ -451,7 +483,8 @@ function Build-LinuxNative {
     Write-Host "`n[linux] Compilando Linux nativo (Release)..." -ForegroundColor Cyan
     $linuxArgs = Merge-FlutterDartDefines @('build', 'linux', '--release') @(
         (Get-FolioDistributionArg $DistributionLinux),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @linuxArgs
     Assert-LastExitCode 'flutter build linux'
@@ -473,6 +506,11 @@ function Build-LinuxViaWsl {
     if (-not [string]::IsNullOrWhiteSpace($webArg)) {
         $webDefine = [string]$webArg
     }
+    $backendDefine = ''
+    $backendArg = Get-FolioBackendBaseUrlArg
+    if (-not [string]::IsNullOrWhiteSpace($backendArg)) {
+        $backendDefine = [string]$backendArg
+    }
     $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
     $zipName = "Folio-Linux-GitHub-${verSafe}.zip"
     $shPathWin = Join-Path $env:TEMP 'folio_build_linux_wsl.sh'
@@ -489,7 +527,7 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 127
 fi
 flutter pub get
-flutter build linux --release $distDefine $webDefine
+flutter build linux --release $distDefine $webDefine $backendDefine
 mkdir -p '$wslOut'
 rm -f '$wslOut/$zipName'
 (cd build/linux/x64/release && zip -r '$wslOut/$zipName' bundle)
@@ -551,7 +589,8 @@ function Build-MacOS {
         Write-Host "`n[macos] Compilando macOS (Release)..." -ForegroundColor Cyan
         $macArgs = Merge-FlutterDartDefines @('build', 'macos', '--release') @(
             (Get-FolioDistributionArg $DistributionMacOS),
-            (Get-FolioWebBaseUrlArg)
+            (Get-FolioWebBaseUrlArg),
+            (Get-FolioBackendBaseUrlArg)
         )
         & flutter @macArgs
         Assert-LastExitCode 'flutter build macos'
@@ -934,6 +973,11 @@ function Invoke-PublishFlow {
     } else {
         'https://folio.minealexgames.com'
     }
+    $backendUrl = if ($AsPreRelease) {
+        'https://backendfoliobeta.minealexgames.com'
+    } else {
+        'https://backendfolio.minealexgames.com'
+    }
 
     # Ajustar skips segun alcance de plataforma.
     $prevSkipAndroid = $SkipAndroid
@@ -984,6 +1028,7 @@ function Invoke-PublishFlow {
         Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
         Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
         Write-Host "  Enlaces web     : $webLinks (compartir / reset / verify)" -ForegroundColor Gray
+        Write-Host "  Backend API     : $backendUrl" -ForegroundColor Gray
         Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 
         if (-not (Confirm-Action "Compilar y publicar $tag (alcance=$scope) ?")) {

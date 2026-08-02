@@ -253,14 +253,7 @@ mixin _MultiSelectDragDrop on State<BlockEditor> {
 
   void _onBlocksReordered(FolioPage page, int oldIndex, int newIndex) {
     final st = _selectionSelf;
-    String? focusId;
-    for (var i = 0; i < st._focusNodes.length; i++) {
-      if (st._focusNodes[i].hasFocus) {
-        focusId = page.blocks[i].id;
-        break;
-      }
-    }
-    st._pendingFocusBlockId = focusId;
+    st._pendingFocusBlockId = st._focusedBlockId;
     st._s.reorderBlockAt(page.id, oldIndex, newIndex);
   }
 

@@ -50,6 +50,22 @@ Map<String, dynamic> _paramsAsMap(Object? parameters) {
   return <String, dynamic>{'value': parameters};
 }
 
+/// Meta GET callables donde un corte de keep-alive es frecuente y barato
+/// de reintentar (FOLIO-16). Errores definitivos (`FolioCloudException` con
+/// auth/permiso/etc.) no se reintentan aquí.
+const _folioMetaCallablesWithTransientRetry = <String>{
+  'folioGetAppProfileMeta',
+  'folioGetDeviceSyncMeta',
+};
+
+bool _isTransientHttpTransportError(Object e) {
+  if (e is http.ClientException) return true;
+  final msg = '$e'.toLowerCase();
+  return msg.contains('connection closed') ||
+      msg.contains('connection reset') ||
+      msg.contains('broken pipe');
+}
+
 /// Equivalente legacy a `HttpsCallable.call` (payload JSON del API Spring).
 Future<dynamic> callFolioHttpsCallable(
   String name, [
@@ -68,14 +84,52 @@ Future<dynamic> callFolioHttpsCallable(
     },
   );
 
+  final allowTransientRetry =
+      _folioMetaCallablesWithTransientRetry.contains(name);
+  // 1 intento + hasta 2 reintentos con backoff corto ante cortes de conexión.
+  const maxTransientAttempts = 3;
+  const transientBackoff = <Duration>[
+    Duration(milliseconds: 150),
+    Duration(milliseconds: 400),
+  ];
+
   try {
-    final result = await _callFolioSpringRest(name, parameters);
-    AppLogger.debug(
-      'callable ok',
-      tag: 'cloud_sync',
-      context: {'name': name, 'viaHttp': true, 'backend': 'spring'},
-    );
-    return result;
+    Object? lastTransient;
+    for (var attempt = 0; attempt < maxTransientAttempts; attempt++) {
+      try {
+        final result = await _callFolioSpringRest(name, parameters);
+        AppLogger.debug(
+          'callable ok',
+          tag: 'cloud_sync',
+          context: {
+            'name': name,
+            'viaHttp': true,
+            'backend': 'spring',
+            if (attempt > 0) 'transientAttempt': attempt,
+          },
+        );
+        return result;
+      } catch (e) {
+        if (!allowTransientRetry ||
+            !_isTransientHttpTransportError(e) ||
+            attempt >= maxTransientAttempts - 1) {
+          rethrow;
+        }
+        lastTransient = e;
+        AppLogger.warn(
+          'callable transient transport error; retrying',
+          tag: 'cloud_sync',
+          context: {
+            'name': name,
+            'attempt': attempt + 1,
+            'error': '$e',
+          },
+        );
+        await Future<void>.delayed(transientBackoff[attempt]);
+      }
+    }
+    // Inalcanzable: el bucle siempre return/rethrow.
+    throw lastTransient ?? StateError('callable retry exhausted: $name');
   } catch (e, st) {
     AppLogger.error(
       'callable failed',

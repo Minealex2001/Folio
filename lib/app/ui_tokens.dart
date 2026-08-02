@@ -235,7 +235,8 @@ class FolioSidebar {
   /// Ancho reservado para la zona de acciones inline (+ y ⋯) en cada fila del
   /// árbol. Se reserva siempre (aunque las acciones estén ocultas por opacidad)
   /// para evitar layout shift al hover en escritorio.
-  static const double tileActionsSlotWidth = 72;
+  /// Dos IconButton compactos (~40px c/u) necesitan ≥80px.
+  static const double tileActionsSlotWidth = 80;
 }
 
 class FolioAdaptive {

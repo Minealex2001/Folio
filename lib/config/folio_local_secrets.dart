@@ -26,7 +26,14 @@ abstract final class FolioLocalSecrets {
   /// URL pública del API (Railway o local). Sin barra final.
   /// Ejemplo Railway: `https://folio-backend-production-xxxx.up.railway.app`
   /// Ejemplo local: `http://127.0.0.1:18080`
-  static const String folioBackendBaseUrl = 'https://backendfolio.minealexgames.com';
+  ///
+  /// Default = backend de beta (no el de producción): esto es lo que se usa
+  /// cuando no hay `--dart-define=FOLIO_BACKEND_BASE_URL=…` (p. ej. `flutter
+  /// run` en local, o builds de prerelease). La release estable oficial
+  /// (`windows-release-on-merge.yml`) sobrescribe explícitamente con el
+  /// backend de producción — ver ese workflow y `builld_all.ps1`.
+  static const String folioBackendBaseUrl =
+      'https://backendfoliobeta.minealexgames.com';
 
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'ai_service.dart';
 import 'ai_types.dart';
+import 'openai_compatible_sse.dart';
 
 class OpenAiCompatibleAiService implements AiService {
   OpenAiCompatibleAiService({
@@ -140,20 +141,6 @@ class OpenAiCompatibleAiService implements AiService {
     }).toList();
   }
 
-  AiTokenUsage? _parseUsageMap(Map<String, dynamic> u) {
-    int? asInt(dynamic v) {
-      if (v is int) return v;
-      if (v is num) return v.round();
-      return null;
-    }
-
-    return AiTokenUsage(
-      promptTokens: asInt(u['prompt_tokens']),
-      completionTokens: asInt(u['completion_tokens']),
-      totalTokens: asInt(u['total_tokens']),
-    );
-  }
-
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
@@ -186,7 +173,9 @@ class OpenAiCompatibleAiService implements AiService {
       }
 
       final usageRaw = json['usage'];
-      final usage = usageRaw is Map ? _parseUsageMap(Map<String, dynamic>.from(usageRaw)) : null;
+      final usage = usageRaw is Map
+          ? parseOpenAiCompatibleUsageMap(Map<String, dynamic>.from(usageRaw))
+          : null;
 
       return AiCompletionResult(
         text: content,
@@ -201,8 +190,8 @@ class OpenAiCompatibleAiService implements AiService {
   }
 
   /// Streaming real vía SSE (`data: {...}\n\n`, terminado en `data: [DONE]`).
-  /// Los deltas de tool-calls llegan troceados por índice (`delta.tool_calls[].index`)
-  /// — se acumulan por índice y se reensamblan al recibir `[DONE]`.
+  /// El parseo del wire format vive en `openai_compatible_sse.dart`,
+  /// compartido con `LmStudioAiService` (mismo formato OpenAI-compatible).
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     final client = HttpClient();
@@ -223,81 +212,10 @@ class OpenAiCompatibleAiService implements AiService {
         throw StateError('Error del servicio de IA (${response.statusCode}): $body');
       }
 
-      final toolCallIdByIndex = <int, String>{};
-      final toolCallNameByIndex = <int, String>{};
-      final toolCallArgsByIndex = <int, StringBuffer>{};
-      AiTokenUsage? finalUsage;
-
-      final lines = response.transform(utf8.decoder).transform(const LineSplitter());
-      await for (final line in lines) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty || !trimmed.startsWith('data:')) continue;
-        final data = trimmed.substring(5).trim();
-        if (data == '[DONE]') {
-          final toolCalls = toolCallArgsByIndex.isEmpty && toolCallNameByIndex.isEmpty
-              ? null
-              : [
-                  for (final index in {...toolCallIdByIndex.keys, ...toolCallNameByIndex.keys})
-                    AiToolCall(
-                      id: toolCallIdByIndex[index] ?? 'stream_$index',
-                      name: toolCallNameByIndex[index] ?? '',
-                      arguments: _tryDecodeArgs(toolCallArgsByIndex[index]?.toString()),
-                    ),
-                ];
-          yield AiCompletionChunk(isFinal: true, usage: finalUsage, toolCalls: toolCalls);
-          break;
-        }
-
-        Map<String, dynamic> event;
-        try {
-          event = jsonDecode(data) as Map<String, dynamic>;
-        } catch (_) {
-          continue;
-        }
-
-        final usageRaw = event['usage'];
-        if (usageRaw is Map) finalUsage = _parseUsageMap(Map<String, dynamic>.from(usageRaw));
-
-        final choices = event['choices'] as List<dynamic>? ?? const [];
-        if (choices.isEmpty) continue;
-        final delta = (choices.first as Map<String, dynamic>)['delta'] as Map<String, dynamic>? ?? const {};
-
-        final textDelta = delta['content'] as String? ?? '';
-        if (textDelta.isNotEmpty) yield AiCompletionChunk(textDelta: textDelta);
-
-        final rawToolCallDeltas = delta['tool_calls'];
-        if (rawToolCallDeltas is List) {
-          for (final rawDelta in rawToolCallDeltas) {
-            if (rawDelta is! Map) continue;
-            final index = (rawDelta['index'] as num?)?.toInt() ?? 0;
-            final id = rawDelta['id'] as String?;
-            if (id != null && id.isNotEmpty) toolCallIdByIndex[index] = id;
-            final fn = rawDelta['function'] as Map?;
-            if (fn != null) {
-              final name = fn['name'] as String?;
-              if (name != null && name.isNotEmpty) toolCallNameByIndex[index] = name;
-              final argsChunk = fn['arguments'] as String?;
-              if (argsChunk != null) {
-                (toolCallArgsByIndex[index] ??= StringBuffer()).write(argsChunk);
-              }
-            }
-          }
-        }
-      }
+      yield* parseOpenAiCompatibleSseStream(response);
     } finally {
       client.close(force: true);
     }
-  }
-
-  Map<String, dynamic> _tryDecodeArgs(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {
-      // Argumentos incompletos/no-JSON tras reensamblar los deltas.
-    }
-    return const {};
   }
 
   /// Codifica un mensaje del historial, incluyendo tool-calls del asistente

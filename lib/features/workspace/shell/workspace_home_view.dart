@@ -1081,10 +1081,12 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     final ink = snap.ink;
     final quota = snap.backupQuotaBytes;
     final usedBytes = snap.backupUsedBytes;
-    final showBackupBar = snap.canUseCloudBackup && quota > 0;
+    final unlimited = snap.folioStaff;
+    final showBackupBar =
+        snap.canUseCloudBackup && (unlimited || quota > 0);
     final remainingBytes =
-        showBackupBar ? (quota - usedBytes).clamp(0, quota) : 0;
-    final pct = showBackupBar
+        !unlimited && showBackupBar ? (quota - usedBytes).clamp(0, quota) : 0;
+    final pct = !unlimited && showBackupBar
         ? ((usedBytes / quota) * 100).round().clamp(0, 100)
         : null;
 
@@ -1120,59 +1122,47 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
             ],
           ),
           const SizedBox(height: FolioSpace.sm),
-          if (snap.folioStaff)
-            Row(
+          Tooltip(
+            message: unlimited
+                ? l10n.workspaceHomeCloudStaffShort
+                : l10n.aiChatInkBreakdownTooltip(
+                    ink.monthlyBalance,
+                    ink.purchasedBalance,
+                  ),
+            child: Row(
               children: [
                 Icon(Icons.water_drop_outlined, color: scheme.tertiary),
                 const SizedBox(width: FolioSpace.sm),
                 Expanded(
-                  child: Text(
-                    l10n.workspaceHomeCloudStaffShort,
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.folioCloudInkTotal,
+                        style: textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        unlimited
+                            ? '∞'
+                            : l10n.folioCloudInkCount(ink.totalInk),
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            )
-          else
-            Tooltip(
-              message: l10n.aiChatInkBreakdownTooltip(
-                ink.monthlyBalance,
-                ink.purchasedBalance,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.water_drop_outlined, color: scheme.tertiary),
-                  const SizedBox(width: FolioSpace.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.folioCloudInkTotal,
-                          style: textTheme.labelMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Text(
-                          l10n.folioCloudInkCount(ink.totalInk),
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
+          ),
           if (showBackupBar) ...[
             const SizedBox(height: FolioSpace.sm),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
-                value: usedBytes / quota,
+                value: unlimited ? 0 : usedBytes / quota,
                 minHeight: 6,
                 backgroundColor:
                     scheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -1189,21 +1179,22 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
                     ),
                   ),
                 ),
-                if (pct != null)
-                  Text(
-                    l10n.folioCloudBackupStorageBarPercent(pct),
-                    style: textTheme.labelMedium?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                Text(
+                  unlimited
+                      ? '∞'
+                      : l10n.folioCloudBackupStorageBarPercent(pct!),
+                  style: textTheme.labelMedium?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w700,
                   ),
+                ),
               ],
             ),
             Text(
               l10n.folioCloudBackupStorageBarDetail(
                 _formatStorageBytes(usedBytes),
-                _formatStorageBytes(quota),
-                _formatStorageBytes(remainingBytes),
+                unlimited ? '∞' : _formatStorageBytes(quota),
+                unlimited ? '∞' : _formatStorageBytes(remainingBytes),
               ),
               style: textTheme.labelSmall?.copyWith(
                 color: scheme.onSurfaceVariant,

@@ -74,6 +74,21 @@ Future<AiToolLoopOutcome> runToolLoop({
   required Future<AiToolResult> Function(AiToolCall call) executeTool,
   int maxSteps = 6,
   void Function(AiToolLoopEvent event)? onEvent,
+  /// Si se pasa, cada turno se pide en streaming (`ai.completeStream`) y se
+  /// invoca con el texto acumulado del turno EN CURSO cada vez que llega un
+  /// fragmento nuevo, para que la UI pueda mostrarlo en vivo en vez de
+  /// esperar al `AiToolLoopOutcome` completo.
+  ///
+  /// No se puede saber de antemano si un turno terminará pidiendo tool-calls
+  /// (esa información solo llega en el chunk final del stream), así que esto
+  /// se invoca para TODOS los turnos, no solo el último: en la práctica los
+  /// turnos donde el modelo va a invocar tools no suelen traer texto (el
+  /// playbook del agente ya le pide usar tools en vez de describirlas), así
+  /// que no hay nada que reenviar antes del chunk final. Si un modelo sí
+  /// emite un preámbulo de texto antes de invocar una tool, ese texto se verá
+  /// brevemente antes de que el turno siguiente lo reemplace — aceptable
+  /// frente a duplicar la llamada al modelo solo para evitarlo.
+  void Function(String textSoFarThisStep)? onReplyTextDelta,
 }) async {
   final steps = <AiToolLoopStepRecord>[];
   final messages = List<AiChatMessage>.from(baseRequest.messages);
@@ -120,10 +135,31 @@ Future<AiToolLoopOutcome> runToolLoop({
     );
   }
 
+  /// Pide un turno y, si hay callback de streaming, lo consume incrementalmente;
+  /// si no, cae al `ai.complete()` bloqueante de siempre (comportamiento
+  /// idéntico para llamadores que no wireen streaming, p. ej. modo Plan).
+  Future<AiCompletionResult> completeStep(AiCompletionRequest request) async {
+    if (onReplyTextDelta == null) return ai.complete(request);
+    final buffer = StringBuffer();
+    AiTokenUsage? usage;
+    List<AiToolCall>? toolCalls;
+    await for (final chunk in ai.completeStream(request)) {
+      if (chunk.textDelta.isNotEmpty) {
+        buffer.write(chunk.textDelta);
+        onReplyTextDelta(buffer.toString());
+      }
+      if (chunk.isFinal) {
+        usage = chunk.usage;
+        toolCalls = chunk.toolCalls;
+      }
+    }
+    return AiCompletionResult(text: buffer.toString(), usage: usage, toolCalls: toolCalls);
+  }
+
   String? lastCallSignature;
 
   for (var step = 0; step < maxSteps; step++) {
-    final result = await ai.complete(
+    final result = await completeStep(
       requestFor(includeAttachments: step == 0, forceFinalReply: false),
     );
     accumulateUsage(result.usage);
@@ -159,7 +195,7 @@ Future<AiToolLoopOutcome> runToolLoop({
     }
 
     if (repeated) {
-      final closing = await ai.complete(
+      final closing = await completeStep(
         requestFor(includeAttachments: false, forceFinalReply: true),
       );
       accumulateUsage(closing.usage);
@@ -169,7 +205,7 @@ Future<AiToolLoopOutcome> runToolLoop({
 
   // Se alcanzó maxSteps sin que el modelo cerrara con texto: se le fuerza una
   // última respuesta sin tools disponibles para no dejar al usuario sin reply.
-  final closing = await ai.complete(
+  final closing = await completeStep(
     requestFor(includeAttachments: false, forceFinalReply: true),
   );
   accumulateUsage(closing.usage);

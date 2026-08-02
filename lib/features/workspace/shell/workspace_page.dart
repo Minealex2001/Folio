@@ -220,6 +220,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
   final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
+
+  /// Mensajes cuyo contenido se está actualizando en vivo por streaming real
+  /// (ver `_sendAiChat`). Mientras la key esté aquí, la burbuja renderiza
+  /// texto plano del contenido actual (aunque esté a medias) en vez de
+  /// Markdown, para no romper el layout con un fence de código o una tabla
+  /// a medio escribir; al asentarse el turno se retira la key y se
+  /// re-renderiza como Markdown completo.
+  final Set<String> _aiStreamingMessageKeys = <String>{};
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
@@ -786,6 +794,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             final target = bodyContent.isEmpty
                                 ? message.content
                                 : bodyContent;
+                            final isStreamingLive =
+                                !isUser &&
+                                _aiStreamingMessageKeys.contains(msgKey);
+                            if (isStreamingLive) {
+                              final liveStyle = Theme.of(
+                                ctx,
+                              ).textTheme.bodyMedium?.copyWith(
+                                color: textColor,
+                                height: 1.35,
+                              );
+                              return SelectableText(
+                                _normalizeHtmlForChat(target),
+                                style:
+                                    liveStyle ??
+                                    TextStyle(color: textColor, height: 1.35),
+                              );
+                            }
                             final shouldAnimate =
                                 !isUser &&
                                 _aiTypewriterActiveMessageKeys.contains(msgKey);
@@ -893,6 +918,32 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 ],
                               ),
                               const SizedBox(width: 4),
+                              if (messageIndex == _activeChat.messages.length - 1 &&
+                                  messageIndex > 0 &&
+                                  _activeChat.messages[messageIndex - 1].role ==
+                                      'user') ...[
+                                IconButton(
+                                  iconSize: 18,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  style: ButtonStyle(
+                                    iconColor: WidgetStateProperty.resolveWith(
+                                      (_) => textColor.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  tooltip: l10n.aiRegenerate,
+                                  onPressed: _aiChatBusy
+                                      ? null
+                                      : () => unawaited(
+                                          _regenerateAiMessage(messageIndex),
+                                        ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               IconButton(
                                 iconSize: 18,
                                 padding: EdgeInsets.zero,
@@ -1240,13 +1291,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final aiMessageFeedbackFp = chat.messages
         .map((m) => m.feedback ?? '-')
         .join('|');
+    // El streaming en vivo actualiza el ÚLTIMO mensaje in-place (mismo
+    // conteo de mensajes), así que el fingerprint necesita una señal que
+    // cambie con cada fragmento nuevo para que el bucle no se quede
+    // "congelado" mostrando solo el placeholder vacío hasta el final.
+    final lastAiMessage = chat.messages.isEmpty ? null : chat.messages.last;
+    final aiStreamingFp = lastAiMessage == null
+        ? ''
+        : '${lastAiMessage.role}:${lastAiMessage.content.length}';
     final fp =
         '${_s.selectedPageId}|${_s.contentEpoch}'
         '|${_s.canUndoSelectedPage}|${_s.canRedoSelectedPage}'
         '|${_s.hasPendingDiskSave}|${_s.isPersistingToDisk}'
         '|${_s.aiEnabled}|${chat.id}|${chat.messages.length}'
         '|${_s.selectedPage?.collabRoomId ?? ""}'
-        '|$aiMessageFeedbackFp';
+        '|$aiMessageFeedbackFp|$aiStreamingFp';
     if (fp != _lastWorkspaceFingerprint) {
       _lastWorkspaceFingerprint = fp;
       // Actualizar caché kanban solo cuando realmente reconstruimos.

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../../app/app_settings.dart';
 import '../../config/folio_backend_config.dart';
 import '../../crypto/vault_crypto.dart';
+import '../../data/vault_entry.dart';
 import '../../data/vault_local_storage.dart';
 import '../../data/vault_payload.dart';
 import '../../data/vault_paths.dart';
@@ -19,7 +21,9 @@ import '../app_logger.dart';
 import '../folio_firestore_support.dart';
 import '../sync/vault_sync_merge.dart';
 import '../sync/vault_sync_pack.dart';
+import 'device_sync_pending_trash_store.dart';
 import 'device_sync_push_guard.dart';
+import 'device_sync_trash_guard.dart';
 import 'device_sync_vault_bootstrap.dart';
 import 'device_sync_vault_status.dart';
 import 'device_sync_key_cache.dart';
@@ -53,7 +57,16 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
        _entitlements = entitlements,
        _onEvent = onEvent {
     _pushListener = FolioCloudVaultPushListener(
-      onVaultEvent: () => unawaited(_refreshRemoteMetaOnce()),
+      onVaultEvent: (payload) {
+        final type = '${payload['type'] ?? ''}';
+        final vaultId = '${payload['vaultId'] ?? ''}'.trim();
+        if ((type == 'device-sync-trashed' || type == 'device-sync-restored') &&
+            vaultId.isNotEmpty) {
+          unawaited(_reconcileSingleVault(vaultId));
+        } else {
+          unawaited(_refreshRemoteMetaOnce());
+        }
+      },
     );
   }
 
@@ -501,7 +514,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       if (isV2 &&
           _cachedRemoteBlobIds.isEmpty &&
           manifestPath.isNotEmpty) {
-        unawaited(_warmBlobIdCache(manifestPath));
+        unawaited(_warmBlobIdCache(
+          manifestPath,
+          packKeyKind: '${data['packKeyKind'] ?? ''}'.trim(),
+        ));
       }
       return;
     }
@@ -523,6 +539,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         syncFormatVersion: isV2 ? 2 : 1,
         fingerprint: fingerprint,
         rev: rev,
+        packKeyKind: '${data['packKeyKind'] ?? ''}'.trim(),
       );
     } else if (_boundVaultId != null && _boundVaultId!.isNotEmpty) {
       await _syncVaultHeadless(
@@ -758,6 +775,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     required int syncFormatVersion,
     required String fingerprint,
     required int rev,
+    String packKeyKind = '',
   }) async {
     if (_pullInFlight) return;
     if (fingerprint == _lastAppliedFingerprint) return;
@@ -788,7 +806,10 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         _setStatus('idle');
         return;
       }
-      final wireKeys = <SecretKey?>[accountKey, vaultKey];
+      // Mismo orden que headless/materialize: account primero salvo packKeyKind=vault.
+      final wireKeys = packKeyKind == 'vault'
+          ? <SecretKey?>[vaultKey, accountKey]
+          : <SecretKey?>[accountKey, vaultKey];
 
       // Payload local + último manifiesto aplicado: permiten que el pull
       // reponga páginas sin cambios desde memoria en vez de re-descargarlas.
@@ -931,14 +952,33 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     }
   }
 
-  Future<void> _warmBlobIdCache(String manifestPath) async {
+  Future<void> _warmBlobIdCache(
+    String manifestPath, {
+    String packKeyKind = '',
+  }) async {
     try {
-      final packKey = await _resolvePackKeyQuietly();
-      if (packKey == null) return;
-      final ids = await peekDeviceSyncManifestBlobIds(
-        manifestStoragePath: manifestPath,
-        packKey: packKey,
-      );
+      final vaultKey = await _resolvePackKeyQuietly();
+      final accountKey = await resolveAccountProfilePackKeyQuietly();
+      final peekKeys = packKeyKind == 'vault'
+          ? <SecretKey?>[vaultKey, accountKey]
+          : <SecretKey?>[accountKey, vaultKey];
+      var ids = <String>{};
+      Object? lastError;
+      for (final key in peekKeys) {
+        if (key == null) continue;
+        try {
+          ids = await peekDeviceSyncManifestBlobIds(
+            manifestStoragePath: manifestPath,
+            packKey: key,
+          );
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+          if (!isDeviceSyncWireMacFailure(e)) rethrow;
+        }
+      }
+      if (lastError != null) throw lastError;
       if (ids.isEmpty) return;
       _cachedRemoteBlobIds = ids;
       _cachedManifestPath = manifestPath;
@@ -1243,11 +1283,43 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> _discoverAndMaterializeRemoteVaults() async {
     try {
       final remote = await listRemoteDeviceSyncVaults();
-      if (remote.isEmpty) return;
       final local = await _session.listVaultEntries();
       final localIds = {for (final e in local) e.id};
+      final locallyTrashedIds = await _session.locallyTrashedVaultIds();
+      final pendingTrashIds = await _pendingTrash.pendingVaultIds();
+      final remoteIds = {for (final r in remote) r.vaultId};
+
       var added = 0;
       for (final r in remote) {
+        if (pendingTrashIds.contains(r.vaultId)) {
+          // Este dispositivo la mandó a la papelera hace poco; puede que la
+          // respuesta remota esté desfasada. Nunca la resucitamos aquí.
+          continue;
+        }
+        if (r.trashed) {
+          if (localIds.contains(r.vaultId)) {
+            // Otro dispositivo la mandó a la papelera después de que esta
+            // sincronizara: reconciliar según si estamos al día.
+            final ackedRev = _ackStore.forVault(r.vaultId)?.rev ?? 0;
+            if (shouldAutoTrashVaultOnRemoteTombstone(
+              localAckedRev: ackedRev,
+              remoteTrashedRev: r.rev,
+            )) {
+              await _session.applyRemoteTrash(r.vaultId);
+            } else if (!_pendingTrashConflictVaultIds.contains(r.vaultId)) {
+              // Cambios locales sin sincronizar: no borrar en silencio.
+              _pendingTrashConflictVaultIds.add(r.vaultId);
+              notifyListeners();
+            }
+          }
+          continue;
+        }
+        // No está en papelera remotamente.
+        if (locallyTrashedIds.contains(r.vaultId)) {
+          // Alguien la restauró desde otro dispositivo (o revivió con push).
+          await _session.applyRemoteRestore(r.vaultId);
+          continue;
+        }
         if (!r.hasCloudPack) continue;
         if (localIds.contains(r.vaultId)) continue;
         final ok = await materializeRemoteDeviceSyncVault(
@@ -1260,6 +1332,15 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           localIds.add(r.vaultId);
         }
       }
+
+      // Libretas en papelera local cuya fila remota desapareció por completo
+      // (alguien vació la papelera / purgó definitivamente en otro sitio).
+      for (final id in locallyTrashedIds) {
+        if (!remoteIds.contains(id) && !pendingTrashIds.contains(id)) {
+          await _session.applyRemotePurge(id);
+        }
+      }
+
       if (added > 0) {
         AppLogger.info(
           'discovered remote vaults materialized',
@@ -1280,6 +1361,203 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         tag: 'cloud_sync',
         context: {'stack': '$st'},
       );
+    }
+  }
+
+  /// Reconciliación inmediata para un único vault (disparada por el push
+  /// STOMP `device-sync-trashed`/`device-sync-restored`), sin esperar al
+  /// siguiente ciclo de polling completo.
+  Future<void> _reconcileSingleVault(String vaultId) async {
+    if (!isEnabled) return;
+    try {
+      await _ensureAckLoaded();
+      final remote = await listRemoteDeviceSyncVaults();
+      final row = remote.where((r) => r.vaultId == vaultId).firstOrNull;
+      final pendingTrashIds = await _pendingTrash.pendingVaultIds();
+      if (pendingTrashIds.contains(vaultId)) return;
+      final locallyTrashedIds = await _session.locallyTrashedVaultIds();
+      if (row == null) {
+        if (locallyTrashedIds.contains(vaultId)) {
+          await _session.applyRemotePurge(vaultId);
+        }
+        return;
+      }
+      final localIds = {for (final e in await _session.listVaultEntries()) e.id};
+      if (row.trashed) {
+        if (localIds.contains(vaultId)) {
+          final ackedRev = _ackStore.forVault(vaultId)?.rev ?? 0;
+          if (shouldAutoTrashVaultOnRemoteTombstone(
+            localAckedRev: ackedRev,
+            remoteTrashedRev: row.rev,
+          )) {
+            await _session.applyRemoteTrash(vaultId);
+          } else if (!_pendingTrashConflictVaultIds.contains(vaultId)) {
+            _pendingTrashConflictVaultIds.add(vaultId);
+            notifyListeners();
+          }
+        }
+      } else if (locallyTrashedIds.contains(vaultId)) {
+        await _session.applyRemoteRestore(vaultId);
+      }
+    } catch (e) {
+      AppLogger.debug(
+        'reconcile single vault failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
+  }
+
+  /// Ids de libretas cuyo aviso de papelera remota no se aplicó porque este
+  /// dispositivo tiene cambios sin sincronizar — el usuario debe decidir.
+  final List<String> _pendingTrashConflictVaultIds = [];
+  List<String> get pendingTrashConflictVaultIds =>
+      List.unmodifiable(_pendingTrashConflictVaultIds);
+
+  /// El usuario decidió, ante un conflicto, mover igualmente la libreta a la
+  /// papelera local (perdiendo los cambios sin sincronizar).
+  Future<void> resolveTrashConflictKeepRemote(String vaultId) async {
+    _pendingTrashConflictVaultIds.remove(vaultId);
+    await _session.applyRemoteTrash(vaultId);
+  }
+
+  /// El usuario decidió conservar su copia local y no aplicar la papelera
+  /// remota (seguirá preguntando en la próxima sync si el conflicto persiste).
+  void dismissTrashConflict(String vaultId) {
+    _pendingTrashConflictVaultIds.remove(vaultId);
+    notifyListeners();
+  }
+
+  final DeviceSyncPendingTrashStore _pendingTrash =
+      DeviceSyncPendingTrashStore();
+
+  /// Mueve una libreta a la papelera en la nube (fire-and-forget). Cableado a
+  /// `VaultSession.onVaultDeletedLocally`.
+  Future<void> notifyVaultDeletedLocally(
+    String vaultId,
+    String displayName,
+  ) async {
+    if (!isEnabled) return;
+    await _pendingTrash.markPending(vaultId);
+    try {
+      await callFolioHttpsCallable('folioTrashDeviceSyncVault', <String, dynamic>{
+        'vaultId': vaultId,
+        'deviceId': _settings.syncDeviceId,
+        if (displayName.trim().isNotEmpty) 'displayName': displayName.trim(),
+      });
+      await _pendingTrash.clear(vaultId);
+    } catch (e) {
+      AppLogger.warn(
+        'trash device-sync vault failed (will retry on next sync)',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
+  }
+
+  /// Restaura en la nube una libreta que ya se restauró localmente.
+  /// Cableado a `VaultSession.onVaultRestoredLocally`.
+  Future<void> notifyVaultRestoredLocally(String vaultId) async {
+    if (!isEnabled) return;
+    await _pendingTrash.clear(vaultId);
+    try {
+      await callFolioHttpsCallable('folioRestoreDeviceSyncVault', <String, dynamic>{
+        'vaultId': vaultId,
+      });
+    } catch (e) {
+      AppLogger.warn(
+        'restore device-sync vault failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
+  }
+
+  /// Purga definitivamente en la nube. Cableado a
+  /// `VaultSession.onVaultPurgedLocally`.
+  Future<void> notifyVaultPurgedLocally(String vaultId) async {
+    if (!isEnabled) return;
+    await _pendingTrash.clear(vaultId);
+    try {
+      await callFolioHttpsCallable('folioPurgeDeviceSyncVault', <String, dynamic>{
+        'vaultId': vaultId,
+      });
+    } catch (e) {
+      AppLogger.warn(
+        'purge device-sync vault failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
+  }
+
+  /// Libretas en papelera en la nube que este dispositivo nunca materializó.
+  /// Cableado a `VaultSession.onFetchRemoteOnlyTrash`.
+  Future<List<VaultTrashEntry>> listRemoteOnlyTrash() async {
+    if (!isEnabled) return const [];
+    try {
+      final remote = await listRemoteDeviceSyncVaults();
+      final localIds = (await _session.listVaultEntries())
+          .map((e) => e.id)
+          .toSet();
+      final localTrashedIds = await _session.locallyTrashedVaultIds();
+      final out = <VaultTrashEntry>[];
+      for (final r in remote) {
+        if (!r.trashed) continue;
+        if (localIds.contains(r.vaultId) || localTrashedIds.contains(r.vaultId)) {
+          continue;
+        }
+        final trashedAt = r.trashedAt ?? DateTime.now();
+        out.add(
+          VaultTrashEntry(
+            vaultId: r.vaultId,
+            displayName: r.displayName.isNotEmpty ? r.displayName : 'Libreta',
+            trashedAt: trashedAt,
+            hasLocalCopy: false,
+          ),
+        );
+      }
+      return out;
+    } catch (e) {
+      AppLogger.debug(
+        'list remote-only trash failed',
+        tag: 'cloud_sync',
+        context: {'error': '$e'},
+      );
+      return const [];
+    }
+  }
+
+  /// Restaura en la nube y descarga por primera vez una libreta fantasma.
+  /// Cableado a `VaultSession.onMaterializeGhostVault`.
+  Future<bool> materializeGhostVault(String vaultId) async {
+    if (!isEnabled) return false;
+    try {
+      await callFolioHttpsCallable('folioRestoreDeviceSyncVault', <String, dynamic>{
+        'vaultId': vaultId,
+      });
+      final remote = await listRemoteDeviceSyncVaults();
+      final row = remote.where((r) => r.vaultId == vaultId).firstOrNull;
+      if (row == null) return false;
+      return materializeRemoteDeviceSyncVault(
+        remote: DeviceSyncRemoteVaultInfo(
+          vaultId: row.vaultId,
+          displayName: row.displayName,
+          vaultMode: row.vaultMode,
+          rev: row.rev,
+          contentFingerprint: row.contentFingerprint,
+          hasCloudPack: row.hasCloudPack,
+        ),
+        headless: _headless,
+        keyCache: _headless.keyCache,
+      );
+    } catch (e) {
+      AppLogger.warn(
+        'materialize ghost vault failed',
+        tag: 'cloud_sync',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+      return false;
     }
   }
 
@@ -1605,6 +1883,9 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       try {
         return await decryptWith(key);
       } catch (e) {
+        // Solo reintentar con otra clave ante MAC; blob-missing debe propagarse
+        // para disparar el auto-repair del pull.
+        if (!isDeviceSyncWireMacFailure(e)) rethrow;
         lastError = e;
       }
     }

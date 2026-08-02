@@ -72,6 +72,10 @@
       "min": {"type": "int"}
     }
   },
+  "vaultKdfProfileTitle": "Zifratzearen segurtasun maila",
+  "vaultKdfProfileBalanced": "Orekatua",
+  "vaultKdfProfileHardened": "Indartua",
+  "vaultKdfProfileHint": "Indartuak denbora gehiago behar du desblokeatzeko, baina hobeto eusten die indar gordineko erasoei. Geroago Ezarpenetatik alda dezakezu.",
   "createStarterPagesTitle": "Sortu hasierako laguntza-orriak",
   "createStarterPagesBody": "Gehitu Folio nola erabiliko duzun arabera pertsonalizatutako hasierako gida. Folio horiek geroago ezaba ditzakezu.",
   "passwordLabel": "Pasahitza",
@@ -154,6 +158,8 @@
   "lockOnMinimize": "Blokeatu minimizatzean",
   "changeMasterPassword": "Aldatu pasahitz nagusia",
   "requiresCurrentPassword": "Uneko pasahitza behar du",
+  "upgradeToHardenedEncryptionTitle": "Eguneratu zifratze indartura",
+  "upgradeToHardenedEncryptionSnack": "Zifratzea indartura eguneratu da",
   "lockAutoByInactivity": "Blokeatze automatikoa jarduerarik gabe egotean",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
@@ -753,6 +759,7 @@
   "aiAlwaysShowThought": "Erakutsi beti AAren pentsamendua",
   "aiAlwaysShowThoughtHint": "Desgaituta badago, tolestuta agertzen da mezu bakoitzean gezi batekin.",
   "aiBetaBadge": "BETA",
+  "aiManageQuillInstructionsTooltip": "Kudeatu Quillen jarraibideak",
   "aiBetaEnableTitle": "AA BETA fasean dago",
   "aiBetaEnableBody": "Eginbide hau BETA fasean dago une honetan eta huts egin dezake edo modu ustekabean joka dezake.\n\nGaitu nahi duzu hala ere?",
   "aiBetaEnableConfirm": "Gaitu BETA",
@@ -1075,6 +1082,7 @@
   "aiCopiedToClipboard": "Portapapelean kopiatuta",
   "aiHelpful": "Lagungarria",
   "aiNotHelpful": "Ez da lagungarria",
+  "aiRegenerate": "Erantzuna birsortu",
   "aiThinkingMessage": "Quill pentsatzen ari da...",
   "aiMessageTimestampNow": "orain",
   "aiMessageTimestampMinutes": "duela {n} min",
@@ -2262,8 +2270,10 @@
   "settingsSectionDeviceSyncNav": "Sinkronizazioa",
   "settingsSectionVault": "Koadernoa",
   "settingsSectionVaultHeroDescription": "Desblokeatzearen segurtasuna, babeskopiak, diskoan programatzea eta gailu honetako datuen kudeaketa.",
-  "settingsSectionUiWorkspace": "Interfazea eta mahaigaina",
-  "settingsSectionUiWorkspaceHeroDescription": "Gaia, hizkuntza, eskala, editorea, mahaigaineko aukerak eta teklatuko lasterbideak.",
+  "settingsSectionAppearance": "Itxura",
+  "settingsSectionAppearanceHeroDescription": "Gaia, hizkuntza, eskala, editorea eta ikono pertsonalizatuak.",
+  "settingsSectionDesktop": "Mahaigaina",
+  "settingsSectionDesktopHeroDescription": "Lasterbide orokorrak, erretilua, leihoaren portaera eta aplikazioko teklatua.",
   "settingsSubsectionVaultBackupImport": "Babeskopiak eta inportazioa",
   "settingsSubsectionVaultScheduledLocal": "Programatutako babeskopia",
   "settingsSubsectionDrive": "Drive",
@@ -2344,6 +2354,26 @@
   "sidebarTrashCountBadge": "{count}",
   "@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}},
   "sidebarTrashClose": "Itxi",
+  "vaultTrashTitle": "Koadernoen zakarrontzia",
+  "vaultTrashOpenTooltip": "Koadernoen zakarrontzia",
+  "vaultTrashEmpty": "Ez dago koadernorik zakarrontzian",
+  "vaultTrashRetentionHint": "Koadernoak behin betiko ezabatzen dira 30 egunen buruan.",
+  "vaultTrashRestore": "Berreskuratu",
+  "vaultTrashDeleteForever": "Betiko ezabatu",
+  "vaultTrashEmptyAction": "Zakarrontzia hustu",
+  "vaultTrashEmptyConfirm": "Koadernoen zakarrontzia hustu? Ekintza hau ezin da desegin.",
+  "vaultTrashDeleteForeverConfirm": "«{title}» betiko ezabatu? Ekintza hau ezin da desegin.",
+  "@vaultTrashDeleteForeverConfirm": {"placeholders": {"title": {}}},
+  "vaultTrashDaysLeft": "{days} egun geratzen dira",
+  "@vaultTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "vaultTrashNotOnThisDevice": "Ez dago gailu honetan",
+  "vaultTrashRestoring": "Berreskuratzen…",
+  "vaultTrashRestoreFailed": "Ezin izan da koadernoa berreskuratu.",
+  "vaultDeletedToTrashSnack": "Koadernoa zakarrontzira eraman da.",
+  "vaultTrashConflictBanner": "«{title}» beste gailu batean ezabatu da, baina hemen sinkronizatu gabeko aldaketak daude.",
+  "@vaultTrashConflictBanner": {"placeholders": {"title": {}}},
+  "vaultTrashConflictKeepLocal": "Mantendu hemen",
+  "vaultTrashConflictMoveToTrash": "Eraman zakarrontzira",
   "settingsStripeSubscriptionRefreshed": "Folio Cloud-eko fakturazioa eguneratu da.",
   "settingsStripeBillingPortalUnavailable": "Fakturazio-portala ez dago erabilgarri.",
   "settingsCouldNotOpenLink": "Ezin izan da esteka ireki.",
@@ -2504,7 +2534,7 @@
   "settingsAiSnackSignInCloudAccount": "Hasi saioa hodeiko kontuan (Ezarpenak).",
   "settingsAiProviderSwitchFailed": "Ezin izan da AA hornitzailea aldatu: {error}",
   "@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}},
-  "settingsAboutHeroDescription": "Build-aren bertsioa, argitalpen-oharrak eta eguneratze-kanala. Ekintzak beheko zerrendan daude.",
+  "settingsAboutHeroDescription": "Pribatutasuna, diagnostikoak, build-aren bertsioa, argitalpen-oharrak eta eguneratze-kanala.",
   "settingsOpenReleaseNotes": "Ikusi bertsio-oharrak",
   "settingsUpdateChannelLabel": "Kanala",
   "settingsUpdateChannelRelease": "Release",
@@ -2588,13 +2618,54 @@
   "settingsAutoCrashReportsTitle": "Bidali errore-diagnostikoak automatikoki",
   "settingsAutoCrashReportsSubtitle": "Berez aktibatuta: errore bat gertatzen bada (larria edo ez), egunkariaren zati bat bidaltzen zaio Foliori konpontzen laguntzeko. Hemen desaktiba dezakezu.",
   "settingsReportBugButton": "Akats baten berri eman",
-  "settingsPrivacyFootnote": "Ohar bat gehitu dezakezu; arazoen esteka nabigatzailean ireki daiteke.",
+  "settingsPrivacyFootnote": "Deskribatu arazoa; Folio Cloud kontuarekin txostena jarraitu dezakezu itxi arte.",
   "settingsReportBugDialogTitle": "Akats baten berri eman",
-  "settingsReportBugDialogBody": "Metadatu anonimoak, logaren zati bat eta zure oharra bidaliko ditugu. Gero, arazoen kudeatzailea ireki dezakezu.",
-  "settingsReportBugNoteLabel": "Zertan gertatu da? (aukerakoa)",
-  "settingsReportBugSend": "Bidali eta jarraitu",
+  "settingsReportBugDialogBodySignedIn": "Metadatu anonimoak, logaren zati bat eta zure deskribapena bidaliko ditugu Foliora. Txostena hemen ikusgai egongo da itxi arte.",
+  "settingsReportBugDialogBodyGuest": "Metadatu anonimoak, logaren zati bat eta zure deskribapena bidaliko ditugu Foliora. Kontu batekin txostena jarraitu eta datu gehiago gehitu ditzakezu konpontzen laguntzeko.",
+  "settingsReportBugSignInCta": "Hasi saioa edo sortu kontua",
+  "settingsReportBugAccountSignedIn": "Saioa hasita",
+  "settingsReportBugAccountGuest": "Konturik gabe",
+  "settingsReportBugMetaPreview": "Plataforma: {platform} · Bertsioa: {version} · Kanala: {channel} · Kontua: {account}",
+  "@settingsReportBugMetaPreview": {
+    "placeholders": {
+      "platform": {},
+      "version": {},
+      "channel": {},
+      "account": {}
+    }
+  },
+  "settingsReportBugNoteLabel": "Zer gertatu da?",
+  "settingsReportBugStepsLabel": "Erreproduzitzeko urratsak (aukerakoa)",
+  "settingsReportBugSend": "Bidali",
   "settingsReportBugSentOk": "Diagnostikoa bidalita.",
-  "settingsReportBugSentFail": "Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago."
+  "settingsReportBugSentOkWithId": "Diagnostikoa bidalita ({id}).",
+  "@settingsReportBugSentOkWithId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugSentOkLocalOnly": "Diagnostikoa gorde da. YouTrack jarraipena ez dago erabilgarri orain.",
+  "settingsReportBugSentFail": "Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago.",
+  "settingsReportBugOpenTitle": "Txosten irekia ({id})",
+  "@settingsReportBugOpenTitle": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugOpenTitleGeneric": "Txosten irekia",
+  "settingsReportBugOpenSubtitle": "Berrikuspenaren zain",
+  "settingsReportBugAppendAction": "Gehitu info",
+  "settingsReportBugAppendTitle": "Gehitu informazioa",
+  "settingsReportBugAppendBody": "{id} txostenari gehituko zaio.",
+  "@settingsReportBugAppendBody": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "settingsReportBugAppendNoteLabel": "Informazio gehigarria",
+  "settingsReportBugAppendSend": "Bidali",
+  "settingsReportBugAppendOk": "Informazioa txostenera gehitu da.",
+  "settingsReportBugAppendFail": "Ezin izan da informazioa gehitu. Saiatu berriro geroago."
   ,"zenModeEnter": "Zen modua"
   ,"zenModeExit": "Zen modutik irten"
   ,"zenFullscreenEnter": "Pantaila osoa"
@@ -3541,6 +3612,76 @@
   ,"cloudAccountDisplayNameFailed": "Ezin izan da izena eguneratu: {error}"
   ,"@cloudAccountDisplayNameFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"cloudAccountDisplayNameRequired": "Sartu izen ikusgai bat"
+  ,"folioCloudStatusSubsectionTitle": "Zerbitzuaren egoera"
+  ,"folioCloudSettingsTabAccount": "Kontua"
+  ,"folioCloudSettingsTabPlan": "Plana eta sync"
+  ,"folioCloudSettingsTabStatus": "Egoera"
+  ,"folioCloudSettingsSummaryGuest": "Ez zaude konektatuta"
+  ,"folioCloudSettingsSummarySignIn": "Hasi saioa"
+  ,"folioCloudSettingsStatusChipIncident": "Gertakaria"
+  ,"folioCloudStatusHistoryCollapsed": "Azken historia"
+  ,"folioCloudStatusOpenWebMore": "Ikusi gehiago webean"
+  ,"folioCloudStatusRefresh": "Eguneratu egoera"
+  ,"folioCloudStatusLoadError": "Ezin izan da egoera kargatu"
+  ,"folioCloudStatusLoadErrorHint": "Egiaztatu konexioa eta saiatu berriro."
+  ,"folioCloudStatusEmpty": "Egoerarik ez"
+  ,"folioCloudStatusEmptyHint": "Sakatu eguneratu Folio Cloud kontsultatzeko."
+  ,"folioCloudStatusCheckedAt": "Egiaztatua: {when}"
+  ,"@folioCloudStatusCheckedAt": {"placeholders": {"when": {"type": "String"}}}
+  ,"folioCloudStatusAggregateOk": "Dena operatibo"
+  ,"folioCloudStatusAggregateDegraded": "Zerbitzua degradatuta"
+  ,"folioCloudStatusAggregatePartial": "Erorketa partziala"
+  ,"folioCloudStatusAggregateDown": "Zerbitzua ez dago erabilgarri"
+  ,"folioCloudStatusServiceApi": "Folio Cloud API"
+  ,"folioCloudStatusServiceDatabase": "Datu-basea"
+  ,"folioCloudStatusServiceBucket": "Biltegiratzea"
+  ,"folioCloudStatusServiceQuill": "Quill Cloud"
+  ,"folioCloudStatusServiceStripe": "Stripe"
+  ,"folioCloudStatusServiceResend": "Resend (email)"
+  ,"folioCloudStatusServiceJira": "Jira"
+  ,"folioCloudStatusServiceSlack": "Slack"
+  ,"folioCloudStatusServiceTeams": "Microsoft Teams"
+  ,"folioCloudStatusServiceSpotify": "Spotify"
+  ,"folioCloudStatusServiceMicrosoftStore": "Microsoft Store"
+  ,"folioCloudStatusServiceCommunityTemplates": "Txantiloien denda"
+  ,"folioCloudStatusServiceCollab": "Denbora errealeko lankidetza"
+  ,"folioCloudStatusServiceVaultShare": "Partekatutako orriak"
+  ,"folioCloudStatusServiceDeviceSync": "Gailuen sinkronizazioa"
+  ,"folioCloudStatusServiceIntegrations": "Integrazioak"
+  ,"folioCloudStatusServiceOk": "Operatibo"
+  ,"folioCloudStatusServiceDegraded": "Degradatuta"
+  ,"folioCloudStatusServicePartial": "Erorketa partziala"
+  ,"folioCloudStatusServiceDown": "Erorita"
+  ,"folioCloudStatusServiceUnconfigured": "Konfiguratu gabe"
+  ,"folioCloudStatusLatencyMs": "{ms} ms"
+  ,"@folioCloudStatusLatencyMs": {"placeholders": {"ms": {"type": "int"}}}
+  ,"folioCloudStatusIncidentsTitle": "Gertakariak eta mantentze-lanak"
+  ,"folioCloudStatusHistoryTitle": "Azken historia"
+  ,"folioCloudStatusHistoryLine": "{uptime}% uptime · {ok}/{total} checks"
+  ,"@folioCloudStatusHistoryLine": {"placeholders": {"uptime": {"type": "String"}, "ok": {"type": "int"}, "total": {"type": "int"}}}
+  ,"folioCloudStatusOpenWeb": "Ireki egoera webean"
+  ,"folioCloudStatusTypeIncident": "Gertakaria"
+  ,"folioCloudStatusTypeMaintenance": "Mantentze-lana"
+  ,"folioCloudStatusAffectedServices": "Eragina: {services}"
+  ,"@folioCloudStatusAffectedServices": {"placeholders": {"services": {"type": "String"}}}
+  ,"folioCloudStatusIncidentInvestigating": "Ikertzen"
+  ,"folioCloudStatusIncidentIdentified": "Identifikatuta"
+  ,"folioCloudStatusIncidentMonitoring": "Gainbegiratzen"
+  ,"folioCloudStatusIncidentResolved": "Konponduta"
+  ,"folioCloudStatusIncidentScheduled": "Programatuta"
+  ,"folioCloudStatusIncidentInProgress": "Abian"
+  ,"folioCloudStatusImpactMajorOutage": "Erorketa handia"
+  ,"folioCloudStatusImpactPartialOutage": "Erorketa partziala"
+  ,"folioCloudStatusImpactDegraded": "Degradatuta"
+  ,"folioCloudStatusBannerDown": "Folio Cloud ez dago erabilgarri"
+  ,"folioCloudStatusBannerPartial": "Folio Cloud-ek erorketa partziala du"
+  ,"folioCloudStatusBannerDegraded": "Folio Cloud mugeekin dabil"
+  ,"folioCloudStatusBannerIncidentHint": "{type} abian. Eginbide batzuek huts egin dezakete."
+  ,"@folioCloudStatusBannerIncidentHint": {"placeholders": {"type": {"type": "String"}}}
+  ,"folioCloudStatusBannerGenericHint": "Hodeiko eginbide batzuek aldi baterako huts egin dezakete."
+  ,"folioCloudStatusBannerDetails": "Ikusi xehetasunak"
+  ,"folioCloudStatusBannerMoreInfo": "Informazio gehiago"
+  ,"folioCloudStatusBannerDismiss": "Itxi"
   ,"databaseCalendarLabel": "Egutegia"
   ,"databaseGalleryLabel": "Galeria"
   ,"databaseTimelineLabel": "Denbora-lerroa"

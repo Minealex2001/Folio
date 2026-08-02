@@ -146,6 +146,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     required bool showInkInChat,
     required bool isCloudProvider,
     required FolioInkSnapshot inkSnap,
+    required bool inkUnlimited,
     required bool inkLooksLow,
     required bool inkLooksEmpty,
     required String Function() providerLabel,
@@ -189,12 +190,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           ? scheme.error
                           : scheme.onSurfaceVariant,
                     ),
-                    title: Text(l10n.aiChatInkRemaining(inkSnap.totalInk)),
+                    title: Text(
+                      inkUnlimited
+                          ? '∞'
+                          : l10n.aiChatInkRemaining(inkSnap.totalInk),
+                    ),
                     subtitle: Text(
-                      l10n.aiChatInkBreakdownTooltip(
-                        inkSnap.monthlyBalance,
-                        inkSnap.purchasedBalance,
-                      ),
+                      inkUnlimited
+                          ? l10n.workspaceHomeCloudStaffShort
+                          : l10n.aiChatInkBreakdownTooltip(
+                              inkSnap.monthlyBalance,
+                              inkSnap.purchasedBalance,
+                            ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -372,14 +379,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         isCloudProvider &&
         widget.appSettings.isAiRuntimeEnabled &&
         widget.folioCloudEntitlements.snapshot.canUseCloudAi;
-    final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
+    final cloudSnap = widget.folioCloudEntitlements.snapshot;
+    final inkSnap = cloudSnap.ink;
+    final inkUnlimited = cloudSnap.folioStaff;
     const lowInkThreshold = 20;
     final estInkCost = _inkCostForOperationKind(_aiInkEstimateOperationKind);
     final inkLooksLow =
         showInkInChat &&
+        !inkUnlimited &&
         inkSnap.totalInk > 0 &&
         inkSnap.totalInk <= lowInkThreshold;
-    final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
+    final inkLooksEmpty =
+        showInkInChat && !inkUnlimited && inkSnap.totalInk <= 0;
     final showSplitToggle =
         layoutMode == QuillChatLayoutMode.dockNarrow ||
         layoutMode == QuillChatLayoutMode.dockWide ||
@@ -490,6 +501,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         showInkInChat: showInkInChat,
                         isCloudProvider: isCloudProvider,
                         inkSnap: inkSnap,
+                        inkUnlimited: inkUnlimited,
                         inkLooksLow: inkLooksLow,
                         inkLooksEmpty: inkLooksEmpty,
                         providerLabel: providerLabel,
@@ -813,13 +825,17 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                 ],
                                 if (showInkInChat) ...[
                                   Tooltip(
-                                    message: l10n.aiChatInkBreakdownTooltip(
-                                      inkSnap.monthlyBalance,
-                                      inkSnap.purchasedBalance,
-                                    ),
+                                    message: inkUnlimited
+                                        ? l10n.workspaceHomeCloudStaffShort
+                                        : l10n.aiChatInkBreakdownTooltip(
+                                            inkSnap.monthlyBalance,
+                                            inkSnap.purchasedBalance,
+                                          ),
                                     child: _QuillComposerMetaChip(
                                       icon: Icons.water_drop_outlined,
-                                      label: '${inkSnap.totalInk}',
+                                      label: inkUnlimited
+                                          ? '∞'
+                                          : '${inkSnap.totalInk}',
                                       scheme: scheme,
                                       emphasize: inkLooksLow || inkLooksEmpty,
                                     ),

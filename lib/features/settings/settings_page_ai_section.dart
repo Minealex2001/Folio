@@ -461,6 +461,7 @@ extension _SettingsPageAiSection on _SettingsPageState {
     required ColorScheme scheme,
     required bool aiLocalProvidersSupported,
     required bool mcpServerSupported,
+    required bool showDesktopOnlySections,
   }) {
     final showCompareExpanded =
         !_app.aiEnabled || _app.aiProvider == AiProvider.none;
@@ -852,6 +853,11 @@ extension _SettingsPageAiSection on _SettingsPageState {
               ],
             ),
           ),
+          if (showDesktopOnlySections)
+            _buildMeetingNoteSettingsBlock(
+              l10n: l10n,
+              scheme: scheme,
+            ),
         ],
       ),
     );

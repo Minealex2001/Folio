@@ -1232,6 +1232,7 @@ class AppSettings extends ChangeNotifier {
             ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
             : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.',
         isSystemDefault: true,
+        isNarrowTask: true,
       ),
       QuillSystemPrompt(
         id: 'quill_summarizer',
@@ -1240,6 +1241,7 @@ class AppSettings extends ChangeNotifier {
             ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
             : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.',
         isSystemDefault: true,
+        isNarrowTask: true,
       ),
       QuillSystemPrompt(
         id: 'quill_coder',
@@ -1248,6 +1250,7 @@ class AppSettings extends ChangeNotifier {
             ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
             : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.',
         isSystemDefault: true,
+        isNarrowTask: true,
       ),
     ];
 

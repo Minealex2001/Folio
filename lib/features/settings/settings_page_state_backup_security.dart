@@ -255,10 +255,12 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
   Future<void> _refreshSecurityFlags() async {
     final q = await _s.quickUnlockEnabled;
     final p = await _s.hasPasskey;
+    final kdf = await _s.currentKdfProfile();
     if (mounted) {
       _rebuild(() {
         _quickEnabled = q;
         _passkeyRegistered = p;
+        _kdfProfile = kdf;
       });
     }
   }
@@ -283,61 +285,191 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
   Future<void> _reportBugFlow() async {
     final l10n = AppLocalizations.of(context);
     final noteCtrl = TextEditingController();
+    final stepsCtrl = TextEditingController();
+    final signedIn = _cloud.isSignedIn;
+    final platform = FolioDiagnosticReporter.platformLabel();
+    final channel = AppSettings.distributionChannelFromEnvironment.trim();
+    final accountLabel = signedIn
+        ? ((_cloud.email?.trim().isNotEmpty == true)
+              ? _cloud.email!.trim()
+              : (_cloud.displayName?.trim().isNotEmpty == true
+                    ? _cloud.displayName!.trim()
+                    : l10n.settingsReportBugAccountSignedIn))
+        : l10n.settingsReportBugAccountGuest;
+
     try {
       final send = await showDialog<bool>(
         context: context,
         builder: (ctx) {
-          return FolioDialog(
-            title: Text(l10n.settingsReportBugDialogTitle),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(l10n.settingsReportBugDialogBody),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: noteCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.settingsReportBugNoteLabel,
-                      border: const OutlineInputBorder(),
-                    ),
-                    maxLines: 4,
+          return StatefulBuilder(
+            builder: (ctx, setLocal) {
+              final canSend = noteCtrl.text.trim().isNotEmpty;
+              return FolioDialog(
+                title: Text(l10n.settingsReportBugDialogTitle),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        signedIn
+                            ? l10n.settingsReportBugDialogBodySignedIn
+                            : l10n.settingsReportBugDialogBodyGuest,
+                      ),
+                      if (!signedIn) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx, false);
+                              _rebuild(() {
+                                _selectedMobileSection = _SettingsSectionId.cloud;
+                                _folioCloudTab = _FolioCloudTab.account;
+                              });
+                            },
+                            child: Text(l10n.settingsReportBugSignInCta),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        l10n.settingsReportBugMetaPreview(
+                          platform,
+                          _installedVersionLabel,
+                          channel.isEmpty ? '—' : channel,
+                          accountLabel,
+                        ),
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: noteCtrl,
+                        decoration: InputDecoration(
+                          labelText: l10n.settingsReportBugNoteLabel,
+                          border: const OutlineInputBorder(),
+                        ),
+                        maxLines: 4,
+                        onChanged: (_) => setLocal(() {}),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: stepsCtrl,
+                        decoration: InputDecoration(
+                          labelText: l10n.settingsReportBugStepsLabel,
+                          border: const OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(l10n.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: canSend ? () => Navigator.pop(ctx, true) : null,
+                    child: Text(l10n.settingsReportBugSend),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(l10n.settingsReportBugSend),
-              ),
-            ],
+              );
+            },
           );
         },
       );
       if (send != true || !mounted) return;
-      final ok = await FolioDiagnosticReporter.submit(
+      final result = await FolioDiagnosticReporter.submit(
         kind: 'manual',
         userNote: noteCtrl.text,
+        steps: stepsCtrl.text,
         settings: _app,
+      );
+      if (!mounted) return;
+      final okMsg = result.ok
+          ? (result.idReadable != null && result.idReadable!.isNotEmpty
+                ? l10n.settingsReportBugSentOkWithId(result.idReadable!)
+                : (result.savedToYouTrack
+                      ? l10n.settingsReportBugSentOk
+                      : l10n.settingsReportBugSentOkLocalOnly))
+          : l10n.settingsReportBugSentFail;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(okMsg)),
+      );
+      if (result.ok && _cloud.isSignedIn) {
+        unawaited(_refreshOpenDiagnosticReports());
+      }
+    } finally {
+      noteCtrl.dispose();
+      stepsCtrl.dispose();
+    }
+  }
+
+  Future<void> _appendOpenDiagnosticReport(OpenDiagnosticReport report) async {
+    final l10n = AppLocalizations.of(context);
+    final noteCtrl = TextEditingController();
+    try {
+      final send = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          return StatefulBuilder(
+            builder: (ctx, setLocal) {
+              final canSend = noteCtrl.text.trim().isNotEmpty;
+              return FolioDialog(
+                title: Text(l10n.settingsReportBugAppendTitle),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l10n.settingsReportBugAppendBody(
+                        report.idReadable ?? report.reportId,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: noteCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.settingsReportBugAppendNoteLabel,
+                        border: const OutlineInputBorder(),
+                      ),
+                      maxLines: 4,
+                      onChanged: (_) => setLocal(() {}),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(l10n.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: canSend ? () => Navigator.pop(ctx, true) : null,
+                    child: Text(l10n.settingsReportBugAppendSend),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (send != true || !mounted) return;
+      final ok = await FolioDiagnosticReporter.appendToReport(
+        reportId: report.reportId,
+        note: noteCtrl.text,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            ok ? l10n.settingsReportBugSentOk : l10n.settingsReportBugSentFail,
+            ok
+                ? l10n.settingsReportBugAppendOk
+                : l10n.settingsReportBugAppendFail,
           ),
         ),
       );
-      final uri = Uri.parse(kFolioBugReportUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      if (ok) unawaited(_refreshOpenDiagnosticReports());
     } finally {
       noteCtrl.dispose();
     }

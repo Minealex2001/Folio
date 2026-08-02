@@ -1,7 +1,7 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última revisión: 2026-05-05 (sincronizado con el estado del repositorio).
+> Última revisión: 2026-07-31 (sincronizado con el estado del repositorio).
 
 ---
 
@@ -1218,8 +1218,8 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 
 ## 36. Diagnóstico y reporte de bugs
 
-- URL de reporte: `kFolioBugReportUrl`.
-- Flags de build: `folio_build_flags` (debug/profile/release, plataforma, versión).
+- Reporte manual → `POST /api/v1/diagnostics/report` → YouTrack (sin GitHub). Anónimo OK; con Folio Cloud el reporte queda ligado al usuario y visible en Ajustes → Privacidad hasta resolverse (puedes añadir más info).
+- Flags de build: `folio_build_flags` (p. ej. banner BETA).
 - Log estructurado unificado: `AppLogger` (`lib/services/app_logger.dart`).
   - Destinos: terminal (`debugPrint`, visible en `flutter run`), DevTools (`dart:developer` log) y archivo `folio.log` (sink no-web; entra en reportes de diagnóstico).
   - Niveles: `debug` / `info` / `warn` / `error`. Tags: `folio.<tag>` (p. ej. `bootstrap`, `env`, `vault`, `cloud_sync`, `settings_sync`, `auth`, `onboarding`, `workspace`, `settings`, `persistence`, `entitlements`, `checkout`, `backup`, `smb`, `web-portal`, `store`).
@@ -1282,16 +1282,17 @@ Implementado en `lib/features/workspace/graph/graph_view_screen.dart` y `lib/fea
 - **Relaciones incluidas**:
   - **Enlaces** (`GraphEdgeKind.link`): menciones `@`, URIs `folio://open/<id>` y bloques `child_page` (vía `backlinkPagesFor`).
   - **Jerarquía** (`GraphEdgeKind.hierarchy`): relación carpeta/folio del sidebar (`parentId` → hijo).
-- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring enlace = 0.04, spring jerarquía = 0.08, damping = 0.85, gravedad central = 0.015.
+- **Algoritmo**: layout force-directed en isolate con clusters por carpeta (`graph_layout.dart`). Carpetas se colocan como hubs; páginas hijas en órbita cercana; muelle jerárquico fuerte + repulsión atenuada padre↔hijo; masa mayor en carpetas. Enlaces débiles entre clusters.
 - **Renderizado**:
-  - Nodos de folio como círculos; nodos de carpeta (`isFolder`) como rectángulos redondeados con icono.
-  - Aristas de enlace: línea sólida (`outlineVariant`).
-  - Aristas de jerarquía: línea discontinua (`outline` con opacidad reducida).
-  - Leyenda compacta en el AppBar (`graphViewLegendLink`, `graphViewLegendHierarchy`).
-  - `InteractiveViewer` para zoom y paneo libre.
+  - Estilo tipo grafo de red: círculos de tamaño según grado (hubs grandes, páginas pequeñas), malla de enlaces fina y esqueleto jerárquico más marcado.
+  - Color por carpeta: cada carpeta recibe un color estable (hash del id); las páginas heredan el de la carpeta ancestro más cercana; sin carpeta usan el color del tema.
+  - Etiquetas hasta ~250 nodos; con más, solo en hover (emoji de carpeta también).
+  - Leyenda: trazo fino = enlace, trazo grueso = carpeta/jerarquía.
+  - `InteractiveViewer` para zoom y paneo libre (mín. scale 0.015); al abrir encaja el canvas en el viewport. Se desactiva mientras se arrastra un nodo.
 - **Interacción**:
-  - Hover sobre nodo: resalte visual (`_hoveredNodeId`).
-  - Tap en nodo: `Navigator.pop()` + `onOpenPage(pageId)` para navegar a la página.
+  - Hover sobre nodo: resalte visual y cursor grab.
+  - Arrastrar nodo: gesto dedicado que gana al paneo; la posición se guarda en la sesión de la vista.
+  - Tap (sin arrastre) en nodo: `Navigator.pop()` + `onOpenPage(pageId)`.
 - **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar; cuenta como conectado cualquier nodo con arista de enlace o jerarquía.
 - **Estado vacío**: mensaje `graphViewEmpty` cuando no hay relaciones entre folios ni carpetas.
 

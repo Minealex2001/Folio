@@ -19,6 +19,44 @@ String? folioParseMarkdownCodeFenceShortcut(String text) {
   };
 }
 
+/// Vista posicional perezosa sobre `_ids` (paralela a `page.blocks`): el
+/// valor real de cada posición se resuelve por id, bajo demanda, a través
+/// de `_resolve` — no se construye nada hasta que alguien accede a esa
+/// posición. Permite que ~190 puntos del editor sigan escribiendo
+/// `_controllers[idx]` / `_focusNodes[idx]` exactamente como antes (mismo
+/// `.length`, mismo `[]`, mismo `.first`) sin enterarse de que, por debajo,
+/// el TextEditingController/FocusNode de un bloque nunca visitado (páginas
+/// de miles de bloques) aún no existe.
+class _LazyBlockObjects<T> {
+  const _LazyBlockObjects(this._ids, this._resolve);
+  final List<String> _ids;
+  final T Function(String blockId) _resolve;
+
+  int get length => _ids.length;
+  bool get isEmpty => _ids.isEmpty;
+  bool get isNotEmpty => _ids.isNotEmpty;
+  T operator [](int index) => _resolve(_ids[index]);
+  T get first => _resolve(_ids.first);
+}
+
+/// Controller/FocusNode reales de un bloque, más los listeners que hay que
+/// desenganchar explícitamente antes de `dispose()`. Se construyen juntos
+/// (mismo closure, mismas referencias mutuas que antes) la primera vez que
+/// el bloque hace falta de verdad — nunca por adelantado para toda la
+/// página.
+class _BlockEditingObjects {
+  _BlockEditingObjects({
+    required this.controller,
+    required this.focusNode,
+    required this.textListener,
+    required this.focusDecorListener,
+  });
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback textListener;
+  final VoidCallback focusDecorListener;
+}
+
 class BlockEditorState extends State<BlockEditor>
     with
         _BlockRowBuild,
@@ -29,7 +67,34 @@ class BlockEditorState extends State<BlockEditor>
         _MultiSelectDragDrop,
         _FormatToolbarOverlay {
   static const _uuid = Uuid();
-  final List<TextEditingController> _controllers = [];
+
+  /// Único almacén real de controllers/FocusNodes de bloque, indexado por
+  /// id (no por posición): un reorder no mueve nada aquí. Poblado de forma
+  /// perezosa por `_ensureEditingObjects`; vaciado por completo en cada
+  /// `_disposeControllers()`, exactamente como antes se vaciaban las listas
+  /// posicionales — no se intenta preservar nada entre resyncs distintos al
+  /// reuso que ya hacía `_quillByBlockId` (ver `_ensureQuillController`).
+  final Map<String, _BlockEditingObjects> _editingObjectsByBlockId = {};
+
+  /// Id del bloque con foco ahora mismo (o `null`). Se mantiene al día
+  /// desde `focusDecorListener` de cada bloque; reemplaza los escaneos
+  /// `for (... ; i < _focusNodes.length ...) if (_focusNodes[i].hasFocus)`
+  /// que antes recorrían la página entera — con `_focusNodes` perezoso, ese
+  /// patrón forzaría construir el FocusNode de cada bloque hasta encontrar
+  /// el enfocado, anulando el ahorro en páginas grandes.
+  String? _focusedBlockId;
+
+  _LazyBlockObjects<TextEditingController> get _controllers =>
+      _LazyBlockObjects<TextEditingController>(
+        _controllerBlockIds,
+        (id) => _ensureEditingObjects(id).controller,
+      );
+  _LazyBlockObjects<FocusNode> get _focusNodes =>
+      _LazyBlockObjects<FocusNode>(
+        _controllerBlockIds,
+        (id) => _ensureEditingObjects(id).focusNode,
+      );
+
   final Map<String, quill.QuillController> _quillByBlockId = {};
   /// Marca (por identidad, sin retener referencias fuertes) qué
   /// `QuillController`s ya fueron destruidos por el callback diferido de
@@ -58,9 +123,6 @@ class BlockEditorState extends State<BlockEditor>
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
   final Map<String, ScrollController> _quillMainScrollByBlockId = {};
-  final List<FocusNode> _focusNodes = [];
-  final List<VoidCallback> _textListeners = [];
-  final List<VoidCallback> _focusDecorListeners = [];
   String? _boundPageId;
   var _ignoreShortcuts = false;
   T _runWithShortcutsIgnored<T>(T Function() action) {
@@ -88,6 +150,21 @@ class BlockEditorState extends State<BlockEditor>
   String? _pendingFocusBlockId;
   final Set<String> _selectedBlockIds = <String>{};
   final Set<String> _transitioningBlockIds = <String>{};
+
+  /// Cache de `_hasMarkdownBlockStructures` por bloque: evita reevaluar 6
+  /// regex en cada build de fila cuando el texto no cambió desde la última
+  /// vez (p. ej. rebuilds disparados por scroll u otros bloques, no por una
+  /// edición de este bloque en particular).
+  final Map<String, (String, bool)> _hasMarkdownStructuresByBlockId = {};
+
+  bool _hasMarkdownBlockStructuresCached(String blockId, String text) {
+    final cached = _hasMarkdownStructuresByBlockId[blockId];
+    if (cached != null && cached.$1 == text) return cached.$2;
+    final result = _hasMarkdownBlockStructures(text);
+    _hasMarkdownStructuresByBlockId[blockId] = (text, result);
+    return result;
+  }
+
   String? _selectionAnchorBlockId;
   bool _dragSelectionActive = false;
   String? _dragSelectionOriginBlockId;
@@ -351,6 +428,7 @@ class BlockEditorState extends State<BlockEditor>
     }
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
+    _hasMarkdownStructuresByBlockId.remove(blockId);
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -383,18 +461,12 @@ class BlockEditorState extends State<BlockEditor>
         _pendingFocusIndex != null || _pendingFocusBlockId != null;
     String? focusId;
     int? focusOff;
-    for (
-      var i = 0;
-      i < _focusNodes.length && i < _controllerBlockIds.length;
-      i++
-    ) {
-      if (_focusNodes[i].hasFocus) {
-        final id = _controllerBlockIds[i];
-        focusId = id;
-        _flushPendingQuill(id);
-        focusOff = _liveCaretPlainOffset(id);
-        break;
-      }
+    final currentFocusedId = _focusedBlockId;
+    if (currentFocusedId != null &&
+        _controllerBlockIds.contains(currentFocusedId)) {
+      focusId = currentFocusedId;
+      _flushPendingQuill(currentFocusedId);
+      focusOff = _liveCaretPlainOffset(currentFocusedId);
     }
     if (focusId == null &&
         _stylableBlockTypes.contains(last.type) &&
@@ -791,9 +863,9 @@ class BlockEditorState extends State<BlockEditor>
   }
 
   String? plainSelectionTextForAi() {
-    for (var i = 0; i < _focusNodes.length && i < _controllerBlockIds.length; i++) {
-      if (!_focusNodes[i].hasFocus) continue;
-      final s = _plainAiSelectionForBlock(_controllerBlockIds[i]);
+    final fid = _focusedBlockId;
+    if (fid != null) {
+      final s = _plainAiSelectionForBlock(fid);
       if (s != null) return s;
     }
     final pg = _s.selectedPage;
@@ -3131,29 +3203,26 @@ class BlockEditorState extends State<BlockEditor>
       sc.dispose();
     }
     _quillMainScrollByBlockId.clear();
-    final n = _controllers.length;
+    // Solo iteramos las entradas YA CONSTRUIDAS: acceder a `_controllers[i]`
+    // / `_focusNodes[i]` para un bloque nunca visitado lo construiría solo
+    // para destruirlo al instante, anulando el ahorro de la carga
+    // perezosa en páginas de miles de bloques.
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
-    for (var i = 0; i < n; i++) {
-      if (i < _textListeners.length) {
-        _controllers[i].removeListener(_textListeners[i]);
-      }
-      if (i < _focusDecorListeners.length) {
-        _focusNodes[i].removeListener(_focusDecorListeners[i]);
-      }
+    for (final obj in _editingObjectsByBlockId.values) {
+      obj.controller.removeListener(obj.textListener);
+      obj.focusNode.removeListener(obj.focusDecorListener);
       // Evitar dispose mientras el FocusNode aún puede notificar cambios
       // (especialmente en Windows/Quill con callbacks de foco/IME pendientes).
-      final fn = _focusNodes[i];
+      final fn = obj.focusNode;
       if (fn.hasFocus) {
         fn.unfocus();
       }
-      controllersToDispose.add(_controllers[i]);
+      controllersToDispose.add(obj.controller);
       focusToDispose.add(fn);
     }
-    _controllers.clear();
-    _focusNodes.clear();
-    _textListeners.clear();
-    _focusDecorListeners.clear();
+    _editingObjectsByBlockId.clear();
+    _focusedBlockId = null;
     _controllerBlockIds.clear();
     _slashBlockId = null;
     _slashPageId = null;
@@ -3270,13 +3339,19 @@ class BlockEditorState extends State<BlockEditor>
 
   bool _controllersMismatchPage(FolioPage page) {
     if (page.id != _boundPageId) return true;
-    if (page.blocks.length != _controllers.length) return true;
     if (page.blocks.length != _controllerBlockIds.length) return true;
     for (var i = 0; i < page.blocks.length; i++) {
       if (page.blocks[i].id != _controllerBlockIds[i]) return true;
-      final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
-      final hasCode = _controllers[i] is CodeController;
-      if (wantCode != hasCode) return true;
+      // El chequeo de tipo (código vs. no-código) solo aplica a bloques que
+      // YA tienen un controller construido: uno todavía no visitado no
+      // puede estar "equivocado" (se construirá con el tipo correcto la
+      // primera vez que haga falta).
+      final built = _editingObjectsByBlockId[page.blocks[i].id];
+      if (built != null) {
+        final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
+        final hasCode = built.controller is CodeController;
+        if (wantCode != hasCode) return true;
+      }
     }
     return false;
   }
@@ -3285,8 +3360,7 @@ class BlockEditorState extends State<BlockEditor>
   /// Evita dispose de [CodeField]/FocusNode (flutter_code_editor deja overlays/listeners rotos).
   bool _canReorderControllersOnly(FolioPage page) {
     if (page.id != _boundPageId) return false;
-    if (page.blocks.length != _controllers.length ||
-        page.blocks.length != _controllerBlockIds.length) {
+    if (page.blocks.length != _controllerBlockIds.length) {
       return false;
     }
     if (page.blocks.isEmpty) return true;
@@ -3299,46 +3373,24 @@ class BlockEditorState extends State<BlockEditor>
     }
 
     for (final b in page.blocks) {
-      final j = _controllerBlockIds.indexOf(b.id);
-      if (j < 0) return false;
+      final built = _editingObjectsByBlockId[b.id];
+      if (built == null) continue;
       final wantCode = _usesCodeControllerForBlockType(b.type);
-      final hasCode = _controllers[j] is CodeController;
+      final hasCode = built.controller is CodeController;
       if (wantCode != hasCode) return false;
     }
     return true;
   }
 
   void _reorderControllersLikePage(FolioPage page) {
-    final newControllers = <TextEditingController>[];
-    final newFocusNodes = <FocusNode>[];
-    final newTextListeners = <VoidCallback>[];
-    final newFocusDecorListeners = <VoidCallback>[];
-    final newIds = <String>[];
-
-    for (final b in page.blocks) {
-      final j = _controllerBlockIds.indexOf(b.id);
-      newControllers.add(_controllers[j]);
-      newFocusNodes.add(_focusNodes[j]);
-      newTextListeners.add(_textListeners[j]);
-      newFocusDecorListeners.add(_focusDecorListeners[j]);
-      newIds.add(b.id);
-    }
-
-    _controllers
-      ..clear()
-      ..addAll(newControllers);
-    _focusNodes
-      ..clear()
-      ..addAll(newFocusNodes);
-    _textListeners
-      ..clear()
-      ..addAll(newTextListeners);
-    _focusDecorListeners
-      ..clear()
-      ..addAll(newFocusDecorListeners);
+    // El almacén real (`_editingObjectsByBlockId`) está indexado por id, no
+    // por posición, así que un reorder no mueve ningún
+    // TextEditingController/FocusNode — basta con resincronizar el orden
+    // de `_controllerBlockIds` para que `_controllers[i]`/`_focusNodes[i]`
+    // sigan resolviendo al bloque correcto en su nueva posición.
     _controllerBlockIds
       ..clear()
-      ..addAll(newIds);
+      ..addAll(page.blocks.map((b) => b.id));
   }
 
   void _onSession() {
@@ -3487,6 +3539,247 @@ class BlockEditorState extends State<BlockEditor>
     _s.requestScrollToBlock(blockId);
   }
 
+  /// Construye (una única vez, bajo demanda) el TextEditingController y el
+  /// FocusNode reales de un bloque, con todos sus listeners. Sustituye el
+  /// antiguo bucle eager de `_syncControllers()` que hacía esto para los
+  /// 8000 bloques de golpe en cada resync — ahora solo se paga este costo
+  /// por el bloque que realmente hace falta (fila visible, foco pendiente,
+  /// operación explícita del usuario sobre ese bloque).
+  ///
+  /// La resincronización del documento Quill contra el modelo (undo/redo,
+  /// cambios remotos) YA NO ocurre aquí: como este método solo se invoca
+  /// para bloques que se están construyendo o que alguien necesita de
+  /// verdad, forzar aquí `_ensureQuillController` para reconciliar
+  /// reintroduciría el mismo parseo eager de markdown para toda la página.
+  /// Esa reconciliación la sigue hacien `_reconcileStylableQuillDocumentsWithModel`,
+  /// que ya solo opera sobre controllers Quill EXISTENTES (`_quillByBlockId`),
+  /// nunca crea uno nuevo.
+  _BlockEditingObjects _ensureEditingObjects(String blockId) {
+    final existing = _editingObjectsByBlockId[blockId];
+    if (existing != null) return existing;
+
+    final page = _s.selectedPage;
+    FolioBlock? found;
+    if (page != null) {
+      for (final x in page.blocks) {
+        if (x.id == blockId) {
+          found = x;
+          break;
+        }
+      }
+    }
+    // Por invariante, `blockId` proviene de `_controllerBlockIds`, que
+    // `_syncControllers()` / `_reorderControllersLikePage()` mantienen 1:1
+    // con `page.blocks`. Este fallback solo protege una llamada fuera de
+    // ese invariante; no debería ejercitarse en uso normal.
+    final b = found ?? FolioBlock(id: blockId, type: 'paragraph', text: '');
+    final bid = blockId;
+    final pid = page?.id ?? _boundPageId ?? '';
+
+    final TextEditingController c = _usesCodeControllerForBlockType(b.type)
+        ? CodeController(
+            text: b.text,
+            language: modeForLanguageId(
+              (b.type == 'mermaid' || b.type == 'equation')
+                  ? 'plaintext'
+                  : b.codeLanguage,
+            ),
+          )
+        : CopilotTextEditingController(text: b.text);
+
+    void textListener() {
+      if (!mounted) return;
+      if (c is CopilotTextEditingController && c.suggestion.isNotEmpty) {
+        c.suggestion = '';
+      }
+      final p = _s.selectedPage;
+      if (p == null || p.id != pid) return;
+      final idx = p.blocks.indexWhere((x) => x.id == bid);
+      if (idx < 0) return;
+      if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
+          c.text.isNotEmpty) {
+        _tailTapTransientTouchedByBlockId[bid] = true;
+        if (_pendingTailTransientBlockId == bid) {
+          _pendingTailTransientBlockId = null;
+        }
+      }
+      const skipTextSync = {
+        'toggle',
+        'column_list',
+        'template_button',
+        'toc',
+        'breadcrumb',
+        'child_page',
+      };
+      if (skipTextSync.contains(p.blocks[idx].type)) return;
+      _syncBlockTextFromController(pid, bid, c.text, idx);
+      _scheduleQuillCopilotProbe(bid);
+
+      // Rastrear si este bloque tiene selección de texto activa. Para
+      // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
+      // no en este `TextEditingController` (un espejo interno que
+      // `flushNow()` resincroniza con selección colapsada tras cada
+      // debounce); ese `listener()` de Quill ya mantiene
+      // `_selectionActiveBlockId` para esos bloques. Si este listener
+      // también escribiera ahí, un flush puramente programático (p. ej.
+      // disparado por `_ensureTrailingSentinel` al insertar el bloque
+      // centinela) borraría por error una selección de formato que sigue
+      // viva en el Quill controller, ocultando la barra de formato
+      // flotante sin que el usuario haya deseleccionado nada.
+      if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
+        final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
+        final wasActive = _selectionActiveBlockId == bid;
+        if (hasSelection && !wasActive) {
+          _selectionActiveBlockId = bid;
+          setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
+        } else if (!hasSelection && wasActive) {
+          _selectionActiveBlockId = null;
+          setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
+        } else if (hasSelection && wasActive) {
+          _scheduleFormatToolbarOverlayUpdate();
+        }
+      }
+    }
+
+    c.addListener(textListener);
+
+    final fn = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        final p = _s.selectedPage;
+        if (p?.id != pid) return KeyEventResult.ignored;
+        final idx = p!.blocks.indexWhere((x) => x.id == bid);
+        if (idx < 0) return KeyEventResult.ignored;
+        return _handleBlockKey(p, bid, idx, c, event);
+      },
+    );
+
+    void focusDecorListener() {
+      if (!mounted) return;
+      // Foco centralizado (ver `_focusedBlockId`): se actualiza aquí, antes
+      // de cualquier otra cosa, para que el resto de este listener (y
+      // cualquier otro consumidor) pueda consultarlo sin escanear todos los
+      // FocusNode de la página.
+      if (fn.hasFocus) {
+        _focusedBlockId = bid;
+      } else if (_focusedBlockId == bid) {
+        _focusedBlockId = null;
+      }
+      if (!fn.hasFocus) {
+        // Limpiar selección activa al perder foco (si era este bloque).
+        if (_selectionActiveBlockId == bid) {
+          _selectionActiveBlockId = null;
+          _scheduleFormatToolbarOverlayUpdate();
+        }
+        // Ocultar la sugerencia de Quill Copilot al perder foco (si era
+        // este bloque el que la tenía pendiente).
+        if (_quillCopilotSuggestionBlockId == bid) {
+          _quillCopilotSuggestionBlockId = null;
+          _quillCopilotSuggestionText = null;
+          _scheduleQuillCopilotOverlayUpdate();
+        }
+        // Flush inmediato de WYSIWYG al perder foco.
+        if (_stylableBlockTypes.contains(b.type)) {
+          final qc = _quillByBlockId[bid];
+          if (qc != null) {
+            _quillDebounceByBlockId[bid]?.cancel();
+            final md = FolioMarkdownQuillCodec.documentToMarkdown(
+              qc.document,
+            );
+            final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+            _quillLastMdByBlockId[bid] = md;
+            _runWithShortcutsIgnored(() {
+              _s.updateBlockTextFull(pid, bid, md, deltaStr);
+              final idx = _controllerBlockIds.indexOf(bid);
+              if (idx >= 0 && idx < _controllers.length) {
+                final caret = qc.selection.baseOffset.clamp(0, md.length);
+                _controllers[idx].value = TextEditingValue(
+                  text: md,
+                  selection: TextSelection.collapsed(offset: caret),
+                );
+              }
+            });
+          }
+        }
+        final touched = _tailTapTransientTouchedByBlockId[bid];
+        if (touched != null) {
+          if (!touched && c.text.trim().isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              final pNow = _s.selectedPage;
+              if (pNow == null || pNow.id != pid) return;
+              final stillExists = pNow.blocks.any((x) => x.id == bid);
+              if (!stillExists) {
+                _tailTapTransientTouchedByBlockId.remove(bid);
+                return;
+              }
+              final blockIndex = _controllerBlockIds.indexOf(bid);
+              if (blockIndex >= 0 &&
+                  blockIndex < _focusNodes.length &&
+                  _focusNodes[blockIndex].hasFocus) {
+                return;
+              }
+              _tailTapTransientTouchedByBlockId.remove(bid);
+              if (_pendingTailTransientBlockId == bid) {
+                _pendingTailTransientBlockId = null;
+              }
+              _s.removeBlockIfMultiple(pid, bid);
+            });
+          } else {
+            _tailTapTransientTouchedByBlockId.remove(bid);
+            if (_pendingTailTransientBlockId == bid) {
+              _pendingTailTransientBlockId = null;
+            }
+          }
+        }
+      }
+      final pM = _s.selectedPage;
+      if (pM != null) {
+        final mi = pM.blocks.indexWhere((x) => x.id == bid);
+        if (mi >= 0 &&
+            pM.blocks[mi].type == 'mermaid' &&
+            !fn.hasFocus &&
+            pM.blocks[mi].text.trim().isNotEmpty) {
+          _mermaidEditingSourceIds.remove(bid);
+        }
+      }
+      // Antes: escaneaba TODOS los FocusNode de la página buscando "algún
+      // otro bloque enfocado". Con `_focusedBlockId` centralizado, ese
+      // mismo hecho ya está disponible en O(1) sin forzar la construcción
+      // perezosa de FocusNodes de bloques nunca visitados.
+      final slashBid = _slashBlockId;
+      if (slashBid != null &&
+          _controllerBlockIds.contains(slashBid) &&
+          slashBid != _focusedBlockId &&
+          _focusedBlockId != null) {
+        _dismissInlineSlash(clearTypedCommand: true);
+        return;
+      }
+      final mentionBid = _mentionBlockId;
+      if (mentionBid != null &&
+          _controllerBlockIds.contains(mentionBid) &&
+          mentionBid != _focusedBlockId &&
+          _focusedBlockId != null) {
+        _dismissInlineMention();
+        return;
+      }
+      setState(() {});
+    }
+
+    fn.addListener(focusDecorListener);
+
+    final built = _BlockEditingObjects(
+      controller: c,
+      focusNode: fn,
+      textListener: textListener,
+      focusDecorListener: focusDecorListener,
+    );
+    _editingObjectsByBlockId[blockId] = built;
+    return built;
+  }
+
   void _syncControllers() {
     final page = _s.selectedPage;
     final pendingIdx = _pendingFocusIndex;
@@ -3521,248 +3814,12 @@ class BlockEditorState extends State<BlockEditor>
       (id, _) => !page.blocks.any((b) => b.id == id),
     );
 
-    for (final b in page.blocks) {
-      final bid = b.id;
-      final pid = page.id;
-      if (_stylableBlockTypes.contains(b.type)) {
-        // Asegurar controlador WYSIWYG y sincronizar desde el modelo si cambió
-        // (p. ej. undo/redo o cambios remotos).
-        final qc = _ensureQuillController(pageId: pid, block: b);
-        final last = _quillLastMdByBlockId[bid];
-        if (last != null && last != b.text) {
-          if (_quillMarkdownNormalize(last) ==
-              _quillMarkdownNormalize(b.text)) {
-            _quillLastMdByBlockId[bid] = b.text;
-          } else {
-            final oldPlain = qc.document.toPlainText();
-            final oldSel = qc.selection;
-            qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
-            _quillLastMdByBlockId[bid] = b.text;
-            final newPlain = qc.document.toPlainText();
-            if (newPlain == oldPlain && oldSel.isValid) {
-              qc.updateSelection(oldSel, quill.ChangeSource.remote);
-            } else if (oldSel.isValid) {
-              final o = oldSel.baseOffset.clamp(0, oldPlain.length);
-              final at = o.clamp(0, newPlain.length);
-              qc.updateSelection(
-                TextSelection.collapsed(offset: at),
-                quill.ChangeSource.remote,
-              );
-            }
-            // Cancelar el debounce DESPUÉS de `updateSelection`: tanto la
-            // asignación de `qc.document` como `updateSelection` notifican al
-            // listener del controller, que re-arma el debounce de
-            // persistencia en cada notificación. Si cancelamos antes de
-            // `updateSelection`, el temporizador que esta última rearma
-            // sobrevive y, cuando expira (p. ej. durante `pumpAndSettle`),
-            // vuelve a escribir en el modelo un markdown derivado del propio
-            // documento recién resincronizado — pisando cualquier mutación
-            // "real" del modelo (como un split de bloque) que haya ocurrido
-            // justo después de este resync remoto. Cancelar al final evita
-            // ese eco espurio hacia la sesión.
-            _quillDebounceByBlockId[bid]?.cancel();
-          }
-        }
-      }
-      final TextEditingController c = _usesCodeControllerForBlockType(b.type)
-          ? CodeController(
-              text: b.text,
-              language: modeForLanguageId(
-                (b.type == 'mermaid' || b.type == 'equation')
-                    ? 'plaintext'
-                    : b.codeLanguage,
-              ),
-            )
-          : CopilotTextEditingController(text: b.text);
-
-      void textListener() {
-        if (!mounted) return;
-        if (c is CopilotTextEditingController && c.suggestion.isNotEmpty) {
-          c.suggestion = '';
-        }
-        final p = _s.selectedPage;
-        if (p == null || p.id != pid) return;
-        final idx = p.blocks.indexWhere((x) => x.id == bid);
-        if (idx < 0) return;
-        if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
-            c.text.isNotEmpty) {
-          _tailTapTransientTouchedByBlockId[bid] = true;
-          if (_pendingTailTransientBlockId == bid) {
-            _pendingTailTransientBlockId = null;
-          }
-        }
-        const skipTextSync = {
-          'toggle',
-          'column_list',
-          'template_button',
-          'toc',
-          'breadcrumb',
-          'child_page',
-        };
-        if (skipTextSync.contains(p.blocks[idx].type)) return;
-        _syncBlockTextFromController(pid, bid, c.text, idx);
-        _scheduleQuillCopilotProbe(bid);
-
-        // Rastrear si este bloque tiene selección de texto activa. Para
-        // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
-        // no en este `TextEditingController` (un espejo interno que
-        // `flushNow()` resincroniza con selección colapsada tras cada
-        // debounce); ese `listener()` de Quill ya mantiene
-        // `_selectionActiveBlockId` para esos bloques. Si este listener
-        // también escribiera ahí, un flush puramente programático (p. ej.
-        // disparado por `_ensureTrailingSentinel` al insertar el bloque
-        // centinela) borraría por error una selección de formato que sigue
-        // viva en el Quill controller, ocultando la barra de formato
-        // flotante sin que el usuario haya deseleccionado nada.
-        if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
-          final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
-          final wasActive = _selectionActiveBlockId == bid;
-          if (hasSelection && !wasActive) {
-            _selectionActiveBlockId = bid;
-            setState(() {});
-            _scheduleFormatToolbarOverlayUpdate();
-          } else if (!hasSelection && wasActive) {
-            _selectionActiveBlockId = null;
-            setState(() {});
-            _scheduleFormatToolbarOverlayUpdate();
-          } else if (hasSelection && wasActive) {
-            _scheduleFormatToolbarOverlayUpdate();
-          }
-        }
-      }
-
-      c.addListener(textListener);
-      _textListeners.add(textListener);
-
-      final fn = FocusNode(
-        onKeyEvent: (node, event) {
-          if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
-          final p = _s.selectedPage;
-          if (p?.id != pid) return KeyEventResult.ignored;
-          final idx = p!.blocks.indexWhere((x) => x.id == bid);
-          if (idx < 0) return KeyEventResult.ignored;
-          return _handleBlockKey(p, bid, idx, c, event);
-        },
-      );
-
-      void focusDecorListener() {
-        if (!mounted) return;
-        if (!fn.hasFocus) {
-          // Limpiar selección activa al perder foco (si era este bloque).
-          if (_selectionActiveBlockId == bid) {
-            _selectionActiveBlockId = null;
-            _scheduleFormatToolbarOverlayUpdate();
-          }
-          // Ocultar la sugerencia de Quill Copilot al perder foco (si era
-          // este bloque el que la tenía pendiente).
-          if (_quillCopilotSuggestionBlockId == bid) {
-            _quillCopilotSuggestionBlockId = null;
-            _quillCopilotSuggestionText = null;
-            _scheduleQuillCopilotOverlayUpdate();
-          }
-          // Flush inmediato de WYSIWYG al perder foco.
-          if (_stylableBlockTypes.contains(b.type)) {
-            final qc = _quillByBlockId[bid];
-            if (qc != null) {
-              _quillDebounceByBlockId[bid]?.cancel();
-              final md = FolioMarkdownQuillCodec.documentToMarkdown(
-                qc.document,
-              );
-              final deltaStr = jsonEncode(qc.document.toDelta().toJson());
-              _quillLastMdByBlockId[bid] = md;
-              _runWithShortcutsIgnored(() {
-                _s.updateBlockTextFull(pid, bid, md, deltaStr);
-                final idx = _controllerBlockIds.indexOf(bid);
-                if (idx >= 0 && idx < _controllers.length) {
-                  final caret = qc.selection.baseOffset.clamp(0, md.length);
-                  _controllers[idx].value = TextEditingValue(
-                    text: md,
-                    selection: TextSelection.collapsed(offset: caret),
-                  );
-                }
-              });
-            }
-          }
-          final touched = _tailTapTransientTouchedByBlockId[bid];
-          if (touched != null) {
-            if (!touched && c.text.trim().isEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                final pNow = _s.selectedPage;
-                if (pNow == null || pNow.id != pid) return;
-                final stillExists = pNow.blocks.any((x) => x.id == bid);
-                if (!stillExists) {
-                  _tailTapTransientTouchedByBlockId.remove(bid);
-                  return;
-                }
-                final blockIndex = _controllerBlockIds.indexOf(bid);
-                if (blockIndex >= 0 &&
-                    blockIndex < _focusNodes.length &&
-                    _focusNodes[blockIndex].hasFocus) {
-                  return;
-                }
-                _tailTapTransientTouchedByBlockId.remove(bid);
-                if (_pendingTailTransientBlockId == bid) {
-                  _pendingTailTransientBlockId = null;
-                }
-                _s.removeBlockIfMultiple(pid, bid);
-              });
-            } else {
-              _tailTapTransientTouchedByBlockId.remove(bid);
-              if (_pendingTailTransientBlockId == bid) {
-                _pendingTailTransientBlockId = null;
-              }
-            }
-          }
-        }
-        final pM = _s.selectedPage;
-        if (pM != null) {
-          final mi = pM.blocks.indexWhere((x) => x.id == bid);
-          if (mi >= 0 &&
-              pM.blocks[mi].type == 'mermaid' &&
-              !fn.hasFocus &&
-              pM.blocks[mi].text.trim().isNotEmpty) {
-            _mermaidEditingSourceIds.remove(bid);
-          }
-        }
-        final slashBid = _slashBlockId;
-        if (slashBid != null) {
-          final slashIdx = _controllerBlockIds.indexWhere((x) => x == slashBid);
-          if (slashIdx >= 0 && !_focusNodes[slashIdx].hasFocus) {
-            final otherBlockFocused = _focusNodes.asMap().entries.any(
-              (e) => e.key != slashIdx && e.value.hasFocus,
-            );
-            if (otherBlockFocused) {
-              _dismissInlineSlash(clearTypedCommand: true);
-              return;
-            }
-          }
-        }
-        final mentionBid = _mentionBlockId;
-        if (mentionBid != null) {
-          final mentionIdx = _controllerBlockIds.indexWhere(
-            (x) => x == mentionBid,
-          );
-          if (mentionIdx >= 0 && !_focusNodes[mentionIdx].hasFocus) {
-            final otherBlockFocused = _focusNodes.asMap().entries.any(
-              (e) => e.key != mentionIdx && e.value.hasFocus,
-            );
-            if (otherBlockFocused) {
-              _dismissInlineMention();
-              return;
-            }
-          }
-        }
-        setState(() {});
-      }
-
-      fn.addListener(focusDecorListener);
-      _focusDecorListeners.add(focusDecorListener);
-
-      _controllers.add(c);
-      _focusNodes.add(fn);
-      _controllerBlockIds.add(bid);
-    }
+    // Solo se resincroniza el índice id<->posición (barato, son strings).
+    // El TextEditingController/FocusNode/documento Quill de cada bloque se
+    // construye perezosamente vía `_ensureEditingObjects`/`_ensureQuillController`
+    // la primera vez que ese bloque concreto hace falta (fila visible en el
+    // `ListView.builder`, foco pendiente, operación explícita del usuario).
+    _controllerBlockIds.addAll(page.blocks.map((b) => b.id));
 
     var focusIdx = pendingIdx;
     var focusOff = pendingOff;
