@@ -1432,6 +1432,8 @@
   ,"@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}}
   ,"folioCloudStudentVerifyExpiringBanner": "Your student verification expires in {days} days. Re-verify your email or you will move to the full plan."
   ,"@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}}
+  ,"folioCloudSubscriptionCancelScheduledBanner": "You cancelled renewal. Folio Cloud stays active until {date}."
+  ,"@folioCloudSubscriptionCancelScheduledBanner": {"placeholders": {"date": {"type": "String"}}}
   ,"folioCloudStudentReverifyButton": "Re-verify"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Your notebook stays local. The cloud works when you want it."

@@ -1429,6 +1429,8 @@
   ,"@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}}
   ,"folioCloudStudentVerifyExpiringBanner": "Tu verificación de estudiante caduca en {days} días. Vuelve a verificar tu correo o pasarás al plan completo."
   ,"@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}}
+  ,"folioCloudSubscriptionCancelScheduledBanner": "Has cancelado la renovación. Folio Cloud sigue activo hasta el {date}."
+  ,"@folioCloudSubscriptionCancelScheduledBanner": {"placeholders": {"date": {"type": "String"}}}
   ,"folioCloudStudentReverifyButton": "Volver a verificar"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres."

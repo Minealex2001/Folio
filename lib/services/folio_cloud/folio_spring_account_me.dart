@@ -78,6 +78,13 @@ Map<String, dynamic> folioSpringAccountMeToUserDoc(Map<String, dynamic> me) {
   folioCloud['isFamily'] = folioCloud['family'] ?? folioCloud['isFamily'];
   folioCloud['isStudent'] = folioCloud['student'] ?? folioCloud['isStudent'];
   folioCloud['folioStaff'] = me['folioStaff'] ?? folioCloud['folioStaff'];
+  // Top-level cancel schedule (also mirrored inside features JSON).
+  if (folioCloud['cancelAtPeriodEnd'] == null && features['cancelAtPeriodEnd'] != null) {
+    folioCloud['cancelAtPeriodEnd'] = features['cancelAtPeriodEnd'];
+  }
+  if (folioCloud['accessUntil'] == null && features['accessUntil'] != null) {
+    folioCloud['accessUntil'] = features['accessUntil'];
+  }
 
   Map<String, dynamic> ink = <String, dynamic>{};
   if (inkRaw is Map) {

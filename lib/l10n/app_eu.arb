@@ -1434,6 +1434,8 @@
   "@folioCloudStudentVerifiedUntil": {"placeholders": {"date": {"type": "String"}}},
   "folioCloudStudentVerifyExpiringBanner": "Ikasle egiaztapenak {days} egunetan iraungiko da. Egiaztatu berriro posta edo plan osora pasako zara.",
   "@folioCloudStudentVerifyExpiringBanner": {"placeholders": {"days": {"type": "int"}}},
+  "folioCloudSubscriptionCancelScheduledBanner": "Berritzea bertan behera utzi duzu. Folio Cloud {date} arte egongo da aktibo.",
+  "@folioCloudSubscriptionCancelScheduledBanner": {"placeholders": {"date": {"type": "String"}}},
   "folioCloudStudentReverifyButton": "Berriro egiaztatu",
   "folioCloudPitchScreenTitle": "Folio Cloud",
   "folioCloudPitchHeadline": "Zure koadernoa lokala da. Hodeiak nahi duzunean funtzionatzen du.",

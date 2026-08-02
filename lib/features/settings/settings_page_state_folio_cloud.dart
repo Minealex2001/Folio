@@ -37,7 +37,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
           ),
         );
         if (mounted) {
-          await _folio.refreshFolioCloudBillingFromServers();
+          await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
         }
       } else {
         final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -466,7 +466,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
       );
       if (success == true && mounted) {
         _snack(l10n.folioCloudCheckoutSuccess);
-        await _folio.refreshFolioCloudBillingFromServers();
+        await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
       }
     } else {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);

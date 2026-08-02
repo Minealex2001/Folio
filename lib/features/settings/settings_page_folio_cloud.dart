@@ -619,6 +619,30 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
+        if (snap.hasScheduledSubscriptionEnd) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: scheme.tertiaryContainer.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  l10n.folioCloudSubscriptionCancelScheduledBanner(
+                    MaterialLocalizations.of(context).formatFullDate(
+                      snap.accessUntil!,
+                    ),
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
         _SettingsSubsectionTitle(
           title: l10n.folioCloudSubsectionPlan,
           scheme: scheme,

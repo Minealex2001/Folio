@@ -99,7 +99,7 @@ class FolioCloudConversionFlow {
             SnackBar(content: Text(l10n.folioCloudCheckoutSuccess)),
           );
         }
-        await folio.refreshFolioCloudBillingFromServers();
+        await folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
         return true;
       }
       return false;
