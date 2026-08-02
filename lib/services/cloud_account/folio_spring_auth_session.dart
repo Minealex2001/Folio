@@ -185,11 +185,27 @@ class FolioSpringAuthSession extends ChangeNotifier {
   }
 
   /// Confirma correo de estudiante (ruta web `/verify-student-email`).
+  ///
+  /// La web de producción puede apuntar a un API sin `confirm-student` público
+  /// mientras el flujo de email ya corre en beta: si el primario responde 401/404,
+  /// reintenta contra el API beta.
   Future<void> confirmStudentEmailToken(String token) async {
-    final uri = Uri.parse(
+    final trimmed = token.trim();
+    final primary = Uri.parse(
       '${FolioBackendConfig.apiV1Prefix}/family/confirm-student',
     );
-    await _postJson(uri, {'token': token.trim()});
+    try {
+      await _postJson(primary, {'token': trimmed});
+    } on FolioSpringAuthException catch (e) {
+      final code = e.statusCode;
+      if (code != 401 && code != 404) rethrow;
+      final base = FolioBackendConfig.apiBaseUrl.toLowerCase();
+      if (base.contains('backendfoliobeta')) rethrow;
+      final fallback = Uri.parse(
+        'https://backendfoliobeta.minealexgames.com/api/v1/family/confirm-student',
+      );
+      await _postJson(fallback, {'token': trimmed});
+    }
   }
 
   Future<void> resendVerification() async {
