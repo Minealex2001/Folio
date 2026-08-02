@@ -79,6 +79,10 @@ void main() {
         FolioWebUrls.verifyEmailUrl('v1'),
         'https://folio.minealexgames.com/verify-email?token=v1',
       );
+      expect(
+        FolioWebUrls.verifyStudentEmailUrl('s1'),
+        'https://folio.minealexgames.com/verify-student-email?token=s1',
+      );
     });
   });
 
@@ -110,6 +114,14 @@ void main() {
       );
       expect(verify, isA<FolioWebVerifyEmailRoute>());
       expect((verify as FolioWebVerifyEmailRoute).token, 'vt');
+
+      final student = FolioWebPublicRoute.match(
+        Uri.parse(
+          'https://foliobeta.minealexgames.com/verify-student-email?token=st',
+        ),
+      );
+      expect(student, isA<FolioWebVerifyStudentEmailRoute>());
+      expect((student as FolioWebVerifyStudentEmailRoute).token, 'st');
     });
 
     test('otras rutas no matchean', () {

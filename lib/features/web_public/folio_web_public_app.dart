@@ -7,6 +7,7 @@ import '../../l10n/generated/app_localizations.dart';
 import 'public_vault_share_page.dart';
 import 'reset_password_page.dart';
 import 'verify_email_page.dart';
+import 'verify_student_email_page.dart';
 
 /// MaterialApp mínimo para rutas públicas de Flutter web (sin vault / onboarding).
 /// El share `/s/{token}` reutiliza [BlockEditor] en solo lectura (misma app).
@@ -47,6 +48,8 @@ class FolioWebPublicApp extends StatelessWidget {
           ResetPasswordPage(token: token),
         FolioWebVerifyEmailRoute(:final token) =>
           VerifyEmailPage(token: token),
+        FolioWebVerifyStudentEmailRoute(:final token) =>
+          VerifyStudentEmailPage(token: token),
       },
     );
   }

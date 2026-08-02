@@ -39,7 +39,7 @@ Future<void> main(List<String> args) async {
       // auto-report — ver FolioDiagnosticReporter.maybeReportLoggedError.
       AppLogger.setOnError(FolioDiagnosticReporter.maybeReportLoggedError);
 
-      // Rutas públicas web (enlace de libreta, reset/verify email): sin vault lock.
+      // Rutas públicas web (share, reset/verify email, verify estudiante): sin vault lock.
       if (kIsWeb) {
         final publicRoute = FolioWebPublicRoute.match(Uri.base);
         if (publicRoute != null) {
