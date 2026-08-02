@@ -184,6 +184,14 @@ class FolioSpringAuthSession extends ChangeNotifier {
     await _postJson(uri, {'token': token.trim()});
   }
 
+  /// Confirma correo de estudiante (ruta web `/verify-student-email`).
+  Future<void> confirmStudentEmailToken(String token) async {
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/family/confirm-student',
+    );
+    await _postJson(uri, {'token': token.trim()});
+  }
+
   Future<void> resendVerification() async {
     final token = await getAccessToken();
     if (token == null) {

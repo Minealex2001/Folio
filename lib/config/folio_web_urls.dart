@@ -127,6 +127,12 @@ class FolioWebUrls {
         .replace(queryParameters: {'token': token.trim()})
         .toString();
   }
+
+  static String verifyStudentEmailUrl(String token) {
+    return Uri.parse('$folioWebBaseUrl/verify-student-email')
+        .replace(queryParameters: {'token': token.trim()})
+        .toString();
+  }
 }
 
 /// Rutas públicas de Flutter web (sin vault lock / onboarding).
@@ -155,6 +161,12 @@ sealed class FolioWebPublicRoute {
       return FolioWebVerifyEmailRoute(token);
     }
 
+    if (path == '/verify-student-email' ||
+        (segments.length == 1 && segments[0] == 'verify-student-email')) {
+      final token = (uri.queryParameters['token'] ?? '').trim();
+      return FolioWebVerifyStudentEmailRoute(token);
+    }
+
     return null;
   }
 }
@@ -171,5 +183,10 @@ final class FolioWebResetPasswordRoute extends FolioWebPublicRoute {
 
 final class FolioWebVerifyEmailRoute extends FolioWebPublicRoute {
   const FolioWebVerifyEmailRoute(this.token);
+  final String token;
+}
+
+final class FolioWebVerifyStudentEmailRoute extends FolioWebPublicRoute {
+  const FolioWebVerifyStudentEmailRoute(this.token);
   final String token;
 }
