@@ -13,6 +13,7 @@ import '../../models/gitlab_integration_state.dart';
 import '../../models/slack_integration_state.dart';
 import '../../models/teams_integration_state.dart';
 import '../../models/spotify_integration_state.dart';
+import '../../models/ytmusic_integration_state.dart';
 import '../../models/discord_integration_state.dart';
 import '../../models/system_media_integration_state.dart';
 
@@ -84,6 +85,7 @@ class VaultSyncMergeEngine {
       'slack': payload.slack.toJson(),
       'teams': payload.teams.toJson(),
       'spotify': payload.spotify.toJson(),
+      'ytMusic': payload.ytMusic.toJson(),
       'discord': payload.discord.toJson(),
       'systemMedia': payload.systemMedia.toJson(),
     });
@@ -442,6 +444,13 @@ class VaultSyncMergeEngine {
         connections: _mergeById(
           local: local.spotify.connections,
           remote: remote.spotify.connections,
+          idOf: (c) => c.id,
+        ),
+      ),
+      ytMusic: YtMusicIntegrationState(
+        connections: _mergeById(
+          local: local.ytMusic.connections,
+          remote: remote.ytMusic.connections,
           idOf: (c) => c.id,
         ),
       ),

@@ -897,6 +897,10 @@ For images/blocks: use the + button or / command in a paragraph.
       prompt,
       languageCode: languageCode,
     );
+    final wantsGenerateImage = _looksLikeGenerateImageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
 
     final systemPrompt = StringBuffer()
       ..writeln(agentIdentity)
@@ -919,6 +923,23 @@ For images/blocks: use the + button or / command in a paragraph.
                     'paragraphs, lists, and at least one non-paragraph element such as a table, callout, or '
                     'mermaid diagram; many short bare paragraphs are not enough). Do not create a title-only '
                     'page. Do not tell the user to fill the page themselves.',
+        );
+    }
+    if (wantsGenerateImage) {
+      systemPrompt
+        ..writeln()
+        ..writeln(
+          isEs
+              ? 'El usuario pide una imagen generada. Debes llamar a la tool generate_image '
+                    'con un "prompt" descriptivo y detallado (traduce/expande la petición del usuario a una '
+                    'buena descripción visual en inglés o español). No respondas solo en texto ni digas que no '
+                    'puedes: si el proveedor no soporta la generación, la tool devolverá un error que debes '
+                    'explicar; en ese caso responde con el error real, no con una respuesta vacía.'
+              : 'The user wants a generated image. You must call generate_image with a detailed, descriptive '
+                    '"prompt" (expand the user\'s request into a good visual description). Do not answer with '
+                    'plain text only, and do not say you cannot help: if the provider does not support image '
+                    'generation, the tool will return an error you must explain — reply with that actual error, '
+                    'never with an empty response.',
         );
     }
     systemPrompt
@@ -991,6 +1012,15 @@ For images/blocks: use the + button or / command in a paragraph.
     var reply = outcome.finalText.trim();
     if (reply.isEmpty && outcome.hasToolCalls) {
       reply = _summarizeToolLoopOutcome(outcome, isEs: isEs);
+    }
+    if (reply.isEmpty) {
+      // El modelo no llamó ninguna tool y devolvió texto vacío (raro, pero
+      // observado: el proveedor responde sin contenido ni tool_calls). Antes
+      // esto dejaba una burbuja de Quill en blanco sin explicación — nunca
+      // se debe dejar una respuesta vacía sin más.
+      reply = isEs
+          ? 'No obtuve una respuesta del modelo. Prueba a reformular el mensaje o inténtalo de nuevo.'
+          : 'I did not get a response from the model. Try rephrasing your message or try again.';
     }
 
     String? generatedImagePath;
@@ -2840,6 +2870,23 @@ Plan mode (proposal only, do not execute):
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
+  }
+
+  /// True si el usuario pide explícitamente una imagen generada (no un folio,
+  /// no una imagen elegida del disco). Dispara el nudge de sistema que le
+  /// pide al modelo llamar a `generate_image` en vez de responder solo en
+  /// texto — sin esto, algunos modelos devuelven una respuesta vacía en vez
+  /// de invocar la tool para peticiones de imagen ambiguas.
+  bool _looksLikeGenerateImageIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.generateImage,
+      languageCode: languageCode,
+    );
+    return hints.any((h) => _containsIntentPhrase(p, h));
   }
 
   /// True si algún token es verbo de creación (`crea`, `crearme`, `generame`…).

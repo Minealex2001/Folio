@@ -26,6 +26,7 @@ import 'sidebar/sidebar_page_tree.dart';
 import 'sidebar/sidebar_recents.dart';
 import 'sidebar/sidebar_vault_toolbar.dart';
 import '../collab/vault_share_sheet.dart';
+import '../spotify/spotify_right_now_playing.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -801,7 +802,14 @@ class _SidebarState extends State<Sidebar> {
           // el ruido al desmontar el árbol durante la animación de colapso.
           return const ExcludeSemantics(child: SizedBox.shrink());
         }
-        return Column(
+        final showFullPlayerOverlay =
+            widget.appSettings.workspaceSidebarSpotifyFullPlayer &&
+            widget.appSettings.workspaceSidebarSpotifyExpanded;
+        return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SidebarVaultToolbar(
@@ -1206,6 +1214,26 @@ class _SidebarState extends State<Sidebar> {
               onOpenSettings: widget.onOpenSettings,
               onOpenCloudStatus: widget.onOpenCloudStatus,
               onSpotifyExpandedChanged: () => setState(() {}),
+            ),
+          ],
+            ),
+            Positioned.fill(
+              child: SpotifyFullPlayerReveal(
+                visible: showFullPlayerOverlay,
+                child: Material(
+                  elevation: 6,
+                  child: SpotifyRightNowPlaying(
+                    asOverlay: true,
+                    onClose: () {
+                      unawaited(
+                        widget.appSettings
+                            .setWorkspaceSidebarSpotifyExpanded(false),
+                      );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
         );

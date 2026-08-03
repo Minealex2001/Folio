@@ -11,6 +11,7 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/ytmusic_integration_state.dart';
 import '../models/discord_integration_state.dart';
 import '../models/system_media_integration_state.dart';
 import '../models/local_collab.dart';
@@ -27,7 +28,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 13: integración Spotify (OAuth, reproducción, modo zen).
 /// Esquema 14: integración Discord (Incoming Webhook).
 /// Esquema 15: media del sistema (SMTC / MediaSession / MPRIS).
-const int kVaultPayloadVersion = 15;
+/// Esquema 16: integración YouTube Music (OAuth device-flow / InnerTube).
+const int kVaultPayloadVersion = 16;
 
 class VaultPayload {
   VaultPayload({
@@ -50,6 +52,7 @@ class VaultPayload {
     SlackIntegrationState? slack,
     TeamsIntegrationState? teams,
     SpotifyIntegrationState? spotify,
+    YtMusicIntegrationState? ytMusic,
     DiscordIntegrationState? discord,
     SystemMediaIntegrationState? systemMedia,
     Map<String, int>? pageTombstones,
@@ -71,6 +74,7 @@ class VaultPayload {
        slack = slack ?? SlackIntegrationState.empty,
        teams = teams ?? TeamsIntegrationState.empty,
        spotify = spotify ?? SpotifyIntegrationState.empty,
+       ytMusic = ytMusic ?? YtMusicIntegrationState.empty,
        discord = discord ?? DiscordIntegrationState.empty,
        systemMedia = systemMedia ?? SystemMediaIntegrationState.empty,
        pageTombstones = pageTombstones ?? const {},
@@ -97,6 +101,7 @@ class VaultPayload {
   final SlackIntegrationState slack;
   final TeamsIntegrationState teams;
   final SpotifyIntegrationState spotify;
+  final YtMusicIntegrationState ytMusic;
   final DiscordIntegrationState discord;
   final SystemMediaIntegrationState systemMedia;
 
@@ -137,6 +142,7 @@ class VaultPayload {
     if (slack.connections.isNotEmpty) 'slack': slack.toJson(),
     if (teams.connections.isNotEmpty) 'teams': teams.toJson(),
     if (spotify.connections.isNotEmpty) 'spotify': spotify.toJson(),
+    if (ytMusic.connections.isNotEmpty) 'ytMusic': ytMusic.toJson(),
     if (discord.connections.isNotEmpty) 'discord': discord.toJson(),
     if (systemMedia.enabled || !systemMedia.zenPauseOnExit)
       'systemMedia': systemMedia.toJson(),
@@ -212,6 +218,7 @@ class VaultPayload {
     final slack = SlackIntegrationState.fromJson(j['slack']);
     final teams = TeamsIntegrationState.fromJson(j['teams']);
     final spotify = SpotifyIntegrationState.fromJson(j['spotify']);
+    final ytMusic = YtMusicIntegrationState.fromJson(j['ytMusic']);
     final discord = DiscordIntegrationState.fromJson(j['discord']);
     final systemMedia = SystemMediaIntegrationState.fromJson(j['systemMedia']);
     final pageTombstones = <String, int>{};
@@ -259,6 +266,7 @@ class VaultPayload {
       slack: slack,
       teams: teams,
       spotify: spotify,
+      ytMusic: ytMusic,
       discord: discord,
       systemMedia: systemMedia,
       pageTombstones: pageTombstones,

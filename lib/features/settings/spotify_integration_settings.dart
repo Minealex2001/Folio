@@ -6,7 +6,12 @@ import 'package:flutter/material.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/integration_settings_widgets.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../models/spotify_integration_state.dart';
+import '../../services/media/music_provider_gate.dart';
+import '../../models/active_music_provider.dart';
+import '../../services/spotify/spotify_api_client.dart';
 import '../../services/spotify/spotify_auth_service.dart';
+import '../../services/spotify/spotify_local_device_service.dart';
 import '../../services/spotify/spotify_playback_controller.dart';
 import '../../session/vault_session.dart';
 import 'spotify_playlist_picker.dart';
@@ -141,6 +146,7 @@ class _ConnectionsTabState extends State<_ConnectionsTab> {
         cancelToken: _cancelToken,
       );
       widget.session.upsertSpotifyConnection(conn);
+      await MusicProviderGate.instance.activate(ActiveMusicProvider.spotify);
     } on SpotifyAuthCancelledException {
       // Usuario canceló.
     } catch (e) {
@@ -221,22 +227,70 @@ class _PlaybackTab extends StatefulWidget {
 }
 
 class _PlaybackTabState extends State<_PlaybackTab> {
+  bool _reconnecting = false;
+  bool _devicesBusy = false;
+  List<SpotifyDevice> _devices = const [];
+
   @override
   void initState() {
     super.initState();
     SpotifyPlaybackController.instance.addListenerRef();
     SpotifyPlaybackController.instance.addListener(_onPlayback);
+    SpotifyLocalDeviceService.instance.addListener(_onPlayback);
   }
 
   @override
   void dispose() {
     SpotifyPlaybackController.instance.removeListener(_onPlayback);
     SpotifyPlaybackController.instance.removeListenerRef();
+    SpotifyLocalDeviceService.instance.removeListener(_onPlayback);
     super.dispose();
   }
 
   void _onPlayback() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _reconnect(SpotifyConnection conn) async {
+    setState(() => _reconnecting = true);
+    try {
+      final auth = SpotifyAuthService();
+      final fresh = await auth.connect(label: conn.label);
+      widget.session.upsertSpotifyConnection(
+        conn.copyWith(
+          accessToken: fresh.accessToken,
+          refreshToken: fresh.refreshToken,
+          expiresAt: fresh.expiresAt,
+          grantedScopes: fresh.grantedScopes,
+          spotifyUserId: fresh.spotifyUserId,
+          displayName: fresh.displayName,
+        ),
+      );
+    } catch (_) {
+      // El usuario pudo cancelar el flujo OAuth; sin acción adicional.
+    } finally {
+      if (mounted) setState(() => _reconnecting = false);
+    }
+  }
+
+  Future<void> _loadDevices() async {
+    setState(() => _devicesBusy = true);
+    try {
+      final devices = await SpotifyPlaybackController.instance.listDevices();
+      if (mounted) setState(() => _devices = devices);
+    } finally {
+      if (mounted) setState(() => _devicesBusy = false);
+    }
+  }
+
+  Future<void> _activateDevice(String deviceId) async {
+    setState(() => _devicesBusy = true);
+    try {
+      await SpotifyPlaybackController.instance.activateDevice(deviceId);
+      await _loadDevices();
+    } finally {
+      if (mounted) setState(() => _devicesBusy = false);
+    }
   }
 
   Future<void> _openPlaylistPicker() async {
@@ -310,6 +364,142 @@ class _PlaybackTabState extends State<_PlaybackTab> {
               ),
             ],
           ),
+        const SizedBox(height: 12),
+        if (playback.missingLibraryScopes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, color: scheme.tertiary, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.spotifyLibraryReconnectRequired,
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  onPressed:
+                      _reconnecting ? null : () => unawaited(_reconnect(conn)),
+                  child: _reconnecting
+                      ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                      : Text(l10n.spotifyReconnectButton),
+                ),
+              ],
+            ),
+          ),
+        Text(
+          l10n.spotifyDevicesTitle,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 4),
+        if (!playback.isLocalDeviceSupported)
+          Text(
+            l10n.spotifyLocalDeviceUnsupported,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          )
+        else ...[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.spotifyUseAsDevice),
+            subtitle: Text(
+              l10n.spotifyUseAsDeviceHint,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+            value: conn.localDeviceEnabled,
+            onChanged: (v) => unawaited(
+              SpotifyPlaybackController.instance.setLocalDeviceEnabled(v),
+            ),
+          ),
+          if (conn.localDeviceEnabled) ...[
+            const SizedBox(height: 4),
+            if (playback.missingLocalDeviceScopes.isNotEmpty)
+              Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: scheme.tertiary, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.spotifyReconnectRequired,
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed:
+                        _reconnecting ? null : () => unawaited(_reconnect(conn)),
+                    child: _reconnecting
+                        ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                        : Text(l10n.spotifyReconnectButton),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Icon(
+                    playback.localDeviceStatus == SpotifyLocalDeviceStatus.ready
+                        ? Icons.check_circle_rounded
+                        : playback.localDeviceStatus ==
+                                SpotifyLocalDeviceStatus.error
+                            ? Icons.error_outline_rounded
+                            : Icons.sync_rounded,
+                    size: 18,
+                    color:
+                        playback.localDeviceStatus == SpotifyLocalDeviceStatus.ready
+                            ? SpotifyIntegrationCard._brandColor
+                            : playback.localDeviceStatus ==
+                                    SpotifyLocalDeviceStatus.error
+                                ? scheme.error
+                                : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      switch (playback.localDeviceStatus) {
+                        SpotifyLocalDeviceStatus.ready => l10n.spotifyLocalDeviceReady,
+                        SpotifyLocalDeviceStatus.error => l10n.spotifyLocalDeviceError(
+                            playback.localDeviceLastError ?? ''),
+                        _ => l10n.spotifyLocalDeviceConnecting,
+                      },
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _devicesBusy ? null : () => unawaited(_loadDevices()),
+            icon: _devicesBusy
+                ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+                : const Icon(Icons.devices_rounded, size: 18),
+            label: Text(l10n.spotifyDevicesTitle),
+          ),
+          if (_devices.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ..._devices.map(
+              (d) => IntegrationEntryRow(
+                icon: Icons.speaker_group_rounded,
+                title: d.name,
+                subtitle: d.isActive ? l10n.spotifyThisDeviceActive : d.type,
+                trailing: [
+                  if (!d.isActive)
+                    TextButton(
+                      onPressed: _devicesBusy
+                          ? null
+                          : () => unawaited(_activateDevice(d.id)),
+                      child: Text(l10n.spotifyActivateDevice),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
         const SizedBox(height: 20),
         Text(
           l10n.spotifyFocusPlaylist,

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 /// Identificador de la fuente que alimenta la barra now playing.
 enum NowPlayingSourceId {
   spotify,
+  youtubeMusic,
   system,
 }
 

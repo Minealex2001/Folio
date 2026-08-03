@@ -48,7 +48,10 @@ import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integration_command_processor.dart';
 import '../services/spotify/spotify_playback_controller.dart';
+import '../services/spotify/spotify_local_device_mount.dart';
+import '../services/ytmusic/ytmusic_playback_controller.dart';
 import '../services/media/media_playback_router.dart';
+import '../services/media/music_provider_gate.dart';
 import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/integrations/integrations_bridge.dart';
@@ -360,6 +363,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       _lastVaultFlowForTelemetry = nextVault;
     }
     if (widget.session.state == VaultFlowState.locked) {
+      MusicProviderGate.instance.unbind();
+      YtMusicPlaybackController.instance.detachSession();
       SpotifyPlaybackController.instance.detachSession();
       MediaPlaybackRouter.instance.detachSession();
       // Device-sync sigue en segundo plano (headless) aunque la libreta esté
@@ -380,7 +385,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       }());
     } else if (widget.session.state == VaultFlowState.unlocked) {
       SpotifyPlaybackController.instance.attachSession(widget.session);
+      YtMusicPlaybackController.instance.attachSession(widget.session);
       MediaPlaybackRouter.instance.attachSession(widget.session);
+      MusicProviderGate.instance.bind(
+        settings: widget.appSettings,
+        session: widget.session,
+      );
       // `_onSession` se dispara en CADA notificación de la sesión (cada
       // edición, no solo al desbloquear). `_syncCloudDeviceSyncLifecycle` ya
       // cachea el último `isEnabled` aplicado y no hace nada si no cambió;
@@ -1744,23 +1754,31 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         final double effectiveScale = (uiScale - 1.0).abs() > 0.001
             ? uiScale
             : 1.0;
-        final Widget content = ClipRect(
-          child: OverflowBox(
-            alignment: Alignment.topLeft,
-            minWidth: 0,
-            minHeight: 0,
-            maxWidth: double.infinity,
-            maxHeight: double.infinity,
-            child: Transform.scale(
-              alignment: Alignment.topLeft,
-              scale: effectiveScale,
-              child: SizedBox(
-                width: media.size.width / effectiveScale,
-                height: media.size.height / effectiveScale,
-                child: child ?? const SizedBox.shrink(),
+        final Widget content = Stack(
+          children: [
+            ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: 0,
+                minHeight: 0,
+                maxWidth: double.infinity,
+                maxHeight: double.infinity,
+                child: Transform.scale(
+                  alignment: Alignment.topLeft,
+                  scale: effectiveScale,
+                  child: SizedBox(
+                    width: media.size.width / effectiveScale,
+                    height: media.size.height / effectiveScale,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                ),
               ),
             ),
-          ),
+            // Host invisible del dispositivo Spotify Connect local (Web
+            // Playback SDK). Montado aquí, cerca de la raíz, para que
+            // sobreviva a toda la navegación interna de la app.
+            const SpotifyLocalDeviceMount(),
+          ],
         );
         return Shortcuts(
           shortcuts: const <ShortcutActivator, Intent>{

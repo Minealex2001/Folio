@@ -46,6 +46,8 @@ class SpotifyConnection {
     this.focusPlaylistName,
     this.zenAutoPlay = false,
     this.zenPauseOnExit = true,
+    this.grantedScopes = const [],
+    this.localDeviceEnabled = false,
   });
 
   final String id;
@@ -60,6 +62,16 @@ class SpotifyConnection {
   final String? focusPlaylistName;
   final bool zenAutoPlay;
   final bool zenPauseOnExit;
+  /// Scopes concedidos por el usuario en el último OAuth (o refresh, si Spotify
+  /// los devuelve). Permite detectar cuentas conectadas antes de añadir el
+  /// scope `streaming` y pedirles reconectar.
+  final List<String> grantedScopes;
+  /// Opt-in: usar Folio como dispositivo Spotify Connect local (Web Playback SDK).
+  final bool localDeviceEnabled;
+
+  /// Scopes requeridos por el dispositivo local que aún no fueron concedidos.
+  List<String> missingScopesFor(List<String> requiredScopes) =>
+      requiredScopes.where((s) => !grantedScopes.contains(s)).toList(growable: false);
 
   bool get isExpired =>
       DateTime.now().toUtc().isAfter(expiresAt.toUtc().subtract(const Duration(minutes: 2)));
@@ -79,6 +91,8 @@ class SpotifyConnection {
           'focusPlaylistName': focusPlaylistName,
         'zenAutoPlay': zenAutoPlay,
         'zenPauseOnExit': zenPauseOnExit,
+        if (grantedScopes.isNotEmpty) 'grantedScopes': grantedScopes,
+        'localDeviceEnabled': localDeviceEnabled,
       };
 
   static SpotifyConnection? tryParse(Map<String, dynamic> map) {
@@ -112,6 +126,12 @@ class SpotifyConnection {
       focusPlaylistName: (map['focusPlaylistName'] as String?)?.trim(),
       zenAutoPlay: map['zenAutoPlay'] == true,
       zenPauseOnExit: map['zenPauseOnExit'] != false,
+      grantedScopes: (map['grantedScopes'] as List?)
+              ?.map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
+              .toList(growable: false) ??
+          const [],
+      localDeviceEnabled: map['localDeviceEnabled'] == true,
     );
   }
 
@@ -127,6 +147,8 @@ class SpotifyConnection {
     bool? zenAutoPlay,
     bool? zenPauseOnExit,
     bool clearFocusPlaylist = false,
+    List<String>? grantedScopes,
+    bool? localDeviceEnabled,
   }) {
     return SpotifyConnection(
       id: id,
@@ -142,6 +164,8 @@ class SpotifyConnection {
           clearFocusPlaylist ? null : (focusPlaylistName ?? this.focusPlaylistName),
       zenAutoPlay: zenAutoPlay ?? this.zenAutoPlay,
       zenPauseOnExit: zenPauseOnExit ?? this.zenPauseOnExit,
+      grantedScopes: grantedScopes ?? this.grantedScopes,
+      localDeviceEnabled: localDeviceEnabled ?? this.localDeviceEnabled,
     );
   }
 }

@@ -3,6 +3,7 @@ class AiIntentHints {
   static const String createPage = 'create_page';
   static const String subpage = 'subpage';
   static const String translateBilingual = 'translate_bilingual';
+  static const String generateImage = 'generate_image';
 
   static const Map<String, Map<String, List<String>>> _catalog = {
     'es': {
@@ -94,6 +95,25 @@ class AiIntentHints {
         'en este folio',
         'bajo este folio',
       ],
+      generateImage: [
+        'genera una imagen',
+        'generar una imagen',
+        'generame una imagen',
+        'generame un dibujo',
+        'crea una imagen',
+        'creame una imagen',
+        'dibuja',
+        'dibujame',
+        'haz una imagen',
+        'hazme una imagen',
+        'genera un dibujo',
+        'genera una ilustracion',
+        'crea una ilustracion',
+        'genera una foto',
+        'ilustracion de',
+        'imagen de',
+        'imagen sobre',
+      ],
     },
     'en': {
       edit: [
@@ -148,6 +168,21 @@ class AiIntentHints {
         'under this page',
         'inside current page',
         'under current page',
+      ],
+      generateImage: [
+        'generate an image',
+        'generate image',
+        'create an image',
+        'make an image',
+        'draw me',
+        'draw a',
+        'generate a drawing',
+        'generate an illustration',
+        'create an illustration',
+        'illustration of',
+        'picture of',
+        'image of',
+        'image about',
       ],
     },
   };

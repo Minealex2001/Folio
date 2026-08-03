@@ -1227,6 +1227,15 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         _snack(l10n.aiGenerateImagePromptRequired, error: true);
                         return;
                       }
+                      // Quitar el foco antes de cerrar la hoja: si el
+                      // TextField sigue enfocado mientras se anima la salida
+                      // y luego se dispone `promptController` (fuera de la
+                      // hoja, ver más abajo), el cursor/overlay de selección
+                      // puede seguir usando el controller ya liberado y
+                      // corromper el frame ("TextEditingController was used
+                      // after being disposed" — mismo patrón que
+                      // sidebar.dart._renameActiveVault).
+                      FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.of(sheetContext).pop(true);
                     },
                     child: Text(l10n.aiGenerateImageGenerateButton),
@@ -1239,6 +1248,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
       },
     );
 
+    // Cubre también el cierre por gesto/toque fuera (sin pasar por el botón
+    // "Generar" de arriba, que ya hace unfocus antes de su propio pop).
+    FocusManager.instance.primaryFocus?.unfocus();
     if (confirmed != true || !mounted) {
       promptController.dispose();
       return;

@@ -10,6 +10,8 @@ import '../../../services/media/now_playing_snapshot.dart';
 import '../../../services/media/system_media_block.dart';
 import '../../../services/spotify/spotify_art_color.dart';
 import '../../../session/vault_session.dart';
+import '../spotify/spotify_library_page.dart';
+import '../ytmusic/ytmusic_library_page.dart';
 
 /// Densidad visual del reproductor now playing.
 enum NowPlayingBarDensity {
@@ -202,7 +204,18 @@ class _NowPlayingBarState extends State<NowPlayingBar>
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _openExternal() async {
+  Future<void> _openLibraryOrExternal() async {
+    final snap = _snap;
+    if (snap.sourceId == NowPlayingSourceId.spotify) {
+      if (!mounted) return;
+      await openSpotifyLibraryPage(context: context, session: widget.session);
+      return;
+    }
+    if (snap.sourceId == NowPlayingSourceId.youtubeMusic) {
+      if (!mounted) return;
+      await openYtMusicLibraryPage(context: context);
+      return;
+    }
     await _router.openExternal();
   }
 
@@ -308,7 +321,15 @@ class _NowPlayingBarState extends State<NowPlayingBar>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _sourceMark(snap, size: 16),
+                    _sourceMarkButton(
+                      snap,
+                      size: 16,
+                      tooltip: snap.sourceId == NowPlayingSourceId.spotify
+                          ? l10n.spotifyLibraryOpenTooltip
+                          : (snap.canOpenExternal
+                              ? l10n.systemMediaOpenSource
+                              : ''),
+                    ),
                     const SizedBox(width: 6),
                     _artWithExpandOverlay(
                       snap: snap,
@@ -444,7 +465,15 @@ class _NowPlayingBarState extends State<NowPlayingBar>
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
-                _sourceMark(snap, size: 16),
+                _sourceMarkButton(
+                  snap,
+                  size: 16,
+                  tooltip: snap.sourceId == NowPlayingSourceId.spotify
+                      ? l10n.spotifyLibraryOpenTooltip
+                      : (snap.canOpenExternal
+                          ? l10n.systemMediaOpenSource
+                          : ''),
+                ),
                 const SizedBox(width: 6),
                 if (widget.onToggleExpanded != null)
                   _artWithExpandOverlay(
@@ -579,10 +608,13 @@ class _NowPlayingBarState extends State<NowPlayingBar>
           // Cabecera: abrir origen / insertar + chevron colapsar.
           Row(
             children: [
-              if (snap.canOpenExternal)
+              if (snap.sourceId == NowPlayingSourceId.spotify ||
+                  snap.canOpenExternal)
                 _sourceOpenButton(
                   snap: snap,
-                  tooltip: openTooltip,
+                  tooltip: snap.sourceId == NowPlayingSourceId.spotify
+                      ? l10n.spotifyLibraryOpenTooltip
+                      : openTooltip,
                   size: 18,
                   fg: fg,
                 ),
@@ -950,10 +982,45 @@ class _NowPlayingBarState extends State<NowPlayingBar>
         ),
       );
     }
+    if (snap.sourceId == NowPlayingSourceId.youtubeMusic) {
+      return Image.asset(
+        'appLogos/ytMusic.png',
+        width: size,
+        height: size,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => Icon(
+          Icons.play_circle_filled_rounded,
+          size: size,
+          color: const Color(0xFFFF0000),
+        ),
+      );
+    }
     return Icon(
       Icons.headphones_rounded,
       size: size,
       color: const Color(0xFF1DB954),
+    );
+  }
+
+  Widget _sourceMarkButton(
+    NowPlayingSnapshot snap, {
+    double size = 16,
+    required String tooltip,
+  }) {
+    final canTap = snap.sourceId == NowPlayingSourceId.spotify ||
+        snap.canOpenExternal;
+    final mark = _sourceMark(snap, size: size);
+    if (!canTap || tooltip.isEmpty) return mark;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => unawaited(_openLibraryOrExternal()),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: mark,
+        ),
+      ),
     );
   }
 
@@ -970,7 +1037,7 @@ class _NowPlayingBarState extends State<NowPlayingBar>
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
         tooltip: tooltip,
-        onPressed: () => unawaited(_openExternal()),
+        onPressed: () => unawaited(_openLibraryOrExternal()),
         icon: _sourceMark(snap, size: size),
       ),
     );

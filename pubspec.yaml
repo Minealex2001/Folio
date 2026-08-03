@@ -139,6 +139,7 @@ flutter:
     - appLogos/slack.png
     - appLogos/microsoftTeams.png
     - appLogos/spotify.png
+    - appLogos/ytMusic.png
     - docs/FEATURES.md
 
   # An image asset can refer to one or more resolution-specific "variants", see

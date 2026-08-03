@@ -303,6 +303,7 @@ class SpotifyAuthService {
     final profile = await _fetchProfile(accessToken);
     final displayName = (profile['display_name'] as String? ?? '').trim();
     final userId = (profile['id'] as String? ?? '').trim();
+    final scope = (tokenJson['scope'] as String? ?? '').trim();
 
     return SpotifyConnection(
       id: 'spotify_${_uuid.v4()}',
@@ -314,6 +315,9 @@ class SpotifyAuthService {
       expiresAt: expiresAt,
       spotifyUserId: userId.isEmpty ? null : userId,
       displayName: displayName.isEmpty ? null : displayName,
+      grantedScopes: scope.isEmpty
+          ? const []
+          : scope.split(' ').where((s) => s.isNotEmpty).toList(growable: false),
     );
   }
 

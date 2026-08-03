@@ -96,6 +96,7 @@ import 'slack_integration_settings.dart';
 import 'teams_integration_settings.dart';
 import 'discord_integration_settings.dart';
 import 'spotify_integration_settings.dart';
+import 'ytmusic_integration_settings.dart';
 import 'system_media_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
@@ -3574,6 +3575,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                       onChanged: (v) =>
                                           _app.setWorkspaceOpenToHome(v),
                                     ),
+                                    SwitchListTile(
+                                      secondary: const Icon(
+                                        Icons.music_note_rounded,
+                                      ),
+                                      title: Text(
+                                        l10n.settingsWorkspaceSpotifyFullPlayerTitle,
+                                      ),
+                                      subtitle: Text(
+                                        l10n.settingsWorkspaceSpotifyFullPlayerSubtitle,
+                                      ),
+                                      value:
+                                          _app.workspaceSidebarSpotifyFullPlayer,
+                                      onChanged: (v) => _app
+                                          .setWorkspaceSidebarSpotifyFullPlayer(
+                                        v,
+                                      ),
+                                    ),
                                     _SettingsPanel(
                                       margin: const EdgeInsets.only(bottom: 24),
                                       child: Column(
@@ -4981,6 +4999,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     IntegrationCardsGrid(
                                                       children: [
                                                         SpotifyIntegrationCard(
+                                                          session: _s,
+                                                        ),
+                                                        YtMusicIntegrationCard(
                                                           session: _s,
                                                         ),
                                                         SystemMediaIntegrationCard(

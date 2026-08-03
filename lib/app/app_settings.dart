@@ -17,6 +17,7 @@ import 'folio_in_app_shortcuts.dart';
 import 'ui_tokens.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
+import '../models/active_music_provider.dart';
 import '../models/quill_system_prompt.dart';
 import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
@@ -479,6 +480,9 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_recent_pages_collapsed';
   static const _workspaceSidebarSpotifyExpandedKey =
       'folio_workspace_sidebar_spotify_expanded';
+  static const _workspaceSidebarSpotifyFullPlayerKey =
+      'folio_workspace_sidebar_spotify_full_player';
+  static const _activeMusicProviderKey = 'folio_active_music_provider';
   static const _workspaceSidebarCollapsedPagesPrefix =
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
@@ -735,6 +739,8 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarShowRecentPages = true;
   bool _workspaceSidebarRecentPagesCollapsed = true;
   bool _workspaceSidebarSpotifyExpanded = false;
+  bool _workspaceSidebarSpotifyFullPlayer = false;
+  ActiveMusicProvider _activeMusicProvider = ActiveMusicProvider.none;
   bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
@@ -923,6 +929,9 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarShowRecentPages => _workspaceSidebarShowRecentPages;
   bool get workspaceSidebarRecentPagesCollapsed => _workspaceSidebarRecentPagesCollapsed;
   bool get workspaceSidebarSpotifyExpanded => _workspaceSidebarSpotifyExpanded;
+  bool get workspaceSidebarSpotifyFullPlayer =>
+      _workspaceSidebarSpotifyFullPlayer;
+  ActiveMusicProvider get activeMusicProvider => _activeMusicProvider;
   bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
@@ -1286,6 +1295,15 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? true;
     _workspaceSidebarSpotifyExpanded =
         p.getBool(_workspaceSidebarSpotifyExpandedKey) ?? false;
+    _workspaceSidebarSpotifyFullPlayer =
+        p.getBool(_workspaceSidebarSpotifyFullPlayerKey) ?? false;
+    _activeMusicProvider = ActiveMusicProviderCodec.fromStorage(
+      p.getString(_activeMusicProviderKey),
+    );
+    // Migración: si hay Spotify pero aún no se eligió proveedor, asumir Spotify.
+    if (_activeMusicProvider == ActiveMusicProvider.none) {
+      // No conocemos vault aquí; se fijará al conectar o desde Ajustes.
+    }
     _workspaceOpenToHome =
         p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
@@ -2296,6 +2314,22 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceSidebarSpotifyExpandedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarSpotifyFullPlayer(bool value) async {
+    if (_workspaceSidebarSpotifyFullPlayer == value) return;
+    _workspaceSidebarSpotifyFullPlayer = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarSpotifyFullPlayerKey, value);
+  }
+
+  Future<void> setActiveMusicProvider(ActiveMusicProvider value) async {
+    if (_activeMusicProvider == value) return;
+    _activeMusicProvider = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_activeMusicProviderKey, value.storageValue);
   }
 
   Future<void> setAiChatPanelCollapsed(bool value) async {

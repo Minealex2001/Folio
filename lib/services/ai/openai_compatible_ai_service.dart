@@ -55,10 +55,12 @@ class OpenAiCompatibleAiService implements AiService {
           ? prompt.trim()
           : '${prompt.trim()}\n\n---\n${pageContextText.trim()}';
       final model = provider == 'openAi' ? _defaultOpenAiImageModel : defaultModel;
+      // `response_format` no es válido para modelos de imagen recientes
+      // (p. ej. gpt-image-*) — siempre devuelven b64_json por defecto y
+      // rechazan el parámetro con 400 "Unknown parameter: 'response_format'".
       final payload = <String, dynamic>{
         'model': model,
         'prompt': combinedPrompt,
-        'response_format': 'b64_json',
       };
       httpReq.write(jsonEncode(payload));
 

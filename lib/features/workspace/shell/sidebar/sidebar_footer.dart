@@ -203,11 +203,18 @@ class SidebarFooter extends StatelessWidget {
           },
         ),
         ListenableBuilder(
-          listenable: MediaPlaybackRouter.instance,
+          listenable: Listenable.merge([
+            MediaPlaybackRouter.instance,
+            appSettings,
+          ]),
           builder: (context, _) {
             if (!MediaPlaybackRouter.instance.shouldShowBar) {
               return const SizedBox.shrink();
             }
+            final useFullPlayer =
+                appSettings.workspaceSidebarSpotifyFullPlayer;
+            final classicExpanded =
+                !useFullPlayer && appSettings.workspaceSidebarSpotifyExpanded;
             return Padding(
               padding: const EdgeInsets.fromLTRB(
                 FolioSpace.sm,
@@ -217,7 +224,7 @@ class SidebarFooter extends StatelessWidget {
               ),
               child: SpotifyNowPlayingBar(
                 session: session,
-                density: appSettings.workspaceSidebarSpotifyExpanded
+                density: classicExpanded
                     ? SpotifyBarDensity.expanded
                     : SpotifyBarDensity.mini,
                 onToggleExpanded: () {

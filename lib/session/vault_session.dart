@@ -51,6 +51,7 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/ytmusic_integration_state.dart';
 import '../models/system_media_integration_state.dart';
 import '../models/discord_integration_state.dart';
 import '../services/integrations/integration_notification_dispatcher.dart';
@@ -422,6 +423,7 @@ class VaultSession extends ChangeNotifier {
   SlackIntegrationState _slack = SlackIntegrationState.empty;
   TeamsIntegrationState _teams = TeamsIntegrationState.empty;
   SpotifyIntegrationState _spotify = SpotifyIntegrationState.empty;
+  YtMusicIntegrationState _ytMusic = YtMusicIntegrationState.empty;
   DiscordIntegrationState _discord = DiscordIntegrationState.empty;
   SystemMediaIntegrationState _systemMedia = SystemMediaIntegrationState.empty;
   final IntegrationNotificationDispatcher _notificationDispatcher =
@@ -774,6 +776,8 @@ class VaultSession extends ChangeNotifier {
   List<TeamsConnection> get teamsConnections => _teams.connections;
   SpotifyIntegrationState get spotifyIntegrationState => _spotify;
   List<SpotifyConnection> get spotifyConnections => _spotify.connections;
+  YtMusicIntegrationState get ytMusicIntegrationState => _ytMusic;
+  List<YtMusicConnection> get ytMusicConnections => _ytMusic.connections;
   DiscordIntegrationState get discordIntegrationState => _discord;
   List<DiscordConnection> get discordConnections => _discord.connections;
   SystemMediaIntegrationState get systemMediaIntegrationState => _systemMedia;
@@ -1257,6 +1261,7 @@ class VaultSession extends ChangeNotifier {
     _slack = payload.slack;
     _teams = payload.teams;
     _spotify = payload.spotify;
+    _ytMusic = payload.ytMusic;
     _discord = payload.discord;
     _systemMedia = payload.systemMedia;
     _pageTombstones
@@ -1637,6 +1642,29 @@ class VaultSession extends ChangeNotifier {
     final next =
         _spotify.connections.where((c) => c.id != connectionId).toList();
     _spotify = SpotifyIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertYtMusicConnection(YtMusicConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YtMusicConnection>.from(_ytMusic.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _ytMusic = YtMusicIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYtMusicConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _ytMusic.connections.where((c) => c.id != connectionId).toList();
+    _ytMusic = YtMusicIntegrationState(connections: List.unmodifiable(next));
     notifyListeners();
     scheduleSave();
   }
@@ -6802,6 +6830,7 @@ class VaultSession extends ChangeNotifier {
       slack: _slack,
       teams: _teams,
       spotify: _spotify,
+      ytMusic: _ytMusic,
       discord: _discord,
       systemMedia: _systemMedia,
       pageTombstones: Map<String, int>.from(_pageTombstones),

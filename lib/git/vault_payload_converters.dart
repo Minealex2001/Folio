@@ -24,6 +24,7 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/ytmusic_integration_state.dart';
 import '../models/discord_integration_state.dart';
 import '../models/system_media_integration_state.dart';
 import '../services/ai/ai_types.dart';
@@ -240,6 +241,9 @@ class VaultPayloadToTree {
     if (payload.spotify.connections.isNotEmpty) {
       await writeInteg('spotify', payload.spotify.toJson());
     }
+    if (payload.ytMusic.connections.isNotEmpty) {
+      await writeInteg('ytMusic', payload.ytMusic.toJson());
+    }
     if (payload.discord.connections.isNotEmpty) {
       await writeInteg('discord', payload.discord.toJson());
     }
@@ -418,6 +422,7 @@ class TreeToVaultPayload {
       slack: integrations['slack'] ?? SlackIntegrationState.empty,
       teams: integrations['teams'] ?? TeamsIntegrationState.empty,
       spotify: integrations['spotify'] ?? SpotifyIntegrationState.empty,
+      ytMusic: integrations['ytMusic'] ?? YtMusicIntegrationState.empty,
       discord: integrations['discord'] ?? DiscordIntegrationState.empty,
       systemMedia:
           integrations['systemMedia'] ?? SystemMediaIntegrationState.empty,
@@ -593,6 +598,8 @@ class TreeToVaultPayload {
         ints['teams'] = TeamsIntegrationState.fromJson(json);
       } else if (name == 'spotify') {
         ints['spotify'] = SpotifyIntegrationState.fromJson(json);
+      } else if (name == 'ytMusic') {
+        ints['ytMusic'] = YtMusicIntegrationState.fromJson(json);
       } else if (name == 'discord') {
         ints['discord'] = DiscordIntegrationState.fromJson(json);
       } else if (name == 'systemMedia') {
