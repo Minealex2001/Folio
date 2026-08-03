@@ -60,6 +60,7 @@ import 'block_editor_support_widgets.dart';
 import 'block_type_catalog.dart';
 import 'database_block_editor.dart';
 import 'folio_mermaid_preview.dart';
+import 'meeting_note_posthoc_dialog.dart';
 import 'file_video_previews.dart';
 import 'folio_text_format.dart';
 import 'folio_embed_webview.dart';

@@ -13,7 +13,7 @@ import '../meeting_worker/meeting_worker_host.dart';
 import '../meeting_worker/meeting_worker_protocol.dart';
 import '../session/vault_session.dart';
 import 'app_logger.dart';
-import 'folio_cloud/folio_cloud_callable.dart';
+import 'folio_cloud/cloud_transcription_chunk_uploader.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 import 'meeting_note_transcript_merge.dart';
 import 'system_audio_service.dart';
@@ -821,40 +821,27 @@ class MeetingNoteSessionController extends ChangeNotifier {
       notifyListeners();
 
       final chargeInk = !_cloudInkChargeSent;
-      Map<String, dynamic>? res;
-      Object? failure;
-      for (var attempt = 0; attempt < _cloudChunkMaxAttempts; attempt++) {
-        if (_cloudCancelRequested) break;
-        try {
-          if (chargeInk) _cloudInkChargeSent = true;
-          res = await _transcribeChunkViaJob(
-            chunk: chunk,
-            languageArg: languageArg,
-            chargeInk: chargeInk,
-            inkAmount: inkCostTotal,
-          );
-          failure = null;
-          break;
-        } on FolioCloudException catch (e) {
-          failure = e;
-          if (_cloudChunkNoRetryCodes.contains(e.code) ||
-              attempt == _cloudChunkMaxAttempts - 1) {
-            break;
-          }
-          await Future<void>.delayed(_cloudChunkRetryDelays[attempt]);
-        } catch (e) {
-          failure = e;
-          if (attempt == _cloudChunkMaxAttempts - 1) break;
-          await Future<void>.delayed(_cloudChunkRetryDelays[attempt]);
-        }
-      }
+      final result = await CloudTranscriptionChunkUploader.uploadChunkWithRetry(
+        chunk: chunk,
+        languageArg: languageArg,
+        chargeInk: chargeInk,
+        inkAmount: inkCostTotal,
+        isCancelled: () => _cloudCancelRequested,
+        maxAttempts: _cloudChunkMaxAttempts,
+        retryDelays: _cloudChunkRetryDelays,
+        noRetryCodes: _cloudChunkNoRetryCodes,
+        pollInterval: _cloudJobPollInterval,
+        pollMaxWait: _cloudJobPollMaxWait,
+        onInkChargeAttempted: () => _cloudInkChargeSent = true,
+      );
 
-      if (_cloudCancelRequested) {
+      if (result.cancelled) {
         remaining.add(chunk);
         remaining.addAll(chunks.sublist(i + 1));
         break;
       }
 
+      final failure = result.failure;
       if (failure != null) {
         _cloudFallbackNoticeCode =
             failure is FolioCloudException && failure.code == 'resource-exhausted'
@@ -868,6 +855,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
       // Éxito confirmado: recién ahora es seguro borrar este fragmento.
       unawaited(chunk.delete().catchError((_) => File('')));
 
+      final res = result.data;
       final inkRaw = res?['ink'];
       if (inkRaw is Map) {
         final ent = _entitlements;
@@ -925,75 +913,6 @@ class MeetingNoteSessionController extends ChangeNotifier {
     _cloudProcessingStartedAt = null;
     _state = MeetingNoteSessionState.completed;
     notifyListeners();
-  }
-
-  /// Sube un fragmento vía el job async del backend (`ai/transcribe-async` +
-  /// polling) en vez del endpoint síncrono `ai/transcribe`: evita mantener
-  /// la conexión HTTP abierta hasta ~180s (peor caso con diarización), que
-  /// con el timeout fijo de 120s del cliente podía cobrar Ink sin llegar a
-  /// entregar la transcripción (el servidor terminaba el trabajo pero el
-  /// cliente ya había descartado la respuesta). Devuelve `null` si la
-  /// cancelación llega mientras se espera el resultado del job — en ese caso
-  /// no se lanza excepción para no tratarlo como un fallo reintentable.
-  Future<Map<String, dynamic>?> _transcribeChunkViaJob({
-    required File chunk,
-    required String languageArg,
-    required bool chargeInk,
-    required int inkAmount,
-  }) async {
-    final bytes = await chunk.readAsBytes();
-    final payload = <String, dynamic>{
-      'audioBase64': base64Encode(bytes),
-      'language': languageArg,
-      'chargeInk': chargeInk,
-      if (chargeInk) 'inkAmount': inkAmount,
-    };
-
-    final startRes = await callFolioHttpsCallable(
-      'folioCloudTranscribeStart',
-      payload,
-    );
-    if (_cloudCancelRequested) return null;
-
-    final jobId = startRes is Map ? '${startRes['jobId'] ?? ''}'.trim() : '';
-    if (jobId.isEmpty) {
-      throw FolioCloudException(
-        message: 'folioCloudTranscribeStart no devolvió jobId',
-        code: 'internal',
-      );
-    }
-
-    final pollDeadline = DateTime.now().add(_cloudJobPollMaxWait);
-    while (true) {
-      if (_cloudCancelRequested) return null;
-      if (DateTime.now().isAfter(pollDeadline)) {
-        throw FolioCloudException(
-          message: 'Timeout esperando el job de transcripción $jobId',
-          code: 'deadline-exceeded',
-        );
-      }
-      await Future<void>.delayed(_cloudJobPollInterval);
-      if (_cloudCancelRequested) return null;
-
-      final statusRes = await callFolioHttpsCallable(
-        'folioCloudTranscribeStatus',
-        <String, dynamic>{'jobId': jobId},
-      );
-      final status = statusRes is Map ? '${statusRes['status'] ?? ''}' : '';
-      if (status == 'done') {
-        return statusRes is Map
-            ? Map<String, dynamic>.from(statusRes)
-            : <String, dynamic>{};
-      }
-      if (status == 'failed') {
-        final err = statusRes is Map ? '${statusRes['error'] ?? ''}' : '';
-        throw FolioCloudException(
-          message: err.isEmpty ? 'Transcription job failed' : err,
-          code: 'internal',
-        );
-      }
-      // status == 'pending': seguir esperando.
-    }
   }
 
   void _cleanupPendingChunks() {

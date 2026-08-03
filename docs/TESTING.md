@@ -1,61 +1,78 @@
-# Testing Strategy
+# Folio Testing Strategy & Guidelines
 
-This document defines the baseline testing strategy for Folio.
+This document outlines the testing architecture, quality assurance standards, and PR submission expectations for Folio.
 
-## Goals
+---
 
-- Prevent regressions in core flows.
-- Keep PR feedback fast and reliable.
-- Increase confidence for releases.
+## 1. Testing Objectives
 
-## Test layers
+- **Prevent Regressions**: Ensure core editor, vault encryption, and data transformations remain stable.
+- **Fast Feedback Loop**: Maintain rapid execution speed for unit and widget tests.
+- **Release Confidence**: High test coverage across core domain models, session lifecycles, and backend integrations.
 
-1. Unit tests
-- Focus on models, pure services, parsers, and utility code.
-- Must run quickly and avoid network/filesystem unless explicitly required.
+---
 
-2. Widget tests
-- Focus on user-critical UI behavior and state transitions.
-- Cover workspace interactions, settings forms, and lock/unlock flows.
+## 2. Test Layer Architecture
 
-3. Integration tests
-- Focus on end-to-end feature slices and cross-service behavior.
-- Prioritize sync/collaboration, cloud account, and onboarding paths.
+The test suite in `test/` mirrors the structure of `lib/`:
 
-## Coverage policy
-
-- Run coverage in CI for every PR.
-- Command: `flutter test --coverage`
-- Coverage file: `coverage/lcov.info`
-- Start by tracking baseline, then raise thresholds incrementally.
-
-## Local validation before PR
-
-```bash
-flutter pub get
-flutter analyze
-flutter test
-flutter test --coverage
+```text
+test/
+├── app/         # App settings & composition tests
+├── crypto/      # Cryptographic & key derivation tests
+├── data/        # Repository & serialization tests
+├── models/      # Domain model unit tests
+├── services/    # AI, cloud, and HTTP service mocks & tests
+├── session/     # Vault lifecycle & lock/unlock state tests
+└── workspace/   # Widget tests for block editor & navigation
 ```
 
-## Mocking and fakes
+### Test Layers Defined
 
-- Prefer fakes/mocks for Firebase, HTTP, and platform services in unit tests.
-- Keep test data in reusable fixtures.
-- Avoid flaky tests that depend on timing or external services.
+1. **Unit Tests** (`test/models/`, `test/services/`, `test/crypto/`):
+   - Fast, isolated tests for pure Dart logic, models, encryption, and data transformations.
+   - Avoid disk/network calls; use in-memory fakes.
 
-## Priority areas for new tests
+2. **Widget Tests** (`test/workspace/`, `test/app/`):
+   - Test UI components, block rendering, shortcut handlers, and user input workflows.
+   - Verify state transitions without external platform dependencies.
 
-1. Workspace editing and undo/redo behavior.
-2. Device sync and collaboration conflict handling.
-3. Cloud account and entitlement transitions.
-4. Audio/transcription error paths and retries.
+3. **Integration Tests** (`test/integration/`):
+   - Multi-component flows: vault backup export/import, sync conflict resolution, and cloud entitlement transitions.
 
-## PR test plan template
+---
 
-Include in each PR:
+## 3. Coverage Policy & Commands
 
-- What was tested.
-- Commands executed.
-- Results observed.
-- Known gaps (if any) and follow-up task.
+- **Local Validation**: Refer to **[DEVELOPMENT.md](DEVELOPMENT.md)** for initial environment setup.
+- **Coverage Generation**:
+  ```bash
+  flutter test --coverage
+  ```
+  Generates LCOV report at `coverage/lcov.info`.
+
+---
+
+## 4. Priority Areas for Test Coverage
+
+When contributing new features, ensure test coverage for:
+1. Block editor state, undo/redo stacks, and Markdown serialization.
+2. Encrypted vault locking/unlocking and password derivation.
+3. Device synchronization and conflict resolution logic.
+4. Cloud AI error handling, drop balances, and retry policies.
+
+---
+
+## 5. Pull Request Test Plan Template
+
+Every Pull Request must include a completed test summary:
+
+```markdown
+### PR Test Summary
+- **Tested Scenarios**: [List key flows tested]
+- **Verification Commands Executed**:
+  - `flutter analyze`
+  - `flutter test`
+- **Results**: All tests passing cleanly (0 failures)
+- **Known Gaps / Follow-ups**: [None or list follow-up items]
+```

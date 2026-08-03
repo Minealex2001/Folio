@@ -9,12 +9,14 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/meeting_note_posthoc_transcription_manager.dart';
 import '../../../services/meeting_note_session_controller.dart';
 import '../../../services/system_audio_service.dart';
 import '../../../services/transcription_hardware_profile.dart';
 import '../../../services/whisper_service.dart';
 import '../../../session/vault_session.dart';
 import 'folio_special_block_widgets.dart';
+import 'meeting_note_posthoc_dialog.dart';
 
 class MeetingNoteBlockWidget extends StatefulWidget {
   const MeetingNoteBlockWidget({
@@ -808,6 +810,26 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
           ),
         ],
+        if (file != null && transcript.isEmpty) ...[
+          const SizedBox(height: 8),
+          ListenableBuilder(
+            listenable: PostHocTranscriptionJobManager.instance,
+            builder: (context, _) {
+              final job = PostHocTranscriptionJobManager.instance.jobFor(
+                widget.page.id,
+                widget.block.id,
+              );
+              if (job == null) {
+                return _buildPostHocTranscribeButton(l10n, file);
+              }
+              return ListenableBuilder(
+                listenable: job,
+                builder: (context, _) =>
+                    _buildPostHocJobStatus(theme, l10n, job, file),
+              );
+            },
+          ),
+        ],
         if (runtimeError != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -858,6 +880,130 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildPostHocTranscribeButton(AppLocalizations l10n, File file) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: () => unawaited(_openPostHocTranscribeDialog(file)),
+        icon: const Icon(Icons.subtitles_rounded, size: 16),
+        label: Text(l10n.meetingNoteTranscribeNow),
+      ),
+    );
+  }
+
+  Widget _buildPostHocJobStatus(
+    ThemeData theme,
+    AppLocalizations l10n,
+    PostHocTranscriptionJob job,
+    File file,
+  ) {
+    if (job.state == PostHocTranscriptionJobState.running) {
+      final isCloud = job.engine == PostHocTranscriptionEngine.quillCloud;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isCloud
+                      ? l10n.meetingNoteCloudProcessing
+                      : l10n.meetingNoteTranscribing,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: widget.scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (isCloud)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: widget.scheme.error,
+                  ),
+                  onPressed: () => PostHocTranscriptionJobManager.instance
+                      .cancel(widget.page.id, widget.block.id),
+                  child: Text(l10n.meetingNoteCancelUpload),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: isCloud && job.totalChunks > 0
+                ? job.processedChunks / job.totalChunks
+                : null,
+          ),
+          if (isCloud && job.totalChunks > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              l10n.meetingNoteCloudProgress(
+                job.processedChunks,
+                job.totalChunks,
+              ),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: widget.scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (job.state == PostHocTranscriptionJobState.failed) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 14,
+                color: widget.scheme.error,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  job.errorMessage?.trim().isNotEmpty == true
+                      ? job.errorMessage!
+                      : l10n.meetingNoteChunkTranscriptionError,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: widget.scheme.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _buildPostHocTranscribeButton(l10n, file),
+        ],
+      );
+    }
+
+    // cancelled: se ofrece de nuevo el botón para reintentar; done no debería
+    // llegar aquí (transcript ya deja de estar vacío en el siguiente build).
+    return _buildPostHocTranscribeButton(l10n, file);
+  }
+
+  Future<void> _openPostHocTranscribeDialog(File file) {
+    return showPostHocTranscribeDialog(
+      context: context,
+      session: widget.session,
+      appSettings: widget.appSettings,
+      page: widget.page,
+      block: widget.block,
+      audioFile: file,
+      entitlements: widget.folioCloudEntitlements,
     );
   }
 }

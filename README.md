@@ -31,6 +31,8 @@ Folio is designed for users who value privacy, control, and productivity. Whethe
 ### AI & productivity
 
 - **Local AI**: Connect **Ollama** or **LM Studio** for on-device assistance (configurable endpoint and security posture in settings).
+- **Quill Cloud / BYOK**: Optional cloud inference (OpenAI via Folio) or your own API key; Quill is off by default and labeled as an **AI Assistant** in the UI.
+- **EU AI Act transparency**: See [docs/AI_COMPLIANCE.md](docs/AI_COMPLIANCE.md) for providers, what data may leave the device, intended uses (summarize / generate / classify / STT), risk level (limited), and how to disable AI.
 - **Desktop workflow**: **System tray**, **global hotkeys** (search, new page, settings, lock, page navigation, etc.—many are **customizable**), and **Windows taskbar** integration.
 
 ### Internationalization & offline use
@@ -86,28 +88,31 @@ flutter run -d windows
 
 ### Building without Folio Cloud
 
-The core app (vault, editor, local device sync, local AI) works **without** Firebase, Stripe, or any paid backend. Optional **Folio Cloud** features (encrypted cloud backup/sync, hosted AI, publish to web) require a configured Firebase project and active subscription; they are disabled if Firebase fails to start. Contributors do not need production keys—see [docs/FOLIO_CLOUD_SECRETS.md](docs/FOLIO_CLOUD_SECRETS.md).
+The core app (vault, editor, local device sync, local AI) works **without** any cloud backend or paid services. Optional **Folio Cloud** features (encrypted cloud backup/sync, hosted AI, web publishing) communicate with the Spring Boot backend (`backend/` submodule). Contributors do not need production API keys to run or build the client—see [docs/cloud/SECRETS.md](docs/cloud/SECRETS.md).
 
-The Spring Boot API (self-host / Railway) lives in a separate GitHub repo, [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend), checked out here as the `backend/` submodule. See [backend/README.md](backend/README.md) and [docs/FOLIO_CLOUD_SELF_HOST.md](docs/FOLIO_CLOUD_SELF_HOST.md).
+The Spring Boot API (Docker Compose / Railway) lives in a separate GitHub repo, [`Minealex2001/Folio-Backend`](https://github.com/Minealex2001/Folio-Backend), checked out here as the `backend/` submodule. See [backend/README.md](backend/README.md) and [docs/cloud/DEPLOYMENT_AND_ENV.md](docs/cloud/DEPLOYMENT_AND_ENV.md).
 
 ---
 
-## 📚 Documentation
+## 📚 Documentation Hub
+
+See the central **[Documentation Hub (docs/README.md)](docs/README.md)** for a full index of technical guides.
 
 | Document | Purpose |
 |----------|---------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines and code standards |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local development setup and workflows |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical architecture and design patterns |
-| [SECURITY.md](SECURITY.md) | Security policies and vulnerability reporting |
-| [docs/REPO_SECURITY_SETUP.md](docs/REPO_SECURITY_SETUP.md) | GitHub repository security configuration |
-| [docs/FOLIO_INTEGRATION.md](docs/FOLIO_INTEGRATION.md) | Integration guide for extensions and plugins |
-| [docs/WINDOWS_TASKBAR.md](docs/WINDOWS_TASKBAR.md) | Windows-specific features and taskbar integration |
-| [docs/FOLIO_CLOUD_SECRETS.md](docs/FOLIO_CLOUD_SECRETS.md) | Folio Cloud: secrets, OSS policy, builds without paid services |
-| [docs/FOLIO_CLOUD_STRIPE_SETUP.md](docs/FOLIO_CLOUD_STRIPE_SETUP.md) | Stripe: `.env`, webhook, Stripe CLI, emulador |
-| [docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md](docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md) | Stripe catalog (Folio Cloud + tinteros) and webhook notes |
-| [docs/FOLIO_CLOUD_BACKEND.md](docs/FOLIO_CLOUD_BACKEND.md) | Server-authoritative Folio Cloud (Firestore, ink, idempotency) |
-| [docs/MIGRACION_ELECTRON.md](docs/MIGRACION_ELECTRON.md) | Runbook (para IA) para migrar la app de Flutter a Electron |
+| [SECURITY.md](SECURITY.md) | Security policy and GitHub repository hardening standards |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local development setup, i18n, and compilation flags |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical architecture and layered design principles |
+| [docs/TESTING.md](docs/TESTING.md) | Testing strategy, coverage policy, and PR template |
+| [docs/FEATURES.md](docs/FEATURES.md) | Full features roadmap, capability matrix, and status tracking |
+| [docs/cloud/README.md](docs/cloud/README.md) | Folio Cloud & Spring Boot backend architecture |
+| [docs/cloud/DEPLOYMENT_AND_ENV.md](docs/cloud/DEPLOYMENT_AND_ENV.md) | Docker Compose self-hosting & cloud deployment |
+| [docs/cloud/INTEGRATIONS_AND_PAYMENTS.md](docs/cloud/INTEGRATIONS_AND_PAYMENTS.md) | Stripe payment webhooks, Admin grants & Ink AI drops |
+| [docs/cloud/SECRETS.md](docs/cloud/SECRETS.md) | Backend environment variables and secrets configuration |
+| [docs/integrations/LOCAL_HTTP_API.md](docs/integrations/LOCAL_HTTP_API.md) | Local HTTP API contract (`:45831`) and Deep Links |
+| [docs/platform/APP_STORE_GUIDE.md](docs/platform/APP_STORE_GUIDE.md) | Folio App (`.folioapp`) packaging & store guide |
+| [docs/platform/WINDOWS_DESKTOP.md](docs/platform/WINDOWS_DESKTOP.md) | Windows Desktop integration (System Tray & Taskbar) |
 
 ---
 
@@ -200,10 +205,10 @@ Configure in Folio settings → AI Provider.
 ## 🔒 Security & Privacy
 
 - **Data Locality**: All content and processing occurs locally; no cloud synchronization required
-- **AI Integration**: Local AI providers (Ollama, LM Studio) run on your machine—no external API calls
+- **AI Integration**: Local AI providers (Ollama, LM Studio) run on your machine—no external API calls. Optional Quill Cloud / BYOK send prompts (and meeting audio for cloud STT) to the configured provider — see [AI_COMPLIANCE.md](docs/AI_COMPLIANCE.md)
 - **Encryption**: Cryptographic operations powered by trusted libraries
 - **Privacy-First Telemetry**: Telemetry enabled by default to improve the app, but you can disable it anytime in Settings. See [TELEMETRY.md](docs/TELEMETRY.md) for details
-- **Safe Defaults**: Privacy-first settings out of the box
+- **Safe Defaults**: Privacy-first settings out of the box; Quill AI is opt-in
 
 **See [SECURITY.md](SECURITY.md) for detailed security policies and vulnerability reporting guidelines.**
 

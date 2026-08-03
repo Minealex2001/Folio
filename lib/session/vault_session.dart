@@ -75,6 +75,7 @@ import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
+import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
 import '../services/unlock_attempt_throttle.dart';
@@ -1734,6 +1735,7 @@ class VaultSession extends ChangeNotifier {
     List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
     bool includeQuillStarterPage = false,
     int? kdfProfile,
+    String? displayName,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -1742,15 +1744,22 @@ class VaultSession extends ChangeNotifier {
       VaultPaths.setActiveVaultId(id);
     }
     await VaultPaths.initVaultStorage(id);
+    final ordinal = _registry.vaults.length + 1;
+    final resolvedName = () {
+      final t = displayName?.trim() ?? '';
+      return t.isNotEmpty ? t : 'Libreta $ordinal';
+    }();
     if (!_registry.containsVault(id)) {
-      final ordinal = _registry.vaults.length + 1;
       await _registry.add(
         VaultEntry(
           id: id,
-          displayName: 'Libreta $ordinal',
+          displayName: resolvedName,
           createdAtMs: DateTime.now().millisecondsSinceEpoch,
         ),
       );
+    } else if (displayName != null && displayName.trim().isNotEmpty) {
+      // prepareNewVault() pre-registra un nombre genérico; lo sustituimos.
+      await _registry.rename(id, resolvedName);
     }
     await _registry.setActiveVaultId(id);
 
@@ -3118,6 +3127,10 @@ class VaultSession extends ChangeNotifier {
     // bóveda a mitad de una reunión (ver Bug de pérdida de datos).
     await MeetingNoteSessionController.instance
         .saveActiveRecordingBeforeTeardown(budget: const Duration(seconds: 12));
+    // Igual para transcripciones a posteriori en curso: cancelarlas antes de
+    // bloquear evita que sigan tocando esta sesión una vez bloqueada.
+    await PostHocTranscriptionJobManager.instance
+        .cancelAllAndAwait(budget: const Duration(seconds: 12));
     await _persistLastSelectedPageBeforeLock();
     // Asegura DEK en caché para sync en segundo plano tras bloquear.
     await _cacheDeviceSyncKeyAfterUnlock();
@@ -5193,6 +5206,9 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: blockId,
       );
     }
+    if (b.aiGenerated == true && b.text != text) {
+      b.aiGenerated = null;
+    }
     b.text = text;
     _scheduleCoalescedTypingNotify();
     scheduleSave(trackRevisionForPageId: pageId, notify: false);
@@ -5240,6 +5256,10 @@ class VaultSession extends ChangeNotifier {
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+    }
+    if (b.aiGenerated == true &&
+        (b.text != text || b.richTextDeltaJson != richTextDeltaJson)) {
+      b.aiGenerated = null;
     }
     b.text = text;
     b.richTextDeltaJson = richTextDeltaJson;
@@ -6952,6 +6972,11 @@ class VaultSession extends ChangeNotifier {
   Future<({bool ok, bool changed})> applySyncSnapshotBytes(
     List<int> rawBytes, [
     String fromPeerId = '',
+    /// Recuento de páginas que el propio manifiesto remoto declara tener
+    /// (`DeviceSyncPullResult.manifestPageCount`), si se conoce. Permite
+    /// distinguir un remoto genuinamente pequeño de un manifiesto parcial
+    /// que casualmente coincide en tamaño con lo esperado.
+    int? remoteExpectedPageCount,
   ]) async {
     if (_state != VaultFlowState.unlocked) {
       return (ok: false, changed: false);
@@ -6993,10 +7018,33 @@ class VaultSession extends ChangeNotifier {
         return (ok: true, changed: false);
       }
 
+      // Mismo riesgo que el guard de arriba pero para un remoto PARCIAL (no
+      // vacío del todo): si el baseline en memoria aún no se sembró (p. ej.
+      // recién desbloqueada), `merge()` vería un baseline vacío y su propio
+      // guard de páginas parciales no dispararía. Comparar contra lo local
+      // aquí cubre ese hueco sin esperar a que el baseline exista.
+      if (VaultSyncMergeEngine.looksSuspiciouslyPartial(
+        basePageCount: localPayload.pages.length,
+        remotePageCount: remotePayload.pages.length,
+        remoteExpectedPageCount: remoteExpectedPageCount,
+      )) {
+        AppLogger.warn(
+          'applySyncSnapshotBytes skipped: remote looks like a partial manifest',
+          tag: 'sync',
+          context: {
+            'localPages': localPayload.pages.length,
+            'remotePages': remotePayload.pages.length,
+            'remoteExpectedPageCount': remoteExpectedPageCount,
+          },
+        );
+        return (ok: true, changed: false);
+      }
+
       final result = _syncMerge.merge(
         local: localPayload,
         remote: remotePayload,
         baseline: _syncBaselinePayload,
+        remoteExpectedPageCount: remoteExpectedPageCount,
       );
 
       for (final conflict in result.blockConflicts) {
@@ -7854,6 +7902,7 @@ class VaultSession extends ChangeNotifier {
     unawaited(
       MeetingNoteSessionController.instance.saveActiveRecordingBeforeTeardown(),
     );
+    unawaited(PostHocTranscriptionJobManager.instance.cancelAllAndAwait());
     _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();

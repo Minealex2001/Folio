@@ -64,6 +64,7 @@ import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../widgets/spotify_now_playing_bar.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
+import '../../admin/admin_console_page.dart' show AdminConsolePage;
 import '../../settings/settings_page.dart' show SettingsPage;
 import 'ai_chat_reply_skeleton.dart';
 import 'ai_tool_activity_indicator.dart';
@@ -99,6 +100,7 @@ part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
 part 'workspace_page_ai_slash.dart';
 part 'workspace_page_ai_plan.dart';
+part 'workspace_page_ai_generated_image.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
@@ -791,6 +793,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 messageIndex,
                               );
                             }
+                            // Imagen generada = artefacto propio (mismo patrón que el plan).
+                            if (!isUser && message.generatedImagePath != null) {
+                              return _buildGeneratedImageCard(
+                                message,
+                                messageIndex,
+                              );
+                            }
                             final target = bodyContent.isEmpty
                                 ? message.content
                                 : bodyContent;
@@ -798,6 +807,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 !isUser &&
                                 _aiStreamingMessageKeys.contains(msgKey);
                             if (isStreamingLive) {
+                              final liveText = _normalizeHtmlForChat(target);
+                              if (liveText.trim().isEmpty) {
+                                return Semantics(
+                                  label: l10n.aiTypingSemantics,
+                                  liveRegion: true,
+                                  child: _aiToolActivityLabel != null
+                                      ? AiToolActivityIndicator(
+                                          label: _aiToolActivityLabel!,
+                                          colorScheme: scheme,
+                                        )
+                                      : FolioAiChatReplySkeleton(
+                                          colorScheme: scheme,
+                                        ),
+                                );
+                              }
                               final liveStyle = Theme.of(
                                 ctx,
                               ).textTheme.bodyMedium?.copyWith(
@@ -805,7 +829,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 height: 1.35,
                               );
                               return SelectableText(
-                                _normalizeHtmlForChat(target),
+                                liveText,
                                 style:
                                     liveStyle ??
                                     TextStyle(color: textColor, height: 1.35),
@@ -844,7 +868,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           ...message.toolErrors!.map(
                             (err) => AiToolErrorChip(message: err, colorScheme: scheme),
                           ),
-                        if (!isUser && message.agentPlan == null) ...[
+                        if (!isUser &&
+                            message.agentPlan == null &&
+                            message.generatedImagePath == null &&
+                            !_aiStreamingMessageKeys.contains(msgKey)) ...[
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -1767,6 +1794,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  void _openAdminConsole() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'admin_console'),
+        builder: (ctx) => const AdminConsolePage(),
+      ),
+    );
+  }
+
   void _openGraphView() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -2348,6 +2384,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 if (mounted) setState(() => _sidebarPeek = false);
               },
               forcePrimary: true,
+            ),
+          if (widget.folioCloudEntitlements.snapshot.folioStaff)
+            _WorkspaceActionEntry(
+              id: 'admin_console',
+              label: 'Consola de administración',
+              icon: Icons.admin_panel_settings_outlined,
+              onPressed: _openAdminConsole,
+              forceOverflow: true,
             ),
           if (!compact && page != null)
             _WorkspaceActionEntry(

@@ -96,6 +96,9 @@ Map<String, dynamic> folioSpringAccountMeToUserDoc(Map<String, dynamic> me) {
     'email': me['email'],
     'displayName': me['displayName'],
     'folioStaff': me['folioStaff'] == true,
+    'status': me['status']?.toString() ?? 'active',
+    'communityTemplateUploadBanned':
+        me['communityTemplateUploadBanned'] == true,
     'folioCloud': folioCloud,
     'ink': ink,
     if (me['emailVerifiedAt'] != null)

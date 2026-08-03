@@ -228,6 +228,7 @@ class _SidebarTileState extends State<SidebarTile> {
               },
               onDoubleTap: widget.onDoubleTap,
               child: Semantics(
+                container: true,
                 selected: selected,
                 button: true,
                 label: page.title,
@@ -236,12 +237,15 @@ class _SidebarTileState extends State<SidebarTile> {
                           ? l10n.sidebarItemCollapsedSemantics
                           : l10n.sidebarItemExpandedSemantics)
                     : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FolioSpace.xs,
-                    vertical: FolioSpace.xs,
-                  ),
-                  child: LayoutBuilder(
+                // Un solo nodo AX por fila: evita churn masivo con Tooltips/IconButtons
+                // anidados (bug conocido del bridge de accesibilidad en Windows).
+                child: ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FolioSpace.xs,
+                      vertical: FolioSpace.xs,
+                    ),
+                    child: LayoutBuilder(
                     builder: (context, constraints) {
                       // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                       // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
@@ -490,7 +494,8 @@ class _SidebarTileState extends State<SidebarTile> {
                   },
                 ),
               ),
-            ),
+                ),
+              ),
             ),
           ),
         ),

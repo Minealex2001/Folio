@@ -88,23 +88,45 @@ class VaultLocalStorage {
     await decomposeAndStoreAt(vaultDir, payload);
   }
 
+  /// Umbral bajo el cual un payload entrante se considera "sospechosamente
+  /// parcial" frente al árbol ya en disco, en vez de un borrado real: por
+  /// debajo del 40% de las páginas existentes, con un mínimo de 4 páginas
+  /// existentes (evita falsos positivos en libretas pequeñas). Réplica local
+  /// del mismo criterio que `VaultSyncMergeEngine.looksSuspiciouslyPartial`
+  /// — no se importa ese servicio aquí a propósito, para no crear una
+  /// dependencia data -> services por un simple chequeo de conteos.
+  static bool looksLikePartialOverwrite({
+    required int existingPages,
+    required int incomingPages,
+  }) {
+    if (existingPages < 4) return false;
+    if (incomingPages == 0) return false; // cubierto por el guard de vaciado total
+    return incomingPages <= (existingPages * 0.4).ceil();
+  }
+
   /// Igual que [decomposeAndStore] pero para un directorio de libreta concreto
   /// (p. ej. sync headless sin cambiar la libreta activa).
   ///
   /// Por defecto rechaza sustituir un árbol con páginas por un payload vacío
   /// (evita wipe por sync/persist corrupto). [allowEmptyOverwrite] solo para
-  /// wipe explícito del usuario.
+  /// wipe explícito del usuario. [guardAgainstPartialOverwrite] añade además
+  /// el rechazo de un payload que no está vacío pero sí muy por debajo de lo
+  /// que ya hay en disco (manifiesto de sync parcial) — solo lo activan los
+  /// llamadores que escriben contenido remoto, no el guardado local del
+  /// usuario (que puede borrar páginas legítimamente en bloque).
   static Future<void> decomposeAndStoreAt(
     Directory vaultDir,
     VaultPayload payload, {
     bool allowEmptyOverwrite = false,
+    bool guardAgainstPartialOverwrite = false,
   }) {
     return runExclusive(vaultDir.path, () async {
       final treeDir = Directory(p.join(vaultDir.path, 'repo'));
       final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
+      final incomingPages = payload.pages.length;
       if (!allowEmptyOverwrite &&
           existingPages > 0 &&
-          payload.pages.isEmpty) {
+          incomingPages == 0) {
         AppLogger.error(
           'Blocked empty overwrite of vault tree',
           tag: 'vault',
@@ -116,6 +138,26 @@ class VaultLocalStorage {
         );
         throw VaultEmptyOverwriteException(
           'Refusing to replace repo/ with $existingPages pages by empty payload',
+        );
+      }
+      if (guardAgainstPartialOverwrite &&
+          looksLikePartialOverwrite(
+            existingPages: existingPages,
+            incomingPages: incomingPages,
+          )) {
+        AppLogger.error(
+          'Blocked partial overwrite of vault tree',
+          tag: 'vault',
+          context: {
+            'vaultDir': vaultDir.path,
+            'existingPages': existingPages,
+            'incomingPages': incomingPages,
+          },
+        );
+        throw VaultEmptyOverwriteException(
+          'Refusing to replace repo/ ($existingPages pages) with a '
+          'suspiciously small payload ($incomingPages pages) — looks like a '
+          'partial sync manifest, not a real delete',
         );
       }
 

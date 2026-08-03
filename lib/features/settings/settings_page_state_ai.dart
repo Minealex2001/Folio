@@ -43,8 +43,8 @@ extension _SettingsPageAiActions on _SettingsPageState {
     final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(l10n.quillGlobalScopeNoticeTitle),
-        content: Text(l10n.quillGlobalScopeNoticeBody),
+        title: Text(l10n.aiConsentTitle),
+        content: Text(l10n.aiConsentBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -52,7 +52,7 @@ extension _SettingsPageAiActions on _SettingsPageState {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.quillGlobalScopeNoticeConfirm),
+            child: Text(l10n.aiConsentConfirm),
           ),
         ],
       ),
@@ -62,6 +62,33 @@ extension _SettingsPageAiActions on _SettingsPageState {
       return true;
     }
     return false;
+  }
+
+  Future<void> _showAiComplianceDocs() async {
+    final l10n = AppLocalizations.of(context);
+    final openPrivacy = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.aiComplianceDocsTitle),
+        content: SingleChildScrollView(
+          child: Text(l10n.aiComplianceDocsBody),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.ok),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.aiComplianceDocsOpenPrivacy),
+          ),
+        ],
+      ),
+    );
+    if (openPrivacy != true || !mounted) return;
+    final lang = Localizations.localeOf(context).languageCode;
+    final uri = FolioStatusUrls.privacyPolicyUri(languageCode: lang);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   String _providerLabel(AiProvider provider, AppLocalizations l10n) {

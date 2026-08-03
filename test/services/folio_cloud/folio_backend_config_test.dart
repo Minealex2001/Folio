@@ -15,7 +15,7 @@ void main() {
       expect(FolioBackendConfig.modeLabel, 'spring');
       expect(
         FolioBackendConfig.baseUrl,
-        'https://backendfolio.minealexgames.com',
+        'https://api-beta.folio.com.es',
       );
     });
 

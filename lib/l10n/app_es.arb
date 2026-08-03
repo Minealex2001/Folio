@@ -220,6 +220,9 @@
   "switchVaultBody": "Se cerrará la sesión de esta libreta y tendrás que desbloquear la otra con su contraseña, Hello o passkey (si los tienes configurados allí).",
   "renameVaultTitle": "Renombrar libreta",
   "nameLabel": "Nombre",
+  "onboardingVaultNameTitle": "Nombre de tu libreta",
+  "onboardingVaultNameHint": "Trabajo, Personal…",
+  "vaultNameRequiredError": "Escribe un nombre para la libreta.",
   "deleteOtherVaultTitle": "Eliminar otra libreta",
   "deleteVaultConfirmTitle": "¿Eliminar libreta?",
   "deleteVaultConfirmBody": "Se borrará por completo «{name}». No se puede deshacer.",
@@ -342,6 +345,15 @@
   },
     "meetingNoteCloudProcessing": "Procesando con Quill Cloud…",
     "meetingNoteCloudProcessingSubtitle": "Detectando hablantes y mejorando calidad. Un momento.",
+    "meetingNoteTranscribeNow": "Transcribir",
+    "meetingNotePostHocCloudCostEstimate": "Coste estimado: {inkAmount} Tinta",
+    "@meetingNotePostHocCloudCostEstimate": {
+      "placeholders": {
+        "inkAmount": {
+          "type": "int"
+        }
+      }
+    },
     "meetingNoteCloudProgress": "Segmentos procesados: {done}/{total}",
     "@meetingNoteCloudProgress": {
       "placeholders": {
@@ -797,6 +809,18 @@
   ,"quillGlobalScopeNoticeTitle": "Quill funciona en todas las libretas"
   ,"quillGlobalScopeNoticeBody": "Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier libreta en esta instalación, no solo para la actual."
   ,"quillGlobalScopeNoticeConfirm": "Entiendo"
+  ,"aiAssistantSubtitle": "Asistente IA"
+  ,"aiGeneratedLabel": "Generado por IA"
+  ,"aiContextMentionHint": "Mención de IA – analiza contenido de esta página"
+  ,"aiConsentTitle": "¿Activar el asistente IA Quill?"
+  ,"aiConsentBody": "Esta función usa IA para ayudarte. Quill es un ajuste a nivel de app, disponible para cualquier libreta de esta instalación.\n\nSegún el proveedor que elijas, el contenido puede procesarse en tu dispositivo (Ollama, LM Studio, en el dispositivo) o enviarse a un servicio externo (Quill Cloud → OpenAI, o tu propia API key).\n\nPuedes desactivar Quill en cualquier momento desde Ajustes. ¿Quieres activarla?"
+  ,"aiConsentConfirm": "Activar Quill"
+  ,"aiEnableToggleSubtitle": "Si está desactivado, se deshabilitan todas las funciones de IA de Quill (chat, contexto @, Copilot, propiedades IA)."
+  ,"aiDisableFromPrivacyHint": "Para desactivar todas las funciones de IA, desactiva Quill en Ajustes → Quill."
+  ,"aiComplianceDocsTitle": "Documentación de IA"
+  ,"aiComplianceDocsSubtitle": "Proveedores, tratamiento de datos, nivel de riesgo y cómo desactivar la IA"
+  ,"aiComplianceDocsBody": "Quill es un asistente de IA (riesgo limitado según el reglamento de IA de la UE — aplica transparencia).\n\nProveedores: Ollama / LM Studio (local), Quill Cloud (OpenAI vía Folio), BYOK OpenAI/Gemini, Gemini Nano en Android.\n\nDatos enviados: prompts, historial del chat y contexto de páginas que adjuntas con @. Quill Cloud no envía adjuntos de archivo/imagen. Las notas de reunión envían audio solo si usas transcripción Quill Cloud.\n\nUsos: resumir, generar, editar, clasificar vía tools y transcripción de notas de reunión (solo hablantes — sin análisis de emociones).\n\nDesactivar: Ajustes → Quill → desactivar Activar Quill.\n\nDetalle técnico para desarrolladores: docs/AI_COMPLIANCE.md. Política de privacidad: https://minealexgames.com/es/privacy-policy."
+  ,"aiComplianceDocsOpenPrivacy": "Abrir política de privacidad"
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
   "open": "Abrir",
@@ -2533,6 +2557,51 @@
   ,"settingsAiSnackSignInCloudAccount": "Inicia sesión en la cuenta en la nube (Ajustes)."
   ,"settingsAiProviderSwitchFailed": "Error al cambiar proveedor: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
+
+  ,"templateCommunityUploadBanned": "No puedes publicar plantillas comunitarias: tu cuenta tiene esa accion restringida."
+  ,"templateCommunityReportTitle": "Reportar plantilla"
+  ,"templateCommunityReportBody": "Los administradores revisaran este reporte. No incluyas datos personales sensibles."
+  ,"templateCommunityReportReasonHint": "Motivo (opcional)"
+  ,"templateCommunityReportConfirm": "Enviar reporte"
+  ,"templateCommunityReportSuccess": "Reporte enviado. Gracias."
+  ,"templateCommunityReportAlready": "Ya reportaste esta plantilla."
+  ,"templateCommunityReportError": "No se pudo reportar: {error}"
+  ,"@templateCommunityReportError": {"placeholders": {"error": {}}}
+  ,"settingsAdminSectionTitle": "Admin"
+  ,"settingsAdminHeroDescription": "Moderacion de plantillas comunitarias y cuentas."
+  ,"settingsAdminReportsTitle": "Reportes abiertos"
+  ,"settingsAdminRefreshReports": "Actualizar reportes"
+  ,"settingsAdminReportsEmpty": "No hay reportes abiertos."
+  ,"settingsAdminCopyTemplateId": "Copiar ID"
+  ,"settingsAdminCopiedId": "ID copiado"
+  ,"settingsAdminDeleteTemplate": "Eliminar plantilla"
+  ,"settingsAdminDeleteTemplateConfirm": "Eliminar la plantilla {id}? Esta accion no se puede deshacer."
+  ,"@settingsAdminDeleteTemplateConfirm": {"placeholders": {"id": {}}}
+  ,"settingsAdminDeleteTemplateSuccess": "Plantilla eliminada"
+  ,"settingsAdminResolveReport": "Marcar resuelto"
+  ,"settingsAdminResolveSuccess": "Reporte resuelto"
+  ,"settingsAdminUserTitle": "Usuario"
+  ,"settingsAdminUserLookupHint": "Email o UID"
+  ,"settingsAdminLookupUser": "Buscar usuario"
+  ,"settingsAdminBanUploads": "Prohibir subidas"
+  ,"settingsAdminAllowUploads": "Permitir subidas"
+  ,"settingsAdminBanUploadsSuccess": "Subidas de plantillas prohibidas"
+  ,"settingsAdminAllowUploadsSuccess": "Subidas de plantillas permitidas"
+  ,"settingsAdminSuspendUser": "Suspender cuenta"
+  ,"settingsAdminReactivateUser": "Reactivar cuenta"
+  ,"settingsAdminSuspendConfirm": "La cuenta no podra iniciar sesion hasta reactivarla."
+  ,"settingsAdminReactivateConfirm": "La cuenta volvera a poder iniciar sesion."
+  ,"settingsAdminSuspendSuccess": "Cuenta suspendida"
+  ,"settingsAdminReactivateSuccess": "Cuenta reactivada"
+  ,"settingsAdminPurgeTemplates": "Borrar todas sus plantillas"
+  ,"settingsAdminPurgeConfirm": "Borrar todas las plantillas comunitarias del usuario {uid}?"
+  ,"@settingsAdminPurgeConfirm": {"placeholders": {"uid": {}}}
+  ,"settingsAdminPurgeSuccess": "Plantillas eliminadas: {count}"
+  ,"@settingsAdminPurgeSuccess": {"placeholders": {"count": {}}}
+  ,"settingsAdminTemplateByIdTitle": "Plantilla por ID"
+  ,"settingsAdminTemplateIdHint": "UUID de la plantilla"
+  ,"settingsAdminActionError": "Error de administracion"
+
   ,"settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación y canal de actualización."
   ,"settingsOpenReleaseNotes": "Ver notas de versión"
   ,"settingsUpdateChannelLabel": "Canal"
@@ -3714,4 +3783,17 @@
   ,"databaseConfigureStartDateProperty": "Configura una propiedad de fecha de inicio en los ajustes de vista."
   ,"databaseNoRowsWithDates": "No hay filas con fechas."
   ,"databaseQuickFilterMainColumn": "Filtro rápido (columna principal)"
+  ,"aiGenerateImageAction": "Generar imagen"
+  ,"aiGenerateImageSheetTitle": "Generar imagen con Quill"
+  ,"aiGenerateImagePromptLabel": "Describe la imagen"
+  ,"aiGenerateImagePromptHint": "p. ej. un faro al atardecer, estilo acuarela"
+  ,"aiGenerateImageUseContextLabel": "Usar contexto de la página actual"
+  ,"aiGenerateImageGenerateButton": "Generar"
+  ,"aiGenerateImageGenerating": "Generando imagen…"
+  ,"aiGeneratedImageLabel": "Generado por IA"
+  ,"aiGeneratedImageInsertButton": "Insertar en la página"
+  ,"aiGeneratedImageInsertedSnackbar": "Imagen insertada en la página"
+  ,"aiGeneratedImageLoadError": "No se pudo cargar la imagen"
+  ,"aiImageGenerationUnsupportedProvider": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI."
+  ,"aiGenerateImagePromptRequired": "Escribe una descripción antes de generar."
 }

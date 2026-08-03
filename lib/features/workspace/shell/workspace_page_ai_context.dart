@@ -99,7 +99,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         return l10n.aiAttachFileSubtitle;
       case _AiContextItemKind.page:
         if (item.id == '__open_pages__') return l10n.aiAttachPageSubtitle;
-        return null;
+        return l10n.aiContextMentionHint;
       case _AiContextItemKind.editorSelection:
         return l10n.aiAttachSelectionSubtitle;
       case _AiContextItemKind.meetingNote:
@@ -107,7 +107,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       case _AiContextItemKind.lastMeetingOnPage:
         return l10n.aiAttachLastMeetingSubtitle;
       case _AiContextItemKind.currentPage:
-        return l10n.aiAttachCurrentPageSubtitle;
+        return l10n.aiContextMentionHint;
       case _AiContextItemKind.file:
         return null;
     }

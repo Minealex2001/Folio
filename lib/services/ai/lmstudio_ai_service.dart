@@ -24,6 +24,17 @@ class LmStudioAiService implements AiService {
   @override
   bool get supportsNativeToolCalling => false;
 
+  @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
+
   Map<String, dynamic> _buildPayload(AiCompletionRequest request) {
     final textAttachments = request.attachments
         .where((a) => !a.mimeType.startsWith('image/'))

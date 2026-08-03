@@ -49,6 +49,7 @@ import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integration_command_processor.dart';
 import '../services/spotify/spotify_playback_controller.dart';
 import '../services/media/media_playback_router.dart';
+import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
@@ -1294,6 +1295,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     // la ventana) es el punto correcto para hacerlo sin perder la grabación.
     await MeetingNoteSessionController.instance
         .saveActiveRecordingBeforeTeardown();
+    await PostHocTranscriptionJobManager.instance.cancelAllAndAwait();
     await SystemNavigator.pop();
   }
 

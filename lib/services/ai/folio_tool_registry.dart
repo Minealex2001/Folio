@@ -30,6 +30,7 @@ class FolioToolRegistry {
     this.scopePageId,
     this.onRequestMcpReadAccess,
     this.onConfirmIrreversibleTool,
+    this.onGenerateImage,
   });
 
   final VaultSession _session;
@@ -49,6 +50,14 @@ class FolioToolRegistry {
   /// ejecutar un plan aprobado; la ruta normal y MCP dejan null.
   final Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
       onConfirmIrreversibleTool;
+
+  /// Si no es null, la tool `generate_image` está disponible: genera una
+  /// imagen (con el `AiService` activo), la importa al vault, y devuelve un
+  /// JSON breve de estado (no la imagen — la tarjeta de chat se arma en
+  /// `vault_session_ai.dart` a partir de `outcome.steps`). Nulo cuando el
+  /// proveedor activo no soporta generación de imágenes.
+  final Future<String> Function(String prompt, bool useCurrentPageContext)?
+      onGenerateImage;
 
   static const _uuid = Uuid();
 
@@ -85,6 +94,7 @@ class FolioToolRegistry {
     _insertBlocksAtPositionDef,
     _listTasksDef,
     _updateTaskDef,
+    _generateImageDef,
   ];
 
   Future<AiToolResult> execute(AiToolCall call) async {
@@ -142,6 +152,8 @@ class FolioToolRegistry {
           return _listTasks(call);
         case 'update_task':
           return _updateTask(call);
+        case 'generate_image':
+          return _generateImage(call);
         default:
           return AiToolResult.error(call.id, 'Tool desconocido: ${call.name}');
       }
@@ -1240,6 +1252,53 @@ class FolioToolRegistry {
       call.id,
       '{"pageId":"$pageId","blockId":"$blockId","updated":true}',
     );
+  }
+
+  static const _generateImageDef = AiToolDefinition(
+    name: 'generate_image',
+    description:
+        'Genera una imagen a partir de un prompt de texto y la muestra en el '
+        'chat como una tarjeta con botón "Insertar en la página" — no inserta '
+        'la imagen automáticamente. Úsala cuando el usuario pida explícitamente '
+        'generar/crear/dibujar una imagen.',
+    parameters: [
+      AiToolParam(
+        name: 'prompt',
+        type: 'string',
+        description: 'Descripción de la imagen a generar.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'useCurrentPageContext',
+        type: 'boolean',
+        description:
+            'Si es true, incluye el contenido de la página actual como '
+            'contexto adicional para la generación. Solo si el usuario lo '
+            'pidió explícitamente; por defecto false.',
+      ),
+    ],
+  );
+
+  Future<AiToolResult> _generateImage(AiToolCall call) async {
+    final gen = onGenerateImage;
+    if (gen == null) {
+      return AiToolResult.error(
+        call.id,
+        'Este proveedor no soporta generación de imágenes; usa Quill Cloud o '
+        'configura un proveedor BYOK/local compatible con OpenAI.',
+      );
+    }
+    final prompt = (call.arguments['prompt'] as String?)?.trim() ?? '';
+    if (prompt.isEmpty) {
+      return AiToolResult.error(call.id, 'Falta "prompt" para generar la imagen.');
+    }
+    final useContext = call.arguments['useCurrentPageContext'] == true;
+    try {
+      final status = await gen(prompt, useContext);
+      return AiToolResult.ok(call.id, status);
+    } catch (e) {
+      return AiToolResult.error(call.id, 'No se pudo generar la imagen: $e');
+    }
   }
 
   // ---------------------------------------------------------------------

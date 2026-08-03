@@ -357,6 +357,21 @@ mixin _BlockContextMenu on State<BlockEditor> {
         if (!mounted) return;
         await st._openMeetingNoteAiDialog(menuContext, page, b);
       });
+    } else if (v == 'meeting_transcribe') {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final file = await st._resolveBlockUrlFileCached(b.url);
+        if (file == null || !mounted) return;
+        await showPostHocTranscribeDialog(
+          context: menuContext,
+          session: st._s,
+          appSettings: st.widget.appSettings,
+          page: page,
+          block: b,
+          audioFile: file,
+          entitlements: st.widget.folioCloudEntitlements,
+        );
+      });
     } else if (v == 'callout_pick_icon') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -775,6 +790,13 @@ mixin _BlockContextMenu on State<BlockEditor> {
             value: 'meeting_send_to_ai',
             icon: Icons.auto_fix_high_rounded,
             label: AppLocalizations.of(ctx).meetingNoteSendToAi,
+          ),
+        if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isEmpty)
+          item(
+            ctx,
+            value: 'meeting_transcribe',
+            icon: Icons.subtitles_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
           ),
       ],
       if (b.type == 'table' && data != null) ...[

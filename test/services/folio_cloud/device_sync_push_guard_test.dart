@@ -47,4 +47,56 @@ void main() {
       );
     });
   });
+
+  group('shouldSkipSuspiciouslyPartialDeviceSyncPush', () {
+    test('bloquea un payload en memoria muy por debajo de lo que hay en disco', () {
+      expect(
+        shouldSkipSuspiciouslyPartialDeviceSyncPush(
+          payloadPageCount: 1,
+          onDiskPageCount: 59,
+        ),
+        isTrue,
+      );
+    });
+
+    test('permite un recuento en memoria que coincide con el disco', () {
+      expect(
+        shouldSkipSuspiciouslyPartialDeviceSyncPush(
+          payloadPageCount: 2,
+          onDiskPageCount: 2,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no aplica heurística de % en libretas pequeñas (<4 páginas en disco)', () {
+      expect(
+        shouldSkipSuspiciouslyPartialDeviceSyncPush(
+          payloadPageCount: 1,
+          onDiskPageCount: 3,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no duplica el guard de vaciado total (eso lo cubre el otro helper)', () {
+      expect(
+        shouldSkipSuspiciouslyPartialDeviceSyncPush(
+          payloadPageCount: 0,
+          onDiskPageCount: 59,
+        ),
+        isFalse,
+      );
+    });
+
+    test('permite una caída gradual legítima que no cruza el umbral', () {
+      expect(
+        shouldSkipSuspiciouslyPartialDeviceSyncPush(
+          payloadPageCount: 40,
+          onDiskPageCount: 59,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

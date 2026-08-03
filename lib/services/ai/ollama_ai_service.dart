@@ -48,6 +48,17 @@ class OllamaAiService implements AiService {
   }
 
   @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
+
+  @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
     try {

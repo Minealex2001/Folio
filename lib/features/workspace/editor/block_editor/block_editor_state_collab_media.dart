@@ -114,6 +114,26 @@ mixin _CollabMediaUpload on State<BlockEditor> {
     );
   }
 
+  /// Bridge público para código fuera del editor (p. ej. el chat de Quill al
+  /// insertar una imagen generada) que ya escribió un adjunto local real en
+  /// un bloque `image` y necesita disparar la misma subida cifrada que el
+  /// picker de imagen dispara automáticamente. Solo funciona si esta página
+  /// está montada en este `BlockEditorState` — el llamador es responsable de
+  /// comprobarlo (p. ej. vía `GlobalKey<BlockEditorState>.currentState`).
+  void notifyExternalImageInserted({
+    required String pageId,
+    required String blockId,
+    required File localFile,
+  }) {
+    _enqueueCollabMediaUpload(
+      pageId: pageId,
+      blockId: blockId,
+      localFile: localFile,
+      mediaKind: 'image',
+      onCommittedUri: (uri) => _mediaSelf._s.updateBlockText(pageId, blockId, uri),
+    );
+  }
+
   Future<void> _uploadCollabMediaForBlock({
     required String pageId,
     required String blockId,

@@ -3,15 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('FolioWebUrls hosts', () {
-    test('reconoce prod y beta', () {
+    test('reconoce prod y beta (canónico y folio.com.es)', () {
       expect(FolioWebUrls.isOfficialFolioWebHost('folio.minealexgames.com'), isTrue);
       expect(
         FolioWebUrls.isOfficialFolioWebHost('foliobeta.minealexgames.com'),
         isTrue,
       );
+      expect(FolioWebUrls.isOfficialFolioWebHost('folio.com.es'), isTrue);
+      expect(FolioWebUrls.isOfficialFolioWebHost('beta.folio.com.es'), isTrue);
       expect(FolioWebUrls.isBetaWebHost('foliobeta.minealexgames.com'), isTrue);
+      expect(FolioWebUrls.isBetaWebHost('beta.folio.com.es'), isTrue);
       expect(FolioWebUrls.isProductionWebHost('folio.minealexgames.com'), isTrue);
+      expect(FolioWebUrls.isProductionWebHost('folio.com.es'), isTrue);
       expect(FolioWebUrls.isBetaWebHost('folio.minealexgames.com'), isFalse);
+      expect(FolioWebUrls.isProductionWebHost('beta.folio.com.es'), isFalse);
       expect(FolioWebUrls.isOfficialFolioWebHost('evil.com'), isFalse);
     });
 

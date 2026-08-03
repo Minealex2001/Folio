@@ -84,7 +84,7 @@ jobs:
           # Build de prerelease/beta (workflow manual, no la release estable de
           # master): apunta al backend de beta, no al de produccion.
           $skipMsix = ($env:SKIP_MSIX_INPUT -eq 'true')
-          $args = @('-SkipAndroid', '-SkipLinux', '-SkipMacOS', '-FolioBackendBaseUrl', 'https://backendfoliobeta.minealexgames.com')
+          $args = @('-SkipAndroid', '-SkipLinux', '-SkipMacOS', '-FolioBackendBaseUrl', 'https://api-beta.folio.com.es')
           if ($skipMsix) { $args += '-SkipMicrosoftStore' }
           & ./builld_all.ps1 @args
 
@@ -145,7 +145,7 @@ jobs:
         run: |
           cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
-          backend_define="--dart-define=FOLIO_BACKEND_BASE_URL=https://backendfoliobeta.minealexgames.com"
+          backend_define="--dart-define=FOLIO_BACKEND_BASE_URL=https://api-beta.folio.com.es"
           flutter build apk --release --dart-define=FOLIO_DISTRIBUTION=play_store "$backend_define"
           flutter build appbundle --release --dart-define=FOLIO_DISTRIBUTION=play_store "$backend_define"
 
@@ -207,7 +207,7 @@ jobs:
         run: |
           cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
-          flutter build linux --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=FOLIO_BACKEND_BASE_URL=https://backendfoliobeta.minealexgames.com
+          flutter build linux --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=FOLIO_BACKEND_BASE_URL=https://api-beta.folio.com.es
 
       - name: ZIP bundle to Output
         shell: bash
@@ -260,7 +260,7 @@ jobs:
           cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
           flutter config --enable-macos-desktop
-          flutter build macos --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=FOLIO_BACKEND_BASE_URL=https://backendfoliobeta.minealexgames.com
+          flutter build macos --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=FOLIO_BACKEND_BASE_URL=https://api-beta.folio.com.es
 
       - name: ZIP .app to Output
         shell: bash

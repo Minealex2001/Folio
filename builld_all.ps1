@@ -103,7 +103,8 @@ function Get-FolioBackendBaseUrlArg {
     }
     switch ($script:FolioWebChannel) {
         'beta' {
-            $base = 'https://backendfoliobeta.minealexgames.com'
+            # Solo beta usa api-beta.folio.com.es (bypass filtros que categorizan minealexgames).
+            $base = 'https://api-beta.folio.com.es'
             Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal Beta / prerelease)" -ForegroundColor Gray
             return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
         }
@@ -974,7 +975,7 @@ function Invoke-PublishFlow {
         'https://folio.minealexgames.com'
     }
     $backendUrl = if ($AsPreRelease) {
-        'https://backendfoliobeta.minealexgames.com'
+        'https://api-beta.folio.com.es'
     } else {
         'https://backendfolio.minealexgames.com'
     }

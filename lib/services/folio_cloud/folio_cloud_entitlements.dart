@@ -154,6 +154,7 @@ class FolioCloudSnapshot {
     required this.publishWeb,
     required this.realtimeCollab,
     this.folioStaff = false,
+    this.communityTemplateUploadBanned = false,
     this.plan,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
@@ -174,6 +175,9 @@ class FolioCloudSnapshot {
 
   /// Staff/admin (Firestore `users/{uid}.folioStaff`): nube ilimitada sin plan.
   final bool folioStaff;
+
+  /// Moderación: no puede publicar plantillas comunitarias.
+  final bool communityTemplateUploadBanned;
 
   final bool active;
   final String? subscriptionStatus;
@@ -281,6 +285,7 @@ class FolioCloudSnapshot {
     publishWeb: false,
     realtimeCollab: false,
     folioStaff: false,
+    communityTemplateUploadBanned: false,
     backupQuotaBytes: 0,
     backupUsedBytes: 0,
     backupPurchasedBytes: 0,
@@ -344,6 +349,8 @@ class FolioCloudSnapshot {
         publishWeb: false,
         realtimeCollab: false,
         folioStaff: _folioBool(data['folioStaff']),
+        communityTemplateUploadBanned:
+            _folioBool(data['communityTemplateUploadBanned']),
         backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
         backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
         backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -408,6 +415,8 @@ class FolioCloudSnapshot {
       publishWeb: f('publishWeb'),
       realtimeCollab: f('realtimeCollab'),
       folioStaff: _folioBool(data['folioStaff']),
+      communityTemplateUploadBanned:
+          _folioBool(data['communityTemplateUploadBanned']),
       backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
       backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
       backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -582,6 +591,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         publishWeb: prev.publishWeb,
         realtimeCollab: prev.realtimeCollab,
         folioStaff: prev.folioStaff,
+        communityTemplateUploadBanned: prev.communityTemplateUploadBanned,
         backupQuotaBytes: quota,
         backupUsedBytes: used,
         backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -630,6 +640,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       publishWeb: prev.publishWeb,
       realtimeCollab: prev.realtimeCollab,
       folioStaff: prev.folioStaff,
+      communityTemplateUploadBanned: prev.communityTemplateUploadBanned,
       backupQuotaBytes: prev.backupQuotaBytes,
       backupUsedBytes: prev.backupUsedBytes,
       backupPurchasedBytes: prev.backupPurchasedBytes,

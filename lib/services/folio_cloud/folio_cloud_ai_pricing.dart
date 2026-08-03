@@ -14,6 +14,7 @@ const Map<String, int> kFolioCloudInkCostFallback = <String, int>{
   'agent_followup': 9,
   'edit_page_panel': 9,
   'transcribe_cloud': 2,
+  'generate_image': 15,
   'default': 6,
 };
 

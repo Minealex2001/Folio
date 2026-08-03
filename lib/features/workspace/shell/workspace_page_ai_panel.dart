@@ -172,6 +172,12 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(FolioIcons.quillOutlined),
+                  title: Text(l10n.aiAssistantSubtitle),
+                  subtitle: Text(l10n.aiGeneratedLabel),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     isCloudProvider
                         ? Icons.cloud_outlined
@@ -475,7 +481,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           ),
                         ),
                         Text(
-                          _aiPanelContextSubtitle(l10n),
+                          l10n.aiAssistantSubtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
@@ -756,14 +762,21 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         },
                       );
                     }
-                    final typingExtra = _aiChatBusy ? 1 : 0;
+                    // Si ya hay placeholder assistant en streaming, no duplicar
+                    // la fila "typing" (skeleton) — eso mostraba dos burbujas.
+                    final liveStreamAtEnd = msgs.isNotEmpty &&
+                        _aiStreamingMessageKeys.contains(
+                          '${_activeChat.id}#${msgs.length - 1}',
+                        );
+                    final typingExtra =
+                        (_aiChatBusy && !liveStreamAtEnd) ? 1 : 0;
                     return ListView.builder(
                       controller:
                           chatListScrollController ?? _aiChatScrollController,
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                       itemCount: msgs.length + typingExtra,
                       itemBuilder: (context, i) {
-                        if (_aiChatBusy && i == msgs.length) {
+                        if (_aiChatBusy && !liveStreamAtEnd && i == msgs.length) {
                           return _buildAiTypingRow(theme, scheme, l10n);
                         }
                         return _buildAiMessageRow(
@@ -886,7 +899,11 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                     const SizedBox(width: 6),
                                 itemBuilder: (context, i) {
                                   final item = contextItems[i];
-                                  return InputChip(
+                                  final isPageContext =
+                                      item.kind ==
+                                          _AiContextItemKind.currentPage ||
+                                      item.kind == _AiContextItemKind.page;
+                                  final chip = InputChip(
                                     visualDensity: VisualDensity.compact,
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
@@ -907,6 +924,11 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                         ? null
                                         : () => _removeAiContextItem(item),
                                   );
+                                  if (!isPageContext) return chip;
+                                  return Tooltip(
+                                    message: l10n.aiContextMentionHint,
+                                    child: chip,
+                                  );
                                 },
                               ),
                             ),
@@ -924,6 +946,15 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                 : _openCloudContextPickerFromButton,
                             icon: const Icon(Icons.add_circle_outline_rounded),
                             tooltip: l10n.aiAttach,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openGenerateImageSheet,
+                            icon: const Icon(Icons.image_outlined),
+                            tooltip: l10n.aiGenerateImageAction,
                             visualDensity: VisualDensity.compact,
                             color: scheme.onSurfaceVariant,
                           ),
@@ -1121,6 +1152,146 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     }
   }
 
+  /// Entrada dedicada de "Generar imagen": prompt + toggle explícito de
+  /// contexto de página (default OFF), separado del chat de tool-calling
+  /// general — no depende de que el modelo decida invocar la tool.
+  Future<void> _openGenerateImageSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final ai = _s.aiService;
+    if (ai == null) return;
+    final promptController = TextEditingController(
+      text: _chatInputController.text.trim(),
+    );
+    var useContext = false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final theme = Theme.of(sheetContext);
+            final scheme = theme.colorScheme;
+            final isCloudProvider =
+                widget.appSettings.aiProvider == AiProvider.quillCloud;
+            final inkCost = isCloudProvider
+                ? _inkCostForOperationKind('generate_image')
+                : null;
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.aiGenerateImageSheetTitle,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: promptController,
+                    autofocus: true,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: l10n.aiGenerateImagePromptLabel,
+                      hintText: l10n.aiGenerateImagePromptHint,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.aiGenerateImageUseContextLabel),
+                    value: useContext,
+                    onChanged: (v) => setSheetState(() => useContext = v),
+                  ),
+                  if (inkCost != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '~$inkCost 💧',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  FilledButton(
+                    onPressed: () {
+                      if (promptController.text.trim().isEmpty) {
+                        _snack(l10n.aiGenerateImagePromptRequired, error: true);
+                        return;
+                      }
+                      Navigator.of(sheetContext).pop(true);
+                    },
+                    child: Text(l10n.aiGenerateImageGenerateButton),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      promptController.dispose();
+      return;
+    }
+    final prompt = promptController.text.trim();
+    promptController.dispose();
+    await _submitGenerateImage(
+      prompt: prompt,
+      useCurrentPageContext: useContext,
+    );
+  }
+
+  Future<void> _submitGenerateImage({
+    required String prompt,
+    required bool useCurrentPageContext,
+  }) async {
+    final l10n = AppLocalizations.of(context);
+    final ai = _s.aiService;
+    if (ai == null) return;
+    if (!ai.supportsImageGeneration) {
+      _snack(l10n.aiImageGenerationUnsupportedProvider, error: true);
+      return;
+    }
+    final targetChatId = _activeChat.id;
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    _setStateSafe(() => _aiChatBusy = true);
+    _s.appendMessageToAiChatById(
+      targetChatId,
+      AiChatMessage.now(role: 'assistant', content: ''),
+    );
+    final placeholderIndex = _activeChat.messages.length - 1;
+    try {
+      final message = await _s.generateImageForChatDirect(
+        ai: ai,
+        prompt: prompt,
+        useCurrentPageContext: useCurrentPageContext,
+        scopePageId: _s.selectedPageId,
+        isEs: isEs,
+      );
+      if (!mounted) return;
+      _s.updateMessageInAiChatById(targetChatId, placeholderIndex, message);
+    } catch (e) {
+      _s.removeMessageInAiChatById(targetChatId, placeholderIndex);
+      if (!mounted) return;
+      _handleAiChatError(e);
+    } finally {
+      if (mounted) {
+        _setStateSafe(() => _aiChatBusy = false);
+      }
+    }
+  }
 }
 
 class _QuillComposerMetaChip extends StatelessWidget {

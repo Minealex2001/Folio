@@ -70,6 +70,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             agentPlan: outcome.agentPlan,
             toolCalls: outcome.toolCalls,
             toolErrors: outcome.toolErrors,
+            generatedImagePath: outcome.generatedImagePath,
+            generatedImagePrompt: outcome.generatedImagePrompt,
           ),
         );
       } catch (e) {
@@ -123,6 +125,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           agentPlan: outcome.agentPlan,
           toolCalls: outcome.toolCalls,
           toolErrors: outcome.toolErrors,
+          generatedImagePath: outcome.generatedImagePath,
+          generatedImagePrompt: outcome.generatedImagePrompt,
         ),
       );
     } catch (e) {
@@ -215,6 +219,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           agentPlan: outcome.agentPlan,
           toolCalls: outcome.toolCalls,
           toolErrors: outcome.toolErrors,
+          generatedImagePath: outcome.generatedImagePath,
+          generatedImagePrompt: outcome.generatedImagePrompt,
         ),
       );
     } catch (e) {

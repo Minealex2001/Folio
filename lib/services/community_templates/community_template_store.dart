@@ -138,7 +138,38 @@ class CommunityTemplateStore {
   void _ensureSpringOk(http.Response res, {bool allowNoContent = false}) {
     if (allowNoContent && res.statusCode == 204) return;
     if (res.statusCode >= 200 && res.statusCode < 300) return;
+    final code = _apiErrorCode(res.body);
+    if (code == 'community_template_upload_banned') {
+      throw const CommunityTemplateApiException(
+        'community_template_upload_banned',
+        'Upload banned',
+      );
+    }
+    if (code == 'already_reported') {
+      throw const CommunityTemplateApiException(
+        'already_reported',
+        'Already reported',
+      );
+    }
+    if (code == 'user_suspended') {
+      throw const CommunityTemplateApiException(
+        'user_suspended',
+        'Account suspended',
+      );
+    }
     throw StateError('community-templates HTTP ${res.statusCode}: ${res.body}');
+  }
+
+  static String? _apiErrorCode(String body) {
+    if (body.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final err = decoded['error'];
+        if (err != null) return err.toString();
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<String> publishTemplate(FolioPageTemplate tpl) async {
@@ -288,6 +319,19 @@ class CommunityTemplateStore {
     }
   }
 
+  Future<void> reportTemplate(String docId, {String? reason}) async {
+    final uri = Uri.parse(
+      '${FolioBackendConfig.apiV1Prefix}/community-templates/$docId/reports',
+    );
+    final body = <String, dynamic>{
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    };
+    final res = await _springAuthorized(
+      (h) => http.post(uri, headers: h, body: jsonEncode(body)),
+    );
+    _ensureSpringOk(res);
+  }
+
   /// Solo queda como fallback de lectura para filas publicadas antes de que
   /// `storageDownloadUrl` dejara de generarse (ver `publishTemplate`); las
   /// entradas nuevas siempre traen `storagePath` directamente.
@@ -329,4 +373,14 @@ class CommunityTemplateStore {
     final res = await _springAuthorized((h) => http.delete(uri, headers: h));
     _ensureSpringOk(res, allowNoContent: true);
   }
+}
+
+class CommunityTemplateApiException implements Exception {
+  const CommunityTemplateApiException(this.code, this.message);
+
+  final String code;
+  final String message;
+
+  @override
+  String toString() => 'CommunityTemplateApiException($code): $message';
 }

@@ -23,6 +23,7 @@ import '../../app/folio_distribution.dart';
 import '../../app/folio_store_listing.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
+import '../../config/folio_status_urls.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_icon_token_view.dart';
 import '../../app/widgets/folio_password_field.dart';
@@ -101,6 +102,7 @@ import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
+import '../../services/admin/folio_admin_api.dart';
 import '../../services/folio_diagnostic_reporter.dart';
 import '../../services/app_logger.dart';
 import '../../services/platform/browser_file_download.dart';
@@ -125,6 +127,7 @@ part 'settings_page_state_backup_security.dart';
 part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
 part 'settings_page_section_meeting_note.dart';
+part 'settings_page_section_admin.dart';
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -487,6 +490,18 @@ class _SettingsPageState extends State<SettingsPage> {
       TextEditingController();
   _SettingsSectionId? _selectedMobileSection;
 
+  final FolioAdminApi _adminApi = FolioAdminApi();
+  final TextEditingController _adminUserQueryController =
+      TextEditingController();
+  final TextEditingController _adminTemplateIdController =
+      TextEditingController();
+  var _adminReportsBusy = false;
+  String? _adminReportsError;
+  List<Map<String, dynamic>> _adminReports = const [];
+  var _adminLookupBusy = false;
+  String? _adminLookupError;
+  Map<String, dynamic>? _adminLookupSnapshot;
+
   var _quickEnabled = false;
   var _passkeyRegistered = false;
   int? _kdfProfile;
@@ -755,6 +770,8 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_onDeviceDownloadSub?.cancel() ?? Future.value());
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
+    _adminUserQueryController.dispose();
+    _adminTemplateIdController.dispose();
     _aiBaseUrlController.dispose();
     _aiApiKeyController.dispose();
     _aiTimeoutController.dispose();
@@ -855,6 +872,15 @@ class _SettingsPageState extends State<SettingsPage> {
           l10n.settingsTelemetryTitle,
         ],
       ),
+      if (_folio.snapshot.folioStaff)
+        _SettingsSectionNavItem(
+          id: _SettingsSectionId.admin,
+          label: l10n.settingsAdminSectionTitle,
+          searchExtra: [
+            l10n.settingsAdminReportsTitle,
+            l10n.settingsAdminUserTitle,
+          ],
+        ),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -4796,6 +4822,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             showDesktopOnlySections: showDesktopOnlySections,
                             activeSection: activeSection,
                           ),
+
+                          if (_folio.snapshot.folioStaff)
+                            _buildAdminSection(
+                              l10n: l10n,
+                              scheme: scheme,
+                              activeSection: activeSection,
+                            ),
 
                           Visibility(
                               visible: activeSection == _SettingsSectionId.integrations,

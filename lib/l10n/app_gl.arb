@@ -344,6 +344,15 @@
   },
     "meetingNoteCloudProcessing": "Procesando con Quill Cloud…",
     "meetingNoteCloudProcessingSubtitle": "Detectando falantes e mellorando a calidade. [cite: 29] Agarda, por favor.",
+    "meetingNoteTranscribeNow": "Transcribir",
+    "meetingNotePostHocCloudCostEstimate": "Custo estimado: {inkAmount} Tinta",
+    "@meetingNotePostHocCloudCostEstimate": {
+      "placeholders": {
+        "inkAmount": {
+          "type": "int"
+        }
+      }
+    },
     "meetingNoteCloudProgress": "Fragmentos procesados: {done}/{total}",
     "@meetingNoteCloudProgress": {
       "placeholders": {
@@ -3720,4 +3729,48 @@
   ,"databaseConfigureStartDateProperty": "Configura unha propiedade de data de inicio nos axustes da vista."
   ,"databaseNoRowsWithDates": "Non hai filas con datas."
   ,"databaseQuickFilterMainColumn": "Filtro rápido (columna principal)"
+  ,"templateCommunityUploadBanned": "No puedes publicar plantillas comunitarias: tu cuenta tiene esa accion restringida."
+  ,"templateCommunityReportTitle": "Reportar plantilla"
+  ,"templateCommunityReportBody": "Los administradores revisaran este reporte. No incluyas datos personales sensibles."
+  ,"templateCommunityReportReasonHint": "Motivo (opcional)"
+  ,"templateCommunityReportConfirm": "Enviar reporte"
+  ,"templateCommunityReportSuccess": "Reporte enviado. Gracias."
+  ,"templateCommunityReportAlready": "Ya reportaste esta plantilla."
+  ,"templateCommunityReportError": "No se pudo reportar: {error}"
+  ,"@templateCommunityReportError": {"placeholders": {"error": {}}}
+  ,"settingsAdminSectionTitle": "Admin"
+  ,"settingsAdminHeroDescription": "Moderacion de plantillas comunitarias y cuentas."
+  ,"settingsAdminReportsTitle": "Reportes abiertos"
+  ,"settingsAdminRefreshReports": "Actualizar reportes"
+  ,"settingsAdminReportsEmpty": "No hay reportes abiertos."
+  ,"settingsAdminCopyTemplateId": "Copiar ID"
+  ,"settingsAdminCopiedId": "ID copiado"
+  ,"settingsAdminDeleteTemplate": "Eliminar plantilla"
+  ,"settingsAdminDeleteTemplateConfirm": "Eliminar la plantilla {id}? Esta accion no se puede deshacer."
+  ,"@settingsAdminDeleteTemplateConfirm": {"placeholders": {"id": {}}}
+  ,"settingsAdminDeleteTemplateSuccess": "Plantilla eliminada"
+  ,"settingsAdminResolveReport": "Marcar resuelto"
+  ,"settingsAdminResolveSuccess": "Reporte resuelto"
+  ,"settingsAdminUserTitle": "Usuario"
+  ,"settingsAdminUserLookupHint": "Email o UID"
+  ,"settingsAdminLookupUser": "Buscar usuario"
+  ,"settingsAdminBanUploads": "Prohibir subidas"
+  ,"settingsAdminAllowUploads": "Permitir subidas"
+  ,"settingsAdminBanUploadsSuccess": "Subidas de plantillas prohibidas"
+  ,"settingsAdminAllowUploadsSuccess": "Subidas de plantillas permitidas"
+  ,"settingsAdminSuspendUser": "Suspender cuenta"
+  ,"settingsAdminReactivateUser": "Reactivar cuenta"
+  ,"settingsAdminSuspendConfirm": "La cuenta no podra iniciar sesion hasta reactivarla."
+  ,"settingsAdminReactivateConfirm": "La cuenta volvera a poder iniciar sesion."
+  ,"settingsAdminSuspendSuccess": "Cuenta suspendida"
+  ,"settingsAdminReactivateSuccess": "Cuenta reactivada"
+  ,"settingsAdminPurgeTemplates": "Borrar todas sus plantillas"
+  ,"settingsAdminPurgeConfirm": "Borrar todas las plantillas comunitarias del usuario {uid}?"
+  ,"@settingsAdminPurgeConfirm": {"placeholders": {"uid": {}}}
+  ,"settingsAdminPurgeSuccess": "Plantillas eliminadas: {count}"
+  ,"@settingsAdminPurgeSuccess": {"placeholders": {"count": {}}}
+  ,"settingsAdminTemplateByIdTitle": "Plantilla por ID"
+  ,"settingsAdminTemplateIdHint": "UUID de la plantilla"
+  ,"settingsAdminActionError": "Error de administracion"
+
 }

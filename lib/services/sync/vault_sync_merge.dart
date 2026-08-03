@@ -137,14 +137,70 @@ class VaultSyncMergeEngine {
   FolioBlock cloneBlock(FolioBlock block) =>
       FolioBlock.fromJson(Map<String, dynamic>.from(block.toJson()));
 
+  /// Umbral bajo el cual un `remote.pages.length` respecto a `base.pages.length`
+  /// se considera "sospechosamente parcial" en vez de un borrado real: por
+  /// debajo del 40% del baseline. Solo aplica con al menos 4 páginas en el
+  /// baseline, para no disparar falsos positivos en libretas pequeñas donde
+  /// un borrado legítimo de una o dos páginas ya cruza ese porcentaje.
+  static const double _partialRemoteThreshold = 0.4;
+  static const int _partialRemoteMinBasePages = 4;
+
+  /// Expuesto (no privado) porque los guards de más arriba en la pila
+  /// (`vault_session.dart`, `headless_device_sync_vault.dart`) necesitan el
+  /// mismo criterio para decidir si negarse a aplicar un remoto ANTES de
+  /// invocar `merge()` — por ejemplo cuando el baseline en memoria aún no se
+  /// sembró y `merge()` vería `basePageCount == 0` (no dispararía el guard
+  /// interno de fast-forward/tombstones por sí solo).
+  ///
+  /// OJO: el bug real que motivó esto es que el DISPOSITIVO QUE HACE PUSH
+  /// tenía en memoria un payload ya truncado (p. ej. libreta a medio cargar)
+  /// — el manifiesto que ese dispositivo escribe declara fielmente ese mismo
+  /// recuento truncado, así que `remoteExpectedPageCount` (lo declarado por
+  /// el propio manifiesto) coincide trivialmente con `remotePageCount` (lo
+  /// descargado) en el caso que nos importa. Por eso la comparación contra
+  /// `basePageCount` es la señal PRINCIPAL y se evalúa siempre, coincida o
+  /// no el recuento declarado — `remoteExpectedPageCount` solo añade una
+  /// señal INDEPENDIENTE y más fuerte para el caso de truncado en tránsito
+  /// (manifiesto declara N, se descargan menos de N páginas), nunca sirve
+  /// para descartar la sospecha cuando sí coincide.
+  static bool looksSuspiciouslyPartial({
+    required int basePageCount,
+    required int remotePageCount,
+    int? remoteExpectedPageCount,
+  }) {
+    final manifestMismatch = remoteExpectedPageCount != null &&
+        remoteExpectedPageCount != remotePageCount;
+    if (manifestMismatch) return true;
+
+    if (basePageCount < _partialRemoteMinBasePages) return false;
+    if (remotePageCount == 0) return false; // ya cubierto por el guard de remoto vacío
+    return remotePageCount <= (basePageCount * _partialRemoteThreshold).ceil();
+  }
+
   /// Merge a 3 vías. Si [baseline] es null, se trata como snapshot vacío.
+  ///
+  /// Si `remote.pages` cae muy por debajo de `baseline.pages` (ver
+  /// [looksSuspiciouslyPartial]), no se adopta como fuente de verdad — ni por
+  /// fast-forward ni marcando tombstones por las páginas ausentes — hasta que
+  /// una capa superior confirme que es un borrado real (no un manifiesto
+  /// parcial). [remoteExpectedPageCount] (recuento declarado por el propio
+  /// manifiesto remoto, si se conoce) añade una señal adicional: si no
+  /// coincide con `remote.pages.length`, es indicio de truncado en tránsito y
+  /// se marca como sospechoso incluso si la caída no cruzase el umbral.
   VaultSyncMergeResult merge({
     required VaultPayload local,
     required VaultPayload remote,
     VaultPayload? baseline,
+    int? remoteExpectedPageCount,
   }) {
     final base =
         baseline ?? VaultPayload(pages: const [], pageTombstones: const {});
+
+    final remoteLooksPartial = looksSuspiciouslyPartial(
+      basePageCount: base.pages.length,
+      remotePageCount: remote.pages.length,
+      remoteExpectedPageCount: remoteExpectedPageCount,
+    );
 
     final localFp = payloadFingerprint(local);
     final remoteFp = payloadFingerprint(remote);
@@ -162,7 +218,12 @@ class VaultSyncMergeEngine {
     // cual, igual que un `git merge --ff-only`. Evita el diffing completo en
     // el caso más habitual (nadie tocó esta libreta en este dispositivo
     // desde la última sync).
-    if (localFp == payloadFingerprint(base)) {
+    //
+    // Salvo que el remoto parezca un manifiesto parcial: adoptarlo tal cual
+    // colapsaría la libreta local a esas pocas páginas sin pasar por ningún
+    // diff. En ese caso se cae al camino de abajo, que sí sabe no tombstonear
+    // páginas ausentes solo por culpa de un remoto incompleto.
+    if (localFp == payloadFingerprint(base) && !remoteLooksPartial) {
       return VaultSyncMergeResult(
         payload: _copyPayload(remote),
         blockConflicts: const [],
@@ -191,7 +252,17 @@ class VaultSyncMergeEngine {
 
     final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final id in basePages.keys) {
-      if (!localPages.containsKey(id) || !remotePages.containsKey(id)) {
+      final missingLocal = !localPages.containsKey(id);
+      final missingRemote = !remotePages.containsKey(id);
+      if (!missingLocal && missingRemote && remoteLooksPartial) {
+        // El remoto parece un manifiesto parcial: una página presente en
+        // local pero ausente del remoto es más probable un artefacto de
+        // subida incompleta que un borrado real. No tombstonear — se
+        // conserva la página local; el próximo push completo repara el
+        // remoto en vez de que este pull la borre en silencio.
+        continue;
+      }
+      if (missingLocal || missingRemote) {
         tombstones.putIfAbsent(id, () => nowMs);
       }
     }

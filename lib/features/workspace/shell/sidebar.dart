@@ -715,11 +715,13 @@ class _SidebarState extends State<Sidebar> {
       );
     }
 
-    final feedback = Material(
-      color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Opacity(opacity: 0.92, child: buildTile(interactive: false)),
+    final feedback = ExcludeSemantics(
+      child: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Opacity(opacity: 0.92, child: buildTile(interactive: false)),
+        ),
       ),
     );
 
@@ -728,9 +730,11 @@ class _SidebarState extends State<Sidebar> {
         data: page.id,
         feedback: feedback,
         dragAnchorStrategy: pointerDragAnchorStrategy,
-        childWhenDragging: Opacity(
-          opacity: 0.35,
-          child: buildTile(interactive: false),
+        childWhenDragging: ExcludeSemantics(
+          child: Opacity(
+            opacity: 0.35,
+            child: buildTile(interactive: false),
+          ),
         ),
         child: buildDragChild(),
       );
@@ -739,9 +743,11 @@ class _SidebarState extends State<Sidebar> {
     return LongPressDraggable<String>(
       data: page.id,
       feedback: feedback,
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: buildTile(interactive: false),
+      childWhenDragging: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0.35,
+          child: buildTile(interactive: false),
+        ),
       ),
       child: buildDragChild(),
     );
@@ -787,9 +793,13 @@ class _SidebarState extends State<Sidebar> {
         // When the sidebar is animating to/from zero width, the available
         // width can be tiny (a few pixels). Rendering the full Column in
         // that state causes a RenderFlex overflow because Wrap stacks all
-        // chips vertically. Return an empty box to avoid the assertion.
+        // chips vertically. Keep a clipped placeholder instead of unmounting
+        // the whole tree mid-animation (that churn triggers Windows AXTree
+        // "Nodes left pending" errors).
         if (constraints.maxWidth < FolioSidebar.collapseThreshold) {
-          return const SizedBox.shrink();
+          // Evita overflow del Column a anchos mínimos; ExcludeSemantics reduce
+          // el ruido al desmontar el árbol durante la animación de colapso.
+          return const ExcludeSemantics(child: SizedBox.shrink());
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1124,7 +1134,8 @@ class _SidebarState extends State<Sidebar> {
                                           : null);
                                   final beforeId = beforeRow?.page.id;
 
-                                  return DragTarget<String>(
+                                  return ExcludeSemantics(
+                                    child: DragTarget<String>(
                                     onWillAcceptWithDetails: (details) {
                                       final draggedId = details.data;
                                       if (beforeId != null &&
@@ -1177,6 +1188,7 @@ class _SidebarState extends State<Sidebar> {
                                         ),
                                       );
                                     },
+                                  ),
                                   );
                                 },
                               ),

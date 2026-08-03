@@ -47,7 +47,7 @@ String _upstreamLlmVsFolioInkMessage() {
 
 String _mapFolioCloudAiError(FolioCloudException e) {
   final code = e.code;
-  final details = (e.message ?? '').trim();
+  final details = e.message.trim();
   switch (code) {
     case 'unauthenticated':
       return 'Inicia sesión en Folio Cloud (cuenta en la nube en Ajustes).';
@@ -83,6 +83,30 @@ String _mapFolioCloudAiError(FolioCloudException e) {
   }
 }
 
+/// Normaliza respuestas HTTP del backend (p. ej. Spring Security 401 sin
+/// `status: unauthenticated`) a un código que [_mapFolioCloudAiError] entiende.
+({String code, String message}) _normalizeCloudAiHttpFailure({
+  required int statusCode,
+  required String message,
+  required String code,
+}) {
+  final msg = message.trim().isEmpty ? 'HTTP $statusCode' : message.trim();
+  final lower = '${msg.toLowerCase()} $code';
+  if (statusCode == 401 ||
+      lower.contains('unauthenticated') ||
+      lower.contains('unauthorized') ||
+      RegExp(r'\b401\b').hasMatch(msg)) {
+    return (code: 'unauthenticated', message: msg);
+  }
+  if (statusCode == 403 || lower.contains('permission-denied')) {
+    return (code: 'permission-denied', message: msg);
+  }
+  if (statusCode == 429 || lower.contains('resource-exhausted')) {
+    return (code: 'resource-exhausted', message: msg);
+  }
+  return (code: code, message: msg);
+}
+
 /// Hosted AI via Cloud Functions (keys stay on server). Requires Folio Cloud
 /// subscription with cloud AI, or purchased ink without subscription.
 ///
@@ -114,29 +138,57 @@ class FolioCloudAiService implements AiService {
   /// emitía un único chunk final porque el transporte era una Cloud Function
   /// `onCall` (respuesta única, sin SSE); con el backend Spring de larga
   /// duración ya no aplica esa limitación.
+  ///
+  /// Ante HTTP 401 reintenta una vez con [folioCloudBearerToken] `forceRefresh`
+  /// (mismo patrón que [callFolioHttpsCallable]): la UI puede seguir “con
+  /// sesión” mientras el access JWT ha caducado.
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     if (!folioCloudHasSession()) {
       throw StateError('Not signed in');
     }
-    final token = await folioCloudBearerToken();
-    if (token == null || token.isEmpty) {
-      throw StateError('Not signed in');
-    }
 
     final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete-stream');
-    final httpReq = http.Request('POST', uri)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Content-Type'] = 'application/json; charset=utf-8'
-      ..headers['Accept'] = 'text/event-stream'
-      ..body = jsonEncode(_buildCompletePayload(request));
+    final payload = jsonEncode(_buildCompletePayload(request));
 
-    http.StreamedResponse resp;
-    try {
-      resp = await folioCloudHttpClient.send(httpReq);
-    } catch (e) {
+    http.StreamedResponse? resp;
+    Object? lastSendError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final token = await folioCloudBearerToken(forceRefresh: attempt > 0);
+      if (token == null || token.isEmpty) {
+        throw StateError('Not signed in');
+      }
+
+      final httpReq = http.Request('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..headers['Content-Type'] = 'application/json; charset=utf-8'
+        ..headers['Accept'] = 'text/event-stream'
+        ..body = payload;
+
+      try {
+        resp = await folioCloudHttpClient.send(httpReq);
+      } catch (e) {
+        lastSendError = e;
+        resp = null;
+        break;
+      }
+
+      if (resp.statusCode == 401 && attempt == 0) {
+        // Descarta el cuerpo para liberar la conexión antes del reintento.
+        await resp.stream.drain<void>();
+        continue;
+      }
+      break;
+    }
+
+    if (resp == null) {
       throw FolioCloudAiException(
-        _mapFolioCloudAiError(FolioCloudException(message: '$e', code: 'unavailable')),
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: '${lastSendError ?? 'unavailable'}',
+            code: 'unavailable',
+          ),
+        ),
         functionsCode: 'unavailable',
       );
     }
@@ -150,17 +202,30 @@ class FolioCloudAiService implements AiService {
         if (decoded is Map) {
           message = '${decoded['message'] ?? decoded['error'] ?? message}';
           final status = decoded['status'] ?? decoded['error'];
-          if (status != null) code = '$status'.toLowerCase().replaceAll('_', '-');
+          if (status != null) {
+            code = '$status'.toLowerCase().replaceAll('_', '-');
+          }
         }
       } catch (_) {}
+      final normalized = _normalizeCloudAiHttpFailure(
+        statusCode: resp.statusCode,
+        message: message,
+        code: code,
+      );
       throw FolioCloudAiException(
-        _mapFolioCloudAiError(FolioCloudException(message: message, code: code)),
-        functionsCode: code,
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: normalized.message,
+            code: normalized.code,
+          ),
+        ),
+        functionsCode: normalized.code,
       );
     }
 
     String? currentEvent;
-    final lines = resp.stream.transform(utf8.decoder).transform(const LineSplitter());
+    final lines =
+        resp.stream.transform(utf8.decoder).transform(const LineSplitter());
     await for (final line in lines) {
       if (line.isEmpty) {
         currentEvent = null;
@@ -186,7 +251,10 @@ class FolioCloudAiService implements AiService {
         if (inkRaw is Map && ent != null) {
           final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
           final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
-          if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+          if (monthly != null &&
+              purchased != null &&
+              monthly >= 0 &&
+              purchased >= 0) {
             ent.applyInkBalancesFromCloudAi(
               monthlyBalance: monthly,
               purchasedBalance: purchased,
@@ -323,6 +391,61 @@ class FolioCloudAiService implements AiService {
         model: request.model,
         toolCalls: toolCalls,
       );
+    } on FolioCloudException catch (e) {
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(e),
+        functionsCode: e.code,
+      );
+    } catch (e) {
+      if (e is StateError) rethrow;
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: e.toString(),
+            code: 'unavailable',
+          ),
+        ),
+        functionsCode: 'unavailable',
+      );
+    }
+  }
+
+  @override
+  bool get supportsImageGeneration => true;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
+    try {
+      final payload = <String, dynamic>{
+        'prompt': prompt.trim(),
+        if (pageContextText != null && pageContextText.trim().isNotEmpty)
+          'pageContextText': pageContextText.trim(),
+        'operationKind': 'generate_image',
+      };
+      final res = await callFolioHttpsCallable('folioCloudGenerateImage', payload);
+      final raw = res;
+      final b64 = raw is Map ? '${raw['imageBase64'] ?? ''}' : '';
+      if (b64.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      final mimeType = raw is Map ? '${raw['mimeType'] ?? 'image/png'}' : 'image/png';
+      final inkRaw = raw is Map ? raw['ink'] : null;
+      final ent = _entitlements;
+      if (inkRaw is Map && ent != null) {
+        final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+        final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+        if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+          ent.applyInkBalancesFromCloudAi(
+            monthlyBalance: monthly,
+            purchasedBalance: purchased,
+          );
+        }
+      }
+      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: mimeType);
     } on FolioCloudException catch (e) {
       throw FolioCloudAiException(
         _mapFolioCloudAiError(e),

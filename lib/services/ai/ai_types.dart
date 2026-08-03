@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'ai_tool.dart';
 
 export 'ai_tool.dart';
@@ -13,6 +15,8 @@ class AiChatMessage {
     this.toolCalls,
     this.toolCallId,
     this.toolErrors,
+    this.generatedImagePath,
+    this.generatedImagePrompt,
   });
 
   factory AiChatMessage.now({
@@ -24,6 +28,8 @@ class AiChatMessage {
     List<AiToolCall>? toolCalls,
     String? toolCallId,
     List<String>? toolErrors,
+    String? generatedImagePath,
+    String? generatedImagePrompt,
   }) {
     return AiChatMessage(
       role: role,
@@ -35,6 +41,8 @@ class AiChatMessage {
       toolCalls: toolCalls,
       toolCallId: toolCallId,
       toolErrors: toolErrors,
+      generatedImagePath: generatedImagePath,
+      generatedImagePrompt: generatedImagePrompt,
     );
   }
 
@@ -63,6 +71,15 @@ class AiChatMessage {
   /// como chips distintos de la respuesta en texto. Nulo si no hubo errores.
   final List<String>? toolErrors;
 
+  /// Ruta relativa (attachments/<uuid>.png) de una imagen generada por Quill
+  /// para este mensaje. No nulo solo en mensajes de asistente que muestran una
+  /// tarjeta de imagen generada en vez de (o ademas de) la burbuja markdown.
+  final String? generatedImagePath;
+
+  /// Prompt usado para generar [generatedImagePath], mostrado como subtitulo
+  /// en la tarjeta de imagen. Nulo si [generatedImagePath] es nulo.
+  final String? generatedImagePrompt;
+
   AiChatMessage copyWith({
     String? role,
     String? content,
@@ -79,6 +96,10 @@ class AiChatMessage {
     bool clearToolCallId = false,
     List<String>? toolErrors,
     bool clearToolErrors = false,
+    String? generatedImagePath,
+    bool clearGeneratedImagePath = false,
+    String? generatedImagePrompt,
+    bool clearGeneratedImagePrompt = false,
   }) {
     return AiChatMessage(
       role: role ?? this.role,
@@ -92,6 +113,12 @@ class AiChatMessage {
       toolCalls: clearToolCalls ? null : (toolCalls ?? this.toolCalls),
       toolCallId: clearToolCallId ? null : (toolCallId ?? this.toolCallId),
       toolErrors: clearToolErrors ? null : (toolErrors ?? this.toolErrors),
+      generatedImagePath: clearGeneratedImagePath
+          ? null
+          : (generatedImagePath ?? this.generatedImagePath),
+      generatedImagePrompt: clearGeneratedImagePrompt
+          ? null
+          : (generatedImagePrompt ?? this.generatedImagePrompt),
     );
   }
 
@@ -108,6 +135,9 @@ class AiChatMessage {
           .toList(),
     if (toolCallId != null) 'toolCallId': toolCallId,
     if (toolErrors != null) 'toolErrors': toolErrors,
+    if (generatedImagePath != null) 'generatedImagePath': generatedImagePath,
+    if (generatedImagePrompt != null)
+      'generatedImagePrompt': generatedImagePrompt,
   };
 
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
@@ -158,6 +188,8 @@ class AiChatMessage {
       toolCalls: toolCalls,
       toolCallId: json['toolCallId'] as String?,
       toolErrors: toolErrors,
+      generatedImagePath: json['generatedImagePath'] as String?,
+      generatedImagePrompt: json['generatedImagePrompt'] as String?,
     );
   }
 }
@@ -198,6 +230,24 @@ class AiServiceUnreachableException implements Exception {
       'AiServiceUnreachableException${cause != null ? ': $cause' : ''}';
 }
 
+/// El proveedor activo no soporta generación de imágenes (p. ej. Ollama, LM Studio).
+class AiImageGenerationUnsupportedException implements Exception {
+  AiImageGenerationUnsupportedException(this.providerName);
+
+  final String providerName;
+
+  @override
+  String toString() => 'AiImageGenerationUnsupportedException($providerName)';
+}
+
+/// Bytes crudos de una imagen generada por [AiService.generateImage].
+class AiImageGenerationResult {
+  const AiImageGenerationResult({required this.bytes, required this.mimeType});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
 /// Resultado del chat con agente para la UI (texto mostrado + métricas del último `complete`).
 class AgentChatOutcome {
   const AgentChatOutcome({
@@ -207,6 +257,8 @@ class AgentChatOutcome {
     this.agentPlan,
     this.toolCalls,
     this.toolErrors,
+    this.generatedImagePath,
+    this.generatedImagePrompt,
   });
 
   final String reply;
@@ -225,6 +277,15 @@ class AgentChatOutcome {
   /// Mensajes de error de tool-calls fallidas en este turno, para que la UI
   /// los muestre como chip distinto de `reply` en vez de mezclados en el texto.
   final List<String>? toolErrors;
+
+  /// Ruta relativa de una imagen generada por la tool `generate_image` durante
+  /// este turno (ver `_agentChatWithAiToolLoop` en vault_session_ai.dart, que
+  /// escanea los pasos del tool loop para poblar este campo). Nulo si no se
+  /// generó ninguna imagen en este turno.
+  final String? generatedImagePath;
+
+  /// Prompt usado para generar [generatedImagePath]. Nulo si ese campo es nulo.
+  final String? generatedImagePrompt;
 }
 
 /// Acción manual sobre un [AgentChatOutcome.agentApplySnapshot] guardado en el mensaje.

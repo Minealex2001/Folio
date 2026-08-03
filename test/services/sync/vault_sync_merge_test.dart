@@ -361,4 +361,122 @@ void main() {
       {'local', 'remote'},
     );
   });
+
+  group('remoto parcial (bug de colapso por sync)', () {
+    List<FolioPage> manyPages(int n) =>
+        List.generate(n, (i) => page(id: 'p$i', title: 'Page $i'));
+
+    test(
+        'fast-forward NO adopta un remoto que colapsó frente al baseline',
+        () {
+      final baseline = payload(manyPages(6));
+      // Local sin cambios desde el baseline: dispararía el atajo fast-forward
+      // de no ser por la protección de remoto parcial.
+      final local = payload(manyPages(6));
+      // Remoto parcial: manifiesto autoconsistente (declara 1, trae 1) pero
+      // muy por debajo del baseline — exactamente el bug reportado (push con
+      // el vault a medio cargar en memoria).
+      final remote = payload([page(id: 'p0', title: 'Page 0')]);
+
+      final result = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: baseline,
+        remoteExpectedPageCount: 1,
+      );
+
+      // No debe colapsar a solo la página del remoto parcial.
+      expect(result.payload.pages.length, 6);
+      expect(
+        result.payload.pages.map((p) => p.id).toSet(),
+        {'p0', 'p1', 'p2', 'p3', 'p4', 'p5'},
+      );
+    });
+
+    test(
+        'diff normal NO tombstona páginas ausentes solo por un remoto parcial',
+        () {
+      final baseline = payload(manyPages(6));
+      // Local con un cambio real (evita el atajo fast-forward) para forzar
+      // el camino de diff/tombstones.
+      final local = payload([
+        page(id: 'p0', title: 'Edited locally'),
+        ...manyPages(6).skip(1),
+      ]);
+      final remote = payload([page(id: 'p0', title: 'Page 0')]);
+
+      final result = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: baseline,
+        remoteExpectedPageCount: 1,
+      );
+
+      // Las 5 páginas ausentes del remoto parcial se conservan, no se borran.
+      expect(result.payload.pages.length, 6);
+      expect(
+        result.payload.pageTombstones.keys
+            .where((id) => id != 'p0')
+            .toList(),
+        isEmpty,
+      );
+    });
+
+    test(
+        'looksSuspiciouslyPartial: desajuste manifiesto/descarga marca '
+        'sospechoso aunque el tamaño no cruce el umbral por sí solo', () {
+      // Baseline pequeño (1 página): la comparación de tamaño por sí sola no
+      // dispararía (está por debajo de _partialRemoteMinBasePages). Pero si
+      // el manifiesto declaraba 5 páginas y solo se resolvieron 3, eso es
+      // indicio de truncado en tránsito — señal independiente del tamaño.
+      expect(
+        VaultSyncMergeEngine.looksSuspiciouslyPartial(
+          basePageCount: 1,
+          remotePageCount: 3,
+          remoteExpectedPageCount: 5,
+        ),
+        isTrue,
+      );
+      // Mismo recuento declarado que el descargado: autoconsistente, se
+      // evalúa solo por tamaño frente al baseline (aquí pequeño => no
+      // sospechoso).
+      expect(
+        VaultSyncMergeEngine.looksSuspiciouslyPartial(
+          basePageCount: 1,
+          remotePageCount: 3,
+          remoteExpectedPageCount: 3,
+        ),
+        isFalse,
+      );
+      // Sin metadata de manifiesto (P2P legacy, o v2 sin el campo nuevo): se
+      // evalúa solo por tamaño, comportamiento sin cambios.
+      expect(
+        VaultSyncMergeEngine.looksSuspiciouslyPartial(
+          basePageCount: 59,
+          remotePageCount: 1,
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+        'borrado genuino de 3 vías sigue funcionando sin remoteExpectedPageCount',
+        () {
+      // Mismo test que 'tombstone evita resucitar página borrada' de más
+      // arriba, para confirmar que el nuevo parámetro opcional no cambia el
+      // comportamiento cuando no se conoce (compatibilidad con P2P sync).
+      final base = page(id: 'a');
+      final local = payload(const [], tombs: {'a': 100});
+      final remote = payload([page(id: 'a', title: 'Still here')]);
+
+      final result = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: payload([base]),
+      );
+
+      expect(result.payload.pages, isEmpty);
+      expect(result.payload.pageTombstones.containsKey('a'), isTrue);
+    });
+  });
 }

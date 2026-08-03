@@ -26,6 +26,65 @@ class OpenAiCompatibleAiService implements AiService {
   @override
   String get providerName => provider;
 
+  /// Modelo de imagen por defecto para OpenAI (BYOK o cualquier endpoint
+  /// OpenAI-compatible apuntado a un servidor local tipo LocalAI/ComfyUI-shim).
+  /// Confirmado por el usuario: mismo modelo que usa Quill Cloud en el backend.
+  static const _defaultOpenAiImageModel = 'gpt-image-2-2026-04-21';
+
+  @override
+  bool get supportsImageGeneration => true;
+
+  /// Genera una imagen vía `POST {baseUrl}/images/generations`. **Riesgo
+  /// conocido**: este mismo servicio atiende tanto `openAi` como `gemini`
+  /// (BYOK) — el shim "OpenAI-compatible" de Gemini podría no exponer este
+  /// endpoint con el mismo shape. Si falla en la práctica, ramificar por
+  /// `provider` aquí mismo sin cambiar la interfaz pública.
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    final client = HttpClient();
+    try {
+      final endpoint = _buildEndpoint('images/generations');
+      final httpReq = await client.postUrl(endpoint).timeout(timeout);
+      httpReq.headers.contentType = ContentType.json;
+      _setAuthHeaders(httpReq);
+
+      final combinedPrompt = (pageContextText == null || pageContextText.trim().isEmpty)
+          ? prompt.trim()
+          : '${prompt.trim()}\n\n---\n${pageContextText.trim()}';
+      final model = provider == 'openAi' ? _defaultOpenAiImageModel : defaultModel;
+      final payload = <String, dynamic>{
+        'model': model,
+        'prompt': combinedPrompt,
+        'response_format': 'b64_json',
+      };
+      httpReq.write(jsonEncode(payload));
+
+      final response = await httpReq.close().timeout(timeout);
+      final body = await utf8.decodeStream(response).timeout(timeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('Error al generar la imagen (${response.statusCode}): $body');
+      }
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final data = json['data'] as List<dynamic>? ?? const [];
+      if (data.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      final first = data.first as Map<String, dynamic>;
+      final b64 = first['b64_json'] as String? ?? '';
+      if (b64.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: 'image/png');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   Uri _buildEndpoint(String path) {
     var base = baseUrl.toString();
     if (base.endsWith('/')) {

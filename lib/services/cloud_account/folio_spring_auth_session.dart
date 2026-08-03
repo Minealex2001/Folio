@@ -200,9 +200,11 @@ class FolioSpringAuthSession extends ChangeNotifier {
       final code = e.statusCode;
       if (code != 401 && code != 404) rethrow;
       final base = FolioBackendConfig.apiBaseUrl.toLowerCase();
-      if (base.contains('backendfoliobeta')) rethrow;
+      if (base.contains('api-beta') || base.contains('backendfoliobeta')) {
+        rethrow;
+      }
       final fallback = Uri.parse(
-        'https://backendfoliobeta.minealexgames.com/api/v1/family/confirm-student',
+        'https://api-beta.folio.com.es/api/v1/family/confirm-student',
       );
       await _postJson(fallback, {'token': trimmed});
     }
@@ -538,6 +540,7 @@ String _mapAuthErrorCode(int statusCode, String body) {
       'token_expired' => 'token-expired',
       'already_verified' => 'already-verified',
       'user_not_found' => 'user-not-found',
+      'user_suspended' => 'user-disabled',
       _ => apiError.replaceAll('_', '-'),
     };
   }

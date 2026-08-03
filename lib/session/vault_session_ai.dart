@@ -632,6 +632,63 @@ extension VaultSessionAi on VaultSession {
     return buf.toString();
   }
 
+  // ---------------------------------------------------------------------
+  // Generación de imágenes (Quill)
+  // ---------------------------------------------------------------------
+
+  /// Genera bytes de imagen con [ai] y los importa al vault como adjunto,
+  /// devolviendo la ruta relativa (attachments/<uuid>.png) — el mismo formato
+  /// que produce el picker de imagen local del editor. Lanza
+  /// [AiImageGenerationUnsupportedException] si [ai] no soporta la capacidad.
+  Future<String> _generateImageAndImport({
+    required AiService ai,
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    if (!ai.supportsImageGeneration) {
+      throw AiImageGenerationUnsupportedException(ai.providerName);
+    }
+    final result = await ai.generateImage(
+      prompt: prompt,
+      pageContextText: pageContextText,
+    );
+    final ext = result.mimeType.contains('png') ? '.png' : '.jpg';
+    return VaultPaths.importAttachmentBytes(result.bytes, ext);
+  }
+
+  /// Camino dedicado para la entrada de UI explícita ("Generar imagen"), sin
+  /// pasar por `runToolLoop` — el usuario ya decidió generar, no hace falta
+  /// que el modelo decida invocar la tool. Devuelve un [AiChatMessage] listo
+  /// para anexar al hilo activo vía [appendMessageToAiChatById].
+  Future<AiChatMessage> generateImageForChatDirect({
+    required AiService ai,
+    required String prompt,
+    bool useCurrentPageContext = false,
+    String? scopePageId,
+    bool isEs = true,
+  }) async {
+    final trimmedPrompt = prompt.trim();
+    final contextText =
+        (useCurrentPageContext && scopePageId != null && scopePageId.isNotEmpty)
+        ? _buildAiChatPagesTextContext(
+            [scopePageId],
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
+        : null;
+    final relPath = await _generateImageAndImport(
+      ai: ai,
+      prompt: trimmedPrompt,
+      pageContextText: contextText,
+    );
+    return AiChatMessage.now(
+      role: 'assistant',
+      content: '',
+      generatedImagePath: relPath,
+      generatedImagePrompt: trimmedPrompt,
+    );
+  }
+
   String _plainChatContextFromPageIds(List<String> pageIds) {
     if (pageIds.isEmpty) return '';
     final b = StringBuffer('\n\nContexto de folios:\n');
@@ -879,6 +936,25 @@ For images/blocks: use the + button or / command in a paragraph.
       this,
       scopePageId: scopePageId,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+      onGenerateImage: (imagePrompt, useContext) async {
+        final contextText = useContext && scopePageId != null && scopePageId.isNotEmpty
+            ? _buildAiChatPagesTextContext(
+                [scopePageId],
+                isEs: isEs,
+                activePageId: scopePageId,
+              )
+            : null;
+        final relPath = await _generateImageAndImport(
+          ai: ai,
+          prompt: imagePrompt,
+          pageContextText: contextText,
+        );
+        return jsonEncode({
+          'status': 'generated',
+          'path': relPath,
+          'prompt': imagePrompt,
+        });
+      },
     );
     final toolAi = withToolCallingSupport(ai, isEs: isEs);
 
@@ -917,11 +993,31 @@ For images/blocks: use the + button or / command in a paragraph.
       reply = _summarizeToolLoopOutcome(outcome, isEs: isEs);
     }
 
+    String? generatedImagePath;
+    String? generatedImagePrompt;
+    for (final step in outcome.steps) {
+      if (step.call.name == 'generate_image' && !step.result.isError) {
+        try {
+          final decoded = jsonDecode(step.result.content);
+          if (decoded is Map) {
+            generatedImagePath = decoded['path'] as String?;
+            generatedImagePrompt = decoded['prompt'] as String?;
+          }
+        } catch (_) {
+          // Resultado inesperado (no debería pasar: el propio callback lo
+          // codifica); se ignora en vez de romper el turno.
+        }
+        break;
+      }
+    }
+
     return AgentChatOutcome(
       reply: reply,
       usage: outcome.usage,
       toolCalls: outcome.steps.map((s) => s.call).toList(),
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
+      generatedImagePath: generatedImagePath,
+      generatedImagePrompt: generatedImagePrompt,
     );
   }
 
@@ -3675,6 +3771,7 @@ Plan mode (proposal only, do not execute):
           url: hasUrl ? url : null,
           imageWidth: s.imageWidth,
           expanded: s.expanded,
+          aiGenerated: true,
         ),
       );
     }
@@ -3684,6 +3781,7 @@ Plan mode (proposal only, do not execute):
           id: '${pageId}_${VaultSession._uuid.v4()}',
           type: 'paragraph',
           text: '',
+          aiGenerated: true,
         ),
       );
     }

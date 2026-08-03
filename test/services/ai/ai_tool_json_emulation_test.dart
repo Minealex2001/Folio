@@ -33,6 +33,17 @@ class _FixedAiService implements AiService {
 
   @override
   Future<List<String>> listModels() async => const [];
+
+  @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
 }
 
 const _tools = [

@@ -102,6 +102,7 @@ class DeviceSyncPullResult {
     required this.blobIds,
     this.vaultBlobId = '',
     this.pageBlobIds = const {},
+    this.manifestPageCount,
   });
 
   final Uint8List packBytes;
@@ -112,6 +113,11 @@ class DeviceSyncPullResult {
   /// diffear la próxima vez sin descargar nada.
   final String vaultBlobId;
   final Map<String, String> pageBlobIds;
+
+  /// Recuento de páginas que el propio manifiesto declara tener (`pageCount`,
+  /// formato v3+). `null` en manifiestos que predatan este campo — el llamador
+  /// debe tratar eso como "desconocido", no como "cero".
+  final int? manifestPageCount;
 }
 
 /// Sube blobs content-addressed + manifiesto cifrado (device-sync v2).
@@ -134,6 +140,15 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
   String packKeyKind = 'account',
   String dekAccountWrapB64 = '',
   DeviceSyncTransferProgress? onProgress,
+  /// `rev` remoto sobre el que este push cree estar construyendo (última meta
+  /// vista por este dispositivo). El backend lo usa como concurrencia
+  /// optimista: si ya no coincide con el `rev` actual, rechaza el finalize en
+  /// vez de pisar en silencio un estado más nuevo de otro dispositivo.
+  int? expectedBaseRev,
+  /// El usuario ya confirmó explícitamente que una caída fuerte de páginas
+  /// respecto al `pageCount` remoto anterior es un borrado intencional (no
+  /// un push parcial accidental) — ver el error `sync_page_count_regression`.
+  bool confirmPageCountRegression = false,
 }) async {
   final storageUid = ownerUid.trim().isNotEmpty ? ownerUid.trim() : uid;
   AppLogger.info(
@@ -266,6 +281,7 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     'formatVersion': kDeviceSyncFormatVersion,
     'contentFingerprint': contentFingerprint,
     'vaultBlobId': vaultBlobId,
+    'pageCount': pageCount,
     'pages': pageEntries,
     'attachments': attachmentEntries,
   };
@@ -299,6 +315,9 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
       'manifestStoragePath': manifestPath,
       'manifestSizeBytes': manifestCipher.length,
       'contentFingerprint': contentFingerprint,
+      'pageCount': pageCount,
+      if (expectedBaseRev != null) 'expectedBaseRev': expectedBaseRev,
+      if (confirmPageCountRegression) 'confirmPageCountRegression': true,
       'deviceId': deviceId,
       'deviceName': deviceName,
       'newBlobs': newBlobList,
@@ -512,6 +531,10 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   // v2: un único blob con todo el payload. v3: un blob "resto de libreta" +
   // un blob por página. Ambos casos se resuelven a un conjunto de blobs de
   // contenido antes de descargar, para reutilizar el mismo downloader.
+  final manifestPageCountRaw = map['pageCount'];
+  final manifestPageCount =
+      manifestPageCountRaw is num ? manifestPageCountRaw.toInt() : null;
+
   String payloadBlobId = '';
   final pageSpecs = <({String pageId, String blobId})>[];
   if (isV2) {
@@ -699,6 +722,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     pageBlobIds: isV3
         ? {for (final s in pageSpecs) s.pageId: s.blobId}
         : const {},
+    manifestPageCount: isV3 ? manifestPageCount : null,
   );
 }
 

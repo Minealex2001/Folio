@@ -538,7 +538,12 @@ extension _SettingsPageAiSection on _SettingsPageState {
           SwitchListTile(
             secondary: const Icon(FolioIcons.quillOutlined),
             title: Text(l10n.aiEnableToggleTitle),
-            subtitle: Text(_app.aiEnabled ? l10n.active : l10n.inactive),
+            subtitle: Text(
+              _app.aiEnabled
+                  ? '${l10n.active}. ${l10n.aiEnableToggleSubtitle}'
+                  : '${l10n.inactive}. ${l10n.aiEnableToggleSubtitle}',
+            ),
+            isThreeLine: true,
             value: _app.aiEnabled,
             onChanged: _detectingAiProvider
                 ? null
@@ -570,6 +575,14 @@ extension _SettingsPageAiSection on _SettingsPageState {
                     await _saveAiFields();
                     await _app.setAiEnabled(v);
                   },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.menu_book_outlined),
+            title: Text(l10n.aiComplianceDocsTitle),
+            subtitle: Text(l10n.aiComplianceDocsSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _showAiComplianceDocs,
           ),
           if (_detectingAiProvider)
             const Padding(

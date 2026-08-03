@@ -45,6 +45,7 @@ class OnboardingFlow extends StatefulWidget {
 }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
+  final _vaultName = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _backupPassword = TextEditingController();
@@ -260,6 +261,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   void dispose() {
+    _vaultName.dispose();
     _password.dispose();
     _confirm.dispose();
     _backupPassword.dispose();
@@ -461,6 +463,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     setState(() {
       _error = null;
       if (_currentStepId != _OnboardingStepId.vaultSetup) return;
+      if (_vaultName.text.trim().isEmpty) {
+        _error = AppLocalizations.of(context).vaultNameRequiredError;
+        return;
+      }
       if (_createWithoutEncryption) {
         _page++;
         return;
@@ -744,6 +750,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           _OnboardingStepId.quillIntro,
         ),
         kdfProfile: _createWithoutEncryption ? null : _draftKdfProfile,
+        displayName: _vaultName.text.trim(),
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
       AppLogger.info('finishCreate ok', tag: 'onboarding');
@@ -1068,6 +1075,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
+  Widget _vaultNameField(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return TextField(
+      controller: _vaultName,
+      enabled: !_busy,
+      autofocus: true,
+      textInputAction: TextInputAction.next,
+      textCapitalization: TextCapitalization.sentences,
+      decoration: InputDecoration(
+        labelText: l10n.nameLabel,
+        hintText: l10n.onboardingVaultNameHint,
+      ),
+      onChanged: (_) {
+        if (_error != null) setState(() => _error = null);
+      },
+    );
+  }
+
   Widget _stepNoEncryptionConfirm(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
@@ -1094,6 +1119,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
+        Text(
+          l10n.onboardingVaultNameTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        _vaultNameField(context),
+        const SizedBox(height: FolioSpace.lg),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Icons.auto_awesome_motion_rounded),
@@ -2196,6 +2230,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
+        Text(
+          AppLocalizations.of(context).onboardingVaultNameTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        _vaultNameField(context),
+        const SizedBox(height: FolioSpace.lg),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Icons.auto_awesome_motion_rounded),

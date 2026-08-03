@@ -34,6 +34,14 @@ extension _SettingsPagePrivacySection on _SettingsPageState {
         subtitle: Text(l10n.settingsPrivacyFootnote),
         onTap: _reportBugFlow,
       ),
+      const Divider(height: 1),
+      ListTile(
+        leading: const Icon(FolioIcons.quillOutlined),
+        title: Text(l10n.aiComplianceDocsTitle),
+        subtitle: Text(l10n.aiDisableFromPrivacyHint),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: _showAiComplianceDocs,
+      ),
       if (_cloud.isSignedIn) ...[
         if (_openDiagnosticReportsLoading)
           const Padding(

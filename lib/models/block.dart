@@ -78,6 +78,7 @@ class FolioBlock {
     this.meetingNoteProvider,
     this.meetingNoteTranscriptionEnabled,
     this.syncGroupId,
+    this.aiGenerated,
   });
 
   final String id;
@@ -130,6 +131,10 @@ class FolioBlock {
   /// con el mismo [syncGroupId] comparten contenido y se actualizan en cascada.
   String? syncGroupId;
 
+  /// `true` si el bloque fue materializado por Quill (transparencia EU AI Act).
+  /// Se limpia al editar el texto manualmente.
+  bool? aiGenerated;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -149,6 +154,7 @@ class FolioBlock {
     if (meetingNoteTranscriptionEnabled == false)
       'meetingNoteTranscriptionEnabled': false,
     if (syncGroupId != null) 'syncGroupId': syncGroupId,
+    if (aiGenerated == true) 'aiGenerated': true,
   };
 
   static int _fallbackIdCounter = 0;
@@ -185,6 +191,7 @@ class FolioBlock {
       meetingNoteTranscriptionEnabled:
           j['meetingNoteTranscriptionEnabled'] as bool?,
       syncGroupId: j['syncGroupId'] as String?,
+      aiGenerated: j['aiGenerated'] as bool?,
     );
   }
 
@@ -205,6 +212,8 @@ class FolioBlock {
     bool? meetingNoteTranscriptionEnabled,
     String? syncGroupId,
     bool clearSyncGroupId = false,
+    bool? aiGenerated,
+    bool clearAiGenerated = false,
   }) {
     return FolioBlock(
       id: id,
@@ -225,6 +234,7 @@ class FolioBlock {
           meetingNoteTranscriptionEnabled ??
           this.meetingNoteTranscriptionEnabled,
       syncGroupId: clearSyncGroupId ? null : (syncGroupId ?? this.syncGroupId),
+      aiGenerated: clearAiGenerated ? null : (aiGenerated ?? this.aiGenerated),
     );
   }
 }

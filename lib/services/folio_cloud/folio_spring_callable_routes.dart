@@ -108,6 +108,10 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'ai/complete',
   ),
+  'folioCloudGenerateImage': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'ai/generate-image',
+  ),
   'folioCloudTranscribeChunk': FolioSpringApiRoute(
     method: 'POST',
     pathBuilder: (_) => 'ai/transcribe',
