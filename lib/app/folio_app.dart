@@ -31,6 +31,7 @@ import '../services/mcp/folio_mcp_server.dart';
 import '../services/mcp/folio_mcp_server_status.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
+import '../services/cloud_account/organization_context_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../services/folio_cloud/folio_cloud_device_sync.dart';
@@ -76,6 +77,7 @@ class FolioApp extends StatefulWidget {
     required this.appSettings,
     required this.cloudAccountController,
     this.folioCloudEntitlements,
+    this.organizationContext,
     this.initialLaunchArgs = const <String>[],
   });
 
@@ -85,6 +87,11 @@ class FolioApp extends StatefulWidget {
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
+
+  /// Fase 12 del roadmap de Organizations. Si es null, el estado crea uno
+  /// (mismo patrón que [folioCloudEntitlements]) — sin UI todavía que lo
+  /// consuma (llega en las fases 13-14).
+  final OrganizationContextController? organizationContext;
   final List<String> initialLaunchArgs;
 
   @override
@@ -96,6 +103,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   FolioCloudEntitlementsController? _folioCloudEntitlementsInstance;
+  OrganizationContextController? _organizationContextInstance;
   FolioMcpServer? _mcpServer;
   Future<void>? _mcpServerApplyInFlight;
 
@@ -104,6 +112,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _folioCloudEntitlementsInstance ??=
         widget.folioCloudEntitlements ?? FolioCloudEntitlementsController();
     return _folioCloudEntitlementsInstance!;
+  }
+
+  /// Fase 12 del roadmap de Organizations — mismo patrón perezoso que [_folioCloudEntitlements].
+  OrganizationContextController get _organizationContext {
+    _organizationContextInstance ??= widget.organizationContext ??
+        OrganizationContextController(account: widget.cloudAccountController);
+    return _organizationContextInstance!;
   }
 
   DesktopIntegration? _desktop;
@@ -164,6 +179,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
     if (!mounted) return;
     _applySessionSecurityPolicy();
+    // Fase 12 del roadmap de Organizations: carga best-effort, no bloquea el
+    // arranque — sin UI todavía que dependa de esto.
+    unawaited(_organizationContext.refresh());
     _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     _folioCloudEntitlements.setWebPortalBaseUrlResolver(
       () => AppSettings.folioWebPortalLinkEnabled
@@ -340,6 +358,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.cloudAccountController.dispose();
     _folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _folioCloudEntitlementsInstance?.dispose();
+    _organizationContextInstance?.dispose();
     unawaited(_mcpServer?.stop());
     folioMcpServerStatus.value = null;
     widget.appSettings.removeListener(_onSettings);
