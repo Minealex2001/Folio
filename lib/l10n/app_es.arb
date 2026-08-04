@@ -895,6 +895,7 @@
   "aiAlwaysShowThought": "Mostrar siempre pensamiento de Quill",
   "aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje.",
   "aiBetaBadge": "BETA",
+  "integrationAlphaBadge": "ALPHA",
   "aiManageQuillInstructionsTooltip": "Gestionar instrucciones de Quill",
   "ai": "Quill",
   "aiEnableToggleTitle": "Activar Quill",

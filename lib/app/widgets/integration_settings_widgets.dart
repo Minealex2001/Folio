@@ -31,6 +31,31 @@ class IntegrationBetaBadge extends StatelessWidget {
   }
 }
 
+/// Insignia "ALPHA" para integraciones todavía más tempranas que beta.
+class IntegrationAlphaBadge extends StatelessWidget {
+  const IntegrationAlphaBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        AppLocalizations.of(context).integrationAlphaBadge,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onErrorContainer,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+      ),
+    );
+  }
+}
+
 /// Muestra el diálogo de configuración de una integración como un bottom
 /// sheet modal (mismo cromo que "Copias en la nube": tirador, icono+título+X
 /// en cabecera), pero más ancho para dar espacio a tabs/formularios.
@@ -101,6 +126,7 @@ class IntegrationCard extends StatelessWidget {
     this.brandIcon,
     this.brandColor,
     this.beta = false,
+    this.alpha = false,
     required this.title,
     required this.subtitle,
     required this.chips,
@@ -117,6 +143,7 @@ class IntegrationCard extends StatelessWidget {
   final IconData? brandIcon;
   final Color? brandColor;
   final bool beta;
+  final bool alpha;
   final String title;
   final String subtitle;
   final List<Widget> chips;
@@ -169,7 +196,10 @@ class IntegrationCard extends StatelessWidget {
                             ),
                       ),
                     ),
-                    if (beta) ...[
+                    if (alpha) ...[
+                      const SizedBox(width: 6),
+                      const IntegrationAlphaBadge(),
+                    ] else if (beta) ...[
                       const SizedBox(width: 6),
                       const IntegrationBetaBadge(),
                     ],
@@ -250,6 +280,7 @@ class IntegrationConfigDialogShell extends StatelessWidget {
     this.brandIcon,
     this.brandColor,
     this.beta = false,
+    this.alpha = false,
     required this.title,
     required this.tabController,
     required this.connectionsTabLabel,
@@ -269,6 +300,7 @@ class IntegrationConfigDialogShell extends StatelessWidget {
   final IconData? brandIcon;
   final Color? brandColor;
   final bool beta;
+  final bool alpha;
   final String title;
   final TabController tabController;
   final String connectionsTabLabel;
@@ -317,7 +349,10 @@ class IntegrationConfigDialogShell extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (beta) ...[
+                      if (alpha) ...[
+                        const SizedBox(width: 8),
+                        const IntegrationAlphaBadge(),
+                      ] else if (beta) ...[
                         const SizedBox(width: 8),
                         const IntegrationBetaBadge(),
                       ],

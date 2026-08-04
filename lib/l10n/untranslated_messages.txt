@@ -1,1 +1,17 @@
-{}
+{
+  "ca": [
+    "integrationAlphaBadge"
+  ],
+
+  "eu": [
+    "integrationAlphaBadge"
+  ],
+
+  "gl": [
+    "integrationAlphaBadge"
+  ],
+
+  "pt": [
+    "integrationAlphaBadge"
+  ]
+}

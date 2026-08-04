@@ -895,6 +895,7 @@
   "aiAlwaysShowThought": "Always show Quill thought",
   "aiAlwaysShowThoughtHint": "If disabled, it appears collapsed with an arrow in each message.",
   "aiBetaBadge": "BETA",
+  "integrationAlphaBadge": "ALPHA",
   "aiManageQuillInstructionsTooltip": "Manage Quill instructions",
   "aiBetaEnableTitle": "Quill is in BETA",
   "aiBetaEnableBody": "This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?",
