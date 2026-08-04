@@ -22,6 +22,7 @@ import '../../../app/app_settings.dart';
 import '../../../config/models/panel_region_ids.dart';
 import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
+import '../../../visual_editor/visual_editor.dart';
 import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
@@ -282,6 +283,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   late final CollabSessionController _collab;
+
+  /// Editor visual (Fase 6) — estado puramente de UI (no persiste, no toca
+  /// ConfigStore), por eso vive local a este widget en vez de threaded
+  /// desde main.dart como layoutEngineController/dashboardGridController.
+  final VisualEditorController _visualEditor = VisualEditorController();
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -1220,6 +1226,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
     _collab.dispose();
+    _visualEditor.dispose();
     _s.removeListener(_onSession);
     _chatInputController.removeListener(_updateAiContextMenu);
     _chatInputFocusNode.removeListener(_updateAiContextMenu);
@@ -1629,6 +1636,56 @@ class _WorkspacePageState extends State<WorkspacePage> {
               onPressed: () =>
                   unawaited(widget.appSettings.setBetaBannerDismissed(true)),
               child: Text(l10n.appBetaBannerDismiss),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Editor visual (Fase 6): inspector de propiedades flotante. Reutiliza
+  /// `PropertyInspectorPanel` (probado de forma aislada montado dentro de
+  /// un `PanelHost` real) — aquí simplemente se le da tamaño y chrome de
+  /// tarjeta acorde al slot `overlay` de `WorkspaceBodyShell`.
+  Widget _buildVisualEditorInspectorOverlay(ColorScheme scheme) {
+    return Material(
+      elevation: FolioElevation.menu,
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(FolioRadius.xl),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 300,
+        height: 380,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Editor visual (beta)',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cerrar',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () =>
+                        setState(() => _visualEditor.editModeActive = false),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: PropertyInspectorPanel(
+                controller: _visualEditor,
+                repaintOn: widget.layoutEngineController,
+              ),
             ),
           ],
         ),
@@ -2339,6 +2396,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
       ),
     );
+    // Editor visual (Fase 6): el sidebar es el primer elemento realmente
+    // seleccionable/editable en el shell en vivo — SelectableTapWrapper es
+    // un passthrough puro cuando el modo está apagado (ver su doc), así que
+    // esto no cambia nada del comportamiento normal.
+    final selectableSidePanel = SelectableTapWrapper(
+      controller: _visualEditor,
+      selectable: PanelSelectable(
+        widget.layoutEngineController,
+        PanelRegionIds.sidebarLeft,
+      ),
+      child: sidePanel,
+    );
     final a = widget.appSettings;
     final shortcutBindings = <ShortcutActivator, VoidCallback>{
       a.inAppShortcut(FolioInAppShortcut.search): () {
@@ -2420,6 +2489,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   !widget.appSettings.workspaceSidebarCollapsed,
                 );
                 if (mounted) setState(() => _sidebarPeek = false);
+              },
+              forcePrimary: true,
+            ),
+          if (!compact)
+            _WorkspaceActionEntry(
+              id: 'toggle_visual_editor',
+              label: _visualEditor.editModeActive
+                  ? 'Salir del editor visual'
+                  : 'Editor visual (beta)',
+              icon: _visualEditor.editModeActive
+                  ? Icons.edit_off_rounded
+                  : Icons.tune_rounded,
+              onPressed: () {
+                setState(() {
+                  _visualEditor.editModeActive = !_visualEditor.editModeActive;
+                });
               },
               forcePrimary: true,
             ),
@@ -3122,7 +3207,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 width: androidPhoneLayout
                     ? width * 0.92
                     : width.clamp(260, 340),
-                child: SafeArea(child: sidePanel),
+                child: SafeArea(child: selectableSidePanel),
               )
             : null,
         appBar: _zenMode
@@ -3140,7 +3225,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         body: WorkspaceBodyShell(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
-          sidePanel: sidePanel,
+          sidePanel: selectableSidePanel,
           editorContent: shellEditorBody,
           showSidebarResizeHandle:
               !compact &&
@@ -3251,7 +3336,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   });
                 }
               : null,
-          overlay: _showQuillWorkspaceTour
+          // Editor visual (Fase 6): reutiliza el slot `overlay` ya soportado
+          // por WorkspaceBodyShell (mismo mecanismo que el tour de Quill) en
+          // vez de envolver el Scaffold en un Stack propio — más seguro de
+          // insertar sin tener que ubicar a mano el cierre del árbol de
+          // WorkspaceBodyShell(...) en este build() tan grande. Si el modo
+          // edición está activo, tiene prioridad sobre el tour (acción
+          // deliberada del usuario).
+          overlay: _visualEditor.editModeActive
+              ? _buildVisualEditorInspectorOverlay(scheme)
+              : _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
         ),

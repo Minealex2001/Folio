@@ -21,6 +21,7 @@ import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
 import 'package:folio/config/models/widget_instance_config.dart';
 import 'package:folio/data/vault_paths.dart';
+import 'package:folio/features/workspace/shell/sidebar.dart';
 import 'package:folio/features/workspace/shell/workspace_home_view.dart';
 import 'package:folio/features/workspace/shell/workspace_page.dart';
 import 'package:folio/l10n/generated/app_localizations.dart';
@@ -186,6 +187,54 @@ void main() {
         layoutEngineController.panelFor(PanelRegionIds.sidebarLeft)!.width,
         401,
       );
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
+
+  testWidgets(
+    'the visual editor toggle in the app bar actually opens the inspector, '
+    'and selecting the sidebar shows and edits its real width',
+    (tester) async {
+      await pumpWorkspace(tester);
+
+      // El editor visual empieza apagado: sin botón de cierre del
+      // inspector, sin contenido de selección.
+      expect(find.byTooltip('Cerrar'), findsNothing);
+
+      await tester.tap(find.byTooltip('Editor visual (beta)'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Editor visual (beta)'), findsOneWidget);
+      expect(
+        find.text('Selecciona un elemento para editarlo'),
+        findsOneWidget,
+      );
+
+      // Seleccionar el sidebar (el editor visual está activo, así que
+      // SelectableTapWrapper ya no es un passthrough).
+      await tester.tap(find.byType(Sidebar));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      final startWidth =
+          layoutEngineController.panelFor(PanelRegionIds.sidebarLeft)!.width!;
+      expect(
+        find.textContaining(startWidth.toStringAsFixed(0)),
+        findsWidgets,
+      );
+
+      // Editar el ancho desde el inspector debe escribir de verdad al
+      // LayoutEngineController real.
+      await tester.enterText(find.widgetWithText(TextField, 'Ancho'), '333');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(
+        layoutEngineController.panelFor(PanelRegionIds.sidebarLeft)!.width,
+        333,
+      );
+
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
