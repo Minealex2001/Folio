@@ -51,6 +51,7 @@ class WidgetInstanceConfig {
     double? height,
     bool? visible,
     String? groupId,
+    bool clearGroupId = false,
     Map<String, dynamic>? settings,
   }) {
     return WidgetInstanceConfig(
@@ -62,7 +63,7 @@ class WidgetInstanceConfig {
       width: width ?? this.width,
       height: height ?? this.height,
       visible: visible ?? this.visible,
-      groupId: groupId ?? this.groupId,
+      groupId: clearGroupId ? null : (groupId ?? this.groupId),
       settings: settings ?? this.settings,
     );
   }

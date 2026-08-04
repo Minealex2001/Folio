@@ -1,6 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import '../json_schema_version.dart';
+import 'widget_group_config.dart';
 import 'widget_instance_config.dart';
 
 part 'dashboard_config.g.dart';
@@ -23,6 +24,7 @@ class DashboardConfig {
     this.columns = 2,
     this.gap = 16,
     this.widgets = const [],
+    this.groups = const [],
   });
 
   final int schemaVersion;
@@ -36,6 +38,10 @@ class DashboardConfig {
 
   final List<WidgetInstanceConfig> widgets;
 
+  /// Grupos de widgets (Fase 5) — cada [WidgetInstanceConfig.groupId]
+  /// apunta a la id de una entrada aquí.
+  final List<WidgetGroupConfig> groups;
+
   factory DashboardConfig.fromJson(Map<String, dynamic> json) =>
       _$DashboardConfigFromJson(json);
 
@@ -46,6 +52,7 @@ class DashboardConfig {
     int? columns,
     double? gap,
     List<WidgetInstanceConfig>? widgets,
+    List<WidgetGroupConfig>? groups,
   }) {
     return DashboardConfig(
       schemaVersion: schemaVersion,
@@ -54,6 +61,7 @@ class DashboardConfig {
       columns: columns ?? this.columns,
       gap: gap ?? this.gap,
       widgets: widgets ?? this.widgets,
+      groups: groups ?? this.groups,
     );
   }
 }
