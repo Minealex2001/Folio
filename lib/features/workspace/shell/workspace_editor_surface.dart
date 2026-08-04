@@ -7,6 +7,7 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'workspace_home_view.dart';
 
 class WorkspaceEditorSurface extends StatelessWidget {
@@ -26,6 +27,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.propertiesSection,
     required this.session,
     required this.appSettings,
+    required this.dashboardGridController,
     required this.onSelectPage,
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
@@ -60,6 +62,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final Widget? propertiesSection;
   final VaultSession session;
   final AppSettings appSettings;
+  final DashboardGridController dashboardGridController;
   final ValueChanged<String> onSelectPage;
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
@@ -134,6 +137,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                     key: const ValueKey('workspace_home'),
                     session: session,
                     appSettings: appSettings,
+                    dashboardGridController: dashboardGridController,
                     onCreatePage: onCreatePage,
                     onOpenSearch: onOpenSearch,
                     onSelectPage: onSelectPage,

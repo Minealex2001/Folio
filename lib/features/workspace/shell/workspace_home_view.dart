@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../app/app_settings.dart';
 import '../../../app/workspace_prefs_keys.dart';
+import '../../../config/models/dashboard_config.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../app/widgets/folio_skeletons.dart';
@@ -18,6 +19,7 @@ import '../../../models/vault_task_list_entry.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../recent_page_visits.dart';
 
 import '../../../services/folio_cloud/folio_cloud_identity.dart';
@@ -27,6 +29,7 @@ class WorkspaceHomeView extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.dashboardGridController,
     required this.onCreatePage,
     this.onOpenSearch,
     required this.onSelectPage,
@@ -53,6 +56,7 @@ class WorkspaceHomeView extends StatefulWidget {
 
   final VaultSession session;
   final AppSettings appSettings;
+  final DashboardGridController dashboardGridController;
   final CloudAccountController cloudAccount;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final bool mobilePreviewReadOnly;
@@ -104,6 +108,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     super.initState();
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettingsOrCloud);
+    widget.dashboardGridController.addListener(_onSettingsOrCloud);
     widget.cloudAccount.addListener(_onSettingsOrCloud);
     widget.folioCloudEntitlements.addListener(_onSettingsOrCloud);
     RecentPageVisitsChangeNotifier.instance.addListener(_onRecentsPersisted);
@@ -120,6 +125,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     RecentPageVisitsChangeNotifier.instance.removeListener(_onRecentsPersisted);
     widget.session.removeListener(_onSession);
     widget.appSettings.removeListener(_onSettingsOrCloud);
+    widget.dashboardGridController.removeListener(_onSettingsOrCloud);
     widget.cloudAccount.removeListener(_onSettingsOrCloud);
     widget.folioCloudEntitlements.removeListener(_onSettingsOrCloud);
     _filterController.dispose();
@@ -2008,12 +2014,30 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
           }
         }
 
-        final leftOrdered = spacedModules(
-          widget.appSettings.workspaceHomeLeftSectionOrder.map(moduleLeft),
-        );
-        final rightOrdered = spacedModules(
-          widget.appSettings.workspaceHomeRightSectionOrder.map(moduleRight),
-        );
+        // Catálogo de widgets de dashboard (Fase 4/5): el orden renderizado
+        // viene del DashboardGridController — el contenido de cada sección
+        // (moduleLeft/moduleRight arriba) sigue siendo el switch legacy sin
+        // tocar (demasiado acoplado a closures locales para extraerlo sin
+        // poder verificarlo visualmente, ver Fase 4 del plan). El hook
+        // AppSettings.onWorkspaceHomeDashboardChanged (main.dart) mantiene
+        // el controller sincronizado en cada toggle/reorder legacy, así que
+        // este orden y `appSettings.workspaceHomeLeftSectionOrder` siempre
+        // coinciden — el fallback solo cubre un controller vacío (arranque
+        // en frío antes de la primera migración).
+        final controllerLeftIds = widget.dashboardGridController
+            .widgetsInRegion(DashboardRegionIds.left)
+            .map((w) => w.pluginId);
+        final controllerRightIds = widget.dashboardGridController
+            .widgetsInRegion(DashboardRegionIds.right)
+            .map((w) => w.pluginId);
+        final leftIds = controllerLeftIds.isNotEmpty
+            ? controllerLeftIds
+            : widget.appSettings.workspaceHomeLeftSectionOrder;
+        final rightIds = controllerRightIds.isNotEmpty
+            ? controllerRightIds
+            : widget.appSettings.workspaceHomeRightSectionOrder;
+        final leftOrdered = spacedModules(leftIds.map(moduleLeft));
+        final rightOrdered = spacedModules(rightIds.map(moduleRight));
 
         final leftColumnChildren = <Widget>[
           heroHeader,

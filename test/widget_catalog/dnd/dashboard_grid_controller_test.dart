@@ -217,6 +217,62 @@ void main() {
     });
   });
 
+  group('replaceConfig', () {
+    test('adopts widgets/columns/gap/groups from the replacement but keeps '
+        'the active dashboard id', () {
+      final controller = makeController(widgets: [instance('a', 'left', 0)]);
+
+      controller.replaceConfig(
+        DashboardConfig(
+          id: 'unrelated-id',
+          name: 'Replaced',
+          columns: 3,
+          gap: 24,
+          widgets: [instance('b', 'right', 0)],
+        ),
+      );
+
+      expect(controller.config.id, 'test'); // conserva la id activa
+      expect(controller.config.name, 'Replaced');
+      expect(controller.config.columns, 3);
+      expect(controller.config.gap, 24);
+      expect(controller.widgetsInRegion('left'), isEmpty);
+      expect(controller.widgetsInRegion('right').single.instanceId, 'b');
+    });
+
+    test('disposes notifiers for instances no longer present after the '
+        'replacement', () {
+      final controller = makeController(widgets: [instance('a', 'left', 0)]);
+      final listenable = controller.listenable('a');
+      var sawNull = false;
+      listenable.addListener(() {
+        if (listenable.value == null) sawNull = true;
+      });
+
+      controller.replaceConfig(
+        DashboardConfig(id: 'x', name: 'x', widgets: const []),
+      );
+
+      expect(sawNull, isTrue);
+      expect(controller.instanceFor('a'), isNull);
+    });
+
+    test('notifies listeners and schedules persistence', () async {
+      final controller = makeController(debounce: const Duration(milliseconds: 30));
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      controller.replaceConfig(
+        DashboardConfig(id: 'x', name: 'Replaced', widgets: const []),
+      );
+      expect(notified, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      final saved = await store.loadDashboard('test');
+      expect(saved!.name, 'Replaced');
+    });
+  });
+
   group('persistence', () {
     test('persist() saves the current config to ConfigStore', () async {
       final controller = makeController(

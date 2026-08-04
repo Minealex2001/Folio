@@ -9,6 +9,7 @@ import 'app/app_settings.dart';
 import 'config/config_bootstrap.dart';
 import 'config/config_store.dart';
 import 'config/folio_local_secrets.dart';
+import 'config/models/dashboard_config.dart';
 import 'config/models/layout_config.dart';
 import 'config/models/panel_region_ids.dart';
 import 'app/folio_app.dart';
@@ -16,6 +17,7 @@ import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
 import 'layout_engine/layout_engine_controller.dart';
+import 'widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
@@ -237,19 +239,40 @@ Future<void> main(List<String> args) async {
         );
       }
 
-      // Catálogo de widgets de dashboard (Fase 4): mismo patrón que arriba
-      // — cualquier cambio a orden/visibilidad/layout de columnas del
-      // dashboard de inicio (12 setters en AppSettings) re-deriva el
-      // DashboardConfig completo y lo persiste. workspace_home_view.dart
-      // sigue leyendo de AppSettings como hoy; esto solo mantiene
-      // ConfigStore sincronizado hacia adelante.
-      appSettings.onWorkspaceHomeDashboardChanged = () {
-        unawaited(
-          configStore.saveDashboard(
+      // Catálogo de widgets de dashboard (Fase 4/5): carga el
+      // DashboardConfig "activo" y conecta el hook — cualquier cambio a
+      // orden/visibilidad/layout de columnas del dashboard de inicio (12
+      // setters en AppSettings) re-deriva el DashboardConfig completo y lo
+      // aplica al controller en vivo (no solo lo persiste), para que
+      // workspace_home_view.dart -- que ya lee el orden de secciones desde
+      // este controller -- vea el cambio de inmediato.
+      DashboardGridController dashboardGridController;
+      try {
+        dashboardGridController = await DashboardGridController.load(
+          configStore,
+          id: ConfigBootstrap.activeDashboardId,
+          name: 'Inicio',
+        );
+        appSettings.onWorkspaceHomeDashboardChanged = () {
+          dashboardGridController.replaceConfig(
             ConfigBootstrap.dashboardConfigFromAppSettings(appSettings),
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Dashboard grid controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        dashboardGridController = DashboardGridController(
+          configStore,
+          initialConfig: DashboardConfig(
+            id: ConfigBootstrap.activeDashboardId,
+            name: 'Inicio',
           ),
         );
-      };
+      }
 
       VaultSession session;
       try {
@@ -280,6 +303,7 @@ Future<void> main(List<String> args) async {
           cloudAccountController: cloudAccountController,
           configStore: configStore,
           layoutEngineController: layoutEngineController,
+          dashboardGridController: dashboardGridController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

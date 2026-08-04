@@ -70,10 +70,38 @@ class DashboardGridController extends ChangeNotifier {
 
   void _setWidgets(List<WidgetInstanceConfig> next) {
     _config = _config.copyWith(widgets: next);
+    _reconcileNotifiers(next);
+    notifyListeners();
+    _schedulePersist();
+  }
 
+  /// Reemplaza el [DashboardConfig] completo (widgets, columnas, gap,
+  /// grupos), conservando la id del dashboard activo — usado cuando el
+  /// dashboard cambia por una vía externa a los métodos de mutación
+  /// granular de este controller (ej.
+  /// `AppSettings.onWorkspaceHomeDashboardChanged`, Fase 4: cada
+  /// toggle/reorder legacy re-deriva un `DashboardConfig` entero desde
+  /// `AppSettings`). Mismo principio que
+  /// `LayoutEngineController.loadPreset`.
+  void replaceConfig(DashboardConfig next) {
+    _config = DashboardConfig(
+      id: _config.id,
+      name: next.name,
+      columns: next.columns,
+      gap: next.gap,
+      widgets: next.widgets,
+      groups: next.groups,
+    );
+    _reconcileNotifiers(next.widgets);
+    notifyListeners();
+    _schedulePersist();
+  }
+
+  /// Sincroniza `_instanceNotifiers` con [next]: notifica cada instancia
+  /// tocada y limpia notifiers de instancias que ya no existen, en vez de
+  /// dejarlos apuntando a un valor obsoleto.
+  void _reconcileNotifiers(List<WidgetInstanceConfig> next) {
     final nextIds = next.map((w) => w.instanceId).toSet();
-    // Notifica cada instancia tocada (y limpia notifiers de instancias que
-    // ya no existen, en vez de dejarlos apuntando a un valor obsoleto).
     for (final widget in next) {
       final notifier = _instanceNotifiers.putIfAbsent(
         widget.instanceId,
@@ -88,9 +116,6 @@ class DashboardGridController extends ChangeNotifier {
       _instanceNotifiers[staleId]!.dispose();
       _instanceNotifiers.remove(staleId);
     }
-
-    notifyListeners();
-    _schedulePersist();
   }
 
   /// Mueve [instanceId] a [newRegionId] (una columna), en la posición

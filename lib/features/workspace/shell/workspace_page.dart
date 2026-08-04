@@ -22,6 +22,7 @@ import '../../../app/app_settings.dart';
 import '../../../config/models/panel_region_ids.dart';
 import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
@@ -111,6 +112,7 @@ class WorkspacePage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.layoutEngineController,
+    required this.dashboardGridController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -125,6 +127,7 @@ class WorkspacePage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
+  final DashboardGridController dashboardGridController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -2897,6 +2900,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           : null,
       session: _s,
       appSettings: widget.appSettings,
+      dashboardGridController: widget.dashboardGridController,
       onSelectPage: _s.selectPage,
       onOpenTaskInPage: (pageId, blockId) {
         _s.selectPage(pageId);

@@ -17,6 +17,7 @@ import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
 import '../layout_engine/layout_engine_controller.dart';
 import '../theme_engine/theme_resolver.dart';
+import '../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'widgets/folio_dialog.dart';
 import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
@@ -81,6 +82,7 @@ class FolioApp extends StatefulWidget {
     required this.cloudAccountController,
     required this.configStore,
     required this.layoutEngineController,
+    required this.dashboardGridController,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -91,16 +93,21 @@ class FolioApp extends StatefulWidget {
   final CloudAccountController cloudAccountController;
 
   /// Sistema de personalización de UI (Fase 1 del plan): persistencia de
-  /// LayoutConfig/ThemeConfig/DashboardConfig. Todavía no conectado al
-  /// render del tema — eso llega en la Fase 3.
+  /// LayoutConfig/ThemeConfig/DashboardConfig. El tema (Fase 3) ya renderiza
+  /// desde aquí; layout/dashboard todavía leen de [layoutEngineController]/
+  /// [dashboardGridController] directamente, no de este store.
   final ConfigStore configStore;
 
-  /// Motor de layout (Fase 2). `AppSettings.onWorkspaceSidebarWidthChanged`
-  /// ya lo mantiene sincronizado con el ancho real del sidebar; el shell
-  /// (`workspace_page.dart`) todavía renderiza desde `AppSettings` como
-  /// antes — este controller es la fuente de verdad para futuras fases
-  /// (editor visual, presets, responsive) sin haber tocado ese archivo.
+  /// Motor de layout (Fase 2/7). WorkspacePage renderiza el ancho del
+  /// sidebar desde aquí (no de `AppSettings` directamente) —
+  /// `AppSettings.onWorkspaceSidebarWidthChanged` mantiene ambos
+  /// sincronizados en cada resize.
   final LayoutEngineController layoutEngineController;
+
+  /// Catálogo de widgets de dashboard (Fase 4/5). WorkspaceHomeView lee el
+  /// orden de secciones desde aquí — ver
+  /// `AppSettings.onWorkspaceHomeDashboardChanged`.
+  final DashboardGridController dashboardGridController;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
@@ -381,6 +388,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.appSettings.onWorkspaceSidebarWidthChanged = null;
     widget.appSettings.onWorkspaceHomeDashboardChanged = null;
     widget.layoutEngineController.dispose();
+    widget.dashboardGridController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -1879,6 +1887,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         session: widget.session,
         appSettings: widget.appSettings,
         layoutEngineController: widget.layoutEngineController,
+        dashboardGridController: widget.dashboardGridController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
@@ -2872,6 +2881,7 @@ class _HomeByState extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.layoutEngineController,
+    required this.dashboardGridController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -2886,6 +2896,7 @@ class _HomeByState extends StatelessWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
+  final DashboardGridController dashboardGridController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -2931,6 +2942,7 @@ class _HomeByState extends StatelessWidget {
           session: session,
           appSettings: appSettings,
           layoutEngineController: layoutEngineController,
+          dashboardGridController: dashboardGridController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,

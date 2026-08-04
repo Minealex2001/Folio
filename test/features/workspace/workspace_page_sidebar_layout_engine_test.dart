@@ -16,9 +16,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:folio/app/app_settings.dart';
 import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
+import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
+import 'package:folio/config/models/widget_instance_config.dart';
 import 'package:folio/data/vault_paths.dart';
+import 'package:folio/features/workspace/shell/workspace_home_view.dart';
 import 'package:folio/features/workspace/shell/workspace_page.dart';
 import 'package:folio/l10n/generated/app_localizations.dart';
 import 'package:folio/layout_engine/layout_engine_controller.dart';
@@ -26,6 +29,7 @@ import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +42,7 @@ void main() {
   late VaultSession session;
   late AppSettings appSettings;
   late LayoutEngineController layoutEngineController;
+  late DashboardGridController dashboardGridController;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -58,6 +63,10 @@ void main() {
     session = VaultSession();
     session.debugMarkUnlockedForTests(formatVersion: 1, encrypted: true);
     session.addPage(parentId: null);
+    // addPage() auto-selecciona la página creada; la queremos deseleccionada
+    // para que WorkspaceEditorSurface renderice WorkspaceHomeView (el
+    // dashboard) en vez del editor — es lo que estos tests verifican.
+    session.clearSelectedPage();
 
     appSettings = AppSettings();
     await appSettings.load();
@@ -71,10 +80,16 @@ void main() {
     appSettings.onWorkspaceSidebarWidthChanged = (width) {
       layoutEngineController.setSize(PanelRegionIds.sidebarLeft, width: width);
     };
+    dashboardGridController = DashboardGridController(
+      store,
+      initialConfig: DashboardConfig(id: 'active', name: 'Inicio'),
+      persistDebounce: const Duration(minutes: 10),
+    );
   });
 
   tearDown(() async {
     layoutEngineController.dispose();
+    dashboardGridController.dispose();
     ConfigStoreBackend.debugRootOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
@@ -97,6 +112,7 @@ void main() {
           session: session,
           appSettings: appSettings,
           layoutEngineController: layoutEngineController,
+          dashboardGridController: dashboardGridController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),
@@ -116,7 +132,41 @@ void main() {
     await pumpWorkspace(tester);
     expect(tester.takeException(), isNull);
     expect(find.byType(WorkspacePage), findsOneWidget);
+    // Confirma que efectivamente se renderizó el dashboard (WorkspaceHomeView)
+    // y no el editor — así el swap de orden de secciones (Fase 4/5) se
+    // ejerce de verdad, no solo el resto del shell.
+    expect(find.byType(WorkspaceHomeView), findsOneWidget);
   });
+
+  testWidgets(
+    'dashboard section order comes from the real DashboardGridController',
+    (tester) async {
+      dashboardGridController.replaceConfig(
+        DashboardConfig(
+          id: 'active',
+          name: 'Inicio',
+          widgets: [
+            WidgetInstanceConfig(
+              instanceId: 'w1',
+              pluginId: WorkspaceHomeSectionIds.createPage,
+              regionId: DashboardRegionIds.right,
+              order: 0,
+            ),
+          ],
+        ),
+      );
+      await pumpWorkspace(tester);
+
+      expect(tester.takeException(), isNull);
+      // 'createPage' es la única sección en la lista derivada del
+      // controller para la columna derecha — el ícono del botón (no
+      // localizado) confirma que se renderizó. Si el swap de Fase 4/5 no
+      // estuviera conectado, seguiría viéndose el resto de las secciones
+      // legacy de AppSettings.workspaceHomeRightSectionOrder.
+      expect(find.byIcon(Icons.add_rounded), findsWidgets);
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
 
   testWidgets(
     'rebuilds when the LayoutEngineController changes from outside '
