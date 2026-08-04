@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/ui_tokens.dart';
 import '../../services/cloud_account/organization_context_controller.dart';
@@ -26,6 +27,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
   List<OrganizationMember> _members = const [];
   List<OrganizationInvitation> _invitations = const [];
   List<OrganizationActivityLogEntry> _activity = const [];
+  OrganizationInkBalance? _ink;
   bool _detailLoading = false;
 
   final _createNameCtrl = TextEditingController();
@@ -75,17 +77,22 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
       final members = await fetchOrganizationMembers(orgId);
       List<OrganizationInvitation> invitations = const [];
       List<OrganizationActivityLogEntry> activity = const [];
+      OrganizationInkBalance? ink;
       try {
         invitations = await fetchOrganizationInvitations(orgId);
       } catch (_) {}
       try {
         activity = await fetchOrganizationActivity(orgId);
       } catch (_) {}
+      try {
+        ink = await fetchOrganizationInk(orgId);
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _members = members;
         _invitations = invitations;
         _activity = activity;
+        _ink = ink;
         _detailLoading = false;
       });
     } catch (e) {
@@ -151,6 +158,33 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
     await _run(() async {
       await removeOrganizationMember(orgId: orgId, memberId: memberId);
       await _loadSelectedOrganizationDetail();
+    });
+  }
+
+  /// Fase 13 (billing de equipo) — reutiliza el patrón "abrir URL de Stripe
+  /// en el navegador externo" de `settings_page_state_folio_cloud.dart`, sin
+  /// el diálogo de checkout embebido (fuera de alcance de esta fase).
+  Future<void> _openCheckout() async {
+    final orgId = widget.controller.activeOrganizationId;
+    if (orgId == null) return;
+    await _run(() async {
+      final result = await createOrganizationCheckoutSession(orgId);
+      final url = result['url'];
+      if (url == null || url.isEmpty) throw StateError('Stripe no devolvió una URL');
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok) throw StateError('No se pudo abrir el enlace de pago');
+    });
+  }
+
+  Future<void> _openBillingPortal() async {
+    final orgId = widget.controller.activeOrganizationId;
+    if (orgId == null) return;
+    await _run(() async {
+      final result = await createOrganizationPortalSession(orgId);
+      final url = result['url'];
+      if (url == null || url.isEmpty) throw StateError('Stripe no devolvió una URL');
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok) throw StateError('No se pudo abrir el portal de facturación');
     });
   }
 
@@ -225,6 +259,29 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
             if (_detailLoading)
               const Center(child: CircularProgressIndicator())
             else if (isTeam) ...[
+              if (_ink != null) ...[
+                _OrganizationInkBalanceCard(ink: _ink!, scheme: scheme),
+                const SizedBox(height: FolioSpace.md),
+              ],
+              if (isOwnerOrAdmin) ...[
+                Text('Facturación', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: FolioSpace.sm),
+                Wrap(
+                  spacing: FolioSpace.sm,
+                  runSpacing: FolioSpace.sm,
+                  children: [
+                    FilledButton.tonal(
+                      onPressed: _busy ? null : _openCheckout,
+                      child: const Text('Suscribir plan de equipo'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _openBillingPortal,
+                      child: const Text('Gestionar facturación'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: FolioSpace.lg),
+              ],
               Text('Miembros', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: FolioSpace.sm),
               for (final m in _members)
@@ -322,6 +379,44 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
           ],
         ],
       ],
+    );
+  }
+}
+
+/// Saldo de tinta IA compartida por todos los miembros de la organización
+/// (Fase 13 del roadmap de Organizations — `org_ink`, no `user_ink`).
+class _OrganizationInkBalanceCard extends StatelessWidget {
+  const _OrganizationInkBalanceCard({required this.ink, required this.scheme});
+
+  final OrganizationInkBalance ink;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(FolioSpace.md),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.water_drop_outlined, color: scheme.primary),
+          const SizedBox(width: FolioSpace.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tinta IA del equipo', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  '${ink.total} disponibles (${ink.monthlyBalance} mensual + ${ink.purchasedBalance} comprada)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
