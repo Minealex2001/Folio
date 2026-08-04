@@ -26,7 +26,7 @@ abstract final class FolioLocalSecrets {
   /// URL pública del API (Railway o local). Sin barra final.
   /// Ejemplo Railway: `https://folio-backend-production-xxxx.up.railway.app`
   /// Ejemplo local: `http://127.0.0.1:18080`
-  static const String folioBackendBaseUrl = 'https://backendfolio.minealexgames.com';
+  static const String folioBackendBaseUrl = 'https://api.folio.com.es';
 
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {

@@ -24,7 +24,7 @@ Flujos concretos: copia manual y opcionalmente la copia programada tras export l
 
 Configura el endpoint HTTPS del API Spring:
 
-`https://backendfolio.minealexgames.com/api/v1/billing/webhook`
+`https://api.folio.com.es/api/v1/billing/webhook`
 
 y el secreto `STRIPE_WEBHOOK_SECRET` en variables Railway (mismo valor `whsec_...` del endpoint).
 

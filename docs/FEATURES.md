@@ -1871,13 +1871,13 @@ Cutover **sin big-bang**: el cliente Flutter puede apuntar a Firebase (default) 
 Prioridad: `--dart-define` > `FolioLocalSecrets.folioBackendMode` /
 `folioBackendBaseUrl` (en `lib/config/folio_local_secrets.dart`).
 
-**Railway (prod):** `https://backendfolio.minealexgames.com` — modo Spring activo en
+**Railway (prod):** `https://api.folio.com.es` — modo Spring activo en
 `FolioLocalSecrets` por defecto en desarrollo local.
 
 ```powershell
 flutter run -d windows
 # o explícito:
-.\tool\run_folio_spring.ps1 -BaseUrl https://backendfolio.minealexgames.com
+.\tool\run_folio_spring.ps1 -BaseUrl https://api.folio.com.es
 ```
 
 **Local (compose en :18080):**
@@ -1891,7 +1891,7 @@ flutter run -d windows --dart-define=FOLIO_BACKEND_MODE=spring `
 | Define / secret | Default | Efecto |
 |---|---|---|
 | `FOLIO_BACKEND_MODE` | `spring` vía `FolioLocalSecrets` (o `firebase` si se vacía) | `spring` / `springboot` / `backend` → API Spring |
-| `FOLIO_BACKEND_BASE_URL` | `https://backendfolio.minealexgames.com` vía secrets | Obligatorio en modo Spring |
+| `FOLIO_BACKEND_BASE_URL` | `https://api.folio.com.es` vía secrets | Obligatorio en modo Spring |
 
 Código clave:
 - `lib/config/folio_backend_config.dart` — flag + base URL + WS collab derivado
@@ -1907,12 +1907,12 @@ Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco,
 ### Checklist go / no-go (antes de cambiar el default a Spring)
 
 - [x] Smoke Railway: `GET /api/v1/health` → ok; `POST /api/v1/auth/register` → **201** (fix `/error` + mail best-effort)
-- [x] Default cliente Spring: `FolioLocalSecrets` → `https://backendfolio.minealexgames.com`
+- [x] Default cliente Spring: `FolioLocalSecrets` → `https://api.folio.com.es`
 - [x] Storage proxy Spring + UID unificado
 - [x] OAuth / publish / templates / collab STOMP cableados a Spring
 - [x] ETL tool: `backend/tools/firebase-import/` (Auth/Firestore/Storage → Postgres+Bucket; passwords `{migrated}RESET_REQUIRED`)
 - [ ] Ops: ejecutar `npm run import` con service account + vars Railway; usuarios migrados hacen forgot-password
-- [ ] Ops: Stripe Dashboard webhook → `https://backendfolio.minealexgames.com/api/v1/billing/webhook` (dejar de apuntar a Cloud Functions)
+- [ ] Ops: Stripe Dashboard webhook → `https://api.folio.com.es/api/v1/billing/webhook` (dejar de apuntar a Cloud Functions)
 - [ ] Smoke desktop con cuenta migrada: login/reset, `/account/me`, vault meta, storage put/get, collab
 
 ### Pendientes por plataforma / superficie
@@ -1933,7 +1933,7 @@ Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco,
 
 ## Backend Spring Boot — Fase 30 (decomisión Firebase)
 
-**Estado actual: Fase 30 ejecutada (2026-07-29).** Cliente y repo apuntan solo a Spring/Railway (`https://backendfolio.minealexgames.com`). Se eliminaron deps Firebase, `functions/`, rules, `firebase_options*`, vendor fork Windows. ETL one-shot en `backend/tools/firebase-import/`. Telemetría Firestore staff deshabilitada (UI stub). Ops pendiente: apuntar Stripe webhook a Railway y apagar proyectos GCP cuando el tráfico legacy sea cero.
+**Estado actual: Fase 30 ejecutada (2026-07-29).** Cliente y repo apuntan solo a Spring/Railway (`https://api.folio.com.es`). Se eliminaron deps Firebase, `functions/`, rules, `firebase_options*`, vendor fork Windows. ETL one-shot en `backend/tools/firebase-import/`. Telemetría Firestore staff deshabilitada (UI stub). Ops pendiente: apuntar Stripe webhook a Railway y apagar proyectos GCP cuando el tráfico legacy sea cero.
 
 **Compilación cliente (post-cutover):** se cerraron los `error` de `flutter analyze lib` dejados a medias tras quitar Firebase — storage vía `folio_storage_transport` (backup / cloud-pack / settings sync), entitlements `canUseRealtimeCollab`, identity/auth exceptions, collab firmas, proxy Spotify/Slack/Teams e integration commands por callable Spring. Meta: **0** `error -` en `flutter analyze lib` (warnings/info permitidos).
 

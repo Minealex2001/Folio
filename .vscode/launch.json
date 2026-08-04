@@ -24,7 +24,7 @@
       "program": "lib/main.dart",
       "toolArgs": [
         "--dart-define=FOLIO_BACKEND_MODE=spring",
-        "--dart-define=FOLIO_BACKEND_BASE_URL=https://backendfolio.minealexgames.com"
+        "--dart-define=FOLIO_BACKEND_BASE_URL=https://api.folio.com.es"
       ]
     }
   ]

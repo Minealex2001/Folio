@@ -57,7 +57,7 @@ void main() {
     test('resolveVaultPublicShareUrl reescribe viewer legacy del API', () {
       final url = FolioWebUrls.resolveVaultPublicShareUrl(
         publicUrlFromApi:
-            'https://backendfolio.minealexgames.com/api/v1/vault-shares/public/tok99/view',
+            'https://api.folio.com.es/api/v1/vault-shares/public/tok99/view',
       );
       expect(url, 'https://folio.minealexgames.com/s/tok99');
     });
