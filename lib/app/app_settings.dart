@@ -408,6 +408,16 @@ class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
 
+  /// Hook opcional (sistema de personalización de UI, Fase 2): cuando está
+  /// registrado, cada resize real del sidebar también se refleja en el
+  /// `LayoutEngineController`/`ConfigStore` nuevo, además de en
+  /// `SharedPreferences` como hasta ahora. `AppSettings` sigue siendo la
+  /// única fuente que el resto de la app lee/escribe — este campo solo
+  /// mantiene sincronizado el `LayoutConfig` activo hacia adelante, sin
+  /// tocar ningún call site existente. Se registra una vez en el bootstrap
+  /// (`main.dart`), tras migrar `ConfigStore` — ver `ConfigBootstrap`.
+  void Function(double width)? onWorkspaceSidebarWidthChanged;
+
   SharedPreferences? _cachedPrefs;
 
   /// Cachea la instancia tras la primera resolución: cada setter la pedía por
@@ -2255,6 +2265,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setDouble(_workspaceSidebarWidthKey, safe);
+    onWorkspaceSidebarWidthChanged?.call(safe);
   }
 
   String _workspaceSidebarCollapsedPagesKey(String? vaultId) {

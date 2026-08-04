@@ -9,10 +9,13 @@ import 'app/app_settings.dart';
 import 'config/config_bootstrap.dart';
 import 'config/config_store.dart';
 import 'config/folio_local_secrets.dart';
+import 'config/models/layout_config.dart';
+import 'config/models/panel_region_ids.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
+import 'layout_engine/layout_engine_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
@@ -202,6 +205,38 @@ Future<void> main(List<String> args) async {
         configStore = await ConfigStore.open();
       }
 
+      // Motor de layout (Fase 2): carga el LayoutConfig "activo" (poblado
+      // por la migración de arriba) y conecta el hook de AppSettings para
+      // que futuros resizes del sidebar también queden reflejados aquí.
+      // El resto del shell (workspace_page.dart) todavía no LEE de este
+      // controller — solo se mantiene sincronizado hacia adelante.
+      LayoutEngineController layoutEngineController;
+      try {
+        layoutEngineController = await LayoutEngineController.load(
+          configStore,
+          id: ConfigBootstrap.activeLayoutId,
+        );
+        appSettings.onWorkspaceSidebarWidthChanged = (width) {
+          layoutEngineController.setSize(
+            PanelRegionIds.sidebarLeft,
+            width: width,
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Layout engine controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        layoutEngineController = LayoutEngineController(
+          configStore,
+          initialConfig: LayoutConfig.defaultConfig(
+            id: ConfigBootstrap.activeLayoutId,
+          ),
+        );
+      }
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);
@@ -230,6 +265,7 @@ Future<void> main(List<String> args) async {
           appSettings: appSettings,
           cloudAccountController: cloudAccountController,
           configStore: configStore,
+          layoutEngineController: layoutEngineController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

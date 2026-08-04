@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/app/app_settings.dart';
 import 'package:folio/app/folio_app.dart';
 import 'package:folio/config/config_store.dart';
+import 'package:folio/config/models/layout_config.dart';
+import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
@@ -15,12 +17,17 @@ void main() {
     final cloudAccountController = CloudAccountController();
     final folioCloudEntitlements = FolioCloudEntitlementsController();
     final configStore = await ConfigStore.open();
+    final layoutEngineController = LayoutEngineController(
+      configStore,
+      initialConfig: LayoutConfig.defaultConfig(),
+    );
     await tester.pumpWidget(
       FolioApp(
         session: session,
         appSettings: appSettings,
         cloudAccountController: cloudAccountController,
         configStore: configStore,
+        layoutEngineController: layoutEngineController,
         folioCloudEntitlements: folioCloudEntitlements,
       ),
     );

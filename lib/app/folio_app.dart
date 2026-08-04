@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/config_store.dart';
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
+import '../layout_engine/layout_engine_controller.dart';
 import 'widgets/folio_dialog.dart';
 import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
@@ -78,6 +79,7 @@ class FolioApp extends StatefulWidget {
     required this.appSettings,
     required this.cloudAccountController,
     required this.configStore,
+    required this.layoutEngineController,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -89,8 +91,15 @@ class FolioApp extends StatefulWidget {
 
   /// Sistema de personalización de UI (Fase 1 del plan): persistencia de
   /// LayoutConfig/ThemeConfig/DashboardConfig. Todavía no conectado al
-  /// render del shell/tema — eso llega en las Fases 2/3.
+  /// render del tema — eso llega en la Fase 3.
   final ConfigStore configStore;
+
+  /// Motor de layout (Fase 2). `AppSettings.onWorkspaceSidebarWidthChanged`
+  /// ya lo mantiene sincronizado con el ancho real del sidebar; el shell
+  /// (`workspace_page.dart`) todavía renderiza desde `AppSettings` como
+  /// antes — este controller es la fuente de verdad para futuras fases
+  /// (editor visual, presets, responsive) sin haber tocado ese archivo.
+  final LayoutEngineController layoutEngineController;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
@@ -368,6 +377,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _organizationContextInstance?.dispose();
     unawaited(_mcpServer?.stop());
     folioMcpServerStatus.value = null;
+    widget.appSettings.onWorkspaceSidebarWidthChanged = null;
+    widget.layoutEngineController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
