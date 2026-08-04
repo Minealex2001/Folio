@@ -5152,5 +5152,7 @@
   "orgPanelInvalidEmailError": "Introduza um e-mail válido",
   "orgPanelStripeNoUrlError": "O Stripe não devolveu um URL",
   "orgPanelCheckoutLaunchError": "Não foi possível abrir o link de pagamento",
-  "orgPanelPortalLaunchError": "Não foi possível abrir o portal de cobrança"
+  "orgPanelPortalLaunchError": "Não foi possível abrir o portal de cobrança",
+  "orgSwitcherTooltip": "Mudar de organização",
+  "orgSwitcherManageTeams": "Gerir equipas"
 }

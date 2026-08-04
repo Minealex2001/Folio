@@ -5198,5 +5198,7 @@
   "orgPanelInvalidEmailError": "Enter a valid email",
   "orgPanelStripeNoUrlError": "Stripe didn't return a URL",
   "orgPanelCheckoutLaunchError": "Couldn't open the payment link",
-  "orgPanelPortalLaunchError": "Couldn't open the billing portal"
+  "orgPanelPortalLaunchError": "Couldn't open the billing portal",
+  "orgSwitcherTooltip": "Switch organization",
+  "orgSwitcherManageTeams": "Manage teams"
 }

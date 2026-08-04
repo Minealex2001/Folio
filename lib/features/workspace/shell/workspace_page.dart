@@ -2296,11 +2296,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
           appSettings: widget.appSettings,
           cloudAccountController: widget.cloudAccountController,
           cloudStatusController: widget.cloudStatusController,
+          organizationContext: widget.organizationContext,
           onSearch: () => widget.onOpenSearch(),
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onOpenCloudStatus: () =>
               _openSettings(initialSection: 'cloud', initialCloudTab: 'status'),
+          onOpenOrganizationSettings: () => _openSettings(initialSection: 'organization'),
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
           onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,

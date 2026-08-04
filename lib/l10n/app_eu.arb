@@ -5152,5 +5152,7 @@
   "orgPanelInvalidEmailError": "Sartu baliozko emaila",
   "orgPanelStripeNoUrlError": "Stripek ez du URLrik itzuli",
   "orgPanelCheckoutLaunchError": "Ezin izan da ordainketa esteka ireki",
-  "orgPanelPortalLaunchError": "Ezin izan da fakturazio ataria ireki"
+  "orgPanelPortalLaunchError": "Ezin izan da fakturazio ataria ireki",
+  "orgSwitcherTooltip": "Aldatu erakundez",
+  "orgSwitcherManageTeams": "Kudeatu taldeak"
 }

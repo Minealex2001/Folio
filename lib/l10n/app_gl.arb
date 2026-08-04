@@ -5157,5 +5157,7 @@
   "orgPanelInvalidEmailError": "Introduce un correo válido",
   "orgPanelStripeNoUrlError": "Stripe non devolveu unha URL",
   "orgPanelCheckoutLaunchError": "Non se puido abrir a ligazón de pago",
-  "orgPanelPortalLaunchError": "Non se puido abrir o portal de facturación"
+  "orgPanelPortalLaunchError": "Non se puido abrir o portal de facturación",
+  "orgSwitcherTooltip": "Cambiar de organización",
+  "orgSwitcherManageTeams": "Xestionar equipos"
 }
