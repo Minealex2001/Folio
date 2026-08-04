@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../config/models/panel_region_ids.dart';
 import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
@@ -1177,6 +1178,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     _s.addListener(_onSession);
     widget.appSettings.addListener(_onAppSettings);
+    widget.layoutEngineController.addListener(_onLayoutEngineChanged);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
     if (_supportsOsFullscreen) {
       DesktopWindowFullscreen.instance.addListener(_onOsFullscreenChanged);
@@ -1211,6 +1213,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
     }
     widget.appSettings.removeListener(_onAppSettings);
+    widget.layoutEngineController.removeListener(_onLayoutEngineChanged);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
     _collab.dispose();
@@ -1376,6 +1379,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _aiPanelCollapsed = widget.appSettings.aiChatPanelCollapsed;
       _aiPanelHeight = widget.appSettings.aiChatPanelHeight;
     });
+  }
+
+  /// Motor de layout (Fase 2/7): `effectiveSidebarW` lee del
+  /// `LayoutEngineController` — sin este listener, un cambio hecho fuera de
+  /// este widget (ej. el botón "Restablecer layout" en Settings) no se
+  /// vería reflejado hasta el próximo rebuild por otra causa.
+  void _onLayoutEngineChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   bool _matchesActivator(SingleActivator activator, KeyEvent event) {
@@ -2279,13 +2291,24 @@ class _WorkspacePageState extends State<WorkspacePage> {
         !compact && page != null && cloudSignedIn && hasCollabRoom;
     final useMobileCollabFab =
         compact && page != null && cloudSignedIn && hasCollabRoom;
+    // Motor de layout (Fase 2/7): la fuente de verdad renderizada es el
+    // LayoutEngineController, no AppSettings directamente — el hook
+    // AppSettings.onWorkspaceSidebarWidthChanged (main.dart) ya mantiene
+    // ambos sincronizados en cada resize, así que este valor siempre
+    // coincide con `widget.appSettings.workspaceSidebarWidth`, con el
+    // fallback solo por si el panel aún no existe (arranque en frío).
+    final sidebarBaseWidth =
+        widget.layoutEngineController
+            .panelFor(PanelRegionIds.sidebarLeft)
+            ?.width ??
+        widget.appSettings.workspaceSidebarWidth;
     final effectiveSidebarW = _zenMode
         ? 0.0
         : compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
-              ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
-              : widget.appSettings.workspaceSidebarWidth);
+              ? (_sidebarPeek ? sidebarBaseWidth : 0.0)
+              : sidebarBaseWidth);
     final hasAnyKanbanPage = _hasAnyKanbanPage;
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
