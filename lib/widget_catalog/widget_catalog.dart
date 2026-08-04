@@ -2,6 +2,7 @@
 /// personalización de UI).
 library;
 
+export 'builtin/builtin_widget_plugins.dart';
 export 'dnd/dashboard_dnd.dart';
 export 'folio_widget_plugin.dart';
 export 'widget_catalog_registry.dart';

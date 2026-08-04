@@ -13,6 +13,7 @@ import 'package:folio/widget_catalog/dnd/dashboard_grid_region.dart';
 import 'package:folio/widget_catalog/folio_widget_plugin.dart';
 import 'package:folio/widget_catalog/widget_catalog_registry.dart';
 import 'package:folio/widget_catalog/widget_plugin_context.dart';
+import 'package:folio/session/vault_session.dart';
 
 class _LabelPlugin extends FolioWidgetPlugin {
   const _LabelPlugin(this.id);
@@ -50,6 +51,7 @@ void main() {
     pluginContext = WidgetPluginContext(
       appSettings: AppSettings(),
       configStore: store,
+      session: VaultSession(),
     );
     controller = DashboardGridController(
       store,

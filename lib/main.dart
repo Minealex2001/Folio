@@ -18,6 +18,7 @@ import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
 import 'layout_engine/layout_engine_controller.dart';
 import 'theme_engine/theme_config_controller.dart';
+import 'widget_catalog/builtin/builtin_widget_plugins.dart';
 import 'widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
@@ -330,6 +331,8 @@ Future<void> main(List<String> args) async {
           context: {'error': '$e', 'stack': '$st'},
         );
       }
+      registerBuiltinWidgetPlugins();
+
       runApp(
         FolioApp(
           session: session,

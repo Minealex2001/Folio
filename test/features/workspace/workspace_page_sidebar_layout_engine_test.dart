@@ -33,6 +33,10 @@ import 'package:folio/session/vault_session.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
+import 'package:folio/widget_catalog/dnd/dashboard_grid_region.dart';
+import 'package:folio/widget_catalog/folio_widget_plugin.dart';
+import 'package:folio/widget_catalog/widget_catalog_registry.dart';
+import 'package:folio/widget_catalog/widget_plugin_context.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -248,4 +252,79 @@ void main() {
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
+
+  testWidgets(
+    'the "Editar inicio (beta)" toggle swaps WorkspaceHomeView for a real, '
+    'live DashboardGridRegion fed by the real DashboardGridController',
+    (tester) async {
+      WidgetCatalogRegistry.instance.debugClear();
+      addTearDown(WidgetCatalogRegistry.instance.debugClear);
+      WidgetCatalogRegistry.instance.register(const _FakeGridPlugin());
+
+      dashboardGridController.replaceConfig(
+        DashboardConfig(
+          id: 'active',
+          name: 'Inicio',
+          widgets: [
+            WidgetInstanceConfig(
+              instanceId: 'w1',
+              pluginId: 'fake_grid_plugin',
+              regionId: DashboardRegionIds.left,
+              order: 0,
+            ),
+          ],
+        ),
+      );
+
+      await pumpWorkspace(tester);
+      expect(find.byType(WorkspaceHomeView), findsOneWidget);
+      expect(find.byType(DashboardGridRegion), findsNothing);
+      expect(find.text('fake-grid-plugin-rendered'), findsNothing);
+
+      await tester.tap(find.byTooltip('Editar inicio (beta)'));
+      // El swap de contenido de home vive dentro de un AnimatedSwitcher
+      // (workspace_editor_surface.dart) — un solo pump() deja el widget
+      // saliente todavía montado a mitad de la transición.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(WorkspaceHomeView), findsNothing);
+      expect(find.byType(DashboardGridRegion), findsOneWidget);
+      // Prueba de que el grid está realmente alimentado por el
+      // DashboardGridController real (no un placeholder estático): el
+      // plugin registrado para la instancia sembrada arriba se renderiza.
+      expect(find.text('fake-grid-plugin-rendered'), findsOneWidget);
+
+      // Alternar de vuelta restaura el dashboard de inicio legacy.
+      await tester.tap(find.byTooltip('Salir de edición de inicio'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.byType(WorkspaceHomeView), findsOneWidget);
+      expect(find.byType(DashboardGridRegion), findsNothing);
+
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
+}
+
+class _FakeGridPlugin extends FolioWidgetPlugin {
+  const _FakeGridPlugin();
+
+  @override
+  String get id => 'fake_grid_plugin';
+
+  @override
+  String displayName(BuildContext context) => 'Fake grid plugin';
+
+  @override
+  IconData get icon => Icons.widgets_rounded;
+
+  @override
+  Widget build(
+    BuildContext context,
+    WidgetInstanceConfig instance,
+    WidgetPluginContext ctx,
+  ) => const Text('fake-grid-plugin-rendered');
 }

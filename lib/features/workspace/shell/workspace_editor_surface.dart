@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
+import '../../../config/models/dashboard_config.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_region.dart';
+import '../../../widget_catalog/widget_plugin_context.dart';
 import 'workspace_home_view.dart';
 
 class WorkspaceEditorSurface extends StatelessWidget {
@@ -28,6 +31,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.dashboardGridController,
+    this.dashboardEditModeActive = false,
     required this.onSelectPage,
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
@@ -63,6 +67,12 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final DashboardGridController dashboardGridController;
+
+  /// Fase 4/5 "conectar todo con la app": cuando está activo, la región de
+  /// inicio (`page == null`) renderiza el `DashboardGridRegion` real
+  /// (drag & drop entre columnas) en vez de `WorkspaceHomeView`. Alternado
+  /// desde el botón "Editar inicio (beta)" de la toolbar del workspace.
+  final bool dashboardEditModeActive;
   final ValueChanged<String> onSelectPage;
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
@@ -132,7 +142,27 @@ class WorkspaceEditorSurface extends StatelessWidget {
                 child: child,
               ),
             ),
-            child: page == null
+            child: page == null && dashboardEditModeActive
+                ? Padding(
+                    key: const ValueKey('workspace_home_dashboard_edit'),
+                    padding: contentPadding,
+                    child: DashboardGridRegion(
+                      controller: dashboardGridController,
+                      pluginContext: WidgetPluginContext(
+                        appSettings: appSettings,
+                        configStore: dashboardGridController.store,
+                        session: session,
+                        onOpenSearch: onOpenSearch,
+                        onCreatePage: onCreatePage,
+                        onSelectPage: onSelectPage,
+                      ),
+                      columnRegionIds: const [
+                        DashboardRegionIds.left,
+                        DashboardRegionIds.right,
+                      ],
+                    ),
+                  )
+                : page == null
                 ? WorkspaceHomeView(
                     key: const ValueKey('workspace_home'),
                     session: session,

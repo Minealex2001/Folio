@@ -292,6 +292,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
   /// desde main.dart como layoutEngineController/dashboardGridController.
   final VisualEditorController _visualEditor = VisualEditorController();
 
+  /// Modo dashboard editable (Fase 4/5) — swap de `WorkspaceHomeView` por el
+  /// `DashboardGridRegion` real con drag & drop entre columnas. Estado
+  /// puramente de UI, igual que `_visualEditor`: no persiste por sí mismo,
+  /// las mutaciones que produce sí (a través de `dashboardGridController`).
+  bool _dashboardEditMode = false;
+
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
 
@@ -2512,6 +2518,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
               },
               forcePrimary: true,
             ),
+          if (!compact)
+            _WorkspaceActionEntry(
+              id: 'toggle_dashboard_edit',
+              label: _dashboardEditMode
+                  ? 'Salir de edición de inicio'
+                  : 'Editar inicio (beta)',
+              icon: _dashboardEditMode
+                  ? Icons.dashboard_customize_rounded
+                  : Icons.dashboard_customize_outlined,
+              onPressed: () {
+                setState(() => _dashboardEditMode = !_dashboardEditMode);
+              },
+              forcePrimary: true,
+            ),
           if (widget.folioCloudEntitlements.snapshot.folioStaff)
             _WorkspaceActionEntry(
               id: 'admin_console',
@@ -2990,6 +3010,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       session: _s,
       appSettings: widget.appSettings,
       dashboardGridController: widget.dashboardGridController,
+      dashboardEditModeActive: _dashboardEditMode,
       onSelectPage: _s.selectPage,
       onOpenTaskInPage: (pageId, blockId) {
         _s.selectPage(pageId);

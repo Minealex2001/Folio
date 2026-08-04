@@ -52,6 +52,11 @@ class DashboardGridController extends ChangeNotifier {
 
   DashboardConfig get config => _config;
 
+  /// Expuesto para que quien ya tiene un [DashboardGridController] (p. ej.
+  /// `WorkspacePage`) pueda construir un [WidgetPluginContext] sin necesitar
+  /// una referencia a [ConfigStore] enhebrada por separado.
+  ConfigStore get store => _store;
+
   WidgetInstanceConfig? instanceFor(String instanceId) =>
       _config.widgets.firstWhereOrNull((w) => w.instanceId == instanceId);
 
