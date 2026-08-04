@@ -55,12 +55,18 @@ class ConfigBootstrap {
   }
 
   /// Traduce el estado de tema actual de [AppSettings] (modo de acento,
-  /// ARGB custom, OLED) a un [ThemeConfig] equivalente. Público (no solo
-  /// para la migración de una sola vez): `folio_app.dart` lo llama en cada
-  /// build para alimentar `resolveThemeData`, así el tema renderizado sigue
-  /// leyendo de `AppSettings` como única fuente de verdad — el `ThemeConfig`
-  /// es una traducción efímera, no un estado paralelo a mantener sincronizado.
-  static ThemeConfig themeConfigFromAppSettings(AppSettings appSettings) {
+  /// ARGB custom, OLED) a un [ThemeConfig]. Se llama una vez en la
+  /// migración inicial, y de nuevo cada vez que
+  /// `AppSettings.onThemeAccentChanged` dispara (ver `ThemeConfigController`
+  /// — editor de temas). Cuando se provee [preserving], conserva todo lo
+  /// demás de ese `ThemeConfig` (shape/spacing/motion/elevation/
+  /// surfaceOpacity — los campos que el editor de temas nuevo edita
+  /// directamente y que `AppSettings` nunca tuvo) y solo actualiza
+  /// accentMode/light/dark.
+  static ThemeConfig themeConfigFromAppSettings(
+    AppSettings appSettings, {
+    ThemeConfig? preserving,
+  }) {
     final seedArgb = appSettings.accentColorMode == FolioAccentColorMode.custom
         ? appSettings.customAccentArgb
         : null; // null → ThemeConfig.fallbackDefault usa el seed de marca
@@ -69,11 +75,17 @@ class ConfigBootstrap {
       FolioAccentColorMode.folioDefault => 'folioDefault',
       FolioAccentColorMode.custom => 'custom',
     };
-    return ThemeConfig.fallbackDefault(
+    final derived = ThemeConfig.fallbackDefault(
       id: activeThemeId,
       seedArgb: seedArgb,
       oled: appSettings.oledThemeEnabled,
       accentMode: accentMode,
+    );
+    if (preserving == null) return derived;
+    return preserving.copyWith(
+      accentMode: derived.accentMode,
+      light: derived.light,
+      dark: derived.dark,
     );
   }
 

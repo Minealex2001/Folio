@@ -15,6 +15,8 @@ import 'package:path/path.dart' as p;
 import '../../app/app_settings.dart';
 import '../../config/models/panel_region_ids.dart';
 import '../../layout_engine/layout_engine_controller.dart';
+import '../../theme_engine/theme_config_controller.dart';
+import '../../theme_engine/theme_config_defaults.dart';
 import '../../services/integrations/integrations_bridge.dart'
     show IntegrationsLaunchSession;
 import '../../services/mcp/folio_mcp_server.dart';
@@ -172,6 +174,7 @@ class SettingsPage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.layoutEngineController,
+    required this.themeConfigController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -186,6 +189,7 @@ class SettingsPage extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
+  final ThemeConfigController themeConfigController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -210,6 +214,7 @@ class _SettingsPageState extends State<SettingsPage> {
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
   LayoutEngineController get _layoutEngine => widget.layoutEngineController;
+  ThemeConfigController get _themeConfig => widget.themeConfigController;
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;

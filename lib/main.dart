@@ -17,6 +17,7 @@ import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
 import 'layout_engine/layout_engine_controller.dart';
+import 'theme_engine/theme_config_controller.dart';
 import 'widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
@@ -239,6 +240,39 @@ Future<void> main(List<String> args) async {
         );
       }
 
+      // Motor de tema (Fase 3 + editor de temas): carga el ThemeConfig
+      // "activo" y conecta el hook — el picker de acento/modo existente en
+      // Settings sigue viviendo en AppSettings, esto solo mantiene
+      // accentMode/light/dark del ThemeConfig sincronizados con él. Los
+      // campos nuevos (radio/espaciado/opacidad/movimiento) los edita
+      // directo el editor de temas, sin pasar por AppSettings.
+      ThemeConfigController themeConfigController;
+      try {
+        themeConfigController = await ThemeConfigController.load(
+          configStore,
+          id: ConfigBootstrap.activeThemeId,
+        );
+        appSettings.onThemeAccentChanged = () {
+          themeConfigController.replaceConfig(
+            ConfigBootstrap.themeConfigFromAppSettings(
+              appSettings,
+              preserving: themeConfigController.config,
+            ),
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Theme config controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        themeConfigController = ThemeConfigController(
+          configStore,
+          initialConfig: ConfigBootstrap.themeConfigFromAppSettings(appSettings),
+        );
+      }
+
       // Catálogo de widgets de dashboard (Fase 4/5): carga el
       // DashboardConfig "activo" y conecta el hook — cualquier cambio a
       // orden/visibilidad/layout de columnas del dashboard de inicio (12
@@ -304,6 +338,7 @@ Future<void> main(List<String> args) async {
           configStore: configStore,
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
+          themeConfigController: themeConfigController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

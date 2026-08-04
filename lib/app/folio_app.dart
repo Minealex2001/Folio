@@ -11,11 +11,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../config/config_bootstrap.dart';
 import '../config/config_store.dart';
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
 import '../layout_engine/layout_engine_controller.dart';
+import '../theme_engine/theme_config_controller.dart';
 import '../theme_engine/theme_resolver.dart';
 import '../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'widgets/folio_dialog.dart';
@@ -83,6 +83,7 @@ class FolioApp extends StatefulWidget {
     required this.configStore,
     required this.layoutEngineController,
     required this.dashboardGridController,
+    required this.themeConfigController,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -93,9 +94,7 @@ class FolioApp extends StatefulWidget {
   final CloudAccountController cloudAccountController;
 
   /// Sistema de personalización de UI (Fase 1 del plan): persistencia de
-  /// LayoutConfig/ThemeConfig/DashboardConfig. El tema (Fase 3) ya renderiza
-  /// desde aquí; layout/dashboard todavía leen de [layoutEngineController]/
-  /// [dashboardGridController] directamente, no de este store.
+  /// LayoutConfig/ThemeConfig/DashboardConfig.
   final ConfigStore configStore;
 
   /// Motor de layout (Fase 2/7). WorkspacePage renderiza el ancho del
@@ -108,6 +107,14 @@ class FolioApp extends StatefulWidget {
   /// orden de secciones desde aquí — ver
   /// `AppSettings.onWorkspaceHomeDashboardChanged`.
   final DashboardGridController dashboardGridController;
+
+  /// Motor de tema (Fase 3 + editor de temas). `_buildApp()` renderiza
+  /// `resolveThemeData` a partir de este controller directamente (no de
+  /// `AppSettings` cada build) — `AppSettings.onThemeAccentChanged`
+  /// mantiene accentMode/light/dark sincronizados con el picker existente
+  /// en Settings; el editor de temas nuevo edita
+  /// shape/spacing/motion/surfaceOpacity directo aquí.
+  final ThemeConfigController themeConfigController;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
@@ -263,6 +270,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.titleLocale = widget.appSettings.locale;
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
+    widget.themeConfigController.addListener(_onThemeConfigChanged);
     _integrationsBridge = IntegrationsBridgeController(
       onImport: _importIntegrationsMarkdown,
       onUpdate: _updateIntegrationsPage,
@@ -387,8 +395,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     folioMcpServerStatus.value = null;
     widget.appSettings.onWorkspaceSidebarWidthChanged = null;
     widget.appSettings.onWorkspaceHomeDashboardChanged = null;
+    widget.appSettings.onThemeAccentChanged = null;
+    widget.themeConfigController.removeListener(_onThemeConfigChanged);
     widget.layoutEngineController.dispose();
     widget.dashboardGridController.dispose();
+    widget.themeConfigController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -862,6 +873,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_applyMcpServerSettings());
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     unawaited(FolioTelemetry.onSettingsChanged(widget.appSettings));
+    if (mounted) setState(() {});
+  }
+
+  /// Editor de temas: `_buildApp()` lee `widget.themeConfigController.config`
+  /// directamente (Fase 3), así que un cambio ahí (desde el editor de temas
+  /// o desde `AppSettings.onThemeAccentChanged`) necesita este rebuild
+  /// explícito — a diferencia de `_onSettings`, no hay nada más que hacer.
+  void _onThemeConfigChanged() {
     if (mounted) setState(() {});
   }
 
@@ -1761,15 +1780,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
     final androidAccent = androidLightDynamic?.primary;
-    // Motor de tema (Fase 3): AppSettings sigue siendo la única fuente de
-    // verdad (igual que antes) — solo se traduce a un ThemeConfig efímero
-    // en cada build para que la construcción del ThemeData sea data-driven
-    // (resolveThemeData) en vez de las funciones hardcodeadas de
-    // folio_theme.dart. Ver ThemeResolverTest para la verificación de
-    // equivalencia estructural con el ThemeData legacy.
-    final themeConfig = ConfigBootstrap.themeConfigFromAppSettings(
-      widget.appSettings,
-    );
+    // Motor de tema (Fase 3 + editor de temas): la fuente de verdad
+    // renderizada es ThemeConfigController, no AppSettings directamente —
+    // AppSettings.onThemeAccentChanged ya mantiene accentMode/light/dark
+    // sincronizados en cada cambio del picker existente, y el editor de
+    // temas nuevo escribe shape/spacing/motion/surfaceOpacity directo aquí,
+    // sin que AppSettings tenga nunca esos campos. Ver ThemeResolverTest
+    // para la verificación de equivalencia estructural con el ThemeData
+    // legacy del ThemeConfig por defecto.
+    final themeConfig = widget.themeConfigController.config;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
@@ -1888,6 +1907,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         appSettings: widget.appSettings,
         layoutEngineController: widget.layoutEngineController,
         dashboardGridController: widget.dashboardGridController,
+        themeConfigController: widget.themeConfigController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
@@ -2882,6 +2902,7 @@ class _HomeByState extends StatelessWidget {
     required this.appSettings,
     required this.layoutEngineController,
     required this.dashboardGridController,
+    required this.themeConfigController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -2897,6 +2918,7 @@ class _HomeByState extends StatelessWidget {
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
   final DashboardGridController dashboardGridController;
+  final ThemeConfigController themeConfigController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -2943,6 +2965,7 @@ class _HomeByState extends StatelessWidget {
           appSettings: appSettings,
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
+          themeConfigController: themeConfigController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,

@@ -30,6 +30,8 @@ import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/theme_engine/theme_config_controller.dart';
+import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 
 void main() {
@@ -44,6 +46,7 @@ void main() {
   late AppSettings appSettings;
   late LayoutEngineController layoutEngineController;
   late DashboardGridController dashboardGridController;
+  late ThemeConfigController themeConfigController;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -86,11 +89,17 @@ void main() {
       initialConfig: DashboardConfig(id: 'active', name: 'Inicio'),
       persistDebounce: const Duration(minutes: 10),
     );
+    themeConfigController = ThemeConfigController(
+      store,
+      initialConfig: kFolioDefaultTheme,
+      persistDebounce: const Duration(minutes: 10),
+    );
   });
 
   tearDown(() async {
     layoutEngineController.dispose();
     dashboardGridController.dispose();
+    themeConfigController.dispose();
     ConfigStoreBackend.debugRootOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
@@ -114,6 +123,7 @@ void main() {
           appSettings: appSettings,
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
+          themeConfigController: themeConfigController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),

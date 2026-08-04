@@ -13,6 +13,8 @@ import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/theme_engine/theme_config_controller.dart';
+import 'package:folio/theme_engine/theme_config_defaults.dart';
 
 /// Blocking prerequisite for the v0.8.0 settings_page.dart decomposition:
 /// this file had zero widget-test coverage despite being one of the
@@ -33,6 +35,10 @@ void main() {
       layoutEngineController: LayoutEngineController(
         configStore,
         initialConfig: LayoutConfig.defaultConfig(),
+      ),
+      themeConfigController: ThemeConfigController(
+        configStore,
+        initialConfig: kFolioDefaultTheme,
       ),
       deviceSyncController: DeviceSyncController(appSettings: appSettings),
       cloudAccountController: CloudAccountController(),

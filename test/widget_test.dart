@@ -10,6 +10,8 @@ import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/theme_engine/theme_config_controller.dart';
+import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 
 void main() {
@@ -27,6 +29,10 @@ void main() {
       configStore,
       initialConfig: DashboardConfig(id: 'active', name: 'Inicio'),
     );
+    final themeConfigController = ThemeConfigController(
+      configStore,
+      initialConfig: kFolioDefaultTheme,
+    );
     await tester.pumpWidget(
       FolioApp(
         session: session,
@@ -35,6 +41,7 @@ void main() {
         configStore: configStore,
         layoutEngineController: layoutEngineController,
         dashboardGridController: dashboardGridController,
+        themeConfigController: themeConfigController,
         folioCloudEntitlements: folioCloudEntitlements,
       ),
     );

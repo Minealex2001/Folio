@@ -22,6 +22,7 @@ import '../../../app/app_settings.dart';
 import '../../../config/models/panel_region_ids.dart';
 import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
+import '../../../theme_engine/theme_config_controller.dart';
 import '../../../visual_editor/visual_editor.dart';
 import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
@@ -114,6 +115,7 @@ class WorkspacePage extends StatefulWidget {
     required this.appSettings,
     required this.layoutEngineController,
     required this.dashboardGridController,
+    required this.themeConfigController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -129,6 +131,7 @@ class WorkspacePage extends StatefulWidget {
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
   final DashboardGridController dashboardGridController;
+  final ThemeConfigController themeConfigController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -1862,6 +1865,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           layoutEngineController: widget.layoutEngineController,
+          themeConfigController: widget.themeConfigController,
           deviceSyncController: widget.deviceSyncController,
           cloudSettingsSyncController: widget.cloudSettingsSyncController,
           cloudDeviceSyncController: widget.cloudDeviceSyncController,

@@ -426,6 +426,14 @@ class AppSettings extends ChangeNotifier {
   /// completo (ver `ConfigBootstrap.dashboardConfigFromAppSettings`).
   VoidCallback? onWorkspaceHomeDashboardChanged;
 
+  /// Hook opcional (Fase 3/editor de temas): igual que los anteriores pero
+  /// para los 3 setters que afectan accentMode/light/dark en `ThemeConfig`
+  /// (modo de tema, modo de acento, ARGB custom). El editor de temas nuevo
+  /// (radio/espaciado/opacidad/movimiento) escribe directo a
+  /// `ThemeConfigController` sin pasar por aquí — son campos que
+  /// `AppSettings` nunca tuvo.
+  VoidCallback? onThemeAccentChanged;
+
   SharedPreferences? _cachedPrefs;
 
   /// Cachea la instancia tras la primera resolución: cada setter la pedía por
@@ -1822,6 +1830,7 @@ class AppSettings extends ChangeNotifier {
     if (p.containsKey(_oledThemeEnabledKey)) {
       await p.setBool(_oledThemeEnabledKey, false);
     }
+    onThemeAccentChanged?.call();
   }
 
   /// Compatibilidad con perfiles antiguos que aún envían el toggle OLED.
@@ -2867,6 +2876,7 @@ class AppSettings extends ChangeNotifier {
       FolioAccentColorMode.custom => 'custom',
     };
     await p.setString(_accentColorModeKey, v);
+    onThemeAccentChanged?.call();
   }
 
   Future<void> setCustomAccentArgb(int argb) async {
@@ -2875,6 +2885,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setInt(_customAccentArgbKey, argb);
+    onThemeAccentChanged?.call();
   }
 
   Future<void> setInAppShortcut(
