@@ -5,6 +5,7 @@ import 'drag_resize/resize_handle.dart';
 import 'layout_engine_controller.dart';
 import 'panel_frame.dart';
 import 'panel_region_ids.dart';
+import 'responsive/responsive_layout_resolver.dart';
 
 /// Compone un [LayoutConfig] en un árbol de widgets real: regiones ancladas
 /// (`sidebarLeft`, `sidebarRight`, `main`) en un `Row`, regiones flotantes
@@ -42,84 +43,104 @@ class PanelHost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final dockedChildren = <Widget>[];
-        for (final regionId in dockedOrder) {
-          final panel = controller.panelFor(regionId);
-          final builder = regionBuilders[regionId];
-          if (panel == null || builder == null || !panel.visible) continue;
-
-          final isMain = regionId == PanelRegionIds.main;
-          final isLeft = regionId == PanelRegionIds.sidebarLeft;
-          final isRight = regionId == PanelRegionIds.sidebarRight;
-
-          Widget region = PanelFrame(
-            regionId: regionId,
-            controller: controller,
-            resizableEdges: isLeft
-                ? const {PanelResizeEdge.right}
-                : isRight
-                ? const {PanelResizeEdge.left}
-                : const {},
-            child: Builder(builder: builder),
-          );
-
-          if (isMain) {
-            dockedChildren.add(Expanded(child: region));
-          } else {
-            region = AnimatedContainer(
-              duration: FolioMotion.medium1,
-              curve: FolioMotion.emphasized,
-              width: panel.width,
-              child: region,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            // Fase 7: fusiona los overrides responsive del breakpoint actual
+            // sobre el LayoutConfig base antes de renderizar. El drag/resize
+            // sigue mutando siempre el config base vía [controller] — los
+            // overrides por breakpoint son solo una vista alternativa para
+            // renderizar, no algo que un gesto de resize reescriba.
+            final effectiveConfig = ResponsiveLayoutResolver.resolveForWidth(
+              controller.config,
+              constraints.maxWidth,
             );
-            dockedChildren.add(region);
-          }
-        }
 
-        final floatingChildren = <Widget>[];
-        for (final regionId in floatingOrder) {
-          final panel = controller.panelFor(regionId);
-          final builder = regionBuilders[regionId];
-          if (panel == null || builder == null || !panel.visible) continue;
+            final dockedChildren = <Widget>[];
+            for (final regionId in dockedOrder) {
+              final panel = effectiveConfig.panels[regionId];
+              final builder = regionBuilders[regionId];
+              if (panel == null || builder == null || !panel.visible) {
+                continue;
+              }
 
-          floatingChildren.add(
-            Positioned(
-              left: panel.floatingX,
-              top: panel.floatingY,
-              width: panel.width,
-              height: panel.height,
-              child: PanelFrame(
+              final isMain = regionId == PanelRegionIds.main;
+              final isLeft = regionId == PanelRegionIds.sidebarLeft;
+              final isRight = regionId == PanelRegionIds.sidebarRight;
+
+              Widget region = PanelFrame(
                 regionId: regionId,
                 controller: controller,
-                draggable: true,
-                resizableEdges: const {
-                  PanelResizeEdge.left,
-                  PanelResizeEdge.bottom,
-                },
-                child: Material(
-                  elevation: FolioElevation.menu,
-                  borderRadius: BorderRadius.circular(FolioRadius.xl),
-                  clipBehavior: Clip.antiAlias,
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Builder(builder: builder),
-                ),
-              ),
-            ),
-          );
-        }
+                effectivePanel: panel,
+                resizableEdges: isLeft
+                    ? const {PanelResizeEdge.right}
+                    : isRight
+                    ? const {PanelResizeEdge.left}
+                    : const {},
+                child: Builder(builder: builder),
+              );
 
-        return Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: dockedChildren,
-            ),
-            ...floatingChildren,
-          ],
+              if (isMain) {
+                dockedChildren.add(Expanded(child: region));
+              } else {
+                region = AnimatedContainer(
+                  duration: FolioMotion.medium1,
+                  curve: FolioMotion.emphasized,
+                  width: panel.width,
+                  child: region,
+                );
+                dockedChildren.add(region);
+              }
+            }
+
+            final floatingChildren = <Widget>[];
+            for (final regionId in floatingOrder) {
+              final panel = effectiveConfig.panels[regionId];
+              final builder = regionBuilders[regionId];
+              if (panel == null || builder == null || !panel.visible) {
+                continue;
+              }
+
+              floatingChildren.add(
+                Positioned(
+                  left: panel.floatingX,
+                  top: panel.floatingY,
+                  width: panel.width,
+                  height: panel.height,
+                  child: PanelFrame(
+                    regionId: regionId,
+                    controller: controller,
+                    effectivePanel: panel,
+                    draggable: true,
+                    resizableEdges: const {
+                      PanelResizeEdge.left,
+                      PanelResizeEdge.bottom,
+                    },
+                    child: Material(
+                      elevation: FolioElevation.menu,
+                      borderRadius: BorderRadius.circular(FolioRadius.xl),
+                      clipBehavior: Clip.antiAlias,
+                      color: Theme.of(context).colorScheme.surface,
+                      child: Builder(builder: builder),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: dockedChildren,
+                ),
+                ...floatingChildren,
+              ],
+            );
+          },
         );
       },
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/models/panel_config.dart';
 import 'drag_resize/resize_handle.dart';
 import 'layout_engine_controller.dart';
 
@@ -16,6 +17,7 @@ class PanelFrame extends StatelessWidget {
     this.resizableEdges = const {},
     this.draggable = false,
     this.dragHandleHeight = 7,
+    this.effectivePanel,
   });
 
   final String regionId;
@@ -25,9 +27,16 @@ class PanelFrame extends StatelessWidget {
   final bool draggable;
   final double dragHandleHeight;
 
+  /// Panel ya resuelto por breakpoint (Fase 7, `ResponsiveLayoutResolver`)
+  /// para decidir `locked`/chrome — si es null, se usa
+  /// `controller.panelFor(regionId)` (el panel base, sin overrides).
+  /// El drag/resize sigue mutando siempre el panel base vía [controller],
+  /// independientemente de este valor.
+  final PanelConfig? effectivePanel;
+
   @override
   Widget build(BuildContext context) {
-    final panel = controller.panelFor(regionId);
+    final panel = effectivePanel ?? controller.panelFor(regionId);
     final locked = panel?.locked ?? false;
 
     Widget content = RepaintBoundary(child: child);

@@ -8,4 +8,6 @@ export 'layout_engine_controller.dart';
 export 'panel_frame.dart';
 export 'panel_host.dart';
 export 'panel_region_ids.dart';
+export 'responsive/breakpoints.dart';
+export 'responsive/responsive_layout_resolver.dart';
 export 'snapping/snap_engine.dart';

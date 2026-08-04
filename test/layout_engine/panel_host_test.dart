@@ -6,6 +6,7 @@ import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
+import 'package:folio/config/models/panel_config.dart';
 import 'package:folio/layout_engine/drag_resize/resize_handle.dart';
 import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/layout_engine/panel_host.dart';
@@ -116,4 +117,67 @@ void main() {
     // finalice (flutter_test falla si queda un Timer pendiente).
     await tester.pump(const Duration(milliseconds: 500));
   });
+
+  testWidgets(
+    'applies the responsive override for the current viewport width '
+    '(Fase 7)',
+    (tester) async {
+      final responsiveController = LayoutEngineController(
+        store,
+        initialConfig: LayoutConfig(
+          id: 'responsive-test',
+          name: 'Responsive',
+          panels: {
+            PanelRegionIds.sidebarLeft: PanelConfig(
+              regionId: PanelRegionIds.sidebarLeft,
+              visible: true,
+              width: 280,
+            ),
+            PanelRegionIds.main: PanelConfig(
+              regionId: PanelRegionIds.main,
+              visible: true,
+            ),
+          },
+          responsiveOverrides: {
+            'mobile': LayoutConfig(
+              id: 'responsive-test-mobile',
+              name: 'mobile',
+              panels: {
+                PanelRegionIds.sidebarLeft: PanelConfig(
+                  regionId: PanelRegionIds.sidebarLeft,
+                  visible: false,
+                ),
+              },
+            ),
+          },
+        ),
+      );
+      addTearDown(responsiveController.dispose);
+
+      Widget buildAt(double width) => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: width,
+            height: 600,
+            child: PanelHost(
+              controller: responsiveController,
+              regionBuilders: {
+                PanelRegionIds.sidebarLeft: (_) => const Text('sidebar'),
+                PanelRegionIds.main: (_) => const Text('main'),
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Ancho desktop: sin override aplicable, sidebar visible.
+      await tester.pumpWidget(buildAt(1000));
+      expect(find.text('sidebar'), findsOneWidget);
+
+      // Ancho mobile: el override de la Fase 7 oculta el sidebar.
+      await tester.pumpWidget(buildAt(400));
+      expect(find.text('sidebar'), findsNothing);
+      expect(find.text('main'), findsOneWidget);
+    },
+  );
 }
