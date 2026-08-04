@@ -38,7 +38,7 @@ class ConfigBootstrap {
 
     await configStore.saveLayout(_layoutFromLegacy(appSettings));
     await configStore.saveTheme(themeConfigFromAppSettings(appSettings));
-    await configStore.saveDashboard(_dashboardFromLegacy(appSettings));
+    await configStore.saveDashboard(dashboardConfigFromAppSettings(appSettings));
 
     await prefs.setBool(_migratedFlagKey, true);
   }
@@ -77,7 +77,14 @@ class ConfigBootstrap {
     );
   }
 
-  static DashboardConfig _dashboardFromLegacy(AppSettings appSettings) {
+  /// Traduce el estado actual del dashboard de inicio en [AppSettings]
+  /// (orden de secciones izq/der, toggles de visibilidad, layout de
+  /// columnas) a un [DashboardConfig] equivalente. Público — se llama tanto
+  /// en la migración de una sola vez como cada vez que
+  /// `AppSettings.onWorkspaceHomeDashboardChanged` dispara (ver Fase 4).
+  static DashboardConfig dashboardConfigFromAppSettings(
+    AppSettings appSettings,
+  ) {
     final columns = switch (appSettings.workspaceHomeColumnLayout) {
       WorkspaceHomeColumnLayout.single => 1,
       WorkspaceHomeColumnLayout.dual => 2,

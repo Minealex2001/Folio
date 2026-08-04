@@ -237,6 +237,20 @@ Future<void> main(List<String> args) async {
         );
       }
 
+      // Catálogo de widgets de dashboard (Fase 4): mismo patrón que arriba
+      // — cualquier cambio a orden/visibilidad/layout de columnas del
+      // dashboard de inicio (12 setters en AppSettings) re-deriva el
+      // DashboardConfig completo y lo persiste. workspace_home_view.dart
+      // sigue leyendo de AppSettings como hoy; esto solo mantiene
+      // ConfigStore sincronizado hacia adelante.
+      appSettings.onWorkspaceHomeDashboardChanged = () {
+        unawaited(
+          configStore.saveDashboard(
+            ConfigBootstrap.dashboardConfigFromAppSettings(appSettings),
+          ),
+        );
+      };
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);

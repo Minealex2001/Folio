@@ -418,6 +418,14 @@ class AppSettings extends ChangeNotifier {
   /// (`main.dart`), tras migrar `ConfigStore` — ver `ConfigBootstrap`.
   void Function(double width)? onWorkspaceSidebarWidthChanged;
 
+  /// Hook opcional (Fase 4): igual que [onWorkspaceSidebarWidthChanged] pero
+  /// para cualquier cambio que afecte el `DashboardConfig` del inicio
+  /// (orden/visibilidad de secciones, layout de columnas). Un solo callback
+  /// para los 12 setters relacionados — cada uno solo señaliza "algo
+  /// cambió"; quien escucha decide cómo re-derivar el `DashboardConfig`
+  /// completo (ver `ConfigBootstrap.dashboardConfigFromAppSettings`).
+  VoidCallback? onWorkspaceHomeDashboardChanged;
+
   SharedPreferences? _cachedPrefs;
 
   /// Cachea la instancia tras la primera resolución: cada setter la pedía por
@@ -2431,6 +2439,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowFolioCloudCardKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowRootPages(bool value) async {
@@ -2439,6 +2448,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowRootPagesKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowMiniStats(bool value) async {
@@ -2447,6 +2457,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowMiniStatsKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowTasksSection(bool value) async {
@@ -2455,6 +2466,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowTasksSectionKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowQuickActions(bool value) async {
@@ -2463,6 +2475,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowQuickActionsKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowTip(bool value) async {
@@ -2471,6 +2484,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowTipKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowVaultStatus(bool value) async {
@@ -2479,6 +2493,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowVaultStatusKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowOnboarding(bool value) async {
@@ -2487,6 +2502,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowOnboardingKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowWhatsNew(bool value) async {
@@ -2495,6 +2511,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowWhatsNewKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeColumnLayout(
@@ -2505,6 +2522,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeColumnLayoutKey, value.name);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeClockShowSeconds(bool value) async {
@@ -2552,6 +2570,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeLeftSectionOrderKey, jsonEncode(next));
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeRightSectionOrder(List<String> value) async {
@@ -2564,6 +2583,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeRightSectionOrderKey, jsonEncode(next));
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {

@@ -379,6 +379,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_mcpServer?.stop());
     folioMcpServerStatus.value = null;
     widget.appSettings.onWorkspaceSidebarWidthChanged = null;
+    widget.appSettings.onWorkspaceHomeDashboardChanged = null;
     widget.layoutEngineController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
