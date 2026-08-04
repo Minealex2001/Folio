@@ -55,6 +55,8 @@ import '../../services/ai/openai_compatible_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import 'widgets/iconify_icon_browser.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/cloud_account/organization_context_controller.dart';
+import 'organization_management_panel.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
 import '../../services/folio_cloud/folio_cloud_callable.dart';
@@ -129,6 +131,7 @@ part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
 part 'settings_page_section_meeting_note.dart';
 part 'settings_page_section_admin.dart';
+part 'settings_page_section_organization.dart';
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -173,6 +176,7 @@ class SettingsPage extends StatefulWidget {
     this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.organizationContext,
     this.initialSection,
     this.initialCloudTab,
   });
@@ -185,6 +189,10 @@ class SettingsPage extends StatefulWidget {
   final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+
+  /// Fase 13 del roadmap de Organizations. Null si el usuario no ha llegado
+  /// a la Fase 12 de arranque todavía (best-effort, ver folio_app.dart).
+  final OrganizationContextController? organizationContext;
   final String? initialSection;
 
   /// `account` | `plan` | `status` — pestaña interna de Folio Cloud.
@@ -201,6 +209,7 @@ class _SettingsPageState extends State<SettingsPage> {
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
+  OrganizationContextController? get _organizationContext => widget.organizationContext;
 
   _FolioCloudTab _folioCloudTab = _FolioCloudTab.plan;
 
@@ -881,6 +890,11 @@ class _SettingsPageState extends State<SettingsPage> {
             l10n.settingsAdminReportsTitle,
             l10n.settingsAdminUserTitle,
           ],
+        ),
+      if (_organizationContext != null)
+        const _SettingsSectionNavItem(
+          id: _SettingsSectionId.organization,
+          label: 'Equipos',
         ),
     ];
     return AnimatedBuilder(
@@ -4844,6 +4858,12 @@ class _SettingsPageState extends State<SettingsPage> {
                           if (_folio.snapshot.folioStaff)
                             _buildAdminSection(
                               l10n: l10n,
+                              scheme: scheme,
+                              activeSection: activeSection,
+                            ),
+
+                          if (_organizationContext != null)
+                            _buildOrganizationSection(
                               scheme: scheme,
                               activeSection: activeSection,
                             ),

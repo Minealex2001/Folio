@@ -41,6 +41,7 @@ import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/ai/on_device_ai_bridge.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/cloud_account/organization_context_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/media/media_playback_router.dart';
 import '../../../services/spotify/spotify_playback_controller.dart';
@@ -113,6 +114,7 @@ class WorkspacePage extends StatefulWidget {
     this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.organizationContext,
     required this.onOpenSearch,
     required this.onOpenReleaseNotes,
   });
@@ -125,6 +127,9 @@ class WorkspacePage extends StatefulWidget {
   final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+
+  /// Fase 13 del roadmap de Organizations — hilvanado hasta `SettingsPage`.
+  final OrganizationContextController? organizationContext;
   final void Function([String? initialQuery]) onOpenSearch;
   final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
@@ -1787,6 +1792,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           cloudStatusController: widget.cloudStatusController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
+          organizationContext: widget.organizationContext,
           initialSection: initialSection,
           initialCloudTab: initialCloudTab,
         ),

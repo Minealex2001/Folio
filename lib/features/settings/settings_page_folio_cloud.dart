@@ -2148,4 +2148,5 @@ enum _SettingsSectionId {
   integrations,
   about,
   admin,
+  organization,
 }

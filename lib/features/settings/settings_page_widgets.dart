@@ -40,6 +40,8 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.extension_outlined;
       case _SettingsSectionId.admin:
         return Icons.admin_panel_settings_outlined;
+      case _SettingsSectionId.organization:
+        return Icons.groups_outlined;
     }
   }
 
@@ -271,6 +273,11 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.admin_panel_settings_outlined;
         gradientColors = const [Color(0xFF78909C), Color(0xFF455A64)];
         subtitle = widget.l10n.settingsAdminHeroDescription;
+        break;
+      case _SettingsSectionId.organization:
+        icon = Icons.groups_outlined;
+        gradientColors = const [Color(0xFF66BB6A), Color(0xFF2E7D32)];
+        subtitle = 'Equipos y organizaciones';
         break;
     }
 

@@ -1857,6 +1857,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         cloudStatusController: _cloudStatusController,
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
+        organizationContext: _organizationContext,
         onOpenSearch: _handleSearchRequested,
         onOpenReleaseNotes: _openReleaseNotesForUser,
       ),
@@ -2848,6 +2849,7 @@ class _HomeByState extends StatelessWidget {
     this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.organizationContext,
     required this.onOpenSearch,
     required this.onOpenReleaseNotes,
   });
@@ -2860,6 +2862,7 @@ class _HomeByState extends StatelessWidget {
   final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+  final OrganizationContextController? organizationContext;
   final void Function([String? initialQuery]) onOpenSearch;
   final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
@@ -2903,6 +2906,7 @@ class _HomeByState extends StatelessWidget {
           cloudStatusController: cloudStatusController,
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
+          organizationContext: organizationContext,
           onOpenSearch: onOpenSearch,
           onOpenReleaseNotes: onOpenReleaseNotes,
         );
