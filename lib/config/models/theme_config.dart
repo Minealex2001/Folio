@@ -31,11 +31,20 @@ class ThemeConfig {
     required this.motion,
     required this.icons,
     this.surfaceOpacity = 1.0,
+    this.accentMode = 'followSystem',
   });
 
   final int schemaVersion;
   final String id;
   final String name;
+
+  /// 'followSystem' | 'folioDefault' | 'custom' — mismo significado que
+  /// `FolioAccentColorMode` en `AppSettings`, portado como dato en vez de
+  /// enum Dart para que sea serializable sin un converter adicional.
+  /// 'followSystem' y 'folioDefault' ignoran `light.seedArgb`/`dark.seedArgb`
+  /// (resuelven el `ColorScheme` desde el acento del SO o desde
+  /// `FolioBrandPalette` respectivamente); solo 'custom' los usa.
+  final String accentMode;
 
   final ThemeColorTokens light;
   final ThemeColorTokens dark;
@@ -66,6 +75,7 @@ class ThemeConfig {
     ThemeMotionTokens? motion,
     ThemeIconTokens? icons,
     double? surfaceOpacity,
+    String? accentMode,
   }) {
     return ThemeConfig(
       schemaVersion: schemaVersion,
@@ -80,23 +90,25 @@ class ThemeConfig {
       motion: motion ?? this.motion,
       icons: icons ?? this.icons,
       surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
+      accentMode: accentMode ?? this.accentMode,
     );
   }
 
   /// Config mínima de arranque usada por [ConfigBootstrap] al migrar (Fase 1)
-  /// cuando aún no existe ningún `ThemeConfig` guardado. Reproducir el
-  /// `ThemeData` exacto de hoy (`_folioThemeFromBase`) es responsabilidad de
-  /// `theme_config_defaults.dart` (Fase 3) — esta factory solo garantiza que
-  /// `ConfigStore` siempre tenga un tema válido con el que arrancar.
+  /// cuando aún no existe ningún `ThemeConfig` guardado, y como default de
+  /// `theme_config_defaults.dart` (Fase 3) — reproduce exactamente el
+  /// comportamiento hoy hardcodeado en `AppSettings`/`folio_theme.dart`.
   factory ThemeConfig.fallbackDefault({
     String id = 'default',
     int? seedArgb,
     bool oled = false,
+    String accentMode = 'followSystem',
   }) {
     final seed = seedArgb ?? kFolioBrandPrimaryArgb;
     return ThemeConfig(
       id: id,
       name: 'Folio',
+      accentMode: accentMode,
       light: ThemeColorTokens(seedArgb: seed),
       dark: ThemeColorTokens(
         seedArgb: seed,

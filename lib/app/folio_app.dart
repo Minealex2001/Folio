@@ -11,10 +11,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/config_bootstrap.dart';
 import '../config/config_store.dart';
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
 import '../layout_engine/layout_engine_controller.dart';
+import '../theme_engine/theme_resolver.dart';
 import 'widgets/folio_dialog.dart';
 import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
@@ -68,7 +70,6 @@ import '../features/vault/recovery_screen.dart';
 import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
-import 'folio_theme.dart';
 import 'ui_tokens.dart';
 
 import '../services/folio_cloud/folio_cloud_identity.dart';
@@ -1751,23 +1752,30 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
     final androidAccent = androidLightDynamic?.primary;
-    final lightScheme = widget.appSettings.resolveColorScheme(
-      brightness: Brightness.light,
-      androidDynamicAccent: androidAccent,
-    );
-    final darkScheme = widget.appSettings.resolveColorScheme(
-      brightness: Brightness.dark,
-      androidDynamicAccent: androidAccent,
+    // Motor de tema (Fase 3): AppSettings sigue siendo la única fuente de
+    // verdad (igual que antes) — solo se traduce a un ThemeConfig efímero
+    // en cada build para que la construcción del ThemeData sea data-driven
+    // (resolveThemeData) en vez de las funciones hardcodeadas de
+    // folio_theme.dart. Ver ThemeResolverTest para la verificación de
+    // equivalencia estructural con el ThemeData legacy.
+    final themeConfig = ConfigBootstrap.themeConfigFromAppSettings(
+      widget.appSettings,
     );
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      theme: folioLightTheme(lightScheme),
-      darkTheme: widget.appSettings.oledThemeEnabled
-          ? folioOledTheme(darkScheme)
-          : folioDarkTheme(darkScheme),
+      theme: resolveThemeData(
+        themeConfig,
+        Brightness.light,
+        androidDynamicAccent: androidAccent,
+      ),
+      darkTheme: resolveThemeData(
+        themeConfig,
+        Brightness.dark,
+        androidDynamicAccent: androidAccent,
+      ),
       themeMode: widget.appSettings.materialThemeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,

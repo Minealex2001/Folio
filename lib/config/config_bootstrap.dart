@@ -37,7 +37,7 @@ class ConfigBootstrap {
     if (prefs.getBool(_migratedFlagKey) ?? false) return;
 
     await configStore.saveLayout(_layoutFromLegacy(appSettings));
-    await configStore.saveTheme(_themeFromLegacy(appSettings));
+    await configStore.saveTheme(themeConfigFromAppSettings(appSettings));
     await configStore.saveDashboard(_dashboardFromLegacy(appSettings));
 
     await prefs.setBool(_migratedFlagKey, true);
@@ -54,14 +54,26 @@ class ConfigBootstrap {
     return base.copyWith(panels: panels);
   }
 
-  static ThemeConfig _themeFromLegacy(AppSettings appSettings) {
+  /// Traduce el estado de tema actual de [AppSettings] (modo de acento,
+  /// ARGB custom, OLED) a un [ThemeConfig] equivalente. Público (no solo
+  /// para la migración de una sola vez): `folio_app.dart` lo llama en cada
+  /// build para alimentar `resolveThemeData`, así el tema renderizado sigue
+  /// leyendo de `AppSettings` como única fuente de verdad — el `ThemeConfig`
+  /// es una traducción efímera, no un estado paralelo a mantener sincronizado.
+  static ThemeConfig themeConfigFromAppSettings(AppSettings appSettings) {
     final seedArgb = appSettings.accentColorMode == FolioAccentColorMode.custom
         ? appSettings.customAccentArgb
         : null; // null → ThemeConfig.fallbackDefault usa el seed de marca
+    final accentMode = switch (appSettings.accentColorMode) {
+      FolioAccentColorMode.followSystem => 'followSystem',
+      FolioAccentColorMode.folioDefault => 'folioDefault',
+      FolioAccentColorMode.custom => 'custom',
+    };
     return ThemeConfig.fallbackDefault(
       id: activeThemeId,
       seedArgb: seedArgb,
       oled: appSettings.oledThemeEnabled,
+      accentMode: accentMode,
     );
   }
 

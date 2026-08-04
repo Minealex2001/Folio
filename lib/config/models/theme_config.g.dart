@@ -24,6 +24,7 @@ ThemeConfig _$ThemeConfigFromJson(Map<String, dynamic> json) => ThemeConfig(
   motion: ThemeMotionTokens.fromJson(json['motion'] as Map<String, dynamic>),
   icons: ThemeIconTokens.fromJson(json['icons'] as Map<String, dynamic>),
   surfaceOpacity: (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
+  accentMode: json['accentMode'] as String? ?? 'followSystem',
 );
 
 Map<String, dynamic> _$ThemeConfigToJson(ThemeConfig instance) =>
@@ -31,6 +32,7 @@ Map<String, dynamic> _$ThemeConfigToJson(ThemeConfig instance) =>
       'schemaVersion': instance.schemaVersion,
       'id': instance.id,
       'name': instance.name,
+      'accentMode': instance.accentMode,
       'light': instance.light.toJson(),
       'dark': instance.dark.toJson(),
       'typography': instance.typography.toJson(),
