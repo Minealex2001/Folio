@@ -5149,5 +5149,51 @@
   "aiGeneratedImageInsertedSnackbar": "Imagen insertada en la página",
   "aiGeneratedImageLoadError": "No se pudo cargar la imagen",
   "aiImageGenerationUnsupportedProvider": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI.",
-  "aiGenerateImagePromptRequired": "Escribe una descripción antes de generar."
+  "aiGenerateImagePromptRequired": "Escribe una descripción antes de generar.",
+  "settingsSectionOrganization": "Equipos",
+  "settingsOrganizationHeroSubtitle": "Equipos y organizaciones",
+  "orgPanelIntro": "Crea un equipo para compartir biblioteca, tinta IA y facturación con otras personas.",
+  "orgPanelActiveOrgLabel": "Organización activa",
+  "orgPanelPersonalOrgLabel": "{name} (personal)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "Nombre del equipo nuevo",
+  "orgPanelCreateTeamButton": "Crear equipo",
+  "orgPanelBillingTitle": "Facturación",
+  "orgPanelSubscribeButton": "Suscribir plan de equipo",
+  "orgPanelManageBillingButton": "Gestionar facturación",
+  "orgPanelMembersTitle": "Miembros",
+  "orgPanelRemoveMemberTooltip": "Quitar",
+  "orgPanelInviteTitle": "Invitar por email",
+  "orgPanelEmailLabel": "Correo",
+  "orgPanelInviteButton": "Invitar",
+  "orgPanelPendingInvitationsTitle": "Invitaciones pendientes",
+  "orgPanelRevokeTooltip": "Revocar",
+  "orgPanelActivityTitle": "Actividad reciente",
+  "orgPanelPersonalOrgHint": "Esta es tu organización personal. Selecciona un equipo arriba o crea uno nuevo.",
+  "orgPanelInkCardTitle": "Tinta IA del equipo",
+  "orgPanelInkCardDetail": "{total} disponibles ({monthly} mensual + {purchased} comprada)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Ponle un nombre al equipo",
+  "orgPanelInvalidEmailError": "Introduce un correo válido",
+  "orgPanelStripeNoUrlError": "Stripe no devolvió una URL",
+  "orgPanelCheckoutLaunchError": "No se pudo abrir el enlace de pago",
+  "orgPanelPortalLaunchError": "No se pudo abrir el portal de facturación"
 }

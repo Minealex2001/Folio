@@ -892,9 +892,9 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
       if (_organizationContext != null)
-        const _SettingsSectionNavItem(
+        _SettingsSectionNavItem(
           id: _SettingsSectionId.organization,
-          label: 'Equipos',
+          label: l10n.settingsSectionOrganization,
         ),
     ];
     return AnimatedBuilder(

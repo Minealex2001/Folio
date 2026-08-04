@@ -5111,5 +5111,51 @@
   "spotifyNowPlayingShuffle": "Aleatorio",
   "spotifyNowPlayingRepeat": "Repetir",
   "spotifyNowPlayingContext": "Reproduciendo desde",
-  "spotifyNowPlayingCloseOverlay": "Cerrar reprodutor"
+  "spotifyNowPlayingCloseOverlay": "Cerrar reprodutor",
+  "settingsSectionOrganization": "Equipos",
+  "settingsOrganizationHeroSubtitle": "Equipos e organizacións",
+  "orgPanelIntro": "Crea un equipo para compartir a biblioteca, a tinta de IA e a facturación con outras persoas.",
+  "orgPanelActiveOrgLabel": "Organización activa",
+  "orgPanelPersonalOrgLabel": "{name} (persoal)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "Nome do equipo novo",
+  "orgPanelCreateTeamButton": "Crear equipo",
+  "orgPanelBillingTitle": "Facturación",
+  "orgPanelSubscribeButton": "Subscribirse ao plan de equipo",
+  "orgPanelManageBillingButton": "Xestionar a facturación",
+  "orgPanelMembersTitle": "Membros",
+  "orgPanelRemoveMemberTooltip": "Quitar",
+  "orgPanelInviteTitle": "Convidar por correo",
+  "orgPanelEmailLabel": "Correo",
+  "orgPanelInviteButton": "Convidar",
+  "orgPanelPendingInvitationsTitle": "Invitacións pendentes",
+  "orgPanelRevokeTooltip": "Revogar",
+  "orgPanelActivityTitle": "Actividade recente",
+  "orgPanelPersonalOrgHint": "Esta é a túa organización persoal. Selecciona un equipo arriba ou crea un novo.",
+  "orgPanelInkCardTitle": "Tinta de IA do equipo",
+  "orgPanelInkCardDetail": "{total} dispoñibles ({monthly} mensual + {purchased} comprada)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Pon un nome ao equipo",
+  "orgPanelInvalidEmailError": "Introduce un correo válido",
+  "orgPanelStripeNoUrlError": "Stripe non devolveu unha URL",
+  "orgPanelCheckoutLaunchError": "Non se puido abrir a ligazón de pago",
+  "orgPanelPortalLaunchError": "Non se puido abrir o portal de facturación"
 }

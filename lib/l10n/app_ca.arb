@@ -5151,5 +5151,51 @@
   "aiGeneratedImageInsertedSnackbar": "Imatge inserida amb èxit",
   "aiGeneratedImageLoadError": "Error en carregar la imatge generada",
   "aiImageGenerationUnsupportedProvider": "El proveïdor d'IA actual no admet la generació d'imatges",
-  "aiGenerateImagePromptRequired": "Heu d'introduir una descripció"
+  "aiGenerateImagePromptRequired": "Heu d'introduir una descripció",
+  "settingsSectionOrganization": "Equips",
+  "settingsOrganizationHeroSubtitle": "Equips i organitzacions",
+  "orgPanelIntro": "Crea un equip per compartir la biblioteca, la tinta d'IA i la facturació amb altres persones.",
+  "orgPanelActiveOrgLabel": "Organització activa",
+  "orgPanelPersonalOrgLabel": "{name} (personal)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "Nom de l'equip nou",
+  "orgPanelCreateTeamButton": "Crear equip",
+  "orgPanelBillingTitle": "Facturació",
+  "orgPanelSubscribeButton": "Subscriure's al pla d'equip",
+  "orgPanelManageBillingButton": "Gestionar la facturació",
+  "orgPanelMembersTitle": "Membres",
+  "orgPanelRemoveMemberTooltip": "Treure",
+  "orgPanelInviteTitle": "Convidar per correu",
+  "orgPanelEmailLabel": "Correu electrònic",
+  "orgPanelInviteButton": "Convidar",
+  "orgPanelPendingInvitationsTitle": "Invitacions pendents",
+  "orgPanelRevokeTooltip": "Revocar",
+  "orgPanelActivityTitle": "Activitat recent",
+  "orgPanelPersonalOrgHint": "Aquesta és la teva organització personal. Selecciona un equip a dalt o crea'n un de nou.",
+  "orgPanelInkCardTitle": "Tinta d'IA de l'equip",
+  "orgPanelInkCardDetail": "{total} disponibles ({monthly} mensual + {purchased} comprada)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Posa un nom a l'equip",
+  "orgPanelInvalidEmailError": "Introdueix un correu vàlid",
+  "orgPanelStripeNoUrlError": "Stripe no ha retornat cap URL",
+  "orgPanelCheckoutLaunchError": "No s'ha pogut obrir l'enllaç de pagament",
+  "orgPanelPortalLaunchError": "No s'ha pogut obrir el portal de facturació"
 }

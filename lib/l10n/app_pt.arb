@@ -5106,5 +5106,51 @@
   "spotifyNowPlayingShuffle": "Aleatório",
   "spotifyNowPlayingRepeat": "Repetir",
   "spotifyNowPlayingContext": "A reproduzir de",
-  "spotifyNowPlayingCloseOverlay": "Fechar leitor"
+  "spotifyNowPlayingCloseOverlay": "Fechar leitor",
+  "settingsSectionOrganization": "Equipas",
+  "settingsOrganizationHeroSubtitle": "Equipas e organizações",
+  "orgPanelIntro": "Crie uma equipa para partilhar a biblioteca, a tinta de IA e a cobrança com outras pessoas.",
+  "orgPanelActiveOrgLabel": "Organização ativa",
+  "orgPanelPersonalOrgLabel": "{name} (pessoal)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "Nome da nova equipa",
+  "orgPanelCreateTeamButton": "Criar equipa",
+  "orgPanelBillingTitle": "Cobrança",
+  "orgPanelSubscribeButton": "Assinar plano de equipa",
+  "orgPanelManageBillingButton": "Gerir cobrança",
+  "orgPanelMembersTitle": "Membros",
+  "orgPanelRemoveMemberTooltip": "Remover",
+  "orgPanelInviteTitle": "Convidar por e-mail",
+  "orgPanelEmailLabel": "E-mail",
+  "orgPanelInviteButton": "Convidar",
+  "orgPanelPendingInvitationsTitle": "Convites pendentes",
+  "orgPanelRevokeTooltip": "Revogar",
+  "orgPanelActivityTitle": "Atividade recente",
+  "orgPanelPersonalOrgHint": "Esta é a sua organização pessoal. Selecione uma equipa acima ou crie uma nova.",
+  "orgPanelInkCardTitle": "Tinta de IA da equipa",
+  "orgPanelInkCardDetail": "{total} disponíveis ({monthly} mensal + {purchased} comprada)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Dê um nome à equipa",
+  "orgPanelInvalidEmailError": "Introduza um e-mail válido",
+  "orgPanelStripeNoUrlError": "O Stripe não devolveu um URL",
+  "orgPanelCheckoutLaunchError": "Não foi possível abrir o link de pagamento",
+  "orgPanelPortalLaunchError": "Não foi possível abrir o portal de cobrança"
 }

@@ -277,7 +277,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
       case _SettingsSectionId.organization:
         icon = Icons.groups_outlined;
         gradientColors = const [Color(0xFF66BB6A), Color(0xFF2E7D32)];
-        subtitle = 'Equipos y organizaciones';
+        subtitle = widget.l10n.settingsOrganizationHeroSubtitle;
         break;
     }
 

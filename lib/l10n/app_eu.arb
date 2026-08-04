@@ -5106,5 +5106,51 @@
   "spotifyNowPlayingShuffle": "Ausazkoa",
   "spotifyNowPlayingRepeat": "Errepikatu",
   "spotifyNowPlayingContext": "Hemetik erreproduzitzen:",
-  "spotifyNowPlayingCloseOverlay": "Itxi erreproduzitzailea"
+  "spotifyNowPlayingCloseOverlay": "Itxi erreproduzitzailea",
+  "settingsSectionOrganization": "Taldeak",
+  "settingsOrganizationHeroSubtitle": "Taldeak eta erakundeak",
+  "orgPanelIntro": "Sortu talde bat liburutegia, IA tinta eta fakturazioa besteekin partekatzeko.",
+  "orgPanelActiveOrgLabel": "Erakunde aktiboa",
+  "orgPanelPersonalOrgLabel": "{name} (pertsonala)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "Talde berriaren izena",
+  "orgPanelCreateTeamButton": "Sortu taldea",
+  "orgPanelBillingTitle": "Fakturazioa",
+  "orgPanelSubscribeButton": "Harpidetu talde planera",
+  "orgPanelManageBillingButton": "Kudeatu fakturazioa",
+  "orgPanelMembersTitle": "Kideak",
+  "orgPanelRemoveMemberTooltip": "Kendu",
+  "orgPanelInviteTitle": "Gonbidatu emailez",
+  "orgPanelEmailLabel": "Posta elektronikoa",
+  "orgPanelInviteButton": "Gonbidatu",
+  "orgPanelPendingInvitationsTitle": "Gonbidapen pendienteak",
+  "orgPanelRevokeTooltip": "Baliogabetu",
+  "orgPanelActivityTitle": "Azken jarduera",
+  "orgPanelPersonalOrgHint": "Hau zure erakunde pertsonala da. Aukeratu talde bat goian edo sortu berri bat.",
+  "orgPanelInkCardTitle": "Taldearen IA tinta",
+  "orgPanelInkCardDetail": "{total} eskuragarri ({monthly} hilabetekoa + {purchased} erosia)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Jarri izen bat taldeari",
+  "orgPanelInvalidEmailError": "Sartu baliozko emaila",
+  "orgPanelStripeNoUrlError": "Stripek ez du URLrik itzuli",
+  "orgPanelCheckoutLaunchError": "Ezin izan da ordainketa esteka ireki",
+  "orgPanelPortalLaunchError": "Ezin izan da fakturazio ataria ireki"
 }

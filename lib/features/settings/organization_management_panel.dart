@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/organization_context_controller.dart';
 import '../../services/folio_cloud/folio_cloud_organizations.dart';
 
@@ -110,9 +111,10 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
   }
 
   Future<void> _createTeam() async {
+    final l10n = AppLocalizations.of(context);
     await _run(() async {
       final name = _createNameCtrl.text.trim();
-      if (name.isEmpty) throw StateError('Ponle un nombre al equipo');
+      if (name.isEmpty) throw StateError(l10n.orgPanelNameRequiredError);
       final org = await createOrganization(name: name);
       _createNameCtrl.clear();
       await widget.controller.refresh();
@@ -123,10 +125,11 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
   Future<void> _invite() async {
     final orgId = widget.controller.activeOrganizationId;
     if (orgId == null) return;
+    final l10n = AppLocalizations.of(context);
     await _run(() async {
       final email = _inviteEmailCtrl.text.trim();
       if (email.isEmpty || !email.contains('@')) {
-        throw StateError('Introduce un correo válido');
+        throw StateError(l10n.orgPanelInvalidEmailError);
       }
       await inviteOrganizationMember(orgId: orgId, email: email, role: _inviteRole);
       _inviteEmailCtrl.clear();
@@ -167,29 +170,32 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
   Future<void> _openCheckout() async {
     final orgId = widget.controller.activeOrganizationId;
     if (orgId == null) return;
+    final l10n = AppLocalizations.of(context);
     await _run(() async {
       final result = await createOrganizationCheckoutSession(orgId);
       final url = result['url'];
-      if (url == null || url.isEmpty) throw StateError('Stripe no devolvió una URL');
+      if (url == null || url.isEmpty) throw StateError(l10n.orgPanelStripeNoUrlError);
       final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!ok) throw StateError('No se pudo abrir el enlace de pago');
+      if (!ok) throw StateError(l10n.orgPanelCheckoutLaunchError);
     });
   }
 
   Future<void> _openBillingPortal() async {
     final orgId = widget.controller.activeOrganizationId;
     if (orgId == null) return;
+    final l10n = AppLocalizations.of(context);
     await _run(() async {
       final result = await createOrganizationPortalSession(orgId);
       final url = result['url'];
-      if (url == null || url.isEmpty) throw StateError('Stripe no devolvió una URL');
+      if (url == null || url.isEmpty) throw StateError(l10n.orgPanelStripeNoUrlError);
       final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!ok) throw StateError('No se pudo abrir el portal de facturación');
+      if (!ok) throw StateError(l10n.orgPanelPortalLaunchError);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final controller = widget.controller;
     final orgs = controller.organizations;
@@ -200,10 +206,10 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Equipos', style: Theme.of(context).textTheme.titleLarge),
+        Text(l10n.settingsSectionOrganization, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: FolioSpace.xs),
         Text(
-          'Crea un equipo para compartir biblioteca, tinta IA y facturación con otras personas.',
+          l10n.orgPanelIntro,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         if (_error != null) ...[
@@ -220,15 +226,15 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
           if (orgs.isNotEmpty)
             DropdownButtonFormField<String>(
               initialValue: controller.activeOrganizationId,
-              decoration: const InputDecoration(
-                labelText: 'Organización activa',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.orgPanelActiveOrgLabel,
+                border: const OutlineInputBorder(),
               ),
               items: [
                 for (final org in orgs)
                   DropdownMenuItem(
                     value: org.id,
-                    child: Text(org.isPersonal ? '${org.name} (personal)' : org.name),
+                    child: Text(org.isPersonal ? l10n.orgPanelPersonalOrgLabel(org.name) : org.name),
                   ),
               ],
               onChanged: _busy ? null : _selectOrganization,
@@ -239,16 +245,16 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
               Expanded(
                 child: TextField(
                   controller: _createNameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre del equipo nuevo',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.orgPanelNewTeamNameLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
               const SizedBox(width: FolioSpace.sm),
               FilledButton(
                 onPressed: _busy ? null : _createTeam,
-                child: const Text('Crear equipo'),
+                child: Text(l10n.orgPanelCreateTeamButton),
               ),
             ],
           ),
@@ -264,7 +270,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                 const SizedBox(height: FolioSpace.md),
               ],
               if (isOwnerOrAdmin) ...[
-                Text('Facturación', style: Theme.of(context).textTheme.titleMedium),
+                Text(l10n.orgPanelBillingTitle, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: FolioSpace.sm),
                 Wrap(
                   spacing: FolioSpace.sm,
@@ -272,17 +278,17 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                   children: [
                     FilledButton.tonal(
                       onPressed: _busy ? null : _openCheckout,
-                      child: const Text('Suscribir plan de equipo'),
+                      child: Text(l10n.orgPanelSubscribeButton),
                     ),
                     OutlinedButton(
                       onPressed: _busy ? null : _openBillingPortal,
-                      child: const Text('Gestionar facturación'),
+                      child: Text(l10n.orgPanelManageBillingButton),
                     ),
                   ],
                 ),
                 const SizedBox(height: FolioSpace.lg),
               ],
-              Text('Miembros', style: Theme.of(context).textTheme.titleMedium),
+              Text(l10n.orgPanelMembersTitle, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: FolioSpace.sm),
               for (final m in _members)
                 ListTile(
@@ -303,7 +309,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                               onChanged: _busy ? null : (r) => r == null ? null : _changeRole(m.id, r),
                             ),
                             IconButton(
-                              tooltip: 'Quitar',
+                              tooltip: l10n.orgPanelRemoveMemberTooltip,
                               onPressed: _busy ? null : () => _removeMember(m.id),
                               icon: const Icon(Icons.person_remove_outlined),
                             ),
@@ -313,7 +319,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                 ),
               if (isOwnerOrAdmin) ...[
                 const SizedBox(height: FolioSpace.md),
-                Text('Invitar por email', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.orgPanelInviteTitle, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: FolioSpace.sm),
                 Row(
                   children: [
@@ -321,9 +327,9 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                       child: TextField(
                         controller: _inviteEmailCtrl,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Correo',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.orgPanelEmailLabel,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -338,13 +344,13 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                     const SizedBox(width: FolioSpace.sm),
                     FilledButton.tonal(
                       onPressed: _busy ? null : _invite,
-                      child: const Text('Invitar'),
+                      child: Text(l10n.orgPanelInviteButton),
                     ),
                   ],
                 ),
                 if (_invitations.isNotEmpty) ...[
                   const SizedBox(height: FolioSpace.md),
-                  Text('Invitaciones pendientes', style: Theme.of(context).textTheme.titleSmall),
+                  Text(l10n.orgPanelPendingInvitationsTitle, style: Theme.of(context).textTheme.titleSmall),
                   for (final inv in _invitations)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -352,7 +358,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
                       subtitle: Text('${inv.role} · ${inv.status}'),
                       trailing: inv.status == 'PENDING'
                           ? IconButton(
-                              tooltip: 'Revocar',
+                              tooltip: l10n.orgPanelRevokeTooltip,
                               onPressed: _busy ? null : () => _revokeInvitation(inv.id),
                               icon: const Icon(Icons.cancel_outlined),
                             )
@@ -362,7 +368,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
               ],
               if (_activity.isNotEmpty) ...[
                 const SizedBox(height: FolioSpace.md),
-                Text('Actividad reciente', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.orgPanelActivityTitle, style: Theme.of(context).textTheme.titleSmall),
                 for (final a in _activity.take(20))
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -373,7 +379,7 @@ class _OrganizationManagementPanelState extends State<OrganizationManagementPane
               ],
             ] else
               Text(
-                'Esta es tu organización personal. Selecciona un equipo arriba o crea uno nuevo.',
+                l10n.orgPanelPersonalOrgHint,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               ),
           ],
@@ -393,6 +399,7 @@ class _OrganizationInkBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(FolioSpace.md),
       decoration: BoxDecoration(
@@ -407,9 +414,9 @@ class _OrganizationInkBalanceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tinta IA del equipo', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.orgPanelInkCardTitle, style: Theme.of(context).textTheme.titleSmall),
                 Text(
-                  '${ink.total} disponibles (${ink.monthlyBalance} mensual + ${ink.purchasedBalance} comprada)',
+                  l10n.orgPanelInkCardDetail(ink.total, ink.monthlyBalance, ink.purchasedBalance),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],

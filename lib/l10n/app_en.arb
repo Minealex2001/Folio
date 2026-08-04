@@ -5152,5 +5152,51 @@
   "aiGeneratedImageInsertedSnackbar": "Image inserted into the page",
   "aiGeneratedImageLoadError": "Could not load the image",
   "aiImageGenerationUnsupportedProvider": "This provider does not support image generation; use Quill Cloud or configure a BYOK/local OpenAI-compatible provider.",
-  "aiGenerateImagePromptRequired": "Write a description before generating."
+  "aiGenerateImagePromptRequired": "Write a description before generating.",
+  "settingsSectionOrganization": "Teams",
+  "settingsOrganizationHeroSubtitle": "Teams and organizations",
+  "orgPanelIntro": "Create a team to share your library, AI ink, and billing with others.",
+  "orgPanelActiveOrgLabel": "Active organization",
+  "orgPanelPersonalOrgLabel": "{name} (personal)",
+  "@orgPanelPersonalOrgLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelNewTeamNameLabel": "New team name",
+  "orgPanelCreateTeamButton": "Create team",
+  "orgPanelBillingTitle": "Billing",
+  "orgPanelSubscribeButton": "Subscribe to team plan",
+  "orgPanelManageBillingButton": "Manage billing",
+  "orgPanelMembersTitle": "Members",
+  "orgPanelRemoveMemberTooltip": "Remove",
+  "orgPanelInviteTitle": "Invite by email",
+  "orgPanelEmailLabel": "Email",
+  "orgPanelInviteButton": "Invite",
+  "orgPanelPendingInvitationsTitle": "Pending invitations",
+  "orgPanelRevokeTooltip": "Revoke",
+  "orgPanelActivityTitle": "Recent activity",
+  "orgPanelPersonalOrgHint": "This is your personal organization. Select a team above or create a new one.",
+  "orgPanelInkCardTitle": "Team AI ink",
+  "orgPanelInkCardDetail": "{total} available ({monthly} monthly + {purchased} purchased)",
+  "@orgPanelInkCardDetail": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "monthly": {
+        "type": "int"
+      },
+      "purchased": {
+        "type": "int"
+      }
+    }
+  },
+  "orgPanelNameRequiredError": "Give the team a name",
+  "orgPanelInvalidEmailError": "Enter a valid email",
+  "orgPanelStripeNoUrlError": "Stripe didn't return a URL",
+  "orgPanelCheckoutLaunchError": "Couldn't open the payment link",
+  "orgPanelPortalLaunchError": "Couldn't open the billing portal"
 }

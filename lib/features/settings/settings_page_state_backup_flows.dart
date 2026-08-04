@@ -579,7 +579,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
       case _SettingsSectionId.admin:
         return l10n.settingsAdminSectionTitle;
       case _SettingsSectionId.organization:
-        return 'Equipos';
+        return l10n.settingsSectionOrganization;
     }
   }
 
