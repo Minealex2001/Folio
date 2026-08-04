@@ -52,22 +52,15 @@ CanvasSnapResult snapNodeMove({
     if (excludeIds.contains(o.id)) continue;
     if (!o.visible) continue;
     final or = Rect.fromLTWH(o.x, o.y, o.width, o.height);
-    final targetsX = <double>[
-      or.left,
-      or.center.dx,
-      or.right,
-      left,
-      cx,
-      right,
-    ];
-    final targetsY = <double>[
-      or.top,
-      or.center.dy,
-      or.bottom,
-      top,
-      cy,
-      bottom,
-    ];
+    // Solo los bordes/centro del OTRO nodo son targets válidos. Incluir
+    // también los del propio `node` (como hacía esta lista antes) los
+    // comparaba contra sí mismo más abajo (`vx in [left, cx, right]`),
+    // dando siempre distancia 0 — que por ser la mínima posible siempre
+    // "ganaba" y anulaba cualquier snap real a un nodo vecino encontrado
+    // antes en el mismo loop. Bug: el snap a bordes/centro de otros nodos
+    // nunca se aplicaba, solo el redondeo a grid sobrevivía.
+    final targetsX = <double>[or.left, or.center.dx, or.right];
+    final targetsY = <double>[or.top, or.center.dy, or.bottom];
     for (final tx in targetsX) {
       for (final vx in [left, cx, right]) {
         final d = tx - vx;
