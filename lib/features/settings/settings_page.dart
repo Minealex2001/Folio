@@ -13,6 +13,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../config/models/panel_region_ids.dart';
+import '../../layout_engine/layout_engine_controller.dart';
 import '../../services/integrations/integrations_bridge.dart'
     show IntegrationsLaunchSession;
 import '../../services/mcp/folio_mcp_server.dart';
@@ -130,6 +132,7 @@ part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
 part 'settings_page_section_meeting_note.dart';
 part 'settings_page_section_organization.dart';
+part 'settings_page_section_personalization.dart';
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -168,6 +171,7 @@ class SettingsPage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.layoutEngineController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -181,6 +185,7 @@ class SettingsPage extends StatefulWidget {
 
   final VaultSession session;
   final AppSettings appSettings;
+  final LayoutEngineController layoutEngineController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -204,6 +209,7 @@ class _SettingsPageState extends State<SettingsPage> {
   static const _idleOptions = <int>[1, 5, 10, 15, 30, 60];
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
+  LayoutEngineController get _layoutEngine => widget.layoutEngineController;
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
@@ -871,6 +877,12 @@ class _SettingsPageState extends State<SettingsPage> {
           id: _SettingsSectionId.organization,
           label: l10n.settingsSectionOrganization,
         ),
+      const _SettingsSectionNavItem(
+        id: _SettingsSectionId.personalization,
+        // Beta: sin l10n todavía, mismo patrón que 'Consola de
+        // administración' más arriba en este archivo.
+        label: 'Personalización (beta)',
+      ),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -4939,6 +4951,11 @@ class _SettingsPageState extends State<SettingsPage> {
                               scheme: scheme,
                               activeSection: activeSection,
                             ),
+
+                          _buildPersonalizationSection(
+                            scheme: scheme,
+                            activeSection: activeSection,
+                          ),
 
                           Visibility(
                               visible: activeSection == _SettingsSectionId.integrations,

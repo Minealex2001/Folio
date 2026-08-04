@@ -3,9 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:folio/app/app_settings.dart';
+import 'package:folio/config/config_store.dart';
+import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/data/vault_paths.dart';
 import 'package:folio/features/settings/settings_page.dart';
 import 'package:folio/l10n/generated/app_localizations.dart';
+import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
@@ -23,9 +26,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     VaultPaths.setActiveVaultId('smoke-test-vault');
     final appSettings = AppSettings();
+    final configStore = await ConfigStore.open();
     return SettingsPage(
       session: VaultSession(),
       appSettings: appSettings,
+      layoutEngineController: LayoutEngineController(
+        configStore,
+        initialConfig: LayoutConfig.defaultConfig(),
+      ),
       deviceSyncController: DeviceSyncController(appSettings: appSettings),
       cloudAccountController: CloudAccountController(),
       folioCloudEntitlements: FolioCloudEntitlementsController(),

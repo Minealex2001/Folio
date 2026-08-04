@@ -40,6 +40,8 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.extension_outlined;
       case _SettingsSectionId.organization:
         return Icons.groups_outlined;
+      case _SettingsSectionId.personalization:
+        return Icons.dashboard_customize_outlined;
     }
   }
 
@@ -271,6 +273,11 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.groups_outlined;
         gradientColors = const [Color(0xFF66BB6A), Color(0xFF2E7D32)];
         subtitle = widget.l10n.settingsOrganizationHeroSubtitle;
+        break;
+      case _SettingsSectionId.personalization:
+        icon = Icons.dashboard_customize_outlined;
+        gradientColors = const [Color(0xFF8D6E63), Color(0xFF5D4037)];
+        subtitle = 'Motor de layout, tema y dashboard (beta)';
         break;
     }
 

@@ -1878,6 +1878,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       home: _HomeByState(
         session: widget.session,
         appSettings: widget.appSettings,
+        layoutEngineController: widget.layoutEngineController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
@@ -2870,6 +2871,7 @@ class _HomeByState extends StatelessWidget {
   const _HomeByState({
     required this.session,
     required this.appSettings,
+    required this.layoutEngineController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -2883,6 +2885,7 @@ class _HomeByState extends StatelessWidget {
 
   final VaultSession session;
   final AppSettings appSettings;
+  final LayoutEngineController layoutEngineController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -2927,6 +2930,7 @@ class _HomeByState extends StatelessWidget {
         return WorkspacePage(
           session: session,
           appSettings: appSettings,
+          layoutEngineController: layoutEngineController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,

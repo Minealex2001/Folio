@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
@@ -108,6 +109,7 @@ class WorkspacePage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.layoutEngineController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -121,6 +123,7 @@ class WorkspacePage extends StatefulWidget {
 
   final VaultSession session;
   final AppSettings appSettings;
+  final LayoutEngineController layoutEngineController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -1786,6 +1789,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         builder: (ctx) => SettingsPage(
           session: _s,
           appSettings: widget.appSettings,
+          layoutEngineController: widget.layoutEngineController,
           deviceSyncController: widget.deviceSyncController,
           cloudSettingsSyncController: widget.cloudSettingsSyncController,
           cloudDeviceSyncController: widget.cloudDeviceSyncController,
