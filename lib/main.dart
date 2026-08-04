@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
+import 'config/config_bootstrap.dart';
+import 'config/config_store.dart';
 import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
@@ -183,6 +185,23 @@ Future<void> main(List<String> args) async {
         } catch (_) {}
       }
 
+      // Sistema de personalización de UI (Fase 1): igual que AppSettings
+      // arriba, un fallo aquí no debe bloquear runApp() — degrada a un
+      // ConfigStore vacío (sin migración) en vez de tumbar el arranque.
+      ConfigStore configStore;
+      try {
+        configStore = await ConfigStore.open();
+        await ConfigBootstrap.migrateLegacyAppSettings(appSettings, configStore);
+      } catch (e, st) {
+        AppLogger.error(
+          'Config store bootstrap/migration failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        configStore = await ConfigStore.open();
+      }
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);
@@ -210,6 +229,7 @@ Future<void> main(List<String> args) async {
           session: session,
           appSettings: appSettings,
           cloudAccountController: cloudAccountController,
+          configStore: configStore,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

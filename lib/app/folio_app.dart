@@ -11,6 +11,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/config_store.dart';
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
 import 'widgets/folio_dialog.dart';
@@ -76,6 +77,7 @@ class FolioApp extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.cloudAccountController,
+    required this.configStore,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -84,6 +86,11 @@ class FolioApp extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
+
+  /// Sistema de personalización de UI (Fase 1 del plan): persistencia de
+  /// LayoutConfig/ThemeConfig/DashboardConfig. Todavía no conectado al
+  /// render del shell/tema — eso llega en las Fases 2/3.
+  final ConfigStore configStore;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
