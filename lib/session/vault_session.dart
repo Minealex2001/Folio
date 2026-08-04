@@ -76,6 +76,7 @@ import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
+import '../services/folio_cloud/folio_cloud_organizations.dart';
 import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
@@ -1835,24 +1836,48 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Añade una libreta vacía y pasa a onboarding (el usuario debe completar contraseña o import).
-  Future<void> prepareNewVault() async {
+  ///
+  /// En contexto de equipo crea un [OrganizationWorkspace] y una libreta local
+  /// ligada a ese workspace.
+  Future<void> prepareNewVault({
+    String? organizationId,
+    String? accountUid,
+  }) async {
     await _registry.load();
     final current = VaultPaths.activeVaultId;
-    if (current == null) {
-      throw StateError('No hay libreta activa');
-    }
+    // Permitir crear la primera libreta de un equipo vacío (sin libreta activa).
     _resumeVaultIdAfterNewVault = current;
-    final newId = _uuid.v4();
+
+    final orgId = organizationId ?? _registry.boundOrganizationId;
+    final accUid = accountUid ?? _registry.boundAccountUid;
+    String newId;
+    String displayName;
+    final ordinal = _registry.vaults.length + 1;
+    displayName = 'Libreta $ordinal';
+
+    if (orgId != null && orgId.isNotEmpty) {
+      final ws = await createOrganizationWorkspace(
+        orgId: orgId,
+        name: displayName,
+      );
+      newId = ws.id;
+      displayName = ws.name;
+    } else {
+      newId = _uuid.v4();
+    }
+
     await VaultPaths.initVaultStorage(newId);
     if (!kIsWeb) {
       await VaultPaths.vaultDirectoryForId(newId);
     }
-    final ordinal = _registry.vaults.length + 1;
     await _registry.add(
       VaultEntry(
         id: newId,
-        displayName: 'Libreta $ordinal',
+        displayName: displayName,
         createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        accountUid: accUid,
+        organizationId: orgId,
+        workspaceId: orgId != null ? newId : null,
       ),
     );
     VaultPaths.setActiveVaultId(newId);

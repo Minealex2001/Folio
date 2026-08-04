@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,9 +24,14 @@ class OrganizationContextController extends ChangeNotifier {
     _account.addListener(_onAccountChanged);
   }
 
-  static const _kActiveOrgIdKey = 'folio_active_organization_id_v1';
+  static const _kActiveOrgIdKeyPrefix = 'folio_active_organization_id_v1';
 
   final CloudAccountController _account;
+
+  String get _activeOrgKey {
+    final uid = _account.uid ?? '_none';
+    return '${_kActiveOrgIdKeyPrefix}_$uid';
+  }
 
   List<OrganizationSummary> _organizations = const [];
   String? _activeOrganizationId;
@@ -63,6 +70,11 @@ class OrganizationContextController extends ChangeNotifier {
       _activeOrganizationId = null;
       _restoredForUid = null;
       notifyListeners();
+      return;
+    }
+    // Cambio de cuenta activa (multi-cuenta): recargar orgs de esa sesión.
+    if (_restoredForUid != _account.uid) {
+      unawaited(refresh());
     }
   }
 
@@ -105,17 +117,20 @@ class OrganizationContextController extends ChangeNotifier {
   Future<void> setActiveOrganizationId(String? id) async {
     _activeOrganizationId = id;
     final prefs = await SharedPreferences.getInstance();
+    final key = _activeOrgKey;
     if (id == null || id.isEmpty) {
-      await prefs.remove(_kActiveOrgIdKey);
+      await prefs.remove(key);
     } else {
-      await prefs.setString(_kActiveOrgIdKey, id);
+      await prefs.setString(key, id);
     }
     notifyListeners();
   }
 
   Future<void> _restoreActiveOrganizationId() async {
     final prefs = await SharedPreferences.getInstance();
-    _activeOrganizationId = prefs.getString(_kActiveOrgIdKey);
+    final key = _activeOrgKey;
+    _activeOrganizationId = prefs.getString(key) ??
+        prefs.getString('folio_active_organization_id_v1');
   }
 
   @override

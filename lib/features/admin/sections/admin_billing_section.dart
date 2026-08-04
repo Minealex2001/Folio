@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
 import '../../../services/admin/admin_billing_api.dart';
+import '../../../services/admin/admin_entitlements_api.dart';
 import '../widgets/admin_paginated_list.dart';
 
 class AdminBillingSection extends StatefulWidget {
@@ -13,9 +15,11 @@ class AdminBillingSection extends StatefulWidget {
 
 class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTickerProviderStateMixin {
   final _api = const AdminBillingApi();
+  final _entitlementsApi = const AdminEntitlementsApi();
   final _uidController = TextEditingController();
   late final TabController _tabController = TabController(length: 2, vsync: this);
   bool _loading = false;
+  bool _grantBusy = false;
   String? _error;
   Map<String, dynamic>? _billing;
 
@@ -46,6 +50,59 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
         _loading = false;
         _error = '$e';
       });
+    }
+  }
+
+  Future<void> _grantCloud() async {
+    final uid = _uidController.text.trim();
+    if (uid.isEmpty) return;
+    final ok = await FolioDialog.confirm(
+      context,
+      title: const Text('Conceder Cloud QA'),
+      content: Text('Activa admin_override de Folio Cloud para $uid.'),
+      confirmLabel: 'Conceder',
+    );
+    if (ok != true) return;
+    setState(() => _grantBusy = true);
+    try {
+      await _entitlementsApi.grantCloud(uid);
+      await _lookup();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud QA concedido')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _grantBusy = false);
+    }
+  }
+
+  Future<void> _revokeCloud() async {
+    final uid = _uidController.text.trim();
+    if (uid.isEmpty) return;
+    final ok = await FolioDialog.confirm(
+      context,
+      title: const Text('Revocar Cloud QA'),
+      content: Text('Quita admin_override de Folio Cloud para $uid.'),
+      confirmLabel: 'Revocar',
+      destructive: true,
+    );
+    if (ok != true) return;
+    setState(() => _grantBusy = true);
+    try {
+      await _entitlementsApi.revokeCloud(uid);
+      await _lookup();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud QA revocado')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _grantBusy = false);
     }
   }
 
@@ -112,6 +169,21 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
             Text('Folio Cloud', style: Theme.of(context).textTheme.titleSmall),
             Text('active: ${cloud['active']} · status: ${cloud['subscriptionStatus'] ?? '—'}'),
             Text('priceId: ${cloud['subscriptionPriceId'] ?? '—'} · family: ${cloud['family']} · student: ${cloud['student']} · adminOverride: ${cloud['adminOverride']}'),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: (_loading || _grantBusy) ? null : _grantCloud,
+                  child: const Text('Grant Cloud QA'),
+                ),
+                OutlinedButton(
+                  onPressed: (_loading || _grantBusy) ? null : _revokeCloud,
+                  child: const Text('Revoke'),
+                ),
+              ],
+            ),
             const Divider(height: 24),
             Text('Stripe', style: Theme.of(context).textTheme.titleSmall),
             Text('subscriptionId: ${stripe['subscriptionId'] ?? '—'} · priceId: ${stripe['priceId'] ?? '—'}'),

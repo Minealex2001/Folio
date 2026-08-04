@@ -5154,10 +5154,10 @@
   "aiImageGenerationUnsupportedProvider": "This provider does not support image generation; use Quill Cloud or configure a BYOK/local OpenAI-compatible provider.",
   "aiGenerateImagePromptRequired": "Write a description before generating.",
   "settingsSectionOrganization": "Teams",
-  "settingsOrganizationHeroSubtitle": "Teams and organizations",
-  "orgPanelIntro": "Create a team to share your library, AI ink, and billing with others.",
-  "orgPanelActiveOrgLabel": "Active organization",
-  "orgPanelPersonalOrgLabel": "{name} (personal)",
+  "settingsOrganizationHeroSubtitle": "Teams",
+  "orgPanelIntro": "Create a team to share notebooks, AI ink, and billing with other people.",
+  "orgPanelActiveOrgLabel": "Active team",
+  "orgPanelPersonalOrgLabel": "{name} (personal account)",
   "@orgPanelPersonalOrgLabel": {
     "placeholders": {
       "name": {
@@ -5178,7 +5178,7 @@
   "orgPanelPendingInvitationsTitle": "Pending invitations",
   "orgPanelRevokeTooltip": "Revoke",
   "orgPanelActivityTitle": "Recent activity",
-  "orgPanelPersonalOrgHint": "This is your personal organization. Select a team above or create a new one.",
+  "orgPanelPersonalOrgHint": "This is your personal account. Select a team above or create a new one to share notebooks.",
   "orgPanelInkCardTitle": "Team AI ink",
   "orgPanelInkCardDetail": "{total} available ({monthly} monthly + {purchased} purchased)",
   "@orgPanelInkCardDetail": {
@@ -5199,6 +5199,82 @@
   "orgPanelStripeNoUrlError": "Stripe didn't return a URL",
   "orgPanelCheckoutLaunchError": "Couldn't open the payment link",
   "orgPanelPortalLaunchError": "Couldn't open the billing portal",
-  "orgSwitcherTooltip": "Switch organization",
-  "orgSwitcherManageTeams": "Manage teams"
+  "orgSwitcherTooltip": "Switch team",
+  "orgSwitcherManageTeams": "Manage teams",
+  "orgPanelActiveTeamLabel": "Active team",
+  "orgPanelPersonalAccountLabel": "{name} (personal account)",
+  "@orgPanelPersonalAccountLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelRoleOwner": "Owner",
+  "orgPanelRoleAdmin": "Admin",
+  "orgPanelRoleMember": "Member",
+  "orgPanelRoleGuest": "Guest",
+  "orgPanelStatusActive": "Active",
+  "orgPanelStatusPending": "Pending",
+  "orgPanelStatusRemoved": "Removed",
+  "orgPanelStatusAccepted": "Accepted",
+  "orgPanelStatusExpired": "Expired",
+  "orgPanelStatusRevoked": "Revoked",
+  "orgPanelBillingStatusLine": "Plan: {plan} · Status: {status} · Seats: {seats}",
+  "@orgPanelBillingStatusLine": {
+    "placeholders": {
+      "plan": { "type": "String" },
+      "status": { "type": "String" },
+      "seats": { "type": "int" }
+    }
+  },
+  "orgPanelBillingUnknown": "No team subscription yet",
+  "orgPanelRenameTeam": "Rename team",
+  "orgPanelLeaveTeam": "Leave team",
+  "orgPanelLeaveTeamConfirm": "Leave this team? You will lose access to its notebooks.",
+  "orgPanelRemoveMemberConfirm": "Remove this member from the team?",
+  "orgPanelYourRole": "Your role: {role}",
+  "@orgPanelYourRole": {
+    "placeholders": {
+      "role": { "type": "String" }
+    }
+  },
+  "orgPanelActivityOrganizationCreated": "Team created",
+  "orgPanelActivityOrganizationRenamed": "Team renamed",
+  "orgPanelActivitySettingsUpdated": "Team settings updated",
+  "orgPanelActivityMemberInvited": "Member invited",
+  "orgPanelActivityInviteRevoked": "Invitation revoked",
+  "orgPanelActivityMemberJoined": "Member joined",
+  "orgPanelActivityRoleChanged": "Role changed",
+  "orgPanelActivityMemberRemoved": "Member removed",
+  "orgPanelActivityMemberLeft": "Member left",
+  "orgPanelActivityWorkspaceCreated": "Notebook created",
+  "orgPanelActivityWorkspaceRenamed": "Notebook renamed",
+  "orgPanelActivityWorkspaceArchived": "Notebook archived",
+  "orgPanelActivityUnknown": "{eventType}",
+  "@orgPanelActivityUnknown": {
+    "placeholders": {
+      "eventType": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptTitle": "Team invitation",
+  "orgInviteAcceptBody": "{inviter} invited you to join {team} as {role}.",
+  "@orgInviteAcceptBody": {
+    "placeholders": {
+      "inviter": { "type": "String" },
+      "team": { "type": "String" },
+      "role": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptButton": "Accept invitation",
+  "orgInviteAcceptSuccess": "You joined the team",
+  "orgInviteTokenLabel": "Invitation token",
+  "cloudAccountSwitcherTooltip": "Switch Folio Cloud account",
+  "cloudAccountSwitcherAdd": "Add account",
+  "cloudAccountSwitcherRemove": "Remove this account",
+  "cloudAccountSwitcherRemoveTitle": "Remove account from this device?",
+  "cloudAccountSwitcherRemoveBody": "The account will be signed out here. Other accounts stay signed in. Local notebooks for this account remain on disk.",
+  "cloudAccountSwitcherFallback": "Folio Cloud account",
+  "cloudAccountAddAnotherHelp": "Sign in with another email without signing out here",
+  "cloudAccountCreateAnotherHelp": "Register a new account on this device"
 }

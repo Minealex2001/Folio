@@ -105,7 +105,6 @@ import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_import_all_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
-import '../../services/admin/folio_admin_api.dart';
 import '../../services/folio_diagnostic_reporter.dart';
 import '../../services/app_logger.dart';
 import '../../services/platform/browser_file_download.dart';
@@ -130,7 +129,6 @@ part 'settings_page_state_backup_security.dart';
 part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
 part 'settings_page_section_meeting_note.dart';
-part 'settings_page_section_admin.dart';
 part 'settings_page_section_organization.dart';
 
 String settingsCloudInkOperationLabel(
@@ -500,18 +498,6 @@ class _SettingsPageState extends State<SettingsPage> {
       TextEditingController();
   _SettingsSectionId? _selectedMobileSection;
 
-  final FolioAdminApi _adminApi = FolioAdminApi();
-  final TextEditingController _adminUserQueryController =
-      TextEditingController();
-  final TextEditingController _adminTemplateIdController =
-      TextEditingController();
-  var _adminReportsBusy = false;
-  String? _adminReportsError;
-  List<Map<String, dynamic>> _adminReports = const [];
-  var _adminLookupBusy = false;
-  String? _adminLookupError;
-  Map<String, dynamic>? _adminLookupSnapshot;
-
   var _quickEnabled = false;
   var _passkeyRegistered = false;
   int? _kdfProfile;
@@ -780,8 +766,6 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_onDeviceDownloadSub?.cancel() ?? Future.value());
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
-    _adminUserQueryController.dispose();
-    _adminTemplateIdController.dispose();
     _aiBaseUrlController.dispose();
     _aiApiKeyController.dispose();
     _aiTimeoutController.dispose();
@@ -882,15 +866,6 @@ class _SettingsPageState extends State<SettingsPage> {
           l10n.settingsTelemetryTitle,
         ],
       ),
-      if (_folio.snapshot.folioStaff)
-        _SettingsSectionNavItem(
-          id: _SettingsSectionId.admin,
-          label: l10n.settingsAdminSectionTitle,
-          searchExtra: [
-            l10n.settingsAdminReportsTitle,
-            l10n.settingsAdminUserTitle,
-          ],
-        ),
       if (_organizationContext != null)
         _SettingsSectionNavItem(
           id: _SettingsSectionId.organization,
@@ -1701,6 +1676,110 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ),
                                             const Divider(height: 1),
                                             accountCard,
+                                            if (_cloud.isSignedIn) ...[
+                                              _SettingsSubsectionTitle(
+                                                title: l10n
+                                                    .cloudAccountSwitcherFallback,
+                                                scheme: scheme,
+                                              ),
+                                              const Divider(height: 1),
+                                              for (final a in _cloud.accounts)
+                                                ListTile(
+                                                  leading: Icon(
+                                                    a.uid == _cloud.activeUid
+                                                        ? Icons
+                                                              .check_circle
+                                                        : Icons
+                                                              .account_circle_outlined,
+                                                    color: a.uid ==
+                                                            _cloud.activeUid
+                                                        ? scheme.primary
+                                                        : null,
+                                                  ),
+                                                  title: Text(
+                                                    a.email.isNotEmpty
+                                                        ? a.email
+                                                        : a.uid,
+                                                  ),
+                                                  subtitle: a.uid ==
+                                                          _cloud.activeUid
+                                                      ? Text(
+                                                          l10n
+                                                              .orgPanelStatusActive,
+                                                        )
+                                                      : null,
+                                                  onTap: a.uid ==
+                                                          _cloud.activeUid
+                                                      ? null
+                                                      : () {
+                                                          unawaited(
+                                                            _cloud
+                                                                .switchAccount(
+                                                              a.uid,
+                                                            ),
+                                                          );
+                                                        },
+                                                ),
+                                              ListTile(
+                                                leading: Icon(
+                                                  Icons.login_rounded,
+                                                  color: scheme.primary,
+                                                ),
+                                                title: Text(
+                                                  l10n.cloudAccountSwitcherAdd,
+                                                ),
+                                                subtitle: Text(
+                                                  l10n.cloudAccountAddAnotherHelp,
+                                                ),
+                                                onTap: () {
+                                                  unawaited(
+                                                    _showCloudAuthDialog(
+                                                      register: false,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              ListTile(
+                                                leading: const Icon(
+                                                  Icons.person_add_alt_1_outlined,
+                                                ),
+                                                title: Text(
+                                                  l10n
+                                                      .cloudAccountCreateAccount,
+                                                ),
+                                                subtitle: Text(
+                                                  l10n
+                                                      .cloudAccountCreateAnotherHelp,
+                                                ),
+                                                onTap: () {
+                                                  unawaited(
+                                                    _showCloudAuthDialog(
+                                                      register: true,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              if (_cloud.accounts.length > 1)
+                                                ListTile(
+                                                  leading: const Icon(
+                                                    Icons.logout,
+                                                  ),
+                                                  title: Text(
+                                                    l10n
+                                                        .cloudAccountSwitcherRemove,
+                                                  ),
+                                                  subtitle: Text(
+                                                    l10n
+                                                        .cloudAccountSwitcherRemoveBody,
+                                                  ),
+                                                  isThreeLine: true,
+                                                  onTap: () {
+                                                    unawaited(
+                                                      _removeActiveCloudAccountFromDevice(),
+                                                    );
+                                                  },
+                                                ),
+                                            ],
                                           ],
                                         );
                                       },
@@ -4854,13 +4933,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             showDesktopOnlySections: showDesktopOnlySections,
                             activeSection: activeSection,
                           ),
-
-                          if (_folio.snapshot.folioStaff)
-                            _buildAdminSection(
-                              l10n: l10n,
-                              scheme: scheme,
-                              activeSection: activeSection,
-                            ),
 
                           if (_organizationContext != null)
                             _buildOrganizationSection(

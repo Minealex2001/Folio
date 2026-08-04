@@ -14,6 +14,8 @@ import 'sections/admin_collab_section.dart';
 import 'sections/admin_dashboard_section.dart';
 import 'sections/admin_diagnostics_section.dart';
 import 'sections/admin_families_section.dart';
+import 'sections/admin_moderation_section.dart';
+import 'sections/admin_organizations_section.dart';
 import 'sections/admin_published_pages_section.dart';
 import 'sections/admin_vault_shares_section.dart';
 import 'widgets/admin_paginated_list.dart';
@@ -21,6 +23,8 @@ import 'widgets/admin_paginated_list.dart';
 enum _AdminSection {
   dashboard,
   users,
+  teams,
+  moderation,
   publishedPages,
   diagnostics,
   billing,
@@ -51,6 +55,8 @@ class _NavEntry {
 final _navEntries = <_NavEntry>[
   _NavEntry(_AdminSection.dashboard, 'Inicio', Icons.dashboard_outlined, (r) => _roleLevel(r) >= 10),
   _NavEntry(_AdminSection.users, 'Usuarios', Icons.people_alt_outlined, (r) => _roleLevel(r) >= 10),
+  _NavEntry(_AdminSection.teams, 'Equipos', Icons.groups_outlined, (r) => _roleLevel(r) >= 10),
+  _NavEntry(_AdminSection.moderation, 'Moderación', Icons.gavel_outlined, (r) => _roleLevel(r) >= 20),
   _NavEntry(_AdminSection.publishedPages, 'Páginas publicadas', Icons.public_rounded, (r) => _roleLevel(r) >= 10),
   _NavEntry(_AdminSection.diagnostics, 'Diagnósticos', Icons.bug_report_outlined, (r) => _roleLevel(r) >= 10),
   _NavEntry(_AdminSection.billing, 'Facturación', Icons.payments_outlined, (r) => r == 'BILLING_ADMIN' || r == 'SUPER_ADMIN'),
@@ -108,11 +114,14 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
 
   bool get _isModeratorOrAbove => const {'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'}.contains(_role);
   bool get _isSuperAdmin => _role == 'SUPER_ADMIN';
+  bool get _canBillingGrant => _role == 'BILLING_ADMIN' || _role == 'SUPER_ADMIN';
 
   Widget _buildSection(_AdminSection section) {
     return switch (section) {
       _AdminSection.dashboard => AdminDashboardSection(role: _role),
       _AdminSection.users => _UsersSection(role: _role),
+      _AdminSection.teams => AdminOrganizationsSection(canGrant: _canBillingGrant),
+      _AdminSection.moderation => const AdminModerationSection(),
       _AdminSection.publishedPages => AdminPublishedPagesSection(canDelete: _isModeratorOrAbove),
       _AdminSection.diagnostics => AdminDiagnosticsSection(canResolve: _roleLevel(_role) >= 10),
       _AdminSection.billing => const AdminBillingSection(),

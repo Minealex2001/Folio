@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../services/admin/admin_entitlements_api.dart';
 import '../../services/admin/admin_storage_api.dart';
 import '../../services/admin/admin_users_api.dart';
 
@@ -36,6 +37,8 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
   bool get _isModeratorOrAbove =>
       const {'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'}.contains(widget.currentRole);
   bool get _isSuperAdmin => widget.currentRole == 'SUPER_ADMIN';
+  bool get _canBillingGrant =>
+      widget.currentRole == 'BILLING_ADMIN' || widget.currentRole == 'SUPER_ADMIN';
 
   @override
   void initState() {
@@ -97,11 +100,13 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
                     _OverviewTab(
                       detail: _detail!,
                       canAssignRole: _isSuperAdmin,
+                      canGrantCloud: _canBillingGrant,
                       onRoleChanged: (role) async {
                         final updated = await _usersApi.setUserRole(widget.uid, role);
                         if (!mounted) return;
                         setState(() => _detail = updated);
                       },
+                      onReload: _load,
                     ),
                     _StorageTab(
                       uid: widget.uid,
@@ -114,21 +119,93 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
   }
 }
 
-class _OverviewTab extends StatelessWidget {
+class _OverviewTab extends StatefulWidget {
   const _OverviewTab({
     required this.detail,
     required this.canAssignRole,
+    required this.canGrantCloud,
     required this.onRoleChanged,
+    required this.onReload,
   });
 
   final Map<String, dynamic> detail;
   final bool canAssignRole;
+  final bool canGrantCloud;
   final Future<void> Function(String role) onRoleChanged;
+  final Future<void> Function() onReload;
 
   static const _roles = ['NONE', 'SUPPORT', 'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'];
 
   @override
+  State<_OverviewTab> createState() => _OverviewTabState();
+}
+
+class _OverviewTabState extends State<_OverviewTab> {
+  final _entitlementsApi = const AdminEntitlementsApi();
+  bool _grantBusy = false;
+
+  Map<String, dynamic> get detail => widget.detail;
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _grantCloud() async {
+    final uid = detail['uid']?.toString() ?? '';
+    if (uid.isEmpty) return;
+    final ok = await FolioDialog.confirm(
+      context,
+      title: const Text('Conceder Cloud QA'),
+      content: const Text(
+        'Activa admin_override con features completas de Folio Cloud para este usuario.',
+      ),
+      confirmLabel: 'Conceder',
+    );
+    if (ok != true) return;
+    setState(() => _grantBusy = true);
+    try {
+      await _entitlementsApi.grantCloud(uid);
+      await widget.onReload();
+      if (!mounted) return;
+      _snack('Cloud QA concedido');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _grantBusy = false);
+    }
+  }
+
+  Future<void> _revokeCloud() async {
+    final uid = detail['uid']?.toString() ?? '';
+    if (uid.isEmpty) return;
+    final ok = await FolioDialog.confirm(
+      context,
+      title: const Text('Revocar Cloud QA'),
+      content: const Text('Quita admin_override de Folio Cloud para este usuario.'),
+      confirmLabel: 'Revocar',
+      destructive: true,
+    );
+    if (ok != true) return;
+    setState(() => _grantBusy = true);
+    try {
+      await _entitlementsApi.revokeCloud(uid);
+      await widget.onReload();
+      if (!mounted) return;
+      _snack('Cloud QA revocado');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _grantBusy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cloud = (detail['folioCloud'] as Map?) ?? const {};
+    final ink = (detail['ink'] as Map?) ?? const {};
+    final orgs = (detail['organizations'] as List?) ?? const [];
     final rows = <(String, String)>[
       ('uid', detail['uid']?.toString() ?? ''),
       ('email', detail['email']?.toString() ?? ''),
@@ -160,21 +237,81 @@ class _OverviewTab extends StatelessWidget {
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
+        Text('Folio Cloud QA', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Text(
+          'active: ${cloud['active']} · status: ${cloud['subscriptionStatus'] ?? '—'} · '
+          'adminOverride: ${cloud['adminOverride']}',
+        ),
+        Text(
+          'ink monthly: ${ink['monthlyBalance'] ?? '—'} · purchased: ${ink['purchasedBalance'] ?? '—'}',
+        ),
+        if (widget.canGrantCloud) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton(
+                onPressed: _grantBusy ? null : _grantCloud,
+                child: const Text('Grant Cloud QA'),
+              ),
+              OutlinedButton(
+                onPressed: _grantBusy ? null : _revokeCloud,
+                child: const Text('Revoke'),
+              ),
+            ],
+          ),
+        ] else
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              'Solo BILLING_ADMIN / SUPER_ADMIN pueden conceder Cloud QA.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
+        Text('Equipos', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (orgs.isEmpty)
+          const Text('Sin organizaciones activas.')
+        else
+          for (final raw in orgs)
+            Builder(
+              builder: (context) {
+                final o = raw is Map ? raw : const {};
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: const Icon(Icons.groups_outlined),
+                  title: Text(o['name']?.toString() ?? o['id']?.toString() ?? ''),
+                  subtitle: Text(
+                    '${o['plan'] ?? '—'} · ${o['role'] ?? ''} · '
+                    '${o['adminOverride'] == true ? 'QA override' : 'sin override'}',
+                  ),
+                );
+              },
+            ),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
         Text('Rol de administrador', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final role in _roles)
+            for (final role in _OverviewTab._roles)
               ChoiceChip(
                 label: Text(role),
                 selected: (detail['adminRole']?.toString() ?? 'NONE') == role,
-                onSelected: !canAssignRole ? null : (_) => onRoleChanged(role),
+                onSelected: !widget.canAssignRole ? null : (_) => widget.onRoleChanged(role),
               ),
           ],
         ),
-        if (!canAssignRole)
+        if (!widget.canAssignRole)
           const Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(

@@ -38,8 +38,6 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.info_outline_rounded;
       case _SettingsSectionId.integrations:
         return Icons.extension_outlined;
-      case _SettingsSectionId.admin:
-        return Icons.admin_panel_settings_outlined;
       case _SettingsSectionId.organization:
         return Icons.groups_outlined;
     }
@@ -268,11 +266,6 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.extension_outlined;
         gradientColors = const [Color(0xFF26C6DA), Color(0xFF0097A7)];
         subtitle = 'Conexiones con Jira, YouTrack y más';
-        break;
-      case _SettingsSectionId.admin:
-        icon = Icons.admin_panel_settings_outlined;
-        gradientColors = const [Color(0xFF78909C), Color(0xFF455A64)];
-        subtitle = widget.l10n.settingsAdminHeroDescription;
         break;
       case _SettingsSectionId.organization:
         icon = Icons.groups_outlined;

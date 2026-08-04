@@ -5153,9 +5153,9 @@
   "aiImageGenerationUnsupportedProvider": "El proveïdor d'IA actual no admet la generació d'imatges",
   "aiGenerateImagePromptRequired": "Heu d'introduir una descripció",
   "settingsSectionOrganization": "Equips",
-  "settingsOrganizationHeroSubtitle": "Equips i organitzacions",
+  "settingsOrganizationHeroSubtitle": "Equipos",
   "orgPanelIntro": "Crea un equip per compartir la biblioteca, la tinta d'IA i la facturació amb altres persones.",
-  "orgPanelActiveOrgLabel": "Organització activa",
+  "orgPanelActiveOrgLabel": "Equipo activo",
   "orgPanelPersonalOrgLabel": "{name} (personal)",
   "@orgPanelPersonalOrgLabel": {
     "placeholders": {
@@ -5198,6 +5198,82 @@
   "orgPanelStripeNoUrlError": "Stripe no ha retornat cap URL",
   "orgPanelCheckoutLaunchError": "No s'ha pogut obrir l'enllaç de pagament",
   "orgPanelPortalLaunchError": "No s'ha pogut obrir el portal de facturació",
-  "orgSwitcherTooltip": "Canviar d'organització",
-  "orgSwitcherManageTeams": "Gestionar equips"
+  "orgSwitcherTooltip": "Cambiar de equipo",
+  "orgSwitcherManageTeams": "Gestionar equips",
+  "orgPanelActiveTeamLabel": "Equipo activo",
+  "orgPanelPersonalAccountLabel": "{name} (cuenta personal)",
+  "@orgPanelPersonalAccountLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelRoleOwner": "Propietario",
+  "orgPanelRoleAdmin": "Admin",
+  "orgPanelRoleMember": "Miembro",
+  "orgPanelRoleGuest": "Invitado",
+  "orgPanelStatusActive": "Activo",
+  "orgPanelStatusPending": "Pendiente",
+  "orgPanelStatusRemoved": "Eliminado",
+  "orgPanelStatusAccepted": "Aceptada",
+  "orgPanelStatusExpired": "Expirada",
+  "orgPanelStatusRevoked": "Revocada",
+  "orgPanelBillingStatusLine": "Plan: {plan} · Estado: {status} · Asientos: {seats}",
+  "@orgPanelBillingStatusLine": {
+    "placeholders": {
+      "plan": { "type": "String" },
+      "status": { "type": "String" },
+      "seats": { "type": "int" }
+    }
+  },
+  "orgPanelBillingUnknown": "Aún no hay suscripción de equipo",
+  "orgPanelRenameTeam": "Renombrar equipo",
+  "orgPanelLeaveTeam": "Abandonar equipo",
+  "orgPanelLeaveTeamConfirm": "¿Abandonar este equipo? Perderás el acceso a sus libretas.",
+  "orgPanelRemoveMemberConfirm": "¿Quitar a este miembro del equipo?",
+  "orgPanelYourRole": "Tu rol: {role}",
+  "@orgPanelYourRole": {
+    "placeholders": {
+      "role": { "type": "String" }
+    }
+  },
+  "orgPanelActivityOrganizationCreated": "Equipo creado",
+  "orgPanelActivityOrganizationRenamed": "Equipo renombrado",
+  "orgPanelActivitySettingsUpdated": "Ajustes del equipo actualizados",
+  "orgPanelActivityMemberInvited": "Miembro invitado",
+  "orgPanelActivityInviteRevoked": "Invitación revocada",
+  "orgPanelActivityMemberJoined": "Miembro se unió",
+  "orgPanelActivityRoleChanged": "Rol cambiado",
+  "orgPanelActivityMemberRemoved": "Miembro eliminado",
+  "orgPanelActivityMemberLeft": "Miembro abandonó",
+  "orgPanelActivityWorkspaceCreated": "Libreta creada",
+  "orgPanelActivityWorkspaceRenamed": "Libreta renombrada",
+  "orgPanelActivityWorkspaceArchived": "Libreta archivada",
+  "orgPanelActivityUnknown": "{eventType}",
+  "@orgPanelActivityUnknown": {
+    "placeholders": {
+      "eventType": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptTitle": "Invitación a equipo",
+  "orgInviteAcceptBody": "{inviter} te invitó a unirte a {team} como {role}.",
+  "@orgInviteAcceptBody": {
+    "placeholders": {
+      "inviter": { "type": "String" },
+      "team": { "type": "String" },
+      "role": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptButton": "Aceptar invitación",
+  "orgInviteAcceptSuccess": "Te has unido al equipo",
+  "orgInviteTokenLabel": "Token de invitación",
+  "cloudAccountSwitcherTooltip": "Cambiar cuenta Folio Cloud",
+  "cloudAccountSwitcherAdd": "Añadir cuenta",
+  "cloudAccountSwitcherRemove": "Quitar esta cuenta",
+  "cloudAccountSwitcherRemoveTitle": "¿Quitar la cuenta de este dispositivo?",
+  "cloudAccountSwitcherRemoveBody": "Se cerrará la sesión aquí. Las demás cuentas siguen iniciadas. Las libretas locales de esta cuenta permanecen en el disco.",
+  "cloudAccountSwitcherFallback": "Cuenta Folio Cloud",
+  "cloudAccountAddAnotherHelp": "Inicia sesión con otro correo sin cerrar esta cuenta",
+  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo"
 }

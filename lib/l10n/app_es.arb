@@ -5151,10 +5151,10 @@
   "aiImageGenerationUnsupportedProvider": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI.",
   "aiGenerateImagePromptRequired": "Escribe una descripción antes de generar.",
   "settingsSectionOrganization": "Equipos",
-  "settingsOrganizationHeroSubtitle": "Equipos y organizaciones",
-  "orgPanelIntro": "Crea un equipo para compartir biblioteca, tinta IA y facturación con otras personas.",
-  "orgPanelActiveOrgLabel": "Organización activa",
-  "orgPanelPersonalOrgLabel": "{name} (personal)",
+  "settingsOrganizationHeroSubtitle": "Equipos",
+  "orgPanelIntro": "Crea un equipo para compartir libretas, tinta IA y facturación con otras personas.",
+  "orgPanelActiveOrgLabel": "Equipo activo",
+  "orgPanelPersonalOrgLabel": "{name} (cuenta personal)",
   "@orgPanelPersonalOrgLabel": {
     "placeholders": {
       "name": {
@@ -5175,7 +5175,7 @@
   "orgPanelPendingInvitationsTitle": "Invitaciones pendientes",
   "orgPanelRevokeTooltip": "Revocar",
   "orgPanelActivityTitle": "Actividad reciente",
-  "orgPanelPersonalOrgHint": "Esta es tu organización personal. Selecciona un equipo arriba o crea uno nuevo.",
+  "orgPanelPersonalOrgHint": "Esta es tu cuenta personal. Selecciona un equipo arriba o crea uno nuevo para compartir libretas.",
   "orgPanelInkCardTitle": "Tinta IA del equipo",
   "orgPanelInkCardDetail": "{total} disponibles ({monthly} mensual + {purchased} comprada)",
   "@orgPanelInkCardDetail": {
@@ -5196,6 +5196,82 @@
   "orgPanelStripeNoUrlError": "Stripe no devolvió una URL",
   "orgPanelCheckoutLaunchError": "No se pudo abrir el enlace de pago",
   "orgPanelPortalLaunchError": "No se pudo abrir el portal de facturación",
-  "orgSwitcherTooltip": "Cambiar de organización",
-  "orgSwitcherManageTeams": "Gestionar equipos"
+  "orgSwitcherTooltip": "Cambiar de equipo",
+  "orgSwitcherManageTeams": "Gestionar equipos",
+  "orgPanelActiveTeamLabel": "Equipo activo",
+  "orgPanelPersonalAccountLabel": "{name} (cuenta personal)",
+  "@orgPanelPersonalAccountLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgPanelRoleOwner": "Propietario",
+  "orgPanelRoleAdmin": "Admin",
+  "orgPanelRoleMember": "Miembro",
+  "orgPanelRoleGuest": "Invitado",
+  "orgPanelStatusActive": "Activo",
+  "orgPanelStatusPending": "Pendiente",
+  "orgPanelStatusRemoved": "Eliminado",
+  "orgPanelStatusAccepted": "Aceptada",
+  "orgPanelStatusExpired": "Expirada",
+  "orgPanelStatusRevoked": "Revocada",
+  "orgPanelBillingStatusLine": "Plan: {plan} · Estado: {status} · Asientos: {seats}",
+  "@orgPanelBillingStatusLine": {
+    "placeholders": {
+      "plan": { "type": "String" },
+      "status": { "type": "String" },
+      "seats": { "type": "int" }
+    }
+  },
+  "orgPanelBillingUnknown": "Aún no hay suscripción de equipo",
+  "orgPanelRenameTeam": "Renombrar equipo",
+  "orgPanelLeaveTeam": "Abandonar equipo",
+  "orgPanelLeaveTeamConfirm": "¿Abandonar este equipo? Perderás el acceso a sus libretas.",
+  "orgPanelRemoveMemberConfirm": "¿Quitar a este miembro del equipo?",
+  "orgPanelYourRole": "Tu rol: {role}",
+  "@orgPanelYourRole": {
+    "placeholders": {
+      "role": { "type": "String" }
+    }
+  },
+  "orgPanelActivityOrganizationCreated": "Equipo creado",
+  "orgPanelActivityOrganizationRenamed": "Equipo renombrado",
+  "orgPanelActivitySettingsUpdated": "Ajustes del equipo actualizados",
+  "orgPanelActivityMemberInvited": "Miembro invitado",
+  "orgPanelActivityInviteRevoked": "Invitación revocada",
+  "orgPanelActivityMemberJoined": "Miembro se unió",
+  "orgPanelActivityRoleChanged": "Rol cambiado",
+  "orgPanelActivityMemberRemoved": "Miembro eliminado",
+  "orgPanelActivityMemberLeft": "Miembro abandonó",
+  "orgPanelActivityWorkspaceCreated": "Libreta creada",
+  "orgPanelActivityWorkspaceRenamed": "Libreta renombrada",
+  "orgPanelActivityWorkspaceArchived": "Libreta archivada",
+  "orgPanelActivityUnknown": "{eventType}",
+  "@orgPanelActivityUnknown": {
+    "placeholders": {
+      "eventType": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptTitle": "Invitación a equipo",
+  "orgInviteAcceptBody": "{inviter} te invitó a unirte a {team} como {role}.",
+  "@orgInviteAcceptBody": {
+    "placeholders": {
+      "inviter": { "type": "String" },
+      "team": { "type": "String" },
+      "role": { "type": "String" }
+    }
+  },
+  "orgInviteAcceptButton": "Aceptar invitación",
+  "orgInviteAcceptSuccess": "Te has unido al equipo",
+  "orgInviteTokenLabel": "Token de invitación",
+  "cloudAccountSwitcherTooltip": "Cambiar cuenta Folio Cloud",
+  "cloudAccountSwitcherAdd": "Añadir cuenta",
+  "cloudAccountSwitcherRemove": "Quitar esta cuenta",
+  "cloudAccountSwitcherRemoveTitle": "¿Quitar la cuenta de este dispositivo?",
+  "cloudAccountSwitcherRemoveBody": "Se cerrará la sesión aquí. Las demás cuentas siguen iniciadas. Las libretas locales de esta cuenta permanecen en el disco.",
+  "cloudAccountSwitcherFallback": "Cuenta Folio Cloud",
+  "cloudAccountAddAnotherHelp": "Inicia sesión con otro correo sin cerrar esta cuenta",
+  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo"
 }

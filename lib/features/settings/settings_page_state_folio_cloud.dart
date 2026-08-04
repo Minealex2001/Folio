@@ -611,6 +611,37 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     }
   }
 
+  /// Quita solo la cuenta activa del dispositivo (las demás siguen).
+  Future<void> _removeActiveCloudAccountFromDevice() async {
+    final l10n = AppLocalizations.of(context);
+    final uid = _cloud.activeUid;
+    if (uid == null) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.cloudAccountSwitcherRemoveTitle),
+        content: Text(l10n.cloudAccountSwitcherRemoveBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.cloudAccountSwitcherRemove),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    try {
+      await _cloud.removeAccount(uid);
+      if (mounted) _snack(l10n.settingsSessionEndedSnack);
+    } catch (e) {
+      if (mounted) _snack('$e');
+    }
+  }
+
   Future<void> _editCloudDisplayName() async {
     if (!_cloud.isSignedIn) return;
     final l10n = AppLocalizations.of(context);

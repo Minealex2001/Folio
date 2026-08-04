@@ -13,6 +13,7 @@ import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/app_logger.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/cloud_account/library_context_binder.dart';
 import '../../../services/cloud_account/organization_context_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../app/widgets/folio_interactions.dart';
@@ -87,16 +88,47 @@ class _SidebarState extends State<Sidebar> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
+    widget.cloudAccountController.addListener(_onAccountOrOrgChanged);
+    widget.organizationContext?.addListener(_onAccountOrOrgChanged);
     unawaited(_loadCollapsedState());
     unawaited(_loadRecentState());
-    _reloadVaults();
+    unawaited(_applyLibraryContextAndReload());
   }
 
   @override
   void dispose() {
     session.removeListener(_onSession);
+    widget.cloudAccountController.removeListener(_onAccountOrOrgChanged);
+    widget.organizationContext?.removeListener(_onAccountOrOrgChanged);
     _pagesScrollController.dispose();
     super.dispose();
+  }
+
+  void _onAccountOrOrgChanged() {
+    unawaited(_applyLibraryContextAndReload());
+  }
+
+  Future<void> _applyLibraryContextAndReload() async {
+    await LibraryContextBinder.apply(
+      account: widget.cloudAccountController,
+      organizationContext: widget.organizationContext,
+      session: session,
+    );
+    if (mounted) await _reloadVaults();
+  }
+
+  @override
+  void didUpdateWidget(covariant Sidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cloudAccountController != widget.cloudAccountController) {
+      oldWidget.cloudAccountController.removeListener(_onAccountOrOrgChanged);
+      widget.cloudAccountController.addListener(_onAccountOrOrgChanged);
+    }
+    if (oldWidget.organizationContext != widget.organizationContext) {
+      oldWidget.organizationContext?.removeListener(_onAccountOrOrgChanged);
+      widget.organizationContext?.addListener(_onAccountOrOrgChanged);
+      unawaited(_applyLibraryContextAndReload());
+    }
   }
 
   void _onSession() {
@@ -1215,6 +1247,7 @@ class _SidebarState extends State<Sidebar> {
               session: session,
               appSettings: widget.appSettings,
               trashCount: trashCount,
+              cloudAccountController: widget.cloudAccountController,
               cloudStatusController: widget.cloudStatusController,
               organizationContext: widget.organizationContext,
               onOpenSettings: widget.onOpenSettings,

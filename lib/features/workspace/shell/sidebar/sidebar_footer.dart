@@ -9,6 +9,7 @@ import '../../../../app/ui_tokens.dart';
 import '../../../../app/widgets/folio_dialog.dart';
 import '../../../../app/widgets/folio_feedback.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../../services/cloud_account/organization_context_controller.dart';
 import '../../../../services/media/media_playback_router.dart';
 import '../../../../services/meeting_note_session_controller.dart';
@@ -20,7 +21,7 @@ import '../../../folio_cloud/folio_cloud_status_banner.dart';
 import '../../widgets/spotify_now_playing_bar.dart';
 import '../../widgets/meeting_note_active_bar.dart';
 import '../page_trash_sheet.dart';
-import 'sidebar_organization_switcher.dart';
+import 'sidebar_context_switcher.dart';
 
 class SidebarFooter extends StatelessWidget {
   const SidebarFooter({
@@ -28,6 +29,7 @@ class SidebarFooter extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.trashCount,
+    required this.cloudAccountController,
     this.cloudStatusController,
     this.organizationContext,
     this.onOpenSettings,
@@ -39,6 +41,7 @@ class SidebarFooter extends StatelessWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final int trashCount;
+  final CloudAccountController cloudAccountController;
   final FolioCloudStatusController? cloudStatusController;
   final OrganizationContextController? organizationContext;
   final VoidCallback? onOpenSettings;
@@ -77,14 +80,12 @@ class SidebarFooter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (organizationContext != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(FolioSpace.sm, 0, FolioSpace.sm, FolioSpace.xs),
-            child: SidebarOrganizationSwitcher(
-              controller: organizationContext!,
-              onManageTeams: onOpenOrganizationSettings ?? onOpenSettings,
-            ),
-          ),
+        // Un solo chip: cuenta y/o equipo. Oculto si no hay nada que cambiar.
+        SidebarContextSwitcher(
+          account: cloudAccountController,
+          organizationContext: organizationContext,
+          onManageTeams: onOpenOrganizationSettings ?? onOpenSettings,
+        ),
         if (kIsWeb)
           Padding(
             padding: const EdgeInsets.fromLTRB(
