@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
+import 'builtin_widget_card.dart';
 
-/// Migración 1:1 de `WorkspaceHomeSectionIds.createPage` — un único botón,
-/// sin necesidad de la chrome de [BuiltinWidgetCard].
+/// CTA para crear página — chrome alineado con el resto del catálogo.
 class CreatePageWidgetPlugin extends FolioWidgetPlugin {
   const CreatePageWidgetPlugin();
 
@@ -24,11 +24,15 @@ class CreatePageWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    return Center(
-      child: FilledButton.tonalIcon(
-        onPressed: ctx.onCreatePage,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nueva página'),
+    return BuiltinWidgetCard(
+      icon: icon,
+      title: displayName(context),
+      child: Center(
+        child: FilledButton.tonalIcon(
+          onPressed: ctx.onCreatePage,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Nueva página'),
+        ),
       ),
     );
   }

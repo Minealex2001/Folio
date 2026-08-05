@@ -1,7 +1,6 @@
 import '../widget_catalog_registry.dart';
 import 'activity_widget_plugin.dart';
 import 'agenda_widget_plugin.dart';
-import 'ai_widget_plugin.dart';
 import 'bookmarks_widget_plugin.dart';
 import 'books_widget_plugin.dart';
 import 'calendar_widget_plugin.dart';
@@ -56,7 +55,6 @@ void registerBuiltinWidgetPlugins() {
   r.register(const BooksWidgetPlugin());
   r.register(const MusicWidgetPlugin());
   r.register(const GithubWidgetPlugin());
-  r.register(const AiWidgetPlugin());
   r.register(const DatabaseViewWidgetPlugin());
   r.register(const FavoritePageWidgetPlugin());
   r.register(const BookmarksWidgetPlugin());

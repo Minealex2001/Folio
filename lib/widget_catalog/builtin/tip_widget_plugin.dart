@@ -10,7 +10,7 @@ const List<String> _kTips = [
   'Arrastra una página al panel lateral para anclarla.',
   'Ctrl+K abre la búsqueda global desde cualquier pantalla.',
   'Activa el editor visual desde la barra superior para reordenar el layout.',
-  'Puedes marcar una tarea como hecha directamente desde este panel.',
+  'Puedes marcar tareas como hechas desde el widget Tareas del inicio.',
 ];
 
 /// Migración 1:1 de `WorkspaceHomeSectionIds.tip` — rota entre consejos

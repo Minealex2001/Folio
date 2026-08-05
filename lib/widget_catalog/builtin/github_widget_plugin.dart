@@ -5,11 +5,7 @@ import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-/// GitHub — `lib/services/github/` existe pero expone flujos de auth/API
-/// que requieren un controller propio no incluido en [WidgetPluginContext].
-/// Conectar esta tarjeta a datos reales de PRs/issues es trabajo de una
-/// fase futura (extender la superficie de capacidad del catálogo); por
-/// ahora se declara honestamente en vez de simular actividad de GitHub.
+/// Estado de conexiones/repos GitHub ya guardados en la sesión (sin API).
 class GithubWidgetPlugin extends FolioWidgetPlugin {
   const GithubWidgetPlugin();
 
@@ -28,13 +24,63 @@ class GithubWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final connections = ctx.session.githubConnections;
+    final sources = ctx.session.githubSources;
+
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: const BuiltinWidgetComingSoon(
-        message: 'Conecta tu cuenta de GitHub desde Ajustes para ver tu '
-            'actividad aquí.',
-      ),
+      child: connections.isEmpty && sources.isEmpty
+          ? const BuiltinWidgetEmpty(
+              message:
+                  'Conecta GitHub en Ajustes → Integraciones para ver repos aquí.',
+            )
+          : ListView(
+              children: [
+                if (connections.isNotEmpty) ...[
+                  Text(
+                    'Cuentas',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  for (final c in connections.take(4))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.person_outline_rounded, size: 18),
+                      title: Text(
+                        c.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                if (sources.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Repositorios',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  for (final s in sources.take(8))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.book_outlined, size: 18),
+                      title: Text(
+                        '${s.owner}/${s.repo}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: s.name.trim().isEmpty
+                          ? null
+                          : Text(
+                              s.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                    ),
+                ],
+              ],
+            ),
     );
   }
 }

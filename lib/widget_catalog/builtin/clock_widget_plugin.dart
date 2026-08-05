@@ -41,18 +41,24 @@ class ClockWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    return _ClockHero(instance: instance, appSettings: ctx.appSettings);
+    final effective = seedClockSettingsFromLegacy(
+      instance.settings,
+      ctx.appSettings,
+    );
+    if (!_clockSettingsSeeded(instance.settings)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ctx.onUpdateInstanceSettings?.call(instance.instanceId, effective);
+      });
+    }
+    return _ClockHero(
+      instance: instance.copyWith(settings: effective),
+      appSettings: ctx.appSettings,
+    );
   }
 
-  /// Formato de hora (24h, segundos, zona horaria) — antes vivía en un
-  /// botón aparte en la cabecera de inicio ("Formato de reloj y
-  /// columnas"), fuera de lugar una vez el reloj se volvió un widget más.
-  /// Ahora es la configuración propia de ESTE widget, por-instancia
-  /// (`WidgetInstanceConfig.settings`) — `buildSettings` no recibe
-  /// `WidgetPluginContext`, así que no hay forma de leer el valor previo
-  /// de `AppSettings` aquí como default inicial; empieza en `false`
-  /// (12h, sin segundos, sin zona) hasta que el usuario lo ajuste, igual
-  /// que cualquier otro widget nuevo que se añade al dashboard.
+  /// Formato de hora (24h, segundos, zona horaria) — antes vivía en
+  /// `AppSettings.workspaceHomeClock*`; al migrar al catálogo se siembran
+  /// esas claves legacy en `instance.settings` la primera vez que falten.
   @override
   Widget? buildSettings(
     BuildContext context,
@@ -94,6 +100,30 @@ class ClockWidgetPlugin extends FolioWidgetPlugin {
       },
     );
   }
+}
+
+const _clockSettingKeys = [
+  'clock24Hour',
+  'clockShowSeconds',
+  'clockShowTimezone',
+];
+
+bool _clockSettingsSeeded(Map<String, dynamic> settings) =>
+    _clockSettingKeys.every(settings.containsKey);
+
+Map<String, dynamic> seedClockSettingsFromLegacy(
+  Map<String, dynamic> settings,
+  AppSettings appSettings,
+) {
+  return {
+    ...settings,
+    if (!settings.containsKey('clock24Hour'))
+      'clock24Hour': appSettings.workspaceHomeClock24Hour,
+    if (!settings.containsKey('clockShowSeconds'))
+      'clockShowSeconds': appSettings.workspaceHomeClockShowSeconds,
+    if (!settings.containsKey('clockShowTimezone'))
+      'clockShowTimezone': appSettings.workspaceHomeClockShowTimezone,
+  };
 }
 
 class _ClockHero extends StatefulWidget {

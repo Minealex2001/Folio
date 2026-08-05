@@ -81,7 +81,7 @@ VisualPack buildGlassPack() {
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'glass_w1',
-          pluginId: 'ai',
+          pluginId: 'folio_cloud',
           regionId: DashboardRegionIds.left,
           order: 0,
         ),

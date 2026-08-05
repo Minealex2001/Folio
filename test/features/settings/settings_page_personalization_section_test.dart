@@ -228,4 +228,20 @@ void main() {
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
+
+  testWidgets('shows theme and accent controls shared with Appearance', (
+    tester,
+  ) async {
+    await pumpSettings(tester);
+
+    // Labels vienen de AppLocalizations (locale del test = sistema / en).
+    expect(find.byType(SegmentedButton<FolioThemeMode>), findsOneWidget);
+    expect(find.byType(SegmentedButton<FolioAccentColorMode>), findsOneWidget);
+
+    final themeBtn = tester.widget<SegmentedButton<FolioThemeMode>>(
+      find.byType(SegmentedButton<FolioThemeMode>),
+    );
+    themeBtn.onSelectionChanged!({FolioThemeMode.dark});
+    await tester.pump();
+  });
 }

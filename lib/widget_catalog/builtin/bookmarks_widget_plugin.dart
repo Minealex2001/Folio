@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-/// Marcadores — Folio no tiene una colección de bookmarks de enlaces
-/// externos hoy. Declarado honestamente en vez de simular una lista.
+/// Lista bloques `bookmark` del vault (url + texto).
 class BookmarksWidgetPlugin extends FolioWidgetPlugin {
   const BookmarksWidgetPlugin();
 
@@ -25,12 +27,70 @@ class BookmarksWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final items =
+        <({String pageId, String pageTitle, String label, String? url})>[];
+    for (final page in ctx.session.pages) {
+      if (page.isTrashed) continue;
+      final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
+      for (final block in page.blocks) {
+        if (block.type != 'bookmark') continue;
+        final url = (block.url ?? '').trim();
+        final label = block.text.trim().isEmpty
+            ? (url.isEmpty ? 'Marcador' : url)
+            : block.text.trim();
+        items.add((
+          pageId: page.id,
+          pageTitle: pageTitle,
+          label: label,
+          url: url.isEmpty ? null : url,
+        ));
+        if (items.length >= 12) break;
+      }
+      if (items.length >= 12) break;
+    }
+
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: const BuiltinWidgetComingSoon(
-        message: 'Los marcadores todavía no existen en Folio.',
-      ),
+      child: items.isEmpty
+          ? const BuiltinWidgetEmpty(
+              message: 'No hay bloques marcador en el vault.',
+            )
+          : ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.bookmark_rounded, size: 18),
+                  title: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    item.pageTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () {
+                    if (item.url != null) {
+                      final uri = Uri.tryParse(item.url!);
+                      if (uri != null) {
+                        unawaited(
+                          launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        );
+                      }
+                    }
+                    ctx.onSelectPage?.call(item.pageId);
+                  },
+                );
+              },
+            ),
     );
   }
 }

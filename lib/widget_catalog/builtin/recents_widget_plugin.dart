@@ -7,6 +7,21 @@ import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
+int _intSetting(Map<String, dynamic> settings, String key, int defaultValue) {
+  final raw = settings[key];
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return defaultValue;
+}
+
+String _relativeVisitTime(DateTime visited, DateTime now) {
+  final ago = now.difference(visited);
+  if (ago.inMinutes < 1) return 'ahora mismo';
+  if (ago.inHours < 1) return 'hace ${ago.inMinutes} min';
+  if (ago.inDays < 1) return 'hace ${ago.inHours} h';
+  return 'hace ${ago.inDays} d';
+}
+
 /// Migración 1:1 de `WorkspaceHomeSectionIds.recents` — lee
 /// `RecentPageVisitsStore` (persistido en SharedPreferences, misma fuente
 /// que el sidebar) y las resuelve contra `VaultSession.pages`.
@@ -28,33 +43,75 @@ class RecentsWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final limit = _intSetting(instance.settings, 'limit', 8);
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: _RecentsList(ctx: ctx),
+      child: _RecentsList(ctx: ctx, limit: limit),
+    );
+  }
+
+  @override
+  Widget? buildSettings(
+    BuildContext context,
+    WidgetInstanceConfig instance,
+    ValueChanged<Map<String, dynamic>> onSettingsChanged,
+  ) {
+    final settings = Map<String, dynamic>.from(instance.settings);
+    final controller = TextEditingController(
+      text: _intSetting(instance.settings, 'limit', 8).toString(),
+    );
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: const InputDecoration(
+        labelText: 'Máximo de entradas',
+        hintText: '8',
+      ),
+      onChanged: (v) {
+        final n = int.tryParse(v.trim());
+        if (n == null || n < 1) return;
+        settings['limit'] = n;
+        onSettingsChanged({...settings});
+      },
     );
   }
 }
 
 class _RecentsList extends StatefulWidget {
-  const _RecentsList({required this.ctx});
+  const _RecentsList({required this.ctx, required this.limit});
 
   final WidgetPluginContext ctx;
+  final int limit;
 
   @override
   State<_RecentsList> createState() => _RecentsListState();
 }
 
 class _RecentsListState extends State<_RecentsList> {
-  // Bug real reportado (mismo que ActivityWidgetPlugin): construir el
-  // Future inline en FutureBuilder crea uno nuevo en cada rebuild del
-  // padre, así que el widget parpadeaba sin parar en vez de cargar una
-  // sola vez. Cachearlo en initState lo arregla.
-  late final Future<List<RecentPageVisit>> _future = RecentPageVisitsStore.load(
-    vaultId: VaultPaths.activeVaultId,
-    validPageIds: widget.ctx.session.pages.map((p) => p.id).toSet(),
-    limit: kRecentPageVisitsHomeLoadLimit,
-  );
+  late Future<List<RecentPageVisit>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecentsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.limit != widget.limit) {
+      _reloadFuture();
+    }
+  }
+
+  void _reloadFuture() {
+    _future = RecentPageVisitsStore.load(
+      vaultId: VaultPaths.activeVaultId,
+      validPageIds: widget.ctx.session.pages.map((p) => p.id).toSet(),
+      limit: widget.limit,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,16 +129,21 @@ class _RecentsListState extends State<_RecentsList> {
           );
         }
         if (visits.isEmpty) {
-          return const BuiltinWidgetComingSoon(
+          return const BuiltinWidgetEmpty(
             message: 'Todavía no has visitado ninguna página.',
           );
         }
         final byId = {for (final p in widget.ctx.session.pages) p.id: p};
+        final now = DateTime.now();
         return ListView.builder(
           itemCount: visits.length,
           itemBuilder: (context, index) {
-            final page = byId[visits[index].pageId];
+            final visit = visits[index];
+            final page = byId[visit.pageId];
             if (page == null) return const SizedBox.shrink();
+            final visited = DateTime.fromMillisecondsSinceEpoch(
+              visit.visitedAtMs,
+            );
             return ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -90,6 +152,11 @@ class _RecentsListState extends State<_RecentsList> {
                   : const Icon(Icons.description_outlined, size: 18),
               title: Text(
                 page.title.isEmpty ? 'Sin título' : page.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                _relativeVisitTime(visited, now),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

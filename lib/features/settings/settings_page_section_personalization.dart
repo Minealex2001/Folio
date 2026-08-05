@@ -19,6 +19,7 @@ extension _SettingsPagePersonalizationSection on _SettingsPageState {
         child: _SettingsPanel(
           margin: const EdgeInsets.only(bottom: 24),
           child: _PersonalizationSectionBody(
+            appSettings: _app,
             layoutEngine: _layoutEngine,
             themeConfig: _themeConfig,
             dashboardGrid: _dashboardGrid,
@@ -32,12 +33,14 @@ extension _SettingsPagePersonalizationSection on _SettingsPageState {
 
 class _PersonalizationSectionBody extends StatelessWidget {
   const _PersonalizationSectionBody({
+    required this.appSettings,
     required this.layoutEngine,
     required this.themeConfig,
     required this.dashboardGrid,
     required this.activePack,
   });
 
+  final AppSettings appSettings;
   final LayoutEngineController layoutEngine;
   final ThemeConfigController themeConfig;
   final DashboardGridController dashboardGrid;
@@ -80,6 +83,10 @@ class _PersonalizationSectionBody extends StatelessWidget {
                 ),
               ],
             ),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _ThemeAndAccentControls(appSettings: appSettings),
+            const SizedBox(height: 12),
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -136,9 +143,9 @@ class _PersonalizationSectionBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'El color de acento y el modo claro/oscuro se editan en '
-                    '"Apariencia" — esto controla la forma, densidad, '
-                    'movimiento y transparencia del resto de la app.',
+                    'Forma, densidad, movimiento y transparencia. El modo '
+                    'claro/oscuro y el acento están arriba (igual que en '
+                    'Apariencia).',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

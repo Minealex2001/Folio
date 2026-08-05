@@ -29,7 +29,9 @@ class BooksWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: const BuiltinWidgetComingSoon(
-        message: 'El seguimiento de lectura todavía no existe en Folio.',
+        message:
+            'El seguimiento de lectura no está disponible. '
+            'No hay un modelo de libros en Folio todavía.',
       ),
     );
   }

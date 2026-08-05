@@ -47,6 +47,13 @@ class SearchWidgetPlugin extends FolioWidgetPlugin {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
+              const Spacer(),
+              Text(
+                'Ctrl+K',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
             ],
           ),
         ),

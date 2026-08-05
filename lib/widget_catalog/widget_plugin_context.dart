@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import '../app/app_settings.dart';
 import '../config/config_store.dart';
+import '../services/cloud_account/cloud_account_controller.dart';
+import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../session/vault_session.dart';
 
 /// Superficie de capacidad que un [FolioWidgetPlugin] recibe al construirse
@@ -16,9 +18,14 @@ class WidgetPluginContext {
     required this.appSettings,
     required this.configStore,
     required this.session,
+    this.cloudAccount,
+    this.folioCloudEntitlements,
     this.onOpenSearch,
     this.onCreatePage,
     this.onSelectPage,
+    this.onUpdateInstanceSettings,
+    this.onOpenSettings,
+    this.onOpenFolioCloudPitch,
   });
 
   /// Todavía necesario para cosas transversales no migradas a [ConfigStore]
@@ -30,9 +37,20 @@ class WidgetPluginContext {
   /// de aquí (recientes, raíz, tareas) — ninguno debería mutarla.
   final VaultSession session;
 
+  /// Cuenta / entitlements de Folio Cloud (opcionales: null fuera del shell).
+  final CloudAccountController? cloudAccount;
+  final FolioCloudEntitlementsController? folioCloudEntitlements;
+
   final void Function([String? query])? onOpenSearch;
   final VoidCallback? onCreatePage;
   final ValueChanged<String>? onSelectPage;
+
+  /// Persiste `WidgetInstanceConfig.settings` para [instanceId].
+  final void Function(String instanceId, Map<String, dynamic> settings)?
+      onUpdateInstanceSettings;
+
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenFolioCloudPitch;
 }
 
 /// Restricciones de tamaño de un widget en unidades de grid del dashboard —

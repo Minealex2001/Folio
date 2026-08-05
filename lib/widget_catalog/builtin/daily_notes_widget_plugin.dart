@@ -1,20 +1,19 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../models/block.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-String _isoDate(DateTime d) =>
+String isoDate(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-'
     '${d.month.toString().padLeft(2, '0')}-'
     '${d.day.toString().padLeft(2, '0')}';
 
-/// Nota diaria — Folio no tiene todavía un concepto de "nota diaria" formal
-/// (sin campo dedicado en `FolioPage`), así que este plugin busca una
-/// página cuyo título sea la fecha de hoy en formato ISO y, si no existe,
-/// ofrece crearla honestamente en vez de simular una.
+/// Nota diaria por título ISO `YYYY-MM-DD`.
 class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
   const DailyNotesWidgetPlugin();
 
@@ -36,37 +35,83 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    final today = _isoDate(DateTime.now());
-    final existing = ctx.session.pages
-        .where((p) => !p.isTrashed && p.title.trim() == today)
-        .firstOrNull;
+    final now = DateTime.now();
+    final today = isoDate(now);
+    final yesterday = isoDate(now.subtract(const Duration(days: 1)));
+    final tomorrow = isoDate(now.add(const Duration(days: 1)));
+
+    _PageRef? find(String title) {
+      final p = ctx.session.pages
+          .where((p) => !p.isTrashed && p.title.trim() == title)
+          .firstOrNull;
+      return p == null ? null : _PageRef(p.id, title);
+    }
+
+    final todayPage = find(today);
+    final yesterdayPage = find(yesterday);
+    final tomorrowPage = find(tomorrow);
 
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: existing == null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'No hay nota para hoy ($today).',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                FilledButton.tonalIcon(
-                  onPressed: ctx.onCreatePage,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Crear página'),
-                ),
-              ],
-            )
-          : ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.description_outlined),
-              title: Text(today),
-              onTap: () => ctx.onSelectPage?.call(existing.id),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Convención: título = YYYY-MM-DD',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
+          ),
+          const SizedBox(height: 6),
+          if (todayPage != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.today_rounded, size: 18),
+              title: Text('Hoy · $today'),
+              onTap: () => ctx.onSelectPage?.call(todayPage.id),
+            )
+          else
+            FilledButton.tonalIcon(
+              onPressed: () {
+                final id = const Uuid().v4();
+                ctx.session.createPageWithId(
+                  id: id,
+                  title: today,
+                  blocks: [
+                    FolioBlock(id: '${id}_b0', type: 'paragraph', text: ''),
+                  ],
+                );
+                ctx.onSelectPage?.call(id);
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text('Crear nota de hoy ($today)'),
+            ),
+          if (yesterdayPage != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.history_rounded, size: 18),
+              title: Text('Ayer · $yesterday'),
+              onTap: () => ctx.onSelectPage?.call(yesterdayPage.id),
+            ),
+          if (tomorrowPage != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.event_rounded, size: 18),
+              title: Text('Mañana · $tomorrow'),
+              onTap: () => ctx.onSelectPage?.call(tomorrowPage.id),
+            ),
+        ],
+      ),
     );
   }
+}
+
+class _PageRef {
+  const _PageRef(this.id, this.title);
+  final String id;
+  final String title;
 }

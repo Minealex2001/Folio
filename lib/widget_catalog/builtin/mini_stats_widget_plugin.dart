@@ -5,8 +5,7 @@ import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-/// Migración 1:1 de `WorkspaceHomeSectionIds.miniStats` — conteos reales
-/// derivados de `VaultSession` (páginas, tareas pendientes/completadas).
+/// Conteo de páginas, carpetas y tareas del vault.
 class MiniStatsWidgetPlugin extends FolioWidgetPlugin {
   const MiniStatsWidgetPlugin();
 
@@ -25,7 +24,9 @@ class MiniStatsWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    final pageCount = ctx.session.pages.where((p) => !p.isTrashed).length;
+    final pages = ctx.session.pages.where((p) => !p.isTrashed);
+    final pageCount = pages.where((p) => !p.isFolder).length;
+    final folderCount = pages.where((p) => p.isFolder).length;
     final tasks = ctx.session.collectTaskBlocks();
     final doneCount = tasks
         .where(
@@ -43,8 +44,9 @@ class MiniStatsWidgetPlugin extends FolioWidgetPlugin {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _Stat(label: 'Páginas', value: pageCount),
+          _Stat(label: 'Carpetas', value: folderCount),
           _Stat(label: 'Pendientes', value: pendingCount),
-          _Stat(label: 'Completadas', value: doneCount),
+          _Stat(label: 'Hechas', value: doneCount),
         ],
       ),
     );
@@ -62,8 +64,13 @@ class _Stat extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$value', style: Theme.of(context).textTheme.headlineSmall),
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        Text('$value', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }

@@ -160,9 +160,15 @@ class WorkspaceEditorSurface extends StatelessWidget {
                         appSettings: appSettings,
                         configStore: dashboardGridController.store,
                         session: session,
+                        cloudAccount: cloudAccount,
+                        folioCloudEntitlements: folioCloudEntitlements,
                         onOpenSearch: onOpenSearch,
                         onCreatePage: onCreatePage,
                         onSelectPage: onSelectPage,
+                        onUpdateInstanceSettings:
+                            dashboardGridController.setInstanceSettings,
+                        onOpenSettings: onOpenSettings,
+                        onOpenFolioCloudPitch: onOpenFolioCloudPitch,
                       ),
                       columnRegionIds: const [
                         DashboardRegionIds.left,

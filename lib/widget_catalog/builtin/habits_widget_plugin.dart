@@ -5,8 +5,7 @@ import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-/// Hábitos — sin un modelo de tracking de hábitos (rachas, frecuencia) en
-/// el repo hoy. Declarado honestamente en vez de simular una racha falsa.
+/// Proxy de hábitos: tareas con `recurrence` (o rrule) vía collectTaskBlocks.
 class HabitsWidgetPlugin extends FolioWidgetPlugin {
   const HabitsWidgetPlugin();
 
@@ -28,8 +27,64 @@ class HabitsWidgetPlugin extends FolioWidgetPlugin {
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: const BuiltinWidgetComingSoon(
-        message: 'El seguimiento de hábitos todavía no existe en Folio.',
+      child: ListenableBuilder(
+        listenable: ctx.session,
+        builder: (context, _) {
+          final habits = ctx.session
+              .collectTaskBlocks(includeSimpleTodos: false)
+              .where((t) {
+                final task = t.task;
+                if (task == null) return false;
+                final rec = (task.recurrence ?? '').trim();
+                final rule = (task.recurringRule ?? '').trim();
+                return rec.isNotEmpty || rule.isNotEmpty;
+              })
+              .take(10)
+              .toList();
+
+          if (habits.isEmpty) {
+            return const BuiltinWidgetEmpty(
+              message:
+                  'No hay tareas recurrentes. Añade una recurrencia a una tarea.',
+            );
+          }
+
+          return ListView.builder(
+            itemCount: habits.length,
+            itemBuilder: (context, index) {
+              final t = habits[index];
+              final task = t.task!;
+              final done = task.status == 'done';
+              final recLabel = [
+                if ((task.recurrence ?? '').trim().isNotEmpty)
+                  task.recurrence!.trim(),
+                if ((task.recurringRule ?? '').trim().isNotEmpty)
+                  task.recurringRule!.trim(),
+              ].join(' · ');
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  done
+                      ? Icons.check_circle_rounded
+                      : Icons.repeat_rounded,
+                  size: 18,
+                ),
+                title: Text(
+                  task.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  recLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => ctx.onSelectPage?.call(t.pageId),
+              );
+            },
+          );
+        },
       ),
     );
   }

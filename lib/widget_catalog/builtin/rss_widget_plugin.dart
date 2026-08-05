@@ -29,7 +29,9 @@ class RssWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: const BuiltinWidgetComingSoon(
-        message: 'Los feeds RSS todavía no están soportados en Folio.',
+        message:
+            'Los feeds RSS no están soportados. '
+            'No hay lector de feeds en Folio todavía.',
       ),
     );
   }

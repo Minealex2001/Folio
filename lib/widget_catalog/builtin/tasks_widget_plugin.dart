@@ -25,49 +25,74 @@ class TasksWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    final pending = ctx.session
-        .collectTaskBlocks()
-        .where(
-          (t) => t.blockType == 'todo'
-              ? t.todoChecked != true
-              : t.task?.status != 'done',
-        )
-        .take(8)
-        .toList();
-
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: pending.isEmpty
-          ? const BuiltinWidgetComingSoon(message: 'Sin tareas pendientes.')
-          : ListView.builder(
-              itemCount: pending.length,
-              itemBuilder: (context, index) {
-                final t = pending[index];
-                final title = t.blockType == 'todo'
-                    ? t.todoText
-                    : (t.task?.title ?? '');
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(
+      child: ListenableBuilder(
+        listenable: ctx.session,
+        builder: (context, _) {
+          final pending = ctx.session
+              .collectTaskBlocks()
+              .where(
+                (t) => t.blockType == 'todo'
+                    ? t.todoChecked != true
+                    : t.task?.status != 'done',
+              )
+              .take(8)
+              .toList();
+
+          if (pending.isEmpty) {
+            return const BuiltinWidgetEmpty(
+              message: 'Sin tareas pendientes.',
+            );
+          }
+
+          return ListView.builder(
+            itemCount: pending.length,
+            itemBuilder: (context, index) {
+              final t = pending[index];
+              final title = t.blockType == 'todo'
+                  ? t.todoText
+                  : (t.task?.title ?? '');
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: IconButton(
+                  icon: const Icon(
                     Icons.radio_button_unchecked_rounded,
                     size: 18,
                   ),
-                  title: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  tooltip: 'Marcar hecha',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
                   ),
-                  subtitle: Text(
-                    t.pageTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => ctx.onSelectPage?.call(t.pageId),
-                );
-              },
-            ),
+                  onPressed: () {
+                    ctx.session.setTaskBlockDone(
+                      t.pageId,
+                      t.blockId,
+                      done: true,
+                    );
+                  },
+                ),
+                title: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  t.pageTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => ctx.onSelectPage?.call(t.pageId),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

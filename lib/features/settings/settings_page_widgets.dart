@@ -393,3 +393,155 @@ class _SearchItem {
   });
 }
 
+/// Tema (system/light/dark/OLED) + acento — compartido entre Apariencia y
+/// Personalización. Solo una sección es visible a la vez, así el control
+/// aparece en ambas rutas sin duplicarse en pantalla.
+class _ThemeAndAccentControls extends StatelessWidget {
+  const _ThemeAndAccentControls({required this.appSettings});
+
+  final AppSettings appSettings;
+
+  static const _accentPresets = <int>[
+    0xFF00F3FF,
+    0xFF1565C0,
+    0xFF0277BD,
+    0xFF6A1B9A,
+    0xFFAD1457,
+    0xFF2E7D32,
+    0xFF558B2F,
+    0xFFBF360C,
+    0xFF00695C,
+    0xFF283593,
+    0xFF4E342E,
+    0xFF37474F,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: appSettings,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SegmentedButton<FolioThemeMode>(
+                segments: [
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.system,
+                    label: Text(l10n.systemTheme),
+                    icon: const Icon(Icons.brightness_auto, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.light,
+                    label: Text(l10n.lightTheme),
+                    icon: const Icon(Icons.light_mode_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.dark,
+                    label: Text(l10n.darkTheme),
+                    icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.oled,
+                    label: Text(l10n.oledTheme),
+                    icon: const Icon(Icons.contrast, size: 18),
+                  ),
+                ],
+                selected: {appSettings.themeMode},
+                onSelectionChanged: (s) {
+                  appSettings.setThemeMode(s.first);
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                l10n.settingsAccentColorTitle,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SegmentedButton<FolioAccentColorMode>(
+                segments: [
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.followSystem,
+                    label: Text(FolioAdaptive.currentPlatformName()),
+                    icon: const Icon(Icons.palette_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.folioDefault,
+                    label: Text(l10n.settingsAccentFolioDefault),
+                    icon: const Icon(Icons.brush_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.custom,
+                    label: Text(l10n.settingsAccentCustom),
+                    icon: const Icon(Icons.color_lens_outlined, size: 18),
+                  ),
+                ],
+                selected: {appSettings.accentColorMode},
+                onSelectionChanged: (s) {
+                  appSettings.setAccentColorMode(s.first);
+                },
+              ),
+            ),
+            if (appSettings.accentColorMode == FolioAccentColorMode.custom) ...[
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Icon(
+                  Icons.color_lens,
+                  color: Color(appSettings.customAccentArgb),
+                ),
+                title: Text(l10n.settingsAccentPickColor),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final picked = await showDialog<int>(
+                    context: context,
+                    builder: (ctx) {
+                      return FolioDialog(
+                        title: Text(l10n.settingsAccentPickColor),
+                        content: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final a in _accentPresets)
+                              Material(
+                                color: Color(a),
+                                elevation: 2,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => Navigator.pop(ctx, a),
+                                  child: const SizedBox(width: 44, height: 44),
+                                ),
+                              ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(l10n.cancel),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    await appSettings.setCustomAccentArgb(picked);
+                  }
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+

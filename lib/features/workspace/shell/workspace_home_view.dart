@@ -206,9 +206,15 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
       appSettings: widget.appSettings,
       configStore: widget.dashboardGridController.store,
       session: widget.session,
+      cloudAccount: widget.cloudAccount,
+      folioCloudEntitlements: widget.folioCloudEntitlements,
       onOpenSearch: widget.onOpenSearch,
       onCreatePage: widget.onCreatePage,
       onSelectPage: widget.onSelectPage,
+      onUpdateInstanceSettings:
+          widget.dashboardGridController.setInstanceSettings,
+      onOpenSettings: widget.onOpenSettings,
+      onOpenFolioCloudPitch: widget.onOpenFolioCloudPitch,
     );
     return SizedBox(
       height: instance.height ?? plugin.defaultHeight,

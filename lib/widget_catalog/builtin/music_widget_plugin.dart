@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../features/workspace/widgets/spotify_now_playing_bar.dart';
 import '../../services/media/media_playback_router.dart';
+import '../../session/vault_session.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-/// Reproducción actual — lee `MediaPlaybackRouter.instance` (fuente real
-/// compartida con Spotify/YT Music/reproducción del sistema, ya usada por
-/// `lib/features/workspace/spotify/`), en vez de reincrustar el panel
-/// completo `SpotifyRightNowPlaying` (diseñado como overlay a pantalla
-/// completa, no como celda de dashboard).
+/// Reproducción actual — reutiliza [NowPlayingBar] sobre
+/// [MediaPlaybackRouter] (mismo stack que el sidebar / workspace).
 class MusicWidgetPlugin extends FolioWidgetPlugin {
   const MusicWidgetPlugin();
 
@@ -27,56 +26,77 @@ class MusicWidgetPlugin extends FolioWidgetPlugin {
   bool get allowMultipleInstances => false;
 
   @override
+  double get defaultHeight => 120;
+
+  @override
   Widget build(
     BuildContext context,
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final height = instance.height ?? defaultHeight;
+    final density = height >= 180
+        ? NowPlayingBarDensity.expanded
+        : NowPlayingBarDensity.mini;
+
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: ListenableBuilder(
-        listenable: MediaPlaybackRouter.instance,
-        builder: (context, _) {
-          final snapshot = MediaPlaybackRouter.instance.snapshot;
-          if (!snapshot.hasTrack) {
-            return const BuiltinWidgetComingSoon(
-              message: 'No hay nada sonando ahora mismo.',
-            );
-          }
-          return Row(
-            children: [
-              Icon(
-                snapshot.isPlaying
-                    ? Icons.pause_circle_filled_rounded
-                    : Icons.play_circle_filled_rounded,
-                size: 28,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      snapshot.title ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    if (snapshot.artist != null)
-                      Text(
-                        snapshot.artist!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+      child: _MusicNowPlayingBody(
+        session: ctx.session,
+        density: density,
+      ),
+    );
+  }
+}
+
+class _MusicNowPlayingBody extends StatefulWidget {
+  const _MusicNowPlayingBody({
+    required this.session,
+    required this.density,
+  });
+
+  final VaultSession session;
+  final NowPlayingBarDensity density;
+
+  @override
+  State<_MusicNowPlayingBody> createState() => _MusicNowPlayingBodyState();
+}
+
+class _MusicNowPlayingBodyState extends State<_MusicNowPlayingBody> {
+  @override
+  void initState() {
+    super.initState();
+    // Mantener polling aunque la barra no se monte (idle).
+    MediaPlaybackRouter.instance.addListenerRef();
+    MediaPlaybackRouter.instance.addListener(_onPlayback);
+  }
+
+  @override
+  void dispose() {
+    MediaPlaybackRouter.instance.removeListener(_onPlayback);
+    MediaPlaybackRouter.instance.removeListenerRef();
+    super.dispose();
+  }
+
+  void _onPlayback() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final router = MediaPlaybackRouter.instance;
+    if (!router.shouldShowBar) {
+      return const BuiltinWidgetEmpty(
+        message: 'No hay nada sonando ahora mismo.',
+      );
+    }
+    // NowPlayingBar también hace addListenerRef; ref-count lo tolera.
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: NowPlayingBar(
+        session: widget.session,
+        density: widget.density,
       ),
     );
   }

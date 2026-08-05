@@ -88,7 +88,7 @@ VisualPack buildCyberpunkPack() {
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'cyberpunk_w1',
-          pluginId: 'ai',
+          pluginId: 'folio_cloud',
           regionId: DashboardRegionIds.left,
           order: 0,
         ),

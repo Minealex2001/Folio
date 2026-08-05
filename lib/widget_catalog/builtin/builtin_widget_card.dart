@@ -53,10 +53,29 @@ class BuiltinWidgetCard extends StatelessWidget {
   }
 }
 
-/// Estado "no configurado todavía" — usado por plugins que necesitan una
-/// integración externa que Folio no trae de fábrica (clima, RSS, hábitos,
-/// libros, etc.). Real, no relleno: dice honestamente qué falta en vez de
-/// simular datos falsos.
+/// Empty state con datos reales ausentes (sin tareas, sin pistas, etc.).
+class BuiltinWidgetEmpty extends StatelessWidget {
+  const BuiltinWidgetEmpty({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// Estado "feature no disponible todavía" — integración externa o modelo
+/// que Folio no trae de fábrica. Distinto de [BuiltinWidgetEmpty].
 class BuiltinWidgetComingSoon extends StatelessWidget {
   const BuiltinWidgetComingSoon({super.key, required this.message});
 
