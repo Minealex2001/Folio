@@ -1812,6 +1812,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         Brightness.dark,
         androidDynamicAccent: androidAccent,
       ),
+      // Fase 9: cross-fade de colores/formas al cambiar de tema (incluido un
+      // pack visual completo, Fase 8) en vez de un corte abrupto —
+      // `themeAnimationDuration`/`themeAnimationCurve` son el mecanismo
+      // stock de Flutter para esto (usan AnimatedTheme internamente), leídos
+      // del propio ThemeConfig activo para que un pack como Cyberpunk
+      // (curva rápida/aguda) se sienta genuinamente distinto de Cozy
+      // (curva suave/lenta) al aplicarse.
+      themeAnimationDuration: Duration(
+        milliseconds: themeConfig.motion.themeChangeMs,
+      ),
+      themeAnimationCurve: resolveMotionCurve(themeConfig.motion.curveName),
       themeMode: widget.appSettings.materialThemeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,

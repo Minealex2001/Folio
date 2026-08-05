@@ -235,6 +235,10 @@ void main() {
     test('maps known names to their Curve, defaults to easeOutCubic', () {
       expect(resolveMotionCurve('linear'), Curves.linear);
       expect(resolveMotionCurve('easeOutCubic'), Curves.easeOutCubic);
+      // easeOutExpo: usada por el pack Cyberpunk (Fase 8) para su curva
+      // rápida/aguda — faltaba antes de la Fase 9 y caía silenciosamente al
+      // default, perdiendo la distinción de movimiento del pack.
+      expect(resolveMotionCurve('easeOutExpo'), Curves.easeOutExpo);
       expect(resolveMotionCurve('unknown'), Curves.easeOutCubic);
     });
   });

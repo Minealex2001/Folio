@@ -363,6 +363,8 @@ Curve resolveMotionCurve(String curveName) {
       return Curves.easeIn;
     case 'easeInOut':
       return Curves.easeInOut;
+    case 'easeOutExpo':
+      return Curves.easeOutExpo;
     case 'easeOutCubic':
     default:
       return Curves.easeOutCubic;
