@@ -96,6 +96,13 @@ VisualPack buildGlassPack() {
           pluginId: 'weather',
           regionId: DashboardRegionIds.right,
           order: 1,
+          settings: const {'weatherCity': 'Madrid', 'weatherCelsius': true},
+        ),
+        WidgetInstanceConfig(
+          instanceId: 'glass_w4',
+          pluginId: 'music',
+          regionId: DashboardRegionIds.left,
+          order: 1,
         ),
       ],
     ),

@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/config/config_paths.dart';
 import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
+import 'package:folio/config/models/accessibility_config.dart';
 import 'package:folio/config/models/dashboard_config.dart';
+import 'package:folio/config/models/design_tokens.dart';
+import 'package:folio/config/models/design_variables.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_config.dart';
 import 'package:folio/config/models/theme_config.dart';
@@ -88,11 +91,60 @@ void main() {
       expect(loaded.widgets.first.pluginId, 'tasks');
     });
 
+    test('tokens: save -> load -> equal fields', () async {
+      final store = await ConfigStore.open();
+      final tokens = DesignTokens(
+        id: 'my-tokens',
+        radius: const {'lg': 16},
+        color: const {'danger': 0xFFFF0000},
+      );
+
+      await store.saveTokens(tokens);
+      final loaded = await store.loadTokens('my-tokens');
+
+      expect(loaded, isNotNull);
+      expect(loaded!.radius['lg'], 16);
+      expect(loaded.color['danger'], 0xFFFF0000);
+    });
+
+    test('variables: save -> load -> equal fields', () async {
+      final store = await ConfigStore.open();
+      final variables = DesignVariables(
+        id: 'my-variables',
+        entries: const {'editorPadding': '@space.md'},
+      );
+
+      await store.saveVariables(variables);
+      final loaded = await store.loadVariables('my-variables');
+
+      expect(loaded, isNotNull);
+      expect(loaded!.entries['editorPadding'], '@space.md');
+    });
+
+    test('accessibility: save -> load -> equal fields', () async {
+      final store = await ConfigStore.open();
+      await store.saveAccessibility(
+        AccessibilityConfig(contrast: 'high', reduceMotion: true),
+      );
+      final loaded = await store.loadAccessibility();
+
+      expect(loaded, isNotNull);
+      expect(loaded!.contrast, 'high');
+      expect(loaded.reduceMotion, isTrue);
+    });
+
+    test('loadAccessibility returns null when nothing is persisted yet', () async {
+      final store = await ConfigStore.open();
+      expect(await store.loadAccessibility(), isNull);
+    });
+
     test('loading a non-existent id returns null', () async {
       final store = await ConfigStore.open();
       expect(await store.loadLayout('does-not-exist'), isNull);
       expect(await store.loadTheme('does-not-exist'), isNull);
       expect(await store.loadDashboard('does-not-exist'), isNull);
+      expect(await store.loadTokens('does-not-exist'), isNull);
+      expect(await store.loadVariables('does-not-exist'), isNull);
     });
 
     test('listLayoutIds reflects saved layouts', () async {

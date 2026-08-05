@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../config/models/widget_instance_config.dart';
+import 'widget_capabilities.dart';
 import 'widget_plugin_context.dart';
 
 /// Un tipo de widget instalable en el catálogo del dashboard (Fase 4/5).
@@ -46,4 +47,25 @@ abstract class FolioWidgetPlugin {
   /// "Duplicable" del brief — si el usuario puede colocar más de una
   /// instancia de este plugin en el dashboard.
   bool get allowMultipleInstances => true;
+
+  /// Qué puede hacer el usuario con una instancia colocada de este plugin
+  /// (Fase 13) — movible/redimensionable/duplicable/cerrable. Afinable por
+  /// instancia vía `WidgetInstanceConfig.capabilityOverrides`.
+  WidgetCapabilities get capabilities => const WidgetCapabilities();
+
+  /// Valores de tema por defecto de este plugin (Fase 23 — Widget Theme
+  /// Tokens + Plugin Theme API), en la forma que el propio plugin elija.
+  /// Folio nunca inspecciona estas claves — solo las transporta/persiste
+  /// vía `ThemeConfig.widgetThemes` y las fusiona con la config del usuario
+  /// en `ctx.widgetThemeFor(id, defaultTheme)`.
+  Map<String, dynamic> get defaultTheme => const {};
+
+  /// Editor de tema opcional (paralelo a [buildSettings], pero para
+  /// `ThemeConfig.widgetThemes` en vez de `WidgetInstanceConfig.settings`);
+  /// null si el plugin no expone tema configurable.
+  Widget? buildThemeEditor(
+    BuildContext context,
+    Map<String, dynamic> theme,
+    ValueChanged<Map<String, dynamic>> onThemeChanged,
+  ) => null;
 }

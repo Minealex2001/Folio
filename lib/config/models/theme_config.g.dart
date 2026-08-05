@@ -25,6 +25,31 @@ ThemeConfig _$ThemeConfigFromJson(Map<String, dynamic> json) => ThemeConfig(
   icons: ThemeIconTokens.fromJson(json['icons'] as Map<String, dynamic>),
   surfaceOpacity: (json['surfaceOpacity'] as num?)?.toDouble() ?? 1.0,
   accentMode: json['accentMode'] as String? ?? 'followSystem',
+  semanticColors: json['semanticColors'] == null
+      ? null
+      : SemanticColorTokens.fromJson(
+          json['semanticColors'] as Map<String, dynamic>,
+        ),
+  componentStyles: json['componentStyles'] == null
+      ? null
+      : ComponentStyleTokens.fromJson(
+          json['componentStyles'] as Map<String, dynamic>,
+        ),
+  layers: json['layers'] == null
+      ? null
+      : ThemeLayerTokens.fromJson(json['layers'] as Map<String, dynamic>),
+  variants: (json['variants'] as List<dynamic>?)
+      ?.map((e) => ThemeVariant.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  activeVariantId: json['activeVariantId'] as String?,
+  visualStyle: json['visualStyle'] == null
+      ? null
+      : VisualStyle.fromJson(json['visualStyle'] as Map<String, dynamic>),
+  widgetThemes: json['widgetThemes'] == null
+      ? null
+      : WidgetThemeTokens.fromJson(
+          json['widgetThemes'] as Map<String, dynamic>,
+        ),
 );
 
 Map<String, dynamic> _$ThemeConfigToJson(ThemeConfig instance) =>
@@ -42,4 +67,11 @@ Map<String, dynamic> _$ThemeConfigToJson(ThemeConfig instance) =>
       'motion': instance.motion.toJson(),
       'icons': instance.icons.toJson(),
       'surfaceOpacity': instance.surfaceOpacity,
+      'semanticColors': instance.semanticColors?.toJson(),
+      'componentStyles': instance.componentStyles?.toJson(),
+      'layers': instance.layers?.toJson(),
+      'variants': instance.variants?.map((e) => e.toJson()).toList(),
+      'activeVariantId': instance.activeVariantId,
+      'visualStyle': instance.visualStyle?.toJson(),
+      'widgetThemes': instance.widgetThemes?.toJson(),
     };

@@ -13,6 +13,10 @@ class ThemeMotionTokens {
     this.mediumMs = 280,
     this.themeChangeMs = 300,
     this.curveName = 'easeOutCubic',
+    this.enabled = true,
+    this.pageTransitionsEnabled = true,
+    this.hoverEnabled = true,
+    this.selectionEffectEnabled = true,
   });
 
   final int shortMs;
@@ -20,6 +24,24 @@ class ThemeMotionTokens {
   final int mediumMs;
   final int themeChangeMs;
   final String curveName;
+
+  /// Interruptor maestro (Fase 21/23 — reutilizado por
+  /// `AccessibilityConfig.reduceMotion`, Fase 22): `false` fuerza
+  /// duraciones a cero en cualquier sitio que lea `motion.enabled`.
+  final bool enabled;
+
+  /// Si `pageTransitionsTheme` usa `FadeForwardsPageTransitionsBuilder`
+  /// (default, hoy) o una transición sin animación.
+  final bool pageTransitionsEnabled;
+
+  /// Reservado para animaciones de hover a nivel de widget que aún no leen
+  /// este flag (ningún call site lo consume todavía — dato transportado
+  /// para cuando lo hagan, mismo espíritu que otros flags aditivos de esta
+  /// expansión).
+  final bool hoverEnabled;
+
+  /// Igual que [hoverEnabled] pero para efectos de selección.
+  final bool selectionEffectEnabled;
 
   factory ThemeMotionTokens.fromJson(Map<String, dynamic> json) =>
       _$ThemeMotionTokensFromJson(json);

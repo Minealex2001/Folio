@@ -72,10 +72,10 @@ void main() {
     if (tempDir.existsSync()) await tempDir.delete(recursive: true);
   });
 
-  test('exactly 10 builtin packs exist, with unique ids', () {
+  test('exactly 11 builtin packs exist, with unique ids', () {
     final packs = builtinVisualPacks();
-    expect(packs, hasLength(10));
-    expect(packs.map((p) => p.manifest.id).toSet(), hasLength(10));
+    expect(packs, hasLength(11));
+    expect(packs.map((p) => p.manifest.id).toSet(), hasLength(11));
   });
 
   test(
@@ -88,6 +88,12 @@ void main() {
           // Material 3 es el baseline/reset — debe seguir followSystem,
           // igual que kFolioDefaultTheme.
           expect(pack.theme.accentMode, 'followSystem');
+          continue;
+        }
+        if (pack.manifest.id == 'minealex_games') {
+          // Marca: FolioBrandPalette (cyan+magenta), no fromSeed.
+          expect(pack.theme.accentMode, 'folioDefault');
+          expect(resolveAccentSeedColor(pack.theme), const Color(0xFF00F3FF));
           continue;
         }
         expect(

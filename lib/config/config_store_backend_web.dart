@@ -12,7 +12,11 @@ class ConfigStoreBackend {
   static final ConfigStoreBackend instance = ConfigStoreBackend._();
 
   static const _dbName = 'folio_config_store';
-  static const _dbVersion = 1;
+  // v2: añade 'tokens'/'variables' (Fase 12). v3: añade 'accessibility'
+  // (Fase 22) — subir la versión es necesario para que onUpgradeNeeded se
+  // dispare de nuevo en instalaciones que ya abrieron la base en una
+  // versión anterior.
+  static const _dbVersion = 3;
 
   Database? _db;
 

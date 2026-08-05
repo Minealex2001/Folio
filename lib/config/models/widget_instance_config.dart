@@ -1,13 +1,14 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import '../json_schema_version.dart';
+import 'widget_capability_overrides.dart';
 
 part 'widget_instance_config.g.dart';
 
 /// Una instancia colocada de un plugin de widget del catálogo (Fase 4) en
 /// una región de dashboard. `settings` es opaco para el motor — cada plugin
 /// decide su propia forma, el motor solo la persiste.
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class WidgetInstanceConfig {
   WidgetInstanceConfig({
     this.schemaVersion = kFolioConfigSchemaVersion,
@@ -20,6 +21,7 @@ class WidgetInstanceConfig {
     this.visible = true,
     this.groupId,
     this.settings = const {},
+    this.capabilityOverrides,
   });
 
   final int schemaVersion;
@@ -39,6 +41,10 @@ class WidgetInstanceConfig {
 
   final Map<String, dynamic> settings;
 
+  /// Override por-instancia de `FolioWidgetPlugin.capabilities` (Fase 13).
+  /// null = usa el default del plugin sin cambios.
+  final WidgetCapabilityOverrides? capabilityOverrides;
+
   factory WidgetInstanceConfig.fromJson(Map<String, dynamic> json) =>
       _$WidgetInstanceConfigFromJson(json);
 
@@ -53,6 +59,7 @@ class WidgetInstanceConfig {
     String? groupId,
     bool clearGroupId = false,
     Map<String, dynamic>? settings,
+    WidgetCapabilityOverrides? capabilityOverrides,
   }) {
     return WidgetInstanceConfig(
       schemaVersion: schemaVersion,
@@ -65,6 +72,7 @@ class WidgetInstanceConfig {
       visible: visible ?? this.visible,
       groupId: clearGroupId ? null : (groupId ?? this.groupId),
       settings: settings ?? this.settings,
+      capabilityOverrides: capabilityOverrides ?? this.capabilityOverrides,
     );
   }
 }

@@ -2,6 +2,16 @@
 /// [ConfigStore] (LayoutConfig, ThemeConfig, DashboardConfig, manifest de pack).
 const int kFolioConfigSchemaVersion = 1;
 
+/// Registro real de migraciones enhebrado en [ConfigStore]. Vacío hoy porque
+/// todo lo añadido hasta ahora sigue la política aditivo-nullable-con-default
+/// (no requiere reescribir documentos guardados) — pero a diferencia de antes
+/// de la Fase 12, [ConfigStore._decode] SÍ pasa este registro a
+/// [runMigrations], así que una migración real registrada aquí se ejecutaría
+/// de verdad en producción. Añadir una entrada aquí es lo único que hace
+/// falta el día que una fase futura necesite un renombre/reestructuración
+/// genuino en vez de un campo aditivo.
+const List<ConfigMigration> kFolioConfigMigrations = [];
+
 /// Una migración lineal de un documento JSON de [fromVersion] a [fromVersion] + 1.
 class ConfigMigration {
   const ConfigMigration({required this.fromVersion, required this.migrate});

@@ -6,8 +6,28 @@ import '../../visual_editor/selectable_tap_wrapper.dart';
 import '../../visual_editor/visual_editor_controller.dart';
 import '../../visual_editor/widget_instance_selectable.dart';
 import '../folio_widget_plugin.dart';
+import '../widget_capabilities.dart';
 import 'dashboard_grid_controller.dart';
 import 'dashboard_grid_math.dart';
+
+/// Capacidades efectivas para [instance]: `plugin.capabilities` como base,
+/// con cada campo no-null de `instance.capabilityOverrides` ganando (Fase
+/// 13) — mismo patrón de fallback de dos niveles que el resto del sistema.
+WidgetCapabilities resolveWidgetCapabilities(
+  FolioWidgetPlugin? plugin,
+  WidgetInstanceConfig instance,
+) {
+  final base = plugin?.capabilities ?? const WidgetCapabilities();
+  final overrides = instance.capabilityOverrides;
+  if (overrides == null) return base;
+  return WidgetCapabilities(
+    movable: overrides.movable ?? base.movable,
+    resizable: overrides.resizable ?? base.resizable,
+    duplicable: overrides.duplicable ?? base.duplicable,
+    closable: overrides.closable ?? base.closable,
+    detachable: overrides.detachable ?? base.detachable,
+  );
+}
 
 /// Chrome de una instancia de widget dentro del grid del dashboard —
 /// equivalente de `PanelFrame` (Fase 2) para widgets en vez de paneles:
@@ -97,6 +117,7 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
 
   @override
   Widget build(BuildContext context) {
+    final capabilities = resolveWidgetCapabilities(widget.plugin, widget.instance);
     final content = RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovering = true),
@@ -112,9 +133,10 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
                   instance: widget.instance,
                   controller: widget.controller,
                   plugin: widget.plugin,
+                  capabilities: capabilities,
                 ),
               ),
-            if (widget.resizable && _hovering)
+            if (widget.resizable && capabilities.resizable && _hovering)
               Positioned(
                 right: 0,
                 bottom: 0,
@@ -176,6 +198,9 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
 
+    if (!capabilities.movable) {
+      return selectableContent;
+    }
     if (isTouchPrimary) {
       return LongPressDraggable<String>(
         data: widget.instance.instanceId,
@@ -216,12 +241,14 @@ class _InstanceActionsRow extends StatelessWidget {
   const _InstanceActionsRow({
     required this.instance,
     required this.controller,
+    required this.capabilities,
     this.plugin,
   });
 
   final WidgetInstanceConfig instance;
   final DashboardGridController controller;
   final FolioWidgetPlugin? plugin;
+  final WidgetCapabilities capabilities;
 
   void _openSettings(BuildContext context) {
     final settingsWidget = plugin?.buildSettings(
@@ -258,18 +285,20 @@ class _InstanceActionsRow extends StatelessWidget {
               icon: const Icon(Icons.tune_rounded),
               onPressed: () => _openSettings(context),
             ),
-          IconButton(
-            iconSize: 16,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.copy_rounded),
-            onPressed: () => controller.duplicateInstance(instance.instanceId),
-          ),
-          IconButton(
-            iconSize: 16,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close_rounded),
-            onPressed: () => controller.removeInstance(instance.instanceId),
-          ),
+          if (capabilities.duplicable)
+            IconButton(
+              iconSize: 16,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.copy_rounded),
+              onPressed: () => controller.duplicateInstance(instance.instanceId),
+            ),
+          if (capabilities.closable)
+            IconButton(
+              iconSize: 16,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => controller.removeInstance(instance.instanceId),
+            ),
         ],
       ),
     );

@@ -191,6 +191,7 @@ class _PersonalizationSectionBody extends StatelessWidget {
             ),
             const Divider(height: 1),
             _VisualPacksSection(
+              appSettings: appSettings,
               layoutEngine: layoutEngine,
               themeConfig: themeConfig,
               dashboardGrid: dashboardGrid,
@@ -251,12 +252,14 @@ class _ThemeSlider extends StatelessWidget {
 /// cambia de verdad al tocar "Aplicar".
 class _VisualPacksSection extends StatefulWidget {
   const _VisualPacksSection({
+    required this.appSettings,
     required this.layoutEngine,
     required this.themeConfig,
     required this.dashboardGrid,
     required this.activePack,
   });
 
+  final AppSettings appSettings;
   final LayoutEngineController layoutEngine;
   final ThemeConfigController themeConfig;
   final DashboardGridController dashboardGrid;
@@ -284,6 +287,18 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
   Future<void> _applyPack(VisualPack pack) async {
     setState(() => _busy = true);
     try {
+      // El picker de acento vive en AppSettings y, al cambiar, reescribe
+      // accentMode/light/dark del ThemeConfig. Hay que alinearlo con el pack
+      // *antes* de apply; luego apply vuelve a poner shape/OLED/dashboard.
+      final accentMode = switch (pack.theme.accentMode) {
+        'followSystem' => FolioAccentColorMode.followSystem,
+        'folioDefault' => FolioAccentColorMode.folioDefault,
+        _ => FolioAccentColorMode.custom,
+      };
+      if (accentMode == FolioAccentColorMode.custom) {
+        await widget.appSettings.setCustomAccentArgb(pack.theme.light.seedArgb);
+      }
+      await widget.appSettings.setAccentColorMode(accentMode);
       await _installer.apply(pack);
       _snack('Pack "${pack.manifest.name}" aplicado.');
     } finally {
@@ -443,10 +458,24 @@ class _VisualPackCard extends StatelessWidget {
   final bool active;
   final VoidCallback? onApply;
 
+  List<Color> get _swatchColors {
+    final lightArgb = pack.theme.light.seedArgb;
+    final darkArgb = pack.theme.dark.seedArgb;
+    final colors = <Color>[Color(lightArgb)];
+    if (darkArgb != lightArgb) {
+      colors.add(Color(darkArgb));
+    }
+    // Minealex Games: segundo acento de marca (magenta) aunque el seed sea uno.
+    if (pack.manifest.id == 'minealex_games') {
+      colors.add(const Color(0xFFFF00FF));
+    }
+    return colors.take(3).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final seedColor = Color(pack.theme.light.seedArgb);
+    final swatches = _swatchColors;
     return Container(
       width: 220,
       padding: const EdgeInsets.all(12),
@@ -463,14 +492,20 @@ class _VisualPackCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: seedColor,
-                  shape: BoxShape.circle,
+              for (var i = 0; i < swatches.length; i++) ...[
+                if (i > 0) const SizedBox(width: 4),
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: swatches[i],
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

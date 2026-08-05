@@ -13,6 +13,10 @@ ThemeMotionTokens _$ThemeMotionTokensFromJson(Map<String, dynamic> json) =>
       mediumMs: (json['mediumMs'] as num?)?.toInt() ?? 280,
       themeChangeMs: (json['themeChangeMs'] as num?)?.toInt() ?? 300,
       curveName: json['curveName'] as String? ?? 'easeOutCubic',
+      enabled: json['enabled'] as bool? ?? true,
+      pageTransitionsEnabled: json['pageTransitionsEnabled'] as bool? ?? true,
+      hoverEnabled: json['hoverEnabled'] as bool? ?? true,
+      selectionEffectEnabled: json['selectionEffectEnabled'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$ThemeMotionTokensToJson(ThemeMotionTokens instance) =>
@@ -22,4 +26,8 @@ Map<String, dynamic> _$ThemeMotionTokensToJson(ThemeMotionTokens instance) =>
       'mediumMs': instance.mediumMs,
       'themeChangeMs': instance.themeChangeMs,
       'curveName': instance.curveName,
+      'enabled': instance.enabled,
+      'pageTransitionsEnabled': instance.pageTransitionsEnabled,
+      'hoverEnabled': instance.hoverEnabled,
+      'selectionEffectEnabled': instance.selectionEffectEnabled,
     };

@@ -39,7 +39,13 @@ VisualPack buildRetroPack() {
         radiusLg: 24,
         radiusXl: 0,
         radiusXxl: 0,
-        componentRadiusOverrides: const {'button': 20, 'chip': 0, 'card': 0},
+        componentRadiusOverrides: const {
+          'filledButton': 20,
+          'outlinedButton': 20,
+          'textButton': 12,
+          'chip': 0,
+          'card': 0,
+        },
       ),
       elevation: ThemeElevationTokens(
         none: 0,
@@ -77,7 +83,7 @@ VisualPack buildRetroPack() {
     dashboard: DashboardConfig(
       id: 'pack_retro_dashboard',
       name: 'Retro',
-      columns: 4,
+      columns: 2,
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'retro_w1',
@@ -93,9 +99,15 @@ VisualPack buildRetroPack() {
         ),
         WidgetInstanceConfig(
           instanceId: 'retro_w3',
-          pluginId: 'rss',
+          pluginId: 'quick_actions',
           regionId: DashboardRegionIds.right,
           order: 0,
+        ),
+        WidgetInstanceConfig(
+          instanceId: 'retro_w4',
+          pluginId: 'tip',
+          regionId: DashboardRegionIds.right,
+          order: 1,
         ),
       ],
     ),

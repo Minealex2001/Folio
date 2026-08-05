@@ -5,7 +5,16 @@
 /// Puramente Dart (sin dart:io/dart:html) para que ambos backends
 /// (`config_store_backend_io.dart`, `config_store_backend_web.dart`) puedan
 /// importarlo sin necesitar su propio gateway condicional.
-enum ConfigCategory { themes, layouts, dashboards, widgets, packs }
+enum ConfigCategory {
+  themes,
+  layouts,
+  dashboards,
+  widgets,
+  packs,
+  tokens,
+  variables,
+  accessibility,
+}
 
 extension ConfigCategoryFolder on ConfigCategory {
   /// Nombre de carpeta (nativo) / object store (web) para esta categoría.
@@ -21,6 +30,12 @@ extension ConfigCategoryFolder on ConfigCategory {
         return 'widgets';
       case ConfigCategory.packs:
         return 'packs';
+      case ConfigCategory.tokens:
+        return 'tokens';
+      case ConfigCategory.variables:
+        return 'variables';
+      case ConfigCategory.accessibility:
+        return 'accessibility';
     }
   }
 }

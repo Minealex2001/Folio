@@ -3,7 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../app/ui_tokens.dart';
 import '../config/models/theme_config.dart';
+import '../config/models/accessibility_config.dart';
+import 'accessibility_resolver.dart';
+import 'component_state_resolver.dart';
+import 'component_style_resolver.dart';
+import 'design_tokens_resolver.dart';
+import 'layer_style_resolver.dart';
+import 'semantic_colors_resolver.dart';
 import 'theme_color_resolver.dart';
+import 'visual_style_resolver.dart';
 
 /// Resuelve un [ThemeConfig] + [Brightness] a un [ThemeData] completo.
 /// Puerto data-driven de `_folioThemeFromBase`/`folioLightTheme`/
@@ -21,12 +29,25 @@ ThemeData resolveThemeData(
   ThemeConfig config,
   Brightness brightness, {
   Color? androidDynamicAccent,
+  /// Resuelve referencias `@color.xxx`/`@var.xxx` dentro de
+  /// [ThemeConfig.semanticColors] (Fase 14) contra [DesignTokens]/
+  /// [DesignVariables] persistidos aparte. `null` (default) es exactamente
+  /// el comportamiento de hoy: cualquier referencia no resuelta cae al
+  /// mismo default derivado de [ColorScheme] que un campo `null`.
+  DesignTokensResolver? tokensResolver,
+  /// Preferencias de accesibilidad (Fase 22) — categoría propia de
+  /// [ConfigStore], no un campo de [ThemeConfig]. `null` (default) es
+  /// exactamente el comportamiento de hoy.
+  AccessibilityConfig? accessibility,
 }) {
   var colorScheme = resolveColorScheme(
     config,
     brightness: brightness,
     androidDynamicAccent: androidDynamicAccent,
   );
+  if (accessibility != null) {
+    colorScheme = applyContrast(colorScheme, accessibility.contrast);
+  }
 
   final isOled = brightness == Brightness.dark && config.dark.isOled;
   if (isOled) {
@@ -53,9 +74,31 @@ ThemeData resolveThemeData(
   final shape = config.shape;
   final spacing = config.spacing;
   final elevation = config.elevation;
-  final motion = config.motion;
+  final motion = accessibility == null
+      ? config.motion
+      : applyReduceMotion(config.motion, accessibility.reduceMotion);
+  final componentStyleResolver = ComponentStyleResolver(
+    config.componentStyles,
+    shape,
+    tokensResolver: tokensResolver,
+  );
+  final componentStateResolver = ComponentStateResolver(
+    config.componentStyles,
+    tokensResolver: tokensResolver,
+  );
   double radius(String component, double fallback) =>
-      shape.componentRadiusOverrides?[component] ?? fallback;
+      componentStyleResolver.radiusFor(component, fallback);
+
+  // Fase 18: `layers == null` (default) preserva las elevaciones literales
+  // de hoy (dialog=8.0, popupMenu=elevation.menu) exactamente — solo cuando
+  // el usuario configura `layers.overlay` explícitamente, su flag `shadow`
+  // decide si diálogo/menú tienen elevación o quedan planos. Caso especial
+  // documentado: `shadow: true` no introduce un valor de elevación nuevo,
+  // reproduce la magnitud literal que cada componente ya tenía.
+  final overlayLayer = config.layers == null
+      ? null
+      : resolveLayer(config.layers!, 'overlay');
+  final overlayHasShadow = overlayLayer?.shadow ?? true;
 
   // Tipografía: el path por defecto (sin fontFamily override) usa
   // GoogleFonts.outfitTextTheme igual que hoy — reproducir ese TextTheme
@@ -65,7 +108,7 @@ ThemeData resolveThemeData(
   final baseText = config.typography.fontFamily == null
       ? GoogleFonts.outfitTextTheme(base.textTheme)
       : base.textTheme.apply(fontFamily: config.typography.fontFamily);
-  final expressiveText = baseText.copyWith(
+  var expressiveText = baseText.copyWith(
     displayLarge: baseText.displayLarge?.copyWith(fontWeight: FontWeight.w700),
     displayMedium: baseText.displayMedium?.copyWith(
       fontWeight: FontWeight.w700,
@@ -81,19 +124,67 @@ ThemeData resolveThemeData(
     labelLarge: baseText.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   );
 
+  // Siempre fusionar geometría M3: `apply(fontFamily)` deja inherit:true y
+  // Outfit/englishLike dejan inherit:false — AnimatedTheme.lerp crashea al
+  // cruzar packs (Paper↔Cozy). englishLike unifica inherit:false + sizes.
+  final geometry = Typography.material2021().englishLike;
+  expressiveText = geometry.merge(expressiveText);
+  final sizeScale = config.typography.baseSizeScale.clamp(0.85, 1.2);
+  if ((sizeScale - 1.0).abs() > 0.001) {
+    expressiveText = expressiveText.apply(fontSizeFactor: sizeScale);
+  }
+
+  final surfaceAlpha = config.surfaceOpacity.clamp(0.0, 1.0);
+  Color surfacePaint(Color c) =>
+      surfaceAlpha >= 0.999 ? c : c.withValues(alpha: surfaceAlpha);
+
+  // Fase 20: `visualStyle == null` (default) reproduce `VisualDensity(-1,-1)`
+  // exactamente. `dialogGlassOpacity` cae a `surfaceAlpha` (el
+  // `surfaceOpacity` global de siempre) cuando no está configurado.
+  final visualDensity = resolveDensity(config.visualStyle);
+  final dialogGlassOpacity = resolveGlassOpacity(
+    config.visualStyle,
+    'dialog',
+    surfaceAlpha,
+    tokensResolver: tokensResolver,
+  );
+  Color dialogPaint(Color c) =>
+      dialogGlassOpacity >= 0.999 ? c : c.withValues(alpha: dialogGlassOpacity);
+
   var themeData = base.copyWith(
     textTheme: expressiveText,
     scaffoldBackgroundColor: colorScheme.surface,
-    visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    pageTransitionsTheme: const PageTransitionsTheme(
-      builders: {
-        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-      },
+    shadowColor: colorScheme.shadow.withValues(
+      alpha: elevation.shadowOpacity.clamp(0.0, 1.0),
     ),
+    visualDensity: visualDensity,
+    iconTheme: resolveIconTheme(
+      config.visualStyle,
+      base.iconTheme,
+      tokensResolver: tokensResolver,
+    ),
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    // Fase 21: `enabled && pageTransitionsEnabled` (default true/true, como
+    // hoy) reproduce el mapa FadeForwards de siempre; desactivarlo cambia a
+    // una transición instantánea en vez de quitar el mapa (que dejaría el
+    // zoom-fade por defecto de Material 3, un cambio visible distinto).
+    pageTransitionsTheme: (motion.enabled && motion.pageTransitionsEnabled)
+        ? const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+            },
+          )
+        : const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: _InstantPageTransitionsBuilder(),
+              TargetPlatform.linux: _InstantPageTransitionsBuilder(),
+              TargetPlatform.macOS: _InstantPageTransitionsBuilder(),
+              TargetPlatform.windows: _InstantPageTransitionsBuilder(),
+            },
+          ),
     appBarTheme: AppBarTheme(
       centerTitle: false,
       elevation: elevation.none,
@@ -113,9 +204,19 @@ ThemeData resolveThemeData(
         hoverColor: colorScheme.surfaceContainerHighest,
         highlightColor: colorScheme.surfaceContainerHigh,
         padding: EdgeInsets.all(spacing.xs),
-        minimumSize: const Size(40, 40),
+        minimumSize: Size.square(minTapTarget(accessibility?.largeHitTargets ?? false)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius('iconButton', shape.radiusMd)),
+        ),
+        // `null` (sin `states` configurado) preserva el default de hoy:
+        // IconButton no pinta fondo propio, solo hoverColor/highlightColor
+        // arriba — Fase 17, primer consumidor real de ComponentStateStyle.
+      ).copyWith(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => componentStateResolver.backgroundColorForState(
+            'iconButton',
+            states,
+          ),
         ),
       ),
     ),
@@ -169,7 +270,7 @@ ThemeData resolveThemeData(
     ),
     cardTheme: CardThemeData(
       elevation: elevation.none,
-      color: colorScheme.surfaceContainerLow,
+      color: surfacePaint(colorScheme.surfaceContainerLow),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius('card', shape.radiusMd)),
         side: BorderSide(
@@ -200,13 +301,18 @@ ThemeData resolveThemeData(
       ),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: dialogPaint(colorScheme.surfaceContainerLow),
       surfaceTintColor: colorScheme.surfaceTint,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius('dialog', shape.radiusXl)),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+        // `border: null` (sin configurar) preserva el default de hoy (con
+        // borde) — Fase 15, primer consumidor real de ComponentStyleEntry
+        // más allá de radio.
+        side: (componentStyleResolver.styleFor('dialog')?.border ?? true)
+            ? BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3))
+            : BorderSide.none,
       ),
-      elevation: 8.0,
+      elevation: overlayHasShadow ? 8.0 : 0.0,
       alignment: Alignment.center,
       titleTextStyle: expressiveText.titleLarge?.copyWith(
         color: colorScheme.onSurface,
@@ -220,7 +326,7 @@ ThemeData resolveThemeData(
     popupMenuTheme: PopupMenuThemeData(
       color: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
-      elevation: elevation.menu,
+      elevation: overlayHasShadow ? elevation.menu : 0.0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius('popupMenu', shape.radiusLg)),
         side: BorderSide(
@@ -233,12 +339,16 @@ ThemeData resolveThemeData(
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius('navigationDrawer', shape.radiusSm)),
       ),
+      backgroundColor: surfacePaint(colorScheme.surfaceContainerLow),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor: surfacePaint(colorScheme.surfaceContainerLow),
     ),
     navigationRailTheme: NavigationRailThemeData(
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius('navigationRail', shape.radiusSm)),
       ),
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: surfacePaint(colorScheme.surfaceContainerLow),
     ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
@@ -276,7 +386,7 @@ ThemeData resolveThemeData(
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
-        visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+        visualDensity: visualDensity,
         padding: WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: spacing.md, vertical: spacing.sm),
         ),
@@ -345,6 +455,13 @@ ThemeData resolveThemeData(
     themeData = themeData.copyWith(scaffoldBackgroundColor: Colors.black);
   }
 
+  final semanticColors = resolveSemanticColors(
+    config.semanticColors,
+    colorScheme,
+    tokensResolver: tokensResolver,
+  );
+  themeData = themeData.copyWith(extensions: [semanticColors]);
+
   return themeData;
 }
 
@@ -368,5 +485,24 @@ Curve resolveMotionCurve(String curveName) {
     case 'easeOutCubic':
     default:
       return Curves.easeOutCubic;
+  }
+}
+
+/// Sin transición — el `child` se muestra directamente, ignorando las
+/// animaciones de entrada/salida (Fase 21: `motion.enabled: false` /
+/// `pageTransitionsEnabled: false`). No hay un builder "sin transición" en
+/// el SDK de Flutter con ese nombre exacto, así que se define aquí.
+class _InstantPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _InstantPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }

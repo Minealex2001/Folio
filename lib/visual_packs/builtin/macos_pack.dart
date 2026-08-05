@@ -30,7 +30,7 @@ VisualPack buildMacosPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF0A84FF),
       dark: ThemeColorTokens(seedArgb: 0xFF0A84FF),
-      typography: ThemeTypographyTokens(),
+      typography: ThemeTypographyTokens(fontFamily: 'Nunito'),
       shape: ThemeShapeTokens(
         radiusXs: 4,
         radiusSm: 8,
@@ -38,6 +38,11 @@ VisualPack buildMacosPack() {
         radiusLg: 16,
         radiusXl: 20,
         radiusXxl: 26,
+        componentRadiusOverrides: const {
+          'filledButton': 22,
+          'outlinedButton': 22,
+          'chip': 999,
+        },
       ),
       elevation: ThemeElevationTokens(
         none: 0,

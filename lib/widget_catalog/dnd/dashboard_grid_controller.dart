@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../config/config_store.dart';
 import '../../config/models/dashboard_config.dart';
+import '../../config/models/widget_capability_overrides.dart';
 import '../../config/models/widget_group_config.dart';
 import '../../config/models/widget_instance_config.dart';
 
@@ -216,6 +217,32 @@ class DashboardGridController extends ChangeNotifier {
     final instance = instanceFor(instanceId);
     if (instance == null) return;
     final next = instance.copyWith(settings: settings);
+    _setWidgets([
+      for (final w in _config.widgets)
+        if (w.instanceId == instanceId) next else w,
+    ]);
+  }
+
+  /// Override por-instancia de `FolioWidgetPlugin.capabilities` (Fase 13).
+  void setInstanceCapabilityOverrides(
+    String instanceId,
+    WidgetCapabilityOverrides? overrides,
+  ) {
+    final instance = instanceFor(instanceId);
+    if (instance == null) return;
+    final next = WidgetInstanceConfig(
+      schemaVersion: instance.schemaVersion,
+      instanceId: instance.instanceId,
+      pluginId: instance.pluginId,
+      regionId: instance.regionId,
+      order: instance.order,
+      width: instance.width,
+      height: instance.height,
+      visible: instance.visible,
+      groupId: instance.groupId,
+      settings: instance.settings,
+      capabilityOverrides: overrides,
+    );
     _setWidgets([
       for (final w in _config.widgets)
         if (w.instanceId == instanceId) next else w,

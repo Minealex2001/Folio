@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'config_paths.dart';
 import 'config_store_backend.dart';
 import 'json_schema_version.dart';
+import 'models/accessibility_config.dart';
 import 'models/dashboard_config.dart';
+import 'models/design_tokens.dart';
+import 'models/design_variables.dart';
 import 'models/layout_config.dart';
 import 'models/theme_config.dart';
 
@@ -46,7 +49,11 @@ class ConfigStore {
 
   Map<String, dynamic> _decode(String raw) {
     final json = jsonDecode(raw) as Map<String, dynamic>;
-    return runMigrations(json, kFolioConfigSchemaVersion);
+    return runMigrations(
+      json,
+      kFolioConfigSchemaVersion,
+      registry: kFolioConfigMigrations,
+    );
   }
 
   // ── Layouts ────────────────────────────────────────────────────────────
@@ -120,6 +127,64 @@ class ConfigStore {
   Future<void> deleteDashboard(String id) async {
     await _backend.delete(ConfigCategory.dashboards, id);
     _bumpRevision(ConfigCategory.dashboards);
+  }
+
+  // ── Design Tokens / Variables (Fase 12) ───────────────────────────────
+
+  Future<DesignTokens?> loadTokens(String id) async {
+    final raw = await _backend.read(ConfigCategory.tokens, id);
+    if (raw == null) return null;
+    return DesignTokens.fromJson(_decode(raw));
+  }
+
+  Future<void> saveTokens(DesignTokens tokens) async {
+    await _backend.write(
+      ConfigCategory.tokens,
+      tokens.id,
+      jsonEncode(tokens.toJson()),
+    );
+    _bumpRevision(ConfigCategory.tokens);
+  }
+
+  Future<List<String>> listTokenIds() => _backend.listIds(ConfigCategory.tokens);
+
+  Future<DesignVariables?> loadVariables(String id) async {
+    final raw = await _backend.read(ConfigCategory.variables, id);
+    if (raw == null) return null;
+    return DesignVariables.fromJson(_decode(raw));
+  }
+
+  Future<void> saveVariables(DesignVariables variables) async {
+    await _backend.write(
+      ConfigCategory.variables,
+      variables.id,
+      jsonEncode(variables.toJson()),
+    );
+    _bumpRevision(ConfigCategory.variables);
+  }
+
+  Future<List<String>> listVariableIds() =>
+      _backend.listIds(ConfigCategory.variables);
+
+  // ── Accesibilidad (Fase 22) ────────────────────────────────────────────
+  // Doc singleton — mismo patrón que `_activePackDocId` de más abajo:
+  // transversal al usuario, no por-tema/por-layout.
+
+  static const String _accessibilityDocId = 'active';
+
+  Future<AccessibilityConfig?> loadAccessibility() async {
+    final raw = await _backend.read(ConfigCategory.accessibility, _accessibilityDocId);
+    if (raw == null) return null;
+    return AccessibilityConfig.fromJson(_decode(raw));
+  }
+
+  Future<void> saveAccessibility(AccessibilityConfig config) async {
+    await _backend.write(
+      ConfigCategory.accessibility,
+      _accessibilityDocId,
+      jsonEncode(config.toJson()),
+    );
+    _bumpRevision(ConfigCategory.accessibility);
   }
 
   // ── Packs visuales (Fase 8) ────────────────────────────────────────────

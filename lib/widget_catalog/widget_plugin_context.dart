@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 
 import '../app/app_settings.dart';
 import '../config/config_store.dart';
+import '../config/models/widget_theme_tokens.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../session/vault_session.dart';
+import '../theme_engine/widget_theme_resolver.dart';
 
 /// Superficie de capacidad que un [FolioWidgetPlugin] recibe al construirse
 /// — deliberadamente angosta (no la app/router completos): un plugin puede
@@ -26,6 +28,7 @@ class WidgetPluginContext {
     this.onUpdateInstanceSettings,
     this.onOpenSettings,
     this.onOpenFolioCloudPitch,
+    this.widgetThemeTokens,
   });
 
   /// Todavía necesario para cosas transversales no migradas a [ConfigStore]
@@ -51,6 +54,18 @@ class WidgetPluginContext {
 
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenFolioCloudPitch;
+
+  /// `ThemeConfig.widgetThemes` del tema activo (Fase 23) — null en
+  /// llamadores que aún no lo enhebran, en cuyo caso [widgetThemeFor]
+  /// devuelve siempre el `defaultTheme` del plugin.
+  final WidgetThemeTokens? widgetThemeTokens;
+
+  /// Tema efectivo de [pluginId] — fusión de su `defaultTheme` con lo
+  /// configurado en [widgetThemeTokens].
+  Map<String, dynamic> widgetThemeFor(
+    String pluginId,
+    Map<String, dynamic> pluginDefault,
+  ) => themeFor(widgetThemeTokens, pluginId, pluginDefault);
 }
 
 /// Restricciones de tamaño de un widget en unidades de grid del dashboard —

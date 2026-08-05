@@ -30,6 +30,19 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
     return raw is bool ? raw : true;
   }
 
+  /// Ejemplo real de Widget Theme Tokens (Fase 23) — el fin de semana usa
+  /// un color con significado semántico ("es fin de semana"), no una
+  /// preferencia por-instancia como las de `settings`. `null` = sin
+  /// distinguir fin de semana (comportamiento de hoy).
+  @override
+  Map<String, dynamic> get defaultTheme => const {};
+
+  Color? _weekendColor(WidgetPluginContext ctx) {
+    final theme = ctx.widgetThemeFor(id, defaultTheme);
+    final raw = theme['weekendColor'];
+    return raw is int ? Color(raw) : null;
+  }
+
   @override
   Widget build(
     BuildContext context,
@@ -57,6 +70,7 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
     const weekdaysMon = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
     const weekdaysSun = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
     final weekdays = weekStartsMonday ? weekdaysMon : weekdaysSun;
+    final weekendColor = _weekendColor(ctx);
 
     return BuiltinWidgetCard(
       icon: icon,
@@ -97,6 +111,8 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
                 final day = index - leadingBlanks + 1;
                 final isToday = day == now.day;
                 final scheme = Theme.of(context).colorScheme;
+                final isWeekend =
+                    DateTime(now.year, now.month, day).weekday >= DateTime.saturday;
                 return Container(
                   margin: const EdgeInsets.all(2),
                   alignment: Alignment.center,
@@ -111,7 +127,7 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
                           ? scheme.onPrimary
                           : markedDays.contains(day)
                           ? scheme.primary
-                          : null,
+                          : (isWeekend ? weekendColor : null),
                       fontWeight: markedDays.contains(day)
                           ? FontWeight.bold
                           : null,

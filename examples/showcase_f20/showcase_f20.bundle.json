@@ -1,0 +1,455 @@
+﻿{
+    "description":  "Showcase hasta Fase 20. Tokens/variables son docs separados; las refs @ del theme apuntan a ellos.",
+    "phases":  [
+                   "base",
+                   "12 TokenRef+DesignTokens",
+                   "14 semanticColors",
+                   "15 componentStyles",
+                   "16 DesignVariables",
+                   "17 states",
+                   "18 layers",
+                   "19 variants",
+                   "20 visualStyle"
+               ],
+    "designTokens":  {
+                         "schemaVersion":  1,
+                         "id":  "showcase_f20",
+                         "radius":  {
+                                        "xs":  4.0,
+                                        "sm":  8.0,
+                                        "md":  14.0,
+                                        "lg":  18.0,
+                                        "xl":  24.0,
+                                        "xxl":  32.0,
+                                        "pill":  999.0
+                                    },
+                         "space":  {
+                                       "xxs":  4.0,
+                                       "xs":  8.0,
+                                       "sm":  12.0,
+                                       "md":  16.0,
+                                       "lg":  24.0,
+                                       "xl":  40.0
+                                   },
+                         "color":  {
+                                       "accent":  4278252543,
+                                       "secondary":  4294902015,
+                                       "tertiary":  4291624704,
+                                       "danger":  4294919236,
+                                       "success":  4278241363,
+                                       "warning":  4294945536,
+                                       "info":  4280923894,
+                                       "sidebar":  4278519056,
+                                       "surface":  4278848024,
+                                       "selection":  1711338495,
+                                       "hover":  872349951
+                                   },
+                         "opacity":  {
+                                         "glassLight":  0.88,
+                                         "glassHeavy":  0.62,
+                                         "overlay":  0.96,
+                                         "border":  0.45
+                                     },
+                         "motionMs":  {
+                                          "fast":  100,
+                                          "medium":  180,
+                                          "slow":  280
+                                      },
+                         "size":  {
+                                      "iconMd":  22.0,
+                                      "iconLg":  28.0,
+                                      "cursor":  24.0
+                                  }
+                     },
+    "designVariables":  {
+                            "schemaVersion":  1,
+                            "id":  "showcase_f20",
+                            "entries":  {
+                                            "editorPadding":  "@space.md",
+                                            "sidebarPadding":  "@var.editorPadding",
+                                            "toolbarPadding":  "@var.sidebarPadding",
+                                            "dialogGlass":  "@opacity.glassLight",
+                                            "panelGlass":  "@opacity.glassHeavy",
+                                            "brandFocus":  "@color.accent"
+                                        }
+                        },
+    "theme":  {
+                  "schemaVersion":  1,
+                  "id":  "showcase_f20",
+                  "name":  "Showcase F20 â€” Minealex Neon",
+                  "accentMode":  "custom",
+                  "light":  {
+                                "seedArgb":  4278252543,
+                                "primaryArgb":  4278252543,
+                                "secondaryArgb":  4294902015,
+                                "tertiaryArgb":  4291624704,
+                                "errorArgb":  4294919236,
+                                "surfaceStyle":  "standard"
+                            },
+                  "dark":  {
+                               "seedArgb":  4278252543,
+                               "primaryArgb":  4278252543,
+                               "secondaryArgb":  4294902015,
+                               "tertiaryArgb":  4291624704,
+                               "errorArgb":  4294919236,
+                               "surfaceStyle":  "oled"
+                           },
+                  "typography":  {
+                                     "fontFamily":  "Outfit",
+                                     "baseSizeScale":  1.05
+                                 },
+                  "shape":  {
+                                "radiusXs":  4.0,
+                                "radiusSm":  8.0,
+                                "radiusMd":  14.0,
+                                "radiusLg":  18.0,
+                                "radiusXl":  24.0,
+                                "radiusXxl":  32.0,
+                                "componentRadiusOverrides":  {
+                                                                 "card":  12.0,
+                                                                 "chip":  999.0
+                                                             }
+                            },
+                  "elevation":  {
+                                    "none":  0.0,
+                                    "appBarScrolled":  2.0,
+                                    "menu":  8.0,
+                                    "shadowOpacity":  0.28
+                                },
+                  "spacing":  {
+                                  "xxs":  4.0,
+                                  "xs":  8.0,
+                                  "sm":  12.0,
+                                  "md":  16.0,
+                                  "lg":  24.0,
+                                  "xl":  40.0
+                              },
+                  "motion":  {
+                                 "shortMs":  100,
+                                 "short2Ms":  160,
+                                 "mediumMs":  220,
+                                 "themeChangeMs":  280,
+                                 "curveName":  "easeOutExpo",
+                                 "enabled":  true,
+                                 "pageTransitionsEnabled":  true,
+                                 "hoverEnabled":  true,
+                                 "selectionEffectEnabled":  true
+                             },
+                  "icons":  {
+                                "iconPackId":  "material_rounded"
+                            },
+                  "surfaceOpacity":  0.92,
+                  "semanticColors":  {
+                                         "editorBackground":  "@color.surface",
+                                         "sidebarBackground":  "@color.sidebar",
+                                         "sidebarHover":  "@color.hover",
+                                         "sidebarSelection":  "@color.selection",
+                                         "cardBackground":  4278848024,
+                                         "panelBackground":  "@color.surface",
+                                         "toolbarBackground":  4279242789,
+                                         "windowBackground":  "@color.sidebar",
+                                         "canvasBackground":  4278321672,
+                                         "selection":  "@color.selection",
+                                         "hover":  "@color.hover",
+                                         "focus":  "@var.brandFocus",
+                                         "warning":  "@color.warning",
+                                         "success":  "@color.success",
+                                         "info":  "@color.info"
+                                     },
+                  "componentStyles":  {
+                                          "components":  {
+                                                             "card":  {
+                                                                          "radius":  "@radius.md",
+                                                                          "border":  true,
+                                                                          "shadow":  false,
+                                                                          "opacity":  1.0
+                                                                      },
+                                                             "dialog":  {
+                                                                            "radius":  "@radius.xl",
+                                                                            "border":  true,
+                                                                            "shadow":  true,
+                                                                            "opacity":  "@opacity.overlay"
+                                                                        },
+                                                             "popupMenu":  {
+                                                                               "radius":  "@radius.lg",
+                                                                               "shadow":  true
+                                                                           },
+                                                             "filledButton":  {
+                                                                                  "radius":  "@radius.pill",
+                                                                                  "shadow":  false,
+                                                                                  "backgroundColor":  "@color.accent",
+                                                                                  "states":  {
+                                                                                                 "hover":  {
+                                                                                                               "backgroundColor":  "@color.secondary"
+                                                                                                           },
+                                                                                                 "pressed":  {
+                                                                                                                 "opacity":  0.85
+                                                                                                             },
+                                                                                                 "focused":  {
+                                                                                                                 "border":  true
+                                                                                                             },
+                                                                                                 "disabled":  {
+                                                                                                                  "opacity":  0.4
+                                                                                                              }
+                                                                                             }
+                                                                              },
+                                                             "outlinedButton":  {
+                                                                                    "radius":  "@radius.pill",
+                                                                                    "border":  true,
+                                                                                    "states":  {
+                                                                                                   "hover":  {
+                                                                                                                 "backgroundColor":  855700479
+                                                                                                             },
+                                                                                                   "pressed":  {
+                                                                                                                   "opacity":  0.8
+                                                                                                               }
+                                                                                               }
+                                                                                },
+                                                             "textButton":  {
+                                                                                "radius":  "@radius.sm",
+                                                                                "states":  {
+                                                                                               "hover":  {
+                                                                                                             "backgroundColor":  587137279
+                                                                                                         }
+                                                                                           }
+                                                                            },
+                                                             "iconButton":  {
+                                                                                "radius":  "@radius.sm",
+                                                                                "states":  {
+                                                                                               "hover":  {
+                                                                                                             "backgroundColor":  855700479
+                                                                                                         },
+                                                                                               "pressed":  {
+                                                                                                               "opacity":  0.75
+                                                                                                           },
+                                                                                               "focused":  {
+                                                                                                               "border":  true
+                                                                                                           },
+                                                                                               "disabled":  {
+                                                                                                                "opacity":  0.35
+                                                                                                            }
+                                                                                           }
+                                                                            },
+                                                             "chip":  {
+                                                                          "radius":  "@radius.pill",
+                                                                          "border":  true,
+                                                                          "states":  {
+                                                                                         "hover":  {
+                                                                                                       "backgroundColor":  1157562623
+                                                                                                   },
+                                                                                         "pressed":  {
+                                                                                                         "opacity":  0.85
+                                                                                                     }
+                                                                                     }
+                                                                      },
+                                                             "input":  {
+                                                                           "radius":  "@radius.md",
+                                                                           "border":  true
+                                                                       },
+                                                             "snackBar":  {
+                                                                              "radius":  "@radius.lg"
+                                                                          },
+                                                             "tooltip":  {
+                                                                             "radius":  "@radius.sm",
+                                                                             "opacity":  0.95
+                                                                         },
+                                                             "navigationRail":  {
+                                                                                    "radius":  "@radius.md"
+                                                                                },
+                                                             "navigationDrawer":  {
+                                                                                      "radius":  0.0
+                                                                                  },
+                                                             "segmentedButton":  {
+                                                                                     "radius":  "@radius.md"
+                                                                                 },
+                                                             "scrollbar":  {
+                                                                               "radius":  "@radius.pill"
+                                                                           },
+                                                             "button":  {
+                                                                            "radius":  "@radius.pill",
+                                                                            "states":  {
+                                                                                           "hover":  {
+                                                                                                         "opacity":  0.9
+                                                                                                     },
+                                                                                           "pressed":  {
+                                                                                                           "opacity":  0.75
+                                                                                                       }
+                                                                                       }
+                                                                        },
+                                                             "tab":  {
+                                                                         "states":  {
+                                                                                        "hover":  {
+                                                                                                      "backgroundColor":  570487807
+                                                                                                  }
+                                                                                    }
+                                                                     },
+                                                             "menuItem":  {
+                                                                              "states":  {
+                                                                                             "hover":  {
+                                                                                                           "backgroundColor":  "@color.hover"
+                                                                                                       },
+                                                                                             "pressed":  {
+                                                                                                             "opacity":  0.85
+                                                                                                         }
+                                                                                         }
+                                                                          },
+                                                             "listTile":  {
+                                                                              "radius":  "@radius.sm",
+                                                                              "states":  {
+                                                                                             "hover":  {
+                                                                                                           "backgroundColor":  570487807
+                                                                                                       }
+                                                                                         }
+                                                                          },
+                                                             "sidebarItem":  {
+                                                                                 "radius":  "@radius.sm",
+                                                                                 "states":  {
+                                                                                                "hover":  {
+                                                                                                              "backgroundColor":  "@color.hover"
+                                                                                                          },
+                                                                                                "pressed":  {
+                                                                                                                "backgroundColor":  "@color.selection"
+                                                                                                            }
+                                                                                            }
+                                                                             },
+                                                             "toggle":  {
+                                                                            "states":  {
+                                                                                           "hover":  {
+                                                                                                         "opacity":  0.92
+                                                                                                     },
+                                                                                           "disabled":  {
+                                                                                                            "opacity":  0.4
+                                                                                                        }
+                                                                                       }
+                                                                        }
+                                                         }
+                                      },
+                  "layers":  {
+                                 "surface":  {
+                                                 "shadow":  false,
+                                                 "border":  false,
+                                                 "opacity":  1.0,
+                                                 "blurSigma":  null
+                                             },
+                                 "panel":  {
+                                               "shadow":  true,
+                                               "border":  true,
+                                               "opacity":  "@opacity.glassLight",
+                                               "blurSigma":  14.0
+                                           },
+                                 "overlay":  {
+                                                 "shadow":  true,
+                                                 "border":  false,
+                                                 "opacity":  "@opacity.overlay",
+                                                 "blurSigma":  22.0
+                                             },
+                                 "backgroundImageUrl":  null,
+                                 "backgroundImageOpacity":  0.28,
+                                 "backgroundImageBlurSigma":  10.0
+                             },
+                  "variants":  [
+                                   {
+                                       "id":  "night-oled",
+                                       "name":  "Night OLED",
+                                       "dark":  {
+                                                    "seedArgb":  4278252543,
+                                                    "primaryArgb":  4278252543,
+                                                    "secondaryArgb":  4294902015,
+                                                    "tertiaryArgb":  4291624704,
+                                                    "surfaceStyle":  "oled"
+                                                },
+                                       "surfaceOpacity":  0.96,
+                                       "semanticColors":  {
+                                                              "windowBackground":  4278190080,
+                                                              "canvasBackground":  4278190080
+                                                          }
+                                   },
+                                   {
+                                       "id":  "day-glass",
+                                       "name":  "Day Glass",
+                                       "accentMode":  "custom",
+                                       "light":  {
+                                                     "seedArgb":  4278252543,
+                                                     "primaryArgb":  4278233269,
+                                                     "secondaryArgb":  4289724597,
+                                                     "surfaceStyle":  "standard"
+                                                 },
+                                       "dark":  {
+                                                    "seedArgb":  4278252543,
+                                                    "surfaceStyle":  "standard"
+                                                },
+                                       "surfaceOpacity":  0.85,
+                                       "typography":  {
+                                                          "fontFamily":  "Outfit",
+                                                          "baseSizeScale":  1.0
+                                                      },
+                                       "layers":  {
+                                                      "panel":  {
+                                                                    "shadow":  true,
+                                                                    "border":  true,
+                                                                    "opacity":  "@opacity.glassHeavy",
+                                                                    "blurSigma":  18.0
+                                                                },
+                                                      "overlay":  {
+                                                                      "shadow":  true,
+                                                                      "border":  false,
+                                                                      "opacity":  "@opacity.glassLight",
+                                                                      "blurSigma":  24.0
+                                                                  }
+                                                  }
+                                   },
+                                   {
+                                       "id":  "warm-compact",
+                                       "name":  "Warm Compact",
+                                       "shape":  {
+                                                     "radiusXs":  2.0,
+                                                     "radiusSm":  4.0,
+                                                     "radiusMd":  6.0,
+                                                     "radiusLg":  8.0,
+                                                     "radiusXl":  12.0,
+                                                     "radiusXxl":  16.0
+                                                 },
+                                       "spacing":  {
+                                                       "xxs":  2.0,
+                                                       "xs":  4.0,
+                                                       "sm":  8.0,
+                                                       "md":  12.0,
+                                                       "lg":  16.0,
+                                                       "xl":  24.0
+                                                   },
+                                       "motion":  {
+                                                      "shortMs":  80,
+                                                      "short2Ms":  120,
+                                                      "mediumMs":  160,
+                                                      "themeChangeMs":  200,
+                                                      "curveName":  "easeOutCubic",
+                                                      "enabled":  true,
+                                                      "pageTransitionsEnabled":  true,
+                                                      "hoverEnabled":  true,
+                                                      "selectionEffectEnabled":  true
+                                                  }
+                                   }
+                               ],
+                  "activeVariantId":  "night-oled",
+                  "visualStyle":  {
+                                      "densityMode":  "comfortable",
+                                      "densityScale":  1.08,
+                                      "glassSidebarOpacity":  "@var.dialogGlass",
+                                      "glassDialogOpacity":  0.78,
+                                      "glassMenuOpacity":  "@opacity.glassHeavy",
+                                      "glassPanelOpacity":  "@var.panelGlass",
+                                      "borderEnabled":  true,
+                                      "borderWidth":  1.25,
+                                      "borderOpacity":  "@opacity.border",
+                                      "windowTitleBar":  "custom",
+                                      "windowCorners":  "rounded",
+                                      "windowBackdrop":  "blur",
+                                      "cursorHover":  "click",
+                                      "cursorResize":  "resizeLeftRight",
+                                      "cursorText":  "text",
+                                      "iconStyle":  "rounded",
+                                      "iconSize":  "@size.iconMd",
+                                      "iconStrokeWidth":  1.5
+                                  }
+              }
+}

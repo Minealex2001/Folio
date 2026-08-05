@@ -32,8 +32,8 @@ VisualPack buildMinimalPack() {
       // ignora por completo y resuelve el color del acento del SO en su
       // lugar, que es el bug que hacía que el color del pack no cambiara.
       accentMode: 'custom',
-      light: ThemeColorTokens(seedArgb: 0xFF6B7280),
-      dark: ThemeColorTokens(seedArgb: 0xFF6B7280),
+      light: ThemeColorTokens(seedArgb: 0xFF64748B),
+      dark: ThemeColorTokens(seedArgb: 0xFF94A3B8),
       typography: ThemeTypographyTokens(baseSizeScale: 0.97),
       shape: ThemeShapeTokens(
         radiusXs: 2,
@@ -92,6 +92,12 @@ VisualPack buildMinimalPack() {
           pluginId: 'tasks',
           regionId: DashboardRegionIds.left,
           order: 1,
+        ),
+        WidgetInstanceConfig(
+          instanceId: 'minimal_w3',
+          pluginId: 'search',
+          regionId: DashboardRegionIds.left,
+          order: 2,
         ),
       ],
     ),

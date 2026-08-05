@@ -84,7 +84,7 @@ VisualPack buildCyberpunkPack() {
     dashboard: DashboardConfig(
       id: 'pack_cyberpunk_dashboard',
       name: 'Cyberpunk',
-      columns: 3,
+      columns: 2,
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'cyberpunk_w1',

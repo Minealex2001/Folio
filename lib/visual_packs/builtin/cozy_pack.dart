@@ -29,7 +29,7 @@ VisualPack buildCozyPack() {
       name: 'Cozy',
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFD97757),
-      dark: ThemeColorTokens(seedArgb: 0xFFD97757),
+      dark: ThemeColorTokens(seedArgb: 0xFFE08A68, surfaceStyle: 'oled'),
       typography: ThemeTypographyTokens(baseSizeScale: 1.03),
       shape: ThemeShapeTokens(
         radiusXs: 8,
@@ -91,9 +91,15 @@ VisualPack buildCozyPack() {
         ),
         WidgetInstanceConfig(
           instanceId: 'cozy_w3',
-          pluginId: 'favorite_page',
+          pluginId: 'agenda',
           regionId: DashboardRegionIds.right,
           order: 0,
+        ),
+        WidgetInstanceConfig(
+          instanceId: 'cozy_w4',
+          pluginId: 'root_pages',
+          regionId: DashboardRegionIds.right,
+          order: 1,
         ),
       ],
     ),

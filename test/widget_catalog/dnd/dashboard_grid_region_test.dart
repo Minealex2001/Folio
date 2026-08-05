@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
-import 'package:flutter/gestures.dart' show kLongPressTimeout;
+import 'package:flutter/gestures.dart' show kLongPressTimeout, PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/app/app_settings.dart';
@@ -13,9 +13,11 @@ import 'package:folio/config/models/widget_instance_config.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_region.dart';
 import 'package:folio/widget_catalog/folio_widget_plugin.dart';
+import 'package:folio/widget_catalog/widget_capabilities.dart';
 import 'package:folio/widget_catalog/widget_catalog_registry.dart';
 import 'package:folio/widget_catalog/widget_plugin_context.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/config/models/widget_capability_overrides.dart';
 
 class _LabelPlugin extends FolioWidgetPlugin {
   const _LabelPlugin(this.id);
@@ -354,6 +356,110 @@ void main() {
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
+
+  group('Fase 13: widget capabilities', () {
+    testWidgets(
+      'a plugin declaring resizable/duplicable/closable=false hides those '
+      'controls, even on hover',
+      (tester) async {
+        registry.register(const _LockedPlugin('locked'));
+        controller.addInstance('locked', 'left');
+
+        await tester.pumpWidget(
+          wrap(
+            DashboardGridRegion(
+              controller: controller,
+              pluginContext: pluginContext,
+              registry: registry,
+              columnRegionIds: const ['left', 'right'],
+            ),
+          ),
+        );
+
+        final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+        await tester.pump();
+        await gesture.moveTo(
+          tester.getCenter(find.textContaining('plugin:locked:')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.copy_rounded), findsNothing);
+        expect(find.byIcon(Icons.close_rounded), findsNothing);
+        expect(find.byIcon(Icons.south_east_rounded), findsNothing);
+
+        await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+      },
+    );
+
+    testWidgets(
+      'a per-instance capabilityOverrides field wins over the plugin default',
+      (tester) async {
+        registry.register(const _LockedPlugin('locked'));
+        controller.addInstance('locked', 'left');
+        final added = controller.config.widgets.last;
+        controller.setInstanceCapabilityOverrides(
+          added.instanceId,
+          const WidgetCapabilityOverrides(closable: true),
+        );
+
+        await tester.pumpWidget(
+          wrap(
+            DashboardGridRegion(
+              controller: controller,
+              pluginContext: pluginContext,
+              registry: registry,
+              columnRegionIds: const ['left', 'right'],
+            ),
+          ),
+        );
+
+        final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+        await tester.pump();
+        await gesture.moveTo(
+          tester.getCenter(find.textContaining('plugin:locked:')),
+        );
+        await tester.pumpAndSettle();
+
+        // El override por-instancia reactiva `closable`; `duplicable`/
+        // `resizable` siguen deshabilitados por el plugin.
+        expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.copy_rounded), findsNothing);
+
+        await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+      },
+    );
+  });
+}
+
+class _LockedPlugin extends FolioWidgetPlugin {
+  const _LockedPlugin(this.id);
+
+  @override
+  final String id;
+
+  @override
+  String displayName(BuildContext context) => id;
+
+  @override
+  IconData get icon => Icons.lock_rounded;
+
+  @override
+  WidgetCapabilities get capabilities => const WidgetCapabilities(
+    resizable: false,
+    duplicable: false,
+    closable: false,
+  );
+
+  @override
+  Widget build(
+    BuildContext context,
+    WidgetInstanceConfig instance,
+    WidgetPluginContext ctx,
+  ) => Text('plugin:$id:${instance.instanceId}');
 }
 
 class _SingleInstancePlugin extends FolioWidgetPlugin {

@@ -20,6 +20,11 @@ WidgetInstanceConfig _$WidgetInstanceConfigFromJson(
   visible: json['visible'] as bool? ?? true,
   groupId: json['groupId'] as String?,
   settings: json['settings'] as Map<String, dynamic>? ?? const {},
+  capabilityOverrides: json['capabilityOverrides'] == null
+      ? null
+      : WidgetCapabilityOverrides.fromJson(
+          json['capabilityOverrides'] as Map<String, dynamic>,
+        ),
 );
 
 Map<String, dynamic> _$WidgetInstanceConfigToJson(
@@ -35,4 +40,5 @@ Map<String, dynamic> _$WidgetInstanceConfigToJson(
   'visible': instance.visible,
   'groupId': instance.groupId,
   'settings': instance.settings,
+  'capabilityOverrides': instance.capabilityOverrides?.toJson(),
 };

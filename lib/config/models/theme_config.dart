@@ -2,6 +2,12 @@ import 'package:json_annotation/json_annotation.dart';
 
 import '../../app/folio_brand_palette.dart' show kFolioBrandPrimaryArgb;
 import '../json_schema_version.dart';
+import 'component_style_tokens.dart';
+import 'semantic_color_tokens.dart';
+import 'theme_layer_tokens.dart';
+import 'theme_variant.dart';
+import 'visual_style.dart';
+import 'widget_theme_tokens.dart';
 import 'theme_color_tokens.dart';
 import 'theme_elevation_tokens.dart';
 import 'theme_icon_tokens.dart';
@@ -32,6 +38,13 @@ class ThemeConfig {
     required this.icons,
     this.surfaceOpacity = 1.0,
     this.accentMode = 'followSystem',
+    this.semanticColors,
+    this.componentStyles,
+    this.layers,
+    this.variants,
+    this.activeVariantId,
+    this.visualStyle,
+    this.widgetThemes,
   });
 
   final int schemaVersion;
@@ -59,6 +72,32 @@ class ThemeConfig {
   /// permiten estilos tipo Glass/macOS.
   final double surfaceOpacity;
 
+  /// Roles de color con nombre más allá de `ColorScheme` (Fase 14). `null`
+  /// = cada rol se deriva de `ColorScheme` como siempre (ver
+  /// `semantic_colors_resolver.dart`).
+  final SemanticColorTokens? semanticColors;
+
+  /// Árbol de estilos por-componente más allá del radio (Fase 15). `null` =
+  /// solo se aplica el escape hatch legacy `shape.componentRadiusOverrides`.
+  final ComponentStyleTokens? componentStyles;
+
+  /// Pila de capas surface/panel/overlay (Fase 18). `null` = cada slot de
+  /// Material conserva su elevación/sombra literal de hoy.
+  final ThemeLayerTokens? layers;
+
+  /// Variantes disponibles de este tema (Fase 19) y cuál está activa. La
+  /// fusión no se persiste por separado — se resuelve en tiempo de carga
+  /// vía `resolveActiveVariant` (`theme_variant_resolver.dart`).
+  final List<ThemeVariant>? variants;
+  final String? activeVariantId;
+
+  /// Densidad/glass/bordes/ventana/cursor/iconografía (Fase 20). `null` =
+  /// cada slot conserva su literal de hoy.
+  final VisualStyle? visualStyle;
+
+  /// Tema semántico por-tipo-de-widget + Plugin Theme API (Fase 23).
+  final WidgetThemeTokens? widgetThemes;
+
   factory ThemeConfig.fromJson(Map<String, dynamic> json) =>
       _$ThemeConfigFromJson(json);
 
@@ -76,6 +115,14 @@ class ThemeConfig {
     ThemeIconTokens? icons,
     double? surfaceOpacity,
     String? accentMode,
+    SemanticColorTokens? semanticColors,
+    ComponentStyleTokens? componentStyles,
+    ThemeLayerTokens? layers,
+    List<ThemeVariant>? variants,
+    String? activeVariantId,
+    bool clearActiveVariantId = false,
+    VisualStyle? visualStyle,
+    WidgetThemeTokens? widgetThemes,
   }) {
     return ThemeConfig(
       schemaVersion: schemaVersion,
@@ -91,6 +138,15 @@ class ThemeConfig {
       icons: icons ?? this.icons,
       surfaceOpacity: surfaceOpacity ?? this.surfaceOpacity,
       accentMode: accentMode ?? this.accentMode,
+      semanticColors: semanticColors ?? this.semanticColors,
+      componentStyles: componentStyles ?? this.componentStyles,
+      layers: layers ?? this.layers,
+      variants: variants ?? this.variants,
+      activeVariantId: clearActiveVariantId
+          ? null
+          : (activeVariantId ?? this.activeVariantId),
+      visualStyle: visualStyle ?? this.visualStyle,
+      widgetThemes: widgetThemes ?? this.widgetThemes,
     );
   }
 

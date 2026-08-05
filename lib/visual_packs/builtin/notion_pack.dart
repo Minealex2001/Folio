@@ -30,7 +30,7 @@ VisualPack buildNotionPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF2383E2),
       dark: ThemeColorTokens(seedArgb: 0xFF2383E2),
-      typography: ThemeTypographyTokens(),
+      typography: ThemeTypographyTokens(fontFamily: 'Inter'),
       shape: ThemeShapeTokens(
         radiusXs: 3,
         radiusSm: 6,
@@ -79,7 +79,7 @@ VisualPack buildNotionPack() {
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'notion_w1',
-          pluginId: 'favorite_page',
+          pluginId: 'root_pages',
           regionId: DashboardRegionIds.left,
           order: 0,
         ),

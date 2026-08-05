@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "showcase_f20",
+  "entries": {
+    "editorPadding": "@space.md",
+    "sidebarPadding": "@var.editorPadding",
+    "toolbarPadding": "@var.sidebarPadding",
+    "dialogGlass": "@opacity.glassLight",
+    "panelGlass": "@opacity.glassHeavy",
+    "brandFocus": "@color.accent"
+  }
+}

@@ -77,7 +77,7 @@ VisualPack buildObsidianPack() {
     dashboard: DashboardConfig(
       id: 'pack_obsidian_dashboard',
       name: 'Obsidian',
-      columns: 3,
+      columns: 2,
       widgets: [
         WidgetInstanceConfig(
           instanceId: 'obsidian_w1',
