@@ -28,6 +28,7 @@ VisualPack buildObsidianPack() {
     theme: ThemeConfig(
       id: 'pack_obsidian_theme',
       name: 'Obsidian',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF7C5CFF),
       dark: ThemeColorTokens(seedArgb: 0xFF7C5CFF, surfaceStyle: 'oled'),
       typography: ThemeTypographyTokens(fontFamily: 'JetBrains Mono'),

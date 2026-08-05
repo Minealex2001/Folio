@@ -28,55 +28,76 @@ class RecentsWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    final validIds = ctx.session.pages.map((p) => p.id).toSet();
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: FutureBuilder<List<RecentPageVisit>>(
-        future: RecentPageVisitsStore.load(
-          vaultId: VaultPaths.activeVaultId,
-          validPageIds: validIds,
-          limit: kRecentPageVisitsHomeLoadLimit,
-        ),
-        builder: (context, snapshot) {
-          final visits = snapshot.data ?? const <RecentPageVisit>[];
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          }
-          if (visits.isEmpty) {
-            return const BuiltinWidgetComingSoon(
-              message: 'Todavía no has visitado ninguna página.',
-            );
-          }
-          final byId = {for (final p in ctx.session.pages) p.id: p};
-          return ListView.builder(
-            itemCount: visits.length,
-            itemBuilder: (context, index) {
-              final page = byId[visits[index].pageId];
-              if (page == null) return const SizedBox.shrink();
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: page.emoji != null && page.emoji!.isNotEmpty
-                    ? Text(page.emoji!, style: const TextStyle(fontSize: 16))
-                    : const Icon(Icons.description_outlined, size: 18),
-                title: Text(
-                  page.title.isEmpty ? 'Sin título' : page.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () => ctx.onSelectPage?.call(page.id),
-              );
-            },
+      child: _RecentsList(ctx: ctx),
+    );
+  }
+}
+
+class _RecentsList extends StatefulWidget {
+  const _RecentsList({required this.ctx});
+
+  final WidgetPluginContext ctx;
+
+  @override
+  State<_RecentsList> createState() => _RecentsListState();
+}
+
+class _RecentsListState extends State<_RecentsList> {
+  // Bug real reportado (mismo que ActivityWidgetPlugin): construir el
+  // Future inline en FutureBuilder crea uno nuevo en cada rebuild del
+  // padre, así que el widget parpadeaba sin parar en vez de cargar una
+  // sola vez. Cachearlo en initState lo arregla.
+  late final Future<List<RecentPageVisit>> _future = RecentPageVisitsStore.load(
+    vaultId: VaultPaths.activeVaultId,
+    validPageIds: widget.ctx.session.pages.map((p) => p.id).toSet(),
+    limit: kRecentPageVisitsHomeLoadLimit,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<RecentPageVisit>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final visits = snapshot.data ?? const <RecentPageVisit>[];
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
-        },
-      ),
+        }
+        if (visits.isEmpty) {
+          return const BuiltinWidgetComingSoon(
+            message: 'Todavía no has visitado ninguna página.',
+          );
+        }
+        final byId = {for (final p in widget.ctx.session.pages) p.id: p};
+        return ListView.builder(
+          itemCount: visits.length,
+          itemBuilder: (context, index) {
+            final page = byId[visits[index].pageId];
+            if (page == null) return const SizedBox.shrink();
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: page.emoji != null && page.emoji!.isNotEmpty
+                  ? Text(page.emoji!, style: const TextStyle(fontSize: 16))
+                  : const Icon(Icons.description_outlined, size: 18),
+              title: Text(
+                page.title.isEmpty ? 'Sin título' : page.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => widget.ctx.onSelectPage?.call(page.id),
+            );
+          },
+        );
+      },
     );
   }
 }

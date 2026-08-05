@@ -27,6 +27,7 @@ VisualPack buildCozyPack() {
     theme: ThemeConfig(
       id: 'pack_cozy_theme',
       name: 'Cozy',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFD97757),
       dark: ThemeColorTokens(seedArgb: 0xFFD97757),
       typography: ThemeTypographyTokens(baseSizeScale: 1.03),

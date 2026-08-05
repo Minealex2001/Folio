@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/dashboard_config.dart';
+import '../../config/models/widget_instance_config.dart';
 import '../../visual_editor/visual_editor_controller.dart';
+import '../folio_widget_plugin.dart';
 import '../widget_catalog_registry.dart';
 import '../widget_plugin_context.dart';
 import 'dashboard_grid_controller.dart';
@@ -51,24 +53,53 @@ class DashboardGridRegion extends StatelessWidget {
       builder: (context, _) {
         final config = controller.config;
         final columns = _resolveColumnIds(config);
+        final effectiveRegistry = registry ?? WidgetCatalogRegistry.instance;
         return LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final regionId in columns) ...[
-                    Expanded(
-                      child: _DashboardColumn(
-                        regionId: regionId,
-                        controller: controller,
-                        pluginContext: pluginContext,
-                        registry: registry ?? WidgetCatalogRegistry.instance,
-                        visualEditor: visualEditor,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Align(
+                      // centerLeft, no centerRight: el inspector del editor
+                      // visual (Fase 6/9) flota anclado arriba-a-la-derecha
+                      // de la pantalla (ver WorkspaceBodyShell.overlay) —
+                      // bug real reportado: con "Añadir widget" también a
+                      // la derecha, el inspector lo tapaba por completo en
+                      // cuanto se activaba el editor.
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAddWidgetPicker(
+                          context,
+                          controller,
+                          effectiveRegistry,
+                          columns,
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Añadir widget'),
                       ),
                     ),
-                    if (regionId != columns.last) SizedBox(width: config.gap),
-                  ],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final regionId in columns) ...[
+                        Expanded(
+                          child: _DashboardColumn(
+                            regionId: regionId,
+                            controller: controller,
+                            pluginContext: pluginContext,
+                            registry: effectiveRegistry,
+                            visualEditor: visualEditor,
+                          ),
+                        ),
+                        if (regionId != columns.last)
+                          SizedBox(width: config.gap),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             );
@@ -88,7 +119,64 @@ class DashboardGridRegion extends StatelessWidget {
   }
 }
 
-class _DashboardColumn extends StatelessWidget {
+/// Muestra un diálogo con los plugins del catálogo disponibles y añade el
+/// elegido a la primera columna — bug real reportado: el editor de
+/// dashboard permitía arrastrar/redimensionar/eliminar instancias pero
+/// nunca añadir una nueva, así que el catálogo entero (calendario, reloj,
+/// clima...) era invisible en la práctica salvo que ya viniera de un pack.
+Future<void> _showAddWidgetPicker(
+  BuildContext context,
+  DashboardGridController controller,
+  WidgetCatalogRegistry registry,
+  List<String> columns,
+) async {
+  final existingPluginIds = controller.config.widgets
+      .map((w) => w.pluginId)
+      .toSet();
+  final available =
+      registry.all
+          .where(
+            (p) => p.allowMultipleInstances || !existingPluginIds.contains(p.id),
+          )
+          .toList()
+        ..sort(
+          (a, b) => a.displayName(context).compareTo(b.displayName(context)),
+        );
+
+  if (available.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No hay más widgets disponibles para añadir.')),
+    );
+    return;
+  }
+
+  final selected = await showDialog<FolioWidgetPlugin>(
+    context: context,
+    builder: (dialogContext) => SimpleDialog(
+      title: const Text('Añadir widget'),
+      children: [
+        for (final plugin in available)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(dialogContext).pop(plugin),
+            child: Row(
+              children: [
+                Icon(plugin.icon, size: 18),
+                const SizedBox(width: 12),
+                Expanded(child: Text(plugin.displayName(dialogContext))),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+  if (selected == null) return;
+  final targetRegion = columns.isNotEmpty
+      ? columns.first
+      : DashboardRegionIds.left;
+  controller.addInstance(selected.id, targetRegion);
+}
+
+class _DashboardColumn extends StatefulWidget {
   const _DashboardColumn({
     required this.regionId,
     required this.controller,
@@ -104,20 +192,62 @@ class _DashboardColumn extends StatelessWidget {
   final VisualEditorController? visualEditor;
 
   @override
+  State<_DashboardColumn> createState() => _DashboardColumnState();
+}
+
+class _DashboardColumnState extends State<_DashboardColumn> {
+  final _columnKey = GlobalKey();
+
+  /// Convierte la posición global de la caída en el índice de la instancia
+  /// más cercana — bug real reportado: antes, soltar en cualquier punto de
+  /// la columna siempre movía el widget al final; ahora la posición
+  /// vertical de la caída decide dónde se inserta (aproximado por altura
+  /// acumulada de cada instancia, no un slot exacto por-pixel).
+  int _targetOrderForDrop(Offset globalOffset, List<WidgetInstanceConfig> instances) {
+    final renderBox = _columnKey.currentContext?.findRenderObject();
+    if (renderBox is! RenderBox || !renderBox.attached) return instances.length;
+    final local = renderBox.globalToLocal(globalOffset);
+    var cumulative = 0.0;
+    for (var i = 0; i < instances.length; i++) {
+      final itemHeight = (instances[i].height ?? 160) + 8;
+      if (local.dy < cumulative + itemHeight / 2) return i;
+      cumulative += itemHeight;
+    }
+    return instances.length;
+  }
+
+  void _moveTo(String draggedId, int targetOrder) {
+    final current = widget.controller.instanceFor(draggedId);
+    if (current == null) return;
+    if (current.regionId == widget.regionId) {
+      if (current.order == targetOrder) return;
+      widget.controller.reorderWithinColumn(
+        widget.regionId,
+        current.order,
+        targetOrder,
+      );
+    } else {
+      widget.controller.moveToColumn(
+        draggedId,
+        widget.regionId,
+        insertAtOrder: targetOrder,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final instances = controller.widgetsInRegion(regionId);
+    final instances = widget.controller.widgetsInRegion(widget.regionId);
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
       onAcceptWithDetails: (details) {
-        final draggedId = details.data;
-        final current = controller.instanceFor(draggedId);
-        if (current == null) return;
-        if (current.regionId == regionId) return;
-        controller.moveToColumn(draggedId, regionId);
+        final targetOrder = _targetOrderForDrop(details.offset, instances);
+        _moveTo(details.data, targetOrder);
       },
       builder: (context, candidateData, rejectedData) {
         final highlighted = candidateData.isNotEmpty;
         return Container(
+          key: _columnKey,
           decoration: highlighted
               ? BoxDecoration(
                   border: Border.all(
@@ -131,25 +261,30 @@ class _DashboardColumn extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final instance in instances)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: SizedBox(
-                    height: instance.height ?? 160,
-                    child: Builder(
-                      builder: (context) {
-                        final plugin = registry[instance.pluginId];
-                        if (plugin == null || !instance.visible) {
-                          return const SizedBox.shrink();
-                        }
-                        return WidgetInstanceFrame(
+                Builder(
+                  builder: (context) {
+                    final plugin = widget.registry[instance.pluginId];
+                    if (plugin == null || !instance.visible) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        height: instance.height ?? plugin.defaultHeight,
+                        child: WidgetInstanceFrame(
                           instance: instance,
-                          controller: controller,
-                          visualEditor: visualEditor,
-                          child: plugin.build(context, instance, pluginContext),
-                        );
-                      },
-                    ),
-                  ),
+                          controller: widget.controller,
+                          visualEditor: widget.visualEditor,
+                          plugin: plugin,
+                          child: plugin.build(
+                            context,
+                            instance,
+                            widget.pluginContext,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),

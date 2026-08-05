@@ -1,18 +1,20 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../visual_editor/selectable_tap_wrapper.dart';
 import '../../visual_editor/visual_editor_controller.dart';
 import '../../visual_editor/widget_instance_selectable.dart';
+import '../folio_widget_plugin.dart';
 import 'dashboard_grid_controller.dart';
 import 'dashboard_grid_math.dart';
 
 /// Chrome de una instancia de widget dentro del grid del dashboard —
 /// equivalente de `PanelFrame` (Fase 2) para widgets en vez de paneles:
-/// arrastrable (vía `LongPressDraggable`, Flutter nativo — decisión de la
-/// Fase 5 del plan para ergonomía táctil, a diferencia del drag a mano de
-/// paneles/canvas), resize desde la esquina inferior derecha, y botones de
-/// duplicar/eliminar.
+/// arrastrable (`Draggable` en desktop/mouse — arranca al instante;
+/// `LongPressDraggable` solo en Android/iOS, donde un drag inmediato
+/// choca con el scroll táctil), resize desde la esquina inferior
+/// derecha, y botones de duplicar/eliminar.
 class WidgetInstanceFrame extends StatefulWidget {
   const WidgetInstanceFrame({
     super.key,
@@ -22,12 +24,20 @@ class WidgetInstanceFrame extends StatefulWidget {
     this.resizable = true,
     this.rowUnit = 32,
     this.visualEditor,
+    this.plugin,
   });
 
   final WidgetInstanceConfig instance;
   final DashboardGridController controller;
   final Widget child;
   final bool resizable;
+
+  /// Plugin resuelto para [instance] — usado solo para exponer
+  /// `plugin.buildSettings(...)` (si no es null) como un botón de ajustes
+  /// junto a duplicar/eliminar. Bug real reportado: `buildSettings` ya
+  /// existía en `FolioWidgetPlugin` desde la Fase 4 pero ningún sitio lo
+  /// llamaba — era una capacidad muerta.
+  final FolioWidgetPlugin? plugin;
 
   /// Editor visual (Fase 6/9): cuando no es null, envuelve el contenido con
   /// [SelectableTapWrapper] usando [WidgetInstanceSelectable] — mismo
@@ -46,6 +56,45 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
   Offset _resizeAccumulator = Offset.zero;
   bool _hovering = false;
 
+  /// Aplica los overrides visuales por instancia que escribe el inspector
+  /// del editor visual (`WidgetInstanceSelectable.setColorArgb`/
+  /// `setOpacity`/`setCornerRadius`, en `WidgetInstanceConfig.settings`) —
+  /// bug real reportado: el inspector guardaba estos valores pero ningún
+  /// sitio los leía de vuelta, así que editar color/opacidad/radio no
+  /// cambiaba nada visible. Se aplican aquí, en el único wrapper común a
+  /// cualquier plugin, en vez de en cada plugin por separado.
+  Widget _applyOverrides(Widget child) {
+    final settings = widget.instance.settings;
+    var result = child;
+
+    final colorRaw = settings['colorOverrideArgb'];
+    if (colorRaw is int) {
+      result = Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Color(colorRaw),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: result,
+      );
+    }
+
+    final cornerRaw = settings['cornerRadiusOverride'];
+    if (cornerRaw is num) {
+      result = ClipRRect(
+        borderRadius: BorderRadius.circular(cornerRaw.toDouble()),
+        child: result,
+      );
+    }
+
+    final opacityRaw = settings['opacityOverride'];
+    if (opacityRaw is num) {
+      result = Opacity(opacity: opacityRaw.toDouble().clamp(0.0, 1.0), child: result);
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final content = RepaintBoundary(
@@ -54,7 +103,7 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
         onExit: (_) => setState(() => _hovering = false),
         child: Stack(
           children: [
-            Positioned.fill(child: widget.child),
+            Positioned.fill(child: _applyOverrides(widget.child)),
             if (_hovering)
               Positioned(
                 top: 4,
@@ -62,6 +111,7 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
                 child: _InstanceActionsRow(
                   instance: widget.instance,
                   controller: widget.controller,
+                  plugin: widget.plugin,
                 ),
               ),
             if (widget.resizable && _hovering)
@@ -102,21 +152,42 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
             child: content,
           );
 
-    return LongPressDraggable<String>(
-      data: widget.instance.instanceId,
-      feedback: Material(
-        elevation: 6,
-        color: Colors.transparent,
-        child: Opacity(
-          opacity: 0.85,
-          child: SizedBox(
-            width: widget.instance.width ?? 240,
-            height: widget.instance.height ?? 160,
-            child: widget.child,
-          ),
+    final feedback = Material(
+      elevation: 6,
+      color: Colors.transparent,
+      child: Opacity(
+        opacity: 0.85,
+        child: SizedBox(
+          width: widget.instance.width ?? 240,
+          height: widget.instance.height ?? 160,
+          child: widget.child,
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.3, child: selectableContent),
+    );
+    final childWhenDragging = Opacity(opacity: 0.3, child: selectableContent);
+
+    // Bug real reportado: en desktop/mouse, LongPressDraggable exige
+    // mantener pulsado ~500ms antes de que el drag arranque — un
+    // click-and-drag normal de ratón no llega a activarlo y el arrastre
+    // parece simplemente no funcionar. Long-press solo tiene sentido en
+    // táctil (decisión original de la Fase 5); en el resto de plataformas
+    // el drag debe iniciar de inmediato, como cualquier `Draggable` nativo.
+    final isTouchPrimary =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+
+    if (isTouchPrimary) {
+      return LongPressDraggable<String>(
+        data: widget.instance.instanceId,
+        feedback: feedback,
+        childWhenDragging: childWhenDragging,
+        child: selectableContent,
+      );
+    }
+    return Draggable<String>(
+      data: widget.instance.instanceId,
+      feedback: feedback,
+      childWhenDragging: childWhenDragging,
       child: selectableContent,
     );
   }
@@ -142,19 +213,51 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
 }
 
 class _InstanceActionsRow extends StatelessWidget {
-  const _InstanceActionsRow({required this.instance, required this.controller});
+  const _InstanceActionsRow({
+    required this.instance,
+    required this.controller,
+    this.plugin,
+  });
 
   final WidgetInstanceConfig instance;
   final DashboardGridController controller;
+  final FolioWidgetPlugin? plugin;
+
+  void _openSettings(BuildContext context) {
+    final settingsWidget = plugin?.buildSettings(
+      context,
+      instance,
+      (next) => controller.setInstanceSettings(instance.instanceId, next),
+    );
+    if (settingsWidget == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(child: settingsWidget),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // buildSettings necesita `instance` actual para leer valores previos —
+    // se resuelve al construir el botón (no en cada rebuild de este Row)
+    // solo para decidir si el botón se muestra; el sheet en sí llama a
+    // buildSettings de nuevo al abrirse, con el instance más reciente.
+    final hasSettings =
+        plugin?.buildSettings(context, instance, (_) {}) != null;
     return Material(
       color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
       shape: const StadiumBorder(),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (hasSettings)
+            IconButton(
+              iconSize: 16,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.tune_rounded),
+              onPressed: () => _openSettings(context),
+            ),
           IconButton(
             iconSize: 16,
             visualDensity: VisualDensity.compact,

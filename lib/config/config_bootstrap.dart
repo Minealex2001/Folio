@@ -38,9 +38,47 @@ class ConfigBootstrap {
 
     await configStore.saveLayout(_layoutFromLegacy(appSettings));
     await configStore.saveTheme(themeConfigFromAppSettings(appSettings));
-    await configStore.saveDashboard(dashboardConfigFromAppSettings(appSettings));
+    await configStore.saveDashboard(
+      _withDefaultClock(dashboardConfigFromAppSettings(appSettings)),
+    );
 
     await prefs.setBool(_migratedFlagKey, true);
+  }
+
+  /// Añade un widget 'clock' real al principio de la columna izquierda,
+  /// solo en la migración de una sola vez — bug real reportado: el reloj
+  /// grande de la cabecera de inicio era chrome fijo, imposible de quitar.
+  /// Ahora es una instancia de widget más (misma pieza que
+  /// `ClockWidgetPlugin`), removible/re-añadible desde el editor de
+  /// dashboard igual que cualquier otra. Deliberadamente NO se hace esto
+  /// dentro de `dashboardConfigFromAppSettings` — esa función también la
+  /// llama `AppSettings.onWorkspaceHomeDashboardChanged` en cada cambio de
+  /// un toggle legacy, y reinsertar aquí crearía un reloj duplicado cada
+  /// vez que eso disparase.
+  static DashboardConfig _withDefaultClock(DashboardConfig config) {
+    final shiftedLeft = [
+      for (final w in config.widgets)
+        if (w.regionId == DashboardRegionIds.left) w.copyWith(order: w.order + 1),
+    ];
+    final others = config.widgets.where(
+      (w) => w.regionId != DashboardRegionIds.left,
+    );
+    return config.copyWith(
+      widgets: [
+        WidgetInstanceConfig(
+          instanceId: _uuid.v4(),
+          pluginId: 'clock',
+          regionId: DashboardRegionIds.left,
+          order: 0,
+          // Alto explícito: el contenido (saludo + fecha + reloj grande +
+          // titular + subtítulo) es bastante más alto que los 160px por
+          // defecto de otros widgets — sin esto, RenderFlex se desborda.
+          height: 300,
+        ),
+        ...shiftedLeft,
+        ...others,
+      ],
+    );
   }
 
   static LayoutConfig _layoutFromLegacy(AppSettings appSettings) {

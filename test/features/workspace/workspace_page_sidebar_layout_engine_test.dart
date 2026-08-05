@@ -210,8 +210,8 @@ void main() {
   );
 
   testWidgets(
-    'the visual editor toggle in the app bar actually opens the inspector, '
-    'and selecting the sidebar shows and edits its real width',
+    'the "Editar inicio (beta)" toggle also opens the visual editor '
+    'inspector, and selecting the sidebar shows and edits its real width',
     (tester) async {
       await pumpWorkspace(tester);
 
@@ -219,8 +219,13 @@ void main() {
       // inspector, sin contenido de selección.
       expect(find.byTooltip('Cerrar'), findsNothing);
 
-      await tester.tap(find.byTooltip('Editor visual (beta)'));
+      // Bug real reportado: un botón separado "Editor visual (beta)" solo
+      // servía para seleccionar el sidebar, sin efecto visible en el
+      // dashboard — parecía no hacer nada útil. Ahora un único toggle
+      // activa edición de inicio + editor visual a la vez.
+      await tester.tap(find.byTooltip('Editar inicio (beta)'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
 
       expect(tester.takeException(), isNull);
       expect(find.text('Editor visual (beta)'), findsOneWidget);
@@ -283,7 +288,12 @@ void main() {
       await pumpWorkspace(tester);
       expect(find.byType(WorkspaceHomeView), findsOneWidget);
       expect(find.byType(DashboardGridRegion), findsNothing);
-      expect(find.text('fake-grid-plugin-rendered'), findsNothing);
+      // Bug real reportado por el usuario, ahora corregido: un plugin del
+      // catálogo cuyo pluginId no es una de las 12 secciones legacy
+      // (WorkspaceHomeSectionIds) debe verse en la Home normal igual que
+      // en el editor — no solo en modo edición. Antes de la corrección
+      // esto era `findsNothing` aquí.
+      expect(find.text('fake-grid-plugin-rendered'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Editar inicio (beta)'));
       // El swap de contenido de home vive dentro de un AnimatedSwitcher
@@ -313,9 +323,10 @@ void main() {
   );
 
   testWidgets(
-    'with both "Editar inicio" and the visual editor active, tapping a '
-    'dashboard widget instance selects it and editing its width in the '
-    'inspector writes to the real DashboardGridController',
+    'the single "Editar inicio (beta)" toggle activates dashboard editing '
+    'AND the visual editor together, so tapping a dashboard widget instance '
+    'selects it and editing its width in the inspector writes to the real '
+    'DashboardGridController',
     (tester) async {
       WidgetCatalogRegistry.instance.debugClear();
       addTearDown(WidgetCatalogRegistry.instance.debugClear);
@@ -342,8 +353,6 @@ void main() {
       await tester.tap(find.byTooltip('Editar inicio (beta)'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
-      await tester.tap(find.byTooltip('Editor visual (beta)'));
-      await tester.pump();
 
       expect(tester.takeException(), isNull);
       expect(find.byType(DashboardGridRegion), findsOneWidget);

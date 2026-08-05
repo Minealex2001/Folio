@@ -27,6 +27,11 @@ VisualPack buildMinimalPack() {
     theme: ThemeConfig(
       id: 'pack_minimal_theme',
       name: 'Minimal',
+      // 'custom' es obligatorio para que light/dark.seedArgb de abajo se
+      // usen de verdad — 'followSystem' (el default de ThemeConfig) los
+      // ignora por completo y resuelve el color del acento del SO en su
+      // lugar, que es el bug que hacía que el color del pack no cambiara.
+      accentMode: 'custom',
       light: ThemeColorTokens(seedArgb: 0xFF6B7280),
       dark: ThemeColorTokens(seedArgb: 0xFF6B7280),
       typography: ThemeTypographyTokens(baseSizeScale: 0.97),

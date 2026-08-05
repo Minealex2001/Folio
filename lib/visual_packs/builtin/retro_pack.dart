@@ -28,6 +28,7 @@ VisualPack buildRetroPack() {
     theme: ThemeConfig(
       id: 'pack_retro_theme',
       name: 'Retro',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFE8A33D),
       dark: ThemeColorTokens(seedArgb: 0xFFE8A33D),
       typography: ThemeTypographyTokens(),

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/app_settings.dart';
 import '../../../app/workspace_prefs_keys.dart';
 import '../../../config/models/dashboard_config.dart';
+import '../../../config/models/widget_instance_config.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../app/widgets/folio_skeletons.dart';
@@ -19,7 +20,7 @@ import '../../../models/vault_task_list_entry.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
-import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
+import '../../../widget_catalog/widget_catalog.dart';
 import '../recent_page_visits.dart';
 
 import '../../../services/folio_cloud/folio_cloud_identity.dart';
@@ -178,169 +179,6 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     });
   }
 
-  static String _formatUtcOffset(Duration d) {
-    final sign = d.isNegative ? '-' : '+';
-    final total = d.inMinutes.abs();
-    final h = total ~/ 60;
-    final m = total % 60;
-    final hh = h.toString().padLeft(2, '0');
-    final mm = m.toString().padLeft(2, '0');
-    return 'UTC$sign$hh:$mm';
-  }
-
-  String _homeClockTimeString(DateTime now, String locale) {
-    final sec = widget.appSettings.workspaceHomeClockShowSeconds;
-    final h24 = widget.appSettings.workspaceHomeClock24Hour;
-    if (h24) {
-      return sec
-          ? DateFormat('HH:mm:ss', locale).format(now)
-          : DateFormat('HH:mm', locale).format(now);
-    }
-    return sec
-        ? DateFormat.jms(locale).format(now)
-        : DateFormat.jm(locale).format(now);
-  }
-
-  static void _reorderStringList(List<String> list, int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex -= 1;
-    final item = list.removeAt(oldIndex);
-    list.insert(newIndex, item);
-  }
-
-  String _homeSectionReorderTitle(AppLocalizations l10n, String id) {
-    switch (id) {
-      case WorkspaceHomeSectionIds.folioCloud:
-        return l10n.workspaceHomeToggleFolioCloudTitle;
-      case WorkspaceHomeSectionIds.vaultStatus:
-        return l10n.workspaceHomeToggleVaultStatusTitle;
-      case WorkspaceHomeSectionIds.onboarding:
-        return l10n.workspaceHomeToggleOnboardingTitle;
-      case WorkspaceHomeSectionIds.whatsNew:
-        return l10n.workspaceHomeToggleWhatsNewTitle;
-      case WorkspaceHomeSectionIds.search:
-        return l10n.workspaceHomeSectionLabelSearch;
-      case WorkspaceHomeSectionIds.rootPages:
-        return l10n.workspaceHomeToggleRootPagesTitle;
-      case WorkspaceHomeSectionIds.miniStats:
-        return l10n.workspaceHomeToggleMiniStatsTitle;
-      case WorkspaceHomeSectionIds.recents:
-        return l10n.workspaceRecentPagesSectionTitle;
-      case WorkspaceHomeSectionIds.tasks:
-        return l10n.workspaceHomeToggleTasksTitle;
-      case WorkspaceHomeSectionIds.quickActions:
-        return l10n.workspaceHomeToggleQuickActionsTitle;
-      case WorkspaceHomeSectionIds.tip:
-        return l10n.workspaceHomeToggleTipTitle;
-      case WorkspaceHomeSectionIds.createPage:
-        return l10n.workspaceHomeSectionLabelCreatePage;
-      default:
-        return id;
-    }
-  }
-
-  void _showReorderHomeSectionsSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        final sheetL10n = AppLocalizations.of(ctx);
-        return SafeArea(
-          child: AnimatedBuilder(
-            animation: widget.appSettings,
-            builder: (context, _) {
-              final leftIds = widget.appSettings.workspaceHomeLeftSectionOrder;
-              final rightIds = widget.appSettings.workspaceHomeRightSectionOrder;
-              return ListView(
-                padding: const EdgeInsets.only(
-                  left: FolioSpace.lg,
-                  right: FolioSpace.lg,
-                  bottom: FolioSpace.xl,
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: FolioSpace.sm),
-                    child: Text(
-                      sheetL10n.workspaceHomeReorderSectionsTitle,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: FolioSpace.md),
-                  Text(
-                    sheetL10n.workspaceHomeReorderMainColumn,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: FolioSpace.xs),
-                  SizedBox(
-                    height: 280,
-                    child: ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      itemCount: leftIds.length,
-                      onReorder: (oldIndex, newIndex) async {
-                        final next = List<String>.from(leftIds);
-                        _reorderStringList(next, oldIndex, newIndex);
-                        await widget.appSettings
-                            .setWorkspaceHomeLeftSectionOrder(next);
-                      },
-                      itemBuilder: (context, i) {
-                        final id = leftIds[i];
-                        return ListTile(
-                          key: ValueKey('home-left-$id'),
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: const Icon(Icons.drag_handle_rounded),
-                          ),
-                          title: Text(_homeSectionReorderTitle(sheetL10n, id)),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: FolioSpace.md),
-                  Text(
-                    sheetL10n.workspaceHomeReorderSideColumn,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: FolioSpace.xs),
-                  SizedBox(
-                    height: 220,
-                    child: ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      itemCount: rightIds.length,
-                      onReorder: (oldIndex, newIndex) async {
-                        final next = List<String>.from(rightIds);
-                        _reorderStringList(next, oldIndex, newIndex);
-                        await widget.appSettings
-                            .setWorkspaceHomeRightSectionOrder(next);
-                      },
-                      itemBuilder: (context, i) {
-                        final id = rightIds[i];
-                        return ListTile(
-                          key: ValueKey('home-right-$id'),
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: const Icon(Icons.drag_handle_rounded),
-                          ),
-                          title: Text(_homeSectionReorderTitle(sheetL10n, id)),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
   String _formatStorageBytes(int b) {
     if (b < 1024) return '$b B';
     final kb = b / 1024;
@@ -355,187 +193,26 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     return '${gb.toStringAsFixed(gb >= 100 ? 1 : 2)} GB';
   }
 
-  void _showCustomizeSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return AnimatedBuilder(
-          animation: widget.appSettings,
-          builder: (context, _) {
-            final sheetL10n = AppLocalizations.of(context);
-            return SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: FolioSpace.xl),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      FolioSpace.lg,
-                      FolioSpace.sm,
-                      FolioSpace.lg,
-                      FolioSpace.xs,
-                    ),
-                    child: Text(
-                      sheetL10n.workspaceHomeCustomizeTitle,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.reorder_rounded),
-                    title: Text(sheetL10n.workspaceHomeReorderSectionsTitle),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (context.mounted) {
-                          _showReorderHomeSectionsSheet(context);
-                        }
-                      });
-                    },
-                  ),
-                  ListTile(
-                    title: Text(sheetL10n.workspaceHomeColumnLayoutTitle),
-                    subtitle: Text(sheetL10n.workspaceHomeColumnLayoutSubtitle),
-                    trailing: DropdownButton<WorkspaceHomeColumnLayout>(
-                      value: widget.appSettings.workspaceHomeColumnLayout,
-                      underline: const SizedBox.shrink(),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        unawaited(
-                          widget.appSettings.setWorkspaceHomeColumnLayout(v),
-                        );
-                      },
-                      items: [
-                        DropdownMenuItem(
-                          value: WorkspaceHomeColumnLayout.auto,
-                          child: Text(sheetL10n.workspaceHomeColumnLayoutAuto),
-                        ),
-                        DropdownMenuItem(
-                          value: WorkspaceHomeColumnLayout.single,
-                          child: Text(sheetL10n.workspaceHomeColumnLayoutSingle),
-                        ),
-                        DropdownMenuItem(
-                          value: WorkspaceHomeColumnLayout.dual,
-                          child: Text(sheetL10n.workspaceHomeColumnLayoutDual),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeClockShowSecondsTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeClockShowSecondsSubtitle),
-                    value: widget.appSettings.workspaceHomeClockShowSeconds,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeClockShowSeconds(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeClock24HourTitle),
-                    subtitle: Text(sheetL10n.workspaceHomeClock24HourSubtitle),
-                    value: widget.appSettings.workspaceHomeClock24Hour,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeClock24Hour(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeClockShowTimezoneTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeClockShowTimezoneSubtitle),
-                    value: widget.appSettings.workspaceHomeClockShowTimezone,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeClockShowTimezone(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleFolioCloudTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleFolioCloudSubtitle),
-                    value: widget.appSettings.workspaceHomeShowFolioCloudCard,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowFolioCloudCard(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleRootPagesTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleRootPagesSubtitle),
-                    value: widget.appSettings.workspaceHomeShowRootPages,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowRootPages(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleMiniStatsTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleMiniStatsSubtitle),
-                    value: widget.appSettings.workspaceHomeShowMiniStats,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowMiniStats(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleTasksTitle),
-                    subtitle: Text(sheetL10n.workspaceHomeToggleTasksSubtitle),
-                    value: widget.appSettings.workspaceHomeShowTasksSection,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowTasksSection(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleQuickActionsTitle),
-                    subtitle: Text(
-                      sheetL10n.workspaceHomeToggleQuickActionsSubtitle,
-                    ),
-                    value: widget.appSettings.workspaceHomeShowQuickActions,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowQuickActions(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleTipTitle),
-                    subtitle: Text(sheetL10n.workspaceHomeToggleTipSubtitle),
-                    value: widget.appSettings.workspaceHomeShowTip,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowTip(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleVaultStatusTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleVaultStatusSubtitle),
-                    value: widget.appSettings.workspaceHomeShowVaultStatus,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowVaultStatus(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleOnboardingTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleOnboardingSubtitle),
-                    value: widget.appSettings.workspaceHomeShowOnboarding,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowOnboarding(v),
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(sheetL10n.workspaceHomeToggleWhatsNewTitle),
-                    subtitle:
-                        Text(sheetL10n.workspaceHomeToggleWhatsNewSubtitle),
-                    value: widget.appSettings.workspaceHomeShowWhatsNew,
-                    onChanged: (v) => unawaited(
-                      widget.appSettings.setWorkspaceHomeShowWhatsNew(v),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+  /// Renderiza [instance] vía el catálogo de widgets (Fase 4) para
+  /// cualquier `pluginId` que no sea una de las 12 secciones legacy que
+  /// `moduleLeft`/`moduleRight` manejan arriba — el mismo mecanismo que ya
+  /// usa `DashboardGridRegion` en modo edición, para que la Home normal y
+  /// el editor rendericen exactamente el mismo contenido.
+  Widget? _buildCatalogFallback(BuildContext context, WidgetInstanceConfig instance) {
+    if (!instance.visible) return null;
+    final plugin = WidgetCatalogRegistry.instance[instance.pluginId];
+    if (plugin == null) return null;
+    final pluginContext = WidgetPluginContext(
+      appSettings: widget.appSettings,
+      configStore: widget.dashboardGridController.store,
+      session: widget.session,
+      onOpenSearch: widget.onOpenSearch,
+      onCreatePage: widget.onCreatePage,
+      onSelectPage: widget.onSelectPage,
+    );
+    return SizedBox(
+      height: instance.height ?? plugin.defaultHeight,
+      child: plugin.build(context, instance, pluginContext),
     );
   }
 
@@ -1236,14 +913,6 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     return (dayBucket + salt) % _kWorkspaceHomeTipCount;
   }
 
-  String _greeting(AppLocalizations l10n) {
-    final h = DateTime.now().hour;
-    if (h >= 5 && h < 12) return l10n.workspaceHomeGreetingMorning;
-    if (h < 18) return l10n.workspaceHomeGreetingAfternoon;
-    if (h < 22) return l10n.workspaceHomeGreetingEvening;
-    return l10n.workspaceHomeGreetingNight;
-  }
-
   String _tipText(AppLocalizations l10n, int index) {
     switch (index % _kWorkspaceHomeTipCount) {
       case 1:
@@ -1592,11 +1261,6 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
           }).toList();
 
     final now = _now;
-    final dateStr = DateFormat.yMMMMEEEEd(locale).format(now);
-    final timeStyle = widget.mobileOptimized
-        ? theme.textTheme.headlineMedium
-        : theme.textTheme.displaySmall;
-    final timeStr = _homeClockTimeString(now, locale);
     final dateTimeMedium = DateFormat('yMMMd jm', locale);
     final upcoming = _upcomingTasks();
     final countsByDay = _dueCountByDay(upcoming);
@@ -1646,79 +1310,17 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
           return out;
         }
 
-        final heroHeader = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    _greeting(l10n),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: l10n.workspaceHomeCustomizeTooltip,
-                  icon: const Icon(Icons.tune_rounded),
-                  onPressed: () => _showCustomizeSheet(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: FolioSpace.sm),
-            Text(
-              dateStr,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: FolioSpace.xs),
-            Text(
-              timeStr,
-              style: timeStyle?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: scheme.onSurface,
-              ),
-            ),
-            if (widget.appSettings.workspaceHomeClockShowTimezone) ...[
-              const SizedBox(height: FolioSpace.xs),
-              Text(
-                l10n.workspaceHomeClockTimezoneLine(
-                  now.timeZoneName,
-                  _formatUtcOffset(now.timeZoneOffset),
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            const SizedBox(height: FolioSpace.lg),
-            Text(
-              l10n.workspaceHomeHeadline,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-                color: scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: FolioSpace.sm),
-            Text(
-              l10n.workspaceHomeSubtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
-          ],
-        );
+        // Bug real reportado: "Buenas tardes" / fecha / reloj / "Tu
+        // espacio" vivían como chrome fijo aparte (heroHeader), separado
+        // del reloj — el usuario los ve como una sola pieza. Todo ese
+        // bloque ahora es la salida de ClockWidgetPlugin.build() (ver
+        // clock_widget_plugin.dart), renderizado a través del catálogo
+        // como cualquier otro widget — seleccionable/editable en el editor
+        // visual y removible desde el editor de dashboard, en vez de texto
+        // fijo imposible de tocar.
 
-        Widget? moduleLeft(String id) {
+        Widget? moduleLeft(WidgetInstanceConfig instance) {
+          final id = instance.pluginId;
           switch (id) {
             case WorkspaceHomeSectionIds.folioCloud:
               if (showCloudQuick) {
@@ -1855,11 +1457,19 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
                 dateTimeMedium: dateTimeMedium,
               );
             default:
-              return null;
+              // Bug real reportado por el usuario: un pack visual (ej.
+              // Paper) puede componer su dashboard con plugins del catálogo
+              // nuevo (Fase 4) que no son ninguna de las 12 secciones
+              // legacy de arriba — antes de esto se veían en el editor
+              // ("Editar inicio (beta)") pero desaparecían silenciosamente
+              // en la Home normal, dando la sensación de "veo una cosa al
+              // entrar y otra al editar".
+              return _buildCatalogFallback(context, instance);
           }
         }
 
-        Widget? moduleRight(String id) {
+        Widget? moduleRight(WidgetInstanceConfig instance) {
+          final id = instance.pluginId;
           switch (id) {
             case WorkspaceHomeSectionIds.tasks:
               if (!widget.appSettings.workspaceHomeShowTasksSection) {
@@ -2010,7 +1620,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
                 label: Text(l10n.createPage),
               );
             default:
-              return null;
+              return _buildCatalogFallback(context, instance);
           }
         }
 
@@ -2024,25 +1634,41 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         // este orden y `appSettings.workspaceHomeLeftSectionOrder` siempre
         // coinciden — el fallback solo cubre un controller vacío (arranque
         // en frío antes de la primera migración).
-        final controllerLeftIds = widget.dashboardGridController
-            .widgetsInRegion(DashboardRegionIds.left)
-            .map((w) => w.pluginId);
-        final controllerRightIds = widget.dashboardGridController
-            .widgetsInRegion(DashboardRegionIds.right)
-            .map((w) => w.pluginId);
-        final leftIds = controllerLeftIds.isNotEmpty
-            ? controllerLeftIds
-            : widget.appSettings.workspaceHomeLeftSectionOrder;
-        final rightIds = controllerRightIds.isNotEmpty
-            ? controllerRightIds
-            : widget.appSettings.workspaceHomeRightSectionOrder;
-        final leftOrdered = spacedModules(leftIds.map(moduleLeft));
-        final rightOrdered = spacedModules(rightIds.map(moduleRight));
+        final controllerLeftInstances = widget.dashboardGridController
+            .widgetsInRegion(DashboardRegionIds.left);
+        final controllerRightInstances = widget.dashboardGridController
+            .widgetsInRegion(DashboardRegionIds.right);
+        // Fallback de arranque en frío (antes de la primera migración):
+        // sin instancias todavía en el controller, se sintetiza una
+        // WidgetInstanceConfig mínima por cada id legacy de AppSettings —
+        // esas ids son siempre una de las 12 secciones migradas, así que
+        // nunca ejercitan _buildCatalogFallback.
+        final leftInstances = controllerLeftInstances.isNotEmpty
+            ? controllerLeftInstances
+            : widget.appSettings.workspaceHomeLeftSectionOrder
+                  .map(
+                    (id) => WidgetInstanceConfig(
+                      instanceId: id,
+                      pluginId: id,
+                      regionId: DashboardRegionIds.left,
+                    ),
+                  )
+                  .toList();
+        final rightInstances = controllerRightInstances.isNotEmpty
+            ? controllerRightInstances
+            : widget.appSettings.workspaceHomeRightSectionOrder
+                  .map(
+                    (id) => WidgetInstanceConfig(
+                      instanceId: id,
+                      pluginId: id,
+                      regionId: DashboardRegionIds.right,
+                    ),
+                  )
+                  .toList();
+        final leftOrdered = spacedModules(leftInstances.map(moduleLeft));
+        final rightOrdered = spacedModules(rightInstances.map(moduleRight));
 
-        final leftColumnChildren = <Widget>[
-          heroHeader,
-          ...leftOrdered,
-        ];
+        final leftColumnChildren = <Widget>[...leftOrdered];
 
         final rightColumnChildren = <Widget>[
           ...rightOrdered,

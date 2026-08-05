@@ -27,6 +27,7 @@ VisualPack buildGlassPack() {
     theme: ThemeConfig(
       id: 'pack_glass_theme',
       name: 'Glass',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF00C2CB),
       dark: ThemeColorTokens(seedArgb: 0xFF00C2CB),
       typography: ThemeTypographyTokens(),

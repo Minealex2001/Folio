@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/material.dart';
+
 import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/dashboard_config.dart';
@@ -11,6 +13,7 @@ import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
 import 'package:folio/data/vault_paths.dart';
 import 'package:folio/layout_engine/layout_engine_controller.dart';
+import 'package:folio/theme_engine/theme_color_resolver.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/visual_packs/active_pack_controller.dart';
@@ -74,6 +77,37 @@ void main() {
     expect(packs, hasLength(10));
     expect(packs.map((p) => p.manifest.id).toSet(), hasLength(10));
   });
+
+  test(
+    'every non-material3 pack sets accentMode to custom so its seedArgb is '
+    "actually used — regression for the bug where every pack's color "
+    'silently fell back to the OS accent color',
+    () {
+      for (final pack in builtinVisualPacks()) {
+        if (pack.manifest.id == 'material3') {
+          // Material 3 es el baseline/reset — debe seguir followSystem,
+          // igual que kFolioDefaultTheme.
+          expect(pack.theme.accentMode, 'followSystem');
+          continue;
+        }
+        expect(
+          pack.theme.accentMode,
+          'custom',
+          reason:
+              '${pack.manifest.id}: accentMode debe ser custom, si no '
+              'resolveAccentSeedColor ignora light.seedArgb por completo',
+        );
+        final resolvedSeed = resolveAccentSeedColor(pack.theme);
+        expect(
+          resolvedSeed,
+          Color(pack.theme.light.seedArgb),
+          reason:
+              '${pack.manifest.id}: el color resuelto debe ser el seedArgb '
+              'del pack, no el acento del sistema',
+        );
+      }
+    },
+  );
 
   test('applying a pack replaces theme/layout/dashboard while keeping the '
       'active ids, and records it as the active pack', () async {

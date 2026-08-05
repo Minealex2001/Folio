@@ -1686,8 +1686,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   IconButton(
                     tooltip: 'Cerrar',
                     icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () =>
-                        setState(() => _visualEditor.editModeActive = false),
+                    onPressed: () => setState(() {
+                      _visualEditor.editModeActive = false;
+                      _dashboardEditMode = false;
+                    }),
                   ),
                 ],
               ),
@@ -2516,22 +2518,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           if (!compact)
             _WorkspaceActionEntry(
-              id: 'toggle_visual_editor',
-              label: _visualEditor.editModeActive
-                  ? 'Salir del editor visual'
-                  : 'Editor visual (beta)',
-              icon: _visualEditor.editModeActive
-                  ? Icons.edit_off_rounded
-                  : Icons.tune_rounded,
-              onPressed: () {
-                setState(() {
-                  _visualEditor.editModeActive = !_visualEditor.editModeActive;
-                });
-              },
-              forcePrimary: true,
-            ),
-          if (!compact)
-            _WorkspaceActionEntry(
               id: 'toggle_dashboard_edit',
               label: _dashboardEditMode
                   ? 'Salir de edición de inicio'
@@ -2540,7 +2526,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   ? Icons.dashboard_customize_rounded
                   : Icons.dashboard_customize_outlined,
               onPressed: () {
-                setState(() => _dashboardEditMode = !_dashboardEditMode);
+                // Bug real reportado: con el editor visual como botón
+                // aparte, solo dejaba seleccionar el sidebar mientras no
+                // estuvieras también en modo edición de inicio — parecía no
+                // servir para nada. Un único toggle activa ambos a la vez:
+                // arrastrar/redimensionar/añadir/eliminar widgets Y
+                // seleccionarlos para editar color/opacidad/radio desde el
+                // inspector, además del sidebar.
+                setState(() {
+                  _dashboardEditMode = !_dashboardEditMode;
+                  _visualEditor.editModeActive = _dashboardEditMode;
+                });
               },
               forcePrimary: true,
             ),

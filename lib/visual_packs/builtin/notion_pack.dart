@@ -27,6 +27,7 @@ VisualPack buildNotionPack() {
     theme: ThemeConfig(
       id: 'pack_notion_theme',
       name: 'Notion',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF2383E2),
       dark: ThemeColorTokens(seedArgb: 0xFF2383E2),
       typography: ThemeTypographyTokens(),

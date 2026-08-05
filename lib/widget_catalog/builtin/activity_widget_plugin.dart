@@ -29,67 +29,91 @@ class ActivityWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
-    final validIds = ctx.session.pages.map((p) => p.id).toSet();
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: FutureBuilder<List<RecentPageVisit>>(
-        future: RecentPageVisitsStore.load(
-          vaultId: VaultPaths.activeVaultId,
-          validPageIds: validIds,
-        ),
-        builder: (context, snapshot) {
-          final visits = snapshot.data ?? const <RecentPageVisit>[];
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          }
-          if (visits.isEmpty) {
-            return const BuiltinWidgetComingSoon(message: 'Sin actividad todavía.');
-          }
-          final byId = {for (final p in ctx.session.pages) p.id: p};
-          final now = DateTime.now();
-          return ListView.builder(
-            itemCount: visits.length,
-            itemBuilder: (context, index) {
-              final visit = visits[index];
-              final page = byId[visit.pageId];
-              if (page == null) return const SizedBox.shrink();
-              final visited = DateTime.fromMillisecondsSinceEpoch(
-                visit.visitedAtMs,
-              );
-              final ago = now.difference(visited);
-              final agoText = ago.inMinutes < 1
-                  ? 'ahora mismo'
-                  : ago.inHours < 1
-                  ? 'hace ${ago.inMinutes} min'
-                  : ago.inDays < 1
-                  ? 'hace ${ago.inHours} h'
-                  : 'hace ${ago.inDays} d';
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.circle, size: 8),
-                title: Text(
-                  page.title.isEmpty ? 'Sin título' : page.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Text(
-                  agoText,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                onTap: () => ctx.onSelectPage?.call(page.id),
-              );
-            },
+      child: _ActivityList(ctx: ctx),
+    );
+  }
+}
+
+class _ActivityList extends StatefulWidget {
+  const _ActivityList({required this.ctx});
+
+  final WidgetPluginContext ctx;
+
+  @override
+  State<_ActivityList> createState() => _ActivityListState();
+}
+
+class _ActivityListState extends State<_ActivityList> {
+  // Bug real reportado: construir el Future dentro de `build()` (como
+  // argumento inline de FutureBuilder) crea uno NUEVO cada vez que el
+  // padre reconstruye — y DashboardGridRegion reconstruye a menudo (todo
+  // el AnimatedBuilder de controller). FutureBuilder entonces vuelve al
+  // estado "cargando" en cada rebuild, así que el widget parpadeaba sin
+  // parar en vez de cargar una sola vez. Cachear el Future en initState lo
+  // arregla.
+  late final Future<List<RecentPageVisit>> _future = RecentPageVisitsStore.load(
+    vaultId: VaultPaths.activeVaultId,
+    validPageIds: widget.ctx.session.pages.map((p) => p.id).toSet(),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<RecentPageVisit>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final visits = snapshot.data ?? const <RecentPageVisit>[];
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
-        },
-      ),
+        }
+        if (visits.isEmpty) {
+          return const BuiltinWidgetComingSoon(message: 'Sin actividad todavía.');
+        }
+        final byId = {for (final p in widget.ctx.session.pages) p.id: p};
+        final now = DateTime.now();
+        return ListView.builder(
+          itemCount: visits.length,
+          itemBuilder: (context, index) {
+            final visit = visits[index];
+            final page = byId[visit.pageId];
+            if (page == null) return const SizedBox.shrink();
+            final visited = DateTime.fromMillisecondsSinceEpoch(
+              visit.visitedAtMs,
+            );
+            final ago = now.difference(visited);
+            final agoText = ago.inMinutes < 1
+                ? 'ahora mismo'
+                : ago.inHours < 1
+                ? 'hace ${ago.inMinutes} min'
+                : ago.inDays < 1
+                ? 'hace ${ago.inHours} h'
+                : 'hace ${ago.inDays} d';
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.circle, size: 8),
+              title: Text(
+                page.title.isEmpty ? 'Sin título' : page.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Text(
+                agoText,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              onTap: () => widget.ctx.onSelectPage?.call(page.id),
+            );
+          },
+        );
+      },
     );
   }
 }

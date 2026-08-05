@@ -27,6 +27,7 @@ VisualPack buildPaperPack() {
     theme: ThemeConfig(
       id: 'pack_paper_theme',
       name: 'Paper',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF8A6D4B),
       dark: ThemeColorTokens(seedArgb: 0xFF8A6D4B),
       typography: ThemeTypographyTokens(fontFamily: 'Georgia'),

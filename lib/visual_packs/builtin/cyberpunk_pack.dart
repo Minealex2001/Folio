@@ -28,6 +28,7 @@ VisualPack buildCyberpunkPack() {
     theme: ThemeConfig(
       id: 'pack_cyberpunk_theme',
       name: 'Cyberpunk',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFFF2E9A),
       dark: ThemeColorTokens(seedArgb: 0xFFFF2E9A, surfaceStyle: 'oled'),
       typography: ThemeTypographyTokens(),

@@ -27,6 +27,7 @@ VisualPack buildMacosPack() {
     theme: ThemeConfig(
       id: 'pack_macos_theme',
       name: 'macOS',
+      accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF0A84FF),
       dark: ThemeColorTokens(seedArgb: 0xFF0A84FF),
       typography: ThemeTypographyTokens(),

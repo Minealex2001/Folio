@@ -62,9 +62,13 @@ void main() {
           .where((w) => w.regionId == DashboardRegionIds.left)
           .toList()
         ..sort((a, b) => a.order.compareTo(b.order));
-      expect(leftWidgets.first.pluginId, WorkspaceHomeSectionIds.recents);
-      expect(leftWidgets[1].pluginId, WorkspaceHomeSectionIds.folioCloud);
-      expect(leftWidgets[1].visible, isFalse); // showFolioCloudCard = false
+      // El reloj se siembra siempre primero en la migración (bug real
+      // reportado: antes era chrome fijo de la cabecera, imposible de
+      // quitar — ahora es un widget del catálogo más, removible).
+      expect(leftWidgets.first.pluginId, 'clock');
+      expect(leftWidgets[1].pluginId, WorkspaceHomeSectionIds.recents);
+      expect(leftWidgets[2].pluginId, WorkspaceHomeSectionIds.folioCloud);
+      expect(leftWidgets[2].visible, isFalse); // showFolioCloudCard = false
     },
   );
 
