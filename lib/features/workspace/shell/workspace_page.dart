@@ -1696,7 +1696,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
             Expanded(
               child: PropertyInspectorPanel(
                 controller: _visualEditor,
-                repaintOn: widget.layoutEngineController,
+                // Fase 9: fusiona dashboardGridController también — sin esto,
+                // seleccionar una instancia de widget y arrastrar su
+                // esquina de resize no refrescaba los campos de tamaño del
+                // inspector hasta la siguiente selección.
+                repaintOn: Listenable.merge([
+                  widget.layoutEngineController,
+                  widget.dashboardGridController,
+                ]),
               ),
             ),
           ],
@@ -3016,6 +3023,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       appSettings: widget.appSettings,
       dashboardGridController: widget.dashboardGridController,
       dashboardEditModeActive: _dashboardEditMode,
+      visualEditor: _visualEditor,
       onSelectPage: _s.selectPage,
       onOpenTaskInPage: (pageId, blockId) {
         _s.selectPage(pageId);

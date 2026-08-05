@@ -311,6 +311,70 @@ void main() {
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
+
+  testWidgets(
+    'with both "Editar inicio" and the visual editor active, tapping a '
+    'dashboard widget instance selects it and editing its width in the '
+    'inspector writes to the real DashboardGridController',
+    (tester) async {
+      WidgetCatalogRegistry.instance.debugClear();
+      addTearDown(WidgetCatalogRegistry.instance.debugClear);
+      WidgetCatalogRegistry.instance.register(const _FakeGridPlugin());
+
+      dashboardGridController.replaceConfig(
+        DashboardConfig(
+          id: 'active',
+          name: 'Inicio',
+          widgets: [
+            WidgetInstanceConfig(
+              instanceId: 'w1',
+              pluginId: 'fake_grid_plugin',
+              regionId: DashboardRegionIds.left,
+              order: 0,
+              width: 240,
+            ),
+          ],
+        ),
+      );
+
+      await pumpWorkspace(tester);
+
+      await tester.tap(find.byTooltip('Editar inicio (beta)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(find.byTooltip('Editor visual (beta)'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DashboardGridRegion), findsOneWidget);
+      expect(
+        find.text('Selecciona un elemento para editarlo'),
+        findsOneWidget,
+      );
+
+      // Seleccionar la instancia de widget renderizada dentro del grid.
+      await tester.tap(find.text('fake-grid-plugin-rendered'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('Selecciona un elemento para editarlo'),
+        findsNothing,
+      );
+      expect(find.textContaining('240'), findsWidgets);
+
+      // Editar el ancho desde el inspector debe escribir de verdad al
+      // DashboardGridController real — no al LayoutEngineController del
+      // sidebar (mismo campo 'Ancho', selectable distinto).
+      await tester.enterText(find.widgetWithText(TextField, 'Ancho'), '333');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(dashboardGridController.instanceFor('w1')!.width, 333);
+
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
 }
 
 class _FakeGridPlugin extends FolioWidgetPlugin {

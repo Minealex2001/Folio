@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/dashboard_config.dart';
+import '../../visual_editor/visual_editor_controller.dart';
 import '../widget_catalog_registry.dart';
 import '../widget_plugin_context.dart';
 import 'dashboard_grid_controller.dart';
@@ -24,6 +25,7 @@ class DashboardGridRegion extends StatelessWidget {
     required this.pluginContext,
     this.registry,
     this.columnRegionIds,
+    this.visualEditor,
   });
 
   final DashboardGridController controller;
@@ -31,6 +33,10 @@ class DashboardGridRegion extends StatelessWidget {
 
   /// Inyectable para tests; por defecto usa el registro global.
   final WidgetCatalogRegistry? registry;
+
+  /// Editor visual (Fase 6/9) — pasado a cada [WidgetInstanceFrame]. Null =
+  /// las instancias no son seleccionables (comportamiento anterior).
+  final VisualEditorController? visualEditor;
 
   /// Ids de región (columna) en orden de izquierda a derecha. Si es null,
   /// se derivan de las regiones que ya aparecen en `DashboardConfig.widgets`
@@ -58,6 +64,7 @@ class DashboardGridRegion extends StatelessWidget {
                         controller: controller,
                         pluginContext: pluginContext,
                         registry: registry ?? WidgetCatalogRegistry.instance,
+                        visualEditor: visualEditor,
                       ),
                     ),
                     if (regionId != columns.last) SizedBox(width: config.gap),
@@ -87,12 +94,14 @@ class _DashboardColumn extends StatelessWidget {
     required this.controller,
     required this.pluginContext,
     required this.registry,
+    this.visualEditor,
   });
 
   final String regionId;
   final DashboardGridController controller;
   final WidgetPluginContext pluginContext;
   final WidgetCatalogRegistry registry;
+  final VisualEditorController? visualEditor;
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +144,7 @@ class _DashboardColumn extends StatelessWidget {
                         return WidgetInstanceFrame(
                           instance: instance,
                           controller: controller,
+                          visualEditor: visualEditor,
                           child: plugin.build(context, instance, pluginContext),
                         );
                       },

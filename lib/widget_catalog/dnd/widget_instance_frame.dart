@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../visual_editor/selectable_tap_wrapper.dart';
+import '../../visual_editor/visual_editor_controller.dart';
+import '../../visual_editor/widget_instance_selectable.dart';
 import 'dashboard_grid_controller.dart';
 import 'dashboard_grid_math.dart';
 
@@ -18,12 +21,19 @@ class WidgetInstanceFrame extends StatefulWidget {
     required this.child,
     this.resizable = true,
     this.rowUnit = 32,
+    this.visualEditor,
   });
 
   final WidgetInstanceConfig instance;
   final DashboardGridController controller;
   final Widget child;
   final bool resizable;
+
+  /// Editor visual (Fase 6/9): cuando no es null, envuelve el contenido con
+  /// [SelectableTapWrapper] usando [WidgetInstanceSelectable] — mismo
+  /// mecanismo ya usado para el sidebar (`PanelSelectable`). Null =
+  /// passthrough puro, sin coste ni cambio de comportamiento.
+  final VisualEditorController? visualEditor;
 
   /// Unidad de fila para el snap de alto/ancho al soltar el resize.
   final double rowUnit;
@@ -80,6 +90,18 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
       ),
     );
 
+    final visualEditor = widget.visualEditor;
+    final selectableContent = visualEditor == null
+        ? content
+        : SelectableTapWrapper(
+            controller: visualEditor,
+            selectable: WidgetInstanceSelectable(
+              widget.controller,
+              widget.instance.instanceId,
+            ),
+            child: content,
+          );
+
     return LongPressDraggable<String>(
       data: widget.instance.instanceId,
       feedback: Material(
@@ -94,8 +116,8 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
           ),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.3, child: content),
-      child: content,
+      childWhenDragging: Opacity(opacity: 0.3, child: selectableContent),
+      child: selectableContent,
     );
   }
 

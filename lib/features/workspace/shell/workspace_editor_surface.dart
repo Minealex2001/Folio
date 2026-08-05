@@ -8,6 +8,7 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../visual_editor/visual_editor_controller.dart';
 import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../../widget_catalog/dnd/dashboard_grid_region.dart';
 import '../../../widget_catalog/widget_plugin_context.dart';
@@ -32,6 +33,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     required this.appSettings,
     required this.dashboardGridController,
     this.dashboardEditModeActive = false,
+    this.visualEditor,
     required this.onSelectPage,
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
@@ -73,6 +75,12 @@ class WorkspaceEditorSurface extends StatelessWidget {
   /// (drag & drop entre columnas) en vez de `WorkspaceHomeView`. Alternado
   /// desde el botón "Editar inicio (beta)" de la toolbar del workspace.
   final bool dashboardEditModeActive;
+
+  /// Editor visual (Fase 6/9): cuando está activo, las instancias de
+  /// widgets del dashboard también son seleccionables/editables desde el
+  /// inspector — no solo el sidebar. Null = no seleccionables (comportamiento
+  /// anterior a esta fase).
+  final VisualEditorController? visualEditor;
   final ValueChanged<String> onSelectPage;
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
@@ -160,6 +168,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                         DashboardRegionIds.left,
                         DashboardRegionIds.right,
                       ],
+                      visualEditor: visualEditor,
                     ),
                   )
                 : page == null
