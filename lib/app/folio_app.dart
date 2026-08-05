@@ -17,6 +17,7 @@ import '../core/bootstrap/bootstrap_phase.dart';
 import '../layout_engine/layout_engine_controller.dart';
 import '../theme_engine/theme_config_controller.dart';
 import '../theme_engine/theme_resolver.dart';
+import '../visual_packs/active_pack_controller.dart';
 import '../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'widgets/folio_dialog.dart';
 import 'widgets/folio_skeletons.dart';
@@ -84,6 +85,7 @@ class FolioApp extends StatefulWidget {
     required this.layoutEngineController,
     required this.dashboardGridController,
     required this.themeConfigController,
+    required this.activePackController,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -115,6 +117,11 @@ class FolioApp extends StatefulWidget {
   /// en Settings; el editor de temas nuevo edita
   /// shape/spacing/motion/surfaceOpacity directo aquí.
   final ThemeConfigController themeConfigController;
+
+  /// Packs visuales (Fase 8): qué pack está activo, solo informativo — el
+  /// contenido de un pack se aplica directo a los tres controllers de
+  /// arriba vía `VisualPackInstaller`.
+  final ActivePackController activePackController;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
@@ -400,6 +407,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.layoutEngineController.dispose();
     widget.dashboardGridController.dispose();
     widget.themeConfigController.dispose();
+    widget.activePackController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -1908,6 +1916,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         layoutEngineController: widget.layoutEngineController,
         dashboardGridController: widget.dashboardGridController,
         themeConfigController: widget.themeConfigController,
+        activePackController: widget.activePackController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
@@ -2903,6 +2912,7 @@ class _HomeByState extends StatelessWidget {
     required this.layoutEngineController,
     required this.dashboardGridController,
     required this.themeConfigController,
+    required this.activePackController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -2919,6 +2929,7 @@ class _HomeByState extends StatelessWidget {
   final LayoutEngineController layoutEngineController;
   final DashboardGridController dashboardGridController;
   final ThemeConfigController themeConfigController;
+  final ActivePackController activePackController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -2966,6 +2977,7 @@ class _HomeByState extends StatelessWidget {
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
+          activePackController: activePackController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,

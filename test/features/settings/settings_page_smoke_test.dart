@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:folio/app/app_settings.dart';
 import 'package:folio/config/config_store.dart';
+import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/data/vault_paths.dart';
 import 'package:folio/features/settings/settings_page.dart';
@@ -15,6 +16,8 @@ import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
+import 'package:folio/visual_packs/active_pack_controller.dart';
+import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 
 /// Blocking prerequisite for the v0.8.0 settings_page.dart decomposition:
 /// this file had zero widget-test coverage despite being one of the
@@ -40,6 +43,11 @@ void main() {
         configStore,
         initialConfig: kFolioDefaultTheme,
       ),
+      dashboardGridController: DashboardGridController(
+        configStore,
+        initialConfig: DashboardConfig(id: 'active', name: 'Inicio'),
+      ),
+      activePackController: ActivePackController(configStore),
       deviceSyncController: DeviceSyncController(appSettings: appSettings),
       cloudAccountController: CloudAccountController(),
       folioCloudEntitlements: FolioCloudEntitlementsController(),

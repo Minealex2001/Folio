@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -16,6 +17,12 @@ import '../../app/app_settings.dart';
 import '../../config/models/panel_region_ids.dart';
 import '../../layout_engine/layout_engine_controller.dart';
 import '../../theme_engine/theme_config_controller.dart';
+import '../../visual_packs/active_pack_controller.dart';
+import '../../visual_packs/builtin/builtin_visual_packs.dart';
+import '../../visual_packs/visual_pack.dart';
+import '../../visual_packs/visual_pack_export.dart';
+import '../../visual_packs/visual_pack_installer.dart';
+import '../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../theme_engine/theme_config_defaults.dart';
 import '../../services/integrations/integrations_bridge.dart'
     show IntegrationsLaunchSession;
@@ -175,6 +182,8 @@ class SettingsPage extends StatefulWidget {
     required this.appSettings,
     required this.layoutEngineController,
     required this.themeConfigController,
+    required this.dashboardGridController,
+    required this.activePackController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -190,6 +199,8 @@ class SettingsPage extends StatefulWidget {
   final AppSettings appSettings;
   final LayoutEngineController layoutEngineController;
   final ThemeConfigController themeConfigController;
+  final DashboardGridController dashboardGridController;
+  final ActivePackController activePackController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -215,6 +226,8 @@ class _SettingsPageState extends State<SettingsPage> {
   AppSettings get _app => widget.appSettings;
   LayoutEngineController get _layoutEngine => widget.layoutEngineController;
   ThemeConfigController get _themeConfig => widget.themeConfigController;
+  DashboardGridController get _dashboardGrid => widget.dashboardGridController;
+  ActivePackController get _activePack => widget.activePackController;
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;

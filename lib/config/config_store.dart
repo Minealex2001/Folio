@@ -122,6 +122,32 @@ class ConfigStore {
     _bumpRevision(ConfigCategory.dashboards);
   }
 
+  // ── Packs visuales (Fase 8) ────────────────────────────────────────────
+  // Solo el id del pack actualmente activo — el contenido de cada pack
+  // (theme/layout/dashboard) vive donde ya vive todo lo demás: se aplica
+  // directamente a los controllers activos vía `replaceConfig` (ver
+  // `VisualPackInstaller`), sin una copia namespaced separada por pack.
+
+  static const String _activePackDocId = 'active';
+
+  Future<String?> loadActivePackId() async {
+    final raw = await _backend.read(ConfigCategory.packs, _activePackDocId);
+    if (raw == null) return null;
+    return (_decode(raw)['packId'] as String?);
+  }
+
+  Future<void> saveActivePackId(String? packId) async {
+    await _backend.write(
+      ConfigCategory.packs,
+      _activePackDocId,
+      jsonEncode({
+        'schemaVersion': kFolioConfigSchemaVersion,
+        'packId': packId,
+      }),
+    );
+    _bumpRevision(ConfigCategory.packs);
+  }
+
   // ── Export / Import (hook de Fase 8 — packs visuales) ────────────────────
 
   Future<String> exportBundle({

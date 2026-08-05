@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:folio/app/app_settings.dart';
 import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
+import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
 import 'package:folio/data/vault_paths.dart';
@@ -19,11 +20,15 @@ import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
+import 'package:folio/visual_packs/active_pack_controller.dart';
+import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 
 void main() {
   late Directory tempDir;
   late LayoutEngineController layoutEngineController;
   late ThemeConfigController themeConfigController;
+  late DashboardGridController dashboardGridController;
+  late ActivePackController activePackController;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp(
@@ -43,11 +48,18 @@ void main() {
       initialConfig: kFolioDefaultTheme,
       persistDebounce: const Duration(minutes: 10),
     );
+    dashboardGridController = DashboardGridController(
+      store,
+      initialConfig: DashboardConfig(id: 'active', name: 'Inicio'),
+      persistDebounce: const Duration(minutes: 10),
+    );
+    activePackController = ActivePackController(store);
   });
 
   tearDown(() async {
     layoutEngineController.dispose();
     themeConfigController.dispose();
+    dashboardGridController.dispose();
     ConfigStoreBackend.debugRootOverride = null;
     VaultPaths.clearActiveVaultId();
     if (tempDir.existsSync()) await tempDir.delete(recursive: true);
@@ -69,6 +81,8 @@ void main() {
           appSettings: appSettings,
           layoutEngineController: layoutEngineController,
           themeConfigController: themeConfigController,
+          dashboardGridController: dashboardGridController,
+          activePackController: activePackController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),
@@ -177,4 +191,41 @@ void main() {
     );
     await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
   });
+
+  testWidgets(
+    'tapping "Aplicar" on the Obsidian pack card applies its real theme/'
+    'layout/dashboard to the live controllers and marks it active',
+    (tester) async {
+      await pumpSettings(tester);
+
+      final activeThemeId = themeConfigController.config.id;
+      expect(find.text('Obsidian'), findsOneWidget);
+      final obsidianCard = find
+          .ancestor(of: find.text('Obsidian'), matching: find.byType(Container))
+          .first;
+      final applyButton = find.descendant(
+        of: obsidianCard,
+        matching: find.widgetWithText(FilledButton, 'Aplicar'),
+      );
+      expect(applyButton, findsOneWidget);
+
+      await tester.ensureVisible(applyButton);
+      await tester.pumpAndSettle();
+      await tester.tap(applyButton);
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      // Tema, layout y dashboard reales cambiaron de golpe — no una preview.
+      expect(themeConfigController.config.id, activeThemeId);
+      expect(themeConfigController.config.light.seedArgb, 0xFF7C5CFF);
+      expect(
+        layoutEngineController.panelFor(PanelRegionIds.sidebarLeft)!.locked,
+        isTrue,
+      );
+      expect(find.text('Activo'), findsOneWidget);
+
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
 }

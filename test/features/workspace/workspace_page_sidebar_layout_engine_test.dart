@@ -32,6 +32,7 @@ import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
+import 'package:folio/visual_packs/active_pack_controller.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'package:folio/widget_catalog/dnd/dashboard_grid_region.dart';
 import 'package:folio/widget_catalog/folio_widget_plugin.dart';
@@ -51,6 +52,7 @@ void main() {
   late LayoutEngineController layoutEngineController;
   late DashboardGridController dashboardGridController;
   late ThemeConfigController themeConfigController;
+  late ActivePackController activePackController;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -98,6 +100,7 @@ void main() {
       initialConfig: kFolioDefaultTheme,
       persistDebounce: const Duration(minutes: 10),
     );
+    activePackController = ActivePackController(store);
   });
 
   tearDown(() async {
@@ -128,6 +131,7 @@ void main() {
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
+          activePackController: activePackController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),

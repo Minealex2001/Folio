@@ -21,6 +21,8 @@ extension _SettingsPagePersonalizationSection on _SettingsPageState {
           child: _PersonalizationSectionBody(
             layoutEngine: _layoutEngine,
             themeConfig: _themeConfig,
+            dashboardGrid: _dashboardGrid,
+            activePack: _activePack,
           ),
         ),
       ),
@@ -32,15 +34,19 @@ class _PersonalizationSectionBody extends StatelessWidget {
   const _PersonalizationSectionBody({
     required this.layoutEngine,
     required this.themeConfig,
+    required this.dashboardGrid,
+    required this.activePack,
   });
 
   final LayoutEngineController layoutEngine;
   final ThemeConfigController themeConfig;
+  final DashboardGridController dashboardGrid;
+  final ActivePackController activePack;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([layoutEngine, themeConfig]),
+      animation: Listenable.merge([layoutEngine, themeConfig, activePack]),
       builder: (context, _) {
         final sidebar = layoutEngine.panelFor(PanelRegionIds.sidebarLeft);
         final theme = themeConfig.config;
@@ -176,6 +182,13 @@ class _PersonalizationSectionBody extends StatelessWidget {
                 ],
               ),
             ),
+            const Divider(height: 1),
+            _VisualPacksSection(
+              layoutEngine: layoutEngine,
+              themeConfig: themeConfig,
+              dashboardGrid: dashboardGrid,
+              activePack: activePack,
+            ),
           ],
         );
       },
@@ -220,6 +233,324 @@ class _ThemeSlider extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Fase 8 del plan de personalización: selector de packs visuales builtin +
+/// exportar/importar el setup actual. Aplicar un pack reemplaza tema,
+/// layout y dashboard a la vez, directo en los controllers en vivo (ver
+/// `VisualPackInstaller`) — no hay una vista previa separada, la app
+/// cambia de verdad al tocar "Aplicar".
+class _VisualPacksSection extends StatefulWidget {
+  const _VisualPacksSection({
+    required this.layoutEngine,
+    required this.themeConfig,
+    required this.dashboardGrid,
+    required this.activePack,
+  });
+
+  final LayoutEngineController layoutEngine;
+  final ThemeConfigController themeConfig;
+  final DashboardGridController dashboardGrid;
+  final ActivePackController activePack;
+
+  @override
+  State<_VisualPacksSection> createState() => _VisualPacksSectionState();
+}
+
+class _VisualPacksSectionState extends State<_VisualPacksSection> {
+  bool _busy = false;
+
+  VisualPackInstaller get _installer => VisualPackInstaller(
+    layoutEngineController: widget.layoutEngine,
+    themeConfigController: widget.themeConfig,
+    dashboardGridController: widget.dashboardGrid,
+    activePackController: widget.activePack,
+  );
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _applyPack(VisualPack pack) async {
+    setState(() => _busy = true);
+    try {
+      await _installer.apply(pack);
+      _snack('Pack "${pack.manifest.name}" aplicado.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _exportCurrent() async {
+    final result = await showDialog<({String name, String author})>(
+      context: context,
+      builder: (context) => const _ExportPackDialog(),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final export = VisualPackExport(
+        layoutEngineController: widget.layoutEngine,
+        themeConfigController: widget.themeConfig,
+        dashboardGridController: widget.dashboardGrid,
+      );
+      final slug = result.name
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+      final id = slug.isEmpty ? 'custom_pack' : slug;
+      final json = export.exportAsJson(
+        id: id,
+        name: result.name.trim(),
+        author: result.author.trim().isEmpty ? null : result.author.trim(),
+      );
+      final bytes = Uint8List.fromList(utf8.encode(json));
+      final fileName = '$id.folio-pack.json';
+      if (kIsWeb) {
+        folioTriggerBrowserDownload(fileName, bytes);
+      } else {
+        final path = await FilePicker.saveFile(
+          dialogTitle: 'Guardar pack visual',
+          fileName: fileName,
+        );
+        if (path == null) return;
+        await File(path).writeAsBytes(bytes);
+      }
+      _snack('Setup actual exportado.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _importPack() async {
+    setState(() => _busy = true);
+    try {
+      final pick = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: kIsWeb,
+      );
+      if (pick == null || pick.files.isEmpty) return;
+      final picked = pick.files.single;
+      String jsonText;
+      if (picked.bytes != null) {
+        jsonText = utf8.decode(picked.bytes!);
+      } else if (picked.path != null) {
+        jsonText = await File(picked.path!).readAsString();
+      } else {
+        _snack('No se pudo leer el archivo.');
+        return;
+      }
+      final pack = VisualPack.fromJson(
+        jsonDecode(jsonText) as Map<String, dynamic>,
+      );
+      await _installer.apply(pack);
+      _snack('Pack "${pack.manifest.name}" importado y aplicado.');
+    } catch (e) {
+      _snack('No se pudo importar el pack: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final packs = builtinVisualPacks();
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Packs visuales',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              if (_busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Aplica un pack para cambiar tema, layout y dashboard de golpe. '
+            'También puedes exportar tu setup actual o importar uno.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final pack in packs)
+                _VisualPackCard(
+                  pack: pack,
+                  active: widget.activePack.activePackId == pack.manifest.id,
+                  onApply: _busy ? null : () => unawaited(_applyPack(pack)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => unawaited(_exportCurrent()),
+                icon: const Icon(Icons.ios_share_rounded, size: 18),
+                label: const Text('Exportar setup actual'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => unawaited(_importPack()),
+                icon: const Icon(Icons.file_open_outlined, size: 18),
+                label: const Text('Importar pack…'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VisualPackCard extends StatelessWidget {
+  const _VisualPackCard({
+    required this.pack,
+    required this.active,
+    required this.onApply,
+  });
+
+  final VisualPack pack;
+  final bool active;
+  final VoidCallback? onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final seedColor = Color(pack.theme.light.seedArgb);
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: active ? scheme.primary : scheme.outlineVariant,
+          width: active ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: seedColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  pack.manifest.name,
+                  style: Theme.of(context).textTheme.titleSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (active)
+                Icon(Icons.check_circle_rounded, size: 16, color: scheme.primary),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            pack.manifest.description,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonal(
+              onPressed: active ? null : onApply,
+              child: Text(active ? 'Activo' : 'Aplicar'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExportPackDialog extends StatefulWidget {
+  const _ExportPackDialog();
+
+  @override
+  State<_ExportPackDialog> createState() => _ExportPackDialogState();
+}
+
+class _ExportPackDialogState extends State<_ExportPackDialog> {
+  final _nameController = TextEditingController();
+  final _authorController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _authorController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Exportar setup actual'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _nameController,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Nombre del pack'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _authorController,
+            decoration: const InputDecoration(labelText: 'Autor (opcional)'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop((
+            name: _nameController.text.trim().isEmpty
+                ? 'Mi pack'
+                : _nameController.text.trim(),
+            author: _authorController.text.trim(),
+          )),
+          child: const Text('Exportar'),
+        ),
+      ],
     );
   }
 }

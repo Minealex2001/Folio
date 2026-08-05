@@ -18,6 +18,7 @@ import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
 import 'layout_engine/layout_engine_controller.dart';
 import 'theme_engine/theme_config_controller.dart';
+import 'visual_packs/active_pack_controller.dart';
 import 'widget_catalog/builtin/builtin_widget_plugins.dart';
 import 'widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
@@ -309,6 +310,22 @@ Future<void> main(List<String> args) async {
         );
       }
 
+      // Packs visuales (Fase 8): solo el id del pack activo, puramente
+      // informativo — el contenido de un pack se aplica directo a los tres
+      // controllers de arriba (ver VisualPackInstaller), no se re-lee aquí.
+      ActivePackController activePackController;
+      try {
+        activePackController = await ActivePackController.load(configStore);
+      } catch (e, st) {
+        AppLogger.error(
+          'Active pack controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        activePackController = ActivePackController(configStore);
+      }
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);
@@ -342,6 +359,7 @@ Future<void> main(List<String> args) async {
           layoutEngineController: layoutEngineController,
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
+          activePackController: activePackController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

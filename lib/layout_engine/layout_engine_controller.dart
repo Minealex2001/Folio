@@ -145,13 +145,21 @@ class LayoutEngineController extends ChangeNotifier {
   Future<void> loadPreset(String id) async {
     final loaded = await _store.loadLayout(id);
     if (loaded == null) return;
-    // Adopta paneles/nombre del preset pero conserva la id del layout activo
-    // (LayoutConfig.copyWith no permite cambiar `id`: es inmutable por diseño).
+    replaceConfig(loaded);
+  }
+
+  /// Reemplaza el [LayoutConfig] completo en memoria, conservando la id del
+  /// layout activo — mismo principio que `ThemeConfigController.
+  /// replaceConfig`/`DashboardGridController.replaceConfig`. [loadPreset]
+  /// delega aquí tras leer de [ConfigStore]; usado directamente por la
+  /// Fase 8 (aplicar un pack visual) para no tener que persistir el layout
+  /// del pack bajo su propia id antes de poder aplicarlo.
+  void replaceConfig(LayoutConfig next) {
     _config = LayoutConfig(
       id: _config.id,
-      name: loaded.name,
-      panels: loaded.panels,
-      responsiveOverrides: loaded.responsiveOverrides,
+      name: next.name,
+      panels: next.panels,
+      responsiveOverrides: next.responsiveOverrides,
     );
     for (final entry in _config.panels.entries) {
       final notifier = _regionNotifiers.putIfAbsent(
