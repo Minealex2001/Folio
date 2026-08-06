@@ -128,8 +128,8 @@ class SidebarVaultToolbar extends StatelessWidget {
           subtitle: e.isShared
               ? Text(
                   e.ownerDisplayName?.trim().isNotEmpty == true
-                      ? 'Compartida · ${e.ownerDisplayName}'
-                      : 'Compartida conmigo',
+                      ? l10n.sidebarVaultSharedByOwner(e.ownerDisplayName!)
+                      : l10n.sidebarVaultSharedWithMe,
                 )
               : null,
           trailing: e.id == activeVaultId ? const Icon(Icons.check) : null,
@@ -162,7 +162,7 @@ class SidebarVaultToolbar extends StatelessWidget {
             PopupMenuItem(
               enabled: false,
               child: Text(
-                'Mis libretas',
+                l10n.sidebarVaultsMineLabel,
                 style: textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -175,7 +175,7 @@ class SidebarVaultToolbar extends StatelessWidget {
             PopupMenuItem(
               enabled: false,
               child: Text(
-                'Compartidas conmigo',
+                l10n.sidebarVaultsSharedWithMeHeader,
                 style: textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -206,7 +206,7 @@ class SidebarVaultToolbar extends StatelessWidget {
               value: 'share',
               child: ListTile(
                 leading: const Icon(Icons.ios_share_outlined),
-                title: const Text('Compartir libreta'),
+                title: Text(l10n.shareNotebookTooltip),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -238,7 +238,7 @@ class SidebarVaultToolbar extends StatelessWidget {
                   children: [
                     Text(
                       current.isShared
-                          ? 'Compartida'
+                          ? l10n.sidebarVaultSharedLabel
                           : l10n.activeVaultLabel,
                       style: textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,

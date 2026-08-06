@@ -71,8 +71,8 @@ class _FolioCloudBody extends StatelessWidget {
     final entitlements = ctx.folioCloudEntitlements;
 
     if (account == null || entitlements == null) {
-      return const BuiltinWidgetEmpty(
-        message: 'Folio Cloud no está disponible en este contexto.',
+      return BuiltinWidgetEmpty(
+        message: l10n.widgetFolioCloudUnavailable,
       );
     }
 
@@ -132,7 +132,7 @@ class _FolioCloudBody extends StatelessWidget {
             ? l10n.workspaceHomeCloudStaffShort
             : (snap.plan?.trim().isNotEmpty == true
                 ? snap.plan!
-                : (snap.active ? 'Cloud' : 'Free'));
+                : (snap.active ? 'Cloud' : l10n.planFree));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

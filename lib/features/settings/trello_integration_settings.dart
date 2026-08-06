@@ -24,7 +24,6 @@ class TrelloIntegrationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
@@ -33,9 +32,7 @@ class TrelloIntegrationCard extends StatelessWidget {
         return IntegrationCard(
           logoAsset: 'appLogos/trello.png',
           title: 'Trello',
-          subtitle: isEs
-              ? 'Conecta Trello para sincronizar tableros completos con Kanban.'
-              : 'Connect Trello to sync entire boards with Kanban.',
+          subtitle: l10n.trelloCardSubtitle,
           configureLabel: l10n.trelloConfigure,
           onConfigure: session.state == VaultFlowState.unlocked
               ? () => showIntegrationConfigSheet(
@@ -49,13 +46,11 @@ class TrelloIntegrationCard extends StatelessWidget {
           chips: [
             IntegrationStatChip(
               icon: Icons.link_rounded,
-              label: isEs
-                  ? '${connections.length} conexiones'
-                  : '${connections.length} connections',
+              label: l10n.trelloConnectionsCount(connections.length),
             ),
             IntegrationStatChip(
               icon: Icons.dashboard_outlined,
-              label: isEs ? '${sources.length} tableros' : '${sources.length} boards',
+              label: l10n.trelloSourcesCount(sources.length),
             ),
           ],
         );

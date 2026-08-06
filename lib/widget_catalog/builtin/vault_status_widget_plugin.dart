@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -13,7 +14,7 @@ class VaultStatusWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'vault_status';
 
   @override
-  String displayName(BuildContext context) => 'Estado de la libreta';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetVaultStatus;
 
   @override
   IconData get icon => Icons.shield_outlined;
@@ -27,6 +28,7 @@ class VaultStatusWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     final encrypted = ctx.session.vaultUsesEncryption;
     final pageCount = ctx.session.pages.where((p) => !p.isTrashed).length;
     return BuiltinWidgetCard(
@@ -50,8 +52,10 @@ class VaultStatusWidgetPlugin extends FolioWidgetPlugin {
                 child: Text(
                   [
                     ?label,
-                    encrypted ? 'Cifrada' : 'Sin cifrar',
-                    '$pageCount páginas',
+                    encrypted
+                        ? l10n.widgetVaultStatusEncrypted
+                        : l10n.widgetVaultStatusUnencrypted,
+                    l10n.widgetVaultStatusPageCount(pageCount),
                   ].join(' · '),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

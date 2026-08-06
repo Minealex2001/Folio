@@ -35,6 +35,7 @@ import '../services/ai/on_device_ai_bridge.dart';
 import '../services/ai/openai_compatible_ai_service.dart';
 import '../services/mcp/folio_mcp_server.dart';
 import '../services/mcp/folio_mcp_server_status.dart';
+import '../services/whisper_service.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/cloud_account/organization_context_controller.dart';
@@ -275,6 +276,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     WidgetsBinding.instance.addObserver(this);
     widget.session.titleLocale = widget.appSettings.locale;
+    if (widget.appSettings.locale != null) {
+      WhisperService.instance.locale = widget.appSettings.locale!;
+    }
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
     widget.themeConfigController.addListener(_onThemeConfigChanged);
@@ -744,9 +748,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       if (!mounted) return;
       final ctx = _navKey.currentContext;
       if (ctx == null) return;
-      final isEs = widget.appSettings.locale?.languageCode == 'es';
+      final l10n = AppLocalizations.of(ctx);
       final who = request.trimmedRequesterName.isEmpty
-          ? (isEs ? 'Otro dispositivo' : 'Another device')
+          ? l10n.devicePairAnotherDevice
           : request.trimmedRequesterName;
       final emojis = request.sharedEmojis.join(' ');
       showDialog<void>(
@@ -754,16 +758,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         barrierDismissible: false,
         builder: (dialogCtx) {
           return FolioDialog(
-            title: Text(isEs ? 'Solicitud de vinculacion' : 'Link request'),
+            title: Text(l10n.devicePairLinkRequest),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isEs
-                      ? '$who quiere enlazar este dispositivo.'
-                      : '$who wants to link this device.',
-                ),
+                Text(l10n.devicePairWantsToLink(who)),
                 if (emojis.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   SelectableText(
@@ -772,18 +772,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    isEs
-                        ? '¿Aparecen estos mismos 3 emojis en el otro dispositivo? Si coinciden, pulsa Vincular.'
-                        : 'Do these same 3 emojis appear on the other device? If they match, press Link.',
-                  ),
+                  Text(l10n.devicePairEmojiMatchHint),
                 ] else ...[
                   const SizedBox(height: 12),
-                  Text(
-                    isEs
-                        ? 'No se pudo calcular la coincidencia visual. Activa el modo vinculacion en ambos dispositivos y vuelve a intentarlo.'
-                        : 'Could not calculate the visual match. Enable pairing mode on both devices and try again.',
-                  ),
+                  Text(l10n.devicePairVisualMatchFailed),
                 ],
               ],
             ),
@@ -793,7 +785,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                   Navigator.of(dialogCtx).pop();
                   unawaited(_deviceSyncController.respondIncomingPair(false));
                 },
-                child: Text(isEs ? 'No coinciden' : 'No match'),
+                child: Text(l10n.devicePairNoMatch),
               ),
               FilledButton(
                 onPressed: () async {
@@ -810,15 +802,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                       session: widget.session,
                       quickEnabled: false,
                       passkeyRegistered: false,
-                      title: Text(
-                        isEs ? 'Confirmar identidad' : 'Confirm identity',
-                      ),
-                      body: Text(
-                        isEs
-                            ? 'Introduce la contraseña de la libreta para aceptar la vinculación con otro dispositivo.'
-                            : 'Enter your vault password to accept linking with another device.',
-                      ),
-                      passwordButtonLabel: isEs ? 'Verificar' : 'Verify',
+                      title: Text(l10n.devicePairConfirmIdentity),
+                      body: Text(l10n.devicePairConfirmIdentityBody),
+                      passwordButtonLabel: l10n.devicePairVerify,
                     ),
                   );
                   if (!mounted) return;
@@ -826,7 +812,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                     _deviceSyncController.respondIncomingPair(ok == true),
                   );
                 },
-                child: Text(isEs ? 'Vincular' : 'Link'),
+                child: Text(l10n.devicePairLink),
               ),
             ],
           );
@@ -871,6 +857,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onSettings() {
     widget.session.titleLocale = widget.appSettings.locale;
+    if (widget.appSettings.locale != null) {
+      WhisperService.instance.locale = widget.appSettings.locale!;
+    }
     _applySessionSecurityPolicy();
     _applyAiSettings();
     _applyDeviceSyncSettings();

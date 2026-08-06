@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../selectable.dart';
 import '../visual_editor_controller.dart';
 import 'color_opacity_editor.dart';
@@ -38,10 +39,10 @@ class PropertyInspectorPanel extends StatelessWidget {
       builder: (context, _) {
         final selected = controller.selected;
         if (selected == null) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Selecciona un elemento para editarlo'),
+              padding: const EdgeInsets.all(16),
+              child: Text(AppLocalizations.of(context).inspectorSelectElement),
             ),
           );
         }

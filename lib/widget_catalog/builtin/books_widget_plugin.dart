@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -14,7 +15,7 @@ class BooksWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'books';
 
   @override
-  String displayName(BuildContext context) => 'Libros';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetBooks;
 
   @override
   IconData get icon => Icons.menu_book_outlined;
@@ -28,10 +29,8 @@ class BooksWidgetPlugin extends FolioWidgetPlugin {
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: const BuiltinWidgetComingSoon(
-        message:
-            'El seguimiento de lectura no está disponible. '
-            'No hay un modelo de libros en Folio todavía.',
+      child: BuiltinWidgetComingSoon(
+        message: AppLocalizations.of(context).widgetBooksComingSoon,
       ),
     );
   }

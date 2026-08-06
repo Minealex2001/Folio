@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_collab_api.dart';
 import '../widgets/admin_paginated_list.dart';
 
@@ -10,14 +11,16 @@ class AdminCollabSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const api = AdminCollabApi();
+    final l10n = AppLocalizations.of(context);
     return AdminPaginatedList(
       searchable: false,
-      emptyLabel: 'Sin salas de colaboración.',
+      searchHint: l10n.search,
+      emptyLabel: l10n.adminNoCollabRooms,
       fetch: (page, limit, query) => api.list(page: page, limit: limit),
       itemBuilder: (context, item) => ListTile(
         leading: const Icon(Icons.groups_2_outlined),
-        title: Text((item['title']?.toString().trim().isNotEmpty ?? false) ? item['title'].toString() : '(sin título)'),
-        subtitle: Text('owner: ${item['ownerUid']} · ${item['memberCount'] ?? 0} miembros · ${item['updatedAt'] ?? ''}'),
+        title: Text((item['title']?.toString().trim().isNotEmpty ?? false) ? item['title'].toString() : l10n.adminUntitledFallback),
+        subtitle: Text('owner: ${item['ownerUid']} · ${item['memberCount'] ?? 0} members · ${item['updatedAt'] ?? ''}'),
         onTap: () => showDialog<void>(
           context: context,
           builder: (ctx) => _RoomDetailDialog(id: item['id']?.toString() ?? '', api: api),
@@ -50,9 +53,10 @@ class _RoomDetailDialogState extends State<_RoomDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final members = (_detail?['members'] as List?) ?? const [];
     return AlertDialog(
-      title: const Text('Sala de colaboración'),
+      title: Text(l10n.adminCollabRoomDialogTitle),
       content: SizedBox(
         width: 420,
         height: 320,
@@ -82,7 +86,7 @@ class _RoomDetailDialogState extends State<_RoomDetailDialog> {
                 ],
               ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close))],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -13,7 +14,7 @@ class MiniStatsWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'mini_stats';
 
   @override
-  String displayName(BuildContext context) => 'Estadísticas';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetMiniStats;
 
   @override
   IconData get icon => Icons.bar_chart_rounded;
@@ -37,16 +38,17 @@ class MiniStatsWidgetPlugin extends FolioWidgetPlugin {
         .length;
     final pendingCount = tasks.length - doneCount;
 
+    final l10n = AppLocalizations.of(context);
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _Stat(label: 'Páginas', value: pageCount),
-          _Stat(label: 'Carpetas', value: folderCount),
-          _Stat(label: 'Pendientes', value: pendingCount),
-          _Stat(label: 'Hechas', value: doneCount),
+          _Stat(label: l10n.widgetMiniStatsPages, value: pageCount),
+          _Stat(label: l10n.widgetMiniStatsFolders, value: folderCount),
+          _Stat(label: l10n.widgetMiniStatsPending, value: pendingCount),
+          _Stat(label: l10n.widgetMiniStatsDone, value: doneCount),
         ],
       ),
     );

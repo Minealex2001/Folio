@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -13,7 +14,7 @@ class HabitsWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'habits';
 
   @override
-  String displayName(BuildContext context) => 'Hábitos';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetHabits;
 
   @override
   IconData get icon => Icons.repeat_rounded;
@@ -43,9 +44,8 @@ class HabitsWidgetPlugin extends FolioWidgetPlugin {
               .toList();
 
           if (habits.isEmpty) {
-            return const BuiltinWidgetEmpty(
-              message:
-                  'No hay tareas recurrentes. Añade una recurrencia a una tarea.',
+            return BuiltinWidgetEmpty(
+              message: AppLocalizations.of(context).widgetHabitsEmpty,
             );
           }
 

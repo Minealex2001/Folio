@@ -536,10 +536,14 @@
   "pasteAsEmbed": "Incrustat",
   "pasteAsBookmark": "Marcador",
   "pasteAsMention": "Menció",
+  "pasteAsGithubImport": "Importar de GitHub",
+  "pasteAsPdfSummarize": "Desa el PDF",
   "pasteAsUrlSubtitle": "Insereix un enllaç markdown al text",
   "pasteAsEmbedSubtitle": "Bloc de vídeo amb vista prèvia (YouTube) o marcador",
   "pasteAsBookmarkSubtitle": "Targeta amb títol i enllaç",
   "pasteAsMentionSubtitle": "Enllaç a un fòli d'aquesta llibreta",
+  "pasteAsGithubImportSubtitle": "Targeta amb el nom del repositori",
+  "pasteAsPdfSummarizeSubtitle": "Targeta amb el títol del document",
   "tableAddRow": "Fila",
   "tableRemoveRow": "Suprimeix la fila",
   "tableAddColumn": "Columna",
@@ -892,6 +896,7 @@
   "aiAlwaysShowThought": "Mostra sempre el pensament de la Quill",
   "aiAlwaysShowThoughtHint": "Si està desactivat, apareix replegat amb una fletxa a cada missatge.",
   "aiBetaBadge": "BETA",
+  "integrationAlphaBadge": "ALPHA",
   "aiManageQuillInstructionsTooltip": "Gestionar instruccions de Quill",
   "aiBetaEnableTitle": "L'Quill està en fase BETA",
   "aiBetaEnableBody": "Aquesta funció està actualment en BETA i pot fallar o comportar-se de manera inesperada.\n\nVols activar-la igualment?",
@@ -2250,6 +2255,39 @@
   },
   "blockEditorDuplicate": "Duplicar",
   "blockEditorClearSelectionTooltip": "Neteja la selecció",
+  "blockEditorGroupAction": "Agrupar",
+  "blockEditorUngroupColumns": "Desagrupar columnes",
+  "blockEditorUngroupSection": "Desagrupar secció",
+  "blockEditorGroupAsColumns2": "2 columnes",
+  "blockEditorGroupAsColumns3": "3 columnes",
+  "blockEditorGroupAsSection": "Agrupar en secció",
+  "blockEditorNewSectionDefaultTitle": "Secció nova",
+  "blockEditorCmdMeetingTemplate": "Reunió",
+  "blockEditorCmdMeetingTemplateHint": "Estructura completa: notes, agenda, accions",
+  "blockEditorCmdSprintTemplate": "Sprint",
+  "blockEditorCmdSprintTemplateHint": "Plantilla d'sprint amb objectius i tasques",
+  "blockEditorCmdRoadmapTemplate": "Roadmap",
+  "blockEditorCmdRoadmapTemplateHint": "Estructura de roadmap per horitzons",
+  "smartTemplateVariableMeetingWith": "Amb qui?",
+  "smartTemplateVariableMeetingDate": "Data?",
+  "smartTemplateVariableSprintName": "Nom de l'sprint?",
+  "smartTemplateMeetingDefaultTitle": "Reunió nova",
+  "smartTemplateMeetingTitleWith": "Reunió amb {attendee}",
+  "smartTemplateMeetingDateLine": "Data: {date}",
+  "smartTemplateMeetingAgenda": "Agenda",
+  "smartTemplateMeetingActions": "Accions",
+  "smartTemplateSprintDefaultTitle": "Sprint nou",
+  "smartTemplateSprintTitleWithName": "Sprint: {name}",
+  "smartTemplateSprintGoals": "Objectius",
+  "smartTemplateSprintTasks": "Tasques",
+  "smartTemplateRoadmapTitle": "Roadmap",
+  "smartTemplateRoadmapNow": "Ara",
+  "smartTemplateRoadmapNext": "Després",
+  "smartTemplateRoadmapLater": "Més endavant",
+  "smartTemplateFlowNext": "Següent",
+  "smartTemplateFlowGenerate": "Genera",
+  "smartTemplateFlowCancel": "Cancel·la",
+  "smartTemplateFlowSkipHint": "Deixa'l en blanc per ometre",
   "blockEditorMenuRewriteWithAi": "Reescriure amb Quill…",
   "blockEditorMenuMoveUp": "Mou amunt",
   "blockEditorMenuMoveDown": "Mou avall",
@@ -5222,9 +5260,15 @@
   "orgPanelBillingStatusLine": "Plan: {plan} · Estado: {status} · Asientos: {seats}",
   "@orgPanelBillingStatusLine": {
     "placeholders": {
-      "plan": { "type": "String" },
-      "status": { "type": "String" },
-      "seats": { "type": "int" }
+      "plan": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "seats": {
+        "type": "int"
+      }
     }
   },
   "orgPanelBillingUnknown": "Aún no hay suscripción de equipo",
@@ -5235,7 +5279,9 @@
   "orgPanelYourRole": "Tu rol: {role}",
   "@orgPanelYourRole": {
     "placeholders": {
-      "role": { "type": "String" }
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgPanelActivityOrganizationCreated": "Equipo creado",
@@ -5253,16 +5299,24 @@
   "orgPanelActivityUnknown": "{eventType}",
   "@orgPanelActivityUnknown": {
     "placeholders": {
-      "eventType": { "type": "String" }
+      "eventType": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptTitle": "Invitación a equipo",
   "orgInviteAcceptBody": "{inviter} te invitó a unirte a {team} como {role}.",
   "@orgInviteAcceptBody": {
     "placeholders": {
-      "inviter": { "type": "String" },
-      "team": { "type": "String" },
-      "role": { "type": "String" }
+      "inviter": {
+        "type": "String"
+      },
+      "team": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptButton": "Aceptar invitación",
@@ -5275,5 +5329,680 @@
   "cloudAccountSwitcherRemoveBody": "Se cerrará la sesión aquí. Las demás cuentas siguen iniciadas. Las libretas locales de esta cuenta permanecen en el disco.",
   "cloudAccountSwitcherFallback": "Cuenta Folio Cloud",
   "cloudAccountAddAnotherHelp": "Inicia sesión con otro correo sin cerrar esta cuenta",
-  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo"
+  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo",
+  "vaultSharePublicLink": "Enllaç públic",
+  "vaultShareCopyLink": "Copia l'enllaç",
+  "vaultShareRefreshNow": "Actualitza ara",
+  "vaultShareEnablePublicLink": "Activa l'enllaç públic",
+  "vaultShareInviteToEdit": "Convida a editar",
+  "vaultShareCloudEmail": "Correu Folio Cloud",
+  "vaultShareInvite": "Convida",
+  "vaultShareMembers": "Membres",
+  "vaultShareAcceptInvite": "Accepta la invitació",
+  "vaultShareInviteId": "Id d'invitació",
+  "vaultShareInviteCode": "Codi",
+  "vaultShareAccept": "Accepta",
+  "goToFolio": "Vés a Folio",
+  "resetPasswordConfirmLabel": "Confirma la contrasenya",
+  "savePassword": "Desa la contrasenya",
+  "publicShareNoPages": "Sense pàgines",
+  "inspectorSelectElement": "Selecciona un element per editar-lo",
+  "inspectorReset": "Restableix",
+  "inspectorColor": "Color",
+  "inspectorOpacity": "Opacitat",
+  "inspectorSize": "Mida",
+  "inspectorPosition": "Posició",
+  "dbEditorTargetDb": "Target DB",
+  "dbEditorRelationProperty": "Propietat relation",
+  "dbEditorTargetProperty": "Propietat target",
+  "dbEditorRollupOperation": "Operació rollup",
+  "dbEditorAiPrompt": "Prompt IA",
+  "settingsPersonalizationBeta": "Personalització (beta)",
+  "settingsPersonalizationBody": "Motor de layout, tema i dashboard nous — aquesta pantalla controla directament els controllers en viu que ja renderitza l'app.",
+  "settingsPanelEngine": "Motor de panells",
+  "settingsThemeEngine": "Motor de tema",
+  "settingsSidebarSection": "Panel lateral",
+  "settingsRegionUnavailable": "Regió no disponible.",
+  "settingsSidebarWidth": "Amplada actual: {width} px",
+  "settingsLockSidebar": "Bloqueja el panel lateral",
+  "settingsLockSidebarHint": "Impedeix redimensionar/moure la barra lateral fins que es desbloquegi de nou.",
+  "settingsResetPanelLayout": "Restableix el layout de panells",
+  "settingsThemeEditor": "Editor de tema",
+  "settingsThemeEditorBody": "Forma, densitat, moviment i transparència. El mode clar/fosc i l'accent són a dalt (igual que a Aparença).",
+  "settingsCornerRoundness": "Arrodoniment de cantonades",
+  "settingsSpacingDensity": "Densitat d'espaiat",
+  "settingsMotionSpeed": "Velocitat de moviment",
+  "settingsSurfaceOpacity": "Opacitat de superfícies",
+  "settingsResetTheme": "Restableix el tema",
+  "settingsDashboardTemplates": "Plantilles de dashboard",
+  "settingsDashboardTemplatesBody": "Developer, Writer, Research, Student, Planning, Gaming — canvia el contingut del dashboard d'inici. Les edicions a una plantilla ja instal·lada es conserven en tornar-hi.",
+  "settingsVisualPacks": "Packs visuals",
+  "settingsVisualPacksBody": "Aplica un pack per canviar tema, layout i dashboard de cop. També pots exportar el teu setup actual o importar-ne un.",
+  "settingsExportCurrentSetup": "Exporta el setup actual",
+  "settingsImportPack": "Importa un pack…",
+  "settingsPackActive": "Actiu",
+  "settingsPackApply": "Aplica",
+  "settingsSaveVisualPack": "Desa el pack visual",
+  "settingsPackName": "Nom del pack",
+  "settingsPackAuthorOptional": "Autor (opcional)",
+  "settingsMyPackDefault": "El meu pack",
+  "settingsExport": "Exporta",
+  "settingsPackAppliedSnack": "Pack \"{name}\" aplicat.",
+  "settingsSetupExportedSnack": "Setup actual exportat.",
+  "settingsCouldNotReadFile": "No s'ha pogut llegir el fitxer.",
+  "settingsPackImportedSnack": "Pack \"{name}\" importat i aplicat.",
+  "settingsPackImportFailed": "No s'ha pogut importar el pack: {error}",
+  "vaultSharePublicLinkBody": "Qualsevol amb l'enllaç pot veure la llibreta al navegador. El contingut de l'enllaç es desa en clar a Folio Cloud i s'actualitza en sincronitzar.",
+  "vaultShareInviteBody": "La persona veurà la llibreta a la seva llista (com a compartida) i podrà editar, però no eliminar.",
+  "vaultShareActiveRev": "Enllaç actiu · rev {rev}",
+  "vaultShareInviteCodeAlsoEmail": "Codi (també al correu): {code}",
+  "passwordUpdatedTitle": "Contrasenya actualitzada",
+  "passwordUpdatedBody": "Ja pots iniciar sessió amb la teva nova contrasenya.",
+  "resetPasswordTitle": "Restableix la contrasenya",
+  "resetPasswordBody": "Tria una contrasenya nova per al teu compte.",
+  "shareNotebookTooltip": "Comparteix la llibreta",
+  "kanbanYoutrackSyncingPull": "YouTrack: sincronitzant (pull)…",
+  "kanbanYoutrackPullOkPush": "YouTrack: pull OK · ara push…",
+  "kanbanYoutrackSyncResult": "YouTrack: pull {pulled} · +{created} · ~{updated} · push {pushed} (omèsos {skipped})",
+  "@kanbanYoutrackSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanJiraSyncResult": "Jira: pull {pulled} · +{created} · ~{updated} · push {pushed} (omèsos {skipped})",
+  "@kanbanJiraSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGithubSyncingPush": "GitHub: sincronitzant (push)…",
+  "kanbanGithubSyncResult": "GitHub: pull {pulled} · +{created} · ~{updated} · push {pushed} (omèsos {skipped})",
+  "@kanbanGithubSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGitlabSyncingPush": "GitLab: sincronitzant (push)…",
+  "kanbanGitlabSyncResult": "GitLab: pull {pulled} · +{created} · ~{updated} · push {pushed} (omèsos {skipped})",
+  "@kanbanGitlabSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanSourceLabel": "Font",
+  "kanbanAutoImportFrom": "Auto-importa des de {provider}",
+  "@kanbanAutoImportFrom": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanCreateItemsOnQuickAdd": "Crea elements en afegir una tasca",
+  "kanbanSyncJiraTooltip": "Sincronitza Jira (pull + push)",
+  "kanbanSyncYoutrackTooltip": "Sincronitza YouTrack (pull + push)",
+  "kanbanSyncGithubTooltip": "Sincronitza GitHub (push + pull)",
+  "kanbanSyncGitlabTooltip": "Sincronitza GitLab (push + pull)",
+  "kanbanUncategorizedCards": "Targetes sense categoria",
+  "kanbanJiraGoneError": "Jira ha retornat 410 (Gone). Sol passar si la connexió/lloc ja no és vàlida (accés revocat o cloudId incorrecte). Torna a connectar Jira i intenta-ho de nou.\nDetall: {error}",
+  "@kanbanJiraGoneError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskAndIssueConfirm": "Aquesta acció esborrarà la tasca a Folio i també l'issue a {provider} (incloent-hi subtasques vinculades). Vols continuar?",
+  "@kanbanDeleteTaskAndIssueConfirm": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskConfirm": "Vols esborrar la tasca a Folio?",
+  "jiraConnectionMissingDelete": "No s'ha trobat la connexió Jira per esborrar l'issue.",
+  "youtrackConnectionMissingDelete": "No s'ha trobat la connexió YouTrack per esborrar l'issue.",
+  "kanbanForcePushJiraConfirm": "Això sobreescriurà a Jira els canvis remots detectats per a aquest issue amb el que tens a Folio. Vols continuar?",
+  "kanbanYoutrackFieldsTitle": "Camps de YouTrack",
+  "kanbanFieldType": "Tipus",
+  "kanbanAssignee": "Assignat",
+  "kanbanSubsystem": "Subsistema",
+  "kanbanFixVersions": "Versions de solució",
+  "kanbanFixVersionsHint": "p. ex. 1.0, 2.3",
+  "kanbanAffectedVersions": "Versions afectades",
+  "kanbanAffectedVersionsHint": "p. ex. 0.9, 1.0",
+  "kanbanFixedInBuild": "Solucionat al build",
+  "kanbanEstimationFieldLabel": "Estimació",
+  "kanbanEstimationHint": "p. ex. 2h 30m",
+  "kanbanSpentTimeLabel": "Temps invertit",
+  "kanbanSpentTimeHint": "p. ex. 1h 15m",
+  "kanbanPropertiesTitle": "Propietats",
+  "kanbanConflictJiraFolioText": "Conflicte: hi ha hagut canvis a Jira i a Folio.",
+  "kanbanNoRemoteStateJira": "Prem Pull per carregar l'estat remot i veure les diferències.",
+  "kanbanKeepFolioForcePush": "Mantén Folio (Force push)",
+  "kanbanLabelsField": "Etiquetes",
+  "kanbanComponentsField": "Components",
+  "kanbanCommentsTitle": "Comentaris",
+  "kanbanLoadButton": "Carrega",
+  "kanbanNewCommentLabel": "Comentari nou",
+  "kanbanSendButton": "Envia",
+  "kanbanNoCommentsLoaded": "No hi ha comentaris carregats.",
+  "kanbanAttachmentsTitle": "Adjunts",
+  "kanbanPressPullToSeeAttachments": "Prem Pull per veure els adjunts.",
+  "kanbanWorklogTitle": "Worklog / Temps",
+  "kanbanEstimateChipLabel": "Estimació",
+  "kanbanRemainingChipLabel": "Restant",
+  "kanbanSpentChipLabel": "Gastat",
+  "kanbanAddMinutesLabel": "Afegeix (minuts)",
+  "kanbanLogButton": "Registra",
+  "kanbanNoWorklogsLoaded": "No hi ha worklogs carregats.",
+  "kanbanRefreshButton": "Actualitza",
+  "kanbanConflictYoutrackFolioText": "Conflicte: hi ha hagut canvis a YouTrack i a Folio.",
+  "kanbanNoRemoteStateYoutrack": "Prem Actualitza per carregar l'estat remot i veure les diferències.",
+  "kanbanKeepYoutrack": "Mantén YouTrack",
+  "kanbanForceFolio": "Força Folio",
+  "youtrackStateLabel": "Estat",
+  "kanbanYoutrackCommentsTitle": "Comentaris de YouTrack",
+  "kanbanNoCommentsOrNotLoaded": "Sense comentaris o no carregats.",
+  "kanbanAddCommentHint": "Afegeix un comentari...",
+  "planFree": "Gratuït",
+  "planUpToDate": "Al dia",
+  "widgetCalendar": "Calendari",
+  "widgetCalendarWeekStartsMonday": "La setmana comença en dilluns",
+  "widgetFolioCloudUnavailable": "Folio Cloud no està disponible en aquest context.",
+  "widgetVaultStatus": "Estat de la llibreta",
+  "widgetVaultStatusEncrypted": "Xifrada",
+  "widgetVaultStatusUnencrypted": "Sense xifrar",
+  "widgetVaultStatusPageCount": "{count} pàgines",
+  "@widgetVaultStatusPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetHabits": "Hàbits",
+  "widgetHabitsEmpty": "No hi ha tasques recurrents. Afegeix una recurrència a una tasca.",
+  "widgetRssComingSoon": "Els feeds RSS no estan admesos. Folio encara no té un lector de feeds.",
+  "widgetBooks": "Llibres",
+  "widgetBooksComingSoon": "El seguiment de lectura no està disponible. Folio encara no té un model de llibres.",
+  "widgetMiniStats": "Estadístiques",
+  "widgetMiniStatsPages": "Pàgines",
+  "widgetMiniStatsFolders": "Carpetes",
+  "widgetMiniStatsPending": "Pendents",
+  "widgetMiniStatsDone": "Fetes",
+  "widgetCreatePage": "Crea una pàgina",
+  "widgetNewPageAction": "Pàgina nova",
+  "widgetSearchPlaceholder": "Cerca a Folio…",
+  "widgetWhatsNew": "Novetats",
+  "widgetWhatsNewBadge": "Nou",
+  "widgetWhatsNewVersionError": "No s'ha pogut llegir la versió instal·lada.",
+  "widgetWhatsNewVersionLabel": "Versió {version}",
+  "@widgetWhatsNewVersionLabel": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "widgetWhatsNewUnread": "Hi ha novetats sense llegir en aquesta versió.",
+  "widgetWhatsNewUpToDate": "Estàs al dia amb les notes de la versió.",
+  "widgetOnboarding": "Primers passos",
+  "widgetOnboardingAllDone": "Has completat els primers passos!",
+  "widgetOnboardingIntro": "Comença amb el bàsic:",
+  "widgetOnboardingStepCreatePage": "Crear una pàgina",
+  "widgetOnboardingStepAddTask": "Afegir una tasca",
+  "widgetOnboardingStepVisitRecent": "Visitar una pàgina recent",
+  "widgetTip": "Consell",
+  "widgetTipEditorSlash": "Fes servir \"/\" a l'editor per inserir blocs ràpidament.",
+  "widgetTipDragPage": "Arrossega una pàgina a la barra lateral per fixar-la.",
+  "widgetTipSearchShortcut": "Ctrl+K obre la cerca global des de qualsevol pantalla.",
+  "widgetTipVisualEditor": "Activa l'editor visual des de la barra superior per reordenar el disseny.",
+  "widgetTipTasksHome": "Pots marcar tasques com a fetes des del widget Tasques de l'inici.",
+  "widgetQuickActions": "Accions ràpides",
+  "widgetQuickActionsTodayNote": "Nota d'avui",
+  "widgetRootPages": "Pàgines",
+  "widgetRootPagesEmpty": "Encara no hi ha pàgines.",
+  "widgetRootPagesMaxLabel": "Màxim de pàgines",
+  "widgetActivity": "Activitat",
+  "widgetActivityEmpty": "Encara no hi ha activitat.",
+  "widgetMaxEntriesLabel": "Màxim d'entrades",
+  "widgetRelativeJustNow": "ara mateix",
+  "widgetRelativeMinutesAgo": "fa {minutes} min",
+  "@widgetRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeHoursAgo": "fa {hours} h",
+  "@widgetRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeDaysAgo": "fa {days} d",
+  "@widgetRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRecents": "Recents",
+  "widgetRecentsEmpty": "Encara no has visitat cap pàgina.",
+  "widgetAgenda": "Agenda",
+  "widgetAgendaEmpty": "No hi ha tasques amb data pròxima.",
+  "widgetAgendaMaxLabel": "Màxim de tasques",
+  "widgetClock": "Rellotge",
+  "widgetClock24HourFormat": "Format de 24 hores",
+  "widgetClockShowSeconds": "Mostra els segons",
+  "widgetClockShowTimezone": "Mostra la zona horària",
+  "widgetDailyNotes": "Nota diària",
+  "widgetDailyNotesConvention": "Convenció: títol = YYYY-MM-DD",
+  "widgetDailyNotesToday": "Avui · {date}",
+  "@widgetDailyNotesToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesCreateToday": "Crea la nota d'avui ({date})",
+  "@widgetDailyNotesCreateToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesYesterday": "Ahir · {date}",
+  "@widgetDailyNotesYesterday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesTomorrow": "Demà · {date}",
+  "@widgetDailyNotesTomorrow": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetGithubEmpty": "Connecta GitHub a Ajustos → Integracions per veure repositoris aquí.",
+  "widgetGithubAccountsLabel": "Comptes",
+  "widgetGithubReposLabel": "Repositoris",
+  "widgetFavoritePage": "Pàgina preferida",
+  "widgetFavoritePageEmpty": "No hi ha pàgines a la llibreta.",
+  "widgetFavoritePageChooseLabel": "Tria una pàgina",
+  "widgetFavoritePageIdLabel": "ID de la pàgina",
+  "widgetFavoritePageIdHint": "Id de la pàgina a fixar",
+  "widgetDatabaseView": "Base de dades",
+  "widgetDatabaseViewEmpty": "No hi ha pàgines amb base de dades a la llibreta.",
+  "widgetDatabaseViewRowCount": "{count} files",
+  "@widgetDatabaseViewRowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetBookmarks": "Marcadors",
+  "widgetBookmarksFallbackLabel": "Marcador",
+  "widgetBookmarksEmpty": "No hi ha blocs de marcador a la llibreta.",
+  "widgetTasks": "Tasques",
+  "widgetTasksEmpty": "Sense tasques pendents.",
+  "widgetTasksMarkDone": "Marca com a feta",
+  "widgetWeather": "Temps",
+  "widgetWeatherCityLabel": "Ciutat",
+  "widgetWeatherCityHint": "Madrid, Barcelona…",
+  "widgetWeatherUseCelsius": "Fes servir Celsius (°C)",
+  "widgetWeatherCelsiusUnit": "Celsius",
+  "widgetWeatherFahrenheitUnit": "Fahrenheit",
+  "widgetWeatherConfigureCity": "Configura una ciutat als ajustos del widget.",
+  "widgetWeatherLoadError": "No s'ha pogut carregar el temps.",
+  "widgetMusic": "Música",
+  "widgetMusicEmpty": "No hi ha res sonant ara mateix.",
+  "dashboardAddWidget": "Afegeix un widget",
+  "dashboardNoMoreWidgets": "No hi ha més widgets disponibles per afegir.",
+  "close": "Tanca",
+  "visualEditorBetaLabel": "Editor visual (beta)",
+  "sidebarVaultsMineLabel": "Les meves llibretes",
+  "sidebarVaultsSharedWithMeHeader": "Compartides amb mi",
+  "sidebarVaultSharedWithMe": "Compartida amb mi",
+  "sidebarVaultSharedByOwner": "Compartida · {owner}",
+  "@sidebarVaultSharedByOwner": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
+  "sidebarVaultSharedLabel": "Compartida",
+  "commandPaletteSearchHint": "Cerca…",
+  "jiraCardSubtitle": "Connecta Jira Cloud o Server/DC per sincronitzar issues amb el Kanban.",
+  "jiraConnectionsCount": "{count} connexions",
+  "jiraSourcesCount": "{count} fonts",
+  "jiraClientIdHelp1": "Necessites un Client ID d'una app OAuth 2.0 (3LO) a l'Atlassian Developer Console.",
+  "jiraClientIdHelp2": "Si estàs utilitzant l'app oficial de Folio, això no hauria d'aparèixer.",
+  "jiraCallbackUrlHelp": "Callback URL que has de registrar a Atlassian: http://127.0.0.1:45747/callback",
+  "jiraClientIdTip": "Consell: A l'app, configura OAuth 2.0 (3LO) i copia el Client ID.",
+  "jiraBrowserAuthNotice": "S'obrirà el navegador per autoritzar i després tornarem a Folio.",
+  "jiraCloudTimeoutError": "Temps d'espera esgotat en connectar amb Jira Cloud. Si el navegador no s'obre, comprova que Windows permeti obrir enllaços externs.",
+  "jiraCloudConnectError": "Error en connectar amb Jira Cloud: {error}",
+  "jiraConnectCloud": "Connectar Cloud",
+  "jiraAddServerConnection": "Afegir Server/DC",
+  "jiraNoConnections": "No hi ha connexions configurades.",
+  "jiraSourcesSectionTitle": "Fonts (per a taulers Kanban)",
+  "jiraNewButton": "Nova",
+  "jiraNoSources": "No hi ha fonts.",
+  "jiraSourceOptionsSummary": "Comentaris {comments} · Adjunts {attachments} · Worklog {worklog}",
+  "jiraEditMappingTooltip": "Editar mapping",
+  "jiraSearchByKeyOrName": "Escriu per cercar (KEY o nom)…",
+  "jiraWillSaveProjectKey": "Es desarà com a projectKey=\"{key}\".",
+  "jiraWillSaveBoardId": "Es desarà com a boardId=\"{id}\".",
+  "jiraLoadListsError": "No s'han pogut carregar projectes/taulers. Pots escriure els IDs manualment.\n{error}",
+  "jiraConfigureSourceTitle": "Configurar font",
+  "jiraImportPushOptions": "Opcions d'importació/push",
+  "jiraComments": "Comentaris",
+  "jiraAttachments": "Adjunts",
+  "jiraSubtasks": "Subtasques",
+  "jiraCustomFieldsLabel": "Custom fields (IDs, coma)",
+  "jiraColumnMapping": "Mapping Kanban → Jira (per columna)",
+  "jiraNoMappings": "No hi ha mappings.",
+  "jiraAddMapping": "Afegir mapping",
+  "jiraTransitionIdOptional": "transitionId (opcional)",
+  "githubCardSubtitle": "Connecta GitHub per sincronitzar Issues i Pull Requests amb el Kanban.",
+  "githubConnectionsCount": "{count} connexions",
+  "gitlabCardSubtitle": "Connecta GitLab per sincronitzar Issues i Merge Requests amb el Kanban.",
+  "gitlabConnectionsCount": "{count} connexions",
+  "gitlabSourcesCount": "{count} projectes",
+  "trelloCardSubtitle": "Connecta Trello per sincronitzar taulers complets amb el Kanban.",
+  "trelloConnectionsCount": "{count} connexions",
+  "trelloSourcesCount": "{count} taulers",
+  "youtrackCardSubtitle": "Connecta JetBrains YouTrack per sincronitzar tasques amb el Kanban.",
+  "youtrackConnectionsCount": "{count} connexions",
+  "youtrackSourcesCount": "{count} fonts",
+  "youtrackProjectLabel": "Projecte",
+  "devicePairAnotherDevice": "Un altre dispositiu",
+  "devicePairLinkRequest": "Sol·licitud de vinculació",
+  "devicePairWantsToLink": "{who} vol enllaçar aquest dispositiu.",
+  "devicePairEmojiMatchHint": "Apareixen aquests mateixos 3 emojis a l'altre dispositiu? Si coincideixen, prem Vincula.",
+  "devicePairVisualMatchFailed": "No s'ha pogut calcular la coincidència visual. Activa el mode de vinculació als dos dispositius i torna-ho a provar.",
+  "devicePairNoMatch": "No coincideixen",
+  "devicePairConfirmIdentity": "Confirma la identitat",
+  "devicePairConfirmIdentityBody": "Introdueix la contrasenya de la llibreta per acceptar la vinculació amb un altre dispositiu.",
+  "devicePairVerify": "Verifica",
+  "devicePairLink": "Vincula",
+  "quillPromptCreate": "Crea instruccions",
+  "quillPromptView": "Mostra les instruccions",
+  "quillPromptEdit": "Edita les instruccions",
+  "quillPromptNameHint": "Ex. Escriptor de poesia",
+  "quillPromptSystemInstructions": "Instruccions del sistema",
+  "quillPromptSystemHint": "Ex. Ets un tutor d'anglès expert...",
+  "quillPromptBack": "Enrere",
+  "quillEnableFailed": "Error en habilitar",
+  "quillDefaultName": "Quill (Predeterminat)",
+  "quillTranslatorName": "Traductor",
+  "quillSummarizerName": "Resumidor",
+  "quillCoderName": "Programador",
+  "aiChatEditorSelectionHeader": "--- Selecció de l'editor ---",
+  "visualEditorBeta": "Editor visual (beta)",
+  "closeTooltip": "Tanca",
+  "cmdSearchNotebook": "Cerca a la llibreta",
+  "cmdOpenSettings": "Obre els ajustos",
+  "cmdExitHomeEdit": "Surt de l'edició d'inici",
+  "cmdEditHomeBeta": "Edita l'inici (beta)",
+  "adminConsoleTitle": "Consola d'administració",
+  "forceSyncFailed": "No s'ha pogut forçar la sincronització: {error}",
+  "commandPaletteNoResults": "Sense resultats",
+  "widgetTodayLabel": "Avui · {date}",
+  "widgetNewPage": "Pàgina nova",
+  "widgetFolders": "Carpetes",
+  "adminNavDashboard": "Inici",
+  "adminNavUsers": "Usuaris",
+  "adminNavTeams": "Equips",
+  "adminNavModeration": "Moderació",
+  "adminNavPublishedPages": "Pàgines publicades",
+  "adminNavDiagnostics": "Diagnòstics",
+  "adminNavBilling": "Facturació",
+  "adminNavCatalog": "Catàleg de plantilles",
+  "adminNavFamilies": "Famílies",
+  "adminNavCollab": "Sales de col·laboració",
+  "adminNavVaultShares": "Vault shares",
+  "adminNavAuditLog": "Auditoria",
+  "adminNavAppSettings": "Configuració de l’app",
+  "adminBrandHeader": "Admin",
+  "adminObjectExplorerTitle": "Explorador d’objectes",
+  "adminNoAccessMessage": "No tens accés a la consola d’administració.",
+  "adminUsersSearchHint": "Cerca per correu o uid",
+  "adminNoResults": "Sense resultats",
+  "adminStaffBadge": "staff",
+  "adminTabOverview": "Resum",
+  "adminTabStorage": "Emmagatzematge",
+  "adminSectionFolioCloudQa": "Folio Cloud QA",
+  "adminSectionAdminRole": "Rol d’administrador",
+  "adminGrantCloudQaTitle": "Concedeix Cloud QA",
+  "adminGrantCloudQaBody": "Activa admin_override amb totes les funcions de Folio Cloud per a aquest usuari.",
+  "adminActionGrant": "Concedeix",
+  "adminRevokeCloudQaTitle": "Revoca Cloud QA",
+  "adminRevokeCloudQaBody": "Treu admin_override de Folio Cloud per a aquest usuari.",
+  "adminActionRevoke": "Revoca",
+  "adminCloudQaGranted": "Cloud QA concedit",
+  "adminCloudQaRevoked": "Cloud QA revocat",
+  "adminErrorWithDetails": "Error: {error}",
+  "adminButtonGrantCloudQa": "Grant Cloud QA",
+  "adminButtonRevoke": "Revoke",
+  "adminOnlyBillingAdminCanGrant": "Només BILLING_ADMIN / SUPER_ADMIN poden concedir Cloud QA.",
+  "adminNoActiveOrganizations": "Sense organitzacions actives.",
+  "adminQaOverrideBadge": "QA override",
+  "adminNoOverrideBadge": "sense override",
+  "adminOnlySuperAdminCanAssignRoles": "Només SUPER_ADMIN pot assignar rols.",
+  "adminPurgeVaultTitle": "Purga la llibreta definitivament",
+  "adminPurgeVaultBody": "Això elimina permanentment \"{vaultId}\" de la sincronització al núvol d’aquest usuari (emmagatzematge + metadades). No es pot desfer.",
+  "adminActionPurge": "Purga",
+  "adminDeleteBackupTitle": "Elimina la còpia de seguretat",
+  "adminDeleteBackupBody": "Això elimina la còpia de seguretat al núvol de \"{vaultId}\". No es pot desfer.",
+  "adminActionDelete": "Elimina",
+  "adminResetCloudSyncTitle": "Restableix la sincronització al núvol",
+  "adminResetCloudSyncBody": "Això purga les {vaultsCount} llibretes de sincronització al núvol i les {backupsCount} còpies de seguretat d’aquest usuari, revoca els seus vault shares i posa el seu ús a 0. És l’opció nuclear per a un compte trencat — no es pot desfer.",
+  "adminActionReset": "Restableix",
+  "adminResetCloudSyncSuccess": "Reinici OK: {vaultsPurged} llibretes, {backupsDeleted} còpies de seguretat.",
+  "adminStorageUsageTitle": "Ús d’emmagatzematge",
+  "adminStorageUsedOfQuota": "{used} de {quota}",
+  "adminStorageCountsSummary": "{vaultCount} llibretes ({trashedCount} a la paperera) · {backupCount} còpies de seguretat ({blobCount} blobs)",
+  "adminSyncVaultsTitle": "Llibretes (sincronització al núvol)",
+  "adminNoSyncVaults": "Sense llibretes sincronitzades.",
+  "adminBackupsTitle": "Còpies de seguretat",
+  "adminNoBackups": "Sense còpies de seguretat.",
+  "adminDangerZoneTitle": "Zona de perill",
+  "adminDangerZoneBody": "Restableix la sincronització al núvol d’aquest usuari: purga totes les llibretes i còpies de seguretat, i posa el seu ús a 0.",
+  "adminTrashedLabel": "a la paperera",
+  "adminMoveToTrashTooltip": "Mou a la paperera",
+  "adminRestoreTooltip": "Restaura",
+  "adminPurgeForeverTooltip": "Purga definitivament",
+  "adminGoToUserTitle": "Vés a la carpeta d’un usuari",
+  "adminGoToUserTooltip": "Vés a un usuari",
+  "adminActionGoTo": "Vés",
+  "adminDeleteObjectTitle": "Elimina l’objecte",
+  "adminDeleteObjectBody": "Això elimina \"{key}\" directament del bucket. No es pot desfer.",
+  "adminLoadMore": "Carrega’n més",
+  "adminPaginationSummary": "Pàgina {page} de {totalPages} · {total} en total",
+  "adminOrgsSearchHint": "Cerca per nom, slug o id",
+  "adminNoTeams": "Sense equips.",
+  "adminOrgSummary": "{type} · {plan} · {memberCount} membres · places {seats}",
+  "adminTeamFallbackTitle": "Equip",
+  "adminGrantCloudQaOrgTitle": "Concedeix Cloud QA (equip)",
+  "adminGrantCloudQaOrgBody": "Activa admin_override amb el pla TEAM i totes les funcions (places per defecte: 10).",
+  "adminRevokeCloudQaOrgTitle": "Revoca Cloud QA (equip)",
+  "adminRevokeCloudQaOrgBody": "Treu admin_override. Si no hi ha Stripe actiu, l’equip torna a FREE.",
+  "adminAddInkTitle": "Afegeix tinta a l’equip",
+  "adminAddInkBody": "Suma 1000 gotes comprades a org_ink.",
+  "adminActionAddInk": "Afegeix tinta",
+  "adminAddInkButton": "+1000 tinta",
+  "adminMembersCount": "Membres ({count})",
+  "adminModerationReportsTitle": "Informes de plantilles",
+  "adminRefreshOpenReportsTitle": "Actualitza els informes oberts",
+  "adminNoOpenReports": "Sense informes oberts.",
+  "adminDeleteTemplateButton": "Elimina la plantilla",
+  "adminResolveButton": "Resol",
+  "adminUserLookupTitle": "Usuari (cerca)",
+  "adminEmailOrUidLabel": "Correu o uid",
+  "adminAllowUploads": "Permet pujades",
+  "adminBanUploads": "Bloqueja pujades",
+  "adminReactivateUser": "Reactiva",
+  "adminSuspendUser": "Suspèn",
+  "adminPurgeTemplatesButton": "Purga les plantilles",
+  "adminPurgeTemplatesConfirm": "Vols eliminar totes les plantilles de la comunitat d’aquest usuari?",
+  "adminTemplatesPurged": "Plantilles purgades",
+  "adminDeleteTemplateByIdTitle": "Elimina la plantilla per ID",
+  "adminTemplateDeleted": "Plantilla eliminada",
+  "adminTabByUser": "Per usuari",
+  "adminTabWebhookEvents": "Esdeveniments de webhook",
+  "adminGrantCloudQaForUidBody": "Activa admin_override de Folio Cloud per a {uid}.",
+  "adminRevokeCloudQaForUidBody": "Treu admin_override de Folio Cloud per a {uid}.",
+  "adminUidInputLabel": "uid de l’usuari",
+  "adminNoWebhookEvents": "Sense esdeveniments processats.",
+  "adminNoVaultShareLinks": "Sense enllaços de vault share.",
+  "adminActiveOnlyFilter": "Només actius",
+  "adminUnpublishPageTitle": "Desa la publicació de la pàgina",
+  "adminUnpublishPageBody": "Això elimina la pàgina publicada \"{path}\". No es pot desfer.",
+  "adminActionUnpublish": "Desa la publicació",
+  "adminFilterByOwnerUidHint": "Filtra per uid del propietari",
+  "adminNoPublishedPages": "Sense pàgines publicades.",
+  "adminNoFamilies": "Sense famílies.",
+  "adminFamilySummary": "{memberCount} membres · creada {createdAt}",
+  "adminFamilyOfTitle": "Família de {ownerUid}",
+  "adminNoDiagnosticReports": "Sense informes.",
+  "adminFilterOpen": "Oberts",
+  "adminFilterResolved": "Resolts",
+  "adminFilterAll": "Tots",
+  "adminDiagnosticFallbackTitle": "diagnòstic",
+  "adminDiagnosticDialogFallbackTitle": "Diagnòstic",
+  "adminUserNoteLabel": "Nota de l’usuari:",
+  "adminLogLabel": "Registre:",
+  "adminReopenButton": "Reobre",
+  "adminMarkResolvedButton": "Marca com a resolt",
+  "adminWelcomeTitle": "Benvingut a la consola d’administració",
+  "adminCurrentRole": "Rol actual: {role}",
+  "adminTotalUsersLabel": "Usuaris totals",
+  "adminOpenDiagnosticsLabel": "Diagnòstics oberts",
+  "adminNoCollabRooms": "Sense sales de col·laboració.",
+  "adminUntitledFallback": "(sense títol)",
+  "adminCollabRoomDialogTitle": "Sala de col·laboració",
+  "adminEditTemplateTitle": "Edita la plantilla",
+  "adminNameLabel": "Nom",
+  "adminDescriptionLabel": "Descripció",
+  "adminCategoryLabel": "Categoria",
+  "adminSearchTemplatesHint": "Cerca plantilles",
+  "adminNoTemplates": "Sense plantilles.",
+  "adminNoAuditActivity": "Encara no hi ha activitat registrada.",
+  "adminEditSettingTitle": "Edita {key}",
+  "adminValueLabel": "Valor ({valueType})",
+  "adminSettingWarningBody": "Això pot afectar l’app en producció per a tots els usuaris.",
+  "adminClearOverrideTitle": "Treu l’override de {key}",
+  "adminClearOverrideBody": "Tornarà a fer servir el valor d’application.yml/variables d’entorn.",
+  "adminActionClearOverride": "Treu l’override",
+  "adminActionEdit": "Edita",
+  "adminCurrentValueLabel": "valor actual",
+  "adminOverrideSuffix": "override",
+  "adminDefaultSuffix": "per defecte",
+  "whisperModelBase": "Base q8 (equilibrat)",
+  "whisperModelSmall": "Small q8 (alta precisió, menys disc)",
+  "whisperModelMedium": "Medium q8",
+  "whisperModelTurbo": "Large v3 Turbo q8",
+  "whisperDownloadingEngine": "Descarregant el motor de transcripció…",
+  "whisperInstallingEngine": "Instal·lant el motor de transcripció…",
+  "whisperEngineReady": "Motor a punt",
+  "whisperDownloadingModel": "Descarregant el model {model} (~{sizeMb} MB)…",
+  "whisperModelReady": "Model {model} a punt",
+  "whisperErrorPreparingModel": "No s’ha pogut preparar el model {model}: {error}",
+  "whisperErrorEngineNotInitialized": "Motor de transcripció no inicialitzat.",
+  "whisperErrorCliNotFound": "No s’ha trobat whisper-cli a {path}.",
+  "whisperErrorModelNotFound": "No s’ha trobat el model a {path}.",
+  "whisperErrorCliFailed": "whisper-cli ha fallat (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoOutputFile": "Whisper no ha generat cap fitxer de sortida: {path}",
+  "whisperErrorRunningCli": "Error en executar whisper-cli: {error}",
+  "whisperErrorLocalEngineNotInitialized": "Motor local de diarització no inicialitzat.",
+  "whisperErrorPreparingLocalDiarization": "No s’ha pogut preparar el Whisper local per a la diarització: {error}",
+  "whisperErrorCliFailedTdrz": "whisper-cli tdrz ha fallat (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoSpeakerMarkers": "Whisper tdrz no ha retornat marcadors de parlant en aquest fragment.",
+  "whisperErrorRunningCliTdrz": "Error en executar whisper-cli tdrz: {error}",
+  "whisperErrorDownloadFailed": "Descàrrega fallida ({status}) des de {url}",
+  "whisperErrorZipExtractWindows": "No s’ha pogut extreure el ZIP a Windows. tar: {tarExit}{tarErr}; powershell: {psExit}{psErr}",
+  "whisperErrorZipExtractUnix": "No s’ha pogut extreure el ZIP de whisper.",
+  "whisperErrorBinaryNotFoundAfterExtract": "No s’ha trobat {binaryName} després d’extreure {path}",
+  "aiChatLastMeetingHeader": "--- Última nota de reunió a la pàgina ---",
+  "vaultUnencrypted": "Sense xifrar",
+  "settingsOverviewSubtitle": "Personalitza l'app, gestiona seguretat, IA, còpies i integracions des d'un únic panell.",
+  "settingsOverviewPlan": "Pla",
+  "settingsOverviewVault": "Llibreta",
+  "settingsOverviewFormat": "Versió",
+  "settingsOverviewStatus": "Estat",
+  "youTrackConnectionNotFound": "No s'ha trobat la connexió YouTrack per a aquesta tasca. Torna a connectar YouTrack a Ajustos → Integracions.",
+  "jiraConnectionNotFound": "No s'ha trobat la connexió Jira per a aquesta tasca. Torna a connectar Jira a Ajustos → Integracions.",
+  "deviceSyncEnabled": "Sincronització activada.",
+  "deviceSyncLinkCodeExpired": "El codi de vinculació ha caducat o ja no coincideix.",
+  "deviceSyncLanDiscoveryFailed": "No s'ha pogut iniciar el descobriment LAN: {error}",
+  "deviceSyncRetryingLan": "S'està reintentant la connectivitat LAN de sincronització...",
+  "deviceSyncFolioDevice": "Dispositiu Folio",
+  "deviceSyncWrongLinkCode": "Intent de vinculació: codi incorrecte o sense codi actiu en aquest dispositiu. Genera un codi aquí i usa el mateix a l'altre equip.",
+  "deviceSyncServerStartFailed": "No s'ha pogut iniciar el servidor de sincronització: {error}",
+  "deviceSyncPeerKeyChanged": "Avís de seguretat: la clau del dispositiu \"{name}\" ha canviat. Sincronització en pausa amb aquest equip; torna a vincular-lo si confies en el canvi.",
+  "deviceSyncLinkedRemote": "Dispositiu enllaçat des d'una sol·licitud remota.",
+  "deviceSyncLinkedOk": "Dispositiu enllaçat correctament.",
+  "collabMediaUploadError": "Error en pujar a la sala: {error}",
+  "collabMediaPreparingEncryption": "Preparant el xifratge…",
+  "collabMediaUploadingProgress": "Pujant {percent}% · ETA {eta}"
 }

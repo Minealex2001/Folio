@@ -24,7 +24,7 @@ class ClockWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'clock';
 
   @override
-  String displayName(BuildContext context) => 'Reloj';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetClock;
 
   @override
   IconData get icon => Icons.access_time_rounded;
@@ -77,21 +77,22 @@ class ClockWidgetPlugin extends FolioWidgetPlugin {
 
     return StatefulBuilder(
       builder: (context, setState) {
+        final l10n = AppLocalizations.of(context);
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SwitchListTile(
-              title: const Text('Formato 24 horas'),
+              title: Text(l10n.widgetClock24HourFormat),
               value: readBool('clock24Hour'),
               onChanged: (v) => setState(() => set('clock24Hour', v)),
             ),
             SwitchListTile(
-              title: const Text('Mostrar segundos'),
+              title: Text(l10n.widgetClockShowSeconds),
               value: readBool('clockShowSeconds'),
               onChanged: (v) => setState(() => set('clockShowSeconds', v)),
             ),
             SwitchListTile(
-              title: const Text('Mostrar zona horaria'),
+              title: Text(l10n.widgetClockShowTimezone),
               value: readBool('clockShowTimezone'),
               onChanged: (v) => setState(() => set('clockShowTimezone', v)),
             ),

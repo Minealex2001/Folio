@@ -33,6 +33,7 @@ import '../data/vault_repository.dart';
 import '../data/storage/vault_storage.dart';
 import '../models/block.dart';
 import '../models/folio_page.dart';
+import '../models/folio_section.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_database_data.dart';
@@ -6154,6 +6155,7 @@ class VaultSession extends ChangeNotifier {
     if (!folioBlocksCanMerge(prev, cur)) {
       return false;
     }
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     prev.text = prev.text + cur.text;
     // El Delta de `prev` solo cubría su contenido antiguo; tras fusionar, el
@@ -6161,6 +6163,7 @@ class VaultSession extends ChangeNotifier {
     // texto fusionado al recargar (donde el Delta tendría prioridad).
     prev.richTextDeltaJson = null;
     page.blocks.removeAt(i);
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, {cur.id});
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
     return true;
@@ -6305,8 +6308,10 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: victim.id,
       );
     }
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.removeWhere((b) => b.id == blockId);
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, {blockId});
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -6347,8 +6352,218 @@ class VaultSession extends ChangeNotifier {
       }
     }
 
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.removeWhere((b) => victimIds.contains(b.id));
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, victimIds);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  // ---------------------------------------------------------------------
+  // Secciones (Fase E0B del rediseño UX del editor) — capa estructural
+  // ortogonal al modelo de bloques, ver `lib/models/folio_section.dart`.
+  // Mismo patrón de mutación-directa-y-notify que el resto de este archivo.
+  // ---------------------------------------------------------------------
+
+  /// Reasigna el extremo de un rango de sección que apuntaba a
+  /// [removedIds] al bloque superviviente más cercano en el orden original
+  /// de la página — nunca deja un `firstBlockId`/`lastBlockId` apuntando a
+  /// un id ya borrado. Si una sección de un solo bloque pierde su único
+  /// bloque, se colapsa a un único ancla superviviente (preferentemente el
+  /// bloque anterior); si no queda ningún bloque superviviente cerca (caso
+  /// límite que no debería darse dado que estos métodos nunca vacían una
+  /// página por completo), la sección se elimina en vez de quedar con un
+  /// rango inválido.
+  void _repairSectionRangesAfterBlocksRemoved(
+    FolioPage page,
+    List<FolioBlock> blocksBeforeRemoval,
+    Set<String> removedIds,
+  ) {
+    final sections = page.sections;
+    if (sections == null || sections.isEmpty || removedIds.isEmpty) return;
+    final survivingIds = page.blocks.map((b) => b.id).toSet();
+
+    String? nearestSurvivor(String deadId, {required bool forward}) {
+      final idx = blocksBeforeRemoval.indexWhere((b) => b.id == deadId);
+      if (idx < 0) return null;
+      if (forward) {
+        for (var i = idx + 1; i < blocksBeforeRemoval.length; i++) {
+          if (survivingIds.contains(blocksBeforeRemoval[i].id)) {
+            return blocksBeforeRemoval[i].id;
+          }
+        }
+      } else {
+        for (var i = idx - 1; i >= 0; i--) {
+          if (survivingIds.contains(blocksBeforeRemoval[i].id)) {
+            return blocksBeforeRemoval[i].id;
+          }
+        }
+      }
+      return null;
+    }
+
+    final toDrop = <String>[];
+    for (final section in sections) {
+      final first = section.range.firstBlockId;
+      final last = section.range.lastBlockId;
+      final firstDead = !survivingIds.contains(first);
+      final lastDead = !survivingIds.contains(last);
+      if (!firstDead && !lastDead) continue;
+
+      if (first == last) {
+        // Sección de un solo bloque: un único ancla de reemplazo (nunca dos
+        // búsquedas independientes, que podrían invertir el rango).
+        final replacement =
+            nearestSurvivor(first, forward: false) ??
+            nearestSurvivor(first, forward: true);
+        if (replacement == null) {
+          toDrop.add(section.id);
+        } else {
+          section.range = BlockRange(
+            firstBlockId: replacement,
+            lastBlockId: replacement,
+          );
+        }
+        continue;
+      }
+
+      var newFirst = first;
+      var newLast = last;
+      if (firstDead) {
+        final replacement = nearestSurvivor(first, forward: true);
+        if (replacement == null) {
+          toDrop.add(section.id);
+          continue;
+        }
+        newFirst = replacement;
+      }
+      if (lastDead) {
+        final replacement = nearestSurvivor(last, forward: false);
+        if (replacement == null) {
+          toDrop.add(section.id);
+          continue;
+        }
+        newLast = replacement;
+      }
+      section.range = BlockRange(firstBlockId: newFirst, lastBlockId: newLast);
+    }
+    if (toDrop.isNotEmpty) {
+      sections.removeWhere((s) => toDrop.contains(s.id));
+    }
+  }
+
+  /// Desagrupar (pedido explícitamente por el usuario junto con "Agrupar"
+  /// en la Fase E1-E3 del rediseño UX): deshace un bloque `column_list`,
+  /// sustituyéndolo en su misma posición por los bloques planos de todas
+  /// sus columnas, en orden (columna 1 primero, luego columna 2, ...).
+  /// No-op (devuelve `false`) si el bloque no es `column_list`, no tiene
+  /// contenido parseable, o resultaría en cero bloques.
+  bool ungroupColumnsBlock(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return false;
+    final idx = page.blocks.indexWhere((b) => b.id == blockId);
+    if (idx < 0) return false;
+    final block = page.blocks[idx];
+    if (block.type != 'column_list') return false;
+    final data = FolioColumnsData.tryParse(block.text);
+    if (data == null) return false;
+    final flatBlocks = <FolioBlock>[
+      for (final col in data.columns) ...col.blocks,
+    ];
+    if (flatBlocks.isEmpty) return false;
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.removeAt(idx);
+    page.blocks.insertAll(idx, flatBlocks);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return true;
+  }
+
+  /// Crea una sección real a partir de un rango de bloques ya seleccionado
+  /// (típicamente el primer/último id de una selección múltiple contigua en
+  /// el editor — Fase E1/E3). Devuelve la sección creada, o `null` si la
+  /// página no existe o el rango no resuelve a ningún bloque.
+  Section? createSectionFromRange(
+    String pageId, {
+    required String title,
+    required BlockRange range,
+    SectionMetadata metadata = const SectionMetadata(),
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return null;
+    if (blocksInRange(page, range).isEmpty) return null;
+    _rememberUndoBeforePageMutation(pageId);
+    final section = Section(
+      id: '${pageId}_section_${_uuid.v4()}',
+      title: title,
+      range: range,
+      metadata: metadata,
+    );
+    page.sections = [...?page.sections, section];
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return section;
+  }
+
+  void renameSection(String pageId, String sectionId, String title) {
+    final page = _pageById(pageId);
+    final section = page?.sections?.firstWhereOrNull((s) => s.id == sectionId);
+    if (page == null || section == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    section.title = title;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Reemplaza la metadata de la sección por completo — el llamador debe
+  /// construir el nuevo valor con `SectionMetadata.copyWith` si solo quiere
+  /// tocar un campo.
+  void updateSectionMetadata(
+    String pageId,
+    String sectionId,
+    SectionMetadata metadata,
+  ) {
+    final page = _pageById(pageId);
+    final section = page?.sections?.firstWhereOrNull((s) => s.id == sectionId);
+    if (page == null || section == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    section.metadata = metadata;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Elimina la sección — los bloques que cubría NO se borran, simplemente
+  /// dejan de estar cubiertos por una sección real (vuelven a caer bajo la
+  /// sección raíz virtual que el editor sintetiza cuando no hay ninguna
+  /// sección real ahí).
+  void deleteSection(String pageId, String sectionId) {
+    final page = _pageById(pageId);
+    if (page == null || page.sections == null) return;
+    final existed = page.sections!.any((s) => s.id == sectionId);
+    if (!existed) return;
+    _rememberUndoBeforePageMutation(pageId);
+    page.sections!.removeWhere((s) => s.id == sectionId);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Reordena la lista de secciones (arrastre en el panel de outline —
+  /// Fase E4). [newIndex] sigue la misma convención que
+  /// [ReorderableListView] (igual que `reorderBlockAt`).
+  void reorderSections(String pageId, int oldIndex, int newIndex) {
+    final page = _pageById(pageId);
+    final sections = page?.sections;
+    if (page == null || sections == null) return;
+    final len = sections.length;
+    if (oldIndex < 0 || oldIndex >= len) return;
+    if (newIndex < 0 || newIndex > len) return;
+    var insertAt = newIndex;
+    if (insertAt > oldIndex) insertAt -= 1;
+    if (insertAt == oldIndex) return;
+    _rememberUndoBeforePageMutation(pageId);
+    final s = sections.removeAt(oldIndex);
+    sections.insert(insertAt, s);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_billing_api.dart';
 import '../../../services/admin/admin_entitlements_api.dart';
 import '../widgets/admin_paginated_list.dart';
@@ -54,13 +55,14 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   }
 
   Future<void> _grantCloud() async {
+    final l10n = AppLocalizations.of(context);
     final uid = _uidController.text.trim();
     if (uid.isEmpty) return;
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Conceder Cloud QA'),
-      content: Text('Activa admin_override de Folio Cloud para $uid.'),
-      confirmLabel: 'Conceder',
+      title: Text(l10n.adminGrantCloudQaTitle),
+      content: Text(l10n.adminGrantCloudQaForUidBody(uid)),
+      confirmLabel: l10n.adminActionGrant,
     );
     if (ok != true) return;
     setState(() => _grantBusy = true);
@@ -69,24 +71,25 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
       await _lookup();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cloud QA concedido')),
+        SnackBar(content: Text(l10n.adminCloudQaGranted)),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.adminErrorWithDetails('$e'))));
     } finally {
       if (mounted) setState(() => _grantBusy = false);
     }
   }
 
   Future<void> _revokeCloud() async {
+    final l10n = AppLocalizations.of(context);
     final uid = _uidController.text.trim();
     if (uid.isEmpty) return;
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Revocar Cloud QA'),
-      content: Text('Quita admin_override de Folio Cloud para $uid.'),
-      confirmLabel: 'Revocar',
+      title: Text(l10n.adminRevokeCloudQaTitle),
+      content: Text(l10n.adminRevokeCloudQaForUidBody(uid)),
+      confirmLabel: l10n.adminActionRevoke,
       destructive: true,
     );
     if (ok != true) return;
@@ -96,11 +99,11 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
       await _lookup();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cloud QA revocado')),
+        SnackBar(content: Text(l10n.adminCloudQaRevoked)),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.adminErrorWithDetails('$e'))));
     } finally {
       if (mounted) setState(() => _grantBusy = false);
     }
@@ -108,11 +111,12 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Por usuario'), Tab(text: 'Eventos de webhook')],
+          tabs: [Tab(text: l10n.adminTabByUser), Tab(text: l10n.adminTabWebhookEvents)],
         ),
         Expanded(
           child: TabBarView(
@@ -126,6 +130,7 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
 
   Widget _buildUserLookup() {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -136,12 +141,12 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
               Expanded(
                 child: TextField(
                   controller: _uidController,
-                  decoration: const InputDecoration(labelText: 'uid del usuario', border: OutlineInputBorder(), isDense: true),
+                  decoration: InputDecoration(labelText: l10n.adminUidInputLabel, border: const OutlineInputBorder(), isDense: true),
                   onSubmitted: (_) => _lookup(),
                 ),
               ),
               const SizedBox(width: 12),
-              FilledButton.tonal(onPressed: _loading ? null : _lookup, child: const Text('Buscar')),
+              FilledButton.tonal(onPressed: _loading ? null : _lookup, child: Text(l10n.search)),
             ],
           ),
           const SizedBox(height: 16),
@@ -154,6 +159,7 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   }
 
   Widget _buildBillingCard(Map<String, dynamic> billing) {
+    final l10n = AppLocalizations.of(context);
     final cloud = (billing['folioCloud'] as Map?) ?? const {};
     final stripe = (billing['stripe'] as Map?) ?? const {};
     final ms = (billing['microsoftStore'] as Map?) ?? const {};
@@ -176,11 +182,11 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
               children: [
                 FilledButton(
                   onPressed: (_loading || _grantBusy) ? null : _grantCloud,
-                  child: const Text('Grant Cloud QA'),
+                  child: Text(l10n.adminButtonGrantCloudQa),
                 ),
                 OutlinedButton(
                   onPressed: (_loading || _grantBusy) ? null : _revokeCloud,
-                  child: const Text('Revoke'),
+                  child: Text(l10n.adminButtonRevoke),
                 ),
               ],
             ),
@@ -199,10 +205,12 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   }
 
   Widget _buildWebhookEvents() {
+    final l10n = AppLocalizations.of(context);
     return AdminPaginatedList(
       searchable: false,
+      searchHint: l10n.search,
       pageSize: 50,
-      emptyLabel: 'Sin eventos procesados.',
+      emptyLabel: l10n.adminNoWebhookEvents,
       fetch: (page, limit, query) => _api.webhookEvents(page: page, limit: limit),
       itemBuilder: (context, item) => ListTile(
         leading: const Icon(Icons.receipt_long_outlined),

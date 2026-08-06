@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
@@ -24,6 +25,7 @@ class GithubWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     final connections = ctx.session.githubConnections;
     final sources = ctx.session.githubSources;
 
@@ -31,15 +33,14 @@ class GithubWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: connections.isEmpty && sources.isEmpty
-          ? const BuiltinWidgetEmpty(
-              message:
-                  'Conecta GitHub en Ajustes → Integraciones para ver repos aquí.',
+          ? BuiltinWidgetEmpty(
+              message: l10n.widgetGithubEmpty,
             )
           : ListView(
               children: [
                 if (connections.isNotEmpty) ...[
                   Text(
-                    'Cuentas',
+                    l10n.widgetGithubAccountsLabel,
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                   for (final c in connections.take(4))
@@ -57,7 +58,7 @@ class GithubWidgetPlugin extends FolioWidgetPlugin {
                 if (sources.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Repositorios',
+                    l10n.widgetGithubReposLabel,
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                   for (final s in sources.take(8))

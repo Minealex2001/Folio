@@ -313,15 +313,13 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
   }
 
   String _composeAiExtraContextForNextSend() {
-    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final l10n = AppLocalizations.of(context);
     final b = StringBuffer();
     if (_aiAttachNextEditorSelection) {
       _aiAttachNextEditorSelection = false;
       final snippet = _readEditorSelectionPlainForAi();
       if (snippet != null && snippet.trim().isNotEmpty) {
-        b.writeln(
-          isEs ? '--- Selección del editor ---' : '--- Editor selection ---',
-        );
+        b.writeln(l10n.aiChatEditorSelectionHeader);
         b.writeln(snippet.trim());
       }
     }
@@ -329,11 +327,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       _aiAttachNextLastMeeting = false;
       final m = _readLastMeetingSnippetOnPage();
       if (m != null && m.trim().isNotEmpty) {
-        b.writeln(
-          isEs
-              ? '--- Última nota de reunión en la página ---'
-              : '--- Last meeting note on this page ---',
-        );
+        b.writeln(l10n.aiChatLastMeetingHeader);
         b.writeln(m.trim());
       }
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../selectable.dart';
 import 'inspector_number_field.dart';
 
@@ -27,7 +28,7 @@ class CornerRadiusEditor extends StatelessWidget {
             if (selectable.cornerRadius != null)
               TextButton(
                 onPressed: () => selectable.setCornerRadius(null),
-                child: const Text('Restablecer'),
+                child: Text(AppLocalizations.of(context).inspectorReset),
               ),
           ],
         ),

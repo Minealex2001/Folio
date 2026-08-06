@@ -21,7 +21,6 @@ class YouTrackIntegrationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
@@ -30,9 +29,7 @@ class YouTrackIntegrationCard extends StatelessWidget {
         return IntegrationCard(
           logoAsset: 'appLogos/youtrack.png',
           title: 'YouTrack',
-          subtitle: isEs
-              ? 'Conecta JetBrains YouTrack para sincronizar tareas con Kanban.'
-              : 'Connect JetBrains YouTrack to sync tasks with Kanban.',
+          subtitle: l10n.youtrackCardSubtitle,
           configureLabel: l10n.youtrackConfigure,
           onConfigure: session.state == VaultFlowState.unlocked
               ? () => showIntegrationConfigSheet(
@@ -46,13 +43,11 @@ class YouTrackIntegrationCard extends StatelessWidget {
           chips: [
             IntegrationStatChip(
               icon: Icons.link_rounded,
-              label: isEs
-                  ? '${connections.length} conexiones'
-                  : '${connections.length} connections',
+              label: l10n.youtrackConnectionsCount(connections.length),
             ),
             IntegrationStatChip(
               icon: Icons.filter_alt_outlined,
-              label: isEs ? '${sources.length} fuentes' : '${sources.length} sources',
+              label: l10n.youtrackSourcesCount(sources.length),
             ),
           ],
         );
@@ -362,7 +357,6 @@ class _SourcesTabState extends State<_SourcesTab> {
     }
 
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final scheme = Theme.of(context).colorScheme;
     final sources = widget.session.youtrackSources;
 
@@ -381,7 +375,7 @@ class _SourcesTabState extends State<_SourcesTab> {
                       icon: Icons.filter_alt_rounded,
                       title: s.name,
                       subtitle: s.type == YouTrackSourceType.project
-                          ? '${isEs ? "Proyecto" : "Project"}: ${s.projectShortName ?? s.projectId}'
+                          ? '${l10n.youtrackProjectLabel}: ${s.projectShortName ?? s.projectId}'
                           : 'Query: ${s.query}',
                       trailing: [
                         IconButton(

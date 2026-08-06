@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../services/weather/weather_client.dart';
@@ -16,7 +17,7 @@ class WeatherWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'weather';
 
   @override
-  String displayName(BuildContext context) => 'Clima';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetWeather;
 
   @override
   IconData get icon => Icons.wb_sunny_outlined;
@@ -66,14 +67,15 @@ class WeatherWidgetPlugin extends FolioWidgetPlugin {
 
     return StatefulBuilder(
       builder: (context, setState) {
+        final l10n = AppLocalizations.of(context);
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: cityController,
-              decoration: const InputDecoration(
-                labelText: 'Ciudad',
-                hintText: 'Madrid, Barcelona…',
+              decoration: InputDecoration(
+                labelText: l10n.widgetWeatherCityLabel,
+                hintText: l10n.widgetWeatherCityHint,
               ),
               onChanged: (v) {
                 onSettingsChanged({...settings, 'weatherCity': v.trim()});
@@ -82,8 +84,10 @@ class WeatherWidgetPlugin extends FolioWidgetPlugin {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Usar Celsius (°C)'),
-              subtitle: Text(celsius ? 'Celsius' : 'Fahrenheit'),
+              title: Text(l10n.widgetWeatherUseCelsius),
+              subtitle: Text(
+                celsius ? l10n.widgetWeatherCelsiusUnit : l10n.widgetWeatherFahrenheitUnit,
+              ),
               value: celsius,
               onChanged: (v) {
                 setState(() => celsius = v);
@@ -144,8 +148,8 @@ class _WeatherBodyState extends State<_WeatherBody> {
   @override
   Widget build(BuildContext context) {
     if (widget.city.isEmpty) {
-      return const BuiltinWidgetEmpty(
-        message: 'Configura una ciudad en los ajustes del widget.',
+      return BuiltinWidgetEmpty(
+        message: AppLocalizations.of(context).widgetWeatherConfigureCity,
       );
     }
 
@@ -163,7 +167,8 @@ class _WeatherBodyState extends State<_WeatherBody> {
         }
         if (snap.hasError) {
           return BuiltinWidgetEmpty(
-            message: snap.error?.toString() ?? 'No se pudo cargar el clima.',
+            message: snap.error?.toString() ??
+                AppLocalizations.of(context).widgetWeatherLoadError,
           );
         }
         final data = snap.data!;

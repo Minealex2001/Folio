@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../data/vault_paths.dart';
@@ -14,12 +15,12 @@ int _intSetting(Map<String, dynamic> settings, String key, int defaultValue) {
   return defaultValue;
 }
 
-String _relativeVisitTime(DateTime visited, DateTime now) {
+String _relativeVisitTime(AppLocalizations l10n, DateTime visited, DateTime now) {
   final ago = now.difference(visited);
-  if (ago.inMinutes < 1) return 'ahora mismo';
-  if (ago.inHours < 1) return 'hace ${ago.inMinutes} min';
-  if (ago.inDays < 1) return 'hace ${ago.inHours} h';
-  return 'hace ${ago.inDays} d';
+  if (ago.inMinutes < 1) return l10n.widgetRelativeJustNow;
+  if (ago.inHours < 1) return l10n.widgetRelativeMinutesAgo(ago.inMinutes);
+  if (ago.inDays < 1) return l10n.widgetRelativeHoursAgo(ago.inHours);
+  return l10n.widgetRelativeDaysAgo(ago.inDays);
 }
 
 /// Migración 1:1 de `WorkspaceHomeSectionIds.recents` — lee
@@ -32,7 +33,7 @@ class RecentsWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'recents';
 
   @override
-  String displayName(BuildContext context) => 'Recientes';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetRecents;
 
   @override
   IconData get icon => Icons.history_rounded;
@@ -64,8 +65,8 @@ class RecentsWidgetPlugin extends FolioWidgetPlugin {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        labelText: 'Máximo de entradas',
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).widgetMaxEntriesLabel,
         hintText: '8',
       ),
       onChanged: (v) {
@@ -128,9 +129,10 @@ class _RecentsListState extends State<_RecentsList> {
             ),
           );
         }
+        final l10n = AppLocalizations.of(context);
         if (visits.isEmpty) {
-          return const BuiltinWidgetEmpty(
-            message: 'Todavía no has visitado ninguna página.',
+          return BuiltinWidgetEmpty(
+            message: l10n.widgetRecentsEmpty,
           );
         }
         final byId = {for (final p in widget.ctx.session.pages) p.id: p};
@@ -151,12 +153,12 @@ class _RecentsListState extends State<_RecentsList> {
                   ? Text(page.emoji!, style: const TextStyle(fontSize: 16))
                   : const Icon(Icons.description_outlined, size: 18),
               title: Text(
-                page.title.isEmpty ? 'Sin título' : page.title,
+                page.title.isEmpty ? l10n.untitled : page.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                _relativeVisitTime(visited, now),
+                _relativeVisitTime(l10n, visited, now),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

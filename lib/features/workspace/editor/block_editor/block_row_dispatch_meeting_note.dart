@@ -31,6 +31,11 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
       ? 'Sin transcripcion'
       : transcriptPreview;
   final l10n = AppLocalizations.of(context);
+  // Fase F1 del rediseño UX del editor: color de identidad propio (en vez
+  // del `outlineVariant` genérico que comparte con bloques sin acento
+  // definido) — mismo lenguaje visual que code/mermaid/database.
+  final accentTone = _blockAccentToneFor('meeting_note')!;
+  final accentBorder = calloutBorderForTone(scheme, accentTone, preset: st._calloutPreset);
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
     child: Row(
@@ -43,10 +48,16 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              color: calloutBackgroundForTone(scheme, accentTone, preset: st._calloutPreset),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              // `BoxDecoration.borderRadius` exige color uniforme en los 4
+              // lados (solo el ancho puede variar) — el acento se marca
+              // engrosando el lado izquierdo, no aclarando los demás.
+              border: Border(
+                left: BorderSide(color: accentBorder, width: 3),
+                top: BorderSide(color: accentBorder),
+                right: BorderSide(color: accentBorder),
+                bottom: BorderSide(color: accentBorder),
               ),
             ),
             child: compactView
@@ -78,6 +89,33 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
                               Icons.audio_file_rounded,
                               size: 14,
                               color: scheme.onSurfaceVariant,
+                            ),
+                          ],
+                          // Fase D3 del rediseño UX del editor: acción
+                          // EXPLÍCITA (nunca detección automática silenciosa,
+                          // que violaría el "nunca invasivo" del brief) para
+                          // extraer estructura de la reunión — reutiliza el
+                          // mismo popover de IA anclado a selección de la
+                          // Fase D1, no un pipeline nuevo. "Extraer tareas de
+                          // acción" ya existe como intent (`actionItems`);
+                          // este botón solo lo hace alcanzable desde aquí.
+                          if (!readOnlyMode &&
+                              transcriptPreview.isNotEmpty &&
+                              st.widget.onAiSlashCommand != null) ...[
+                            const SizedBox(width: 6),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () => st.showAiSelectionPopover(
+                                blockId: block.id,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  FolioIcons.quillOutlined,
+                                  size: 14,
+                                  color: scheme.primary,
+                                ),
+                              ),
                             ),
                           ],
                         ],

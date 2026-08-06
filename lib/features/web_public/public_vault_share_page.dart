@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/folio_cloud/folio_cloud_vault_share.dart';
 import '../../session/vault_session.dart';
 import '../workspace/editor/block_editor.dart';
@@ -250,7 +251,7 @@ class _PublicShareNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final pages = session.activePages;
     if (pages.isEmpty) {
-      return const Center(child: Text('Sin páginas'));
+      return Center(child: Text(AppLocalizations.of(context).publicShareNoPages));
     }
     final built = buildSidebarVisiblePageRows(
       pages,

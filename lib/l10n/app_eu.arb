@@ -536,10 +536,14 @@
   "pasteAsEmbed": "Txertatua",
   "pasteAsBookmark": "Laster-marka",
   "pasteAsMention": "Aipamena",
+  "pasteAsGithubImport": "Inportatu GitHub-etik",
+  "pasteAsPdfSummarize": "Gorde PDFa",
   "pasteAsUrlSubtitle": "Txertatu markdown esteka testuan",
   "pasteAsEmbedSubtitle": "Bideo-blokea aurrebistarekin (YouTube) edo laster-marka",
   "pasteAsBookmarkSubtitle": "Txartela izenburu eta estekarekin",
   "pasteAsMentionSubtitle": "Koaderno honetako folio baterako esteka",
+  "pasteAsGithubImportSubtitle": "Txartela biltegiaren izenarekin",
+  "pasteAsPdfSummarizeSubtitle": "Txartela dokumentuaren izenburuarekin",
   "tableAddRow": "Errenkada",
   "tableRemoveRow": "Kendu errenkada",
   "tableAddColumn": "Zutabea",
@@ -892,6 +896,7 @@
   "aiAlwaysShowThought": "Erakutsi beti AAren pentsamendua",
   "aiAlwaysShowThoughtHint": "Desgaituta badago, tolestuta agertzen da mezu bakoitzean gezi batekin.",
   "aiBetaBadge": "BETA",
+  "integrationAlphaBadge": "ALPHA",
   "aiManageQuillInstructionsTooltip": "Kudeatu Quillen jarraibideak",
   "aiBetaEnableTitle": "AA BETA fasean dago",
   "aiBetaEnableBody": "Eginbide hau BETA fasean dago une honetan eta huts egin dezake edo modu ustekabean joka dezake.\n\nGaitu nahi duzu hala ere?",
@@ -2250,6 +2255,39 @@
   },
   "blockEditorDuplicate": "Bikoiztu",
   "blockEditorClearSelectionTooltip": "Garbitu hautapena",
+  "blockEditorGroupAction": "Taldekatu",
+  "blockEditorUngroupColumns": "Zutabeak desegitea",
+  "blockEditorUngroupSection": "Atala desegitea",
+  "blockEditorGroupAsColumns2": "2 zutabe",
+  "blockEditorGroupAsColumns3": "3 zutabe",
+  "blockEditorGroupAsSection": "Taldekatu atal gisa",
+  "blockEditorNewSectionDefaultTitle": "Atal berria",
+  "blockEditorCmdMeetingTemplate": "Bilera",
+  "blockEditorCmdMeetingTemplateHint": "Egitura osoa: oharrak, agenda, ekintzak",
+  "blockEditorCmdSprintTemplate": "Sprint",
+  "blockEditorCmdSprintTemplateHint": "Sprint txantiloia helburu eta atazekin",
+  "blockEditorCmdRoadmapTemplate": "Roadmap",
+  "blockEditorCmdRoadmapTemplateHint": "Roadmap egitura horizonteka",
+  "smartTemplateVariableMeetingWith": "Norekin?",
+  "smartTemplateVariableMeetingDate": "Data?",
+  "smartTemplateVariableSprintName": "Sprintaren izena?",
+  "smartTemplateMeetingDefaultTitle": "Bilera berria",
+  "smartTemplateMeetingTitleWith": "Bilera {attendee}-rekin",
+  "smartTemplateMeetingDateLine": "Data: {date}",
+  "smartTemplateMeetingAgenda": "Agenda",
+  "smartTemplateMeetingActions": "Ekintzak",
+  "smartTemplateSprintDefaultTitle": "Sprint berria",
+  "smartTemplateSprintTitleWithName": "Sprint: {name}",
+  "smartTemplateSprintGoals": "Helburuak",
+  "smartTemplateSprintTasks": "Atazak",
+  "smartTemplateRoadmapTitle": "Roadmap",
+  "smartTemplateRoadmapNow": "Orain",
+  "smartTemplateRoadmapNext": "Hurrengoa",
+  "smartTemplateRoadmapLater": "Geroago",
+  "smartTemplateFlowNext": "Hurrengoa",
+  "smartTemplateFlowGenerate": "Sortu",
+  "smartTemplateFlowCancel": "Utzi",
+  "smartTemplateFlowSkipHint": "Utzi hutsik saltatzeko",
   "blockEditorMenuRewriteWithAi": "Berriz idatzi AArekin…",
   "blockEditorMenuMoveUp": "Eraman gora",
   "blockEditorMenuMoveDown": "Eraman behera",
@@ -5177,9 +5215,15 @@
   "orgPanelBillingStatusLine": "Plan: {plan} · Estado: {status} · Asientos: {seats}",
   "@orgPanelBillingStatusLine": {
     "placeholders": {
-      "plan": { "type": "String" },
-      "status": { "type": "String" },
-      "seats": { "type": "int" }
+      "plan": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "seats": {
+        "type": "int"
+      }
     }
   },
   "orgPanelBillingUnknown": "Aún no hay suscripción de equipo",
@@ -5190,7 +5234,9 @@
   "orgPanelYourRole": "Tu rol: {role}",
   "@orgPanelYourRole": {
     "placeholders": {
-      "role": { "type": "String" }
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgPanelActivityOrganizationCreated": "Equipo creado",
@@ -5208,16 +5254,24 @@
   "orgPanelActivityUnknown": "{eventType}",
   "@orgPanelActivityUnknown": {
     "placeholders": {
-      "eventType": { "type": "String" }
+      "eventType": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptTitle": "Invitación a equipo",
   "orgInviteAcceptBody": "{inviter} te invitó a unirte a {team} como {role}.",
   "@orgInviteAcceptBody": {
     "placeholders": {
-      "inviter": { "type": "String" },
-      "team": { "type": "String" },
-      "role": { "type": "String" }
+      "inviter": {
+        "type": "String"
+      },
+      "team": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptButton": "Aceptar invitación",
@@ -5230,5 +5284,680 @@
   "cloudAccountSwitcherRemoveBody": "Se cerrará la sesión aquí. Las demás cuentas siguen iniciadas. Las libretas locales de esta cuenta permanecen en el disco.",
   "cloudAccountSwitcherFallback": "Cuenta Folio Cloud",
   "cloudAccountAddAnotherHelp": "Inicia sesión con otro correo sin cerrar esta cuenta",
-  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo"
+  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo",
+  "vaultSharePublicLink": "Esteka publikoa",
+  "vaultShareCopyLink": "Kopiatu esteka",
+  "vaultShareRefreshNow": "Eguneratu orain",
+  "vaultShareEnablePublicLink": "Gaitu esteka publikoa",
+  "vaultShareInviteToEdit": "Gonbidatu editatzera",
+  "vaultShareCloudEmail": "Folio Cloud posta",
+  "vaultShareInvite": "Gonbidatu",
+  "vaultShareMembers": "Kideak",
+  "vaultShareAcceptInvite": "Onartu gonbidapena",
+  "vaultShareInviteId": "Gonbidapenaren IDa",
+  "vaultShareInviteCode": "Kodea",
+  "vaultShareAccept": "Onartu",
+  "goToFolio": "Joan Foliora",
+  "resetPasswordConfirmLabel": "Berretsi pasahitza",
+  "savePassword": "Gorde pasahitza",
+  "publicShareNoPages": "Orrialderik ez",
+  "inspectorSelectElement": "Hautatu elementu bat editatzeko",
+  "inspectorReset": "Berrezarri",
+  "inspectorColor": "Kolorea",
+  "inspectorOpacity": "Opakutasuna",
+  "inspectorSize": "Tamaina",
+  "inspectorPosition": "Posizioa",
+  "dbEditorTargetDb": "Target DB",
+  "dbEditorRelationProperty": "Relation propietatea",
+  "dbEditorTargetProperty": "Target propietatea",
+  "dbEditorRollupOperation": "Rollup eragiketa",
+  "dbEditorAiPrompt": "IA prompta",
+  "settingsPersonalizationBeta": "Pertsonalizazioa (beta)",
+  "settingsPersonalizationBody": "Layout, gai eta dashboard motor berriak — pantaila honek aplikazioak dagoeneko erakusten dituen controller bizidunak zuzenean kontrolatzen ditu.",
+  "settingsPanelEngine": "Panel-motorra",
+  "settingsThemeEngine": "Gai-motorra",
+  "settingsSidebarSection": "Alboko panela",
+  "settingsRegionUnavailable": "Eskualdea ez dago erabilgarri.",
+  "settingsSidebarWidth": "Uneko zabalera: {width} px",
+  "settingsLockSidebar": "Blokeatu alboko panela",
+  "settingsLockSidebarHint": "Alboko panela berriro desblokeatu arte, tamaina aldatzea/mugitzea eragozten du.",
+  "settingsResetPanelLayout": "Berrezarri panelen layouta",
+  "settingsThemeEditor": "Gai-editorea",
+  "settingsThemeEditorBody": "Forma, dentsitatea, mugimendua eta gardentasuna. Modu argia/iluna eta azentuak goian daude (Itxuran bezala).",
+  "settingsCornerRoundness": "Izkinen biribiltasuna",
+  "settingsSpacingDensity": "Tartearen dentsitatea",
+  "settingsMotionSpeed": "Mugimendu-abiadura",
+  "settingsSurfaceOpacity": "Azaleren opakutasuna",
+  "settingsResetTheme": "Berrezarri gaia",
+  "settingsDashboardTemplates": "Dashboard txantiloiak",
+  "settingsDashboardTemplatesBody": "Developer, Writer, Research, Student, Planning, Gaming — hasierako dashboardaren edukia aldatzen du. Dagoeneko instalatutako txantiloi baten edizioak gordetzen dira hura itzultzean.",
+  "settingsVisualPacks": "Pack bisualak",
+  "settingsVisualPacksBody": "Aplikatu pack bat gaia, layouta eta dashboarda batera aldatzeko. Uneko konfigurazioa esportatu edo bat inportatu ere dezakezu.",
+  "settingsExportCurrentSetup": "Esportatu uneko konfigurazioa",
+  "settingsImportPack": "Inportatu packa…",
+  "settingsPackActive": "Aktibo",
+  "settingsPackApply": "Aplikatu",
+  "settingsSaveVisualPack": "Gorde pack bisuala",
+  "settingsPackName": "Packaren izena",
+  "settingsPackAuthorOptional": "Egilea (aukerakoa)",
+  "settingsMyPackDefault": "Nire packa",
+  "settingsExport": "Esportatu",
+  "settingsPackAppliedSnack": "\"{name}\" packa aplikatuta.",
+  "settingsSetupExportedSnack": "Uneko konfigurazioa esportatuta.",
+  "settingsCouldNotReadFile": "Ezin izan da fitxategia irakurri.",
+  "settingsPackImportedSnack": "\"{name}\" packa inportatu eta aplikatuta.",
+  "settingsPackImportFailed": "Ezin izan da packa inportatu: {error}",
+  "vaultSharePublicLinkBody": "Esteka duen edonork koadernoa nabigatzailean ikus dezake. Estekaren edukia testu argian gordetzen da Folio Clouden eta sinkronizatzean eguneratzen da.",
+  "vaultShareInviteBody": "Pertsonak koadernoa bere zerrendan ikusiko du (partekatuta gisa) eta editatu ahal izango du, baina ez ezabatu.",
+  "vaultShareActiveRev": "Esteka aktibo · rev {rev}",
+  "vaultShareInviteCodeAlsoEmail": "Kodea (posta elektronikoan ere): {code}",
+  "passwordUpdatedTitle": "Pasahitza eguneratuta",
+  "passwordUpdatedBody": "Orain zure pasahitz berriarekin saioa has dezakezu.",
+  "resetPasswordTitle": "Berrezarri pasahitza",
+  "resetPasswordBody": "Aukeratu pasahitz berri bat zure konturako.",
+  "shareNotebookTooltip": "Partekatu koadernoa",
+  "kanbanYoutrackSyncingPull": "YouTrack: sinkronizatzen (pull)…",
+  "kanbanYoutrackPullOkPush": "YouTrack: pull OK · orain push…",
+  "kanbanYoutrackSyncResult": "YouTrack: pull {pulled} · +{created} · ~{updated} · push {pushed} (saltatutakoak {skipped})",
+  "@kanbanYoutrackSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanJiraSyncResult": "Jira: pull {pulled} · +{created} · ~{updated} · push {pushed} (saltatutakoak {skipped})",
+  "@kanbanJiraSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGithubSyncingPush": "GitHub: sinkronizatzen (push)…",
+  "kanbanGithubSyncResult": "GitHub: pull {pulled} · +{created} · ~{updated} · push {pushed} (saltatutakoak {skipped})",
+  "@kanbanGithubSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGitlabSyncingPush": "GitLab: sinkronizatzen (push)…",
+  "kanbanGitlabSyncResult": "GitLab: pull {pulled} · +{created} · ~{updated} · push {pushed} (saltatutakoak {skipped})",
+  "@kanbanGitlabSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanSourceLabel": "Iturria",
+  "kanbanAutoImportFrom": "Auto-inportatu {provider}(e)tik",
+  "@kanbanAutoImportFrom": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanCreateItemsOnQuickAdd": "Sortu elementuak zeregina gehitzean",
+  "kanbanSyncJiraTooltip": "Sinkronizatu Jira (pull + push)",
+  "kanbanSyncYoutrackTooltip": "Sinkronizatu YouTrack (pull + push)",
+  "kanbanSyncGithubTooltip": "Sinkronizatu GitHub (push + pull)",
+  "kanbanSyncGitlabTooltip": "Sinkronizatu GitLab (push + pull)",
+  "kanbanUncategorizedCards": "Kategoriarik gabeko txartelak",
+  "kanbanJiraGoneError": "Jirak 410 itzuli du (Gone). Normalean konexioa/gunea baliogabea denean gertatzen da (sarbidea kenduta edo cloudId okerra). Konektatu berriro Jira eta saiatu berriro.\nXehetasuna: {error}",
+  "@kanbanJiraGoneError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskAndIssueConfirm": "Ekintza honek Folioko zeregina eta {provider}(e)ko issue-a ere ezabatuko ditu (loturiko azpizereginak barne). Jarraitu?",
+  "@kanbanDeleteTaskAndIssueConfirm": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskConfirm": "Ezabatu zeregina Folion?",
+  "jiraConnectionMissingDelete": "Ez da aurkitu Jira konexioa issue-a ezabatzeko.",
+  "youtrackConnectionMissingDelete": "Ez da aurkitu YouTrack konexioa issue-a ezabatzeko.",
+  "kanbanForcePushJiraConfirm": "Honek Jira-n detektatutako urruneko aldaketak Folioko bertsioarekin gainidatziko ditu issue honentzat. Jarraitu?",
+  "kanbanYoutrackFieldsTitle": "YouTrack eremuak",
+  "kanbanFieldType": "Mota",
+  "kanbanAssignee": "Esleitua",
+  "kanbanSubsystem": "Azpisistema",
+  "kanbanFixVersions": "Konponketa-bertsioak",
+  "kanbanFixVersionsHint": "adib. 1.0, 2.3",
+  "kanbanAffectedVersions": "Eragindako bertsioak",
+  "kanbanAffectedVersionsHint": "adib. 0.9, 1.0",
+  "kanbanFixedInBuild": "Konpondua build-ean",
+  "kanbanEstimationFieldLabel": "Estimazioa",
+  "kanbanEstimationHint": "adib. 2h 30m",
+  "kanbanSpentTimeLabel": "Erabilitako denbora",
+  "kanbanSpentTimeHint": "adib. 1h 15m",
+  "kanbanPropertiesTitle": "Propietateak",
+  "kanbanConflictJiraFolioText": "Gatazka: aldaketak egon dira Jira-n eta Folion.",
+  "kanbanNoRemoteStateJira": "Sakatu Pull egoera urrunа kargatzeko eta diferentziak ikusteko.",
+  "kanbanKeepFolioForcePush": "Mantendu Folio (Force push)",
+  "kanbanLabelsField": "Etiketak",
+  "kanbanComponentsField": "Osagaiak",
+  "kanbanCommentsTitle": "Iruzkinak",
+  "kanbanLoadButton": "Kargatu",
+  "kanbanNewCommentLabel": "Iruzkin berria",
+  "kanbanSendButton": "Bidali",
+  "kanbanNoCommentsLoaded": "Ez da iruzkinik kargatu.",
+  "kanbanAttachmentsTitle": "Eranskinak",
+  "kanbanPressPullToSeeAttachments": "Sakatu Pull eranskinak ikusteko.",
+  "kanbanWorklogTitle": "Worklog / Denbora",
+  "kanbanEstimateChipLabel": "Estimazioa",
+  "kanbanRemainingChipLabel": "Falta dena",
+  "kanbanSpentChipLabel": "Erabilita",
+  "kanbanAddMinutesLabel": "Gehitu (minutuak)",
+  "kanbanLogButton": "Erregistratu",
+  "kanbanNoWorklogsLoaded": "Ez da worklogrik kargatu.",
+  "kanbanRefreshButton": "Eguneratu",
+  "kanbanConflictYoutrackFolioText": "Gatazka: aldaketak egon dira YouTrack-en eta Folion.",
+  "kanbanNoRemoteStateYoutrack": "Sakatu Eguneratu egoera urruna kargatzeko eta diferentziak ikusteko.",
+  "kanbanKeepYoutrack": "Mantendu YouTrack",
+  "kanbanForceFolio": "Behartu Folio",
+  "youtrackStateLabel": "Egoera",
+  "kanbanYoutrackCommentsTitle": "YouTrack iruzkinak",
+  "kanbanNoCommentsOrNotLoaded": "Iruzkinik ez edo kargatu gabe.",
+  "kanbanAddCommentHint": "Gehitu iruzkina...",
+  "planFree": "Doakoa",
+  "planUpToDate": "Eguneratuta",
+  "widgetCalendar": "Egutegia",
+  "widgetCalendarWeekStartsMonday": "Astea astelehenean hasten da",
+  "widgetFolioCloudUnavailable": "Folio Cloud ez dago eskuragarri testuinguru honetan.",
+  "widgetVaultStatus": "Koadernoaren egoera",
+  "widgetVaultStatusEncrypted": "Zifratuta",
+  "widgetVaultStatusUnencrypted": "Zifratu gabe",
+  "widgetVaultStatusPageCount": "{count} orrialde",
+  "@widgetVaultStatusPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetHabits": "Ohiturak",
+  "widgetHabitsEmpty": "Ez dago zeregin errepikakorrik. Gehitu errepikapen bat zeregin bati.",
+  "widgetRssComingSoon": "RSS jarioak ez dira onartzen. Foliok oraindik ez du jario-irakurgailurik.",
+  "widgetBooks": "Liburuak",
+  "widgetBooksComingSoon": "Irakurketaren jarraipena ez dago eskuragarri. Foliok oraindik ez du liburu-eredurik.",
+  "widgetMiniStats": "Estatistikak",
+  "widgetMiniStatsPages": "Orrialdeak",
+  "widgetMiniStatsFolders": "Karpetak",
+  "widgetMiniStatsPending": "Zain",
+  "widgetMiniStatsDone": "Eginda",
+  "widgetCreatePage": "Sortu orrialdea",
+  "widgetNewPageAction": "Orrialde berria",
+  "widgetSearchPlaceholder": "Bilatu Folion…",
+  "widgetWhatsNew": "Berritasunak",
+  "widgetWhatsNewBadge": "Berria",
+  "widgetWhatsNewVersionError": "Ezin izan da instalatutako bertsioa irakurri.",
+  "widgetWhatsNewVersionLabel": "{version} bertsioa",
+  "@widgetWhatsNewVersionLabel": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "widgetWhatsNewUnread": "Bertsio honetan irakurri gabeko berritasunak daude.",
+  "widgetWhatsNewUpToDate": "Bertsio-oharrekin eguneratuta zaude.",
+  "widgetOnboarding": "Lehen urratsak",
+  "widgetOnboardingAllDone": "Lehen urratsak amaitu dituzu!",
+  "widgetOnboardingIntro": "Hasi oinarrizkoenarekin:",
+  "widgetOnboardingStepCreatePage": "Sortu orrialde bat",
+  "widgetOnboardingStepAddTask": "Gehitu zeregin bat",
+  "widgetOnboardingStepVisitRecent": "Bisitatu azken orrialde bat",
+  "widgetTip": "Aholkua",
+  "widgetTipEditorSlash": "Erabili \"/\" editorean blokeak azkar txertatzeko.",
+  "widgetTipDragPage": "Arrastatu orrialde bat alboko panelera ainguratzeko.",
+  "widgetTipSearchShortcut": "Ctrl+K teklek bilaketa orokorra irekitzen dute edonon.",
+  "widgetTipVisualEditor": "Aktibatu editore bisuala goiko barratik diseinua berrantolatzeko.",
+  "widgetTipTasksHome": "Zereginak eginda gisa marka ditzakezu hasierako Zereginak widgetetik.",
+  "widgetQuickActions": "Ekintza azkarrak",
+  "widgetQuickActionsTodayNote": "Gaurko oharra",
+  "widgetRootPages": "Orrialdeak",
+  "widgetRootPagesEmpty": "Oraindik ez dago orrialderik.",
+  "widgetRootPagesMaxLabel": "Orrialde gehienez",
+  "widgetActivity": "Jarduera",
+  "widgetActivityEmpty": "Oraindik ez dago jarduerarik.",
+  "widgetMaxEntriesLabel": "Sarrera gehienez",
+  "widgetRelativeJustNow": "orain bertan",
+  "widgetRelativeMinutesAgo": "duela {minutes} min",
+  "@widgetRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeHoursAgo": "duela {hours} h",
+  "@widgetRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeDaysAgo": "duela {days} e",
+  "@widgetRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRecents": "Berrienak",
+  "widgetRecentsEmpty": "Oraindik ez duzu orrialderik bisitatu.",
+  "widgetAgenda": "Agenda",
+  "widgetAgendaEmpty": "Ez dago datorren dataren bat duen zereginik.",
+  "widgetAgendaMaxLabel": "Zeregin gehienez",
+  "widgetClock": "Erlojua",
+  "widgetClock24HourFormat": "24 orduko formatua",
+  "widgetClockShowSeconds": "Erakutsi segundoak",
+  "widgetClockShowTimezone": "Erakutsi ordu-eremua",
+  "widgetDailyNotes": "Eguneroko oharra",
+  "widgetDailyNotesConvention": "Konbentzioa: titulua = YYYY-MM-DD",
+  "widgetDailyNotesToday": "Gaur · {date}",
+  "@widgetDailyNotesToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesCreateToday": "Sortu gaurko oharra ({date})",
+  "@widgetDailyNotesCreateToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesYesterday": "Atzo · {date}",
+  "@widgetDailyNotesYesterday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesTomorrow": "Bihar · {date}",
+  "@widgetDailyNotesTomorrow": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetGithubEmpty": "Konektatu GitHub Ezarpenak → Integrazioak atalean hemen biltegiak ikusteko.",
+  "widgetGithubAccountsLabel": "Kontuak",
+  "widgetGithubReposLabel": "Biltegiak",
+  "widgetFavoritePage": "Orrialde gogokoena",
+  "widgetFavoritePageEmpty": "Ez dago orrialderik koadernoan.",
+  "widgetFavoritePageChooseLabel": "Aukeratu orrialdea",
+  "widgetFavoritePageIdLabel": "Orrialdearen ID-a",
+  "widgetFavoritePageIdHint": "Ainguratu beharreko orrialdearen id-a",
+  "widgetDatabaseView": "Datu-basea",
+  "widgetDatabaseViewEmpty": "Ez dago datu-baserik duen orrialderik koadernoan.",
+  "widgetDatabaseViewRowCount": "{count} errenkada",
+  "@widgetDatabaseViewRowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetBookmarks": "Laster-markak",
+  "widgetBookmarksFallbackLabel": "Laster-marka",
+  "widgetBookmarksEmpty": "Ez dago laster-marka blokerik koadernoan.",
+  "widgetTasks": "Zereginak",
+  "widgetTasksEmpty": "Ez dago zain dagoen zereginik.",
+  "widgetTasksMarkDone": "Markatu eginda",
+  "widgetWeather": "Eguraldia",
+  "widgetWeatherCityLabel": "Hiria",
+  "widgetWeatherCityHint": "Madril, Bartzelona…",
+  "widgetWeatherUseCelsius": "Erabili Celsius (°C)",
+  "widgetWeatherCelsiusUnit": "Celsius",
+  "widgetWeatherFahrenheitUnit": "Fahrenheit",
+  "widgetWeatherConfigureCity": "Konfiguratu hiri bat widgetaren ezarpenetan.",
+  "widgetWeatherLoadError": "Ezin izan da eguraldia kargatu.",
+  "widgetMusic": "Musika",
+  "widgetMusicEmpty": "Ez dago ezer jotzen une honetan.",
+  "dashboardAddWidget": "Gehitu widgeta",
+  "dashboardNoMoreWidgets": "Ez dago gehitzeko widget gehiagorik eskuragarri.",
+  "close": "Itxi",
+  "visualEditorBetaLabel": "Editore bisuala (beta)",
+  "sidebarVaultsMineLabel": "Nire koadernoak",
+  "sidebarVaultsSharedWithMeHeader": "Nirekin partekatuta",
+  "sidebarVaultSharedWithMe": "Nirekin partekatuta",
+  "sidebarVaultSharedByOwner": "Partekatuta · {owner}",
+  "@sidebarVaultSharedByOwner": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
+  "sidebarVaultSharedLabel": "Partekatuta",
+  "commandPaletteSearchHint": "Bilatu…",
+  "jiraCardSubtitle": "Konektatu Jira Cloud edo Server/DC issue-ak Kanbanekin sinkronizatzeko.",
+  "jiraConnectionsCount": "{count} konexio",
+  "jiraSourcesCount": "{count} iturri",
+  "jiraClientIdHelp1": "Atlassian Developer Console-eko OAuth 2.0 (3LO) app baten Client ID bat behar duzu.",
+  "jiraClientIdHelp2": "Folio-ren app ofiziala erabiltzen ari bazara, hau ez litzateke agertu behar.",
+  "jiraCallbackUrlHelp": "Atlassian-en erregistratu behar duzun Callback URL: http://127.0.0.1:45747/callback",
+  "jiraClientIdTip": "Aholkua: App-ean, konfiguratu OAuth 2.0 (3LO) eta kopiatu Client ID-a.",
+  "jiraBrowserAuthNotice": "Nabigatzailea irekiko da baimentzeko eta gero Foliora itzuliko gara.",
+  "jiraCloudTimeoutError": "Denbora-muga Jira Cloud-era konektatzean. Nabigatzailea irekitzen ez bada, egiaztatu Windows-ek kanpo-estekak irekitzea baimentzen duela.",
+  "jiraCloudConnectError": "Errorea Jira Cloud-era konektatzean: {error}",
+  "jiraConnectCloud": "Konektatu Cloud",
+  "jiraAddServerConnection": "Gehitu Server/DC",
+  "jiraNoConnections": "Ez dago konexiorik konfiguratuta.",
+  "jiraSourcesSectionTitle": "Iturriak (Kanban taularentzat)",
+  "jiraNewButton": "Berria",
+  "jiraNoSources": "Ez dago iturririk.",
+  "jiraSourceOptionsSummary": "Iruzkinak {comments} · Eranskinak {attachments} · Worklog {worklog}",
+  "jiraEditMappingTooltip": "Editatu mapping-a",
+  "jiraSearchByKeyOrName": "Idatzi bilatzeko (KEY edo izena)…",
+  "jiraWillSaveProjectKey": "projectKey=\"{key}\" gisa gordeko da.",
+  "jiraWillSaveBoardId": "boardId=\"{id}\" gisa gordeko da.",
+  "jiraLoadListsError": "Ezin izan dira proiektuak/taulak kargatu. IDak eskuz idatz ditzakezu.\n{error}",
+  "jiraConfigureSourceTitle": "Konfiguratu iturria",
+  "jiraImportPushOptions": "Inportazio/push aukerak",
+  "jiraComments": "Iruzkinak",
+  "jiraAttachments": "Eranskinak",
+  "jiraSubtasks": "Azpiatazak",
+  "jiraCustomFieldsLabel": "Custom fields (IDak, komaz)",
+  "jiraColumnMapping": "Kanban → Jira mapping-a (zutabeka)",
+  "jiraNoMappings": "Ez dago mapping-ik.",
+  "jiraAddMapping": "Gehitu mapping-a",
+  "jiraTransitionIdOptional": "transitionId (aukerakoa)",
+  "githubCardSubtitle": "Konektatu GitHub Issue-ak eta Pull Request-ak Kanbanekin sinkronizatzeko.",
+  "githubConnectionsCount": "{count} konexio",
+  "gitlabCardSubtitle": "Konektatu GitLab Issue-ak eta Merge Request-ak Kanbanekin sinkronizatzeko.",
+  "gitlabConnectionsCount": "{count} konexio",
+  "gitlabSourcesCount": "{count} proiektu",
+  "trelloCardSubtitle": "Konektatu Trello taula osoak Kanbanekin sinkronizatzeko.",
+  "trelloConnectionsCount": "{count} konexio",
+  "trelloSourcesCount": "{count} taula",
+  "youtrackCardSubtitle": "Konektatu JetBrains YouTrack atazak Kanbanekin sinkronizatzeko.",
+  "youtrackConnectionsCount": "{count} konexio",
+  "youtrackSourcesCount": "{count} iturri",
+  "youtrackProjectLabel": "Proiektua",
+  "visualEditorBeta": "Editore bisuala (beta)",
+  "closeTooltip": "Itxi",
+  "cmdSearchNotebook": "Bilatu koadernoan",
+  "cmdOpenSettings": "Ireki ezarpenak",
+  "cmdExitHomeEdit": "Irten hasierako ediziotik",
+  "cmdEditHomeBeta": "Editatu hasiera (beta)",
+  "adminConsoleTitle": "Administrazio-kontsola",
+  "forceSyncFailed": "Ezin izan da sinkronizazioa behartu: {error}",
+  "commandPaletteNoResults": "Emaitzarik ez",
+  "widgetTodayLabel": "Gaur · {date}",
+  "widgetNewPage": "Orrialde berria",
+  "widgetFolders": "Karpetak",
+  "devicePairAnotherDevice": "Beste gailu bat",
+  "devicePairLinkRequest": "Lotura-eskaera",
+  "devicePairWantsToLink": "{who} gailu hau lotu nahi du.",
+  "devicePairEmojiMatchHint": "Emoji berdin hauek agertzen dira beste gailuan? Bat badatoz, sakatu Lotu.",
+  "devicePairVisualMatchFailed": "Ezin izan da bat-etortze bisuala kalkulatu. Gaitu lotura-modua bi gailuetan eta saiatu berriro.",
+  "devicePairNoMatch": "Ez datoz bat",
+  "devicePairConfirmIdentity": "Berretsi nortasuna",
+  "devicePairConfirmIdentityBody": "Sartu koadernoaren pasahitza beste gailu batekin lotura onartzeko.",
+  "devicePairVerify": "Egiaztatu",
+  "devicePairLink": "Lotu",
+  "quillPromptCreate": "Sortu jarraibideak",
+  "quillPromptView": "Ikusi jarraibideak",
+  "quillPromptEdit": "Editatu jarraibideak",
+  "quillPromptNameHint": "Adib. Poesia idazlea",
+  "quillPromptSystemInstructions": "Sistemaren jarraibideak",
+  "quillPromptSystemHint": "Adib. Ingeleseko tutore aditua zara...",
+  "quillPromptBack": "Atzera",
+  "quillEnableFailed": "Ezin izan da gaitu",
+  "quillDefaultName": "Quill (Lehenetsia)",
+  "quillTranslatorName": "Itzultzailea",
+  "quillSummarizerName": "Laburtzailea",
+  "quillCoderName": "Programatzailea",
+  "aiChatEditorSelectionHeader": "--- Editorearen hautapena ---",
+  "adminNavDashboard": "Hasiera",
+  "adminNavUsers": "Erabiltzaileak",
+  "adminNavTeams": "Taldeak",
+  "adminNavModeration": "Moderazioa",
+  "adminNavPublishedPages": "Argitaratutako orriak",
+  "adminNavDiagnostics": "Diagnostikoak",
+  "adminNavBilling": "Fakturazioa",
+  "adminNavCatalog": "Txantiloien katalogoa",
+  "adminNavFamilies": "Familiak",
+  "adminNavCollab": "Elkarlan-gelak",
+  "adminNavVaultShares": "Vault shares",
+  "adminNavAuditLog": "Auditoria",
+  "adminNavAppSettings": "Aplikazioaren ezarpenak",
+  "adminBrandHeader": "Admin",
+  "adminObjectExplorerTitle": "Objektu esploratzailea",
+  "adminNoAccessMessage": "Ez duzu administrazio kontsolarako sarbiderik.",
+  "adminUsersSearchHint": "Bilatu emailaren edo uid-aren arabera",
+  "adminNoResults": "Emaitzarik ez",
+  "adminStaffBadge": "staff",
+  "adminTabOverview": "Laburpena",
+  "adminTabStorage": "Biltegiratzea",
+  "adminSectionFolioCloudQa": "Folio Cloud QA",
+  "adminSectionAdminRole": "Administratzaile rola",
+  "adminGrantCloudQaTitle": "Eman Cloud QA",
+  "adminGrantCloudQaBody": "Erabiltzaile honentzat admin_override aktibatzen du Folio Cloud-en funtzio guztiekin.",
+  "adminActionGrant": "Eman",
+  "adminRevokeCloudQaTitle": "Kendu Cloud QA",
+  "adminRevokeCloudQaBody": "Erabiltzaile honentzat Folio Cloud-eko admin_override kentzen du.",
+  "adminActionRevoke": "Kendu",
+  "adminCloudQaGranted": "Cloud QA emanda",
+  "adminCloudQaRevoked": "Cloud QA kenduta",
+  "adminErrorWithDetails": "Errorea: {error}",
+  "adminButtonGrantCloudQa": "Grant Cloud QA",
+  "adminButtonRevoke": "Revoke",
+  "adminOnlyBillingAdminCanGrant": "BILLING_ADMIN / SUPER_ADMIN erabiltzaileek soilik eman dezakete Cloud QA.",
+  "adminNoActiveOrganizations": "Ez dago erakunde aktiborik.",
+  "adminQaOverrideBadge": "QA override",
+  "adminNoOverrideBadge": "override gabe",
+  "adminOnlySuperAdminCanAssignRoles": "SUPER_ADMIN erabiltzaileak soilik esleitu ditzake rolak.",
+  "adminPurgeVaultTitle": "Ezabatu koadernoa behin betiko",
+  "adminPurgeVaultBody": "Honek \"{vaultId}\" behin betiko ezabatzen du erabiltzaile honen cloud sync-etik (biltegiratzea + metadatuak). Ezin da desegin.",
+  "adminActionPurge": "Ezabatu behin betiko",
+  "adminDeleteBackupTitle": "Ezabatu babeskopia",
+  "adminDeleteBackupBody": "Honek \"{vaultId}\"(r)en hodeiko babeskopia ezabatzen du. Ezin da desegin.",
+  "adminActionDelete": "Ezabatu",
+  "adminResetCloudSyncTitle": "Berrezarri hodeiko sinkronizazioa",
+  "adminResetCloudSyncBody": "Honek erabiltzaile honen hodeiko sinkronizazioko {vaultsCount} koaderno eta {backupsCount} babeskopia ezabatzen ditu, bere vault shareak baliogabetzen ditu eta erabilera 0an jartzen du. Kontu hondatu baterako azken aukera da — ezin da desegin.",
+  "adminActionReset": "Berrezarri",
+  "adminResetCloudSyncSuccess": "Berrezarpena OK: {vaultsPurged} koaderno, {backupsDeleted} babeskopia.",
+  "adminStorageUsageTitle": "Biltegiratze erabilera",
+  "adminStorageUsedOfQuota": "{quota}(e)tik {used}",
+  "adminStorageCountsSummary": "{vaultCount} koaderno ({trashedCount} zakarrontzian) · {backupCount} babeskopia ({blobCount} blob)",
+  "adminSyncVaultsTitle": "Koadernoak (hodeiko sinkronizazioa)",
+  "adminNoSyncVaults": "Ez dago sinkronizatutako koadernorik.",
+  "adminBackupsTitle": "Babeskopiak",
+  "adminNoBackups": "Ez dago babeskopiarik.",
+  "adminDangerZoneTitle": "Arrisku-eremua",
+  "adminDangerZoneBody": "Erabiltzaile honen hodeiko sinkronizazioa berrezarri: koaderno eta babeskopia guztiak ezabatzen ditu, eta erabilera 0an jartzen du.",
+  "adminTrashedLabel": "zakarrontzian",
+  "adminMoveToTrashTooltip": "Eraman zakarrontzira",
+  "adminRestoreTooltip": "Berrezarri",
+  "adminPurgeForeverTooltip": "Ezabatu behin betiko",
+  "adminGoToUserTitle": "Joan erabiltzaile baten karpetara",
+  "adminGoToUserTooltip": "Joan erabiltzaile batera",
+  "adminActionGoTo": "Joan",
+  "adminDeleteObjectTitle": "Ezabatu objektua",
+  "adminDeleteObjectBody": "Honek \"{key}\" zuzenean ezabatzen du bucket-etik. Ezin da desegin.",
+  "adminLoadMore": "Kargatu gehiago",
+  "adminPaginationSummary": "{page}. orria {totalPages}(e)tik · {total} guztira",
+  "adminOrgsSearchHint": "Bilatu izenaren, slug-aren edo id-aren arabera",
+  "adminNoTeams": "Ez dago talderik.",
+  "adminOrgSummary": "{type} · {plan} · {memberCount} kide · postu {seats}",
+  "adminTeamFallbackTitle": "Taldea",
+  "adminGrantCloudQaOrgTitle": "Eman Cloud QA (taldea)",
+  "adminGrantCloudQaOrgBody": "admin_override aktibatzen du TEAM planarekin eta funtzio guztiekin (postu lehenetsiak: 10).",
+  "adminRevokeCloudQaOrgTitle": "Kendu Cloud QA (taldea)",
+  "adminRevokeCloudQaOrgBody": "admin_override kentzen du. Stripe aktiborik ez badago, taldea FREE planera itzultzen da.",
+  "adminAddInkTitle": "Gehitu tinta taldeari",
+  "adminAddInkBody": "1000 tanta erosi gehitzen dizkio org_ink-i.",
+  "adminActionAddInk": "Gehitu tinta",
+  "adminAddInkButton": "+1000 tinta",
+  "adminMembersCount": "Kideak ({count})",
+  "adminModerationReportsTitle": "Txantiloien salaketak",
+  "adminRefreshOpenReportsTitle": "Eguneratu irekita dauden salaketak",
+  "adminNoOpenReports": "Ez dago salaketa irekirik.",
+  "adminDeleteTemplateButton": "Ezabatu txantiloia",
+  "adminResolveButton": "Ebatzi",
+  "adminUserLookupTitle": "Erabiltzailea (bilaketa)",
+  "adminEmailOrUidLabel": "Emaila edo uid",
+  "adminAllowUploads": "Baimendu igoerak",
+  "adminBanUploads": "Debekatu igoerak",
+  "adminReactivateUser": "Berraktibatu",
+  "adminSuspendUser": "Eten",
+  "adminPurgeTemplatesButton": "Ezabatu txantiloiak",
+  "adminPurgeTemplatesConfirm": "Erabiltzaile honen komunitate-txantiloi guztiak ezabatu?",
+  "adminTemplatesPurged": "Txantiloiak ezabatuta",
+  "adminDeleteTemplateByIdTitle": "Ezabatu txantiloia ID bidez",
+  "adminTemplateDeleted": "Txantiloia ezabatuta",
+  "adminTabByUser": "Erabiltzailearen arabera",
+  "adminTabWebhookEvents": "Webhook gertaerak",
+  "adminGrantCloudQaForUidBody": "{uid}(r)entzat Folio Cloud-eko admin_override aktibatzen du.",
+  "adminRevokeCloudQaForUidBody": "{uid}(r)entzat Folio Cloud-eko admin_override kentzen du.",
+  "adminUidInputLabel": "erabiltzailearen uid-a",
+  "adminNoWebhookEvents": "Ez dago prozesatutako gertaerarik.",
+  "adminNoVaultShareLinks": "Ez dago vault share estekarik.",
+  "adminActiveOnlyFilter": "Aktiboak soilik",
+  "adminUnpublishPageTitle": "Kendu orriaren argitalpena",
+  "adminUnpublishPageBody": "Honek \"{path}\" orri argitaratua ezabatzen du. Ezin da desegin.",
+  "adminActionUnpublish": "Kendu argitalpena",
+  "adminFilterByOwnerUidHint": "Iragazi jabearen uid-aren arabera",
+  "adminNoPublishedPages": "Ez dago argitaratutako orririk.",
+  "adminNoFamilies": "Ez dago familiarik.",
+  "adminFamilySummary": "{memberCount} kide · sortua {createdAt}",
+  "adminFamilyOfTitle": "{ownerUid}(r)en familia",
+  "adminNoDiagnosticReports": "Ez dago txostenik.",
+  "adminFilterOpen": "Irekiak",
+  "adminFilterResolved": "Ebatzita",
+  "adminFilterAll": "Denak",
+  "adminDiagnosticFallbackTitle": "diagnostikoa",
+  "adminDiagnosticDialogFallbackTitle": "Diagnostikoa",
+  "adminUserNoteLabel": "Erabiltzailearen oharra:",
+  "adminLogLabel": "Egunkaria:",
+  "adminReopenButton": "Berrireki",
+  "adminMarkResolvedButton": "Markatu ebatzita gisa",
+  "adminWelcomeTitle": "Ongi etorri administrazio kontsolara",
+  "adminCurrentRole": "Uneko rola: {role}",
+  "adminTotalUsersLabel": "Erabiltzaile guztiak",
+  "adminOpenDiagnosticsLabel": "Diagnostiko irekiak",
+  "adminNoCollabRooms": "Ez dago elkarlan-gelarik.",
+  "adminUntitledFallback": "(izenbururik gabe)",
+  "adminCollabRoomDialogTitle": "Elkarlan-gela",
+  "adminEditTemplateTitle": "Editatu txantiloia",
+  "adminNameLabel": "Izena",
+  "adminDescriptionLabel": "Deskribapena",
+  "adminCategoryLabel": "Kategoria",
+  "adminSearchTemplatesHint": "Bilatu txantiloiak",
+  "adminNoTemplates": "Ez dago txantiloirik.",
+  "adminNoAuditActivity": "Oraindik ez dago erregistratutako jarduerarik.",
+  "adminEditSettingTitle": "Editatu {key}",
+  "adminValueLabel": "Balioa ({valueType})",
+  "adminSettingWarningBody": "Honek ekoizpeneko aplikazioari eragin diezaioke erabiltzaile guztientzat.",
+  "adminClearOverrideTitle": "Kendu {key}(r)en override-a",
+  "adminClearOverrideBody": "Berriz erabiliko du application.yml/inguruneko aldagaien balioa.",
+  "adminActionClearOverride": "Kendu override-a",
+  "adminActionEdit": "Editatu",
+  "adminCurrentValueLabel": "uneko balioa",
+  "adminOverrideSuffix": "override",
+  "adminDefaultSuffix": "lehenetsia",
+  "whisperModelBase": "Base q8 (orekatua)",
+  "whisperModelSmall": "Small q8 (zehaztasun handia, disko gutxiago)",
+  "whisperModelMedium": "Medium q8",
+  "whisperModelTurbo": "Large v3 Turbo q8",
+  "whisperDownloadingEngine": "Transkripzio-motorra deskargatzen…",
+  "whisperInstallingEngine": "Transkripzio-motorra instalatzen…",
+  "whisperEngineReady": "Motorra prest",
+  "whisperDownloadingModel": "{model} eredua deskargatzen (~{sizeMb} MB)…",
+  "whisperModelReady": "{model} eredua prest",
+  "whisperErrorPreparingModel": "Ezin izan da {model} eredua prestatu: {error}",
+  "whisperErrorEngineNotInitialized": "Transkripzio-motorra hasieratu gabe.",
+  "whisperErrorCliNotFound": "Ez da whisper-cli aurkitu hemen: {path}.",
+  "whisperErrorModelNotFound": "Ez da eredua aurkitu hemen: {path}.",
+  "whisperErrorCliFailed": "whisper-cli-k huts egin du (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoOutputFile": "Whisper-ek ez du irteera-fitxategirik sortu: {path}",
+  "whisperErrorRunningCli": "Errorea whisper-cli exekutatzean: {error}",
+  "whisperErrorLocalEngineNotInitialized": "Diarizazio-motor lokala hasieratu gabe.",
+  "whisperErrorPreparingLocalDiarization": "Ezin izan da Whisper lokala diarizaziorako prestatu: {error}",
+  "whisperErrorCliFailedTdrz": "whisper-cli tdrz-k huts egin du (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoSpeakerMarkers": "Whisper tdrz-k ez du hiztun-markarik itzuli zati honetan.",
+  "whisperErrorRunningCliTdrz": "Errorea whisper-cli tdrz exekutatzean: {error}",
+  "whisperErrorDownloadFailed": "Deskarga hutsegitea ({status}) hemendik: {url}",
+  "whisperErrorZipExtractWindows": "Ezin izan da ZIPa erauzi Windows-en. tar: {tarExit}{tarErr}; powershell: {psExit}{psErr}",
+  "whisperErrorZipExtractUnix": "Ezin izan da whisper-en ZIPa erauzi.",
+  "whisperErrorBinaryNotFoundAfterExtract": "Ez da {binaryName} aurkitu {path} erauzi ondoren",
+  "aiChatLastMeetingHeader": "--- Orrialdeko azken bilera-oharra ---",
+  "vaultUnencrypted": "Zifratu gabe",
+  "settingsOverviewSubtitle": "Pertsonalizatu aplikazioa, kudeatu segurtasuna, IA, kopiak eta integrazioak panel bakarrean.",
+  "settingsOverviewPlan": "Plana",
+  "settingsOverviewVault": "Koadernoa",
+  "settingsOverviewFormat": "Bertsioa",
+  "settingsOverviewStatus": "Egoera",
+  "youTrackConnectionNotFound": "Ez da aurkitu YouTrack konexiorik ataza honetarako. Konektatu berriro YouTrack Ezarpenak → Integrazioak atalean.",
+  "jiraConnectionNotFound": "Ez da aurkitu Jira konexiorik ataza honetarako. Konektatu berriro Jira Ezarpenak → Integrazioak atalean.",
+  "deviceSyncEnabled": "Sinkronizazioa aktibatuta.",
+  "deviceSyncLinkCodeExpired": "Lotura-kodea iraungi da edo jada ez dator bat.",
+  "deviceSyncLanDiscoveryFailed": "Ezin izan da LAN bilaketa hasi: {error}",
+  "deviceSyncRetryingLan": "Sinkronizazioaren LAN konektibitatea berriro saiatzen...",
+  "deviceSyncFolioDevice": "Folio gailua",
+  "deviceSyncWrongLinkCode": "Lotura-saiakera: kode okerra edo gailu honetan kode aktiborik gabe. Sortu kode bat hemen eta erabili bera beste gailuan.",
+  "deviceSyncServerStartFailed": "Ezin izan da sinkronizazio-zerbitzaria hasi: {error}",
+  "deviceSyncPeerKeyChanged": "Segurtasun-abisua: \"{name}\" gailuaren giltza aldatu da. Sinkronizazioa pausatuta dago gailu horrekin; lotu berriro aldaketan fidatzen bazara.",
+  "deviceSyncLinkedRemote": "Gailua urruneko eskaeratik lotuta.",
+  "deviceSyncLinkedOk": "Gailua ongi lotuta.",
+  "collabMediaUploadError": "Errorea gelara igotzean: {error}",
+  "collabMediaPreparingEncryption": "Zifratzea prestatzen…",
+  "collabMediaUploadingProgress": "Igotzen {percent}% · ETA {eta}"
 }

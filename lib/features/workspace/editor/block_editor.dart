@@ -31,7 +31,13 @@ import 'package:intl/intl.dart';
 import '../../../app/app_settings.dart';
 import '../../../config/models/editor_layout_tokens.dart';
 import '../../../config/models/token_ref.dart';
+import '../../../theme_engine/accessibility_resolver.dart';
 import '../../../theme_engine/callout_style_presets.dart';
+import 'command_palette/command_palette_overlay.dart';
+import 'command_palette/palette_command.dart';
+import 'command_palette/palette_command_registry.dart';
+import 'smart_templates/smart_template_definitions.dart';
+import 'smart_templates/smart_template_flow_overlay.dart';
 import '../../../services/folio_cloud/folio_storage_transport.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
@@ -50,6 +56,8 @@ import '../../../models/folio_drive_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_canvas_data.dart';
 import '../../../models/folio_page.dart';
+import '../../../models/folio_columns_data.dart';
+import '../../../models/folio_section.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../../../session/vault_session.dart';
@@ -125,6 +133,13 @@ part 'block_editor/block_editor_state_multi_select.dart';
 part 'block_editor/block_editor_state_format_toolbar.dart';
 part 'block_editor/block_list_row.dart';
 part 'block_editor/special_row_chrome.dart';
+part 'block_editor/block_accent_frame.dart';
+part 'block_editor/editor_shortcuts_hint.dart';
+part 'block_editor/section_header_row.dart';
+part 'block_editor/command_palette_ai_provider.dart';
+part 'block_editor/command_palette_overlay_host.dart';
+part 'block_editor/ai_selection_popover_host.dart';
+part 'block_editor/smart_template_flow_host.dart';
 part 'block_editor/state_tail_and_fill.dart';
 
 String? _slashFilterFromBlockText(String text) =>
@@ -200,100 +215,6 @@ const _blockBackgroundRoles = <String?>[
   'error',
 ];
 
-List<BlockTypeDef> _inlineSlashActionCatalog(AppLocalizations l10n) => [
-  BlockTypeDef(
-    key: 'cmd_ai_summarize',
-    label: l10n.blockEditorCmdAiSummarize,
-    hint: l10n.blockEditorCmdAiSummarizeHint,
-    icon: Icons.summarize_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_continue',
-    label: l10n.blockEditorCmdAiContinue,
-    hint: l10n.blockEditorCmdAiContinueHint,
-    icon: Icons.auto_awesome_motion_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_explain',
-    label: l10n.blockEditorCmdAiExplain,
-    hint: l10n.blockEditorCmdAiExplainHint,
-    icon: Icons.help_outline_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_action_items',
-    label: l10n.blockEditorCmdAiActionItems,
-    hint: l10n.blockEditorCmdAiActionItemsHint,
-    icon: Icons.checklist_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_todo',
-    label: l10n.blockEditorCmdAiTodo,
-    hint: l10n.blockEditorCmdAiTodoHint,
-    icon: Icons.task_alt_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_mindmap',
-    label: l10n.blockEditorCmdAiMindmap,
-    hint: l10n.blockEditorCmdAiMindmapHint,
-    icon: Icons.account_tree_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_table',
-    label: l10n.blockEditorCmdAiTable,
-    hint: l10n.blockEditorCmdAiTableHint,
-    icon: Icons.table_chart_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_improve',
-    label: l10n.blockEditorCmdAiImprove,
-    hint: l10n.blockEditorCmdAiImproveHint,
-    icon: Icons.edit_note_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_ai_translate',
-    label: l10n.blockEditorCmdAiTranslate,
-    hint: l10n.blockEditorCmdAiTranslateHint,
-    icon: Icons.translate_rounded,
-    section: BlockTypeSection.aiQuill,
-  ),
-  BlockTypeDef(
-    key: 'cmd_duplicate_prev',
-    label: l10n.blockEditorCmdDuplicatePrev,
-    hint: l10n.blockEditorCmdDuplicatePrevHint,
-    icon: Icons.copy_rounded,
-    section: BlockTypeSection.advanced,
-  ),
-  BlockTypeDef(
-    key: 'cmd_insert_date',
-    label: l10n.blockEditorCmdInsertDate,
-    hint: l10n.blockEditorCmdInsertDateHint,
-    icon: Icons.event_rounded,
-    section: BlockTypeSection.advanced,
-  ),
-  BlockTypeDef(
-    key: 'cmd_mention_page',
-    label: l10n.blockEditorCmdMentionPage,
-    hint: l10n.blockEditorCmdMentionPageHint,
-    icon: Icons.insert_link_outlined,
-    section: BlockTypeSection.advanced,
-  ),
-  BlockTypeDef(
-    key: 'cmd_turn_into',
-    label: l10n.blockEditorCmdTurnInto,
-    hint: l10n.blockEditorCmdTurnIntoHint,
-    icon: Icons.swap_horiz_rounded,
-    section: BlockTypeSection.advanced,
-  ),
-];
-
 enum _MeetingAiPayload { transcript, audio, both }
 
 class _CollabUploadProgress {
@@ -319,6 +240,7 @@ class BlockEditor extends StatefulWidget {
     this.folioCloudEntitlements,
     this.onAiSlashCommand,
     this.editorLayoutTokens,
+    this.extraPaletteCommandsProvider,
   });
 
   final VaultSession session;
@@ -331,6 +253,14 @@ class BlockEditor extends StatefulWidget {
   /// exactamente los literales hardcodeados de siempre — ver
   /// `BlockEditorState._layoutTokens`.
   final EditorLayoutTokens? editorLayoutTokens;
+
+  /// Fase C3 del rediseño UX del editor — comandos de nivel-workspace (abrir
+  /// búsqueda, crear página, ajustes, ...) para el Command Palette. El
+  /// editor no conoce `VaultSession`/`AppSettings` a ese nivel ni los
+  /// controllers de tema/layout — quien sí los tiene (`workspace_page.dart`)
+  /// inyecta este proveedor. `null` = el Palette solo ofrece los comandos de
+  /// IA que ya construye internamente (ver `command_palette_ai_provider.dart`).
+  final List<PaletteCommand> Function()? extraPaletteCommandsProvider;
 
   /// Comandos slash `cmd_ai_*`: el editor envía intención + texto; el workspace ejecuta Quill.
   final Future<void> Function(FolioAiSlashParams params)? onAiSlashCommand;

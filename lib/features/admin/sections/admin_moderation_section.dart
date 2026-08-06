@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/folio_admin_api.dart';
 
 /// Moderación community (reports, ban, suspend) — migrada desde Settings → Admin.
@@ -84,15 +85,16 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Reportes de templates', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminModerationReportsTitle, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.flag_outlined),
-          title: const Text('Actualizar reportes abiertos'),
+          title: Text(l10n.adminRefreshOpenReportsTitle),
           trailing: _reportsBusy
               ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : const Icon(Icons.refresh_rounded),
@@ -101,7 +103,7 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
         if (_reportsError != null)
           Text(_reportsError!, style: TextStyle(color: scheme.error)),
         if (_reports.isEmpty && !_reportsBusy)
-          Text('Sin reportes abiertos.', style: TextStyle(color: scheme.onSurfaceVariant)),
+          Text(l10n.adminNoOpenReports, style: TextStyle(color: scheme.onSurfaceVariant)),
         for (final report in _reports) ...[
           const Divider(),
           ListTile(
@@ -133,7 +135,7 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                   if (reportId != null) await _api.resolveReport(reportId);
                   await _loadReports();
                 },
-                child: const Text('Borrar template'),
+                child: Text(l10n.adminDeleteTemplateButton),
               ),
               FilledButton.tonal(
                 onPressed: () async {
@@ -142,19 +144,19 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                   await _api.resolveReport(reportId);
                   await _loadReports();
                 },
-                child: const Text('Resolver'),
+                child: Text(l10n.adminResolveButton),
               ),
             ],
           ),
         ],
         const SizedBox(height: 24),
-        Text('Usuario (lookup)', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminUserLookupTitle, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         TextField(
           controller: _userQuery,
-          decoration: const InputDecoration(
-            labelText: 'Email o uid',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.adminEmailOrUidLabel,
+            border: const OutlineInputBorder(),
             isDense: true,
           ),
           onSubmitted: (_) => _lookupUser(),
@@ -162,7 +164,7 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.search),
-          title: const Text('Buscar'),
+          title: Text(l10n.search),
           trailing: _lookupBusy
               ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : null,
@@ -197,8 +199,8 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                 },
                 child: Text(
                   _lookup!['communityTemplateUploadBanned'] == true
-                      ? 'Permitir uploads'
-                      : 'Ban uploads',
+                      ? l10n.adminAllowUploads
+                      : l10n.adminBanUploads,
                 ),
               ),
               OutlinedButton(
@@ -215,8 +217,8 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                 },
                 child: Text(
                   (_lookup!['status']?.toString() ?? '') == 'suspended'
-                      ? 'Reactivar'
-                      : 'Suspender',
+                      ? l10n.adminReactivateUser
+                      : l10n.adminSuspendUser,
                 ),
               ),
               OutlinedButton(
@@ -226,18 +228,16 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                   final go = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => FolioDialog(
-                      title: const Text('Purgar templates'),
-                      content: const Text(
-                        '¿Borrar todos los community templates de este usuario?',
-                      ),
+                      title: Text(l10n.adminPurgeTemplatesButton),
+                      content: Text(l10n.adminPurgeTemplatesConfirm),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancelar'),
+                          child: Text(l10n.cancel),
                         ),
                         FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Purgar'),
+                          child: Text(l10n.adminActionPurge),
                         ),
                       ],
                     ),
@@ -246,17 +246,17 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
                   await _api.purgeCommunityTemplatesByOwner(uid: uid);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Templates purgados')),
+                      SnackBar(content: Text(l10n.adminTemplatesPurged)),
                     );
                   }
                 },
-                child: const Text('Purgar templates'),
+                child: Text(l10n.adminPurgeTemplatesButton),
               ),
             ],
           ),
         ],
         const SizedBox(height: 24),
-        Text('Borrar template por ID', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminDeleteTemplateByIdTitle, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         TextField(
           controller: _templateId,
@@ -269,7 +269,7 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.delete_outline),
-          title: const Text('Borrar'),
+          title: Text(l10n.adminActionDelete),
           onTap: () async {
             final id = _templateId.text.trim();
             if (id.isEmpty) return;
@@ -277,7 +277,7 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
             _templateId.clear();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Template borrado')),
+                SnackBar(content: Text(l10n.adminTemplateDeleted)),
               );
             }
           },

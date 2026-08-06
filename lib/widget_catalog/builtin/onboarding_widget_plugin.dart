@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../data/vault_paths.dart';
@@ -15,7 +16,7 @@ class OnboardingWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'onboarding';
 
   @override
-  String displayName(BuildContext context) => 'Primeros pasos';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetOnboarding;
 
   @override
   IconData get icon => Icons.flag_outlined;
@@ -107,12 +108,13 @@ class _OnboardingChecklistState extends State<_OnboardingChecklist> {
         return FutureBuilder<bool>(
           future: _visitedRecentsFuture,
           builder: (context, snapshot) {
+            final l10n = AppLocalizations.of(context);
             final visitedRecents = snapshot.data ?? false;
             final allDone = hasPages && hasTasks && visitedRecents;
 
             if (allDone) {
-              return const BuiltinWidgetEmpty(
-                message: '¡Completaste los primeros pasos!',
+              return BuiltinWidgetEmpty(
+                message: l10n.widgetOnboardingAllDone,
               );
             }
 
@@ -121,7 +123,7 @@ class _OnboardingChecklistState extends State<_OnboardingChecklist> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Empieza con lo básico:',
+                  l10n.widgetOnboardingIntro,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -129,18 +131,18 @@ class _OnboardingChecklistState extends State<_OnboardingChecklist> {
                 const SizedBox(height: 6),
                 _stepRow(
                   context: context,
-                  label: 'Crear una página',
+                  label: l10n.widgetOnboardingStepCreatePage,
                   done: hasPages,
                   onTap: hasPages ? null : widget.ctx.onCreatePage,
                 ),
                 _stepRow(
                   context: context,
-                  label: 'Añadir una tarea',
+                  label: l10n.widgetOnboardingStepAddTask,
                   done: hasTasks,
                 ),
                 _stepRow(
                   context: context,
-                  label: 'Visitar una página reciente',
+                  label: l10n.widgetOnboardingStepVisitRecent,
                   done: visitedRecents,
                 ),
               ],

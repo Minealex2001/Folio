@@ -389,6 +389,8 @@ mixin _BlockContextMenu on State<BlockEditor> {
       st._s.updateBlockIcon(page.id, b.id, '🚨');
     } else if (v == 'callout_tone_note') {
       st._s.updateBlockIcon(page.id, b.id, 'ℹ️');
+    } else if (v == 'ungroup_columns') {
+      st._s.ungroupColumnsBlock(page.id, b.id);
     } else if (v == 'sync_create') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -798,6 +800,15 @@ mixin _BlockContextMenu on State<BlockEditor> {
             icon: Icons.subtitles_rounded,
             label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
           ),
+      ],
+      if (b.type == 'column_list') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'ungroup_columns',
+          icon: Icons.view_agenda_outlined,
+          label: l10n.blockEditorUngroupColumns,
+        ),
       ],
       if (b.type == 'table' && data != null) ...[
         const PopupMenuDivider(),

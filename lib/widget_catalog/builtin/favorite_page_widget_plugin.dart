@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -14,7 +15,7 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'favorite_page';
 
   @override
-  String displayName(BuildContext context) => 'Página favorita';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetFavoritePage;
 
   @override
   IconData get icon => Icons.star_outline_rounded;
@@ -47,6 +48,7 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
         (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
       );
 
+    final l10n = AppLocalizations.of(context);
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
@@ -55,11 +57,11 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.star_rounded),
               title: Text(
-                page.title.trim().isEmpty ? 'Sin título' : page.title,
+                page.title.trim().isEmpty ? l10n.untitled : page.title,
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.close_rounded, size: 18),
-                tooltip: 'Quitar',
+                tooltip: l10n.remove,
                 onPressed: () {
                   ctx.onUpdateInstanceSettings?.call(instance.instanceId, {
                     ...instance.settings,
@@ -70,11 +72,11 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
               onTap: () => ctx.onSelectPage?.call(page.id),
             )
           : pages.isEmpty
-          ? const BuiltinWidgetEmpty(message: 'No hay páginas en el vault.')
+          ? BuiltinWidgetEmpty(message: l10n.widgetFavoritePageEmpty)
           : DropdownButtonFormField<String>(
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Elegir página',
+              decoration: InputDecoration(
+                labelText: l10n.widgetFavoritePageChooseLabel,
                 isDense: true,
               ),
               items: [
@@ -82,7 +84,7 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
                   DropdownMenuItem(
                     value: p.id,
                     child: Text(
-                      p.title.trim().isEmpty ? 'Sin título' : p.title,
+                      p.title.trim().isEmpty ? l10n.untitled : p.title,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -106,11 +108,12 @@ class FavoritePageWidgetPlugin extends FolioWidgetPlugin {
   ) {
     final settings = Map<String, dynamic>.from(instance.settings);
     final controller = TextEditingController(text: _pageIdOf(instance) ?? '');
+    final l10n = AppLocalizations.of(context);
     return TextField(
       controller: controller,
-      decoration: const InputDecoration(
-        labelText: 'ID de página',
-        hintText: 'Id de la página a pinear',
+      decoration: InputDecoration(
+        labelText: l10n.widgetFavoritePageIdLabel,
+        hintText: l10n.widgetFavoritePageIdHint,
       ),
       onChanged: (v) {
         settings['pageId'] = v.trim();

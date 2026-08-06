@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../selectable.dart';
 
 /// Sección "color y opacidad" del inspector — solo aplica a instancias de
@@ -32,12 +33,12 @@ class ColorOpacityEditor extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text('Color', style: Theme.of(context).textTheme.titleSmall),
+              child: Text(AppLocalizations.of(context).inspectorColor, style: Theme.of(context).textTheme.titleSmall),
             ),
             if (currentColor != null)
               TextButton(
                 onPressed: () => selectable.setColorArgb(null),
-                child: const Text('Restablecer'),
+                child: Text(AppLocalizations.of(context).inspectorReset),
               ),
           ],
         ),
@@ -55,7 +56,7 @@ class ColorOpacityEditor extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Text('Opacidad', style: Theme.of(context).textTheme.titleSmall),
+        Text(AppLocalizations.of(context).inspectorOpacity, style: Theme.of(context).textTheme.titleSmall),
         Slider(
           value: currentOpacity.clamp(0.0, 1.0),
           onChanged: (v) => selectable.setOpacity(v),

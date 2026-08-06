@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -13,7 +14,7 @@ class CreatePageWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'create_page';
 
   @override
-  String displayName(BuildContext context) => 'Crear página';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetCreatePage;
 
   @override
   IconData get icon => Icons.add_rounded;
@@ -31,7 +32,7 @@ class CreatePageWidgetPlugin extends FolioWidgetPlugin {
         child: FilledButton.tonalIcon(
           onPressed: ctx.onCreatePage,
           icon: const Icon(Icons.add_rounded),
-          label: const Text('Nueva página'),
+          label: Text(AppLocalizations.of(context).widgetNewPageAction),
         ),
       ),
     );

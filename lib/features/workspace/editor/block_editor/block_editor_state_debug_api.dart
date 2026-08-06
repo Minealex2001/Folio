@@ -142,6 +142,109 @@ mixin _BlockEditorDebugApi on State<BlockEditor> {
     return qc.selection.baseOffset;
   }
 
+  /// Solo pruebas: pide foco directamente para el `FocusNode` de un bloque
+  /// por id, sin depender de que un `tester.tap` real llegue a impactar el
+  /// widget correcto (ver nota en `debugSendKeyEventToFocusedBlockForTest`).
+  @visibleForTesting
+  void debugRequestFocusForBlockForTest(String blockId) {
+    final st = _debugSelf;
+    final idx = st._controllerBlockIds.indexOf(blockId);
+    if (idx < 0 || idx >= st._focusNodes.length) return;
+    st._focusNodes[idx].requestFocus();
+  }
+
+  /// Solo pruebas: id del bloque cuyo `FocusNode` tiene el foco ahora mismo,
+  /// o `null` si ninguno lo tiene — mismo patrón de búsqueda ya usado por
+  /// `debugInvokeTryInsertNewBlockForTest`, extraído para verificar destino
+  /// de foco tras crear/duplicar/eliminar (Fase B3 del rediseño UX).
+  @visibleForTesting
+  String? debugFocusedBlockIdForTest() {
+    final st = _debugSelf;
+    for (var i = 0; i < st._focusNodes.length; i++) {
+      if (i >= st._controllerBlockIds.length) continue;
+      if (st._focusNodes[i].hasFocus) return st._controllerBlockIds[i];
+    }
+    return null;
+  }
+
+  /// Solo pruebas: invoca directamente `_onBlockMenuChosen` (el menú "⋮" de
+  /// un bloque) sin tener que localizar/pulsar el `PopupMenuButton` real,
+  /// cuya visibilidad depende del estado de hover — frágil en un harness
+  /// sin ratón real. Mismo patrón que el resto de hooks de este archivo.
+  @visibleForTesting
+  void debugInvokeBlockMenuActionForTest(
+    String action,
+    FolioPage page,
+    FolioBlock block,
+    int index,
+  ) {
+    final st = _debugSelf;
+    st._onBlockMenuChosen(action, st.context, page, block, index);
+  }
+
+  /// Solo pruebas: selecciona un conjunto de bloques por id directamente,
+  /// sin depender de simular shift/ctrl-click reales (frágil en este
+  /// harness, ver nota en `debugSendKeyEventToFocusedBlockForTest`).
+  @visibleForTesting
+  void debugSelectBlocksForTest(Iterable<String> blockIds) {
+    final st = _debugSelf;
+    st.setState(() {
+      st._selectedBlockIds
+        ..clear()
+        ..addAll(blockIds);
+    });
+  }
+
+  /// Solo pruebas: expone `_isContiguousSelection` (Fases E1-E3).
+  @visibleForTesting
+  bool debugIsContiguousSelectionForTest(FolioPage page) =>
+      _debugSelf._isContiguousSelection(page, _debugSelf._selectedBlockIds);
+
+  /// Solo pruebas: expone `_convertSelectionToColumns` (Fase E2).
+  @visibleForTesting
+  void debugConvertSelectionToColumnsForTest(FolioPage page, int columnCount) =>
+      _debugSelf._convertSelectionToColumns(page, columnCount);
+
+  /// Solo pruebas: expone `_groupSelectionIntoSection` (Fase E3).
+  @visibleForTesting
+  void debugGroupSelectionIntoSectionForTest(
+    FolioPage page, {
+    required String title,
+  }) => _debugSelf._groupSelectionIntoSection(page, title: title);
+
+  /// Solo pruebas: expone `_aiPaletteCommands` (Fase C1) — comandos de IA
+  /// del Command Palette, reutilizando el mismo pipeline de ejecución que
+  /// el slash menu (`_dispatchAiSlashFromToolbar`).
+  @visibleForTesting
+  List<PaletteCommand> debugAiPaletteCommandsForTest(AppLocalizations l10n) =>
+      _debugSelf._aiPaletteCommands(l10n);
+
+  /// Solo pruebas: enruta un [KeyEvent] arbitrario a través del mismo
+  /// `_handleBlockKey` que `FocusNode.onKeyEvent` usa en producción para el
+  /// bloque actualmente enfocado — evita la fragilidad observada al
+  /// simular teclado real vía `tester.sendKeyEvent` en este harness (el
+  /// foco del `Listener`/`GestureDetector` que envuelve cada fila no
+  /// siempre coincide con el `FocusNode` real tras un `tester.tap`). Usado
+  /// por los tests de caracterización de gestos (Fase B1 del rediseño UX).
+  @visibleForTesting
+  KeyEventResult? debugSendKeyEventToFocusedBlockForTest(KeyEvent event) {
+    final st = _debugSelf;
+    final page = st._s.selectedPage;
+    if (page == null) return null;
+    for (var i = 0; i < st._focusNodes.length; i++) {
+      if (i >= st._controllerBlockIds.length || i >= st._controllers.length) {
+        continue;
+      }
+      if (st._focusNodes[i].hasFocus) {
+        final blockId = st._controllerBlockIds[i];
+        final idx = page.blocks.indexWhere((b) => b.id == blockId);
+        if (idx < 0) return null;
+        return st._handleBlockKey(page, blockId, idx, st._controllers[i], event);
+      }
+    }
+    return null;
+  }
+
   /// Solo pruebas: misma inserción que Enter / Ctrl+Enter en el bloque enfocado.
   @visibleForTesting
   bool debugInvokeTryInsertNewBlockForTest({required bool force}) {

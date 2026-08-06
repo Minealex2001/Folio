@@ -539,10 +539,14 @@
   "pasteAsEmbed": "Embed",
   "pasteAsBookmark": "Bookmark",
   "pasteAsMention": "Mention",
+  "pasteAsGithubImport": "Import from GitHub",
+  "pasteAsPdfSummarize": "Save PDF",
   "pasteAsUrlSubtitle": "Insert markdown link in text",
   "pasteAsEmbedSubtitle": "Video block with preview (YouTube) or bookmark",
   "pasteAsBookmarkSubtitle": "Card with title and link",
   "pasteAsMentionSubtitle": "Link to a page in this notebook",
+  "pasteAsGithubImportSubtitle": "Card with the repository name",
+  "pasteAsPdfSummarizeSubtitle": "Card with the document title",
   "tableAddRow": "Row",
   "tableRemoveRow": "Remove row",
   "tableAddColumn": "Column",
@@ -2266,6 +2270,60 @@
   },
   "blockEditorDuplicate": "Duplicate",
   "blockEditorClearSelectionTooltip": "Clear selection",
+  "blockEditorGroupAction": "Group",
+  "blockEditorUngroupColumns": "Ungroup columns",
+  "blockEditorUngroupSection": "Ungroup section",
+  "blockEditorGroupAsColumns2": "2 columns",
+  "blockEditorGroupAsColumns3": "3 columns",
+  "blockEditorGroupAsSection": "Group into section",
+  "blockEditorNewSectionDefaultTitle": "New section",
+  "blockEditorCmdMeetingTemplate": "Meeting",
+  "blockEditorCmdMeetingTemplateHint": "Full structure: notes, agenda, action items",
+  "blockEditorCmdSprintTemplate": "Sprint",
+  "blockEditorCmdSprintTemplateHint": "Sprint template with goals and tasks",
+  "blockEditorCmdRoadmapTemplate": "Roadmap",
+  "blockEditorCmdRoadmapTemplateHint": "Roadmap structure by horizon",
+  "smartTemplateVariableMeetingWith": "With whom?",
+  "smartTemplateVariableMeetingDate": "Date?",
+  "smartTemplateVariableSprintName": "Sprint name?",
+  "smartTemplateMeetingDefaultTitle": "New meeting",
+  "smartTemplateMeetingTitleWith": "Meeting with {attendee}",
+  "@smartTemplateMeetingTitleWith": {
+    "placeholders": {
+      "attendee": {
+        "type": "String"
+      }
+    }
+  },
+  "smartTemplateMeetingDateLine": "Date: {date}",
+  "@smartTemplateMeetingDateLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "smartTemplateMeetingAgenda": "Agenda",
+  "smartTemplateMeetingActions": "Action items",
+  "smartTemplateSprintDefaultTitle": "New sprint",
+  "smartTemplateSprintTitleWithName": "Sprint: {name}",
+  "@smartTemplateSprintTitleWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "smartTemplateSprintGoals": "Goals",
+  "smartTemplateSprintTasks": "Tasks",
+  "smartTemplateRoadmapTitle": "Roadmap",
+  "smartTemplateRoadmapNow": "Now",
+  "smartTemplateRoadmapNext": "Next",
+  "smartTemplateRoadmapLater": "Later",
+  "smartTemplateFlowNext": "Next",
+  "smartTemplateFlowGenerate": "Generate",
+  "smartTemplateFlowCancel": "Cancel",
+  "smartTemplateFlowSkipHint": "Leave blank to skip",
   "blockEditorMenuRewriteWithAi": "Rewrite with Quill…",
   "blockEditorMenuMoveUp": "Move up",
   "blockEditorMenuMoveDown": "Move down",
@@ -5223,9 +5281,15 @@
   "orgPanelBillingStatusLine": "Plan: {plan} · Status: {status} · Seats: {seats}",
   "@orgPanelBillingStatusLine": {
     "placeholders": {
-      "plan": { "type": "String" },
-      "status": { "type": "String" },
-      "seats": { "type": "int" }
+      "plan": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "seats": {
+        "type": "int"
+      }
     }
   },
   "orgPanelBillingUnknown": "No team subscription yet",
@@ -5236,7 +5300,9 @@
   "orgPanelYourRole": "Your role: {role}",
   "@orgPanelYourRole": {
     "placeholders": {
-      "role": { "type": "String" }
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgPanelActivityOrganizationCreated": "Team created",
@@ -5254,16 +5320,24 @@
   "orgPanelActivityUnknown": "{eventType}",
   "@orgPanelActivityUnknown": {
     "placeholders": {
-      "eventType": { "type": "String" }
+      "eventType": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptTitle": "Team invitation",
   "orgInviteAcceptBody": "{inviter} invited you to join {team} as {role}.",
   "@orgInviteAcceptBody": {
     "placeholders": {
-      "inviter": { "type": "String" },
-      "team": { "type": "String" },
-      "role": { "type": "String" }
+      "inviter": {
+        "type": "String"
+      },
+      "team": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptButton": "Accept invitation",
@@ -5276,5 +5350,680 @@
   "cloudAccountSwitcherRemoveBody": "The account will be signed out here. Other accounts stay signed in. Local notebooks for this account remain on disk.",
   "cloudAccountSwitcherFallback": "Folio Cloud account",
   "cloudAccountAddAnotherHelp": "Sign in with another email without signing out here",
-  "cloudAccountCreateAnotherHelp": "Register a new account on this device"
+  "cloudAccountCreateAnotherHelp": "Register a new account on this device",
+  "vaultSharePublicLink": "Public link",
+  "vaultShareCopyLink": "Copy link",
+  "vaultShareRefreshNow": "Refresh now",
+  "vaultShareEnablePublicLink": "Enable public link",
+  "vaultShareInviteToEdit": "Invite to edit",
+  "vaultShareCloudEmail": "Folio Cloud email",
+  "vaultShareInvite": "Invite",
+  "vaultShareMembers": "Members",
+  "vaultShareAcceptInvite": "Accept invitation",
+  "vaultShareInviteId": "Invitation ID",
+  "vaultShareInviteCode": "Code",
+  "vaultShareAccept": "Accept",
+  "goToFolio": "Go to Folio",
+  "resetPasswordConfirmLabel": "Confirm password",
+  "savePassword": "Save password",
+  "publicShareNoPages": "No pages",
+  "inspectorSelectElement": "Select an element to edit",
+  "inspectorReset": "Reset",
+  "inspectorColor": "Color",
+  "inspectorOpacity": "Opacity",
+  "inspectorSize": "Size",
+  "inspectorPosition": "Position",
+  "dbEditorTargetDb": "Target DB",
+  "dbEditorRelationProperty": "Relation property",
+  "dbEditorTargetProperty": "Target property",
+  "dbEditorRollupOperation": "Rollup operation",
+  "dbEditorAiPrompt": "AI prompt",
+  "settingsPersonalizationBeta": "Personalization (beta)",
+  "settingsPersonalizationBody": "New layout, theme and dashboard engines — this screen directly controls the live controllers the app already renders.",
+  "settingsPanelEngine": "Panel engine",
+  "settingsThemeEngine": "Theme engine",
+  "settingsSidebarSection": "Sidebar",
+  "settingsRegionUnavailable": "Region unavailable.",
+  "settingsSidebarWidth": "Current width: {width} px",
+  "settingsLockSidebar": "Lock sidebar",
+  "settingsLockSidebarHint": "Prevents resizing/moving the sidebar until it is unlocked again.",
+  "settingsResetPanelLayout": "Reset panel layout",
+  "settingsThemeEditor": "Theme editor",
+  "settingsThemeEditorBody": "Shape, density, motion and transparency. Light/dark mode and accent are above (same as Appearance).",
+  "settingsCornerRoundness": "Corner roundness",
+  "settingsSpacingDensity": "Spacing density",
+  "settingsMotionSpeed": "Motion speed",
+  "settingsSurfaceOpacity": "Surface opacity",
+  "settingsResetTheme": "Reset theme",
+  "settingsDashboardTemplates": "Dashboard templates",
+  "settingsDashboardTemplatesBody": "Developer, Writer, Research, Student, Planning, Gaming — changes the home dashboard content. Edits to an already installed template are kept when you return to it.",
+  "settingsVisualPacks": "Visual packs",
+  "settingsVisualPacksBody": "Apply a pack to change theme, layout and dashboard at once. You can also export your current setup or import one.",
+  "settingsExportCurrentSetup": "Export current setup",
+  "settingsImportPack": "Import pack…",
+  "settingsPackActive": "Active",
+  "settingsPackApply": "Apply",
+  "settingsSaveVisualPack": "Save visual pack",
+  "settingsPackName": "Pack name",
+  "settingsPackAuthorOptional": "Author (optional)",
+  "settingsMyPackDefault": "My pack",
+  "settingsExport": "Export",
+  "settingsPackAppliedSnack": "Pack \"{name}\" applied.",
+  "settingsSetupExportedSnack": "Current setup exported.",
+  "settingsCouldNotReadFile": "Could not read the file.",
+  "settingsPackImportedSnack": "Pack \"{name}\" imported and applied.",
+  "settingsPackImportFailed": "Could not import the pack: {error}",
+  "vaultSharePublicLinkBody": "Anyone with the link can view the notebook in the browser. Link content is stored in cleartext on Folio Cloud and updates when you sync.",
+  "vaultShareInviteBody": "The person will see the notebook in their list (as shared) and can edit, but not delete.",
+  "vaultShareActiveRev": "Link active · rev {rev}",
+  "vaultShareInviteCodeAlsoEmail": "Code (also in the email): {code}",
+  "passwordUpdatedTitle": "Password updated",
+  "passwordUpdatedBody": "You can now sign in with your new password.",
+  "resetPasswordTitle": "Reset password",
+  "resetPasswordBody": "Choose a new password for your account.",
+  "shareNotebookTooltip": "Share notebook",
+  "kanbanYoutrackSyncingPull": "YouTrack: syncing (pull)…",
+  "kanbanYoutrackPullOkPush": "YouTrack: pull OK · now push…",
+  "kanbanYoutrackSyncResult": "YouTrack: pull {pulled} · +{created} · ~{updated} · push {pushed} (skipped {skipped})",
+  "@kanbanYoutrackSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanJiraSyncResult": "Jira: pull {pulled} · +{created} · ~{updated} · push {pushed} (skipped {skipped})",
+  "@kanbanJiraSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGithubSyncingPush": "GitHub: syncing (push)…",
+  "kanbanGithubSyncResult": "GitHub: pull {pulled} · +{created} · ~{updated} · push {pushed} (skipped {skipped})",
+  "@kanbanGithubSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGitlabSyncingPush": "GitLab: syncing (push)…",
+  "kanbanGitlabSyncResult": "GitLab: pull {pulled} · +{created} · ~{updated} · push {pushed} (skipped {skipped})",
+  "@kanbanGitlabSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanSourceLabel": "Source",
+  "kanbanAutoImportFrom": "Auto-import from {provider}",
+  "@kanbanAutoImportFrom": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanCreateItemsOnQuickAdd": "Create items when adding tasks",
+  "kanbanSyncJiraTooltip": "Sync Jira (pull + push)",
+  "kanbanSyncYoutrackTooltip": "Sync YouTrack (pull + push)",
+  "kanbanSyncGithubTooltip": "Sync GitHub (push + pull)",
+  "kanbanSyncGitlabTooltip": "Sync GitLab (push + pull)",
+  "kanbanUncategorizedCards": "Uncategorized cards",
+  "kanbanJiraGoneError": "Jira returned 410 (Gone). This usually means the connection/site is no longer valid (access revoked or wrong cloudId). Reconnect Jira and try again.\nDetails: {error}",
+  "@kanbanJiraGoneError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskAndIssueConfirm": "This will delete the task in Folio and also the issue in {provider} (including linked subtasks). Continue?",
+  "@kanbanDeleteTaskAndIssueConfirm": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskConfirm": "Delete this task in Folio?",
+  "jiraConnectionMissingDelete": "Jira connection not found to delete issue.",
+  "youtrackConnectionMissingDelete": "YouTrack connection not found to delete issue.",
+  "kanbanForcePushJiraConfirm": "This will overwrite the remote Jira changes for this issue with your Folio version. Continue?",
+  "kanbanYoutrackFieldsTitle": "YouTrack Fields",
+  "kanbanFieldType": "Type",
+  "kanbanAssignee": "Assignee",
+  "kanbanSubsystem": "Subsystem",
+  "kanbanFixVersions": "Fix Versions",
+  "kanbanFixVersionsHint": "e.g. 1.0, 2.3",
+  "kanbanAffectedVersions": "Affected Versions",
+  "kanbanAffectedVersionsHint": "e.g. 0.9, 1.0",
+  "kanbanFixedInBuild": "Fixed in Build",
+  "kanbanEstimationFieldLabel": "Estimation",
+  "kanbanEstimationHint": "e.g. 2h 30m",
+  "kanbanSpentTimeLabel": "Spent Time",
+  "kanbanSpentTimeHint": "e.g. 1h 15m",
+  "kanbanPropertiesTitle": "Properties",
+  "kanbanConflictJiraFolioText": "Conflict: there were changes in Jira and Folio.",
+  "kanbanNoRemoteStateJira": "Press Pull to load remote state and see differences.",
+  "kanbanKeepFolioForcePush": "Keep Folio (Force push)",
+  "kanbanLabelsField": "Labels",
+  "kanbanComponentsField": "Components",
+  "kanbanCommentsTitle": "Comments",
+  "kanbanLoadButton": "Load",
+  "kanbanNewCommentLabel": "New comment",
+  "kanbanSendButton": "Send",
+  "kanbanNoCommentsLoaded": "No comments loaded.",
+  "kanbanAttachmentsTitle": "Attachments",
+  "kanbanPressPullToSeeAttachments": "Press Pull to see attachments.",
+  "kanbanWorklogTitle": "Worklog / Time",
+  "kanbanEstimateChipLabel": "Estimate",
+  "kanbanRemainingChipLabel": "Remaining",
+  "kanbanSpentChipLabel": "Spent",
+  "kanbanAddMinutesLabel": "Add (minutes)",
+  "kanbanLogButton": "Log",
+  "kanbanNoWorklogsLoaded": "No worklogs loaded.",
+  "kanbanRefreshButton": "Refresh",
+  "kanbanConflictYoutrackFolioText": "Conflict: there were changes in YouTrack and Folio.",
+  "kanbanNoRemoteStateYoutrack": "Press Refresh to load remote state and see differences.",
+  "kanbanKeepYoutrack": "Keep YouTrack",
+  "kanbanForceFolio": "Force Folio",
+  "youtrackStateLabel": "State",
+  "kanbanYoutrackCommentsTitle": "YouTrack Comments",
+  "kanbanNoCommentsOrNotLoaded": "No comments or not loaded.",
+  "kanbanAddCommentHint": "Add a comment...",
+  "planFree": "Free",
+  "planUpToDate": "Up to date",
+  "widgetCalendar": "Calendar",
+  "widgetCalendarWeekStartsMonday": "Week starts on Monday",
+  "widgetFolioCloudUnavailable": "Folio Cloud is not available in this context.",
+  "widgetVaultStatus": "Notebook status",
+  "widgetVaultStatusEncrypted": "Encrypted",
+  "widgetVaultStatusUnencrypted": "Unencrypted",
+  "widgetVaultStatusPageCount": "{count} pages",
+  "@widgetVaultStatusPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetHabits": "Habits",
+  "widgetHabitsEmpty": "No recurring tasks. Add a recurrence to a task.",
+  "widgetRssComingSoon": "RSS feeds are not supported. Folio doesn't have a feed reader yet.",
+  "widgetBooks": "Books",
+  "widgetBooksComingSoon": "Reading tracking isn't available. Folio doesn't have a book model yet.",
+  "widgetMiniStats": "Statistics",
+  "widgetMiniStatsPages": "Pages",
+  "widgetMiniStatsFolders": "Folders",
+  "widgetMiniStatsPending": "Pending",
+  "widgetMiniStatsDone": "Done",
+  "widgetCreatePage": "Create page",
+  "widgetNewPageAction": "New page",
+  "widgetSearchPlaceholder": "Search Folio…",
+  "widgetWhatsNew": "What's new",
+  "widgetWhatsNewBadge": "New",
+  "widgetWhatsNewVersionError": "Could not read the installed version.",
+  "widgetWhatsNewVersionLabel": "Version {version}",
+  "@widgetWhatsNewVersionLabel": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "widgetWhatsNewUnread": "There's unread news for this version.",
+  "widgetWhatsNewUpToDate": "You're up to date with the release notes.",
+  "widgetOnboarding": "Getting started",
+  "widgetOnboardingAllDone": "You completed the first steps!",
+  "widgetOnboardingIntro": "Start with the basics:",
+  "widgetOnboardingStepCreatePage": "Create a page",
+  "widgetOnboardingStepAddTask": "Add a task",
+  "widgetOnboardingStepVisitRecent": "Visit a recent page",
+  "widgetTip": "Tip",
+  "widgetTipEditorSlash": "Use \"/\" in the editor to quickly insert blocks.",
+  "widgetTipDragPage": "Drag a page to the sidebar to pin it.",
+  "widgetTipSearchShortcut": "Ctrl+K opens global search from anywhere.",
+  "widgetTipVisualEditor": "Turn on the visual editor from the top bar to rearrange the layout.",
+  "widgetTipTasksHome": "You can mark tasks as done from the Tasks widget on the home screen.",
+  "widgetQuickActions": "Quick actions",
+  "widgetQuickActionsTodayNote": "Today's note",
+  "widgetRootPages": "Pages",
+  "widgetRootPagesEmpty": "No pages yet.",
+  "widgetRootPagesMaxLabel": "Maximum pages",
+  "widgetActivity": "Activity",
+  "widgetActivityEmpty": "No activity yet.",
+  "widgetMaxEntriesLabel": "Maximum entries",
+  "widgetRelativeJustNow": "just now",
+  "widgetRelativeMinutesAgo": "{minutes} min ago",
+  "@widgetRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeHoursAgo": "{hours} h ago",
+  "@widgetRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeDaysAgo": "{days} d ago",
+  "@widgetRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRecents": "Recents",
+  "widgetRecentsEmpty": "You haven't visited any pages yet.",
+  "widgetAgenda": "Agenda",
+  "widgetAgendaEmpty": "No tasks with an upcoming date.",
+  "widgetAgendaMaxLabel": "Maximum tasks",
+  "widgetClock": "Clock",
+  "widgetClock24HourFormat": "24-hour format",
+  "widgetClockShowSeconds": "Show seconds",
+  "widgetClockShowTimezone": "Show time zone",
+  "widgetDailyNotes": "Daily note",
+  "widgetDailyNotesConvention": "Convention: title = YYYY-MM-DD",
+  "widgetDailyNotesToday": "Today · {date}",
+  "@widgetDailyNotesToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesCreateToday": "Create today's note ({date})",
+  "@widgetDailyNotesCreateToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesYesterday": "Yesterday · {date}",
+  "@widgetDailyNotesYesterday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesTomorrow": "Tomorrow · {date}",
+  "@widgetDailyNotesTomorrow": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetGithubEmpty": "Connect GitHub in Settings → Integrations to see repos here.",
+  "widgetGithubAccountsLabel": "Accounts",
+  "widgetGithubReposLabel": "Repositories",
+  "widgetFavoritePage": "Favorite page",
+  "widgetFavoritePageEmpty": "No pages in the vault.",
+  "widgetFavoritePageChooseLabel": "Choose page",
+  "widgetFavoritePageIdLabel": "Page ID",
+  "widgetFavoritePageIdHint": "Id of the page to pin",
+  "widgetDatabaseView": "Database",
+  "widgetDatabaseViewEmpty": "No pages with a database in the vault.",
+  "widgetDatabaseViewRowCount": "{count} rows",
+  "@widgetDatabaseViewRowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetBookmarks": "Bookmarks",
+  "widgetBookmarksFallbackLabel": "Bookmark",
+  "widgetBookmarksEmpty": "No bookmark blocks in the vault.",
+  "widgetTasks": "Tasks",
+  "widgetTasksEmpty": "No pending tasks.",
+  "widgetTasksMarkDone": "Mark as done",
+  "widgetWeather": "Weather",
+  "widgetWeatherCityLabel": "City",
+  "widgetWeatherCityHint": "Madrid, Barcelona…",
+  "widgetWeatherUseCelsius": "Use Celsius (°C)",
+  "widgetWeatherCelsiusUnit": "Celsius",
+  "widgetWeatherFahrenheitUnit": "Fahrenheit",
+  "widgetWeatherConfigureCity": "Set a city in the widget settings.",
+  "widgetWeatherLoadError": "Could not load the weather.",
+  "widgetMusic": "Music",
+  "widgetMusicEmpty": "Nothing is playing right now.",
+  "dashboardAddWidget": "Add widget",
+  "dashboardNoMoreWidgets": "There are no more widgets available to add.",
+  "close": "Close",
+  "visualEditorBetaLabel": "Visual editor (beta)",
+  "sidebarVaultsMineLabel": "My notebooks",
+  "sidebarVaultsSharedWithMeHeader": "Shared with me",
+  "sidebarVaultSharedWithMe": "Shared with me",
+  "sidebarVaultSharedByOwner": "Shared · {owner}",
+  "@sidebarVaultSharedByOwner": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
+  "sidebarVaultSharedLabel": "Shared",
+  "commandPaletteSearchHint": "Search…",
+  "jiraCardSubtitle": "Connect Jira Cloud or Server/DC to sync issues with Kanban.",
+  "jiraConnectionsCount": "{count} connections",
+  "jiraSourcesCount": "{count} sources",
+  "jiraClientIdHelp1": "You need a Client ID from an OAuth 2.0 (3LO) app in Atlassian Developer Console.",
+  "jiraClientIdHelp2": "If you are using the official Folio app, you should not see this.",
+  "jiraCallbackUrlHelp": "Callback URL to register in Atlassian: http://127.0.0.1:45747/callback",
+  "jiraClientIdTip": "Tip: In the app, configure OAuth 2.0 (3LO) and copy the Client ID.",
+  "jiraBrowserAuthNotice": "A browser window will open for authorization, then we will return to Folio.",
+  "jiraCloudTimeoutError": "Timeout connecting Jira Cloud. If the browser does not open, check Windows allows opening external links.",
+  "jiraCloudConnectError": "Error connecting Jira Cloud: {error}",
+  "jiraConnectCloud": "Connect Cloud",
+  "jiraAddServerConnection": "Add Server/DC",
+  "jiraNoConnections": "No connections configured.",
+  "jiraSourcesSectionTitle": "Sources (for Kanban)",
+  "jiraNewButton": "New",
+  "jiraNoSources": "No sources yet.",
+  "jiraSourceOptionsSummary": "Comments {comments} · Attachments {attachments} · Worklog {worklog}",
+  "jiraEditMappingTooltip": "Edit mapping",
+  "jiraSearchByKeyOrName": "Type to search (KEY or name)…",
+  "jiraWillSaveProjectKey": "Will be saved as projectKey=\"{key}\".",
+  "jiraWillSaveBoardId": "Will be saved as boardId=\"{id}\".",
+  "jiraLoadListsError": "Could not load projects/boards. You can type IDs manually.\n{error}",
+  "jiraConfigureSourceTitle": "Configure source",
+  "jiraImportPushOptions": "Import/push options",
+  "jiraComments": "Comments",
+  "jiraAttachments": "Attachments",
+  "jiraSubtasks": "Subtasks",
+  "jiraCustomFieldsLabel": "Custom fields (IDs, comma)",
+  "jiraColumnMapping": "Kanban → Jira mapping (per column)",
+  "jiraNoMappings": "No mappings yet.",
+  "jiraAddMapping": "Add mapping",
+  "jiraTransitionIdOptional": "transitionId (optional)",
+  "githubCardSubtitle": "Connect GitHub to sync Issues and Pull Requests with Kanban.",
+  "githubConnectionsCount": "{count} connections",
+  "gitlabCardSubtitle": "Connect GitLab to sync Issues and Merge Requests with Kanban.",
+  "gitlabConnectionsCount": "{count} connections",
+  "gitlabSourcesCount": "{count} projects",
+  "trelloCardSubtitle": "Connect Trello to sync entire boards with Kanban.",
+  "trelloConnectionsCount": "{count} connections",
+  "trelloSourcesCount": "{count} boards",
+  "youtrackCardSubtitle": "Connect JetBrains YouTrack to sync tasks with Kanban.",
+  "youtrackConnectionsCount": "{count} connections",
+  "youtrackSourcesCount": "{count} sources",
+  "youtrackProjectLabel": "Project",
+  "devicePairAnotherDevice": "Another device",
+  "devicePairLinkRequest": "Link request",
+  "devicePairWantsToLink": "{who} wants to link this device.",
+  "devicePairEmojiMatchHint": "Do these same 3 emojis appear on the other device? If they match, press Link.",
+  "devicePairVisualMatchFailed": "Could not calculate the visual match. Enable pairing mode on both devices and try again.",
+  "devicePairNoMatch": "No match",
+  "devicePairConfirmIdentity": "Confirm identity",
+  "devicePairConfirmIdentityBody": "Enter your vault password to accept linking with another device.",
+  "devicePairVerify": "Verify",
+  "devicePairLink": "Link",
+  "quillPromptCreate": "Create Instructions",
+  "quillPromptView": "View Instructions",
+  "quillPromptEdit": "Edit Instructions",
+  "quillPromptNameHint": "E.g. Poetry Writer",
+  "quillPromptSystemInstructions": "System Instructions",
+  "quillPromptSystemHint": "E.g. You are an expert English tutor...",
+  "quillPromptBack": "Back",
+  "quillEnableFailed": "Enable failed",
+  "quillDefaultName": "Quill (Default)",
+  "quillTranslatorName": "Translator",
+  "quillSummarizerName": "Summarizer",
+  "quillCoderName": "Coder",
+  "aiChatEditorSelectionHeader": "--- Editor selection ---",
+  "visualEditorBeta": "Visual editor (beta)",
+  "closeTooltip": "Close",
+  "cmdSearchNotebook": "Search notebook",
+  "cmdOpenSettings": "Open settings",
+  "cmdExitHomeEdit": "Exit home editing",
+  "cmdEditHomeBeta": "Edit home (beta)",
+  "adminConsoleTitle": "Admin console",
+  "forceSyncFailed": "Could not force sync: {error}",
+  "commandPaletteNoResults": "No results",
+  "widgetTodayLabel": "Today · {date}",
+  "widgetNewPage": "New page",
+  "widgetFolders": "Folders",
+  "adminNavDashboard": "Home",
+  "adminNavUsers": "Users",
+  "adminNavTeams": "Teams",
+  "adminNavModeration": "Moderation",
+  "adminNavPublishedPages": "Published pages",
+  "adminNavDiagnostics": "Diagnostics",
+  "adminNavBilling": "Billing",
+  "adminNavCatalog": "Template catalog",
+  "adminNavFamilies": "Families",
+  "adminNavCollab": "Collaboration rooms",
+  "adminNavVaultShares": "Vault shares",
+  "adminNavAuditLog": "Audit log",
+  "adminNavAppSettings": "App settings",
+  "adminBrandHeader": "Admin",
+  "adminObjectExplorerTitle": "Object explorer",
+  "adminNoAccessMessage": "You don’t have access to the admin console.",
+  "adminUsersSearchHint": "Search by email or uid",
+  "adminNoResults": "No results",
+  "adminStaffBadge": "staff",
+  "adminTabOverview": "Overview",
+  "adminTabStorage": "Storage",
+  "adminSectionFolioCloudQa": "Folio Cloud QA",
+  "adminSectionAdminRole": "Admin role",
+  "adminGrantCloudQaTitle": "Grant Cloud QA",
+  "adminGrantCloudQaBody": "Enables admin_override with full Folio Cloud features for this user.",
+  "adminActionGrant": "Grant",
+  "adminRevokeCloudQaTitle": "Revoke Cloud QA",
+  "adminRevokeCloudQaBody": "Removes admin_override of Folio Cloud for this user.",
+  "adminActionRevoke": "Revoke",
+  "adminCloudQaGranted": "Cloud QA granted",
+  "adminCloudQaRevoked": "Cloud QA revoked",
+  "adminErrorWithDetails": "Error: {error}",
+  "adminButtonGrantCloudQa": "Grant Cloud QA",
+  "adminButtonRevoke": "Revoke",
+  "adminOnlyBillingAdminCanGrant": "Only BILLING_ADMIN / SUPER_ADMIN can grant Cloud QA.",
+  "adminNoActiveOrganizations": "No active organizations.",
+  "adminQaOverrideBadge": "QA override",
+  "adminNoOverrideBadge": "no override",
+  "adminOnlySuperAdminCanAssignRoles": "Only SUPER_ADMIN can assign roles.",
+  "adminPurgeVaultTitle": "Permanently purge notebook",
+  "adminPurgeVaultBody": "This permanently deletes \"{vaultId}\" from this user’s cloud sync (storage + metadata). This cannot be undone.",
+  "adminActionPurge": "Purge",
+  "adminDeleteBackupTitle": "Delete backup",
+  "adminDeleteBackupBody": "This deletes the cloud backup of \"{vaultId}\". This cannot be undone.",
+  "adminActionDelete": "Delete",
+  "adminResetCloudSyncTitle": "Reset cloud sync",
+  "adminResetCloudSyncBody": "This purges this user’s {vaultsCount} cloud-sync notebooks and {backupsCount} backups, revokes their vault shares, and resets their usage to 0. This is the nuclear option for a broken account — it cannot be undone.",
+  "adminActionReset": "Reset",
+  "adminResetCloudSyncSuccess": "Reset OK: {vaultsPurged} notebooks, {backupsDeleted} backups.",
+  "adminStorageUsageTitle": "Storage usage",
+  "adminStorageUsedOfQuota": "{used} of {quota}",
+  "adminStorageCountsSummary": "{vaultCount} notebooks ({trashedCount} trashed) · {backupCount} backups ({blobCount} blobs)",
+  "adminSyncVaultsTitle": "Notebooks (cloud sync)",
+  "adminNoSyncVaults": "No synced notebooks.",
+  "adminBackupsTitle": "Backups",
+  "adminNoBackups": "No backups.",
+  "adminDangerZoneTitle": "Danger zone",
+  "adminDangerZoneBody": "Reset this user’s cloud sync: purges all notebooks and backups, and resets their usage to 0.",
+  "adminTrashedLabel": "trashed",
+  "adminMoveToTrashTooltip": "Move to trash",
+  "adminRestoreTooltip": "Restore",
+  "adminPurgeForeverTooltip": "Purge permanently",
+  "adminGoToUserTitle": "Go to a user’s folder",
+  "adminGoToUserTooltip": "Go to a user",
+  "adminActionGoTo": "Go",
+  "adminDeleteObjectTitle": "Delete object",
+  "adminDeleteObjectBody": "This deletes \"{key}\" directly from the bucket. This cannot be undone.",
+  "adminLoadMore": "Load more",
+  "adminPaginationSummary": "Page {page} of {totalPages} · {total} total",
+  "adminOrgsSearchHint": "Search by name, slug or id",
+  "adminNoTeams": "No teams.",
+  "adminOrgSummary": "{type} · {plan} · {memberCount} members · seats {seats}",
+  "adminTeamFallbackTitle": "Team",
+  "adminGrantCloudQaOrgTitle": "Grant Cloud QA (team)",
+  "adminGrantCloudQaOrgBody": "Enables admin_override with the TEAM plan and full features (default seats: 10).",
+  "adminRevokeCloudQaOrgTitle": "Revoke Cloud QA (team)",
+  "adminRevokeCloudQaOrgBody": "Removes admin_override. If there’s no active Stripe subscription, the team reverts to FREE.",
+  "adminAddInkTitle": "Add ink to team",
+  "adminAddInkBody": "Adds 1000 purchased drops to org_ink.",
+  "adminActionAddInk": "Add ink",
+  "adminAddInkButton": "+1000 ink",
+  "adminMembersCount": "Members ({count})",
+  "adminModerationReportsTitle": "Template reports",
+  "adminRefreshOpenReportsTitle": "Refresh open reports",
+  "adminNoOpenReports": "No open reports.",
+  "adminDeleteTemplateButton": "Delete template",
+  "adminResolveButton": "Resolve",
+  "adminUserLookupTitle": "User (lookup)",
+  "adminEmailOrUidLabel": "Email or uid",
+  "adminAllowUploads": "Allow uploads",
+  "adminBanUploads": "Ban uploads",
+  "adminReactivateUser": "Reactivate",
+  "adminSuspendUser": "Suspend",
+  "adminPurgeTemplatesButton": "Purge templates",
+  "adminPurgeTemplatesConfirm": "Delete all of this user’s community templates?",
+  "adminTemplatesPurged": "Templates purged",
+  "adminDeleteTemplateByIdTitle": "Delete template by ID",
+  "adminTemplateDeleted": "Template deleted",
+  "adminTabByUser": "By user",
+  "adminTabWebhookEvents": "Webhook events",
+  "adminGrantCloudQaForUidBody": "Enables Folio Cloud admin_override for {uid}.",
+  "adminRevokeCloudQaForUidBody": "Removes Folio Cloud admin_override for {uid}.",
+  "adminUidInputLabel": "user uid",
+  "adminNoWebhookEvents": "No processed events.",
+  "adminNoVaultShareLinks": "No vault share links.",
+  "adminActiveOnlyFilter": "Active only",
+  "adminUnpublishPageTitle": "Unpublish page",
+  "adminUnpublishPageBody": "This removes the published page \"{path}\". This cannot be undone.",
+  "adminActionUnpublish": "Unpublish",
+  "adminFilterByOwnerUidHint": "Filter by owner uid",
+  "adminNoPublishedPages": "No published pages.",
+  "adminNoFamilies": "No families.",
+  "adminFamilySummary": "{memberCount} members · created {createdAt}",
+  "adminFamilyOfTitle": "Family of {ownerUid}",
+  "adminNoDiagnosticReports": "No reports.",
+  "adminFilterOpen": "Open",
+  "adminFilterResolved": "Resolved",
+  "adminFilterAll": "All",
+  "adminDiagnosticFallbackTitle": "diagnostic",
+  "adminDiagnosticDialogFallbackTitle": "Diagnostic",
+  "adminUserNoteLabel": "User note:",
+  "adminLogLabel": "Log:",
+  "adminReopenButton": "Reopen",
+  "adminMarkResolvedButton": "Mark resolved",
+  "adminWelcomeTitle": "Welcome to the admin console",
+  "adminCurrentRole": "Current role: {role}",
+  "adminTotalUsersLabel": "Total users",
+  "adminOpenDiagnosticsLabel": "Open diagnostics",
+  "adminNoCollabRooms": "No collaboration rooms.",
+  "adminUntitledFallback": "(untitled)",
+  "adminCollabRoomDialogTitle": "Collaboration room",
+  "adminEditTemplateTitle": "Edit template",
+  "adminNameLabel": "Name",
+  "adminDescriptionLabel": "Description",
+  "adminCategoryLabel": "Category",
+  "adminSearchTemplatesHint": "Search templates",
+  "adminNoTemplates": "No templates.",
+  "adminNoAuditActivity": "No activity logged yet.",
+  "adminEditSettingTitle": "Edit {key}",
+  "adminValueLabel": "Value ({valueType})",
+  "adminSettingWarningBody": "This can affect the production app for all users.",
+  "adminClearOverrideTitle": "Remove override for {key}",
+  "adminClearOverrideBody": "It will go back to using the value from application.yml/environment variables.",
+  "adminActionClearOverride": "Remove override",
+  "adminActionEdit": "Edit",
+  "adminCurrentValueLabel": "current value",
+  "adminOverrideSuffix": "override",
+  "adminDefaultSuffix": "default",
+  "whisperModelBase": "Base q8 (balanced)",
+  "whisperModelSmall": "Small q8 (high accuracy, less disk)",
+  "whisperModelMedium": "Medium q8",
+  "whisperModelTurbo": "Large v3 Turbo q8",
+  "whisperDownloadingEngine": "Downloading transcription engine…",
+  "whisperInstallingEngine": "Installing transcription engine…",
+  "whisperEngineReady": "Engine ready",
+  "whisperDownloadingModel": "Downloading {model} model (~{sizeMb} MB)…",
+  "whisperModelReady": "Model {model} ready",
+  "whisperErrorPreparingModel": "Couldn’t prepare model {model}: {error}",
+  "whisperErrorEngineNotInitialized": "Transcription engine not initialized.",
+  "whisperErrorCliNotFound": "whisper-cli not found at {path}.",
+  "whisperErrorModelNotFound": "Model not found at {path}.",
+  "whisperErrorCliFailed": "whisper-cli failed (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoOutputFile": "Whisper did not generate an output file: {path}",
+  "whisperErrorRunningCli": "Error running whisper-cli: {error}",
+  "whisperErrorLocalEngineNotInitialized": "Local diarization engine not initialized.",
+  "whisperErrorPreparingLocalDiarization": "Couldn’t prepare local Whisper for diarization: {error}",
+  "whisperErrorCliFailedTdrz": "whisper-cli tdrz failed (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoSpeakerMarkers": "Whisper tdrz returned no speaker markers for this chunk.",
+  "whisperErrorRunningCliTdrz": "Error running whisper-cli tdrz: {error}",
+  "whisperErrorDownloadFailed": "Download failed ({status}) from {url}",
+  "whisperErrorZipExtractWindows": "Couldn’t extract ZIP on Windows. tar: {tarExit}{tarErr}; powershell: {psExit}{psErr}",
+  "whisperErrorZipExtractUnix": "Couldn’t extract whisper ZIP.",
+  "whisperErrorBinaryNotFoundAfterExtract": "Couldn’t find {binaryName} after extracting {path}",
+  "aiChatLastMeetingHeader": "--- Last meeting note on this page ---",
+  "vaultUnencrypted": "Unencrypted",
+  "settingsOverviewSubtitle": "Customize the app, security, AI, backups, and integrations from one place.",
+  "settingsOverviewPlan": "Plan",
+  "settingsOverviewVault": "Vault",
+  "settingsOverviewFormat": "Format",
+  "settingsOverviewStatus": "Status",
+  "youTrackConnectionNotFound": "YouTrack connection not found for this task. Reconnect YouTrack in Settings → Integrations.",
+  "jiraConnectionNotFound": "Jira connection not found for this task. Reconnect Jira in Settings → Integrations.",
+  "deviceSyncEnabled": "Device sync enabled.",
+  "deviceSyncLinkCodeExpired": "The link code expired or no longer matches.",
+  "deviceSyncLanDiscoveryFailed": "Could not start LAN discovery: {error}",
+  "deviceSyncRetryingLan": "Retrying sync LAN connectivity...",
+  "deviceSyncFolioDevice": "Folio device",
+  "deviceSyncWrongLinkCode": "Link attempt: wrong code, or no active code on this device. Generate a code here and enter it on the other device.",
+  "deviceSyncServerStartFailed": "Could not start synchronization server: {error}",
+  "deviceSyncPeerKeyChanged": "Security notice: the key for device \"{name}\" changed. Sync with that device is paused; re-link it if you trust the change.",
+  "deviceSyncLinkedRemote": "Device linked from remote request.",
+  "deviceSyncLinkedOk": "Device linked successfully.",
+  "collabMediaUploadError": "Room upload failed: {error}",
+  "collabMediaPreparingEncryption": "Preparing encryption...",
+  "collabMediaUploadingProgress": "Uploading {percent}% · ETA {eta}"
 }

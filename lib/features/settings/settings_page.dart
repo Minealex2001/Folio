@@ -896,11 +896,9 @@ class _SettingsPageState extends State<SettingsPage> {
           id: _SettingsSectionId.organization,
           label: l10n.settingsSectionOrganization,
         ),
-      const _SettingsSectionNavItem(
+      _SettingsSectionNavItem(
         id: _SettingsSectionId.personalization,
-        // Beta: sin l10n todavía, mismo patrón que 'Consola de
-        // administración' más arriba en este archivo.
-        label: 'Personalización (beta)',
+        label: l10n.settingsPersonalizationBeta,
       ),
     ];
     return AnimatedBuilder(

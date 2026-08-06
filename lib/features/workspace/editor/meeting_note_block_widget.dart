@@ -334,7 +334,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
-    return switch (_effectiveState) {
+    final content = switch (_effectiveState) {
       MeetingNoteSessionState.idle => _buildIdle(theme, l10n),
       MeetingNoteSessionState.setup => _buildSetup(theme),
       MeetingNoteSessionState.recording => _buildRecording(theme, l10n),
@@ -342,6 +342,15 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         _buildCloudProcessing(theme, l10n),
       MeetingNoteSessionState.completed => _buildCompleted(theme, l10n),
     };
+    // El bloque `meeting_note` se embebe dentro de un `Container` con
+    // `decoration: BoxDecoration(color: ...)` en
+    // `block_row_dispatch_meeting_note.dart` — un `DecoratedBox` intermedio
+    // como ese oculta el fondo/ripple de cualquier `ListTile`/
+    // `SwitchListTile` (Fase idle usa uno) porque pintan sobre el
+    // `Material` ancestro más cercano, que sería el de más arriba en el
+    // árbol, detrás del `DecoratedBox`. Un `Material` transparente aquí
+    // resuelve el aviso de Flutter sin tocar el `Container` del dispatcher.
+    return Material(color: Colors.transparent, child: content);
   }
 
   Widget _buildIdle(ThemeData theme, AppLocalizations l10n) {

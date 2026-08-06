@@ -29,16 +29,10 @@ import '../../../models/gitlab_integration_state.dart';
 /// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
 String folioFmtTaskDue(String due) => due.replaceFirst('T', ' ');
 
-String folioFormatJiraError(
-  Object e,
-  AppLocalizations l10n, {
-  required bool isEs,
-}) {
+String folioFormatJiraError(Object e, AppLocalizations l10n) {
   if (e is JiraApiException) {
     if (e.statusCode == 410) {
-      return isEs
-          ? 'Jira devolvió 410 (Gone). Suele ocurrir si la conexión/sitio ya no es válido (acceso revocado o cloudId incorrecto). Re-conecta Jira y vuelve a intentar.\nDetalle: $e'
-          : 'Jira returned 410 (Gone). This usually means the connection/site is no longer valid (access revoked or wrong cloudId). Reconnect Jira and try again.\nDetails: $e';
+      return l10n.kanbanJiraGoneError('$e');
     }
     return l10n.kanbanJiraError('$e');
   }
@@ -588,9 +582,9 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final provider = data.external?.provider;
     final String confirmText;
     if (provider == 'jira' || provider == 'youtrack') {
-      confirmText = Localizations.localeOf(context).languageCode == 'es'
-          ? 'Esta acción borrará la tarea en Folio y también el issue en ${provider == 'jira' ? 'Jira' : 'YouTrack'} (incluyendo subtareas vinculadas). ¿Continuar?'
-          : 'This will delete the task in Folio and also the issue in ${provider == 'jira' ? 'Jira' : 'YouTrack'} (including linked subtasks). Continue?';
+      confirmText = l10n.kanbanDeleteTaskAndIssueConfirm(
+        provider == 'jira' ? 'Jira' : 'YouTrack',
+      );
     } else if (provider == 'trello') {
       confirmText = l10n.trelloDeleteRemoteConfirm;
     } else if (provider == 'github') {
@@ -598,9 +592,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     } else if (provider == 'gitlab') {
       confirmText = l10n.gitlabDeleteRemoteConfirm;
     } else {
-      confirmText = Localizations.localeOf(context).languageCode == 'es'
-          ? '¿Borrar la tarea en Folio?'
-          : 'Delete this task in Folio?';
+      confirmText = l10n.kanbanDeleteTaskConfirm;
     }
 
     final confirm = await FolioDialog.confirm(
@@ -614,7 +606,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
 
     setState(() => _deleteBusy = true);
     final messenger = ScaffoldMessenger.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
 
     try {
       // Collect children (task blocks) by parentTaskId.
@@ -647,11 +638,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
         if (ext.provider == 'jira') {
           final client = _jiraClientFor(ext);
           if (client == null) {
-            throw StateError(
-              isEs
-                  ? 'No se encontró la conexión Jira para borrar el issue.'
-                  : 'Jira connection not found to delete issue.',
-            );
+            throw StateError(l10n.jiraConnectionMissingDelete);
           }
           final issueIdOrKey = (ext.issueKey ?? '').trim().isNotEmpty
               ? ext.issueKey!.trim()
@@ -660,11 +647,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
         } else if (ext.provider == 'youtrack') {
           final client = _youtrackClientFor(ext);
           if (client == null) {
-            throw StateError(
-              isEs
-                  ? 'No se encontró la conexión YouTrack para borrar el issue.'
-                  : 'YouTrack connection not found to delete issue.',
-            );
+            throw StateError(l10n.youtrackConnectionMissingDelete);
           }
           final issueIdOrKey = (ext.issueKey ?? '').trim().isNotEmpty
               ? ext.issueKey!.trim()
@@ -732,7 +715,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
       widget.onClose();
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(folioFormatJiraError(e, l10n, isEs: isEs))),
+        SnackBar(content: Text(folioFormatJiraError(e, l10n))),
       );
     } finally {
       if (mounted) setState(() => _deleteBusy = false);
@@ -1739,9 +1722,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final client = _youtrackClientFor(ext);
     if (client != null) return client;
     setState(() {
-      _youtrackError = Localizations.localeOf(context).languageCode == 'es'
-          ? 'No se encontró la conexión YouTrack para esta tarea. Re-conecta YouTrack en Ajustes → Integraciones.'
-          : 'YouTrack connection not found for this task. Reconnect YouTrack in Settings → Integrations.';
+      _youtrackError = AppLocalizations.of(context).youTrackConnectionNotFound;
     });
     return null;
   }
@@ -1976,9 +1957,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final client = _jiraClientFor(ext);
     if (client != null) return client;
     setState(() {
-      _jiraError = Localizations.localeOf(context).languageCode == 'es'
-          ? 'No se encontró la conexión Jira para esta tarea. Re-conecta Jira en Ajustes → Integraciones.'
-          : 'Jira connection not found for this task. Reconnect Jira in Settings → Integrations.';
+      _jiraError = AppLocalizations.of(context).jiraConnectionNotFound;
     });
     return null;
   }
@@ -2170,16 +2149,11 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final data = _data;
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'jira') return;
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
       title: Text(l10n.kanbanForcePushTitle),
-      content: Text(
-        isEs
-            ? 'Esto sobrescribirá en Jira los cambios remotos detectados para este issue con lo que tienes en Folio. ¿Continuar?'
-            : 'This will overwrite the remote Jira changes for this issue with your Folio version. Continue?',
-      ),
+      content: Text(l10n.kanbanForcePushJiraConfirm),
       confirmLabel: l10n.kanbanForcePushButton,
       destructive: true,
     );
@@ -2412,7 +2386,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
     final data = _data;
     final kanbanCols = widget.session.kanbanDataForPage(widget.taskRef.pageId).columns;
     final allowedColIds = kanbanCols.map((c) => c.id).toSet();
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
 
     return Padding(
       padding: const EdgeInsets.all(FolioSpace.md),
@@ -2474,7 +2447,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
               final ytBanner = data.external?.provider == 'youtrack'
                   ? Builder(
                       builder: (ctx) {
-                        final isEs2 = Localizations.localeOf(ctx).languageCode == 'es';
                         final ext = data.external!;
                         final uri = _youtrackBrowseUri(ext);
                         final label = (ext.issueKey ?? '').trim().isNotEmpty == true
@@ -2506,7 +2478,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                     ? null
                                     : () async { await launchUrl(uri, mode: LaunchMode.externalApplication); },
                                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                                label: Text(isEs2 ? 'Abrir' : l10n.taskHubOpen),
+                                label: Text(l10n.taskHubOpen),
                               ),
                             ],
                           ),
@@ -2685,7 +2657,6 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
               final jiraBanner = data.external?.provider == 'jira'
                   ? Builder(
                       builder: (ctx) {
-                        final isEs2 = Localizations.localeOf(ctx).languageCode == 'es';
                         final ext = data.external!;
                         final uri = _jiraBrowseUri(ext);
                         final label = (ext.issueKey ?? '').trim().isNotEmpty == true
@@ -2717,7 +2688,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                     ? null
                                     : () async { await launchUrl(uri, mode: LaunchMode.externalApplication); },
                                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                                label: Text(isEs2 ? 'Abrir' : l10n.taskHubOpen),
+                                label: Text(l10n.taskHubOpen),
                               ),
                             ],
                           ),
@@ -2927,14 +2898,14 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                       children: [
                         const Divider(height: 24),
                         Text(
-                          isEs ? 'Campos YouTrack' : 'YouTrack Fields',
+                          l10n.kanbanYoutrackFieldsTitle,
                           style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 10),
                         TextField(
                           controller: _ytTypeCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Tipo' : 'Type',
+                            labelText: l10n.kanbanFieldType,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.category_outlined, size: 18),
                           ),
@@ -2944,7 +2915,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytAssigneeCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Asignado' : 'Assignee',
+                            labelText: l10n.kanbanAssignee,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
                           ),
@@ -2960,7 +2931,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytSubsystemCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Subsistema' : 'Subsystem',
+                            labelText: l10n.kanbanSubsystem,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.account_tree_outlined, size: 18),
                           ),
@@ -2970,8 +2941,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytFixVersionsCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Solucionar versiones' : 'Fix Versions',
-                            hintText: isEs ? 'p. ej. 1.0, 2.3' : 'e.g. 1.0, 2.3',
+                            labelText: l10n.kanbanFixVersions,
+                            hintText: l10n.kanbanFixVersionsHint,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.check_circle_outline_rounded, size: 18),
                           ),
@@ -2981,8 +2952,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytAffectedVersionsCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Versiones afectadas' : 'Affected Versions',
-                            hintText: isEs ? 'p. ej. 0.9, 1.0' : 'e.g. 0.9, 1.0',
+                            labelText: l10n.kanbanAffectedVersions,
+                            hintText: l10n.kanbanAffectedVersionsHint,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.bug_report_outlined, size: 18),
                           ),
@@ -2992,7 +2963,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytFixedInBuildCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Solucionado en el build' : 'Fixed in Build',
+                            labelText: l10n.kanbanFixedInBuild,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.build_outlined, size: 18),
                           ),
@@ -3002,8 +2973,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytEstimationCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Estimación' : 'Estimation',
-                            hintText: isEs ? 'p. ej. 2h 30m' : 'e.g. 2h 30m',
+                            labelText: l10n.kanbanEstimationFieldLabel,
+                            hintText: l10n.kanbanEstimationHint,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.timer_outlined, size: 18),
                           ),
@@ -3013,8 +2984,8 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         TextField(
                           controller: _ytSpentTimeCtrl,
                           decoration: InputDecoration(
-                            labelText: isEs ? 'Tiempo empleado' : 'Spent Time',
-                            hintText: isEs ? 'p. ej. 1h 15m' : 'e.g. 1h 15m',
+                            labelText: l10n.kanbanSpentTimeLabel,
+                            hintText: l10n.kanbanSpentTimeHint,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.hourglass_bottom_rounded, size: 18),
                           ),
@@ -3329,7 +3300,7 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(
-                                    isEs ? 'Propiedades' : 'Properties',
+                                    l10n.kanbanPropertiesTitle,
                                     style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                   const SizedBox(height: 12),
@@ -3453,7 +3424,6 @@ class _JiraDetailsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final ext = data.external!;
     final snap = data.jira;
     final state = (ext.syncState ?? 'ok').trim().isEmpty
@@ -3504,7 +3474,7 @@ class _JiraDetailsSection extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isEs ? 'Jira' : 'Jira',
+                  'Jira',
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -3534,9 +3504,7 @@ class _JiraDetailsSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    isEs
-                        ? 'Conflicto: hubo cambios en Jira y en Folio.'
-                        : 'Conflict: there were changes in Jira and Folio.',
+                    l10n.kanbanConflictJiraFolioText,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onErrorContainer,
                       fontWeight: FontWeight.w700,
@@ -3597,12 +3565,12 @@ class _JiraDetailsSection extends StatelessWidget {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${isEs ? 'Folio' : 'Folio'}: $folioText',
+                                'Folio: $folioText',
                                 style: same ? baseStyle : hi,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${isEs ? 'Jira' : 'Jira'}: $jiraText',
+                                'Jira: $jiraText',
                                 style: baseStyle,
                               ),
                             ],
@@ -3613,9 +3581,7 @@ class _JiraDetailsSection extends StatelessWidget {
                       final jira = issue;
                       if (jira == null) {
                         return Text(
-                          isEs
-                              ? 'Pulsa Pull para cargar el estado remoto y ver las diferencias.'
-                              : 'Press Pull to load remote state and see differences.',
+                          l10n.kanbanNoRemoteStateJira,
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: scheme.onErrorContainer.withValues(
                               alpha: 0.9,
@@ -3642,31 +3608,31 @@ class _JiraDetailsSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           diffRow(
-                            isEs ? 'Título' : 'Title',
+                            l10n.kanbanTitle,
                             localTitle,
                             remoteTitle,
                           ),
                           const SizedBox(height: 8),
                           diffRow(
-                            isEs ? 'Descripción' : 'Description',
+                            l10n.kanbanDescription,
                             localDesc,
                             remoteDesc,
                           ),
                           const SizedBox(height: 8),
                           diffRow(
-                            isEs ? 'Prioridad' : 'Priority',
+                            l10n.kanbanPriority,
                             localPriority,
                             remotePriority,
                           ),
                           const SizedBox(height: 8),
                           diffRow(
-                            isEs ? 'Estado/columna' : 'Status/column',
+                            l10n.kanbanStatusColumn,
                             localStatus,
                             remoteStatus,
                           ),
                           const SizedBox(height: 8),
                           diffRow(
-                            isEs ? 'Fecha límite' : 'Due date',
+                            l10n.kanbanDueDate,
                             localDue,
                             remoteDue,
                           ),
@@ -3681,17 +3647,11 @@ class _JiraDetailsSection extends StatelessWidget {
                     children: [
                       OutlinedButton(
                         onPressed: busy ? null : onResolveKeepRemote,
-                        child: Text(
-                          isEs ? 'Mantener Jira (Pull)' : 'Keep Jira (Pull)',
-                        ),
+                        child: Text(l10n.kanbanKeepJiraPull),
                       ),
                       FilledButton(
                         onPressed: busy ? null : onResolveKeepLocalForcePush,
-                        child: Text(
-                          isEs
-                              ? 'Mantener Folio (Force push)'
-                              : 'Keep Folio (Force push)',
-                        ),
+                        child: Text(l10n.kanbanKeepFolioForcePush),
                       ),
                     ],
                   ),
@@ -3715,22 +3675,22 @@ class _JiraDetailsSection extends StatelessWidget {
             children: [
               _kvChip(
                 context,
-                isEs ? 'Estado' : 'Status',
+                l10n.kanbanStatus,
                 snap?.statusName ?? issue?.statusName ?? '—',
               ),
               _kvChip(
                 context,
-                isEs ? 'Assignee' : 'Assignee',
+                l10n.kanbanAssignee,
                 snap?.assigneeDisplayName ?? issue?.assigneeDisplayName ?? '—',
               ),
               _kvChip(
                 context,
-                isEs ? 'Labels' : 'Labels',
+                l10n.kanbanLabelsField,
                 (snap?.labels ?? issue?.labels ?? const []).join(', '),
               ),
               _kvChip(
                 context,
-                isEs ? 'Componentes' : 'Components',
+                l10n.kanbanComponentsField,
                 (snap?.components ?? issue?.components ?? const []).join(', '),
               ),
             ],
@@ -3739,7 +3699,7 @@ class _JiraDetailsSection extends StatelessWidget {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             title: Text(
-              isEs ? 'Comentarios' : 'Comments',
+              l10n.kanbanCommentsTitle,
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -3749,7 +3709,7 @@ class _JiraDetailsSection extends StatelessWidget {
               children: [
                 OutlinedButton(
                   onPressed: busy ? null : onLoadComments,
-                  child: Text(isEs ? 'Cargar' : 'Load'),
+                  child: Text(l10n.kanbanLoadButton),
                 ),
               ],
             ),
@@ -3763,7 +3723,7 @@ class _JiraDetailsSection extends StatelessWidget {
                       minLines: 1,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        labelText: isEs ? 'Nuevo comentario' : 'New comment',
+                        labelText: l10n.kanbanNewCommentLabel,
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -3771,7 +3731,7 @@ class _JiraDetailsSection extends StatelessWidget {
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: busy ? null : onAddComment,
-                    child: Text(isEs ? 'Enviar' : 'Send'),
+                    child: Text(l10n.kanbanSendButton),
                   ),
                 ],
               ),
@@ -3780,7 +3740,7 @@ class _JiraDetailsSection extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    isEs ? 'Sin comentarios cargados.' : 'No comments loaded.',
+                    l10n.kanbanNoCommentsLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -3824,7 +3784,7 @@ class _JiraDetailsSection extends StatelessWidget {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             title: Text(
-              isEs ? 'Adjuntos' : 'Attachments',
+              l10n.kanbanAttachmentsTitle,
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -3835,9 +3795,7 @@ class _JiraDetailsSection extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    isEs
-                        ? 'Pulsa Pull para ver adjuntos.'
-                        : 'Press Pull to see attachments.',
+                    l10n.kanbanPressPullToSeeAttachments,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -3852,7 +3810,7 @@ class _JiraDetailsSection extends StatelessWidget {
                     title: Text(a.filename),
                     subtitle: Text('${a.size ?? 0} bytes'),
                     trailing: IconButton(
-                      tooltip: isEs ? 'Abrir' : 'Open',
+                      tooltip: l10n.open,
                       onPressed: (a.contentUrl ?? '').trim().isEmpty
                           ? null
                           : () async {
@@ -3873,14 +3831,14 @@ class _JiraDetailsSection extends StatelessWidget {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             title: Text(
-              isEs ? 'Worklog / Tiempo' : 'Worklog / Time',
+              l10n.kanbanWorklogTitle,
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             trailing: OutlinedButton(
               onPressed: busy ? null : onLoadWorklogs,
-              child: Text(isEs ? 'Cargar' : 'Load'),
+              child: Text(l10n.kanbanLoadButton),
             ),
             children: [
               const SizedBox(height: 10),
@@ -3890,21 +3848,21 @@ class _JiraDetailsSection extends StatelessWidget {
                 children: [
                   _kvChip(
                     context,
-                    isEs ? 'Estimación' : 'Estimate',
+                    l10n.kanbanEstimateChipLabel,
                     issue?.timetracking?.originalEstimateSeconds == null
                         ? '—'
                         : '${(issue!.timetracking!.originalEstimateSeconds! / 60).round()} min',
                   ),
                   _kvChip(
                     context,
-                    isEs ? 'Restante' : 'Remaining',
+                    l10n.kanbanRemainingChipLabel,
                     issue?.timetracking?.remainingEstimateSeconds == null
                         ? '—'
                         : '${(issue!.timetracking!.remainingEstimateSeconds! / 60).round()} min',
                   ),
                   _kvChip(
                     context,
-                    isEs ? 'Gastado' : 'Spent',
+                    l10n.kanbanSpentChipLabel,
                     issue?.timetracking?.timeSpentSeconds == null
                         ? '—'
                         : '${(issue!.timetracking!.timeSpentSeconds! / 60).round()} min',
@@ -3919,7 +3877,7 @@ class _JiraDetailsSection extends StatelessWidget {
                       controller: worklogMinutesCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: isEs ? 'Añadir (minutos)' : 'Add (minutes)',
+                        labelText: l10n.kanbanAddMinutesLabel,
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -3927,7 +3885,7 @@ class _JiraDetailsSection extends StatelessWidget {
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: busy ? null : onAddWorklog,
-                    child: Text(isEs ? 'Registrar' : 'Log'),
+                    child: Text(l10n.kanbanLogButton),
                   ),
                 ],
               ),
@@ -3936,7 +3894,7 @@ class _JiraDetailsSection extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    isEs ? 'Sin worklogs cargados.' : 'No worklogs loaded.',
+                    l10n.kanbanNoWorklogsLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -4017,7 +3975,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final ext = data.external!;
     final snap = data.youtrack;
     final state = (ext.syncState ?? 'ok').trim().isEmpty
@@ -4064,7 +4022,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isEs ? 'YouTrack' : 'YouTrack',
+                  'YouTrack',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -4075,7 +4033,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
                 icon: busy
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(isEs ? 'Actualizar' : 'Refresh'),
+                label: Text(l10n.kanbanRefreshButton),
               ),
             ],
           ),
@@ -4092,9 +4050,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    isEs
-                        ? 'Conflicto: hubo cambios en YouTrack y en Folio.'
-                        : 'Conflict: there were changes in YouTrack and Folio.',
+                    l10n.kanbanConflictYoutrackFolioText,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onErrorContainer,
                       fontWeight: FontWeight.w700,
@@ -4161,9 +4117,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
                       final yt = issue;
                       if (yt == null) {
                         return Text(
-                          isEs
-                              ? 'Pulsa Actualizar para cargar el estado remoto y ver las diferencias.'
-                              : 'Press Refresh to load remote state and see differences.',
+                          l10n.kanbanNoRemoteStateYoutrack,
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: scheme.onErrorContainer.withValues(alpha: 0.9),
                           ),
@@ -4180,25 +4134,25 @@ class _YouTrackDetailsSection extends StatelessWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          diffRow(isEs ? 'Título' : 'Title', localTitle, remoteTitle),
+                          diffRow(l10n.kanbanTitle, localTitle, remoteTitle),
                           const SizedBox(height: 8),
-                          diffRow(isEs ? 'Descripción' : 'Description', localDesc, remoteDesc),
+                          diffRow(l10n.kanbanDescription, localDesc, remoteDesc),
                           const SizedBox(height: 8),
-                          diffRow(isEs ? 'Prioridad' : 'Priority', localPriority, remotePriority),
+                          diffRow(l10n.kanbanPriority, localPriority, remotePriority),
                           const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: onResolveKeepRemote,
-                                  child: Text(isEs ? 'Mantener YouTrack' : 'Keep YouTrack'),
+                                  child: Text(l10n.kanbanKeepYoutrack),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: FilledButton(
                                   onPressed: onResolveKeepLocalForcePush,
-                                  child: Text(isEs ? 'Forzar Folio' : 'Force Folio'),
+                                  child: Text(l10n.kanbanForceFolio),
                                 ),
                               ),
                             ],
@@ -4223,21 +4177,21 @@ class _YouTrackDetailsSection extends StatelessWidget {
           Row(
             children: [
               if (snap?.stateName != null) ...[
-                _Tag(label: '${isEs ? "Estado" : "State"}: ${snap!.stateName}'),
+                _Tag(label: '${l10n.youtrackStateLabel}: ${snap!.stateName}'),
                 const SizedBox(width: 6),
               ],
               if (snap?.priorityName != null) ...[
-                _Tag(label: '${isEs ? "Prioridad" : "Priority"}: ${snap!.priorityName}'),
+                _Tag(label: '${l10n.kanbanPriority}: ${snap!.priorityName}'),
                 const SizedBox(width: 6),
               ],
               if (snap?.assigneeName != null) ...[
-                _Tag(label: '${isEs ? "Asignado" : "Assignee"}: ${snap!.assigneeName}'),
+                _Tag(label: '${l10n.kanbanAssignee}: ${snap!.assigneeName}'),
               ],
             ],
           ),
           const Divider(height: 24),
           Text(
-            isEs ? 'Comentarios YouTrack' : 'YouTrack Comments',
+            l10n.kanbanYoutrackCommentsTitle,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
@@ -4273,7 +4227,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
               ),
           ] else
             Text(
-              isEs ? 'Sin comentarios o no cargados.' : 'No comments or not loaded.',
+              l10n.kanbanNoCommentsOrNotLoaded,
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
             ),
           const SizedBox(height: 8),
@@ -4283,7 +4237,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
                 child: TextField(
                   controller: newCommentCtrl,
                   decoration: InputDecoration(
-                    hintText: isEs ? 'Añadir comentario...' : 'Add a comment...',
+                    hintText: l10n.kanbanAddCommentHint,
                     border: const OutlineInputBorder(),
                     isDense: true,
                   ),

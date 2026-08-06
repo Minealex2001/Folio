@@ -51,6 +51,7 @@ class _PersonalizationSectionBody extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([layoutEngine, themeConfig, activePack]),
       builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
         final sidebar = layoutEngine.panelFor(PanelRegionIds.sidebarLeft);
         final theme = themeConfig.config;
         final cornerScale = theme.shape.radiusMd == 0
@@ -65,21 +66,18 @@ class _PersonalizationSectionBody extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _SettingsPanelHeroCard(
+            _SettingsPanelHeroCard(
               icon: Icons.dashboard_customize_outlined,
-              title: 'Personalización (beta)',
-              description:
-                  'Motor de layout, tema y dashboard nuevos — esta pantalla '
-                  'controla directamente los controllers en vivo que ya '
-                  'renderiza la app.',
+              title: l10n.settingsPersonalizationBeta,
+              description: l10n.settingsPersonalizationBody,
               chips: [
                 _SettingsInfoChip(
                   icon: Icons.view_sidebar_outlined,
-                  label: 'Motor de paneles',
+                  label: l10n.settingsPanelEngine,
                 ),
                 _SettingsInfoChip(
                   icon: Icons.palette_outlined,
-                  label: 'Motor de tema',
+                  label: l10n.settingsThemeEngine,
                 ),
               ],
             ),
@@ -94,14 +92,16 @@ class _PersonalizationSectionBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Panel lateral',
+                    l10n.settingsSidebarSection,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     sidebar == null
-                        ? 'Región no disponible.'
-                        : 'Ancho actual: ${sidebar.width?.toStringAsFixed(0) ?? '—'} px',
+                        ? l10n.settingsRegionUnavailable
+                        : l10n.settingsSidebarWidth(
+                            sidebar.width?.toStringAsFixed(0) ?? '—',
+                          ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -109,11 +109,8 @@ class _PersonalizationSectionBody extends StatelessWidget {
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Bloquear panel lateral'),
-                    subtitle: const Text(
-                      'Impide redimensionar/mover el sidebar hasta que se '
-                      'desbloquee de nuevo.',
-                    ),
+                    title: Text(l10n.settingsLockSidebar),
+                    subtitle: Text(l10n.settingsLockSidebarHint),
                     value: sidebar?.locked ?? false,
                     onChanged: sidebar == null
                         ? null
@@ -126,7 +123,7 @@ class _PersonalizationSectionBody extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: () => unawaited(layoutEngine.resetToDefault()),
                     icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Restablecer layout de paneles'),
+                    label: Text(l10n.settingsResetPanelLayout),
                   ),
                 ],
               ),
@@ -138,42 +135,40 @@ class _PersonalizationSectionBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Editor de tema',
+                    l10n.settingsThemeEditor,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Forma, densidad, movimiento y transparencia. El modo '
-                    'claro/oscuro y el acento están arriba (igual que en '
-                    'Apariencia).',
+                    l10n.settingsThemeEditorBody,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 12),
                   _ThemeSlider(
-                    label: 'Redondez de esquinas',
+                    label: l10n.settingsCornerRoundness,
                     value: cornerScale,
                     min: 0.0,
                     max: 2.0,
                     onChanged: themeConfig.setCornerRoundness,
                   ),
                   _ThemeSlider(
-                    label: 'Densidad de espaciado',
+                    label: l10n.settingsSpacingDensity,
                     value: spacingScale,
                     min: 0.6,
                     max: 1.6,
                     onChanged: themeConfig.setSpacingDensity,
                   ),
                   _ThemeSlider(
-                    label: 'Velocidad de movimiento',
+                    label: l10n.settingsMotionSpeed,
                     value: motionSpeed,
                     min: 0.4,
                     max: 2.5,
                     onChanged: themeConfig.setMotionSpeed,
                   ),
                   _ThemeSlider(
-                    label: 'Opacidad de superficies',
+                    label: l10n.settingsSurfaceOpacity,
                     value: theme.surfaceOpacity,
                     min: 0.5,
                     max: 1.0,
@@ -184,7 +179,7 @@ class _PersonalizationSectionBody extends StatelessWidget {
                     onPressed: () =>
                         unawaited(themeConfig.resetToDefault()),
                     icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Restablecer tema'),
+                    label: Text(l10n.settingsResetTheme),
                   ),
                 ],
               ),
@@ -196,15 +191,12 @@ class _PersonalizationSectionBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Plantillas de dashboard',
+                    l10n.settingsDashboardTemplates,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Developer, Writer, Research, Student, Planning, Gaming — '
-                    'cambia el contenido del dashboard de inicio. Tus '
-                    'ediciones a una plantilla ya instalada se conservan al '
-                    'volver a ella.',
+                    l10n.settingsDashboardTemplatesBody,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -325,7 +317,8 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
       }
       await widget.appSettings.setAccentColorMode(accentMode);
       await _installer.apply(pack);
-      _snack('Pack "${pack.manifest.name}" aplicado.');
+      if (!mounted) return;
+      _snack(AppLocalizations.of(context).settingsPackAppliedSnack(pack.manifest.name));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -360,13 +353,14 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
         folioTriggerBrowserDownload(fileName, bytes);
       } else {
         final path = await FilePicker.saveFile(
-          dialogTitle: 'Guardar pack visual',
+          dialogTitle: AppLocalizations.of(context).settingsSaveVisualPack,
           fileName: fileName,
         );
         if (path == null) return;
         await File(path).writeAsBytes(bytes);
       }
-      _snack('Setup actual exportado.');
+      if (!mounted) return;
+      _snack(AppLocalizations.of(context).settingsSetupExportedSnack);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -388,16 +382,19 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
       } else if (picked.path != null) {
         jsonText = await File(picked.path!).readAsString();
       } else {
-        _snack('No se pudo leer el archivo.');
+        if (!mounted) return;
+        _snack(AppLocalizations.of(context).settingsCouldNotReadFile);
         return;
       }
       final pack = VisualPack.fromJson(
         jsonDecode(jsonText) as Map<String, dynamic>,
       );
       await _installer.apply(pack);
-      _snack('Pack "${pack.manifest.name}" importado y aplicado.');
+      if (!mounted) return;
+      _snack(AppLocalizations.of(context).settingsPackImportedSnack(pack.manifest.name));
     } catch (e) {
-      _snack('No se pudo importar el pack: $e');
+      if (!mounted) return;
+      _snack(AppLocalizations.of(context).settingsPackImportFailed('$e'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -405,6 +402,7 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final packs = builtinVisualPacks();
     final scheme = Theme.of(context).colorScheme;
     return Padding(
@@ -416,7 +414,7 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
             children: [
               Expanded(
                 child: Text(
-                  'Packs visuales',
+                  l10n.settingsVisualPacks,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -430,8 +428,7 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Aplica un pack para cambiar tema, layout y dashboard de golpe. '
-            'También puedes exportar tu setup actual o importar uno.',
+            l10n.settingsVisualPacksBody,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -457,12 +454,12 @@ class _VisualPacksSectionState extends State<_VisualPacksSection> {
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => unawaited(_exportCurrent()),
                 icon: const Icon(Icons.ios_share_rounded, size: 18),
-                label: const Text('Exportar setup actual'),
+                label: Text(l10n.settingsExportCurrentSetup),
               ),
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => unawaited(_importPack()),
                 icon: const Icon(Icons.file_open_outlined, size: 18),
-                label: const Text('Importar pack…'),
+                label: Text(l10n.settingsImportPack),
               ),
             ],
           ),
@@ -556,7 +553,11 @@ class _VisualPackCard extends StatelessWidget {
             width: double.infinity,
             child: FilledButton.tonal(
               onPressed: active ? null : onApply,
-              child: Text(active ? 'Activo' : 'Aplicar'),
+              child: Text(
+                active
+                    ? AppLocalizations.of(context).settingsPackActive
+                    : AppLocalizations.of(context).settingsPackApply,
+              ),
             ),
           ),
         ],
@@ -585,8 +586,9 @@ class _ExportPackDialogState extends State<_ExportPackDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Exportar setup actual'),
+      title: Text(l10n.settingsExportCurrentSetup),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -594,28 +596,28 @@ class _ExportPackDialogState extends State<_ExportPackDialog> {
           TextField(
             controller: _nameController,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Nombre del pack'),
+            decoration: InputDecoration(labelText: l10n.settingsPackName),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _authorController,
-            decoration: const InputDecoration(labelText: 'Autor (opcional)'),
+            decoration: InputDecoration(labelText: l10n.settingsPackAuthorOptional),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop((
             name: _nameController.text.trim().isEmpty
-                ? 'Mi pack'
+                ? l10n.settingsMyPackDefault
                 : _nameController.text.trim(),
             author: _authorController.text.trim(),
           )),
-          child: const Text('Exportar'),
+          child: Text(l10n.settingsExport),
         ),
       ],
     );

@@ -579,21 +579,19 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
       case _SettingsSectionId.organization:
         return l10n.settingsSectionOrganization;
       case _SettingsSectionId.personalization:
-        return 'Personalización (beta)';
+        return l10n.settingsPersonalizationBeta;
     }
   }
 
   Future<void> _showEditQuillPromptDialog(QuillSystemPrompt? item, {bool readOnly = false}) async {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController(text: item?.name ?? '');
     final promptCtrl = TextEditingController(text: item?.prompt ?? '');
     final isNew = item == null;
 
     final titleText = isNew
-        ? (isEs ? 'Crear instrucciones' : 'Create Instructions')
-        : (readOnly
-            ? (isEs ? 'Ver instrucciones' : 'View Instructions')
-            : (isEs ? 'Editar instrucciones' : 'Edit Instructions'));
+        ? l10n.quillPromptCreate
+        : (readOnly ? l10n.quillPromptView : l10n.quillPromptEdit);
 
     await showDialog<void>(
       context: context,
@@ -609,8 +607,8 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 TextField(
                   controller: nameCtrl,
                   decoration: InputDecoration(
-                    labelText: isEs ? 'Nombre' : 'Name',
-                    hintText: isEs ? 'Ej. Escritor de Poesía' : 'E.g. Poetry Writer',
+                    labelText: l10n.nameLabel,
+                    hintText: l10n.quillPromptNameHint,
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -622,10 +620,8 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 minLines: 3,
                 readOnly: readOnly,
                 decoration: InputDecoration(
-                  labelText: isEs ? 'Instrucciones del sistema' : 'System Instructions',
-                  hintText: isEs
-                      ? 'Ej. Eres un experto tutor de inglés...'
-                      : 'E.g. You are an expert English tutor...',
+                  labelText: l10n.quillPromptSystemInstructions,
+                  hintText: l10n.quillPromptSystemHint,
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -635,7 +631,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(readOnly ? (isEs ? 'Atrás' : 'Back') : (isEs ? 'Cancelar' : 'Cancel')),
+            child: Text(readOnly ? l10n.quillPromptBack : l10n.cancel),
           ),
           if (!readOnly)
             FilledButton(
@@ -658,7 +654,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) _rebuild(() {});
               },
-              child: Text(isEs ? 'Guardar' : 'Save'),
+              child: Text(l10n.save),
             ),
         ],
       ),
@@ -809,10 +805,10 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                         await _refreshSecurityFlags();
                         _snack(l10n.quickUnlockEnabledSnack);
                       } catch (e) {
-                        _snack(isEs ? 'Error al habilitar' : 'Enable failed');
+                        _snack(l10n.quillEnableFailed);
                       }
                     },
-                    child: Text(isEs ? 'Configurar' : 'Configure'),
+                    child: Text(l10n.jiraConfigure),
                   ),
           ],
         ),

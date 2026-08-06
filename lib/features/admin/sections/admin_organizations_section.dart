@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_organizations_api.dart';
 import '../widgets/admin_paginated_list.dart';
 
@@ -21,9 +22,10 @@ class _AdminOrganizationsSectionState extends State<AdminOrganizationsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AdminPaginatedList(
-      searchHint: 'Buscar por nombre, slug o id',
-      emptyLabel: 'Sin equipos.',
+      searchHint: l10n.adminOrgsSearchHint,
+      emptyLabel: l10n.adminNoTeams,
       controllerBuilder: (c) => _listController = c,
       fetch: (page, limit, query) => _api.list(page: page, limit: limit, query: query),
       itemBuilder: (context, item) {
@@ -36,9 +38,8 @@ class _AdminOrganizationsSectionState extends State<AdminOrganizationsSection> {
           ),
           title: Text(item['name']?.toString() ?? id),
           subtitle: Text(
-            '${item['type'] ?? '—'} · ${item['plan'] ?? '—'} · '
-            '${item['memberCount'] ?? 0} miembros · seats ${item['seats'] ?? 0}'
-            '${override ? ' · QA override' : ''}',
+            l10n.adminOrgSummary(item['type'] ?? '—', item['plan'] ?? '—', item['memberCount'] ?? 0, item['seats'] ?? 0) +
+                (override ? ' · ${l10n.adminQaOverrideBadge}' : ''),
           ),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () async {
@@ -117,31 +118,31 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).adminErrorWithDetails('$e'))),
+      );
     }
   }
 
   Future<void> _grantCloud() async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Conceder Cloud QA (equipo)'),
-      content: const Text(
-        'Activa admin_override con plan TEAM y features completas (seats por defecto: 10).',
-      ),
-      confirmLabel: 'Conceder',
+      title: Text(l10n.adminGrantCloudQaOrgTitle),
+      content: Text(l10n.adminGrantCloudQaOrgBody),
+      confirmLabel: l10n.adminActionGrant,
     );
     if (ok != true) return;
     await _run(() => widget.api.grantCloud(widget.orgId));
   }
 
   Future<void> _revokeCloud() async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Revocar Cloud QA (equipo)'),
-      content: const Text(
-        'Quita admin_override. Si no hay Stripe activo, el equipo vuelve a FREE.',
-      ),
-      confirmLabel: 'Revocar',
+      title: Text(l10n.adminRevokeCloudQaOrgTitle),
+      content: Text(l10n.adminRevokeCloudQaOrgBody),
+      confirmLabel: l10n.adminActionRevoke,
       destructive: true,
     );
     if (ok != true) return;
@@ -149,11 +150,12 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
   }
 
   Future<void> _grantInk() async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Añadir tinta al equipo'),
-      content: const Text('Suma 1000 gotas compradas a org_ink.'),
-      confirmLabel: 'Añadir tinta',
+      title: Text(l10n.adminAddInkTitle),
+      content: Text(l10n.adminAddInkBody),
+      confirmLabel: l10n.adminActionAddInk,
     );
     if (ok != true) return;
     await _run(() => widget.api.grantInk(widget.orgId, inkDrops: 1000));
@@ -161,6 +163,7 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final d = _detail;
     final ent = (d?['entitlement'] as Map?) ?? const {};
     final ink = (d?['ink'] as Map?) ?? const {};
@@ -168,7 +171,7 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
     final scheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: Text(d?['name']?.toString() ?? 'Equipo'),
+      title: Text(d?['name']?.toString() ?? l10n.adminTeamFallbackTitle),
       content: SizedBox(
         width: 480,
         height: 420,
@@ -198,21 +201,21 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
                           children: [
                             FilledButton(
                               onPressed: _busy ? null : _grantCloud,
-                              child: const Text('Grant Cloud QA'),
+                              child: Text(l10n.adminButtonGrantCloudQa),
                             ),
                             OutlinedButton(
                               onPressed: _busy ? null : _revokeCloud,
-                              child: const Text('Revoke'),
+                              child: Text(l10n.adminButtonRevoke),
                             ),
                             TextButton(
                               onPressed: _busy ? null : _grantInk,
-                              child: const Text('+1000 tinta'),
+                              child: Text(l10n.adminAddInkButton),
                             ),
                           ],
                         ),
                       ],
                       const Divider(height: 24),
-                      Text('Miembros (${members.length})', style: Theme.of(context).textTheme.titleSmall),
+                      Text(l10n.adminMembersCount(members.length), style: Theme.of(context).textTheme.titleSmall),
                       for (final raw in members)
                         Builder(
                           builder: (context) {
@@ -229,7 +232,7 @@ class _OrgDetailDialogState extends State<_OrgDetailDialog> {
                   ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close)),
       ],
     );
   }

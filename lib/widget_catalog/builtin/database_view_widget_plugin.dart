@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../models/folio_database_data.dart';
@@ -14,7 +15,7 @@ class DatabaseViewWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'database_view';
 
   @override
-  String displayName(BuildContext context) => 'Base de datos';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetDatabaseView;
 
   @override
   IconData get icon => Icons.table_chart_outlined;
@@ -25,6 +26,7 @@ class DatabaseViewWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     final items = <({String pageId, String pageTitle, int rows})>[];
     for (final page in ctx.session.pages) {
       if (page.isTrashed) continue;
@@ -32,7 +34,7 @@ class DatabaseViewWidgetPlugin extends FolioWidgetPlugin {
         if (block.type != 'database') continue;
         final db = FolioDatabaseData.tryParse(block.text);
         final pageTitle =
-            page.title.trim().isEmpty ? 'Sin título' : page.title;
+            page.title.trim().isEmpty ? l10n.untitled : page.title;
         items.add((
           pageId: page.id,
           pageTitle: pageTitle,
@@ -47,8 +49,8 @@ class DatabaseViewWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: items.isEmpty
-          ? const BuiltinWidgetEmpty(
-              message: 'No hay páginas con base de datos en el vault.',
+          ? BuiltinWidgetEmpty(
+              message: l10n.widgetDatabaseViewEmpty,
             )
           : ListView.builder(
               itemCount: items.length,
@@ -63,7 +65,7 @@ class DatabaseViewWidgetPlugin extends FolioWidgetPlugin {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text('${item.rows} filas'),
+                  subtitle: Text(l10n.widgetDatabaseViewRowCount(item.rows)),
                   onTap: () => ctx.onSelectPage?.call(item.pageId),
                 );
               },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../data/vault_paths.dart';
@@ -14,12 +15,12 @@ int _intSetting(Map<String, dynamic> settings, String key, int defaultValue) {
   return defaultValue;
 }
 
-String _relativeVisitTime(DateTime visited, DateTime now) {
+String _relativeVisitTime(AppLocalizations l10n, DateTime visited, DateTime now) {
   final ago = now.difference(visited);
-  if (ago.inMinutes < 1) return 'ahora mismo';
-  if (ago.inHours < 1) return 'hace ${ago.inMinutes} min';
-  if (ago.inDays < 1) return 'hace ${ago.inHours} h';
-  return 'hace ${ago.inDays} d';
+  if (ago.inMinutes < 1) return l10n.widgetRelativeJustNow;
+  if (ago.inHours < 1) return l10n.widgetRelativeMinutesAgo(ago.inMinutes);
+  if (ago.inDays < 1) return l10n.widgetRelativeHoursAgo(ago.inHours);
+  return l10n.widgetRelativeDaysAgo(ago.inDays);
 }
 
 /// Actividad reciente — Folio no lleva un log de eventos dedicado, así que
@@ -33,7 +34,7 @@ class ActivityWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'activity';
 
   @override
-  String displayName(BuildContext context) => 'Actividad';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetActivity;
 
   @override
   IconData get icon => Icons.timeline_rounded;
@@ -65,8 +66,8 @@ class ActivityWidgetPlugin extends FolioWidgetPlugin {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        labelText: 'Máximo de entradas',
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).widgetMaxEntriesLabel,
         hintText: '8',
       ),
       onChanged: (v) {
@@ -129,8 +130,9 @@ class _ActivityListState extends State<_ActivityList> {
             ),
           );
         }
+        final l10n = AppLocalizations.of(context);
         if (visits.isEmpty) {
-          return const BuiltinWidgetEmpty(message: 'Sin actividad todavía.');
+          return BuiltinWidgetEmpty(message: l10n.widgetActivityEmpty);
         }
         final byId = {for (final p in widget.ctx.session.pages) p.id: p};
         final now = DateTime.now();
@@ -144,7 +146,7 @@ class _ActivityListState extends State<_ActivityList> {
             final visited = DateTime.fromMillisecondsSinceEpoch(
               visit.visitedAtMs,
             );
-            final agoText = _relativeVisitTime(visited, now);
+            final agoText = _relativeVisitTime(l10n, visited, now);
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -190,7 +192,7 @@ class _ActivityListState extends State<_ActivityList> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            page.title.isEmpty ? 'Sin título' : page.title,
+                            page.title.isEmpty ? l10n.untitled : page.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium,

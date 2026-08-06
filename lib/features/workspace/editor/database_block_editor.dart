@@ -1633,8 +1633,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                               ),
                             ],
                             onChanged: (nv) => relationTarget.value = nv,
-                            decoration: const InputDecoration(
-                              labelText: 'Target DB',
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(context).dbEditorTargetDb,
                             ),
                           ),
                     ),
@@ -1663,8 +1663,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                                 )
                                 .toList(),
                             onChanged: (nv) => relPropId.value = nv,
-                            decoration: const InputDecoration(
-                              labelText: 'Propiedad relation',
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(context).dbEditorRelationProperty,
                             ),
                           ),
                     ),
@@ -1686,8 +1686,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                                 )
                                 .toList(),
                             onChanged: (nv) => rollupTargetId.value = nv,
-                            decoration: const InputDecoration(
-                              labelText: 'Propiedad target',
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(context).dbEditorTargetProperty,
                             ),
                           ),
                     ),
@@ -1716,8 +1716,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                             onChanged: (nv) {
                               if (nv != null) rollupOp.value = nv;
                             },
-                            decoration: const InputDecoration(
-                              labelText: 'Operación rollup',
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(context).dbEditorRollupOperation,
                             ),
                           ),
                     ),
@@ -2334,7 +2334,7 @@ class _AiPropertyConfigSectionState extends State<_AiPropertyConfigSection> {
           controller: _promptCtrl,
           maxLines: 3,
           decoration: InputDecoration(
-            labelText: 'Prompt IA',
+            labelText: AppLocalizations.of(context).dbEditorAiPrompt,
             hintText:
                 'Usa {NombrePropiedad} para insertar valores de otras columnas.',
           ),

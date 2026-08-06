@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/folio_spring_auth_session.dart';
 
 /// Confirmación de correo estudiante en `…/verify-student-email?token=…`.
@@ -65,6 +66,7 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -113,7 +115,7 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
                     const SizedBox(height: FolioSpace.xl),
                     FilledButton(
                       onPressed: _goHome,
-                      child: const Text('Ir a Folio'),
+                      child: Text(l10n.goToFolio),
                     ),
                   ],
                 ],

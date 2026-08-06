@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/models/widget_instance_config.dart';
@@ -17,7 +18,7 @@ class QuickActionsWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'quick_actions';
 
   @override
-  String displayName(BuildContext context) => 'Acciones rápidas';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetQuickActions;
 
   @override
   IconData get icon => Icons.bolt_rounded;
@@ -48,6 +49,7 @@ class QuickActionsWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
@@ -57,17 +59,17 @@ class QuickActionsWidgetPlugin extends FolioWidgetPlugin {
         children: [
           ActionChip(
             avatar: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Nueva página'),
+            label: Text(l10n.widgetNewPageAction),
             onPressed: ctx.onCreatePage,
           ),
           ActionChip(
             avatar: const Icon(Icons.today_rounded, size: 18),
-            label: const Text('Nota de hoy'),
+            label: Text(l10n.widgetQuickActionsTodayNote),
             onPressed: () => _openOrCreateDailyNote(ctx),
           ),
           ActionChip(
             avatar: const Icon(Icons.search_rounded, size: 18),
-            label: const Text('Buscar'),
+            label: Text(l10n.search),
             onPressed: ctx.onOpenSearch == null
                 ? null
                 : () => ctx.onOpenSearch!(),

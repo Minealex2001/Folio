@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:intl/intl.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../l10n/generated/app_localizations.dart';
@@ -23,16 +24,14 @@ class ReleaseNotesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
+    final locale = Localizations.localeOf(context).toString();
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final normalizedNotes = releaseNotes.trim();
     final details = <String>[
       if (versionLabel.trim().isNotEmpty) versionLabel.trim(),
       if ((tagName ?? '').trim().isNotEmpty) (tagName ?? '').trim(),
-      if (publishedAt != null) _formatDate(publishedAt!, isEs),
+      if (publishedAt != null) _formatDate(publishedAt!, locale),
     ].join(' · ');
 
     return Scaffold(
@@ -102,11 +101,7 @@ class ReleaseNotesPage extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date, bool isEs) {
-    final local = date.toLocal();
-    final y = local.year.toString().padLeft(4, '0');
-    final m = local.month.toString().padLeft(2, '0');
-    final d = local.day.toString().padLeft(2, '0');
-    return isEs ? '$d/$m/$y' : '$y-$m-$d';
+  String _formatDate(DateTime date, String locale) {
+    return DateFormat.yMd(locale).format(date.toLocal());
   }
 }

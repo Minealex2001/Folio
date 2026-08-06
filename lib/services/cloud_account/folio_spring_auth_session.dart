@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../config/folio_backend_config.dart';
 import '../app_logger.dart';
+import '../folio_cloud/folio_cloud_http_client.dart';
 
 /// Perfil de sesión Spring (sustituye [User] de Firebase Auth en modo Spring).
 @immutable
@@ -122,7 +123,8 @@ class FolioSpringAuthSession extends ChangeNotifier {
            const FlutterSecureStorage(
              aOptions: AndroidOptions(encryptedSharedPreferences: true),
            ),
-       _http = httpClient ?? http.Client();
+       // Cliente compartido: keep-alive + fallback api.folio.com.es → backendfolio.
+       _http = httpClient ?? folioCloudHttpClient;
 
   static FolioSpringAuthSession? _shared;
   static FolioSpringAuthSession get instance =>

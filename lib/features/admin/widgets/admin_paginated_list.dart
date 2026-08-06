@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_api_base.dart';
 
 /// Reusable searchable/paginated list for every admin console section — one fetch signature,
@@ -12,8 +13,8 @@ class AdminPaginatedList extends StatefulWidget {
     required this.fetch,
     required this.itemBuilder,
     this.searchable = true,
-    this.searchHint = 'Buscar',
-    this.emptyLabel = 'Sin resultados',
+    required this.searchHint,
+    required this.emptyLabel,
     this.pageSize = 25,
     this.extraActions,
     this.controllerBuilder,
@@ -90,6 +91,7 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         if (widget.searchable || widget.extraActions != null)
@@ -114,7 +116,7 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
                 if (widget.searchable)
                   FilledButton.tonal(
                     onPressed: () => _load(page: 0),
-                    child: const Text('Buscar'),
+                    child: Text(l10n.search),
                   ),
                 if (widget.extraActions != null) ...[
                   const SizedBox(width: 12),
@@ -154,7 +156,7 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
                   onPressed: _page > 0 ? () => _load(page: _page - 1) : null,
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
-                Text('Página ${_page + 1} de ${_data!.totalPages} · ${_data!.total} en total'),
+                Text(l10n.adminPaginationSummary(_page + 1, _data!.totalPages, _data!.total)),
                 IconButton(
                   onPressed: _page + 1 < _data!.totalPages ? () => _load(page: _page + 1) : null,
                   icon: const Icon(Icons.chevron_right_rounded),

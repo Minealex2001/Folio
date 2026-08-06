@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/admin/admin_entitlements_api.dart';
 import '../../services/admin/admin_storage_api.dart';
 import '../../services/admin/admin_users_api.dart';
@@ -76,15 +77,16 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final email = _detail?['email']?.toString() ?? widget.uid;
     return Scaffold(
       appBar: AppBar(
         title: Text(email),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Resumen'),
-            Tab(text: 'Almacenamiento'),
+          tabs: [
+            Tab(text: l10n.adminTabOverview),
+            Tab(text: l10n.adminTabStorage),
           ],
         ),
       ),
@@ -151,15 +153,14 @@ class _OverviewTabState extends State<_OverviewTab> {
   }
 
   Future<void> _grantCloud() async {
+    final l10n = AppLocalizations.of(context);
     final uid = detail['uid']?.toString() ?? '';
     if (uid.isEmpty) return;
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Conceder Cloud QA'),
-      content: const Text(
-        'Activa admin_override con features completas de Folio Cloud para este usuario.',
-      ),
-      confirmLabel: 'Conceder',
+      title: Text(l10n.adminGrantCloudQaTitle),
+      content: Text(l10n.adminGrantCloudQaBody),
+      confirmLabel: l10n.adminActionGrant,
     );
     if (ok != true) return;
     setState(() => _grantBusy = true);
@@ -167,23 +168,24 @@ class _OverviewTabState extends State<_OverviewTab> {
       await _entitlementsApi.grantCloud(uid);
       await widget.onReload();
       if (!mounted) return;
-      _snack('Cloud QA concedido');
+      _snack(l10n.adminCloudQaGranted);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e');
+      _snack(l10n.adminErrorWithDetails('$e'));
     } finally {
       if (mounted) setState(() => _grantBusy = false);
     }
   }
 
   Future<void> _revokeCloud() async {
+    final l10n = AppLocalizations.of(context);
     final uid = detail['uid']?.toString() ?? '';
     if (uid.isEmpty) return;
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Revocar Cloud QA'),
-      content: const Text('Quita admin_override de Folio Cloud para este usuario.'),
-      confirmLabel: 'Revocar',
+      title: Text(l10n.adminRevokeCloudQaTitle),
+      content: Text(l10n.adminRevokeCloudQaBody),
+      confirmLabel: l10n.adminActionRevoke,
       destructive: true,
     );
     if (ok != true) return;
@@ -192,10 +194,10 @@ class _OverviewTabState extends State<_OverviewTab> {
       await _entitlementsApi.revokeCloud(uid);
       await widget.onReload();
       if (!mounted) return;
-      _snack('Cloud QA revocado');
+      _snack(l10n.adminCloudQaRevoked);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e');
+      _snack(l10n.adminErrorWithDetails('$e'));
     } finally {
       if (mounted) setState(() => _grantBusy = false);
     }
@@ -203,6 +205,7 @@ class _OverviewTabState extends State<_OverviewTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cloud = (detail['folioCloud'] as Map?) ?? const {};
     final ink = (detail['ink'] as Map?) ?? const {};
     final orgs = (detail['organizations'] as List?) ?? const [];
@@ -237,7 +240,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-        Text('Folio Cloud QA', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminSectionFolioCloudQa, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
           'active: ${cloud['active']} · status: ${cloud['subscriptionStatus'] ?? '—'} · '
@@ -254,29 +257,29 @@ class _OverviewTabState extends State<_OverviewTab> {
             children: [
               FilledButton(
                 onPressed: _grantBusy ? null : _grantCloud,
-                child: const Text('Grant Cloud QA'),
+                child: Text(l10n.adminButtonGrantCloudQa),
               ),
               OutlinedButton(
                 onPressed: _grantBusy ? null : _revokeCloud,
-                child: const Text('Revoke'),
+                child: Text(l10n.adminButtonRevoke),
               ),
             ],
           ),
         ] else
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Solo BILLING_ADMIN / SUPER_ADMIN pueden conceder Cloud QA.',
-              style: TextStyle(fontStyle: FontStyle.italic),
+              l10n.adminOnlyBillingAdminCanGrant,
+              style: const TextStyle(fontStyle: FontStyle.italic),
             ),
           ),
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-        Text('Equipos', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminNavTeams, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         if (orgs.isEmpty)
-          const Text('Sin organizaciones activas.')
+          Text(l10n.adminNoActiveOrganizations)
         else
           for (final raw in orgs)
             Builder(
@@ -289,7 +292,7 @@ class _OverviewTabState extends State<_OverviewTab> {
                   title: Text(o['name']?.toString() ?? o['id']?.toString() ?? ''),
                   subtitle: Text(
                     '${o['plan'] ?? '—'} · ${o['role'] ?? ''} · '
-                    '${o['adminOverride'] == true ? 'QA override' : 'sin override'}',
+                    '${o['adminOverride'] == true ? l10n.adminQaOverrideBadge : l10n.adminNoOverrideBadge}',
                   ),
                 );
               },
@@ -297,7 +300,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-        Text('Rol de administrador', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.adminSectionAdminRole, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -312,11 +315,11 @@ class _OverviewTabState extends State<_OverviewTab> {
           ],
         ),
         if (!widget.canAssignRole)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Solo SUPER_ADMIN puede asignar roles.',
-              style: TextStyle(fontStyle: FontStyle.italic),
+              l10n.adminOnlySuperAdminCanAssignRoles,
+              style: const TextStyle(fontStyle: FontStyle.italic),
             ),
           ),
       ],
@@ -395,21 +398,19 @@ class _StorageTabState extends State<_StorageTab> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e');
+      _snack(AppLocalizations.of(context).adminErrorWithDetails('$e'));
     } finally {
       if (mounted) setState(() => _busyVaultIds.remove(vaultId));
     }
   }
 
   Future<void> _purge(String vaultId) async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Purgar libreta definitivamente'),
-      content: Text(
-        'Esto borra permanentemente "$vaultId" del cloud sync de este usuario '
-        '(storage + metadatos). No se puede deshacer.',
-      ),
-      confirmLabel: 'Purgar',
+      title: Text(l10n.adminPurgeVaultTitle),
+      content: Text(l10n.adminPurgeVaultBody(vaultId)),
+      confirmLabel: l10n.adminActionPurge,
       destructive: true,
     );
     if (ok != true) return;
@@ -417,11 +418,12 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Future<void> _deleteBackup(String vaultId) async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Borrar copia de seguridad'),
-      content: Text('Esto borra la copia de seguridad en la nube de "$vaultId". No se puede deshacer.'),
-      confirmLabel: 'Borrar',
+      title: Text(l10n.adminDeleteBackupTitle),
+      content: Text(l10n.adminDeleteBackupBody(vaultId)),
+      confirmLabel: l10n.adminActionDelete,
       destructive: true,
     );
     if (ok != true) return;
@@ -429,17 +431,14 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Future<void> _resetAll() async {
+    final l10n = AppLocalizations.of(context);
     final vaultsCount = _summary?['deviceSyncVaultCount'] ?? 0;
     final backupsCount = _summary?['backupVaultCount'] ?? 0;
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Restablecer sincronización en la nube'),
-      content: Text(
-        'Esto purga las $vaultsCount libretas de cloud sync y las $backupsCount copias de '
-        'seguridad de este usuario, revoca sus vault shares y pone su uso a 0. '
-        'Es la opción nuclear para una cuenta rota — no se puede deshacer.',
-      ),
-      confirmLabel: 'Restablecer',
+      title: Text(l10n.adminResetCloudSyncTitle),
+      content: Text(l10n.adminResetCloudSyncBody(vaultsCount, backupsCount)),
+      confirmLabel: l10n.adminActionReset,
       destructive: true,
     );
     if (ok != true) return;
@@ -448,12 +447,12 @@ class _StorageTabState extends State<_StorageTab> {
       final result = await _api.resetCloudSync(widget.uid);
       if (!mounted) return;
       _snack(
-        'Reset OK: ${result['vaultsPurged']} libretas, ${result['backupVaultsDeleted']} backups.',
+        l10n.adminResetCloudSyncSuccess(result['vaultsPurged'], result['backupVaultsDeleted']),
       );
       await _load();
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e');
+      _snack(l10n.adminErrorWithDetails('$e'));
     } finally {
       if (mounted) setState(() => _resetBusy = false);
     }
@@ -461,6 +460,7 @@ class _StorageTabState extends State<_StorageTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     if (_loading) return const Center(child: FolioLoadingIndicator());
     if (_error != null) {
@@ -478,18 +478,22 @@ class _StorageTabState extends State<_StorageTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Uso de almacenamiento', style: Theme.of(context).textTheme.titleMedium),
+                  Text(l10n.adminStorageUsageTitle, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    '${_formatBytes((summary['usedBytes'] as num?)?.toInt() ?? 0)} '
-                    'de ${_formatBytes((summary['quotaBytes'] as num?)?.toInt() ?? 0)}',
+                    l10n.adminStorageUsedOfQuota(
+                      _formatBytes((summary['usedBytes'] as num?)?.toInt() ?? 0),
+                      _formatBytes((summary['quotaBytes'] as num?)?.toInt() ?? 0),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${summary['deviceSyncVaultCount'] ?? 0} libretas '
-                    '(${summary['deviceSyncTrashedCount'] ?? 0} en papelera) · '
-                    '${summary['backupVaultCount'] ?? 0} backups '
-                    '(${summary['backupBlobCount'] ?? 0} blobs)',
+                    l10n.adminStorageCountsSummary(
+                      summary['deviceSyncVaultCount'] ?? 0,
+                      summary['deviceSyncTrashedCount'] ?? 0,
+                      summary['backupVaultCount'] ?? 0,
+                      summary['backupBlobCount'] ?? 0,
+                    ),
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -497,21 +501,21 @@ class _StorageTabState extends State<_StorageTab> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Libretas (cloud sync)', style: Theme.of(context).textTheme.titleMedium),
+          Text(l10n.adminSyncVaultsTitle, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_syncVaults.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin libretas sincronizadas.'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(l10n.adminNoSyncVaults),
             ),
           for (final v in _syncVaults) _buildSyncVaultTile(v, scheme),
           const SizedBox(height: 24),
-          Text('Copias de seguridad', style: Theme.of(context).textTheme.titleMedium),
+          Text(l10n.adminBackupsTitle, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_backupVaults.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin copias de seguridad.'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(l10n.adminNoBackups),
             ),
           for (final v in _backupVaults) _buildBackupVaultTile(v, scheme),
           const SizedBox(height: 32),
@@ -524,7 +528,7 @@ class _StorageTabState extends State<_StorageTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Zona de peligro',
+                      l10n.adminDangerZoneTitle,
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -532,8 +536,7 @@ class _StorageTabState extends State<_StorageTab> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Restablecer la sincronización en la nube de este usuario: purga todas '
-                      'las libretas y copias de seguridad, y pone su uso a 0.',
+                      l10n.adminDangerZoneBody,
                       style: TextStyle(color: scheme.onErrorContainer),
                     ),
                     const SizedBox(height: 12),
@@ -545,7 +548,7 @@ class _StorageTabState extends State<_StorageTab> {
                       onPressed: _resetBusy ? null : _resetAll,
                       child: _resetBusy
                           ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
-                          : const Text('Restablecer sincronización en la nube'),
+                          : Text(l10n.adminResetCloudSyncTitle),
                     ),
                   ],
                 ),
@@ -558,6 +561,7 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Widget _buildSyncVaultTile(Map<String, dynamic> v, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
     final vaultId = v['vaultId']?.toString() ?? '';
     final trashed = v['trashed'] == true;
     final busy = _busyVaultIds.contains(vaultId);
@@ -570,7 +574,7 @@ class _StorageTabState extends State<_StorageTab> {
         ),
         title: Text(displayName.isNotEmpty ? displayName : vaultId),
         subtitle: Text(
-          '$vaultId${trashed ? ' · en papelera' : ''}${v['updatedAt'] != null ? ' · ${v['updatedAt']}' : ''}',
+          '$vaultId${trashed ? ' · ${l10n.adminTrashedLabel}' : ''}${v['updatedAt'] != null ? ' · ${v['updatedAt']}' : ''}',
         ),
         trailing: busy
             ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
@@ -581,7 +585,7 @@ class _StorageTabState extends State<_StorageTab> {
                     children: [
                       if (!trashed)
                         IconButton(
-                          tooltip: 'Mover a papelera',
+                          tooltip: l10n.adminMoveToTrashTooltip,
                           icon: const Icon(Icons.delete_outline_rounded),
                           onPressed: () => _withVaultBusy(
                             vaultId,
@@ -590,7 +594,7 @@ class _StorageTabState extends State<_StorageTab> {
                         )
                       else
                         IconButton(
-                          tooltip: 'Restaurar',
+                          tooltip: l10n.adminRestoreTooltip,
                           icon: const Icon(Icons.restore_rounded),
                           onPressed: () => _withVaultBusy(
                             vaultId,
@@ -598,7 +602,7 @@ class _StorageTabState extends State<_StorageTab> {
                           ),
                         ),
                       IconButton(
-                        tooltip: 'Purgar definitivamente',
+                        tooltip: l10n.adminPurgeForeverTooltip,
                         icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
                         onPressed: () => _purge(vaultId),
                       ),
@@ -609,6 +613,7 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Widget _buildBackupVaultTile(Map<String, dynamic> v, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
     final vaultId = v['vaultId']?.toString() ?? '';
     final busy = _busyVaultIds.contains('backup:$vaultId');
     final sizeBytes = (v['latestSizeBytes'] as num?)?.toInt() ?? 0;
@@ -622,7 +627,7 @@ class _StorageTabState extends State<_StorageTab> {
             : !widget.canMutate
                 ? null
                 : IconButton(
-                    tooltip: 'Borrar copia de seguridad',
+                    tooltip: l10n.adminDeleteBackupTitle,
                     icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
                     onPressed: () => _deleteBackup(vaultId),
                   ),

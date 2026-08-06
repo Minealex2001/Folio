@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../selectable.dart';
 import 'inspector_number_field.dart';
 
@@ -17,7 +18,7 @@ class SizePositionEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Tamaño', style: Theme.of(context).textTheme.titleSmall),
+        Text(AppLocalizations.of(context).inspectorSize, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -40,7 +41,7 @@ class SizePositionEditor extends StatelessWidget {
         ),
         if (hasPosition) ...[
           const SizedBox(height: 12),
-          Text('Posición', style: Theme.of(context).textTheme.titleSmall),
+          Text(AppLocalizations.of(context).inspectorPosition, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Row(
             children: [

@@ -1,5 +1,172 @@
 {
   "@@locale": "gl",
+  "widgetCalendar": "Calendario",
+  "widgetCalendarWeekStartsMonday": "A semana comeza o luns",
+  "widgetFolioCloudUnavailable": "Folio Cloud non está dispoñible neste contexto.",
+  "widgetVaultStatus": "Estado do caderno",
+  "widgetVaultStatusEncrypted": "Cifrado",
+  "widgetVaultStatusUnencrypted": "Sen cifrar",
+  "widgetVaultStatusPageCount": "{count} páxinas",
+  "@widgetVaultStatusPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetHabits": "Hábitos",
+  "widgetHabitsEmpty": "Non hai tarefas recorrentes. Engade unha recorrencia a unha tarefa.",
+  "widgetRssComingSoon": "As fontes RSS non son compatibles. Folio aínda non ten un lector de fontes.",
+  "widgetBooks": "Libros",
+  "widgetBooksComingSoon": "O seguimento de lectura non está dispoñible. Folio aínda non ten un modelo de libros.",
+  "widgetMiniStats": "Estatísticas",
+  "widgetMiniStatsPages": "Páxinas",
+  "widgetMiniStatsFolders": "Cartafoles",
+  "widgetMiniStatsPending": "Pendentes",
+  "widgetMiniStatsDone": "Feitas",
+  "widgetCreatePage": "Crear páxina",
+  "widgetNewPageAction": "Páxina nova",
+  "widgetSearchPlaceholder": "Buscar en Folio…",
+  "widgetWhatsNew": "Novidades",
+  "widgetWhatsNewBadge": "Novo",
+  "widgetWhatsNewVersionError": "Non se puido ler a versión instalada.",
+  "widgetWhatsNewVersionLabel": "Versión {version}",
+  "@widgetWhatsNewVersionLabel": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "widgetWhatsNewUnread": "Hai novidades sen ler nesta versión.",
+  "widgetWhatsNewUpToDate": "Estás ao día coas notas da versión.",
+  "widgetOnboarding": "Primeiros pasos",
+  "widgetOnboardingAllDone": "Completaches os primeiros pasos!",
+  "widgetOnboardingIntro": "Comeza polo básico:",
+  "widgetOnboardingStepCreatePage": "Crear unha páxina",
+  "widgetOnboardingStepAddTask": "Engadir unha tarefa",
+  "widgetOnboardingStepVisitRecent": "Visitar unha páxina recente",
+  "widgetTip": "Consello",
+  "widgetTipEditorSlash": "Usa \"/\" no editor para inserir bloques rapidamente.",
+  "widgetTipDragPage": "Arrastra unha páxina á barra lateral para fixala.",
+  "widgetTipSearchShortcut": "Ctrl+K abre a busca global desde calquera pantalla.",
+  "widgetTipVisualEditor": "Activa o editor visual desde a barra superior para reordenar o deseño.",
+  "widgetTipTasksHome": "Podes marcar tarefas como feitas desde o widget Tarefas do inicio.",
+  "widgetQuickActions": "Accións rápidas",
+  "widgetQuickActionsTodayNote": "Nota de hoxe",
+  "widgetRootPages": "Páxinas",
+  "widgetRootPagesEmpty": "Aínda non hai páxinas.",
+  "widgetRootPagesMaxLabel": "Máximo de páxinas",
+  "widgetActivity": "Actividade",
+  "widgetActivityEmpty": "Aínda non hai actividade.",
+  "widgetMaxEntriesLabel": "Máximo de entradas",
+  "widgetRelativeJustNow": "agora mesmo",
+  "widgetRelativeMinutesAgo": "hai {minutes} min",
+  "@widgetRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeHoursAgo": "hai {hours} h",
+  "@widgetRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRelativeDaysAgo": "hai {days} d",
+  "@widgetRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetRecents": "Recentes",
+  "widgetRecentsEmpty": "Aínda non visitaches ningunha páxina.",
+  "widgetAgenda": "Axenda",
+  "widgetAgendaEmpty": "Non hai tarefas con data próxima.",
+  "widgetAgendaMaxLabel": "Máximo de tarefas",
+  "widgetClock": "Reloxo",
+  "widgetClock24HourFormat": "Formato de 24 horas",
+  "widgetClockShowSeconds": "Amosar segundos",
+  "widgetClockShowTimezone": "Amosar fuso horario",
+  "widgetDailyNotes": "Nota diaria",
+  "widgetDailyNotesConvention": "Convención: título = YYYY-MM-DD",
+  "widgetDailyNotesToday": "Hoxe · {date}",
+  "@widgetDailyNotesToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesCreateToday": "Crear a nota de hoxe ({date})",
+  "@widgetDailyNotesCreateToday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesYesterday": "Onte · {date}",
+  "@widgetDailyNotesYesterday": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetDailyNotesTomorrow": "Mañá · {date}",
+  "@widgetDailyNotesTomorrow": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "widgetGithubEmpty": "Conecta GitHub en Axustes → Integracións para ver repositorios aquí.",
+  "widgetGithubAccountsLabel": "Contas",
+  "widgetGithubReposLabel": "Repositorios",
+  "widgetFavoritePage": "Páxina favorita",
+  "widgetFavoritePageEmpty": "Non hai páxinas no vault.",
+  "widgetFavoritePageChooseLabel": "Escoller páxina",
+  "widgetFavoritePageIdLabel": "ID da páxina",
+  "widgetFavoritePageIdHint": "Id da páxina a fixar",
+  "widgetDatabaseView": "Base de datos",
+  "widgetDatabaseViewEmpty": "Non hai páxinas con base de datos no vault.",
+  "widgetDatabaseViewRowCount": "{count} filas",
+  "@widgetDatabaseViewRowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetBookmarks": "Marcadores",
+  "widgetBookmarksFallbackLabel": "Marcador",
+  "widgetBookmarksEmpty": "Non hai bloques de marcador no vault.",
+  "widgetTasks": "Tarefas",
+  "widgetTasksEmpty": "Sen tarefas pendentes.",
+  "widgetTasksMarkDone": "Marcar feita",
+  "widgetWeather": "Clima",
+  "widgetWeatherCityLabel": "Cidade",
+  "widgetWeatherCityHint": "Madrid, Barcelona…",
+  "widgetWeatherUseCelsius": "Usar Celsius (°C)",
+  "widgetWeatherCelsiusUnit": "Celsius",
+  "widgetWeatherFahrenheitUnit": "Fahrenheit",
+  "widgetWeatherConfigureCity": "Configura unha cidade nos axustes do widget.",
+  "widgetWeatherLoadError": "Non se puido cargar o tempo.",
+  "widgetMusic": "Música",
+  "widgetMusicEmpty": "Non hai nada soando agora mesmo.",
+  "dashboardAddWidget": "Engadir widget",
+  "dashboardNoMoreWidgets": "Non hai máis widgets dispoñibles para engadir.",
+  "close": "Pechar",
+  "visualEditorBetaLabel": "Editor visual (beta)",
+  "sidebarVaultsMineLabel": "Os meus cadernos",
+  "sidebarVaultsSharedWithMeHeader": "Compartidos comigo",
+  "sidebarVaultSharedWithMe": "Compartido comigo",
+  "sidebarVaultSharedByOwner": "Compartido · {owner}",
+  "@sidebarVaultSharedByOwner": {
+    "placeholders": {
+      "owner": {}
+    }
+  },
+  "sidebarVaultSharedLabel": "Compartido",
+  "commandPaletteSearchHint": "Buscar...",
   "appTitle": "Folio",
   "loading": "Cargando…",
   "newVault": "Novo caderno",
@@ -541,10 +708,14 @@
   "pasteAsEmbed": "Incrustado",
   "pasteAsBookmark": "Marcador",
   "pasteAsMention": "Mención",
+  "pasteAsGithubImport": "Importar de GitHub",
+  "pasteAsPdfSummarize": "Gardar PDF",
   "pasteAsUrlSubtitle": "Inserir ligazón markdown no texto",
   "pasteAsEmbedSubtitle": "Bloque de vídeo con vista previa [cite: 35] (YouTube) ou marcador",
   "pasteAsBookmarkSubtitle": "Tarxeta con título e ligazón",
   "pasteAsMentionSubtitle": "Ligazón a un folio nesta caderno",
+  "pasteAsGithubImportSubtitle": "Tarxeta co nome do repositorio",
+  "pasteAsPdfSummarizeSubtitle": "Tarxeta co título do documento",
   "tableAddRow": "Fila",
   "tableRemoveRow": "Eliminar fila",
   "tableAddColumn": "Columna",
@@ -897,6 +1068,7 @@
   "aiAlwaysShowThought": "Amosar sempre [cite: 49] o pensamento da Quill",
   "aiAlwaysShowThoughtHint": "Se está desactivado, aparece contraído cunha frecha en cada mensaxe.",
   "aiBetaBadge": "BETA",
+  "integrationAlphaBadge": "ALPHA",
   "aiManageQuillInstructionsTooltip": "Xestionar instrucións de Quill",
   "aiBetaEnableTitle": "A Quill está en BETA",
   "aiBetaEnableBody": "Esta función está actualmente en BETA e pode fallar ou comportarse de forma inesperada.\n\nQueres activala de todos xeitos?",
@@ -2255,6 +2427,39 @@
   },
   "blockEditorDuplicate": "Duplicar",
   "blockEditorClearSelectionTooltip": "Limpar selección",
+  "blockEditorGroupAction": "Agrupar",
+  "blockEditorUngroupColumns": "Desagrupar columnas",
+  "blockEditorUngroupSection": "Desagrupar sección",
+  "blockEditorGroupAsColumns2": "2 columnas",
+  "blockEditorGroupAsColumns3": "3 columnas",
+  "blockEditorGroupAsSection": "Agrupar en sección",
+  "blockEditorNewSectionDefaultTitle": "Nova sección",
+  "blockEditorCmdMeetingTemplate": "Reunión",
+  "blockEditorCmdMeetingTemplateHint": "Estrutura completa: notas, axenda, accións",
+  "blockEditorCmdSprintTemplate": "Sprint",
+  "blockEditorCmdSprintTemplateHint": "Modelo de sprint con obxectivos e tarefas",
+  "blockEditorCmdRoadmapTemplate": "Roadmap",
+  "blockEditorCmdRoadmapTemplateHint": "Estrutura de roadmap por horizontes",
+  "smartTemplateVariableMeetingWith": "Con quen?",
+  "smartTemplateVariableMeetingDate": "Data?",
+  "smartTemplateVariableSprintName": "Nome do sprint?",
+  "smartTemplateMeetingDefaultTitle": "Nova reunión",
+  "smartTemplateMeetingTitleWith": "Reunión con {attendee}",
+  "smartTemplateMeetingDateLine": "Data: {date}",
+  "smartTemplateMeetingAgenda": "Axenda",
+  "smartTemplateMeetingActions": "Accións",
+  "smartTemplateSprintDefaultTitle": "Novo sprint",
+  "smartTemplateSprintTitleWithName": "Sprint: {name}",
+  "smartTemplateSprintGoals": "Obxectivos",
+  "smartTemplateSprintTasks": "Tarefas",
+  "smartTemplateRoadmapTitle": "Roadmap",
+  "smartTemplateRoadmapNow": "Agora",
+  "smartTemplateRoadmapNext": "Despois",
+  "smartTemplateRoadmapLater": "Máis adiante",
+  "smartTemplateFlowNext": "Seguinte",
+  "smartTemplateFlowGenerate": "Xerar",
+  "smartTemplateFlowCancel": "Cancelar",
+  "smartTemplateFlowSkipHint": "Déixao en branco para omitir",
   "blockEditorMenuRewriteWithAi": "Reescribir con Quill…",
   "blockEditorMenuMoveUp": "Mover arriba",
   "blockEditorMenuMoveDown": "Mover abaixo",
@@ -5182,9 +5387,15 @@
   "orgPanelBillingStatusLine": "Plan: {plan} · Estado: {status} · Asientos: {seats}",
   "@orgPanelBillingStatusLine": {
     "placeholders": {
-      "plan": { "type": "String" },
-      "status": { "type": "String" },
-      "seats": { "type": "int" }
+      "plan": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "seats": {
+        "type": "int"
+      }
     }
   },
   "orgPanelBillingUnknown": "Aún no hay suscripción de equipo",
@@ -5195,7 +5406,9 @@
   "orgPanelYourRole": "Tu rol: {role}",
   "@orgPanelYourRole": {
     "placeholders": {
-      "role": { "type": "String" }
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgPanelActivityOrganizationCreated": "Equipo creado",
@@ -5213,16 +5426,24 @@
   "orgPanelActivityUnknown": "{eventType}",
   "@orgPanelActivityUnknown": {
     "placeholders": {
-      "eventType": { "type": "String" }
+      "eventType": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptTitle": "Invitación a equipo",
   "orgInviteAcceptBody": "{inviter} te invitó a unirte a {team} como {role}.",
   "@orgInviteAcceptBody": {
     "placeholders": {
-      "inviter": { "type": "String" },
-      "team": { "type": "String" },
-      "role": { "type": "String" }
+      "inviter": {
+        "type": "String"
+      },
+      "team": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
     }
   },
   "orgInviteAcceptButton": "Aceptar invitación",
@@ -5235,5 +5456,513 @@
   "cloudAccountSwitcherRemoveBody": "Se cerrará la sesión aquí. Las demás cuentas siguen iniciadas. Las libretas locales de esta cuenta permanecen en el disco.",
   "cloudAccountSwitcherFallback": "Cuenta Folio Cloud",
   "cloudAccountAddAnotherHelp": "Inicia sesión con otro correo sin cerrar esta cuenta",
-  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo"
+  "cloudAccountCreateAnotherHelp": "Registra una cuenta nueva en este dispositivo",
+  "vaultSharePublicLink": "Ligazón pública",
+  "vaultShareCopyLink": "Copiar ligazón",
+  "vaultShareRefreshNow": "Actualizar agora",
+  "vaultShareEnablePublicLink": "Activar ligazón pública",
+  "vaultShareInviteToEdit": "Convidar a editar",
+  "vaultShareCloudEmail": "Correo Folio Cloud",
+  "vaultShareInvite": "Convidar",
+  "vaultShareMembers": "Membros",
+  "vaultShareAcceptInvite": "Aceptar convite",
+  "vaultShareInviteId": "Id de convite",
+  "vaultShareInviteCode": "Código",
+  "vaultShareAccept": "Aceptar",
+  "goToFolio": "Ir a Folio",
+  "resetPasswordConfirmLabel": "Confirmar contrasinal",
+  "savePassword": "Gardar contrasinal",
+  "publicShareNoPages": "Sen páxinas",
+  "inspectorSelectElement": "Selecciona un elemento para editalo",
+  "inspectorReset": "Restablecer",
+  "inspectorColor": "Cor",
+  "inspectorOpacity": "Opacidade",
+  "inspectorSize": "Tamaño",
+  "inspectorPosition": "Posición",
+  "dbEditorTargetDb": "Target DB",
+  "dbEditorRelationProperty": "Propiedade relation",
+  "dbEditorTargetProperty": "Propiedade target",
+  "dbEditorRollupOperation": "Operación rollup",
+  "dbEditorAiPrompt": "Prompt IA",
+  "settingsPersonalizationBeta": "Personalización (beta)",
+  "settingsPersonalizationBody": "Motor de layout, tema e dashboard novos — esta pantalla controla directamente os controllers en vivo que xa renderiza a app.",
+  "settingsPanelEngine": "Motor de paneis",
+  "settingsThemeEngine": "Motor de tema",
+  "settingsSidebarSection": "Panel lateral",
+  "settingsRegionUnavailable": "Rexión non dispoñible.",
+  "settingsSidebarWidth": "Largura actual: {width} px",
+  "settingsLockSidebar": "Bloquear panel lateral",
+  "settingsLockSidebarHint": "Impide redimensionar/mover a barra lateral ata que se desbloquee de novo.",
+  "settingsResetPanelLayout": "Restablecer layout de paneis",
+  "settingsThemeEditor": "Editor de tema",
+  "settingsThemeEditorBody": "Forma, densidade, movemento e transparencia. O modo claro/escuro e o acento están arriba (igual que en Aparencia).",
+  "settingsCornerRoundness": "Redondez das esquinas",
+  "settingsSpacingDensity": "Densidade de espazado",
+  "settingsMotionSpeed": "Velocidade de movemento",
+  "settingsSurfaceOpacity": "Opacidade de superficies",
+  "settingsResetTheme": "Restablecer tema",
+  "settingsDashboardTemplates": "Modelos de dashboard",
+  "settingsDashboardTemplatesBody": "Developer, Writer, Research, Student, Planning, Gaming — cambia o contido do dashboard de inicio. As túas edicións a un modelo xa instalado consérvanse ao volver a el.",
+  "settingsVisualPacks": "Packs visuais",
+  "settingsVisualPacksBody": "Aplica un pack para cambiar tema, layout e dashboard de golpe. Tamén podes exportar o teu setup actual ou importar un.",
+  "settingsExportCurrentSetup": "Exportar setup actual",
+  "settingsImportPack": "Importar pack…",
+  "settingsPackActive": "Activo",
+  "settingsPackApply": "Aplicar",
+  "settingsSaveVisualPack": "Gardar pack visual",
+  "settingsPackName": "Nome do pack",
+  "settingsPackAuthorOptional": "Autor (opcional)",
+  "settingsMyPackDefault": "O meu pack",
+  "settingsExport": "Exportar",
+  "settingsPackAppliedSnack": "Pack \"{name}\" aplicado.",
+  "settingsSetupExportedSnack": "Setup actual exportado.",
+  "settingsCouldNotReadFile": "Non se puido ler o ficheiro.",
+  "settingsPackImportedSnack": "Pack \"{name}\" importado e aplicado.",
+  "settingsPackImportFailed": "Non se puido importar o pack: {error}",
+  "vaultSharePublicLinkBody": "Calquera coa ligazón pode ver o caderno no navegador. O contido da ligazón gárdase en claro en Folio Cloud e actualízase ao sincronizar.",
+  "vaultShareInviteBody": "A persoa verá o caderno na súa lista (como compartido) e poderá editar, pero non eliminar.",
+  "vaultShareActiveRev": "Ligazón activa · rev {rev}",
+  "vaultShareInviteCodeAlsoEmail": "Código (tamén no correo): {code}",
+  "passwordUpdatedTitle": "Contrasinal actualizado",
+  "passwordUpdatedBody": "Xa podes iniciar sesión coa túa nova contrasinal.",
+  "resetPasswordTitle": "Restablecer contrasinal",
+  "resetPasswordBody": "Escolle unha contrasinal nova para a túa conta.",
+  "shareNotebookTooltip": "Compartir caderno",
+  "kanbanYoutrackSyncingPull": "YouTrack: sincronizando (pull)…",
+  "kanbanYoutrackPullOkPush": "YouTrack: pull OK · agora push…",
+  "kanbanYoutrackSyncResult": "YouTrack: pull {pulled} · +{created} · ~{updated} · push {pushed} (omitidos {skipped})",
+  "@kanbanYoutrackSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanJiraSyncResult": "Jira: pull {pulled} · +{created} · ~{updated} · push {pushed} (omitidos {skipped})",
+  "@kanbanJiraSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGithubSyncingPush": "GitHub: sincronizando (push)…",
+  "kanbanGithubSyncResult": "GitHub: pull {pulled} · +{created} · ~{updated} · push {pushed} (omitidos {skipped})",
+  "@kanbanGithubSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanGitlabSyncingPush": "GitLab: sincronizando (push)…",
+  "kanbanGitlabSyncResult": "GitLab: pull {pulled} · +{created} · ~{updated} · push {pushed} (omitidos {skipped})",
+  "@kanbanGitlabSyncResult": {
+    "placeholders": {
+      "pulled": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "pushed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanSourceLabel": "Fonte",
+  "kanbanAutoImportFrom": "Auto-importar desde {provider}",
+  "@kanbanAutoImportFrom": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanCreateItemsOnQuickAdd": "Crear elementos ao engadir tarefa",
+  "kanbanSyncJiraTooltip": "Sincronizar Jira (pull + push)",
+  "kanbanSyncYoutrackTooltip": "Sincronizar YouTrack (pull + push)",
+  "kanbanSyncGithubTooltip": "Sincronizar GitHub (push + pull)",
+  "kanbanSyncGitlabTooltip": "Sincronizar GitLab (push + pull)",
+  "kanbanUncategorizedCards": "Tarxetas sen categoría",
+  "kanbanJiraGoneError": "Jira devolveu 410 (Gone). Adoita ocorrer se a conexión/sitio xa non é válida (acceso revogado ou cloudId incorrecto). Reconecta Jira e téntao de novo.\nDetalle: {error}",
+  "@kanbanJiraGoneError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskAndIssueConfirm": "Esta acción eliminará a tarefa en Folio e tamén o issue en {provider} (incluídas as subtarefas vinculadas). Continuar?",
+  "@kanbanDeleteTaskAndIssueConfirm": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "kanbanDeleteTaskConfirm": "Eliminar a tarefa en Folio?",
+  "jiraConnectionMissingDelete": "Non se atopou a conexión Jira para eliminar o issue.",
+  "youtrackConnectionMissingDelete": "Non se atopou a conexión YouTrack para eliminar o issue.",
+  "kanbanForcePushJiraConfirm": "Isto sobrescribirá en Jira os cambios remotos detectados para este issue co que tes en Folio. Continuar?",
+  "kanbanYoutrackFieldsTitle": "Campos de YouTrack",
+  "kanbanFieldType": "Tipo",
+  "kanbanAssignee": "Asignado",
+  "kanbanSubsystem": "Subsistema",
+  "kanbanFixVersions": "Versións de solución",
+  "kanbanFixVersionsHint": "p. ex. 1.0, 2.3",
+  "kanbanAffectedVersions": "Versións afectadas",
+  "kanbanAffectedVersionsHint": "p. ex. 0.9, 1.0",
+  "kanbanFixedInBuild": "Solucionado no build",
+  "kanbanEstimationFieldLabel": "Estimación",
+  "kanbanEstimationHint": "p. ex. 2h 30m",
+  "kanbanSpentTimeLabel": "Tempo empregado",
+  "kanbanSpentTimeHint": "p. ex. 1h 15m",
+  "kanbanPropertiesTitle": "Propiedades",
+  "kanbanConflictJiraFolioText": "Conflito: houbo cambios en Jira e en Folio.",
+  "kanbanNoRemoteStateJira": "Preme Pull para cargar o estado remoto e ver as diferenzas.",
+  "kanbanKeepFolioForcePush": "Manter Folio (Force push)",
+  "kanbanLabelsField": "Etiquetas",
+  "kanbanComponentsField": "Compoñentes",
+  "kanbanCommentsTitle": "Comentarios",
+  "kanbanLoadButton": "Cargar",
+  "kanbanNewCommentLabel": "Novo comentario",
+  "kanbanSendButton": "Enviar",
+  "kanbanNoCommentsLoaded": "Sen comentarios cargados.",
+  "kanbanAttachmentsTitle": "Anexos",
+  "kanbanPressPullToSeeAttachments": "Preme Pull para ver os anexos.",
+  "kanbanWorklogTitle": "Worklog / Tempo",
+  "kanbanEstimateChipLabel": "Estimación",
+  "kanbanRemainingChipLabel": "Restante",
+  "kanbanSpentChipLabel": "Gastado",
+  "kanbanAddMinutesLabel": "Engadir (minutos)",
+  "kanbanLogButton": "Rexistrar",
+  "kanbanNoWorklogsLoaded": "Sen worklogs cargados.",
+  "kanbanRefreshButton": "Actualizar",
+  "kanbanConflictYoutrackFolioText": "Conflito: houbo cambios en YouTrack e en Folio.",
+  "kanbanNoRemoteStateYoutrack": "Preme Actualizar para cargar o estado remoto e ver as diferenzas.",
+  "kanbanKeepYoutrack": "Manter YouTrack",
+  "kanbanForceFolio": "Forzar Folio",
+  "youtrackStateLabel": "Estado",
+  "kanbanYoutrackCommentsTitle": "Comentarios de YouTrack",
+  "kanbanNoCommentsOrNotLoaded": "Sen comentarios ou non cargados.",
+  "kanbanAddCommentHint": "Engadir un comentario...",
+  "planFree": "Gratuíto",
+  "planUpToDate": "Ao día",
+  "devicePairAnotherDevice": "Outro dispositivo",
+  "devicePairLinkRequest": "Solicitude de vinculación",
+  "devicePairWantsToLink": "{who} quere enlazar este dispositivo.",
+  "devicePairEmojiMatchHint": "Aparecen estes mesmos 3 emojis no outro dispositivo? Se coinciden, preme Vincular.",
+  "devicePairVisualMatchFailed": "Non se puido calcular a coincidencia visual. Activa o modo de vinculación nos dous dispositivos e téntao de novo.",
+  "devicePairNoMatch": "Non coinciden",
+  "devicePairConfirmIdentity": "Confirmar identidade",
+  "devicePairConfirmIdentityBody": "Introduce o contrasinal do caderno para aceptar a vinculación con outro dispositivo.",
+  "devicePairVerify": "Verificar",
+  "devicePairLink": "Vincular",
+  "quillPromptCreate": "Crear instrucións",
+  "quillPromptView": "Ver instrucións",
+  "quillPromptEdit": "Editar instrucións",
+  "quillPromptNameHint": "Ex. Escritor de poesía",
+  "quillPromptSystemInstructions": "Instrucións do sistema",
+  "quillPromptSystemHint": "Ex. Es un titor de inglés experto...",
+  "quillPromptBack": "Atrás",
+  "quillEnableFailed": "Erro ao activar",
+  "quillDefaultName": "Quill (Predeterminado)",
+  "quillTranslatorName": "Tradutor",
+  "quillSummarizerName": "Resumidor",
+  "quillCoderName": "Programador",
+  "aiChatEditorSelectionHeader": "--- Selección do editor ---",
+  "jiraCardSubtitle": "Conecta Jira Cloud ou Server/DC para sincronizar issues con Kanban.",
+  "jiraConnectionsCount": "{count} conexións",
+  "jiraSourcesCount": "{count} fontes",
+  "jiraClientIdHelp1": "Necesitas un Client ID dunha app OAuth 2.0 (3LO) en Atlassian Developer Console.",
+  "jiraClientIdHelp2": "Se estás a usar a app oficial de Folio, isto non debería aparecer.",
+  "jiraCallbackUrlHelp": "Callback URL que debes rexistrar en Atlassian: http://127.0.0.1:45747/callback",
+  "jiraClientIdTip": "Consello: Na app, configura OAuth 2.0 (3LO) e copia o Client ID.",
+  "jiraBrowserAuthNotice": "Abrirase o navegador para autorizar e despois volveremos a Folio.",
+  "jiraCloudTimeoutError": "Tempo de espera esgotado ao conectar con Jira Cloud. Se o navegador non se abre, comproba que Windows permite abrir ligazóns externas.",
+  "jiraCloudConnectError": "Erro ao conectar con Jira Cloud: {error}",
+  "jiraConnectCloud": "Conectar Cloud",
+  "jiraAddServerConnection": "Engadir Server/DC",
+  "jiraNoConnections": "Non hai conexións configuradas.",
+  "jiraSourcesSectionTitle": "Fontes (para taboleiros Kanban)",
+  "jiraNewButton": "Nova",
+  "jiraNoSources": "Non hai fontes.",
+  "jiraSourceOptionsSummary": "Comentarios {comments} · Anexos {attachments} · Worklog {worklog}",
+  "jiraEditMappingTooltip": "Editar mapping",
+  "jiraSearchByKeyOrName": "Escribe para buscar (KEY ou nome)…",
+  "jiraWillSaveProjectKey": "Gardarase como projectKey=\"{key}\".",
+  "jiraWillSaveBoardId": "Gardarase como boardId=\"{id}\".",
+  "jiraLoadListsError": "Non se puideron cargar proxectos/taboleiros. Podes escribir os IDs manualmente.\n{error}",
+  "jiraConfigureSourceTitle": "Configurar fonte",
+  "jiraImportPushOptions": "Opcións de importación/push",
+  "jiraComments": "Comentarios",
+  "jiraAttachments": "Anexos",
+  "jiraSubtasks": "Subtarefas",
+  "jiraCustomFieldsLabel": "Custom fields (IDs, coma)",
+  "jiraColumnMapping": "Mapping Kanban → Jira (por columna)",
+  "jiraNoMappings": "Non hai mappings.",
+  "jiraAddMapping": "Engadir mapping",
+  "jiraTransitionIdOptional": "transitionId (opcional)",
+  "githubCardSubtitle": "Conecta GitHub para sincronizar Issues e Pull Requests con Kanban.",
+  "githubConnectionsCount": "{count} conexións",
+  "gitlabCardSubtitle": "Conecta GitLab para sincronizar Issues e Merge Requests con Kanban.",
+  "gitlabConnectionsCount": "{count} conexións",
+  "gitlabSourcesCount": "{count} proxectos",
+  "trelloCardSubtitle": "Conecta Trello para sincronizar taboleiros completos con Kanban.",
+  "trelloConnectionsCount": "{count} conexións",
+  "trelloSourcesCount": "{count} taboleiros",
+  "youtrackCardSubtitle": "Conecta JetBrains YouTrack para sincronizar tarefas con Kanban.",
+  "youtrackConnectionsCount": "{count} conexións",
+  "youtrackSourcesCount": "{count} fontes",
+  "youtrackProjectLabel": "Proxecto",
+  "visualEditorBeta": "Editor visual (beta)",
+  "closeTooltip": "Pechar",
+  "cmdSearchNotebook": "Buscar no caderno",
+  "cmdOpenSettings": "Abrir axustes",
+  "cmdExitHomeEdit": "Saír da edición de inicio",
+  "cmdEditHomeBeta": "Editar inicio (beta)",
+  "adminConsoleTitle": "Consola de administración",
+  "forceSyncFailed": "Non se puido forzar a sincronización: {error}",
+  "commandPaletteNoResults": "Sen resultados",
+  "widgetTodayLabel": "Hoxe · {date}",
+  "widgetNewPage": "Nova páxina",
+  "widgetFolders": "Carpetas",
+  "adminNavDashboard": "Inicio",
+  "adminNavUsers": "Usuarios",
+  "adminNavTeams": "Equipos",
+  "adminNavModeration": "Moderación",
+  "adminNavPublishedPages": "Páxinas publicadas",
+  "adminNavDiagnostics": "Diagnósticos",
+  "adminNavBilling": "Facturación",
+  "adminNavCatalog": "Catálogo de modelos",
+  "adminNavFamilies": "Familias",
+  "adminNavCollab": "Salas de colaboración",
+  "adminNavVaultShares": "Vault shares",
+  "adminNavAuditLog": "Auditoría",
+  "adminNavAppSettings": "Axustes da app",
+  "adminBrandHeader": "Admin",
+  "adminObjectExplorerTitle": "Explorador de obxectos",
+  "adminNoAccessMessage": "Non tes acceso á consola de administración.",
+  "adminUsersSearchHint": "Buscar por email ou uid",
+  "adminNoResults": "Sen resultados",
+  "adminStaffBadge": "staff",
+  "adminTabOverview": "Resumo",
+  "adminTabStorage": "Almacenamento",
+  "adminSectionFolioCloudQa": "Folio Cloud QA",
+  "adminSectionAdminRole": "Rol de administrador",
+  "adminGrantCloudQaTitle": "Conceder Cloud QA",
+  "adminGrantCloudQaBody": "Activa admin_override coas funcións completas de Folio Cloud para este usuario.",
+  "adminActionGrant": "Conceder",
+  "adminRevokeCloudQaTitle": "Revogar Cloud QA",
+  "adminRevokeCloudQaBody": "Quita admin_override de Folio Cloud para este usuario.",
+  "adminActionRevoke": "Revogar",
+  "adminCloudQaGranted": "Cloud QA concedido",
+  "adminCloudQaRevoked": "Cloud QA revogado",
+  "adminErrorWithDetails": "Erro: {error}",
+  "adminButtonGrantCloudQa": "Grant Cloud QA",
+  "adminButtonRevoke": "Revoke",
+  "adminOnlyBillingAdminCanGrant": "Só BILLING_ADMIN / SUPER_ADMIN poden conceder Cloud QA.",
+  "adminNoActiveOrganizations": "Sen organizacións activas.",
+  "adminQaOverrideBadge": "QA override",
+  "adminNoOverrideBadge": "sen override",
+  "adminOnlySuperAdminCanAssignRoles": "Só SUPER_ADMIN pode asignar roles.",
+  "adminPurgeVaultTitle": "Purgar caderno definitivamente",
+  "adminPurgeVaultBody": "Isto borra permanentemente \"{vaultId}\" da sincronización na nube deste usuario (almacenamento + metadatos). Non se pode desfacer.",
+  "adminActionPurge": "Purgar",
+  "adminDeleteBackupTitle": "Eliminar copia de seguridade",
+  "adminDeleteBackupBody": "Isto elimina a copia de seguridade na nube de \"{vaultId}\". Non se pode desfacer.",
+  "adminActionDelete": "Eliminar",
+  "adminResetCloudSyncTitle": "Restablecer sincronización na nube",
+  "adminResetCloudSyncBody": "Isto purga os {vaultsCount} cadernos de sincronización na nube e as {backupsCount} copias de seguridade deste usuario, revoga os seus vault shares e pon o seu uso a 0. É a opción nuclear para unha conta rota — non se pode desfacer.",
+  "adminActionReset": "Restablecer",
+  "adminResetCloudSyncSuccess": "Reset OK: {vaultsPurged} cadernos, {backupsDeleted} copias de seguridade.",
+  "adminStorageUsageTitle": "Uso de almacenamento",
+  "adminStorageUsedOfQuota": "{used} de {quota}",
+  "adminStorageCountsSummary": "{vaultCount} cadernos ({trashedCount} no lixo) · {backupCount} copias de seguridade ({blobCount} blobs)",
+  "adminSyncVaultsTitle": "Cadernos (sincronización na nube)",
+  "adminNoSyncVaults": "Sen cadernos sincronizados.",
+  "adminBackupsTitle": "Copias de seguridade",
+  "adminNoBackups": "Sen copias de seguridade.",
+  "adminDangerZoneTitle": "Zona de perigo",
+  "adminDangerZoneBody": "Restablecer a sincronización na nube deste usuario: purga todos os cadernos e copias de seguridade, e pon o seu uso a 0.",
+  "adminTrashedLabel": "no lixo",
+  "adminMoveToTrashTooltip": "Mover ao lixo",
+  "adminRestoreTooltip": "Restaurar",
+  "adminPurgeForeverTooltip": "Purgar definitivamente",
+  "adminGoToUserTitle": "Ir ao cartafol dun usuario",
+  "adminGoToUserTooltip": "Ir a un usuario",
+  "adminActionGoTo": "Ir",
+  "adminDeleteObjectTitle": "Eliminar obxecto",
+  "adminDeleteObjectBody": "Isto elimina \"{key}\" directamente do bucket. Non se pode desfacer.",
+  "adminLoadMore": "Cargar máis",
+  "adminPaginationSummary": "Páxina {page} de {totalPages} · {total} en total",
+  "adminOrgsSearchHint": "Buscar por nome, slug ou id",
+  "adminNoTeams": "Sen equipos.",
+  "adminOrgSummary": "{type} · {plan} · {memberCount} membros · prazas {seats}",
+  "adminTeamFallbackTitle": "Equipo",
+  "adminGrantCloudQaOrgTitle": "Conceder Cloud QA (equipo)",
+  "adminGrantCloudQaOrgBody": "Activa admin_override co plan TEAM e funcións completas (prazas por defecto: 10).",
+  "adminRevokeCloudQaOrgTitle": "Revogar Cloud QA (equipo)",
+  "adminRevokeCloudQaOrgBody": "Quita admin_override. Se non hai Stripe activo, o equipo volve a FREE.",
+  "adminAddInkTitle": "Engadir tinta ao equipo",
+  "adminAddInkBody": "Suma 1000 pingas compradas a org_ink.",
+  "adminActionAddInk": "Engadir tinta",
+  "adminAddInkButton": "+1000 tinta",
+  "adminMembersCount": "Membros ({count})",
+  "adminModerationReportsTitle": "Informes de modelos",
+  "adminRefreshOpenReportsTitle": "Actualizar informes abertos",
+  "adminNoOpenReports": "Sen informes abertos.",
+  "adminDeleteTemplateButton": "Eliminar modelo",
+  "adminResolveButton": "Resolver",
+  "adminUserLookupTitle": "Usuario (busca)",
+  "adminEmailOrUidLabel": "Email ou uid",
+  "adminAllowUploads": "Permitir subidas",
+  "adminBanUploads": "Bloquear subidas",
+  "adminReactivateUser": "Reactivar",
+  "adminSuspendUser": "Suspender",
+  "adminPurgeTemplatesButton": "Purgar modelos",
+  "adminPurgeTemplatesConfirm": "¿Eliminar todos os community templates deste usuario?",
+  "adminTemplatesPurged": "Modelos purgados",
+  "adminDeleteTemplateByIdTitle": "Eliminar modelo por ID",
+  "adminTemplateDeleted": "Modelo eliminado",
+  "adminTabByUser": "Por usuario",
+  "adminTabWebhookEvents": "Eventos de webhook",
+  "adminGrantCloudQaForUidBody": "Activa admin_override de Folio Cloud para {uid}.",
+  "adminRevokeCloudQaForUidBody": "Quita admin_override de Folio Cloud para {uid}.",
+  "adminUidInputLabel": "uid do usuario",
+  "adminNoWebhookEvents": "Sen eventos procesados.",
+  "adminNoVaultShareLinks": "Sen ligazóns de vault share.",
+  "adminActiveOnlyFilter": "Só activos",
+  "adminUnpublishPageTitle": "Despublicar páxina",
+  "adminUnpublishPageBody": "Isto elimina a páxina publicada \"{path}\". Non se pode desfacer.",
+  "adminActionUnpublish": "Despublicar",
+  "adminFilterByOwnerUidHint": "Filtrar por uid do propietario",
+  "adminNoPublishedPages": "Sen páxinas publicadas.",
+  "adminNoFamilies": "Sen familias.",
+  "adminFamilySummary": "{memberCount} membros · creada {createdAt}",
+  "adminFamilyOfTitle": "Familia de {ownerUid}",
+  "adminNoDiagnosticReports": "Sen informes.",
+  "adminFilterOpen": "Abertos",
+  "adminFilterResolved": "Resoltos",
+  "adminFilterAll": "Todos",
+  "adminDiagnosticFallbackTitle": "diagnóstico",
+  "adminDiagnosticDialogFallbackTitle": "Diagnóstico",
+  "adminUserNoteLabel": "Nota do usuario:",
+  "adminLogLabel": "Rexistro:",
+  "adminReopenButton": "Reabrir",
+  "adminMarkResolvedButton": "Marcar resolto",
+  "adminWelcomeTitle": "Benvido á consola de administración",
+  "adminCurrentRole": "Rol actual: {role}",
+  "adminTotalUsersLabel": "Usuarios totais",
+  "adminOpenDiagnosticsLabel": "Diagnósticos abertos",
+  "adminNoCollabRooms": "Sen salas de colaboración.",
+  "adminUntitledFallback": "(sen título)",
+  "adminCollabRoomDialogTitle": "Sala de colaboración",
+  "adminEditTemplateTitle": "Editar modelo",
+  "adminNameLabel": "Nome",
+  "adminDescriptionLabel": "Descrición",
+  "adminCategoryLabel": "Categoría",
+  "adminSearchTemplatesHint": "Buscar modelos",
+  "adminNoTemplates": "Sen modelos.",
+  "adminNoAuditActivity": "Aínda non hai actividade rexistrada.",
+  "adminEditSettingTitle": "Editar {key}",
+  "adminValueLabel": "Valor ({valueType})",
+  "adminSettingWarningBody": "Isto pode afectar á app en produción para todos os usuarios.",
+  "adminClearOverrideTitle": "Quitar override de {key}",
+  "adminClearOverrideBody": "Volverá usar o valor de application.yml/variables de contorno.",
+  "adminActionClearOverride": "Quitar override",
+  "adminActionEdit": "Editar",
+  "adminCurrentValueLabel": "valor actual",
+  "adminOverrideSuffix": "override",
+  "adminDefaultSuffix": "por defecto",
+  "whisperModelBase": "Base q8 (equilibrado)",
+  "whisperModelSmall": "Small q8 (alta precisión, menos disco)",
+  "whisperModelMedium": "Medium q8",
+  "whisperModelTurbo": "Large v3 Turbo q8",
+  "whisperDownloadingEngine": "Descargando motor de transcrición…",
+  "whisperInstallingEngine": "Instalando motor de transcrición…",
+  "whisperEngineReady": "Motor listo",
+  "whisperDownloadingModel": "Descargando modelo {model} (~{sizeMb} MB)…",
+  "whisperModelReady": "Modelo {model} listo",
+  "whisperErrorPreparingModel": "Non se puido preparar o modelo {model}: {error}",
+  "whisperErrorEngineNotInitialized": "Motor de transcrición non inicializado.",
+  "whisperErrorCliNotFound": "Non se atopou whisper-cli en {path}.",
+  "whisperErrorModelNotFound": "Non se atopou o modelo en {path}.",
+  "whisperErrorCliFailed": "whisper-cli fallou (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoOutputFile": "Whisper non xerou ficheiro de saída: {path}",
+  "whisperErrorRunningCli": "Erro ao executar whisper-cli: {error}",
+  "whisperErrorLocalEngineNotInitialized": "Motor local de diarización non inicializado.",
+  "whisperErrorPreparingLocalDiarization": "Non se puido preparar Whisper local para diarización: {error}",
+  "whisperErrorCliFailedTdrz": "whisper-cli tdrz fallou (exit {exitCode}){detailSuffix}",
+  "whisperErrorNoSpeakerMarkers": "Whisper tdrz non devolveu marcadores de speaker neste chunk.",
+  "whisperErrorRunningCliTdrz": "Erro ao executar whisper-cli tdrz: {error}",
+  "whisperErrorDownloadFailed": "Descarga fallida ({status}) dende {url}",
+  "whisperErrorZipExtractWindows": "Non se puido extraer o ZIP en Windows. tar: {tarExit}{tarErr}; powershell: {psExit}{psErr}",
+  "whisperErrorZipExtractUnix": "Non se puido extraer o ZIP de whisper.",
+  "whisperErrorBinaryNotFoundAfterExtract": "Non se atopou {binaryName} despois de extraer {path}",
+  "aiChatLastMeetingHeader": "--- Última nota de reunión na páxina ---",
+  "vaultUnencrypted": "Sen cifrar",
+  "settingsOverviewSubtitle": "Personaliza a app, xestiona seguridade, IA, copias e integracións desde un único panel.",
+  "settingsOverviewPlan": "Plan",
+  "settingsOverviewVault": "Caderno",
+  "settingsOverviewFormat": "Versión",
+  "settingsOverviewStatus": "Estado",
+  "youTrackConnectionNotFound": "Non se atopou a conexión YouTrack para esta tarefa. Volve conectar YouTrack en Axustes → Integracións.",
+  "jiraConnectionNotFound": "Non se atopou a conexión Jira para esta tarefa. Volve conectar Jira en Axustes → Integracións.",
+  "deviceSyncEnabled": "Sincronización activada.",
+  "deviceSyncLinkCodeExpired": "O código de vinculación caducou ou xa non coincide.",
+  "deviceSyncLanDiscoveryFailed": "Non se puido iniciar o descubrimento LAN: {error}",
+  "deviceSyncRetryingLan": "Reintentando a conectividade LAN de sincronización...",
+  "deviceSyncFolioDevice": "Dispositivo Folio",
+  "deviceSyncWrongLinkCode": "Intento de vinculación: código incorrecto ou sen código activo neste dispositivo. Xera un código aquí e úsao no outro equipo.",
+  "deviceSyncServerStartFailed": "Non se puido iniciar o servidor de sincronización: {error}",
+  "deviceSyncPeerKeyChanged": "Aviso de seguridade: a clave do dispositivo \"{name}\" cambiou. Sincronización en pausa con ese equipo; volve vinculalo se confías no cambio.",
+  "deviceSyncLinkedRemote": "Dispositivo enlazado desde unha solicitude remota.",
+  "deviceSyncLinkedOk": "Dispositivo enlazado correctamente.",
+  "collabMediaUploadError": "Erro ao subir á sala: {error}",
+  "collabMediaPreparingEncryption": "Preparando o cifrado…",
+  "collabMediaUploadingProgress": "Subindo {percent}% · ETA {eta}"
 }

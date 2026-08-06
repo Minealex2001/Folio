@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -14,7 +15,7 @@ class TasksWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'tasks';
 
   @override
-  String displayName(BuildContext context) => 'Tareas';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetTasks;
 
   @override
   IconData get icon => Icons.checklist_rounded;
@@ -42,8 +43,8 @@ class TasksWidgetPlugin extends FolioWidgetPlugin {
               .toList();
 
           if (pending.isEmpty) {
-            return const BuiltinWidgetEmpty(
-              message: 'Sin tareas pendientes.',
+            return BuiltinWidgetEmpty(
+              message: AppLocalizations.of(context).widgetTasksEmpty,
             );
           }
 
@@ -62,7 +63,7 @@ class TasksWidgetPlugin extends FolioWidgetPlugin {
                     Icons.radio_button_unchecked_rounded,
                     size: 18,
                   ),
-                  tooltip: 'Marcar hecha',
+                  tooltip: AppLocalizations.of(context).widgetTasksMarkDone,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(

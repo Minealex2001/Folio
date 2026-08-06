@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../models/vault_task_list_entry.dart';
@@ -29,7 +30,7 @@ class AgendaWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'agenda';
 
   @override
-  String displayName(BuildContext context) => 'Agenda';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetAgenda;
 
   @override
   IconData get icon => Icons.event_note_rounded;
@@ -58,8 +59,8 @@ class AgendaWidgetPlugin extends FolioWidgetPlugin {
           final shown = dated.take(limit).toList();
 
           if (shown.isEmpty) {
-            return const BuiltinWidgetEmpty(
-              message: 'No hay tareas con fecha próxima.',
+            return BuiltinWidgetEmpty(
+              message: AppLocalizations.of(context).widgetAgendaEmpty,
             );
           }
 
@@ -118,8 +119,8 @@ class AgendaWidgetPlugin extends FolioWidgetPlugin {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        labelText: 'Máximo de tareas',
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).widgetAgendaMaxLabel,
         hintText: '8',
       ),
       onChanged: (v) {

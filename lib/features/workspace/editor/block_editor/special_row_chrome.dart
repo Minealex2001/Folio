@@ -11,6 +11,20 @@ Widget _specialRowChrome({
   EdgeInsetsGeometry? padding,
   required Widget child,
 }) {
+  // Fase F1 del rediseño UX del editor: acento de identidad visual opcional
+  // — solo los tipos con tono definido en `_blockAccentToneFor` lo reciben
+  // (hoy `database`, único call site de esta chrome que lo pasa); el resto
+  // de usuarios de `_specialRowChrome` (table, canvas, toggle, task, kanban,
+  // column_list, drive) quedan exactamente igual que antes.
+  final accentTone = _blockAccentToneFor(block.type);
+  final content = accentTone == null
+      ? child
+      : _blockAccentStripe(
+          Theme.of(st.context).colorScheme,
+          st._calloutPreset,
+          accentTone,
+          child: child,
+        );
   return Padding(
     padding:
         padding ??
@@ -26,7 +40,7 @@ Widget _specialRowChrome({
         st._blockMenuSlot(showActions: showActions, menu: menu),
         dragHandle,
         marker,
-        Expanded(child: child),
+        Expanded(child: content),
       ],
     ),
   );

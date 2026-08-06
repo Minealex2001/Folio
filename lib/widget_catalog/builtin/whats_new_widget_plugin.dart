@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/app_settings.dart';
@@ -15,7 +16,7 @@ class WhatsNewWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'whats_new';
 
   @override
-  String displayName(BuildContext context) => 'Novedades';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetWhatsNew;
 
   @override
   IconData get icon => Icons.campaign_outlined;
@@ -63,7 +64,7 @@ class _UnreadBadge extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            'Nuevo',
+            AppLocalizations.of(context).widgetWhatsNewBadge,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: scheme.onPrimaryContainer,
               fontWeight: FontWeight.w700,
@@ -94,16 +95,17 @@ class _WhatsNewBody extends StatelessWidget {
             ),
           );
         }
+        final l10n = AppLocalizations.of(context);
         final info = snap.data;
         if (info == null) {
-          return const BuiltinWidgetEmpty(
-            message: 'No se pudo leer la versión instalada.',
+          return BuiltinWidgetEmpty(
+            message: l10n.widgetWhatsNewVersionError,
           );
         }
         final versionLabel = _versionLabel(info);
         if (versionLabel.isEmpty) {
-          return const BuiltinWidgetEmpty(
-            message: 'No se pudo leer la versión instalada.',
+          return BuiltinWidgetEmpty(
+            message: l10n.widgetWhatsNewVersionError,
           );
         }
         final lastSeen = appSettings.lastSeenReleaseNotesVersion.trim();
@@ -114,7 +116,7 @@ class _WhatsNewBody extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Versión $versionLabel',
+              l10n.widgetWhatsNewVersionLabel(versionLabel),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -122,8 +124,8 @@ class _WhatsNewBody extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               unread
-                  ? 'Hay novedades sin leer en esta versión.'
-                  : 'Estás al día con las notas de versión.',
+                  ? l10n.widgetWhatsNewUnread
+                  : l10n.widgetWhatsNewUpToDate,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.35,

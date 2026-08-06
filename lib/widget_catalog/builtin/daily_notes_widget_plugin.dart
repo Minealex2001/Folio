@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/models/widget_instance_config.dart';
@@ -21,7 +22,7 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'daily_notes';
 
   @override
-  String displayName(BuildContext context) => 'Nota diaria';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetDailyNotes;
 
   @override
   IconData get icon => Icons.today_rounded;
@@ -50,6 +51,7 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
     final todayPage = find(today);
     final yesterdayPage = find(yesterday);
     final tomorrowPage = find(tomorrow);
+    final l10n = AppLocalizations.of(context);
 
     return BuiltinWidgetCard(
       icon: icon,
@@ -58,7 +60,7 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Convención: título = YYYY-MM-DD',
+            l10n.widgetDailyNotesConvention,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -69,7 +71,7 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.today_rounded, size: 18),
-              title: Text('Hoy · $today'),
+              title: Text(l10n.widgetDailyNotesToday(today)),
               onTap: () => ctx.onSelectPage?.call(todayPage.id),
             )
           else
@@ -86,14 +88,14 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
                 ctx.onSelectPage?.call(id);
               },
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text('Crear nota de hoy ($today)'),
+              label: Text(l10n.widgetDailyNotesCreateToday(today)),
             ),
           if (yesterdayPage != null)
             ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.history_rounded, size: 18),
-              title: Text('Ayer · $yesterday'),
+              title: Text(l10n.widgetDailyNotesYesterday(yesterday)),
               onTap: () => ctx.onSelectPage?.call(yesterdayPage.id),
             ),
           if (tomorrowPage != null)
@@ -101,7 +103,7 @@ class DailyNotesWidgetPlugin extends FolioWidgetPlugin {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.event_rounded, size: 18),
-              title: Text('Mañana · $tomorrow'),
+              title: Text(l10n.widgetDailyNotesTomorrow(tomorrow)),
               onTap: () => ctx.onSelectPage?.call(tomorrowPage.id),
             ),
         ],

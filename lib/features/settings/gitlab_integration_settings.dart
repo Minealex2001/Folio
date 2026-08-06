@@ -25,7 +25,6 @@ class GitLabIntegrationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
@@ -34,9 +33,7 @@ class GitLabIntegrationCard extends StatelessWidget {
         return IntegrationCard(
           logoAsset: 'appLogos/gitlab.png',
           title: 'GitLab',
-          subtitle: isEs
-              ? 'Conecta GitLab para sincronizar Issues y Merge Requests con Kanban.'
-              : 'Connect GitLab to sync Issues and Merge Requests with Kanban.',
+          subtitle: l10n.gitlabCardSubtitle,
           configureLabel: l10n.gitlabConfigure,
           onConfigure: session.state == VaultFlowState.unlocked
               ? () => showIntegrationConfigSheet(
@@ -50,13 +47,11 @@ class GitLabIntegrationCard extends StatelessWidget {
           chips: [
             IntegrationStatChip(
               icon: Icons.link_rounded,
-              label: isEs
-                  ? '${connections.length} conexiones'
-                  : '${connections.length} connections',
+              label: l10n.gitlabConnectionsCount(connections.length),
             ),
             IntegrationStatChip(
               icon: Icons.dashboard_outlined,
-              label: isEs ? '${sources.length} proyectos' : '${sources.length} projects',
+              label: l10n.gitlabSourcesCount(sources.length),
             ),
           ],
         );

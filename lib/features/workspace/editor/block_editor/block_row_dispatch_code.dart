@@ -20,6 +20,9 @@ Widget? _specialRowCode(_BlockRowScope s) {
   final index = s.index;
   final readOnlyMode = s.readOnlyMode;
   final codeCtrl = ctrl as CodeController;
+  // Fase F1 del rediseño UX del editor: `code` ya se identifica por el chip
+  // de lenguaje (icono + nombre) en su propia cabecera, así que solo suma la
+  // franja de color — un segundo icono+etiqueta sería ruido redundante.
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
     child: Row(
@@ -29,7 +32,11 @@ Widget? _specialRowCode(_BlockRowScope s) {
         dragHandle,
         marker,
         Expanded(
-          child: Column(
+          child: _blockAccentStripe(
+            scheme,
+            st._calloutPreset,
+            _blockAccentToneFor('code')!,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -241,6 +248,7 @@ Widget? _specialRowCode(_BlockRowScope s) {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ],

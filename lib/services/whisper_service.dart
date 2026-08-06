@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../l10n/generated/app_localizations.dart';
 
 /// Versión del binario y modelo que usa este servicio.
 /// Actualizar el SHA cuando se cambie de versión.
@@ -30,17 +33,35 @@ class _WhisperRelease {
 class WhisperModelOption {
   const WhisperModelOption({
     required this.id,
-    required this.label,
     required this.filename,
     required this.url,
     required this.approxSizeMb,
   });
 
   final String id;
-  final String label;
   final String filename;
   final String url;
   final int approxSizeMb;
+
+  /// Etiqueta legible localizada (p.ej. "Tiny (rápido)"). Requiere
+  /// [AppLocalizations] porque estos modelos se referencian tanto desde la
+  /// UI principal como desde el worker de reuniones (sin BuildContext).
+  String localizedLabel(AppLocalizations l10n) {
+    switch (id) {
+      case 'tiny':
+        return l10n.whisperModelTiny;
+      case 'base':
+        return l10n.whisperModelBase;
+      case 'small':
+        return l10n.whisperModelSmall;
+      case 'medium':
+        return l10n.whisperModelMedium;
+      case 'turbo':
+        return l10n.whisperModelTurbo;
+      default:
+        return id;
+    }
+  }
 }
 
 /// Servicio que gestiona descarga e invocación de whisper.cpp como subprocess.
@@ -52,7 +73,6 @@ class WhisperService {
   static const List<WhisperModelOption> supportedModels = [
     WhisperModelOption(
       id: 'tiny',
-      label: 'Tiny (rapido)',
       filename: 'ggml-tiny.bin',
       url:
           'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
@@ -60,7 +80,6 @@ class WhisperService {
     ),
     WhisperModelOption(
       id: 'base',
-      label: 'Base q8 (equilibrado)',
       filename: 'ggml-base-q8_0.bin',
       url:
           'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q8_0.bin',
@@ -68,7 +87,6 @@ class WhisperService {
     ),
     WhisperModelOption(
       id: 'small',
-      label: 'Small q8 (alta precision, menos disco)',
       filename: 'ggml-small-q8_0.bin',
       url:
           'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin',
@@ -76,7 +94,6 @@ class WhisperService {
     ),
     WhisperModelOption(
       id: 'medium',
-      label: 'Medium q8',
       filename: 'ggml-medium-q8_0.bin',
       url:
           'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q8_0.bin',
@@ -84,7 +101,6 @@ class WhisperService {
     ),
     WhisperModelOption(
       id: 'turbo',
-      label: 'Large v3 Turbo q8',
       filename: 'ggml-large-v3-turbo-q8_0.bin',
       url:
           'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin',
@@ -102,6 +118,14 @@ class WhisperService {
   String? _modelPath;
   String? _lastError;
   String _activeModelId = 'tiny';
+
+  /// Idioma para los mensajes de progreso/error de este servicio. Este
+  /// servicio no tiene acceso a un `BuildContext` (se usa también desde el
+  /// worker de reuniones), así que se resuelve vía [lookupAppLocalizations].
+  /// Actualizar junto con `VaultSession.titleLocale` al cambiar el idioma de la app.
+  Locale locale = const Locale('es');
+
+  AppLocalizations get _l10n => lookupAppLocalizations(locale);
 
   String? get lastError => _lastError;
   String get activeModelId => _activeModelId;
@@ -186,22 +210,24 @@ class WhisperService {
       try {
         await ensureReady(modelId: requestedModel.id);
       } catch (e) {
-        _lastError =
-            'No se pudo preparar el modelo ${requestedModel.label}: $e';
+        _lastError = _l10n.whisperErrorPreparingModel(
+          requestedModel.localizedLabel(_l10n),
+          '$e',
+        );
         return '';
       }
     }
 
     if (_binaryPath == null || _modelPath == null) {
-      _lastError = 'Motor de transcripcion no inicializado.';
+      _lastError = _l10n.whisperErrorEngineNotInitialized;
       return '';
     }
     if (!await File(_binaryPath!).exists()) {
-      _lastError = 'No se encontro whisper-cli en $_binaryPath.';
+      _lastError = _l10n.whisperErrorCliNotFound(_binaryPath!);
       return '';
     }
     if (!await File(_modelPath!).exists()) {
-      _lastError = 'No se encontro el modelo en $_modelPath.';
+      _lastError = _l10n.whisperErrorModelNotFound(_modelPath!);
       return '';
     }
 
@@ -228,20 +254,22 @@ class WhisperService {
         final err = (result.stderr as String?)?.trim();
         final out = (result.stdout as String?)?.trim();
         final detail = err?.isNotEmpty == true ? err : out;
-        _lastError =
-            'whisper-cli fallo (exit ${result.exitCode})${detail != null && detail.isNotEmpty ? ': $detail' : ''}';
+        _lastError = _l10n.whisperErrorCliFailed(
+          result.exitCode,
+          detail != null && detail.isNotEmpty ? ': $detail' : '',
+        );
         return '';
       }
       final out = File(txtOutput);
       if (!await out.exists()) {
-        _lastError = 'Whisper no genero archivo de salida: $txtOutput';
+        _lastError = _l10n.whisperErrorNoOutputFile(txtOutput);
         return '';
       }
       final text = (await out.readAsString()).trim();
       await out.delete().catchError((_) => File(''));
       return text;
     } catch (e) {
-      _lastError = 'Error al ejecutar whisper-cli: $e';
+      _lastError = _l10n.whisperErrorRunningCli('$e');
       return '';
     }
   }
@@ -261,21 +289,21 @@ class WhisperService {
     try {
       await ensureReady();
     } catch (e) {
-      _lastError = 'No se pudo preparar Whisper local para diarizacion: $e';
+      _lastError = _l10n.whisperErrorPreparingLocalDiarization('$e');
       return '';
     }
 
     if (_binaryPath == null || _modelPath == null) {
-      _lastError = 'Motor local de diarizacion no inicializado.';
+      _lastError = _l10n.whisperErrorLocalEngineNotInitialized;
       return '';
     }
 
     if (!await File(_binaryPath!).exists()) {
-      _lastError = 'No se encontro whisper-cli en $_binaryPath.';
+      _lastError = _l10n.whisperErrorCliNotFound(_binaryPath!);
       return '';
     }
     if (!await File(_modelPath!).exists()) {
-      _lastError = 'No se encontro modelo Whisper en $_modelPath.';
+      _lastError = _l10n.whisperErrorModelNotFound(_modelPath!);
       return '';
     }
 
@@ -304,8 +332,10 @@ class WhisperService {
         final err = (result.stderr as String?)?.trim();
         final out = (result.stdout as String?)?.trim();
         final detail = err?.isNotEmpty == true ? err : out;
-        _lastError =
-            'whisper-cli tdrz fallo (exit ${result.exitCode})${detail != null && detail.isNotEmpty ? ': $detail' : ''}';
+        _lastError = _l10n.whisperErrorCliFailedTdrz(
+          result.exitCode,
+          detail != null && detail.isNotEmpty ? ': $detail' : '',
+        );
         return '';
       }
 
@@ -329,10 +359,10 @@ class WhisperService {
       if (hasSpeakerMarker(stderrText)) return stderrText;
 
       // Si no hay marcadores, devolvemos vacío para forzar fallback controlado.
-      _lastError = 'Whisper tdrz no devolvio marcadores de speaker en este chunk.';
+      _lastError = _l10n.whisperErrorNoSpeakerMarkers;
       return '';
     } catch (e) {
-      _lastError = 'Error al ejecutar whisper-cli tdrz: $e';
+      _lastError = _l10n.whisperErrorRunningCliTdrz('$e');
       return '';
     }
   }
@@ -360,7 +390,7 @@ class WhisperService {
       return binPath;
     }
 
-    onProgress?.call('Descargando motor de transcripción…', 0.0);
+    onProgress?.call(_l10n.whisperDownloadingEngine, 0.0);
 
     // Descargar ZIP
     final zipPath = p.join(dir.path, 'whisper_bin.zip');
@@ -368,11 +398,11 @@ class WhisperService {
       _WhisperRelease.binaryUrl,
       zipPath,
       onProgress: (p) =>
-          onProgress?.call('Descargando motor de transcripción…', p * 0.5),
+          onProgress?.call(_l10n.whisperDownloadingEngine, p * 0.5),
     );
 
     // Extraer
-    onProgress?.call('Instalando motor de transcripción…', 0.55);
+    onProgress?.call(_l10n.whisperInstallingEngine, 0.55);
     final zipFile = File(zipPath);
     await _extractZip(zipFile, dir);
     await zipFile.delete().catchError((_) => File(''));
@@ -380,7 +410,10 @@ class WhisperService {
     final resolvedPath = await _findBinaryPath(dir);
     if (resolvedPath == null) {
       throw StateError(
-        'No se encontro ${_WhisperRelease.binaryFilename} despues de extraer $zipPath',
+        _l10n.whisperErrorBinaryNotFoundAfterExtract(
+          _WhisperRelease.binaryFilename,
+          zipPath,
+        ),
       );
     }
 
@@ -388,7 +421,7 @@ class WhisperService {
       await Process.run('chmod', ['+x', resolvedPath]);
     }
 
-    onProgress?.call('Motor listo', 1.0);
+    onProgress?.call(_l10n.whisperEngineReady, 1.0);
     return resolvedPath;
   }
 
@@ -401,19 +434,20 @@ class WhisperService {
     final modelFile = File(modelPath);
     if (await modelFile.exists()) return modelPath;
 
+    final label = model.localizedLabel(_l10n);
     onProgress?.call(
-      'Descargando modelo ${model.label} (~${model.approxSizeMb} MB)…',
+      _l10n.whisperDownloadingModel(label, model.approxSizeMb),
       0.0,
     );
     await _downloadWithProgress(
       model.url,
       modelPath,
       onProgress: (p) => onProgress?.call(
-        'Descargando modelo ${model.label} (~${model.approxSizeMb} MB)…',
+        _l10n.whisperDownloadingModel(label, model.approxSizeMb),
         p,
       ),
     );
-    onProgress?.call('Modelo ${model.label} listo', 1.0);
+    onProgress?.call(_l10n.whisperModelReady(label), 1.0);
     return modelPath;
   }
 
@@ -429,7 +463,7 @@ class WhisperService {
       final response = await client.send(request);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError(
-          'Descarga fallida (${response.statusCode}) desde $url',
+          _l10n.whisperErrorDownloadFailed(response.statusCode, url),
         );
       }
       final total = response.contentLength ?? 0;
@@ -477,7 +511,12 @@ class WhisperService {
         final tarErr = '${tarResult.stderr}'.trim();
         final psErr = '${psResult.stderr}'.trim();
         throw StateError(
-          'No se pudo extraer ZIP en Windows. tar: ${tarResult.exitCode}${tarErr.isNotEmpty ? ' ($tarErr)' : ''}; powershell: ${psResult.exitCode}${psErr.isNotEmpty ? ' ($psErr)' : ''}',
+          _l10n.whisperErrorZipExtractWindows(
+            tarResult.exitCode,
+            tarErr.isNotEmpty ? ' ($tarErr)' : '',
+            psResult.exitCode,
+            psErr.isNotEmpty ? ' ($psErr)' : '',
+          ),
         );
       }
     } else {
@@ -488,7 +527,7 @@ class WhisperService {
         dest.path,
       ]);
       if (result.exitCode != 0) {
-        throw StateError('No se pudo extraer ZIP de whisper.');
+        throw StateError(_l10n.whisperErrorZipExtractUnix);
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import 'smart_templates/smart_template_definitions.dart';
 
 /// Definición mínima del catálogo (icono, sección, beta). Los textos vienen de [AppLocalizations].
 class BlockTypeTemplate {
@@ -399,6 +400,126 @@ class BlockTypeDef {
   final BlockTypeSection section;
   final bool beta;
 }
+
+/// Comandos `cmd_*` del menú `/` (IA, insertar fecha, mencionar página,
+/// duplicar, cambiar tipo) — no son tipos de bloque, son acciones. Vivían
+/// como una función privada `_inlineSlashActionCatalog` en `block_editor.dart`,
+/// una segunda lista paralela a [blockTypeTemplates] con su propio patrón de
+/// resolución de etiquetas (l10n embebido en el literal en vez de
+/// `blockTypeLabelForKey`/`blockTypeHintForKey`). Fase G1 del rediseño UX:
+/// se traslada aquí, junto a `blockTypeTemplates`, para que este archivo sea
+/// la única fuente de verdad de "todo lo que puede aparecer en el catálogo
+/// `/`" — el Command Palette (Fase C1) y las smart templates (Fase G2)
+/// deben leer de aquí, no crear una tercera lista.
+List<BlockTypeDef> resolveInlineSlashActionCatalog(AppLocalizations l10n) => [
+  BlockTypeDef(
+    key: 'cmd_ai_summarize',
+    label: l10n.blockEditorCmdAiSummarize,
+    hint: l10n.blockEditorCmdAiSummarizeHint,
+    icon: Icons.summarize_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_continue',
+    label: l10n.blockEditorCmdAiContinue,
+    hint: l10n.blockEditorCmdAiContinueHint,
+    icon: Icons.auto_awesome_motion_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_explain',
+    label: l10n.blockEditorCmdAiExplain,
+    hint: l10n.blockEditorCmdAiExplainHint,
+    icon: Icons.help_outline_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_action_items',
+    label: l10n.blockEditorCmdAiActionItems,
+    hint: l10n.blockEditorCmdAiActionItemsHint,
+    icon: Icons.checklist_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_todo',
+    label: l10n.blockEditorCmdAiTodo,
+    hint: l10n.blockEditorCmdAiTodoHint,
+    icon: Icons.task_alt_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_mindmap',
+    label: l10n.blockEditorCmdAiMindmap,
+    hint: l10n.blockEditorCmdAiMindmapHint,
+    icon: Icons.account_tree_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_table',
+    label: l10n.blockEditorCmdAiTable,
+    hint: l10n.blockEditorCmdAiTableHint,
+    icon: Icons.table_chart_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_improve',
+    label: l10n.blockEditorCmdAiImprove,
+    hint: l10n.blockEditorCmdAiImproveHint,
+    icon: Icons.edit_note_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_translate',
+    label: l10n.blockEditorCmdAiTranslate,
+    hint: l10n.blockEditorCmdAiTranslateHint,
+    icon: Icons.translate_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_duplicate_prev',
+    label: l10n.blockEditorCmdDuplicatePrev,
+    hint: l10n.blockEditorCmdDuplicatePrevHint,
+    icon: Icons.copy_rounded,
+    section: BlockTypeSection.advanced,
+  ),
+  BlockTypeDef(
+    key: 'cmd_insert_date',
+    label: l10n.blockEditorCmdInsertDate,
+    hint: l10n.blockEditorCmdInsertDateHint,
+    icon: Icons.event_rounded,
+    section: BlockTypeSection.advanced,
+  ),
+  BlockTypeDef(
+    key: 'cmd_mention_page',
+    label: l10n.blockEditorCmdMentionPage,
+    hint: l10n.blockEditorCmdMentionPageHint,
+    icon: Icons.insert_link_outlined,
+    section: BlockTypeSection.advanced,
+  ),
+  BlockTypeDef(
+    key: 'cmd_turn_into',
+    label: l10n.blockEditorCmdTurnInto,
+    hint: l10n.blockEditorCmdTurnIntoHint,
+    icon: Icons.swap_horiz_rounded,
+    section: BlockTypeSection.advanced,
+  ),
+];
+
+/// Fase G2 del rediseño UX del editor — comandos multi-bloque con
+/// variables (`/meeting`, `/sprint`, `/roadmap`). Misma disciplina que
+/// [resolveInlineSlashActionCatalog]: viven junto al resto del catálogo en
+/// vez de en una tercera lista aparte, y reutilizan
+/// `_catalogFilteredForSlash`'s mismo filtro/ranking substring+recencia.
+List<BlockTypeDef> resolveSmartTemplateCatalog(AppLocalizations l10n) => [
+  for (final t in kBuiltinSmartTemplates)
+    BlockTypeDef(
+      key: t.key,
+      label: t.labelOf(l10n),
+      hint: t.hintOf(l10n),
+      icon: t.icon,
+      section: BlockTypeSection.advanced,
+    ),
+];
 
 List<BlockTypeDef> filterBlockTypeCatalog(String query, AppLocalizations l10n) {
   final normalizedQuery = query.trim().toLowerCase();

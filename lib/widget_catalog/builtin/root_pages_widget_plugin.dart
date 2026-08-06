@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -21,7 +22,7 @@ class RootPagesWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'root_pages';
 
   @override
-  String displayName(BuildContext context) => 'Páginas';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetRootPages;
 
   @override
   IconData get icon => Icons.description_outlined;
@@ -32,15 +33,16 @@ class RootPagesWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     final maxCount = _intSetting(instance.settings, 'maxCount', 10);
     final roots = ctx.session.pages
         .where((p) => p.parentId == null && !p.isTrashed)
         .toList()
       ..sort(
-        (a, b) => (a.title.isEmpty ? 'Sin título' : a.title)
+        (a, b) => (a.title.isEmpty ? l10n.untitled : a.title)
             .toLowerCase()
             .compareTo(
-              (b.title.isEmpty ? 'Sin título' : b.title).toLowerCase(),
+              (b.title.isEmpty ? l10n.untitled : b.title).toLowerCase(),
             ),
       );
     final shown = roots.take(maxCount).toList();
@@ -49,7 +51,7 @@ class RootPagesWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: shown.isEmpty
-          ? const BuiltinWidgetEmpty(message: 'No hay páginas todavía.')
+          ? BuiltinWidgetEmpty(message: l10n.widgetRootPagesEmpty)
           : ListView.builder(
               itemCount: shown.length,
               itemBuilder: (context, index) {
@@ -66,7 +68,7 @@ class RootPagesWidgetPlugin extends FolioWidgetPlugin {
                           size: 18,
                         ),
                   title: Text(
-                    page.title.isEmpty ? 'Sin título' : page.title,
+                    page.title.isEmpty ? l10n.untitled : page.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -90,8 +92,8 @@ class RootPagesWidgetPlugin extends FolioWidgetPlugin {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        labelText: 'Máximo de páginas',
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).widgetRootPagesMaxLabel,
         hintText: '10',
       ),
       onChanged: (v) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
@@ -14,7 +15,7 @@ class SearchWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'search';
 
   @override
-  String displayName(BuildContext context) => 'Buscar';
+  String displayName(BuildContext context) => AppLocalizations.of(context).search;
 
   @override
   IconData get icon => Icons.search_rounded;
@@ -42,7 +43,7 @@ class SearchWidgetPlugin extends FolioWidgetPlugin {
               Icon(Icons.search_rounded, size: 18, color: scheme.onSurfaceVariant),
               const SizedBox(width: 8),
               Text(
-                'Buscar en Folio…',
+                AppLocalizations.of(context).widgetSearchPlaceholder,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

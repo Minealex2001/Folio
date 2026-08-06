@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/models/widget_instance_config.dart';
@@ -16,7 +17,7 @@ class BookmarksWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'bookmarks';
 
   @override
-  String displayName(BuildContext context) => 'Marcadores';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetBookmarks;
 
   @override
   IconData get icon => Icons.bookmark_outline_rounded;
@@ -27,16 +28,17 @@ class BookmarksWidgetPlugin extends FolioWidgetPlugin {
     WidgetInstanceConfig instance,
     WidgetPluginContext ctx,
   ) {
+    final l10n = AppLocalizations.of(context);
     final items =
         <({String pageId, String pageTitle, String label, String? url})>[];
     for (final page in ctx.session.pages) {
       if (page.isTrashed) continue;
-      final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
+      final pageTitle = page.title.trim().isEmpty ? l10n.untitled : page.title;
       for (final block in page.blocks) {
         if (block.type != 'bookmark') continue;
         final url = (block.url ?? '').trim();
         final label = block.text.trim().isEmpty
-            ? (url.isEmpty ? 'Marcador' : url)
+            ? (url.isEmpty ? l10n.widgetBookmarksFallbackLabel : url)
             : block.text.trim();
         items.add((
           pageId: page.id,
@@ -53,8 +55,8 @@ class BookmarksWidgetPlugin extends FolioWidgetPlugin {
       icon: icon,
       title: displayName(context),
       child: items.isEmpty
-          ? const BuiltinWidgetEmpty(
-              message: 'No hay bloques marcador en el vault.',
+          ? BuiltinWidgetEmpty(
+              message: l10n.widgetBookmarksEmpty,
             )
           : ListView.builder(
               itemCount: items.length,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
@@ -14,7 +15,8 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'calendar';
 
   @override
-  String displayName(BuildContext context) => 'Calendario';
+  String displayName(BuildContext context) =>
+      AppLocalizations.of(context).widgetCalendar;
 
   @override
   IconData get icon => Icons.calendar_month_rounded;
@@ -154,7 +156,7 @@ class CalendarWidgetPlugin extends FolioWidgetPlugin {
       builder: (context, setState) {
         return SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('La semana empieza el lunes'),
+          title: Text(AppLocalizations.of(context).widgetCalendarWeekStartsMonday),
           value: monday,
           onChanged: (v) {
             setState(() => monday = v);

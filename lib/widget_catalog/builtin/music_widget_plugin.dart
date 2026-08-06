@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../../features/workspace/widgets/spotify_now_playing_bar.dart';
@@ -17,7 +18,7 @@ class MusicWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'music';
 
   @override
-  String displayName(BuildContext context) => 'Música';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetMusic;
 
   @override
   IconData get icon => Icons.music_note_rounded;
@@ -87,8 +88,8 @@ class _MusicNowPlayingBodyState extends State<_MusicNowPlayingBody> {
   Widget build(BuildContext context) {
     final router = MediaPlaybackRouter.instance;
     if (!router.shouldShowBar) {
-      return const BuiltinWidgetEmpty(
-        message: 'No hay nada sonando ahora mismo.',
+      return BuiltinWidgetEmpty(
+        message: AppLocalizations.of(context).widgetMusicEmpty,
       );
     }
     // NowPlayingBar también hace addListenerRef; ref-count lo tolera.

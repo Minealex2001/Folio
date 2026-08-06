@@ -19,6 +19,7 @@ import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/active_music_provider.dart';
 import '../models/quill_system_prompt.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
@@ -1248,13 +1249,15 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
-    final locale = PlatformDispatcher.instance.locale.languageCode;
-    final isEs = locale == 'es';
+    final deviceLang = PlatformDispatcher.instance.locale.languageCode;
+    final isEs = deviceLang == 'es';
+    final l10n = lookupAppLocalizations(Locale(deviceLang.isEmpty ? 'es' : deviceLang));
 
     final List<QuillSystemPrompt> defaultPrompts = [
       QuillSystemPrompt(
         id: 'quill_default',
-        name: isEs ? 'Quill (Predeterminado)' : 'Quill (Default)',
+        name: l10n.quillDefaultName,
+        // System prompts stay bilingual (sent to the model, not UI chrome).
         prompt: isEs
             ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
             : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.',
@@ -1262,7 +1265,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_translator',
-        name: isEs ? 'Traductor' : 'Translator',
+        name: l10n.quillTranslatorName,
         prompt: isEs
             ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
             : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.',
@@ -1271,7 +1274,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_summarizer',
-        name: isEs ? 'Resumidor' : 'Summarizer',
+        name: l10n.quillSummarizerName,
         prompt: isEs
             ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
             : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.',
@@ -1280,7 +1283,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_coder',
-        name: isEs ? 'Programador' : 'Coder',
+        name: l10n.quillCoderName,
         prompt: isEs
             ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
             : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.',

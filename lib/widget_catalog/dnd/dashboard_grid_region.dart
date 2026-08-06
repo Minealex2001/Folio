@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/dashboard_config.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../../visual_editor/visual_editor_controller.dart';
 import '../folio_widget_plugin.dart';
@@ -89,7 +90,7 @@ class DashboardGridRegion extends StatelessWidget {
                           columns,
                         ),
                         icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Añadir widget'),
+                        label: Text(AppLocalizations.of(context).dashboardAddWidget),
                       ),
                     ),
                   ),
@@ -155,9 +156,10 @@ Future<void> _showAddWidgetPicker(
           (a, b) => a.displayName(context).compareTo(b.displayName(context)),
         );
 
+  final l10n = AppLocalizations.of(context);
   if (available.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No hay más widgets disponibles para añadir.')),
+      SnackBar(content: Text(l10n.dashboardNoMoreWidgets)),
     );
     return;
   }
@@ -165,7 +167,7 @@ Future<void> _showAddWidgetPicker(
   final selected = await showDialog<FolioWidgetPlugin>(
     context: context,
     builder: (dialogContext) => SimpleDialog(
-      title: const Text('Añadir widget'),
+      title: Text(l10n.dashboardAddWidget),
       children: [
         for (final plugin in available)
           SimpleDialogOption(

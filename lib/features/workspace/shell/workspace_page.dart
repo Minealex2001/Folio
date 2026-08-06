@@ -77,6 +77,7 @@ import 'ai_chat_reply_skeleton.dart';
 import 'ai_tool_activity_indicator.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
+import '../editor/command_palette/palette_command.dart';
 import '../editor/block_editor_support_widgets.dart';
 import '../graph/graph_view_screen.dart';
 import '../history/page_history_sheet.dart';
@@ -1429,7 +1430,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         activator: a.inAppShortcut(FolioInAppShortcut.search),
         action: () {
           if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
-            widget.onOpenSearch();
+            _openCommandPaletteOrSearch();
           }
         },
       ),
@@ -1678,14 +1679,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 children: [
                   const Icon(Icons.tune_rounded, size: 18),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Editor visual (beta)',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      AppLocalizations.of(context).visualEditorBetaLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Cerrar',
+                    tooltip: AppLocalizations.of(context).close,
                     icon: const Icon(Icons.close_rounded, size: 18),
                     onPressed: () => setState(() {
                       _visualEditor.editModeActive = false;
@@ -2043,6 +2044,72 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
+  /// Fase C3 del rediseño UX del editor — decisión ya tomada con el
+  /// usuario: Ctrl+K pasa a abrir el Command Palette; la búsqueda de
+  /// páginas (antes en Ctrl+K en exclusiva) se convierte en un comando más
+  /// dentro del propio Palette, no desaparece. Ctrl+F sigue funcionando
+  /// como atajo directo de búsqueda sin pasar por el Palette (ya existía
+  /// como fallback antes de esta fase — `altSearch` más abajo — así que
+  /// "dar a la búsqueda un atajo dedicado" ya estaba resuelto).
+  ///
+  /// Si no hay una página abierta (o su `BlockEditor` aún no ha montado —
+  /// ej. viendo el dashboard), no hay dónde anclar el Palette; se cae al
+  /// comportamiento antiguo (abrir búsqueda directamente) en vez de no
+  /// hacer nada.
+  void _openCommandPaletteOrSearch() {
+    final page = _s.selectedPage;
+    final editorState = page == null
+        ? null
+        : _blockEditorKeyForPage(page.id).currentState;
+    if (editorState != null) {
+      editorState.toggleCommandPaletteOverlay();
+    } else {
+      widget.onOpenSearch();
+    }
+  }
+
+  /// Fase C3 del rediseño UX del editor — comandos de nivel-workspace del
+  /// Command Palette. Acotado deliberadamente a acciones ya reachable con
+  /// una sola llamada desde esta clase (búsqueda, crear página, ajustes) —
+  /// "cambiar tema"/"cambiar layout"/"páginas recientes" quedan fuera de
+  /// v1 (necesitarían abrir sub-selectores propios, no una sola acción) y
+  /// se dejan como ampliación futura de este mismo proveedor, no como una
+  /// segunda lista paralela.
+  List<PaletteCommand> _workspacePaletteCommands() {
+    return [
+      PaletteCommand(
+        id: 'cmd_workspace_search',
+        label: AppLocalizations.of(context).cmdSearchNotebook,
+        icon: Icons.search_rounded,
+        category: PaletteCommandCategory.navigation,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.search),
+        ),
+        execute: widget.onOpenSearch,
+      ),
+      PaletteCommand(
+        id: 'cmd_workspace_new_page',
+        label: AppLocalizations.of(context).widgetCreatePage,
+        icon: Icons.note_add_outlined,
+        category: PaletteCommandCategory.create,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.newPage),
+        ),
+        execute: () => _s.addPage(parentId: null),
+      ),
+      PaletteCommand(
+        id: 'cmd_workspace_settings',
+        label: AppLocalizations.of(context).cmdOpenSettings,
+        icon: Icons.settings_outlined,
+        category: PaletteCommandCategory.settings,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.settings),
+        ),
+        execute: _openSettings,
+      ),
+    ];
+  }
+
   void _selectAdjacentPage(int delta) {
     final pages = _s.pages;
     if (pages.isEmpty) return;
@@ -2086,7 +2153,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     while (current != null && !visited.contains(current.id)) {
       visited.add(current.id);
       chain.add(
-        current.title.trim().isEmpty ? 'Untitled' : current.title.trim(),
+        current.title.trim().isEmpty
+            ? AppLocalizations.of(context).untitled
+            : current.title.trim(),
       );
       final parentId = current.parentId;
       current = parentId == null ? null : byId[parentId];
@@ -2179,7 +2248,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
     } catch (e) {
       if (mounted) {
-        _snack('No se pudo forzar la sincronización: $e', error: true);
+        _snack(AppLocalizations.of(context).forceSyncFailed('$e'), error: true);
       }
     }
   }
@@ -2409,7 +2478,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
           cloudAccountController: widget.cloudAccountController,
           cloudStatusController: widget.cloudStatusController,
           organizationContext: widget.organizationContext,
-          onSearch: () => widget.onOpenSearch(),
+          // Fase H1 (UX Review) — el buscador visible del sidebar era el
+          // único punto de entrada real y descubrible al Command Palette
+          // (Ctrl+K no es descubrible por sí solo — el propio usuario lo
+          // señaló como fricción real), pero antes de este fix abría la
+          // búsqueda antigua directamente, sin pasar por el Palette:
+          // mismo icono "buscar", dos resultados distintos según el gesto
+          // usado (click vs. Ctrl+K). Ahora ambos convergen en el mismo
+          // método (`_openCommandPaletteOrSearch`, ya usado por C3),
+          // preservando "Buscar en la libreta" como comando nested.
+          onSearch: _openCommandPaletteOrSearch,
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onOpenCloudStatus: () =>
@@ -2437,7 +2515,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final shortcutBindings = <ShortcutActivator, VoidCallback>{
       a.inAppShortcut(FolioInAppShortcut.search): () {
         if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
-          widget.onOpenSearch();
+          _openCommandPaletteOrSearch();
         }
       },
       a.inAppShortcut(FolioInAppShortcut.newPage): () {
@@ -2521,8 +2599,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
             _WorkspaceActionEntry(
               id: 'toggle_dashboard_edit',
               label: _dashboardEditMode
-                  ? 'Salir de edición de inicio'
-                  : 'Editar inicio (beta)',
+                  ? l10n.cmdExitHomeEdit
+                  : l10n.cmdEditHomeBeta,
               icon: _dashboardEditMode
                   ? Icons.dashboard_customize_rounded
                   : Icons.dashboard_customize_outlined,
@@ -2544,7 +2622,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (widget.folioCloudEntitlements.snapshot.folioStaff)
             _WorkspaceActionEntry(
               id: 'admin_console',
-              label: 'Consola de administración',
+              label: l10n.adminConsoleTitle,
               icon: Icons.admin_panel_settings_outlined,
               onPressed: _openAdminConsole,
               forceOverflow: true,
@@ -2870,6 +2948,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     onAiSlashCommand: _handleFolioAiSlash,
                     editorLayoutTokens:
                         widget.layoutEngineController.config.editor,
+                    extraPaletteCommandsProvider: _workspacePaletteCommands,
                   ),
           );
 
@@ -3065,7 +3144,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
         children: [
           Expanded(child: editorWithPanels),
           PageOutlinePanel(
-            blocks: page.blocks,
+            page: page,
+            session: _s,
             scheme: scheme,
             blockEditorKey: activeBlockEditorKey!,
           ),

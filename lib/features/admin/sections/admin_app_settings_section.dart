@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_settings_api.dart';
 
 /// SUPER_ADMIN only — every write here can affect production behavior for every user, so this
@@ -47,11 +48,12 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
   }
 
   Future<void> _edit(Map<String, dynamic> setting) async {
+    final l10n = AppLocalizations.of(context);
     final key = setting['key']?.toString() ?? '';
     final controller = TextEditingController(text: setting['effectiveValue']?.toString() ?? '');
     final ok = await FolioDialog.confirm(
       context,
-      title: Text('Editar $key'),
+      title: Text(l10n.adminEditSettingTitle(key)),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -65,17 +67,17 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
             const SizedBox(height: 12),
             TextField(
               controller: controller,
-              decoration: InputDecoration(labelText: 'Valor (${setting['valueType']})', border: const OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l10n.adminValueLabel(setting['valueType']), border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             Text(
-              'Esto puede afectar a la app en producción para todos los usuarios.',
+              l10n.adminSettingWarningBody,
               style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600),
             ),
           ],
         ),
       ),
-      confirmLabel: 'Guardar',
+      confirmLabel: l10n.save,
       destructive: true,
     );
     if (ok != true) return;
@@ -84,17 +86,18 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.adminErrorWithDetails('$e'))));
     }
   }
 
   Future<void> _clear(Map<String, dynamic> setting) async {
+    final l10n = AppLocalizations.of(context);
     final key = setting['key']?.toString() ?? '';
     final ok = await FolioDialog.confirm(
       context,
-      title: Text('Quitar override de $key'),
-      content: const Text('Volverá a usar el valor de application.yml/variables de entorno.'),
-      confirmLabel: 'Quitar override',
+      title: Text(l10n.adminClearOverrideTitle(key)),
+      content: Text(l10n.adminClearOverrideBody),
+      confirmLabel: l10n.adminActionClearOverride,
       destructive: true,
     );
     if (ok != true) return;
@@ -103,13 +106,14 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.adminErrorWithDetails('$e'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     if (_loading) return const Center(child: FolioLoadingIndicator());
     if (_error != null) {
       return Center(child: Text(_error!, style: TextStyle(color: scheme.error)));
@@ -132,7 +136,8 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
               title: Text(s['key']?.toString() ?? ''),
               subtitle: Text(
                 '${s['description'] ?? ''}\n'
-                'valor actual: ${s['effectiveValue'] ?? '—'}${overridden ? ' (override)' : ' (por defecto)'}',
+                '${l10n.adminCurrentValueLabel}: ${s['effectiveValue'] ?? '—'} '
+                '(${overridden ? l10n.adminOverrideSuffix : l10n.adminDefaultSuffix})',
               ),
               isThreeLine: true,
               trailing: Wrap(
@@ -140,12 +145,12 @@ class _AdminAppSettingsSectionState extends State<AdminAppSettingsSection> {
                 children: [
                   if (overridden)
                     IconButton(
-                      tooltip: 'Quitar override',
+                      tooltip: l10n.adminActionClearOverride,
                       icon: const Icon(Icons.restore_rounded),
                       onPressed: () => _clear(s),
                     ),
                   IconButton(
-                    tooltip: 'Editar',
+                    tooltip: l10n.adminActionEdit,
                     icon: const Icon(Icons.edit_outlined),
                     onPressed: () => _edit(s),
                   ),

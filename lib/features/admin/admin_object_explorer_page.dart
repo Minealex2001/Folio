@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/admin/admin_storage_api.dart';
 
 /// SUPER_ADMIN-only bucket explorer: folder-style browsing over S3/MinIO via
@@ -71,17 +72,18 @@ class _AdminObjectExplorerPageState extends State<AdminObjectExplorerPage> {
   }
 
   void _goToUserPrefix() async {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();
     final uid = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ir a users/{uid}/'),
+        title: Text(l10n.adminGoToUserTitle),
         content: TextField(controller: controller, decoration: const InputDecoration(labelText: 'uid')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Ir'),
+            child: Text(l10n.adminActionGoTo),
           ),
         ],
       ),
@@ -96,11 +98,12 @@ class _AdminObjectExplorerPageState extends State<AdminObjectExplorerPage> {
   }
 
   Future<void> _deleteObject(String key) async {
+    final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
-      title: const Text('Borrar objeto'),
-      content: Text('Esto borra "$key" directamente del bucket. No se puede deshacer.'),
-      confirmLabel: 'Borrar',
+      title: Text(l10n.adminDeleteObjectTitle),
+      content: Text(l10n.adminDeleteObjectBody(key)),
+      confirmLabel: l10n.adminActionDelete,
       destructive: true,
     );
     if (ok != true) return;
@@ -110,22 +113,23 @@ class _AdminObjectExplorerPageState extends State<AdminObjectExplorerPage> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.adminErrorWithDetails('$e'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentPrefix.isEmpty ? 'Explorador de objetos' : _currentPrefix),
+        title: Text(_currentPrefix.isEmpty ? l10n.adminObjectExplorerTitle : _currentPrefix),
         leading: _prefixStack.length > 1
             ? IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: _goBack)
             : null,
         actions: [
           IconButton(
-            tooltip: 'Ir a un usuario',
+            tooltip: l10n.adminGoToUserTooltip,
             icon: const Icon(Icons.person_search_outlined),
             onPressed: _goToUserPrefix,
           ),
@@ -161,7 +165,7 @@ class _AdminObjectExplorerPageState extends State<AdminObjectExplorerPage> {
                               ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                               : OutlinedButton(
                                   onPressed: () => _load(continuationToken: _nextToken),
-                                  child: const Text('Cargar más'),
+                                  child: Text(l10n.adminLoadMore),
                                 ),
                         ),
                       ),

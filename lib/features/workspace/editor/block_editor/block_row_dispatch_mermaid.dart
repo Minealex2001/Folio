@@ -23,6 +23,10 @@ Widget? _specialRowMermaid(_BlockRowScope s) {
   final showSourceEditor =
       block.text.trim().isEmpty ||
       st._mermaidEditingSourceIds.contains(block.id);
+  // Fase F1 del rediseño UX del editor: la etiqueta plana "Mermaid" pasa a
+  // ser la cabecera de acento compartida (icono + chip), consistente con
+  // code/database/meeting_note en vez de un texto suelto solo aquí.
+  final accentTone = _blockAccentToneFor('mermaid')!;
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
     child: Row(
@@ -32,19 +36,21 @@ Widget? _specialRowMermaid(_BlockRowScope s) {
         dragHandle,
         marker,
         Expanded(
-          child: Column(
+          child: _blockAccentStripe(
+            scheme,
+            st._calloutPreset,
+            accentTone,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  'Mermaid',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: scheme.primary,
-                  ),
-                ),
+              _blockAccentHeader(
+                context,
+                scheme,
+                st._calloutPreset,
+                tone: accentTone,
+                icon: _blockAccentIconFor('mermaid'),
+                label: 'Mermaid',
               ),
               if (showSourceEditor) ...[
                 ClipRRect(
@@ -82,6 +88,7 @@ Widget? _specialRowMermaid(_BlockRowScope s) {
                   ),
                 ),
             ],
+            ),
           ),
         ),
       ],

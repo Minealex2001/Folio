@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/models/widget_instance_config.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
@@ -28,10 +29,8 @@ class RssWidgetPlugin extends FolioWidgetPlugin {
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
-      child: const BuiltinWidgetComingSoon(
-        message:
-            'Los feeds RSS no están soportados. '
-            'No hay lector de feeds en Folio todavía.',
+      child: BuiltinWidgetComingSoon(
+        message: AppLocalizations.of(context).widgetRssComingSoon,
       ),
     );
   }

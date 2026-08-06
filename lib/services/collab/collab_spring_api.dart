@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../config/folio_backend_config.dart';
+import '../folio_cloud/folio_cloud_http_client.dart';
 import '../folio_cloud/folio_cloud_identity.dart';
 
 /// REST de control-plane / snapshot de sala collab (modo Spring).
 class CollabSpringApi {
-  CollabSpringApi({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  CollabSpringApi({http.Client? httpClient})
+      : _http = httpClient ?? folioCloudHttpClient;
 
   final http.Client _http;
 

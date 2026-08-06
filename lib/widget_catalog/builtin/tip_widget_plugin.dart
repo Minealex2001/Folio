@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 import '../../config/models/widget_instance_config.dart';
 import '../folio_widget_plugin.dart';
 import '../widget_plugin_context.dart';
 import 'builtin_widget_card.dart';
 
-const List<String> _kTips = [
-  'Usa "/" en el editor para insertar bloques rápidamente.',
-  'Arrastra una página al panel lateral para anclarla.',
-  'Ctrl+K abre la búsqueda global desde cualquier pantalla.',
-  'Activa el editor visual desde la barra superior para reordenar el layout.',
-  'Puedes marcar tareas como hechas desde el widget Tareas del inicio.',
+List<String> _kTips(AppLocalizations l10n) => [
+  l10n.widgetTipEditorSlash,
+  l10n.widgetTipDragPage,
+  l10n.widgetTipSearchShortcut,
+  l10n.widgetTipVisualEditor,
+  l10n.widgetTipTasksHome,
 ];
 
 /// Migración 1:1 de `WorkspaceHomeSectionIds.tip` — rota entre consejos
@@ -23,7 +24,7 @@ class TipWidgetPlugin extends FolioWidgetPlugin {
   String get id => 'tip';
 
   @override
-  String displayName(BuildContext context) => 'Consejo';
+  String displayName(BuildContext context) => AppLocalizations.of(context).widgetTip;
 
   @override
   IconData get icon => Icons.lightbulb_outline_rounded;
@@ -41,7 +42,8 @@ class TipWidgetPlugin extends FolioWidgetPlugin {
       DateTime.now().difference(DateTime(DateTime.now().year)).inDays
           .toString(),
     );
-    final tip = _kTips[dayOfYear % _kTips.length];
+    final tips = _kTips(AppLocalizations.of(context));
+    final tip = tips[dayOfYear % tips.length];
     return BuiltinWidgetCard(
       icon: icon,
       title: displayName(context),
