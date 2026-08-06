@@ -2868,6 +2868,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     readOnlyMode: editorReadOnlyMode,
                     folioCloudEntitlements: widget.folioCloudEntitlements,
                     onAiSlashCommand: _handleFolioAiSlash,
+                    editorLayoutTokens:
+                        widget.layoutEngineController.config.editor,
                   ),
           );
 

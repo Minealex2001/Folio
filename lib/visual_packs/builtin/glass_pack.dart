@@ -38,7 +38,7 @@ VisualPack buildGlassPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF00C2CB),
       dark: ThemeColorTokens(seedArgb: 0xFF00C2CB),
-      typography: ThemeTypographyTokens(fontFamily: 'Nunito'),
+      typography: ThemeTypographyTokens(fontFamily: 'Lexend'),
       shape: ThemeShapeTokens(
         radiusXs: 8,
         radiusSm: 14,

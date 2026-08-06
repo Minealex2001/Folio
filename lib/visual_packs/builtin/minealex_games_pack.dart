@@ -42,7 +42,10 @@ VisualPack buildMinealexGamesPack() {
         seedArgb: kFolioBrandPrimaryArgb,
         surfaceStyle: 'oled',
       ),
-      typography: ThemeTypographyTokens(baseSizeScale: 1.0),
+      typography: ThemeTypographyTokens(
+        fontFamily: 'Space Grotesk',
+        baseSizeScale: 1.0,
+      ),
       shape: ThemeShapeTokens(
         radiusXs: 6,
         radiusSm: 10,

@@ -586,6 +586,7 @@ void main() {
       // Regresión: AnimatedTheme crasheaba al cruzar packs con
       // apply(fontFamily) (inherit:true) y englishLike+scale (inherit:false).
       // Ambos usan fontFamily explícito para no tocar GoogleFonts en test.
+      // Paper: Merriweather vía GoogleFonts en app; Georgia en test evita red.
       final georgia = resolveThemeData(
         testTheme.copyWith(
           typography: ThemeTypographyTokens(fontFamily: 'Georgia'),

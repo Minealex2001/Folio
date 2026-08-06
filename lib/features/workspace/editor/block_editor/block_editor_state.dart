@@ -68,6 +68,36 @@ class BlockEditorState extends State<BlockEditor>
         _FormatToolbarOverlay {
   static const _uuid = Uuid();
 
+  /// Tokens estructurales del editor (Fase A1 del rediseño UX) — `null` en
+  /// `widget.editorLayoutTokens` (el caso de hoy salvo que
+  /// `workspace_page.dart` inyecte `LayoutConfig.editor`) resuelve a los
+  /// defaults de `EditorLayoutTokens`, que reproducen exactamente los
+  /// literales hardcodeados de siempre. Cero regresión visual sin cambiar
+  /// nada más.
+  EditorLayoutTokens get _layoutTokens =>
+      widget.editorLayoutTokens ?? const EditorLayoutTokens();
+
+  /// Resuelve un `TokenRef<double>?` a un literal. Deliberadamente NO
+  /// resuelve referencias de `DesignTokens`/`DesignVariables` (eso
+  /// requeriría enhebrar `DesignTokensResolver` hasta el editor, fuera de
+  /// alcance de esta fase de "conectar lo ya construido") — una referencia
+  /// (`@algo`) cae al fallback, exactamente igual que si el campo fuera
+  /// `null`, así que nunca es una regresión, solo una referencia sin
+  /// resolver todavía.
+  double _resolveLayoutDouble(TokenRef<double>? ref, double fallback) {
+    if (ref == null || ref.isReference) return fallback;
+    return ref.literalValue ?? fallback;
+  }
+
+  /// Espaciado vertical entre bloques — reemplaza el `2.0` hardcodeado que
+  /// tanto `BlockRowChrome` como `_specialRowChrome` usaban como default.
+  double get _blockVerticalSpacing =>
+      _resolveLayoutDouble(_layoutTokens.blockSpacing, 2.0);
+
+  /// Preset de estilo de callout resuelto desde `LayoutConfig.editor.calloutStyle`.
+  CalloutStylePreset get _calloutPreset =>
+      calloutStylePresetFor(_layoutTokens.calloutStyle);
+
   /// Único almacén real de controllers/FocusNodes de bloque, indexado por
   /// id (no por posición): un reorder no mueve nada aquí. Poblado de forma
   /// perezosa por `_ensureEditingObjects`; vaciado por completo en cada

@@ -34,7 +34,7 @@ VisualPack buildPaperPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFA67C52),
       dark: ThemeColorTokens(seedArgb: 0xFFC4A574),
-      typography: ThemeTypographyTokens(fontFamily: 'Georgia'),
+      typography: ThemeTypographyTokens(fontFamily: 'Merriweather'),
       shape: ThemeShapeTokens(
         radiusXs: 2,
         radiusSm: 4,

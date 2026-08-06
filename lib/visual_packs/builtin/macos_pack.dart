@@ -35,7 +35,7 @@ VisualPack buildMacosPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF0A84FF),
       dark: ThemeColorTokens(seedArgb: 0xFF0A84FF),
-      typography: ThemeTypographyTokens(fontFamily: 'Nunito'),
+      typography: ThemeTypographyTokens(fontFamily: 'Poppins'),
       shape: ThemeShapeTokens(
         radiusXs: 4,
         radiusSm: 8,

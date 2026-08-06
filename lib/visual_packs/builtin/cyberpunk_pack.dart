@@ -35,7 +35,7 @@ VisualPack buildCyberpunkPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFFF2E9A),
       dark: ThemeColorTokens(seedArgb: 0xFFFF2E9A, surfaceStyle: 'oled'),
-      typography: ThemeTypographyTokens(fontFamily: 'JetBrains Mono'),
+      typography: ThemeTypographyTokens(fontFamily: 'Orbitron'),
       shape: ThemeShapeTokens(
         radiusXs: 0,
         radiusSm: 1,

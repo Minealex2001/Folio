@@ -13,7 +13,13 @@ Widget _specialRowChrome({
 }) {
   return Padding(
     padding:
-        padding ?? EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        padding ??
+        EdgeInsetsDirectional.fromSTEB(
+          block.depth * 28.0,
+          st._blockVerticalSpacing,
+          4,
+          st._blockVerticalSpacing,
+        ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

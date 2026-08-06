@@ -100,14 +100,14 @@ ThemeData resolveThemeData(
       : resolveLayer(config.layers!, 'overlay');
   final overlayHasShadow = overlayLayer?.shadow ?? true;
 
-  // Tipografía: el path por defecto (sin fontFamily override) usa
-  // GoogleFonts.outfitTextTheme igual que hoy — reproducir ese TextTheme
-  // campo a campo a mano perdería fidelidad (GoogleFonts aplica su propio
-  // fontFamilyFallback/altura por estilo). Un fontFamily explícito en
-  // ThemeConfig usa TextTheme.apply, que sí es un lookup de datos puro.
-  final baseText = config.typography.fontFamily == null
-      ? GoogleFonts.outfitTextTheme(base.textTheme)
-      : base.textTheme.apply(fontFamily: config.typography.fontFamily);
+  // Tipografía: null → Outfit (default Folio). Familias conocidas de packs
+  // pasan por GoogleFonts.*TextTheme para cargar de verdad; un apply(fontFamily)
+  // solo pone el nombre y en la práctica cae al sistema/fallback (por eso
+  // Nunito/Inter/Mono se veían casi iguales a Outfit).
+  final baseText = _textThemeForFamily(
+    config.typography.fontFamily,
+    base.textTheme,
+  );
   var expressiveText = baseText.copyWith(
     displayLarge: baseText.displayLarge?.copyWith(fontWeight: FontWeight.w700),
     displayMedium: baseText.displayMedium?.copyWith(
@@ -463,6 +463,42 @@ ThemeData resolveThemeData(
   themeData = themeData.copyWith(extensions: [semanticColors]);
 
   return themeData;
+}
+
+/// Mapa de familias usadas por packs builtin → GoogleFonts text theme.
+/// `Roboto`/`Georgia` y cualquier desconocida usan [TextTheme.apply] (tests
+/// y fuentes de sistema) para no forzar fetch de red.
+TextTheme _textThemeForFamily(String? fontFamily, TextTheme base) {
+  if (fontFamily == null || fontFamily.isEmpty) {
+    return GoogleFonts.outfitTextTheme(base);
+  }
+  switch (fontFamily) {
+    case 'Outfit':
+      return GoogleFonts.outfitTextTheme(base);
+    case 'Nunito':
+      return GoogleFonts.nunitoTextTheme(base);
+    case 'Inter':
+      return GoogleFonts.interTextTheme(base);
+    case 'JetBrains Mono':
+      return GoogleFonts.jetBrainsMonoTextTheme(base);
+    case 'Space Grotesk':
+      return GoogleFonts.spaceGroteskTextTheme(base);
+    case 'DM Sans':
+      return GoogleFonts.dmSansTextTheme(base);
+    case 'Merriweather':
+      return GoogleFonts.merriweatherTextTheme(base);
+    case 'Poppins':
+      return GoogleFonts.poppinsTextTheme(base);
+    case 'Lexend':
+      return GoogleFonts.lexendTextTheme(base);
+    case 'Oswald':
+      return GoogleFonts.oswaldTextTheme(base);
+    case 'Orbitron':
+      return GoogleFonts.orbitronTextTheme(base);
+    default:
+      // Roboto/Georgia (tests) u otras: solo etiqueta de familia.
+      return base.apply(fontFamily: fontFamily);
+  }
 }
 
 /// Resuelve el nombre de curva guardado en [ThemeMotionTokens.curveName] a

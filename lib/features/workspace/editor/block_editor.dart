@@ -29,6 +29,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../config/models/editor_layout_tokens.dart';
+import '../../../config/models/token_ref.dart';
+import '../../../theme_engine/callout_style_presets.dart';
 import '../../../services/folio_cloud/folio_storage_transport.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
@@ -315,12 +318,19 @@ class BlockEditor extends StatefulWidget {
     this.readOnlyMode = false,
     this.folioCloudEntitlements,
     this.onAiSlashCommand,
+    this.editorLayoutTokens,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final bool readOnlyMode;
   final FolioCloudEntitlementsController? folioCloudEntitlements;
+
+  /// Tokens estructurales del editor (`LayoutConfig.editor`, Fase 27). `null`
+  /// (el caso hoy en cada call site salvo `workspace_page.dart`) reproduce
+  /// exactamente los literales hardcodeados de siempre — ver
+  /// `BlockEditorState._layoutTokens`.
+  final EditorLayoutTokens? editorLayoutTokens;
 
   /// Comandos slash `cmd_ai_*`: el editor envía intención + texto; el workspace ejecuta Quill.
   final Future<void> Function(FolioAiSlashParams params)? onAiSlashCommand;

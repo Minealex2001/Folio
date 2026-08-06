@@ -51,4 +51,23 @@ void main() {
       );
     }
   });
+
+  test('each non-material3 pack declares a distinct fontFamily', () {
+    final families = <String>[];
+    for (final pack in builtinVisualPacks()) {
+      if (pack.manifest.id == 'material3') continue;
+      final family = pack.theme.typography.fontFamily;
+      expect(
+        family,
+        isNotNull,
+        reason: '${pack.manifest.id} should set an explicit fontFamily',
+      );
+      families.add(family!);
+    }
+    expect(
+      families.toSet(),
+      hasLength(families.length),
+      reason: 'duplicate fonts: $families',
+    );
+  });
 }

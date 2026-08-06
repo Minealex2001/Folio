@@ -37,7 +37,10 @@ VisualPack buildMinimalPack() {
       accentMode: 'custom',
       light: ThemeColorTokens(seedArgb: 0xFF64748B),
       dark: ThemeColorTokens(seedArgb: 0xFF94A3B8),
-      typography: ThemeTypographyTokens(baseSizeScale: 0.97),
+      typography: ThemeTypographyTokens(
+        fontFamily: 'DM Sans',
+        baseSizeScale: 0.97,
+      ),
       shape: ThemeShapeTokens(
         radiusXs: 2,
         radiusSm: 4,

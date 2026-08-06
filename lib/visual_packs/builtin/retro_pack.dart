@@ -34,7 +34,7 @@ VisualPack buildRetroPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFE8A33D),
       dark: ThemeColorTokens(seedArgb: 0xFFE8A33D),
-      typography: ThemeTypographyTokens(),
+      typography: ThemeTypographyTokens(fontFamily: 'Oswald'),
       shape: ThemeShapeTokens(
         radiusXs: 0,
         radiusSm: 0,
