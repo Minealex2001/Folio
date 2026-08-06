@@ -2,6 +2,7 @@ import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
 import '../../config/models/panel_region_ids.dart';
+import '../../config/models/semantic_color_tokens.dart';
 import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
@@ -10,13 +11,15 @@ import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
 
 /// Obsidian — paleta oscura-primero, radios angulosos, tipografía
-/// monospace-adyacente. Sidebar ancho y bloqueado, tres columnas de
-/// dashboard, énfasis en actividad/tareas/database.
+/// monospace. Sidebar ancho y bloqueado, dashboard a dos columnas,
+/// énfasis en actividad/tareas/database.
 VisualPack buildObsidianPack() {
   return VisualPack(
     manifest: const VisualPackManifest(
@@ -46,9 +49,18 @@ VisualPack buildObsidianPack() {
         menu: 2,
         shadowOpacity: 0.05,
       ),
-      spacing: ThemeSpacingTokens(),
+      spacing: ThemeSpacingTokens(xxs: 2, xs: 6, sm: 10, md: 14, lg: 20, xl: 32),
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(
+        densityMode: 'compact',
+        borderEnabled: true,
+        borderWidth: TokenRef.literal(1),
+        borderOpacity: TokenRef.literal(0.45),
+      ),
+      semanticColors: const SemanticColorTokens(
+        sidebarBackground: TokenRef.literal(0xFF050505),
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_obsidian_layout',

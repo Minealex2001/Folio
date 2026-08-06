@@ -19,6 +19,23 @@ void main() {
     }
   });
 
+  test('non-material3 packs expose at least one modern ThemeConfig field', () {
+    for (final pack in builtinVisualPacks()) {
+      if (pack.manifest.id == 'material3') continue;
+      final t = pack.theme;
+      final hasModern = t.visualStyle != null ||
+          t.layers != null ||
+          t.componentStyles != null ||
+          t.semanticColors != null;
+      expect(
+        hasModern,
+        isTrue,
+        reason:
+            '${pack.manifest.id}: expected visualStyle|layers|componentStyles|semanticColors',
+      );
+    }
+  });
+
   test('glass pack\'s VisualStyle/ThemeLayerTokens/platformSupport survive '
       'the round-trip', () {
     final glass = builtinVisualPacks().firstWhere((p) => p.manifest.id == 'glass');
@@ -29,6 +46,7 @@ void main() {
     expect(decoded.theme.visualStyle!.windowBackdrop, 'blur');
     expect(decoded.theme.layers, isNotNull);
     expect(decoded.theme.layers!.overlay.blurSigma, 16);
+    expect(decoded.theme.layers!.panel.blurSigma, 14);
     expect(decoded.manifest.platformSupport?.supportsMobile, isFalse);
   });
 
@@ -39,5 +57,18 @@ void main() {
     expect(decoded.theme.visualStyle, isNotNull);
     expect(decoded.theme.visualStyle!.windowTitleBar, 'hidden');
     expect(decoded.theme.visualStyle!.densityMode, 'compact');
+    expect(decoded.theme.visualStyle!.glassSidebarOpacity, isNotNull);
+    expect(decoded.theme.layers, isNotNull);
+  });
+
+  test('minealex_games modern fields survive the round-trip', () {
+    final pack = builtinVisualPacks().firstWhere(
+      (p) => p.manifest.id == 'minealex_games',
+    );
+    final decoded = VisualPack.fromJson(pack.toJson());
+    expect(decoded.theme.visualStyle?.densityMode, 'compact');
+    expect(decoded.theme.layers?.overlay.blurSigma, 8);
+    expect(decoded.theme.semanticColors?.selection, isNotNull);
+    expect(decoded.theme.componentStyles?.components['filledButton'], isNotNull);
   });
 }

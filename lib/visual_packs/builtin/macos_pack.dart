@@ -6,10 +6,12 @@ import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
 import '../../config/models/theme_icon_tokens.dart';
+import '../../config/models/theme_layer_tokens.dart';
 import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
 import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
@@ -61,7 +63,22 @@ VisualPack buildMacosPack() {
         densityMode: 'compact',
         windowTitleBar: 'hidden',
         windowCorners: 'rounded',
+        windowBackdrop: 'blur',
         cursorHover: 'basic',
+        glassDialogOpacity: TokenRef.literal(0.72),
+        glassMenuOpacity: TokenRef.literal(0.78),
+        glassSidebarOpacity: TokenRef.literal(0.85),
+      ),
+      layers: const ThemeLayerTokens(
+        panel: LayerStyle(
+          opacity: TokenRef.literal(0.9),
+          blurSigma: 12,
+        ),
+        overlay: LayerStyle(
+          shadow: true,
+          opacity: TokenRef.literal(0.92),
+          blurSigma: 14,
+        ),
       ),
     ),
     layout: LayoutConfig(

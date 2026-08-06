@@ -1,3 +1,4 @@
+import '../../config/models/component_style_tokens.dart';
 import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
@@ -10,6 +11,8 @@ import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -54,8 +57,34 @@ VisualPack buildRetroPack() {
         shadowOpacity: 0.25,
       ),
       spacing: ThemeSpacingTokens(),
-      motion: ThemeMotionTokens(curveName: 'linear'),
+      motion: ThemeMotionTokens(
+        shortMs: 80,
+        short2Ms: 120,
+        mediumMs: 160,
+        themeChangeMs: 180,
+        curveName: 'linear',
+      ),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(
+        densityMode: 'compact',
+        borderEnabled: true,
+        borderWidth: TokenRef.literal(2),
+        borderOpacity: TokenRef.literal(0.7),
+        windowCorners: 'square',
+      ),
+      componentStyles: const ComponentStyleTokens(
+        components: {
+          'filledButton': ComponentStyleEntry(
+            radius: TokenRef.literal(20),
+            border: true,
+          ),
+          'outlinedButton': ComponentStyleEntry(
+            radius: TokenRef.literal(20),
+            border: true,
+          ),
+          'card': ComponentStyleEntry(radius: TokenRef.literal(0), border: true),
+        },
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_retro_layout',

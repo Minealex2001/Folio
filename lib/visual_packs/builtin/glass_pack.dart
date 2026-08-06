@@ -38,7 +38,7 @@ VisualPack buildGlassPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFF00C2CB),
       dark: ThemeColorTokens(seedArgb: 0xFF00C2CB),
-      typography: ThemeTypographyTokens(),
+      typography: ThemeTypographyTokens(fontFamily: 'Nunito'),
       shape: ThemeShapeTokens(
         radiusXs: 8,
         radiusSm: 14,
@@ -54,16 +54,27 @@ VisualPack buildGlassPack() {
         shadowOpacity: 0.2,
       ),
       spacing: ThemeSpacingTokens(),
-      motion: ThemeMotionTokens(),
+      motion: ThemeMotionTokens(
+        shortMs: 100,
+        short2Ms: 160,
+        mediumMs: 220,
+        themeChangeMs: 260,
+        curveName: 'easeOutCubic',
+      ),
       icons: ThemeIconTokens(),
       surfaceOpacity: 0.65,
       visualStyle: const VisualStyle(
         glassDialogOpacity: TokenRef.literal(0.5),
         glassMenuOpacity: TokenRef.literal(0.55),
         glassSidebarOpacity: TokenRef.literal(0.7),
+        glassPanelOpacity: TokenRef.literal(0.6),
         windowBackdrop: 'blur',
       ),
       layers: const ThemeLayerTokens(
+        panel: LayerStyle(
+          opacity: TokenRef.literal(0.75),
+          blurSigma: 14,
+        ),
         overlay: LayerStyle(
           shadow: true,
           opacity: TokenRef.literal(0.85),

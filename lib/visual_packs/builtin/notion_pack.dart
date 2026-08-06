@@ -10,6 +10,8 @@ import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -48,6 +50,12 @@ VisualPack buildNotionPack() {
       spacing: ThemeSpacingTokens(xxs: 6, xs: 10, sm: 16, md: 20, lg: 28, xl: 44),
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(
+        densityMode: 'comfortable',
+        borderEnabled: true,
+        borderWidth: TokenRef.literal(1),
+        borderOpacity: TokenRef.literal(0.28),
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_notion_layout',

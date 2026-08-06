@@ -2,14 +2,18 @@ import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
 import '../../config/models/panel_region_ids.dart';
+import '../../config/models/semantic_color_tokens.dart';
 import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
 import '../../config/models/theme_icon_tokens.dart';
+import '../../config/models/theme_layer_tokens.dart';
 import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -48,6 +52,20 @@ VisualPack buildPaperPack() {
       spacing: ThemeSpacingTokens(),
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(
+        densityMode: 'comfortable',
+        borderEnabled: true,
+        borderWidth: TokenRef.literal(1),
+        borderOpacity: TokenRef.literal(0.4),
+      ),
+      layers: const ThemeLayerTokens(
+        overlay: LayerStyle(shadow: false),
+      ),
+      semanticColors: const SemanticColorTokens(
+        editorBackground: TokenRef.literal(0xFFF7F1E8),
+        canvasBackground: TokenRef.literal(0xFFF3EBDF),
+        cardBackground: TokenRef.literal(0xFFFAF6F0),
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_paper_layout',

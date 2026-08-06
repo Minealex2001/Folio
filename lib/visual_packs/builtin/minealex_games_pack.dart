@@ -1,16 +1,21 @@
 import '../../app/folio_brand_palette.dart';
+import '../../config/models/component_style_tokens.dart';
 import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
 import '../../config/models/panel_region_ids.dart';
+import '../../config/models/semantic_color_tokens.dart';
 import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
 import '../../config/models/theme_icon_tokens.dart';
+import '../../config/models/theme_layer_tokens.dart';
 import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -69,6 +74,29 @@ VisualPack buildMinealexGamesPack() {
       ),
       icons: ThemeIconTokens(),
       surfaceOpacity: 0.92,
+      visualStyle: const VisualStyle(
+        densityMode: 'compact',
+        iconSize: TokenRef.literal(20),
+      ),
+      layers: const ThemeLayerTokens(
+        overlay: LayerStyle(
+          shadow: true,
+          opacity: TokenRef.literal(0.9),
+          blurSigma: 8,
+        ),
+      ),
+      semanticColors: const SemanticColorTokens(
+        selection: TokenRef.literal(0xFF00F3FF),
+        focus: TokenRef.literal(0xFF00F3FF),
+        sidebarHover: TokenRef.literal(0x33FF00FF),
+      ),
+      componentStyles: const ComponentStyleTokens(
+        components: {
+          'filledButton': ComponentStyleEntry(radius: TokenRef.literal(999)),
+          'outlinedButton': ComponentStyleEntry(radius: TokenRef.literal(999)),
+          'chip': ComponentStyleEntry(radius: TokenRef.literal(999)),
+        },
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_minealex_games_layout',

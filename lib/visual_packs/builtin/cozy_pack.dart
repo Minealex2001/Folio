@@ -2,14 +2,18 @@ import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
 import '../../config/models/panel_region_ids.dart';
+import '../../config/models/semantic_color_tokens.dart';
 import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
 import '../../config/models/theme_icon_tokens.dart';
+import '../../config/models/theme_layer_tokens.dart';
 import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -30,7 +34,10 @@ VisualPack buildCozyPack() {
       accentMode: 'custom', // ver minimal_pack.dart — obligatorio para seedArgb
       light: ThemeColorTokens(seedArgb: 0xFFD97757),
       dark: ThemeColorTokens(seedArgb: 0xFFE08A68, surfaceStyle: 'oled'),
-      typography: ThemeTypographyTokens(baseSizeScale: 1.03),
+      typography: ThemeTypographyTokens(
+        fontFamily: 'Nunito',
+        baseSizeScale: 1.03,
+      ),
       shape: ThemeShapeTokens(
         radiusXs: 8,
         radiusSm: 12,
@@ -48,6 +55,18 @@ VisualPack buildCozyPack() {
       spacing: ThemeSpacingTokens(xxs: 6, xs: 12, sm: 18, md: 24, lg: 32, xl: 48),
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(densityMode: 'comfortable'),
+      layers: const ThemeLayerTokens(
+        overlay: LayerStyle(
+          shadow: true,
+          opacity: TokenRef.literal(0.94),
+          blurSigma: 10,
+        ),
+      ),
+      semanticColors: const SemanticColorTokens(
+        cardBackground: TokenRef.literal(0xFF1A1210),
+        panelBackground: TokenRef.literal(0xFF140E0C),
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_cozy_layout',

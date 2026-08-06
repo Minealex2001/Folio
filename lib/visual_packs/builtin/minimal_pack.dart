@@ -1,3 +1,4 @@
+import '../../config/models/component_style_tokens.dart';
 import '../../config/models/dashboard_config.dart';
 import '../../config/models/layout_config.dart';
 import '../../config/models/panel_config.dart';
@@ -10,6 +11,8 @@ import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
@@ -50,8 +53,24 @@ VisualPack buildMinimalPack() {
         shadowOpacity: 0.0,
       ),
       spacing: ThemeSpacingTokens(),
-      motion: ThemeMotionTokens(),
+      motion: ThemeMotionTokens(
+        shortMs: 90,
+        short2Ms: 140,
+        mediumMs: 200,
+        themeChangeMs: 220,
+      ),
       icons: ThemeIconTokens(),
+      visualStyle: const VisualStyle(
+        densityMode: 'compact',
+        borderEnabled: true,
+        borderWidth: TokenRef.literal(1),
+        borderOpacity: TokenRef.literal(0.35),
+      ),
+      componentStyles: const ComponentStyleTokens(
+        components: {
+          'card': ComponentStyleEntry(shadow: false),
+        },
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_minimal_layout',
