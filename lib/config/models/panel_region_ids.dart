@@ -9,4 +9,11 @@ abstract final class PanelRegionIds {
   static const String floatingAi = 'floatingAi';
   static const String floatingCollab = 'floatingCollab';
   static const String floatingInspector = 'floatingInspector'; // Fase 6
+
+  /// Bandas horizontales encima/debajo de la composición ancla/flotante
+  /// principal (Fase 24) — para una toolbar acoplada arriba/abajo (Fase 25)
+  /// o una tira de pestañas (Fase 29). Usan `PanelConfig.height`, no
+  /// `.width`, ya que ocupan todo el ancho disponible.
+  static const String toolbarTop = 'toolbarTop';
+  static const String toolbarBottom = 'toolbarBottom';
 }

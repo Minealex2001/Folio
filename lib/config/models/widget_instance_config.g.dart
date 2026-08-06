@@ -25,6 +25,11 @@ WidgetInstanceConfig _$WidgetInstanceConfigFromJson(
       : WidgetCapabilityOverrides.fromJson(
           json['capabilityOverrides'] as Map<String, dynamic>,
         ),
+  appearance: json['appearance'] == null
+      ? null
+      : WidgetAppearanceConfig.fromJson(
+          json['appearance'] as Map<String, dynamic>,
+        ),
 );
 
 Map<String, dynamic> _$WidgetInstanceConfigToJson(
@@ -41,4 +46,5 @@ Map<String, dynamic> _$WidgetInstanceConfigToJson(
   'groupId': instance.groupId,
   'settings': instance.settings,
   'capabilityOverrides': instance.capabilityOverrides?.toJson(),
+  'appearance': instance.appearance?.toJson(),
 };

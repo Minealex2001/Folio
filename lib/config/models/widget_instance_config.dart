@@ -1,6 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import '../json_schema_version.dart';
+import 'widget_appearance_config.dart';
 import 'widget_capability_overrides.dart';
 
 part 'widget_instance_config.g.dart';
@@ -22,6 +23,7 @@ class WidgetInstanceConfig {
     this.groupId,
     this.settings = const {},
     this.capabilityOverrides,
+    this.appearance,
   });
 
   final int schemaVersion;
@@ -45,6 +47,11 @@ class WidgetInstanceConfig {
   /// null = usa el default del plugin sin cambios.
   final WidgetCapabilityOverrides? capabilityOverrides;
 
+  /// Configuración visual genérica por-instancia (Fase 31). `null` = sin
+  /// override — el fallback a las claves legacy de `settings` vive en
+  /// `WidgetInstanceFrame._applyOverrides`, no aquí.
+  final WidgetAppearanceConfig? appearance;
+
   factory WidgetInstanceConfig.fromJson(Map<String, dynamic> json) =>
       _$WidgetInstanceConfigFromJson(json);
 
@@ -60,6 +67,7 @@ class WidgetInstanceConfig {
     bool clearGroupId = false,
     Map<String, dynamic>? settings,
     WidgetCapabilityOverrides? capabilityOverrides,
+    WidgetAppearanceConfig? appearance,
   }) {
     return WidgetInstanceConfig(
       schemaVersion: schemaVersion,
@@ -73,6 +81,7 @@ class WidgetInstanceConfig {
       groupId: clearGroupId ? null : (groupId ?? this.groupId),
       settings: settings ?? this.settings,
       capabilityOverrides: capabilityOverrides ?? this.capabilityOverrides,
+      appearance: appearance ?? this.appearance,
     );
   }
 }

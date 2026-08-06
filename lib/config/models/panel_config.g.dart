@@ -15,6 +15,7 @@ PanelConfig _$PanelConfigFromJson(Map<String, dynamic> json) => PanelConfig(
   floatingY: (json['floatingY'] as num?)?.toDouble(),
   locked: json['locked'] as bool? ?? false,
   order: (json['order'] as num?)?.toInt() ?? 0,
+  showDivider: json['showDivider'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$PanelConfigToJson(PanelConfig instance) =>
@@ -27,4 +28,5 @@ Map<String, dynamic> _$PanelConfigToJson(PanelConfig instance) =>
       'floatingY': instance.floatingY,
       'locked': instance.locked,
       'order': instance.order,
+      'showDivider': instance.showDivider,
     };

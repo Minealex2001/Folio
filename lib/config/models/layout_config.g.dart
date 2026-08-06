@@ -18,6 +18,12 @@ LayoutConfig _$LayoutConfigFromJson(Map<String, dynamic> json) => LayoutConfig(
       ?.map(
         (k, e) => MapEntry(k, LayoutConfig.fromJson(e as Map<String, dynamic>)),
       ),
+  toolbar: json['toolbar'] == null
+      ? null
+      : ToolbarConfig.fromJson(json['toolbar'] as Map<String, dynamic>),
+  editor: json['editor'] == null
+      ? null
+      : EditorLayoutTokens.fromJson(json['editor'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$LayoutConfigToJson(LayoutConfig instance) =>
@@ -29,4 +35,6 @@ Map<String, dynamic> _$LayoutConfigToJson(LayoutConfig instance) =>
       'responsiveOverrides': instance.responsiveOverrides?.map(
         (k, e) => MapEntry(k, e.toJson()),
       ),
+      'toolbar': instance.toolbar?.toJson(),
+      'editor': instance.editor?.toJson(),
     };

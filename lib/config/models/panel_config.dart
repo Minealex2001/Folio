@@ -16,6 +16,7 @@ class PanelConfig {
     this.floatingY,
     this.locked = false,
     this.order = 0,
+    this.showDivider = true,
   });
 
   final String regionId;
@@ -30,6 +31,12 @@ class PanelConfig {
 
   final bool locked;
   final int order;
+
+  /// Si se dibuja una línea divisoria en el borde de este panel (Fase 26).
+  /// `true` (default) reproduce el `DividerThemeData` de hoy, siempre
+  /// dibujado — por-panel, así que sidebar y editor pueden activarlo
+  /// independientemente.
+  final bool showDivider;
 
   bool get isFloating => floatingX != null && floatingY != null;
 
@@ -46,6 +53,7 @@ class PanelConfig {
     double? floatingY,
     bool? locked,
     int? order,
+    bool? showDivider,
   }) {
     return PanelConfig(
       regionId: regionId,
@@ -56,6 +64,7 @@ class PanelConfig {
       floatingY: floatingY ?? this.floatingY,
       locked: locked ?? this.locked,
       order: order ?? this.order,
+      showDivider: showDivider ?? this.showDivider,
     );
   }
 }

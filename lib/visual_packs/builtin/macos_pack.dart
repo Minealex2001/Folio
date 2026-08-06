@@ -10,12 +10,15 @@ import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
 
 /// macOS — superficies translúcidas (`surfaceOpacity` < 1), tipografía
-/// redondeada. Sidebar izquierdo + panel de IA flotante visible.
+/// redondeada. Sidebar izquierdo + panel de IA flotante visible. Segundo
+/// consumidor real de `VisualStyle` (Fase 20) — barra de título nativa
+/// oculta (look de app "chromeless" típico de macOS) y densidad compacta.
 VisualPack buildMacosPack() {
   return VisualPack(
     manifest: const VisualPackManifest(
@@ -54,6 +57,12 @@ VisualPack buildMacosPack() {
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
       surfaceOpacity: 0.85,
+      visualStyle: const VisualStyle(
+        densityMode: 'compact',
+        windowTitleBar: 'hidden',
+        windowCorners: 'rounded',
+        cursorHover: 'basic',
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_macos_layout',

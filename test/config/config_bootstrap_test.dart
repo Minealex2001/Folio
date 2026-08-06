@@ -69,6 +69,15 @@ void main() {
       expect(leftWidgets[1].pluginId, WorkspaceHomeSectionIds.recents);
       expect(leftWidgets[2].pluginId, WorkspaceHomeSectionIds.folioCloud);
       expect(leftWidgets[2].visible, isFalse); // showFolioCloudCard = false
+
+      // Fase 28: la migración también siembra un WorkspaceConfig, con los
+      // mismos defaults sensatos que el resto (sin señal legacy fiable que
+      // traducir para focus mode/paneles abiertos).
+      final workspaceState = await store.loadWorkspaceState();
+      expect(workspaceState, isNotNull);
+      expect(workspaceState!.activeDashboardId, ConfigBootstrap.activeDashboardId);
+      expect(workspaceState.focusMode, isFalse);
+      expect(workspaceState.aiPanelOpen, isFalse);
     },
   );
 

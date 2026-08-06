@@ -107,7 +107,9 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
-    expect(dashboard.instanceFor('a')!.settings['cornerRadiusOverride'], 10);
+    // Fase 31: el inspector escribe al campo tipado `appearance`, no ya a
+    // `settings['cornerRadiusOverride']`.
+    expect(dashboard.instanceFor('a')!.appearance?.cornerRadius, 10);
     await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
   });
 

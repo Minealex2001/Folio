@@ -120,13 +120,14 @@ void main() {
       expect(controller.instanceFor('a')!.height, 150);
     });
 
-    test('color/opacity/cornerRadius round-trip through instance settings', () {
+    test('color/opacity/cornerRadius round-trip through the typed '
+        'appearance field (Fase 31 — used to be instance.settings)', () {
       final selectable = WidgetInstanceSelectable(controller, 'a');
       expect(selectable.colorArgb, isNull);
 
       selectable.setColorArgb(0xFF00FF00);
       expect(selectable.colorArgb, 0xFF00FF00);
-      expect(controller.instanceFor('a')!.settings['colorOverrideArgb'], 0xFF00FF00);
+      expect(controller.instanceFor('a')!.appearance?.backgroundColorArgb, 0xFF00FF00);
 
       selectable.setOpacity(0.5);
       expect(selectable.opacity, 0.5);
@@ -134,13 +135,11 @@ void main() {
       selectable.setCornerRadius(12);
       expect(selectable.cornerRadius, 12);
 
-      // Clearing removes the key entirely rather than leaving a null.
+      // Clearing removes it from the typed field entirely rather than
+      // leaving a null value behind.
       selectable.setColorArgb(null);
       expect(selectable.colorArgb, isNull);
-      expect(
-        controller.instanceFor('a')!.settings.containsKey('colorOverrideArgb'),
-        isFalse,
-      );
+      expect(controller.instanceFor('a')!.appearance?.backgroundColorArgb, isNull);
     });
 
     test('is a no-op for an unknown instance id (no throw)', () {

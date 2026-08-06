@@ -29,6 +29,8 @@ class PanelHost extends StatelessWidget {
       PanelRegionIds.floatingAi,
       PanelRegionIds.floatingInspector,
     ],
+    this.topBandOrder = const [],
+    this.bottomBandOrder = const [],
   });
 
   final LayoutEngineController controller;
@@ -40,6 +42,14 @@ class PanelHost extends StatelessWidget {
   /// Orden de apilado (z-order) de las regiones flotantes; las últimas
   /// quedan por encima.
   final List<String> floatingOrder;
+
+  /// Bandas horizontales (Fase 24) — ej. `PanelRegionIds.toolbarTop` para
+  /// una toolbar acoplada (Fase 25) o una tira de pestañas (Fase 29). Vacío
+  /// por defecto: sin bandas configuradas, el árbol resultante es idéntico
+  /// al de antes de la Fase 24 (mismo `Stack` como raíz, sin envolver en un
+  /// `Column` innecesario).
+  final List<String> topBandOrder;
+  final List<String> bottomBandOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +140,7 @@ class PanelHost extends StatelessWidget {
               );
             }
 
-            return Stack(
+            final body = Stack(
               clipBehavior: Clip.hardEdge,
               children: [
                 Row(
@@ -138,6 +148,38 @@ class PanelHost extends StatelessWidget {
                   children: dockedChildren,
                 ),
                 ...floatingChildren,
+              ],
+            );
+
+            Widget? buildBand(String regionId) {
+              final panel = effectiveConfig.panels[regionId];
+              final builder = regionBuilders[regionId];
+              if (panel == null || builder == null || !panel.visible) {
+                return null;
+              }
+              return SizedBox(
+                height: panel.height,
+                child: Builder(builder: builder),
+              );
+            }
+
+            final topBandChildren = topBandOrder
+                .map(buildBand)
+                .whereType<Widget>()
+                .toList();
+            final bottomBandChildren = bottomBandOrder
+                .map(buildBand)
+                .whereType<Widget>()
+                .toList();
+
+            if (topBandChildren.isEmpty && bottomBandChildren.isEmpty) {
+              return body;
+            }
+            return Column(
+              children: [
+                ...topBandChildren,
+                Expanded(child: body),
+                ...bottomBandChildren,
               ],
             );
           },

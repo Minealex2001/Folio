@@ -14,6 +14,7 @@ enum ConfigCategory {
   tokens,
   variables,
   accessibility,
+  workspace,
 }
 
 extension ConfigCategoryFolder on ConfigCategory {
@@ -36,6 +37,8 @@ extension ConfigCategoryFolder on ConfigCategory {
         return 'variables';
       case ConfigCategory.accessibility:
         return 'accessibility';
+      case ConfigCategory.workspace:
+        return 'workspace';
     }
   }
 }

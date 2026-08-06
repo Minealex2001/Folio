@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../config/config_store.dart';
 import '../../config/models/dashboard_config.dart';
+import '../../config/models/widget_appearance_config.dart';
 import '../../config/models/widget_capability_overrides.dart';
 import '../../config/models/widget_group_config.dart';
 import '../../config/models/widget_instance_config.dart';
@@ -97,10 +98,34 @@ class DashboardGridController extends ChangeNotifier {
       gap: next.gap,
       widgets: next.widgets,
       groups: next.groups,
+      // Bug real encontrado en la Fase 30: responsiveOverrides (Fase 26)
+      // se perdía silenciosamente en cada replaceConfig porque este
+      // constructor no se había actualizado tras añadir el campo.
+      responsiveOverrides: next.responsiveOverrides,
     );
     _reconcileNotifiers(next.widgets);
     notifyListeners();
     _schedulePersist();
+  }
+
+  /// Cambia al dashboard con id [templateId] (Fase 30) — carga la versión
+  /// ya guardada por el usuario si existe (preserva sus ediciones), o
+  /// instala [defaultTemplate] y la persiste bajo ese id la primera vez.
+  /// A diferencia de [replaceConfig], SÍ cambia la identidad del dashboard
+  /// activo (`_config.id`) — es un cambio deliberado de qué dashboard está
+  /// activo, no una sustitución de contenido del mismo dashboard.
+  Future<void> switchToTemplate(
+    String templateId,
+    DashboardConfig defaultTemplate,
+  ) async {
+    final loaded = await _store.loadDashboard(templateId);
+    final next = loaded ?? defaultTemplate;
+    if (loaded == null) {
+      await _store.saveDashboard(next);
+    }
+    _config = next;
+    _reconcileNotifiers(next.widgets);
+    notifyListeners();
   }
 
   /// Sincroniza `_instanceNotifiers` con [next]: notifica cada instancia
@@ -242,6 +267,30 @@ class DashboardGridController extends ChangeNotifier {
       groupId: instance.groupId,
       settings: instance.settings,
       capabilityOverrides: overrides,
+    );
+    _setWidgets([
+      for (final w in _config.widgets)
+        if (w.instanceId == instanceId) next else w,
+    ]);
+  }
+
+  /// Configuración visual genérica por-instancia (Fase 31).
+  void setInstanceAppearance(String instanceId, WidgetAppearanceConfig? appearance) {
+    final instance = instanceFor(instanceId);
+    if (instance == null) return;
+    final next = WidgetInstanceConfig(
+      schemaVersion: instance.schemaVersion,
+      instanceId: instance.instanceId,
+      pluginId: instance.pluginId,
+      regionId: instance.regionId,
+      order: instance.order,
+      width: instance.width,
+      height: instance.height,
+      visible: instance.visible,
+      groupId: instance.groupId,
+      settings: instance.settings,
+      capabilityOverrides: instance.capabilityOverrides,
+      appearance: appearance,
     );
     _setWidgets([
       for (final w in _config.widgets)

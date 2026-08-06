@@ -88,6 +88,7 @@ import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
+import 'workspace_shell_v2.dart';
 import '../tasks/task_details_panel.dart';
 import '../tasks/vault_task_hub_page.dart';
 import '../templates/template_gallery_page.dart';
@@ -3256,7 +3257,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 actions: appBarActions,
                 onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-        body: WorkspaceBodyShell(
+        // Fase 24: WorkspaceBodyShellV2 reemplaza a WorkspaceBodyShell — API
+        // idéntica (drop-in), verificada con tests de paridad delta-a-delta
+        // (`workspace_shell_v2_parity_test.dart`); internamente comparte
+        // `PanelResizeHandle` con el motor de layout en vez de reimplementar
+        // el gesto de resize tres veces.
+        body: WorkspaceBodyShellV2(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: selectableSidePanel,

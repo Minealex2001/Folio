@@ -1,8 +1,10 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import '../json_schema_version.dart';
+import 'editor_layout_tokens.dart';
 import 'panel_config.dart';
 import 'panel_region_ids.dart';
+import 'toolbar_config.dart';
 
 part 'layout_config.g.dart';
 
@@ -26,6 +28,8 @@ class LayoutConfig {
     required this.name,
     required this.panels,
     this.responsiveOverrides,
+    this.toolbar,
+    this.editor,
   });
 
   final int schemaVersion;
@@ -43,6 +47,13 @@ class LayoutConfig {
   /// no se duplica el árbol completo por breakpoint.
   final Map<String, LayoutConfig>? responsiveOverrides;
 
+  /// Posición/visibilidad de la toolbar (Fase 25). `null` = `AppBar` fija
+  /// de hoy, sin cambios.
+  final ToolbarConfig? toolbar;
+
+  /// Tokens estructurales del editor (Fase 27). `null` = literales de hoy.
+  final EditorLayoutTokens? editor;
+
   factory LayoutConfig.fromJson(Map<String, dynamic> json) =>
       _$LayoutConfigFromJson(json);
 
@@ -52,6 +63,8 @@ class LayoutConfig {
     String? name,
     Map<String, PanelConfig>? panels,
     Map<String, LayoutConfig>? responsiveOverrides,
+    ToolbarConfig? toolbar,
+    EditorLayoutTokens? editor,
   }) {
     return LayoutConfig(
       schemaVersion: schemaVersion,
@@ -59,6 +72,8 @@ class LayoutConfig {
       name: name ?? this.name,
       panels: panels ?? this.panels,
       responsiveOverrides: responsiveOverrides ?? this.responsiveOverrides,
+      toolbar: toolbar ?? this.toolbar,
+      editor: editor ?? this.editor,
     );
   }
 

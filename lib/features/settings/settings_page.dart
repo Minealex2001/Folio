@@ -22,6 +22,7 @@ import '../../visual_packs/builtin/builtin_visual_packs.dart';
 import '../../visual_packs/visual_pack.dart';
 import '../../visual_packs/visual_pack_export.dart';
 import '../../visual_packs/visual_pack_installer.dart';
+import 'widgets/dashboard_template_picker.dart';
 import '../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../theme_engine/theme_config_defaults.dart';
 import '../../services/integrations/integrations_bridge.dart'

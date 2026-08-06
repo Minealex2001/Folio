@@ -78,16 +78,23 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
 
   /// Aplica los overrides visuales por instancia que escribe el inspector
   /// del editor visual (`WidgetInstanceSelectable.setColorArgb`/
-  /// `setOpacity`/`setCornerRadius`, en `WidgetInstanceConfig.settings`) —
-  /// bug real reportado: el inspector guardaba estos valores pero ningún
-  /// sitio los leía de vuelta, así que editar color/opacidad/radio no
-  /// cambiaba nada visible. Se aplican aquí, en el único wrapper común a
-  /// cualquier plugin, en vez de en cada plugin por separado.
+  /// `setOpacity`/`setCornerRadius`) — bug real reportado: el inspector
+  /// guardaba estos valores pero ningún sitio los leía de vuelta, así que
+  /// editar color/opacidad/radio no cambiaba nada visible. Se aplican aquí,
+  /// en el único wrapper común a cualquier plugin, en vez de en cada plugin
+  /// por separado.
+  ///
+  /// Fase 31: `WidgetInstanceConfig.appearance` (tipado) es la fuente
+  /// primaria; si es null para un campo concreto, cae a las 3 claves
+  /// legacy en `settings` (`colorOverrideArgb`/`opacityOverride`/
+  /// `cornerRadiusOverride`) para que instancias guardadas antes de esta
+  /// fase sigan renderizando su override sin migración.
   Widget _applyOverrides(Widget child) {
+    final appearance = widget.instance.appearance;
     final settings = widget.instance.settings;
     var result = child;
 
-    final colorRaw = settings['colorOverrideArgb'];
+    final colorRaw = appearance?.backgroundColorArgb ?? settings['colorOverrideArgb'];
     if (colorRaw is int) {
       result = Container(
         padding: const EdgeInsets.all(4),
@@ -99,7 +106,7 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
       );
     }
 
-    final cornerRaw = settings['cornerRadiusOverride'];
+    final cornerRaw = appearance?.cornerRadius ?? settings['cornerRadiusOverride'];
     if (cornerRaw is num) {
       result = ClipRRect(
         borderRadius: BorderRadius.circular(cornerRaw.toDouble()),
@@ -107,7 +114,7 @@ class _WidgetInstanceFrameState extends State<WidgetInstanceFrame> {
       );
     }
 
-    final opacityRaw = settings['opacityOverride'];
+    final opacityRaw = appearance?.opacity ?? settings['opacityOverride'];
     if (opacityRaw is num) {
       result = Opacity(opacity: opacityRaw.toDouble().clamp(0.0, 1.0), child: result);
     }

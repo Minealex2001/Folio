@@ -180,4 +180,134 @@ void main() {
       expect(find.text('main'), findsOneWidget);
     },
   );
+
+  group('band composition (Fase 24)', () {
+    testWidgets('with no bands configured, the root widget is the same '
+        'Stack as before Fase 24 — no unnecessary Column wrapper', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          PanelHost(
+            controller: controller,
+            regionBuilders: {
+              PanelRegionIds.sidebarLeft: (_) => const Text('sidebar'),
+              PanelRegionIds.main: (_) => const Text('main'),
+            },
+          ),
+        ),
+      );
+
+      // Localiza el PanelHost y confirma que su hijo directo (bajo
+      // LayoutBuilder/AnimatedBuilder) sigue siendo un Stack, no un Column.
+      expect(find.byType(Column), findsNothing);
+      expect(find.byType(Stack), findsWidgets);
+    });
+
+    testWidgets('a configured, visible topBand region renders above the '
+        'docked body', (tester) async {
+      final bandController = LayoutEngineController(
+        store,
+        initialConfig: LayoutConfig(
+          id: 'band-test',
+          name: 'Band test',
+          panels: {
+            PanelRegionIds.main: PanelConfig(
+              regionId: PanelRegionIds.main,
+              visible: true,
+            ),
+            PanelRegionIds.toolbarTop: PanelConfig(
+              regionId: PanelRegionIds.toolbarTop,
+              visible: true,
+              height: 48,
+            ),
+          },
+        ),
+      );
+      addTearDown(bandController.dispose);
+
+      await tester.pumpWidget(
+        wrap(
+          PanelHost(
+            controller: bandController,
+            regionBuilders: {
+              PanelRegionIds.main: (_) => const Text('main'),
+              PanelRegionIds.toolbarTop: (_) => const Text('toolbar'),
+            },
+            topBandOrder: const [PanelRegionIds.toolbarTop],
+          ),
+        ),
+      );
+
+      expect(find.text('toolbar'), findsOneWidget);
+      expect(find.text('main'), findsOneWidget);
+      // El árbol ahora sí envuelve el body en un Column (banda presente).
+      expect(find.byType(Column), findsWidgets);
+
+      final toolbarY = tester.getTopLeft(find.text('toolbar')).dy;
+      final mainY = tester.getTopLeft(find.text('main')).dy;
+      expect(toolbarY, lessThan(mainY));
+    });
+
+    testWidgets('an invisible band region does not render, same as any '
+        'other invisible panel', (tester) async {
+      final bandController = LayoutEngineController(
+        store,
+        initialConfig: LayoutConfig(
+          id: 'band-hidden-test',
+          name: 'Band hidden test',
+          panels: {
+            PanelRegionIds.main: PanelConfig(
+              regionId: PanelRegionIds.main,
+              visible: true,
+            ),
+            PanelRegionIds.toolbarBottom: PanelConfig(
+              regionId: PanelRegionIds.toolbarBottom,
+              visible: false,
+              height: 40,
+            ),
+          },
+        ),
+      );
+      addTearDown(bandController.dispose);
+
+      await tester.pumpWidget(
+        wrap(
+          PanelHost(
+            controller: bandController,
+            regionBuilders: {
+              PanelRegionIds.main: (_) => const Text('main'),
+              PanelRegionIds.toolbarBottom: (_) => const Text('status bar'),
+            },
+            bottomBandOrder: const [PanelRegionIds.toolbarBottom],
+          ),
+        ),
+      );
+
+      expect(find.text('status bar'), findsNothing);
+      expect(find.text('main'), findsOneWidget);
+      // Sin ninguna banda visible, no se envuelve en Column.
+      expect(find.byType(Column), findsNothing);
+    });
+
+    testWidgets('a band region referenced in the order list but missing '
+        'from the config panels is skipped without throwing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          PanelHost(
+            controller: controller,
+            regionBuilders: {
+              PanelRegionIds.main: (_) => const Text('main'),
+            },
+            topBandOrder: const [PanelRegionIds.toolbarTop],
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('main'), findsOneWidget);
+    });
+  });
 }

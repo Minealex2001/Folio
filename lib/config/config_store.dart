@@ -11,6 +11,7 @@ import 'models/design_tokens.dart';
 import 'models/design_variables.dart';
 import 'models/layout_config.dart';
 import 'models/theme_config.dart';
+import 'models/workspace_config.dart';
 
 /// Metadatos ligeros de un documento guardado, para pickers de presets sin
 /// tener que deserializar el documento completo.
@@ -185,6 +186,25 @@ class ConfigStore {
       jsonEncode(config.toJson()),
     );
     _bumpRevision(ConfigCategory.accessibility);
+  }
+
+  // ── Estado de sesión del workspace (Fase 28) ──────────────────────────
+  // Doc singleton — `WorkspaceConfig.id` es siempre 'active', mismo patrón
+  // que `AccessibilityConfig`.
+
+  Future<WorkspaceConfig?> loadWorkspaceState() async {
+    final raw = await _backend.read(ConfigCategory.workspace, 'active');
+    if (raw == null) return null;
+    return WorkspaceConfig.fromJson(_decode(raw));
+  }
+
+  Future<void> saveWorkspaceState(WorkspaceConfig config) async {
+    await _backend.write(
+      ConfigCategory.workspace,
+      'active',
+      jsonEncode(config.toJson()),
+    );
+    _bumpRevision(ConfigCategory.workspace);
   }
 
   // ── Packs visuales (Fase 8) ────────────────────────────────────────────

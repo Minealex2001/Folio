@@ -8,9 +8,11 @@ import 'package:folio/config/models/accessibility_config.dart';
 import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/design_tokens.dart';
 import 'package:folio/config/models/design_variables.dart';
+import 'package:folio/config/models/editor_layout_tokens.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_config.dart';
 import 'package:folio/config/models/theme_config.dart';
+import 'package:folio/config/models/toolbar_config.dart';
 import 'package:folio/config/models/widget_instance_config.dart';
 
 void main() {
@@ -37,6 +39,7 @@ void main() {
             regionId: 'sidebarLeft',
             visible: true,
             width: 320,
+            showDivider: false,
           ),
         },
       );
@@ -49,6 +52,7 @@ void main() {
       expect(loaded.name, layout.name);
       expect(loaded.panels['sidebarLeft']!.width, 320);
       expect(loaded.panels['sidebarLeft']!.visible, isTrue);
+      expect(loaded.panels['sidebarLeft']!.showDivider, isFalse);
     });
 
     test('theme: save -> load -> equal fields', () async {
@@ -89,6 +93,47 @@ void main() {
       expect(loaded.gap, 20);
       expect(loaded.widgets, hasLength(1));
       expect(loaded.widgets.first.pluginId, 'tasks');
+    });
+
+    test('layout with a ToolbarConfig: save -> load -> equal fields '
+        '(Fase 25)', () async {
+      final store = await ConfigStore.open();
+      final layout = LayoutConfig(
+        id: 'toolbar-layout',
+        name: 'Toolbar layout',
+        panels: {},
+        toolbar: const ToolbarConfig(position: 'bottom', height: 48),
+      );
+
+      await store.saveLayout(layout);
+      final loaded = await store.loadLayout('toolbar-layout');
+
+      expect(loaded, isNotNull);
+      expect(loaded!.toolbar, isNotNull);
+      expect(loaded.toolbar!.position, 'bottom');
+      expect(loaded.toolbar!.height, 48);
+    });
+
+    test('layout with EditorLayoutTokens: save -> load -> equal fields '
+        '(Fase 27)', () async {
+      final store = await ConfigStore.open();
+      final layout = LayoutConfig(
+        id: 'editor-layout',
+        name: 'Editor layout',
+        panels: {},
+        editor: const EditorLayoutTokens(
+          markdownSymbolVisibility: 'always',
+          calloutStyle: 'obsidian',
+        ),
+      );
+
+      await store.saveLayout(layout);
+      final loaded = await store.loadLayout('editor-layout');
+
+      expect(loaded, isNotNull);
+      expect(loaded!.editor, isNotNull);
+      expect(loaded.editor!.markdownSymbolVisibility, 'always');
+      expect(loaded.editor!.calloutStyle, 'obsidian');
     });
 
     test('tokens: save -> load -> equal fields', () async {

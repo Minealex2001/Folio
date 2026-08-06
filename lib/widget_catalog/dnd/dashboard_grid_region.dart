@@ -7,6 +7,7 @@ import '../folio_widget_plugin.dart';
 import '../widget_catalog_registry.dart';
 import '../widget_plugin_context.dart';
 import 'dashboard_grid_controller.dart';
+import 'dashboard_responsive_resolver.dart';
 import 'widget_instance_frame.dart';
 
 /// Renderiza un [DashboardConfig] como un grid de columnas — content
@@ -56,6 +57,16 @@ class DashboardGridRegion extends StatelessWidget {
         final effectiveRegistry = registry ?? WidgetCatalogRegistry.instance;
         return LayoutBuilder(
           builder: (context, constraints) {
+            // Fase 26: solo afecta qué se renderiza (visibilidad efectiva
+            // por instancia) — drag/drop sigue mutando siempre `config`
+            // base vía `controller`, nunca este valor resuelto.
+            final effectiveConfig = DashboardResponsiveResolver.resolveForWidth(
+              config,
+              constraints.maxWidth,
+            );
+            final effectiveVisibility = <String, bool>{
+              for (final w in effectiveConfig.widgets) w.instanceId: w.visible,
+            };
             return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,6 +104,7 @@ class DashboardGridRegion extends StatelessWidget {
                             pluginContext: pluginContext,
                             registry: effectiveRegistry,
                             visualEditor: visualEditor,
+                            effectiveVisibility: effectiveVisibility,
                           ),
                         ),
                         if (regionId != columns.last)
@@ -183,6 +195,7 @@ class _DashboardColumn extends StatefulWidget {
     required this.pluginContext,
     required this.registry,
     this.visualEditor,
+    this.effectiveVisibility = const {},
   });
 
   final String regionId;
@@ -190,6 +203,13 @@ class _DashboardColumn extends StatefulWidget {
   final WidgetPluginContext pluginContext;
   final WidgetCatalogRegistry registry;
   final VisualEditorController? visualEditor;
+
+  /// instanceId -> visibilidad efectiva tras aplicar
+  /// `DashboardConfig.responsiveOverrides` para el ancho actual (Fase 26).
+  /// Una instancia ausente de este mapa cae a `instance.visible` — la
+  /// mutación de drag/drop sigue operando siempre sobre el config base vía
+  /// [controller], este mapa solo afecta qué se renderiza.
+  final Map<String, bool> effectiveVisibility;
 
   @override
   State<_DashboardColumn> createState() => _DashboardColumnState();
@@ -264,7 +284,10 @@ class _DashboardColumnState extends State<_DashboardColumn> {
                 Builder(
                   builder: (context) {
                     final plugin = widget.registry[instance.pluginId];
-                    if (plugin == null || !instance.visible) {
+                    final visible =
+                        widget.effectiveVisibility[instance.instanceId] ??
+                        instance.visible;
+                    if (plugin == null || !visible) {
                       return const SizedBox.shrink();
                     }
                     return Padding(

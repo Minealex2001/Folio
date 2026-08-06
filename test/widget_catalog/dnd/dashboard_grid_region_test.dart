@@ -17,6 +17,7 @@ import 'package:folio/widget_catalog/widget_capabilities.dart';
 import 'package:folio/widget_catalog/widget_catalog_registry.dart';
 import 'package:folio/widget_catalog/widget_plugin_context.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/config/models/widget_appearance_config.dart';
 import 'package:folio/config/models/widget_capability_overrides.dart';
 
 class _LabelPlugin extends FolioWidgetPlugin {
@@ -290,6 +291,52 @@ void main() {
   );
 
   testWidgets(
+    'Fase 31: typed WidgetInstanceConfig.appearance overrides are rendered '
+    'the same way as the legacy settings-based ones',
+    (tester) async {
+      controller.setInstanceAppearance(
+        'a',
+        const WidgetAppearanceConfig(
+          backgroundColorArgb: 0xFFFF0000,
+          opacity: 0.4,
+          cornerRadius: 20.0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          DashboardGridRegion(
+            controller: controller,
+            pluginContext: pluginContext,
+            registry: registry,
+            columnRegionIds: const ['left', 'right'],
+          ),
+        ),
+      );
+
+      final opacityWidget = tester.widget<Opacity>(
+        find.ancestor(
+          of: find.text('plugin:clock:a'),
+          matching: find.byType(Opacity),
+        ).first,
+      );
+      expect(opacityWidget.opacity, 0.4);
+
+      final coloredContainer = tester
+          .widgetList<Container>(
+            find.ancestor(
+              of: find.text('plugin:clock:a'),
+              matching: find.byType(Container),
+            ),
+          )
+          .where((c) => (c.decoration as BoxDecoration?)?.color == const Color(0xFFFF0000));
+      expect(coloredContainer, isNotEmpty);
+
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    },
+  );
+
+  testWidgets(
     'the "Añadir widget" button lists catalog plugins and adds the chosen '
     'one to the first column — bug real reportado: el editor de dashboard '
     'no tenía forma de añadir un widget nuevo',
@@ -356,6 +403,84 @@ void main() {
       await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
     },
   );
+
+  group('Fase 26: dashboard responsive overrides', () {
+    testWidgets('a mobile-width override hiding a widget renders it '
+        'invisible at mobile width but visible at desktop width', (
+      tester,
+    ) async {
+      controller.dispose();
+      controller = DashboardGridController(
+        store,
+        initialConfig: DashboardConfig(
+          id: 'test',
+          name: 'Test',
+          widgets: [
+            WidgetInstanceConfig(
+              instanceId: 'a',
+              pluginId: 'clock',
+              regionId: 'left',
+              order: 0,
+            ),
+          ],
+          responsiveOverrides: {
+            'mobile': DashboardConfig(
+              id: 'test-mobile',
+              name: 'mobile',
+              widgets: [
+                WidgetInstanceConfig(
+                  instanceId: 'a',
+                  pluginId: 'clock',
+                  regionId: 'left',
+                  order: 0,
+                  visible: false,
+                ),
+              ],
+            ),
+          },
+        ),
+        persistDebounce: const Duration(minutes: 10),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 600,
+              child: DashboardGridRegion(
+                controller: controller,
+                pluginContext: pluginContext,
+                registry: registry,
+                columnRegionIds: const ['left'],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('plugin:clock:a'), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1200,
+              height: 600,
+              child: DashboardGridRegion(
+                controller: controller,
+                pluginContext: pluginContext,
+                registry: registry,
+                columnRegionIds: const ['left'],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('plugin:clock:a'), findsOneWidget);
+
+      await tester.pump(const Duration(minutes: 11)); // deja vencer el debounce
+    });
+  });
 
   group('Fase 13: widget capabilities', () {
     testWidgets(

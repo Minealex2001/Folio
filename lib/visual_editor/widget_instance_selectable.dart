@@ -1,3 +1,4 @@
+import '../config/models/widget_appearance_config.dart';
 import '../config/models/widget_instance_config.dart';
 import '../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'selectable.dart';
@@ -5,21 +6,26 @@ import 'selectable.dart';
 /// Adapta una instancia de widget del dashboard (Fase 5) a [Selectable].
 ///
 /// Color/opacidad/radio de esquina se guardan en
-/// `WidgetInstanceConfig.settings` (`colorOverrideArgb`/`opacityOverride`/
-/// `cornerRadiusOverride`) — un override a nivel de INSTANCIA, no del
-/// `ThemeConfig` global. Es el mecanismo que mantiene "tema" y "override
-/// visual por elemento" separados: editar un widget no redefine el tema
-/// para toda la app (ver Fase 3 — separación estricta tema/layout, y aquí,
-/// tema/instancia).
+/// `WidgetInstanceConfig.appearance` (Fase 31, `WidgetAppearanceConfig`
+/// tipado) — un override a nivel de INSTANCIA, no del `ThemeConfig` global.
+/// Es el mecanismo que mantiene "tema" y "override visual por elemento"
+/// separados: editar un widget no redefine el tema para toda la app (ver
+/// Fase 3 — separación estricta tema/layout, y aquí, tema/instancia).
+///
+/// Antes de la Fase 31 estos tres valores vivían en el mapa opaco
+/// `settings` (`colorOverrideArgb`/`opacityOverride`/`cornerRadiusOverride`)
+/// — los getters siguen leyendo esas claves como fallback para instancias
+/// ya guardadas con el formato antiguo; los setters escriben solo al campo
+/// tipado nuevo de aquí en adelante.
 class WidgetInstanceSelectable implements Selectable {
   WidgetInstanceSelectable(this.controller, this.instanceId);
 
   final DashboardGridController controller;
   final String instanceId;
 
-  static const _colorKey = 'colorOverrideArgb';
-  static const _opacityKey = 'opacityOverride';
-  static const _cornerRadiusKey = 'cornerRadiusOverride';
+  static const _legacyColorKey = 'colorOverrideArgb';
+  static const _legacyOpacityKey = 'opacityOverride';
+  static const _legacyCornerRadiusKey = 'cornerRadiusOverride';
 
   WidgetInstanceConfig? get _instance => controller.instanceFor(instanceId);
 
@@ -48,19 +54,25 @@ class WidgetInstanceSelectable implements Selectable {
 
   @override
   int? get colorArgb {
-    final raw = _instance?.settings[_colorKey];
+    final typed = _instance?.appearance?.backgroundColorArgb;
+    if (typed != null) return typed;
+    final raw = _instance?.settings[_legacyColorKey];
     return raw is int ? raw : null;
   }
 
   @override
   double? get opacity {
-    final raw = _instance?.settings[_opacityKey];
+    final typed = _instance?.appearance?.opacity;
+    if (typed != null) return typed;
+    final raw = _instance?.settings[_legacyOpacityKey];
     return raw is num ? raw.toDouble() : null;
   }
 
   @override
   double? get cornerRadius {
-    final raw = _instance?.settings[_cornerRadiusKey];
+    final typed = _instance?.appearance?.cornerRadius;
+    if (typed != null) return typed;
+    final raw = _instance?.settings[_legacyCornerRadiusKey];
     return raw is num ? raw.toDouble() : null;
   }
 
@@ -73,23 +85,28 @@ class WidgetInstanceSelectable implements Selectable {
   void setPosition({double? x, double? y}) {}
 
   @override
-  void setColorArgb(int? argb) => _setSetting(_colorKey, argb);
+  void setColorArgb(int? argb) => _setAppearance(
+    (a) => a.copyWith(
+      backgroundColorArgb: argb,
+      clearBackgroundColorArgb: argb == null,
+    ),
+  );
 
   @override
-  void setOpacity(double? opacity) => _setSetting(_opacityKey, opacity);
+  void setOpacity(double? opacity) =>
+      _setAppearance((a) => a.copyWith(opacity: opacity, clearOpacity: opacity == null));
 
   @override
-  void setCornerRadius(double? radius) => _setSetting(_cornerRadiusKey, radius);
+  void setCornerRadius(double? radius) => _setAppearance(
+    (a) => a.copyWith(cornerRadius: radius, clearCornerRadius: radius == null),
+  );
 
-  void _setSetting(String key, Object? value) {
+  void _setAppearance(
+    WidgetAppearanceConfig Function(WidgetAppearanceConfig current) update,
+  ) {
     final instance = _instance;
     if (instance == null) return;
-    final next = Map<String, dynamic>.from(instance.settings);
-    if (value == null) {
-      next.remove(key);
-    } else {
-      next[key] = value;
-    }
-    controller.setInstanceSettings(instanceId, next);
+    final current = instance.appearance ?? const WidgetAppearanceConfig();
+    controller.setInstanceAppearance(instanceId, update(current));
   }
 }

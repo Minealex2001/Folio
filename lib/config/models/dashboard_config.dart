@@ -25,6 +25,7 @@ class DashboardConfig {
     this.gap = 16,
     this.widgets = const [],
     this.groups = const [],
+    this.responsiveOverrides,
   });
 
   final int schemaVersion;
@@ -42,6 +43,15 @@ class DashboardConfig {
   /// apunta a la id de una entrada aquí.
   final List<WidgetGroupConfig> groups;
 
+  /// Overrides parciales por breakpoint (Fase 26, mismo patrón que
+  /// `LayoutConfig.responsiveOverrides`). Key = `Breakpoint.name`. Solo se
+  /// listan los widgets (`WidgetInstanceConfig`, por `instanceId`) que
+  /// difieren de la config base — ej. ocultar un widget en 'mobile'. No
+  /// afecta `columns`/`gap` (campos escalares sin representación dispersa
+  /// natural, a diferencia de `panels`/`widgets` que son colecciones
+  /// indexadas por id).
+  final Map<String, DashboardConfig>? responsiveOverrides;
+
   factory DashboardConfig.fromJson(Map<String, dynamic> json) =>
       _$DashboardConfigFromJson(json);
 
@@ -53,6 +63,7 @@ class DashboardConfig {
     double? gap,
     List<WidgetInstanceConfig>? widgets,
     List<WidgetGroupConfig>? groups,
+    Map<String, DashboardConfig>? responsiveOverrides,
   }) {
     return DashboardConfig(
       schemaVersion: schemaVersion,
@@ -62,6 +73,7 @@ class DashboardConfig {
       gap: gap ?? this.gap,
       widgets: widgets ?? this.widgets,
       groups: groups ?? this.groups,
+      responsiveOverrides: responsiveOverrides ?? this.responsiveOverrides,
     );
   }
 }

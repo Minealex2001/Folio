@@ -6,16 +6,23 @@ import '../../config/models/theme_color_tokens.dart';
 import '../../config/models/theme_config.dart';
 import '../../config/models/theme_elevation_tokens.dart';
 import '../../config/models/theme_icon_tokens.dart';
+import '../../config/models/theme_layer_tokens.dart';
 import '../../config/models/theme_motion_tokens.dart';
 import '../../config/models/theme_shape_tokens.dart';
 import '../../config/models/theme_spacing_tokens.dart';
 import '../../config/models/theme_typography_tokens.dart';
+import '../../config/models/token_ref.dart';
+import '../../config/models/visual_style.dart';
 import '../../config/models/widget_instance_config.dart';
 import '../visual_pack.dart';
 import '../visual_pack_manifest.dart';
 
 /// Glass — opacidad/blur altos, sombras suaves grandes, acentos vívidos.
-/// Preferencia por paneles flotantes sobre anclados.
+/// Preferencia por paneles flotantes sobre anclados. Primer consumidor
+/// real de `VisualStyle`/`ThemeLayerTokens` (Fase 20/18) — no solo
+/// `surfaceOpacity` plano: diálogos/menús aún más transparentes que el
+/// resto, con blur real en la capa overlay, y backdrop de ventana con
+/// blur (no tiene sentido en móvil, de ahí `platformSupport`).
 VisualPack buildGlassPack() {
   return VisualPack(
     manifest: const VisualPackManifest(
@@ -23,6 +30,7 @@ VisualPack buildGlassPack() {
       name: 'Glass',
       description: 'Translúcido y flotante, con acentos vívidos.',
       author: 'Folio',
+      platformSupport: PlatformSupport(supportsMobile: false),
     ),
     theme: ThemeConfig(
       id: 'pack_glass_theme',
@@ -49,6 +57,19 @@ VisualPack buildGlassPack() {
       motion: ThemeMotionTokens(),
       icons: ThemeIconTokens(),
       surfaceOpacity: 0.65,
+      visualStyle: const VisualStyle(
+        glassDialogOpacity: TokenRef.literal(0.5),
+        glassMenuOpacity: TokenRef.literal(0.55),
+        glassSidebarOpacity: TokenRef.literal(0.7),
+        windowBackdrop: 'blur',
+      ),
+      layers: const ThemeLayerTokens(
+        overlay: LayerStyle(
+          shadow: true,
+          opacity: TokenRef.literal(0.85),
+          blurSigma: 16,
+        ),
+      ),
     ),
     layout: LayoutConfig(
       id: 'pack_glass_layout',

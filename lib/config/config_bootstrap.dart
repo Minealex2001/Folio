@@ -9,6 +9,7 @@ import 'models/panel_config.dart';
 import 'models/panel_region_ids.dart';
 import 'models/theme_config.dart';
 import 'models/widget_instance_config.dart';
+import 'models/workspace_config.dart';
 
 const _uuid = Uuid();
 
@@ -41,8 +42,25 @@ class ConfigBootstrap {
     await configStore.saveDashboard(
       _withDefaultClock(dashboardConfigFromAppSettings(appSettings)),
     );
+    await configStore.saveWorkspaceState(_workspaceStateFromLegacy(appSettings));
 
     await prefs.setBool(_migratedFlagKey, true);
+  }
+
+  /// A diferencia de layout/tema/dashboard, [AppSettings] no tiene un
+  /// booleano persistido de "modo zen activo"/"panel de IA abierto" — son
+  /// estado de sesión efímero derivado en `workspace_page.dart`, nunca
+  /// guardado hoy. Esta migración por tanto no traduce valores existentes,
+  /// solo siembra el documento con los defaults sensatos de
+  /// [WorkspaceConfig] para que exista desde el primer arranque, igual que
+  /// las otras tres categorías.
+  static WorkspaceConfig _workspaceStateFromLegacy(AppSettings appSettings) {
+    // `aiChatPanelCollapsed` describe si un panel de IA YA abierto está
+    // reducido a un FAB, no si hay una sesión de IA activa — no es una
+    // señal fiable para `aiPanelOpen` (que por defecto debe ser false, sin
+    // sesión en curso al primer arranque), así que deliberadamente no se
+    // deriva de ahí.
+    return WorkspaceConfig(activeDashboardId: activeDashboardId);
   }
 
   /// Añade un widget 'clock' real al principio de la columna izquierda,

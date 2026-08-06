@@ -271,6 +271,78 @@ void main() {
       final saved = await store.loadDashboard('test');
       expect(saved!.name, 'Replaced');
     });
+
+    test('preserves responsiveOverrides from the replacement (Fase 30 bug '
+        'fix — it used to be silently dropped)', () {
+      final controller = makeController();
+      controller.replaceConfig(
+        DashboardConfig(
+          id: 'x',
+          name: 'x',
+          widgets: const [],
+          responsiveOverrides: {
+            'mobile': DashboardConfig(id: 'x-mobile', name: 'mobile'),
+          },
+        ),
+      );
+      expect(controller.config.responsiveOverrides, isNotNull);
+      expect(controller.config.responsiveOverrides!.containsKey('mobile'), isTrue);
+    });
+  });
+
+  group('switchToTemplate (Fase 30)', () {
+    test('installs and persists the default template on first switch', () async {
+      final controller = makeController(debounce: const Duration(minutes: 10));
+      final template = DashboardConfig(
+        id: 'template-x',
+        name: 'Template X',
+        widgets: [instance('t1', 'left', 0)],
+      );
+
+      await controller.switchToTemplate('template-x', template);
+
+      expect(controller.config.id, 'template-x');
+      expect(controller.widgetsInRegion('left').single.instanceId, 't1');
+      final saved = await store.loadDashboard('template-x');
+      expect(saved, isNotNull);
+    });
+
+    test('a second switch to the same template loads the persisted '
+        '(possibly user-edited) version instead of resetting to default', () async {
+      final controller = makeController(debounce: const Duration(minutes: 10));
+      final template = DashboardConfig(
+        id: 'template-x',
+        name: 'Template X',
+        widgets: [instance('t1', 'left', 0)],
+      );
+      await controller.switchToTemplate('template-x', template);
+
+      // El usuario edita la plantilla ya instalada.
+      controller.resizeInstance('t1', width: 500);
+      await controller.persist();
+
+      // Cambia a otro dashboard y vuelve — debe conservar la edición.
+      await controller.switchToTemplate(
+        'template-y',
+        DashboardConfig(id: 'template-y', name: 'Y'),
+      );
+      await controller.switchToTemplate('template-x', template);
+
+      expect(controller.instanceFor('t1')!.width, 500);
+    });
+
+    test('notifies listeners on switch', () async {
+      final controller = makeController(debounce: const Duration(minutes: 10));
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      await controller.switchToTemplate(
+        'template-x',
+        DashboardConfig(id: 'template-x', name: 'X'),
+      );
+
+      expect(notified, isTrue);
+    });
   });
 
   group('persistence', () {

@@ -190,6 +190,31 @@ class _PersonalizationSectionBody extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Plantillas de dashboard',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Developer, Writer, Research, Student, Planning, Gaming — '
+                    'cambia el contenido del dashboard de inicio. Tus '
+                    'ediciones a una plantilla ya instalada se conservan al '
+                    'volver a ella.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DashboardTemplatePicker(controller: dashboardGrid),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
             _VisualPacksSection(
               appSettings: appSettings,
               layoutEngine: layoutEngine,

@@ -25,6 +25,11 @@ DashboardConfig _$DashboardConfigFromJson(
           ?.map((e) => WidgetGroupConfig.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const [],
+  responsiveOverrides: (json['responsiveOverrides'] as Map<String, dynamic>?)
+      ?.map(
+        (k, e) =>
+            MapEntry(k, DashboardConfig.fromJson(e as Map<String, dynamic>)),
+      ),
 );
 
 Map<String, dynamic> _$DashboardConfigToJson(DashboardConfig instance) =>
@@ -36,4 +41,7 @@ Map<String, dynamic> _$DashboardConfigToJson(DashboardConfig instance) =>
       'gap': instance.gap,
       'widgets': instance.widgets.map((e) => e.toJson()).toList(),
       'groups': instance.groups.map((e) => e.toJson()).toList(),
+      'responsiveOverrides': instance.responsiveOverrides?.map(
+        (k, e) => MapEntry(k, e.toJson()),
+      ),
     };
