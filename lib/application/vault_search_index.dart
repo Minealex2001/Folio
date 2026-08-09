@@ -199,8 +199,39 @@ class VaultSearchIndex {
   static String _blockSearchText(FolioBlock b) {
     final txt = b.text.trim();
     final url = b.url?.trim() ?? '';
-    if (txt.isNotEmpty && url.isNotEmpty) return '$txt $url';
-    return txt.isNotEmpty ? txt : url;
+    final base = (txt.isNotEmpty && url.isNotEmpty)
+        ? '$txt $url'
+        : (txt.isNotEmpty ? txt : url);
+    if (b.type != 'meeting_note') return base;
+    // Fase 1 del roadmap de producto (Knowledge Search) — `b.text` ya es el
+    // transcript en bruto (ver `_renderMeetingNoteExport` en
+    // `integrations_markdown_codec.dart`), pero el título, el resumen
+    // estructurado (Fase 13 de meeting_note) y las notas de preparación
+    // vivían fuera de cualquier índice: una búsqueda por una decisión o un
+    // action item de una reunión no encontraba nada aunque el transcript
+    // completo sí estuviera indexado.
+    final extra = <String>[];
+    final title = b.meetingNoteTitle?.trim();
+    if (title != null && title.isNotEmpty) extra.add(title);
+    final prep = b.meetingNotePrepNotes?.trim();
+    if (prep != null && prep.isNotEmpty) extra.add(prep);
+    final summary = b.meetingNoteSummary;
+    if (summary != null) {
+      final narrative = (summary['narrative'] as String?)?.trim() ?? '';
+      if (narrative.isNotEmpty) extra.add(narrative);
+      final keyPoints = (summary['keyPoints'] as List?) ?? const [];
+      for (final p in keyPoints) {
+        if (p is String && p.trim().isNotEmpty) extra.add(p.trim());
+      }
+      final actionItems = (summary['actionItems'] as List?) ?? const [];
+      for (final raw in actionItems) {
+        if (raw is! Map) continue;
+        final itemTitle = (raw['title'] as String?)?.trim() ?? '';
+        if (itemTitle.isNotEmpty) extra.add(itemTitle);
+      }
+    }
+    if (extra.isEmpty) return base;
+    return base.isEmpty ? extra.join(' ') : '$base ${extra.join(' ')}';
   }
 
   static String _snippetAroundMulti(String text, String queryLower, List<String> terms) {

@@ -19,13 +19,25 @@ mixin _AiPaletteProvider on State<BlockEditor> {
   /// tuviera un bloque enfocado un instante antes. `null` = sin bloque
   /// enfocado al abrir (uso fuera del Palette, ej. en el propio slash menu
   /// donde `_focusedBlockId` sigue siendo válido en vivo).
+  /// [anchorBlockIds]: Fase 0 del roadmap de producto — cuando el usuario
+  /// abre el popover con una selección multi-bloque activa (ver
+  /// `_MultiSelectDragDrop._selectedBlockIds`), las acciones de IA operan
+  /// sobre el texto combinado de todos los bloques seleccionados en vez de
+  /// limitarse a uno solo. `null` o longitud <= 1 = comportamiento anterior
+  /// (bloque único, vía [anchorBlockId] o el foco en vivo).
   List<PaletteCommand> _aiPaletteCommands(
     AppLocalizations l10n, {
     String? anchorBlockId,
+    List<String>? anchorBlockIds,
   }) {
     final st = _aiPaletteSelf;
     final page = st._s.selectedPage;
     if (page == null) return const [];
+
+    final multiBlockIds =
+        (anchorBlockIds != null && anchorBlockIds.length > 1)
+        ? anchorBlockIds
+        : null;
 
     PaletteCommand intentCommand({
       required String id,
@@ -41,11 +53,24 @@ mixin _AiPaletteProvider on State<BlockEditor> {
         hint: hint,
         icon: icon,
         category: PaletteCommandCategory.ai,
-        // Solo disponible con un bloque enfocado (o anclado al abrir el
-        // Palette) — mismo requisito que el slash menu, que siempre opera
-        // sobre el bloque actual.
-        isAvailable: () => targetBlockId() != null,
+        // Disponible con selección multi-bloque, o con un bloque enfocado
+        // (o anclado al abrir el Palette) — mismo requisito que el slash
+        // menu para el caso de bloque único.
+        isAvailable: () => multiBlockIds != null || targetBlockId() != null,
         execute: () {
+          if (multiBlockIds != null) {
+            unawaited(
+              st._dispatchAiSlashFromToolbar(
+                intent: intent,
+                pageId: page.id,
+                blockId: multiBlockIds.first,
+                selectionOverride: st._combinedPlainTextForBlocks(
+                  multiBlockIds,
+                ),
+              ),
+            );
+            return;
+          }
           final blockId = targetBlockId();
           if (blockId == null) return;
           unawaited(

@@ -144,6 +144,7 @@ class MeetingWorkerHost {
         micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
         systemOutputDeviceId:
             systemDeviceId.isEmpty ? null : systemDeviceId,
+        trackChannelMeta: true,
       );
     } catch (_) {
       ok = false;
@@ -308,6 +309,7 @@ class MeetingWorkerHost {
       'type': MeetingWorkerEvent.stopped,
       'wavPath': wavFile?.path ?? '',
       'transcript': _transcript,
+      'channelMeta': AudioMixerService.instance.channelMeta,
     });
     _emit({
       'type': MeetingWorkerEvent.state,

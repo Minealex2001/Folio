@@ -7,6 +7,7 @@ import '../../app/widgets/folio_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/organization_context_controller.dart';
 import '../../services/folio_cloud/folio_cloud_organizations.dart';
+import 'team_home_screen.dart';
 
 /// Gestión de equipos en Ajustes — mismo lenguaje visual que Folio Cloud
 /// (subsecciones + ListTile + diálogos), no un formulario admin.
@@ -649,6 +650,21 @@ class _OrganizationManagementPanelState
             ListTile(
               leading: const Icon(Icons.badge_outlined),
               title: Text(l10n.orgPanelYourRole(_roleLabel(l10n, active.role))),
+            ),
+            // Fase 6 del roadmap de producto — "Team Home" (idea #15): el
+            // hueco real que el propio roadmap identificó tras auditar este
+            // panel. Reutiliza el mismo `controller`, no un segundo estado.
+            ListTile(
+              leading: Icon(Icons.home_work_outlined, color: scheme.primary),
+              title: Text(l10n.teamHomeOpenButton),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TeamHomeScreen(controller: widget.controller),
+                  ),
+                );
+              },
             ),
             if (isOwnerOrAdmin)
               ListTile(

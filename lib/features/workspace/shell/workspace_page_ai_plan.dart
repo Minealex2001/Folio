@@ -378,10 +378,12 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
           if (isExecuting)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: AiToolActivityIndicator(
-                label: _aiToolActivityLabel ?? l10n.aiPlanExecutingLabel,
-                colorScheme: scheme,
-              ),
+              child: _aiToolTrace.isNotEmpty
+                  ? ToolInspectorPanel(steps: _aiToolTrace, colorScheme: scheme)
+                  : AiToolActivityIndicator(
+                      label: _aiToolActivityLabel ?? l10n.aiPlanExecutingLabel,
+                      colorScheme: scheme,
+                    ),
             ),
         ],
       ),
@@ -544,7 +546,10 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
             agentPlan: executingPlan,
           ),
     );
-    _setStateSafe(() => _aiChatBusy = true);
+    _setStateSafe(() {
+      _aiChatBusy = true;
+      _aiToolTrace.clear();
+    });
 
     try {
       final outcome = await _s.agentChatWithAiExecuteApprovedPlan(
@@ -578,6 +583,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
           agentApplySnapshot: outcome.agentApplySnapshot,
           toolCalls: outcome.toolCalls,
           toolErrors: outcome.toolErrors,
+          aiTurnId: outcome.aiTurnId,
         ),
       );
     } catch (e) {

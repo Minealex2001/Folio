@@ -83,6 +83,46 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
                               ),
                             ),
                           ),
+                          // Indicador "grabando…" en vivo en la preview
+                          // colapsada: solo se escucha el controller aquí
+                          // (ListenableBuilder acotado), sin enganchar el
+                          // ciclo de vida del State del editor completo.
+                          ListenableBuilder(
+                            listenable: MeetingNoteSessionController.instance,
+                            builder: (context, _) {
+                              final ctrl = MeetingNoteSessionController.instance;
+                              final isRecordingHere =
+                                  ctrl.isSessionFor(page.id, block.id) &&
+                                  ctrl.state == MeetingNoteSessionState.recording;
+                              if (!isRecordingHere) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: 6,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.circle,
+                                      color: Colors.red,
+                                      size: 8,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      l10n.meetingNoteRecordingLiveBadge,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: scheme.error,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                           if (rawU.isNotEmpty) ...[
                             const SizedBox(width: 6),
                             Icon(

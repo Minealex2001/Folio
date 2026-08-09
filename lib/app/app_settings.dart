@@ -19,6 +19,8 @@ import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/active_music_provider.dart';
 import '../models/quill_system_prompt.dart';
+import '../models/quill_workflow.dart';
+import '../models/vault_memory_fact.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
@@ -480,6 +482,8 @@ class AppSettings extends ChangeNotifier {
   static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
   static const _activeQuillPromptIdKey = 'folio_active_quill_prompt_id';
   static const _quillSystemPromptsJsonKey = 'folio_quill_system_prompts_json';
+  static const _vaultMemoryFactsJsonKey = 'folio_vault_memory_facts_json';
+  static const _quillWorkflowsJsonKey = 'folio_quill_workflows_json';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
@@ -553,6 +557,7 @@ class AppSettings extends ChangeNotifier {
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
   static const _aiChatSplitViewKey = 'folio_ai_chat_split_view';
+  static const _proactiveSuggestionsEnabledKey = 'folio_proactive_suggestions_enabled';
   static const _aiQuillCopilotExperimentalKey =
       'folio_ai_quill_copilot_experimental';
   static const _customIconsKey = 'folio_custom_icons_v1';
@@ -750,6 +755,8 @@ class AppSettings extends ChangeNotifier {
   String _aiCustomSystemPrompt = '';
   String _activeQuillPromptId = 'quill_default';
   List<QuillSystemPrompt> _quillSystemPrompts = [];
+  List<VaultMemoryFact> _vaultMemoryFacts = [];
+  List<QuillWorkflow> _quillWorkflows = [];
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
@@ -795,6 +802,11 @@ class AppSettings extends ChangeNotifier {
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
   bool _aiChatSplitView = false;
+  // Fase A3 del plan Quill/MCP — sugerencias proactivas (v1 acotado a un
+  // único disparador: transcripción de reunión completada). Default `true`
+  // porque el affordance es un SnackBar transitorio, fácil de ignorar/
+  // descartar — no un diálogo bloqueante; el usuario puede apagarlo aquí.
+  bool _proactiveSuggestionsEnabled = true;
   bool _aiQuillCopilotExperimental = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
@@ -935,6 +947,8 @@ class AppSettings extends ChangeNotifier {
   String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
   String get activeQuillPromptId => _activeQuillPromptId;
   List<QuillSystemPrompt> get quillSystemPrompts => _quillSystemPrompts;
+  List<VaultMemoryFact> get vaultMemoryFacts => _vaultMemoryFacts;
+  List<QuillWorkflow> get quillWorkflows => _quillWorkflows;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   List<FolioUsageIntent> get usageIntents =>
@@ -988,6 +1002,7 @@ class AppSettings extends ChangeNotifier {
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
   bool get aiChatSplitView => _aiChatSplitView;
+  bool get proactiveSuggestionsEnabled => _proactiveSuggestionsEnabled;
   bool get aiQuillCopilotExperimental => _aiQuillCopilotExperimental;
   String get integrationSecret => _integrationSecret;
 
@@ -1249,6 +1264,30 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
+    final memoryFactsJson = p.getString(_vaultMemoryFactsJsonKey);
+    if (memoryFactsJson != null) {
+      try {
+        final decoded = jsonDecode(memoryFactsJson) as List<dynamic>;
+        _vaultMemoryFacts = decoded
+            .map((item) => VaultMemoryFact.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _vaultMemoryFacts = [];
+      }
+    }
+
+    final workflowsJson = p.getString(_quillWorkflowsJsonKey);
+    if (workflowsJson != null) {
+      try {
+        final decoded = jsonDecode(workflowsJson) as List<dynamic>;
+        _quillWorkflows = decoded
+            .map((item) => QuillWorkflow.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _quillWorkflows = [];
+      }
+    }
+
     final deviceLang = PlatformDispatcher.instance.locale.languageCode;
     final isEs = deviceLang == 'es';
     final l10n = lookupAppLocalizations(Locale(deviceLang.isEmpty ? 'es' : deviceLang));
@@ -1385,6 +1424,8 @@ class AppSettings extends ChangeNotifier {
       p.getDouble(_aiChatPanelHeightKey),
     );
     _aiChatSplitView = p.getBool(_aiChatSplitViewKey) ?? false;
+    _proactiveSuggestionsEnabled =
+        p.getBool(_proactiveSuggestionsEnabledKey) ?? true;
     _aiQuillCopilotExperimental =
         p.getBool(_aiQuillCopilotExperimentalKey) ?? false;
     _inAppShortcuts = parseShortcutOverrides(
@@ -2060,6 +2101,60 @@ class AppSettings extends ChangeNotifier {
     await _saveQuillSystemPrompts();
   }
 
+  Future<void> _saveVaultMemoryFacts() async {
+    final p = await _prefs();
+    final encoded = jsonEncode(_vaultMemoryFacts.map((e) => e.toJson()).toList());
+    await p.setString(_vaultMemoryFactsJsonKey, encoded);
+  }
+
+  Future<void> addVaultMemoryFact(VaultMemoryFact fact) async {
+    _vaultMemoryFacts.add(fact);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  Future<void> deleteVaultMemoryFact(String id) async {
+    _vaultMemoryFacts.removeWhere((e) => e.id == id);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  /// Acción rápida de gestión de la pantalla de hechos (Fase A4) — borra
+  /// solo los de `scope == temporary`, deja los permanentes intactos.
+  Future<void> clearTemporaryVaultMemoryFacts() async {
+    _vaultMemoryFacts.removeWhere((e) => e.scope == MemoryFactScope.temporary);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  Future<void> _saveQuillWorkflows() async {
+    final p = await _prefs();
+    final encoded = jsonEncode(_quillWorkflows.map((e) => e.toJson()).toList());
+    await p.setString(_quillWorkflowsJsonKey, encoded);
+  }
+
+  Future<void> addQuillWorkflow(QuillWorkflow workflow) async {
+    _quillWorkflows.add(workflow);
+    notifyListeners();
+    await _saveQuillWorkflows();
+  }
+
+  /// Aplica `QuillWorkflow.edited(...)` (archiva versión anterior) y
+  /// persiste — nunca sobrescribe `promptTemplate` en el sitio.
+  Future<void> updateQuillWorkflow(QuillWorkflow workflow) async {
+    final idx = _quillWorkflows.indexWhere((e) => e.id == workflow.id);
+    if (idx == -1) return;
+    _quillWorkflows[idx] = workflow;
+    notifyListeners();
+    await _saveQuillWorkflows();
+  }
+
+  Future<void> deleteQuillWorkflow(String id) async {
+    _quillWorkflows.removeWhere((e) => e.id == id);
+    notifyListeners();
+    await _saveQuillWorkflows();
+  }
+
   Future<void> setAiBaseUrl(String value) async {
     final safe = value.trim();
     if (safe.isEmpty || _aiBaseUrl == safe) return;
@@ -2395,6 +2490,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_aiChatSplitViewKey, value);
+  }
+
+  Future<void> setProactiveSuggestionsEnabled(bool value) async {
+    if (_proactiveSuggestionsEnabled == value) return;
+    _proactiveSuggestionsEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_proactiveSuggestionsEnabledKey, value);
   }
 
   Future<void> setAiQuillCopilotExperimental(bool value) async {

@@ -6,6 +6,7 @@ import 'books_widget_plugin.dart';
 import 'calendar_widget_plugin.dart';
 import 'clock_widget_plugin.dart';
 import 'create_page_widget_plugin.dart';
+import 'daily_brief_widget_plugin.dart';
 import 'daily_notes_widget_plugin.dart';
 import 'database_view_widget_plugin.dart';
 import 'favorite_page_widget_plugin.dart';
@@ -62,4 +63,5 @@ void registerBuiltinWidgetPlugins() {
   r.register(const ClockWidgetPlugin());
   r.register(const RssWidgetPlugin());
   r.register(const ActivityWidgetPlugin());
+  r.register(const DailyBriefWidgetPlugin());
 }

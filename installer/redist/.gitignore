@@ -1,0 +1,4 @@
+# Downloaded at build time by tool/windows/build_installer.ps1
+# Official URL: https://aka.ms/vs/17/release/vc_redist.x64.exe
+*
+!.gitignore

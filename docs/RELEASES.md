@@ -116,5 +116,28 @@ Desktop sigue usando `http://127.0.0.1:45747â€“45750/callback`. El backend 
 
 ## Notas operativas
 
-- El updater se apoya en el endpoint pÃºblico de releases para producciÃ³n.
-- Si el nombre del `.exe`/`.apk` no respeta la convenciÃ³n, la detecciÃ³n automÃ¡tica puede fallar.
+- El updater se apoya en el endpoint público de releases para producción.
+- Si el nombre del `.exe`/`.apk` no respeta la convención, la detección automática puede fallar.
+
+## Instalador Windows (Inno Setup)
+
+Fuente única: [`installer/folio_setup.iss.template`](../installer/folio_setup.iss.template), compilada por [`tool/windows/build_installer.ps1`](../tool/windows/build_installer.ps1) (también usada por `builld_all.ps1` y el workflow `windows-release-on-merge`).
+
+- **AppId canónico:** `{46CD296E-B5B7-433A-9063-C17444F19FBE}` (mismo en CI y local; sin esto el upgrade no reemplaza la instalación anterior).
+- **Idiomas del wizard:** inglés y español, cada uno con su EULA (`installer/assets/eula_en.txt` / `eula_es.txt`).
+- **Auto-update:** el cliente lanza el Setup con `/VERYSILENT /NORESTART /CLOSEAPPLICATIONS` (ver `github_release_updater.dart`).
+- **VC++ Redistributable:** el build descarga `vc_redist.x64.exe` a `installer/redist/` (gitignored). Solo se ejecuta en instalaciones elevadas si falta el runtime del sistema; las instalaciones per-user usan las DLL que ya empaqueta Flutter.
+- No compiles `installer.iss` a mano: es un stub que redirige al script.
+
+### Firma Authenticode (opcional)
+
+Sin certificado el instalador se genera igual (con warning). Con certificado:
+
+| Entorno | Cómo |
+|---------|------|
+| Local | `WINDOWS_CODE_SIGN_PFX_PATH` + `WINDOWS_CODE_SIGN_PASSWORD`, o `-PfxPath` / `-PfxPassword` en `build_installer.ps1` |
+| GitHub Actions | Secrets `WINDOWS_CODE_SIGN_PFX_BASE64` (PFX en Base64) y `WINDOWS_CODE_SIGN_PASSWORD` |
+
+Requisitos: [Windows SDK](https://developer.microsoft.com/windows/downloads/windows-sdk/) (`signtool.exe`) en la máquina/CI. Timestamp: DigiCert (`http://timestamp.digicert.com`).
+
+Un certificado **OV** (Organization Validated) o **EV** (Extended Validation) de una CA reconocida reduce avisos de SmartScreen; EV suele ganar reputación antes. No versionar `.pfx` / `.p12` (ya están en `.gitignore`).

@@ -35,6 +35,11 @@ import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../desktop/desktop_window_fullscreen.dart';
 import '../../../models/folio_page.dart';
+import '../../../models/vault_memory_fact.dart';
+import '../../../models/quill_workflow.dart';
+import '../../../services/meeting_note_session_controller.dart';
+import '../editor/smart_templates/smart_template_definitions.dart';
+import '../editor/smart_templates/smart_template_flow_overlay.dart';
 import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
@@ -43,6 +48,7 @@ import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
+import '../ai/intent_actions.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/ai/on_device_ai_bridge.dart';
@@ -75,11 +81,13 @@ import '../../admin/admin_console_page.dart' show AdminConsolePage;
 import '../../settings/settings_page.dart' show SettingsPage;
 import 'ai_chat_reply_skeleton.dart';
 import 'ai_tool_activity_indicator.dart';
+import 'tool_inspector_panel.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/command_palette/palette_command.dart';
 import '../editor/block_editor_support_widgets.dart';
 import '../graph/graph_view_screen.dart';
+import '../history/meeting_notes_history_screen.dart';
 import '../history/page_history_sheet.dart';
 import '../history/mermaid_markdown_builder.dart';
 import 'sidebar.dart';
@@ -109,6 +117,8 @@ part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
 part 'workspace_page_ai_slash.dart';
 part 'workspace_page_ai_plan.dart';
+part 'workspace_page_ai_workflows.dart';
+part 'workspace_page_ai_meeting_suggestions.dart';
 part 'workspace_page_ai_generated_image.dart';
 
 class WorkspacePage extends StatefulWidget {
@@ -161,6 +171,10 @@ enum _AiContextItemKind {
   meetingNote,
   editorSelection,
   lastMeetingOnPage,
+  // Fase A1 del plan Quill/MCP — toggle persistente (no "una sola vez" como
+  // `editorSelection`) de auto-adjuntar la selección del editor en cada
+  // envío de este hilo.
+  autoSelectionToggle,
 }
 
 enum _AiContextMenuView { root, pages }
@@ -191,6 +205,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final FocusNode _chatInputFocusNode = FocusNode();
   final LayerLink _aiComposerLayerLink = LayerLink();
   OverlayEntry? _aiContextMenuOverlay;
+  // Fase A5 del plan Quill/MCP — mini-flujo de variables al lanzar un
+  // Workflow con `{{variable}}`.
+  OverlayEntry? _quillWorkflowOverlayEntry;
+  // Fase A3 del plan Quill/MCP — sugerencia proactiva tras transcripción de
+  // reunión completada.
+  MeetingNoteSessionState? _lastObservedMeetingSessionState;
+  final Set<String> _shownMeetingSuggestionKeys = {};
   String _aiContextQuery = '';
   bool _aiContextMenuPinned = false;
   final TextEditingController _aiContextMenuSearchController =
@@ -202,6 +223,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
   String? _aiToolActivityLabel;
+  // Fase A6 del plan Quill/MCP — traza acumulada de pasos del turno de IA en
+  // curso (se limpia al empezar un turno nuevo, no se consume por paso como
+  // `_aiToolActivityLabel`).
+  final List<ToolInspectorStep> _aiToolTrace = [];
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
   /// Modo Plan por hilo de chat (efímero; no se persiste). Default apagado.
@@ -646,6 +671,53 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  /// Fase A2 del plan Quill/MCP — contraparte de `_tryApplyAgentChatSnapshot`
+  /// para respuestas de IA puramente de texto (sin `agentApplySnapshot`):
+  /// inserta la respuesta como un párrafo nuevo al final de la página
+  /// activa, en vez de obligar a copiar/pegar a mano.
+  void _insertPlainTextReplyAsBlock(String text) {
+    final pageId = _s.selectedPageId;
+    final trimmed = text.trim();
+    final l10n = AppLocalizations.of(context);
+    if (pageId == null || pageId.isEmpty || trimmed.isEmpty) {
+      _snack(l10n.aiChatApplySnapshotFailure, error: true);
+      return;
+    }
+    _s.appendBlock(
+      pageId: pageId,
+      block: FolioBlock(
+        id: '${pageId}_${const Uuid().v4()}',
+        type: 'paragraph',
+        text: trimmed,
+      ),
+    );
+    _snack(l10n.aiChatApplySnapshotSuccess);
+  }
+
+  /// Fase A4 del plan Quill/MCP — el usuario decide explícitamente guardar
+  /// una respuesta de Quill como hecho recordado (temporal o permanente);
+  /// nunca se escribe memoria sin esta acción manual.
+  void _saveReplyAsMemoryFact(String text, MemoryFactScope scope) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    unawaited(
+      widget.appSettings.addVaultMemoryFact(
+        VaultMemoryFact(
+          id: const Uuid().v4(),
+          text: trimmed,
+          createdAt: DateTime.now(),
+          scope: scope,
+        ),
+      ),
+    );
+    final l10n = AppLocalizations.of(context);
+    _snack(
+      scope == MemoryFactScope.temporary
+          ? l10n.aiChatSaveFactTemporarySuccess
+          : l10n.aiChatSaveFactPermanentSuccess,
+    );
+  }
+
   Widget _buildAiMessageRow(
     BuildContext context,
     AiChatMessage message,
@@ -844,9 +916,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 return Semantics(
                                   label: l10n.aiTypingSemantics,
                                   liveRegion: true,
-                                  child: _aiToolActivityLabel != null
-                                      ? AiToolActivityIndicator(
-                                          label: _aiToolActivityLabel!,
+                                  child: _aiToolTrace.isNotEmpty
+                                      ? ToolInspectorPanel(
+                                          steps: _aiToolTrace,
                                           colorScheme: scheme,
                                         )
                                       : FolioAiChatReplySkeleton(
@@ -1058,61 +1130,129 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ],
                           ),
-                          if (message.agentApplySnapshot != null)
+                          // Fase A2 del plan Quill/MCP — la fila de botones
+                          // pasa a construirse como una lista de
+                          // `IntentAction` renderizada por el componente
+                          // genérico `IntentActionBar` (reutilizable desde
+                          // fuera del chat, ver `intent_actions.dart`) en vez
+                          // de un `Wrap` de botones hardcodeado aquí. Mismo
+                          // Primary Surface de ejecución que antes
+                          // (`_tryApplyAgentChatSnapshot` /
+                          // `applyAgentChatSnapshotToPage`) — esta fase solo
+                          // cambia la presentación, no la aplicación.
+                          if (message.agentApplySnapshot != null ||
+                              bodyContent.trim().isNotEmpty)
                             Builder(
                               builder: (ctx) {
-                                final snap = message.agentApplySnapshot!;
-                                final bl = snap['blocks'];
-                                final op = snap['operations'];
+                                final snap = message.agentApplySnapshot;
+                                final bl = snap?['blocks'];
+                                final op = snap?['operations'];
                                 final hasBlocks = bl is List && bl.isNotEmpty;
                                 final hasOps = op is List && op.isNotEmpty;
-                                if (!hasBlocks && !hasOps) {
+                                final actions = <IntentAction>[
+                                  if (hasBlocks) ...[
+                                    IntentAction(
+                                      id: 'insert_end',
+                                      label: l10n.aiChatApplyInsertEnd,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.insertBlocksAtEnd,
+                                          ),
+                                    ),
+                                    IntentAction(
+                                      id: 'replace_page',
+                                      label: l10n.aiChatApplyReplacePage,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.replaceAllBlocks,
+                                          ),
+                                    ),
+                                  ],
+                                  if (hasOps)
+                                    IntentAction(
+                                      id: 'apply_ops',
+                                      label: l10n.aiChatApplyOperations,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.applyEditOperations,
+                                          ),
+                                    ),
+                                  // Gap real cerrado por esta fase: antes, un
+                                  // intent puramente de texto (resumir,
+                                  // explicar, mejorar, continuar) no tenía
+                                  // NINGÚN botón — el usuario tenía que
+                                  // copiar/pegar a mano. Si no hay
+                                  // bloques/operaciones pero sí texto útil,
+                                  // se ofrece insertarlo como párrafo nuevo.
+                                  if (!hasBlocks &&
+                                      !hasOps &&
+                                      bodyContent.trim().isNotEmpty)
+                                    IntentAction(
+                                      id: 'insert_text',
+                                      label: l10n.aiChatApplyInsertTextEnd,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _insertPlainTextReplyAsBlock(
+                                            bodyContent,
+                                          ),
+                                    ),
+                                  // Fase A4 del plan Quill/MCP — "Guardar
+                                  // como hecho" reutiliza IntentActionBar
+                                  // (Fase A2): el usuario decide
+                                  // explícitamente qué se recuerda, la IA
+                                  // nunca escribe memoria por su cuenta.
+                                  if (bodyContent.trim().isNotEmpty) ...[
+                                    IntentAction(
+                                      id: 'save_fact_temp',
+                                      label: l10n.aiChatSaveFactTemporary,
+                                      icon: Icons.bookmark_border_rounded,
+                                      onPressed: () => _saveReplyAsMemoryFact(
+                                        bodyContent,
+                                        MemoryFactScope.temporary,
+                                      ),
+                                    ),
+                                    IntentAction(
+                                      id: 'save_fact_permanent',
+                                      label: l10n.aiChatSaveFactPermanent,
+                                      icon: Icons.bookmark_added_rounded,
+                                      onPressed: () => _saveReplyAsMemoryFact(
+                                        bodyContent,
+                                        MemoryFactScope.permanent,
+                                      ),
+                                    ),
+                                  ],
+                                  // Fase B3 del plan Quill/MCP — "Deshacer
+                                  // este turno" reutiliza IntentActionBar,
+                                  // igual que el resto de acciones de este
+                                  // mensaje. Solo se ofrece cuando el turno
+                                  // tuvo cambios de contenido reversibles y
+                                  // ninguna tool estructural/destructiva
+                                  // (ver `VaultSession.undoAiTurn`).
+                                  if (message.aiTurnId != null)
+                                    IntentAction(
+                                      id: 'undo_ai_turn',
+                                      label:
+                                          (message.aiTurnChangeCount ?? 0) > 0
+                                          ? l10n.aiChatUndoTurnWithCount(
+                                              message.aiTurnChangeCount!,
+                                            )
+                                          : l10n.aiChatUndoTurn,
+                                      icon: Icons.undo_rounded,
+                                      onPressed: () =>
+                                          _s.undoAiTurn(message.aiTurnId!),
+                                    ),
+                                ];
+                                if (actions.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 10),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      if (hasBlocks)
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .insertBlocksAtEnd,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyInsertEnd,
-                                          ),
-                                        ),
-                                      if (hasBlocks)
-                                        OutlinedButton(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .replaceAllBlocks,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyReplacePage,
-                                          ),
-                                        ),
-                                      if (hasOps)
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .applyEditOperations,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyOperations,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                  child: IntentActionBar(actions: actions),
                                 );
                               },
                             ),
@@ -1166,6 +1306,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
       );
     }
+    if (_activeChat.autoIncludeSelection) {
+      items.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.autoSelectionToggle,
+          id: '__auto_selection_toggle__',
+          label: l10n.aiContextAutoSelectionChip,
+        ),
+      );
+    }
     for (final path in _aiAttachmentPaths) {
       final isMeeting = _aiMeetingPayloads.containsKey(path);
       final label = isMeeting
@@ -1209,6 +1358,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    // Fase A3 del plan Quill/MCP — sugerencia proactiva (v1 acotado a un
+    // único disparador: transcripción de reunión completada). Escucha
+    // puramente externa al `MeetingNoteSessionController` ya existente, sin
+    // tocar ningún archivo del subsistema de audio/transcripción.
+    MeetingNoteSessionController.instance.addListener(_onMeetingSessionStateChanged);
     unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
     _lastSessionPageIdForKanban = _s.selectedPageId;
@@ -1225,6 +1379,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   @override
   void dispose() {
+    MeetingNoteSessionController.instance.removeListener(_onMeetingSessionStateChanged);
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
     _hideAiContextMenu();
     _draftSaveTimer?.cancel();
@@ -1919,6 +2074,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           onOpenPage: _s.selectPage,
+        ),
+      ),
+    );
+  }
+
+  // Fase 18 de la evolución de meeting_note: entrada real a la pantalla de
+  // historial, no solo infraestructura probada sin acceso desde la app.
+  void _openMeetingNotesHistory() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'meeting_notes_history'),
+        builder: (_) => MeetingNotesHistoryScreen(
+          session: _s,
+          onOpenPage: (pageId) {
+            _s.selectPage(pageId);
+            Navigator.of(context).pop();
+          },
         ),
       ),
     );
@@ -2705,6 +2877,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
             label: l10n.graphViewTitle,
             icon: Icons.bubble_chart_rounded,
             onPressed: _openGraphView,
+            forcePrimary: false,
+          ),
+          _WorkspaceActionEntry(
+            id: 'meeting_notes_history',
+            label: l10n.meetingNotesHistoryTitle,
+            icon: Icons.meeting_room_outlined,
+            onPressed: _openMeetingNotesHistory,
             forcePrimary: false,
           ),
           if (page != null)

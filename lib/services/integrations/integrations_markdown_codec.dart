@@ -691,6 +691,9 @@ class FolioMarkdownCodec {
       case 'kanban':
         _resetNumberedCounters(numberedCounters, 0);
         return _renderKanbanExport(block, page);
+      case 'meeting_note':
+        _resetNumberedCounters(numberedCounters, 0);
+        return _renderMeetingNoteExport(block);
       case 'database':
       case 'column_list':
       case 'template_button':
@@ -703,6 +706,82 @@ class FolioMarkdownCodec {
         _resetNumberedCounters(numberedCounters, 0);
         return block.text.trim();
     }
+  }
+
+  /// Fase 19 de la evolución de meeting_note: exporta transcript + resumen
+  /// estructurado (Fase 13) + bookmarks (Fase 4) + métricas (Fase 8) cuando
+  /// están presentes — antes de esta fase caía en el `default:` genérico
+  /// (solo `block.text`), perdiendo todo lo demás en la exportación.
+  static String _renderMeetingNoteExport(FolioBlock block) {
+    final lines = <String>[];
+    final title = block.meetingNoteTitle?.trim();
+    lines.add('## ${(title?.isNotEmpty == true ? title : 'Meeting')}');
+    lines.add('');
+
+    final transcript = block.text.trim();
+    if (transcript.isNotEmpty) {
+      lines.add(transcript);
+      lines.add('');
+    }
+
+    final summary = block.meetingNoteSummary;
+    if (summary != null) {
+      final narrative = (summary['narrative'] as String?)?.trim() ?? '';
+      if (narrative.isNotEmpty) {
+        lines.addAll(['### Summary', '', narrative, '']);
+      }
+      final keyPoints = (summary['keyPoints'] as List?) ?? const [];
+      if (keyPoints.isNotEmpty) {
+        lines.add('### Key Points');
+        for (final p in keyPoints) {
+          lines.add('- $p');
+        }
+        lines.add('');
+      }
+      final actionItems = (summary['actionItems'] as List?) ?? const [];
+      if (actionItems.isNotEmpty) {
+        lines.add('### Action Items');
+        for (final raw in actionItems) {
+          if (raw is! Map) continue;
+          final itemTitle = (raw['title'] as String?)?.trim() ?? '';
+          if (itemTitle.isEmpty) continue;
+          final done = raw['taskBlockId'] != null;
+          lines.add('- [${done ? 'x' : ' '}] $itemTitle');
+        }
+        lines.add('');
+      }
+    }
+
+    final bookmarks = block.meetingNoteBookmarks;
+    if (bookmarks != null && bookmarks.isNotEmpty) {
+      lines.add('### Bookmarks');
+      for (final b in bookmarks) {
+        final totalSeconds = (b.timestampMs / 1000).round();
+        final mm = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+        final ss = (totalSeconds % 60).toString().padLeft(2, '0');
+        final label = b.label.isNotEmpty ? ' — ${b.label}' : '';
+        lines.add('- $mm:$ss [${b.type.name}]$label');
+      }
+      lines.add('');
+    }
+
+    final metrics = block.meetingNoteMetricsSummary;
+    if (metrics != null) {
+      final wpm = (metrics['wordsPerMinute'] as num?)?.round();
+      final questions = metrics['questionCount'] as num?;
+      final parts = <String>[
+        if (wpm != null) '$wpm wpm',
+        if (questions != null) '$questions question(s)',
+      ];
+      if (parts.isNotEmpty) {
+        lines.addAll(['### Metrics', '', parts.join(' · '), '']);
+      }
+    }
+
+    while (lines.isNotEmpty && lines.last.isEmpty) {
+      lines.removeLast();
+    }
+    return lines.join('\n');
   }
 
   static String _renderKanbanExport(FolioBlock block, FolioPage page) {

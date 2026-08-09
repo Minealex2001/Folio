@@ -37,24 +37,20 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     final token = widget.token.trim();
     if (token.isEmpty) {
-      setState(
-        () => _error =
-            'Falta el token del enlace. Solicita un nuevo restablecimiento.',
-      );
+      setState(() => _error = l10n.resetPasswordMissingToken);
       return;
     }
     final pass = _password.text;
     final confirm = _confirm.text;
     if (pass.length < 8) {
-      setState(
-        () => _error = 'La contraseña debe tener al menos 8 caracteres.',
-      );
+      setState(() => _error = l10n.resetPasswordTooShort);
       return;
     }
     if (pass != confirm) {
-      setState(() => _error = 'Las contraseñas no coinciden.');
+      setState(() => _error = l10n.resetPasswordMismatch);
       return;
     }
     setState(() {

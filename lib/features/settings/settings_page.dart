@@ -45,8 +45,12 @@ import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/folio_error_card.dart';
 import '../../app/widgets/integration_settings_widgets.dart';
 import '../../app/widgets/web_desktop_only_notice.dart';
+import 'capability_explorer_page.dart';
+import 'vault_memory_facts_page.dart';
+import 'quill_workflows_page.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import 'settings_search_filter.dart';
+import '../legal/third_party_licenses_page.dart';
 import 'vault_trash_sheet.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -77,6 +81,8 @@ import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import 'folio_health_screen.dart';
+import 'folio_permissions_screen.dart';
 import '../../services/folio_cloud/folio_cloud_device_sync.dart';
 import '../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../services/folio_cloud/folio_cloud_status_colors.dart';
@@ -140,6 +146,7 @@ part 'settings_page_state_cloud_vault.dart';
 part 'settings_page_state_backup_security.dart';
 part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
+part 'settings_page_privacy_center.dart';
 part 'settings_page_section_meeting_note.dart';
 part 'settings_page_section_organization.dart';
 part 'settings_page_section_personalization.dart';
@@ -323,6 +330,18 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       icon: const Icon(Icons.content_copy_outlined, size: 18),
                       label: Text(l10n.settingsMcpCopyClaudeConfig),
+                    ),
+                    // Fase B4 del plan Quill/MCP — explorador interactivo del
+                    // mismo catálogo de tools que MCP expone externamente,
+                    // pero navegable/probable desde dentro de la app.
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CapabilityExplorerPage(session: _s),
+                        ),
+                      ),
+                      icon: const Icon(Icons.explore_outlined, size: 18),
+                      label: Text(l10n.capabilityExplorerTitle),
                     ),
                   ],
                 ),
@@ -889,6 +908,7 @@ class _SettingsPageState extends State<SettingsPage> {
         searchExtra: [
           l10n.settingsPrivacySectionTitle,
           l10n.settingsTelemetryTitle,
+          l10n.settingsOpenThirdPartyLicenses,
         ],
       ),
       if (_organizationContext != null)

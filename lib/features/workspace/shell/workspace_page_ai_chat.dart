@@ -12,7 +12,10 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final userMessage = AiChatMessage.now(role: 'user', content: text);
     final threadMessages = List<AiChatMessage>.from(targetChat.messages)
       ..add(userMessage);
-    _setStateSafe(() => _aiChatBusy = true);
+    _setStateSafe(() {
+      _aiChatBusy = true;
+      _aiToolTrace.clear();
+    });
     _scheduleAiChatScrollToBottom();
     try {
       await _s.pingAi();
@@ -72,6 +75,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             toolErrors: outcome.toolErrors,
             generatedImagePath: outcome.generatedImagePath,
             generatedImagePrompt: outcome.generatedImagePrompt,
+            aiTurnId: outcome.aiTurnId,
+            aiTurnChangeCount: outcome.aiTurnChangeCount,
           ),
         );
       } catch (e) {
@@ -127,6 +132,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
+          aiTurnId: outcome.aiTurnId,
         ),
       );
     } catch (e) {
@@ -183,6 +189,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
 
     _setStateSafe(() {
       _aiChatBusy = true;
+      _aiToolTrace.clear();
       _aiStreamingMessageKeys.add(placeholderKey);
     });
     _s.updateMessageInAiChatById(
@@ -221,6 +228,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
+          aiTurnId: outcome.aiTurnId,
         ),
       );
     } catch (e) {
@@ -249,9 +257,28 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             toolName: event.call.name,
             l10n: l10n,
           );
+          // Fase A6 — cada paso se acumula (no reemplaza al anterior como
+          // `_aiToolActivityLabel`), para que `ToolInspectorPanel` muestre
+          // la secuencia completa del turno, no solo el paso actual.
+          _aiToolTrace.add(
+            ToolInspectorStep(
+              label: _aiToolActivityLabel!,
+              status: ToolInspectorStepStatus.running,
+            ),
+          );
         });
       case AiToolLoopEventKind.toolCallResult:
-        _setStateSafe(() => _aiToolActivityLabel = null);
+        _setStateSafe(() {
+          _aiToolActivityLabel = null;
+          if (_aiToolTrace.isNotEmpty) {
+            final last = _aiToolTrace.length - 1;
+            _aiToolTrace[last] = _aiToolTrace[last].copyWith(
+              status: (event.result?.isError ?? false)
+                  ? ToolInspectorStepStatus.error
+                  : ToolInspectorStepStatus.success,
+            );
+          }
+        });
     }
   }
 
@@ -315,7 +342,23 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
   String _composeAiExtraContextForNextSend() {
     final l10n = AppLocalizations.of(context);
     final b = StringBuffer();
-    if (_aiAttachNextEditorSelection) {
+    // Fase A4 del plan Quill/MCP — hechos guardados por el usuario (nunca
+    // por la IA sola, ver `vault_memory_fact.dart`) se incluyen en TODOS los
+    // envíos, no solo el próximo — a diferencia de selección/última reunión,
+    // que sí son de un solo uso. Ambos scopes (temporal/permanente) se
+    // envían igual; la distinción es solo de gestión/limpieza.
+    final facts = widget.appSettings.vaultMemoryFacts;
+    if (facts.isNotEmpty) {
+      b.writeln(l10n.aiChatMemoryFactsHeader);
+      for (final fact in facts) {
+        b.writeln('- ${fact.text.trim()}');
+      }
+    }
+    // Fase A1 del plan Quill/MCP — `autoIncludeSelection` es el toggle
+    // persistente por hilo (no se consume tras un envío, a diferencia de
+    // `_aiAttachNextEditorSelection`, que sigue siendo el modo "una sola
+    // vez" para hilos que no lo activan).
+    if (_aiAttachNextEditorSelection || _activeChat.autoIncludeSelection) {
       _aiAttachNextEditorSelection = false;
       final snippet = _readEditorSelectionPlainForAi();
       if (snippet != null && snippet.trim().isNotEmpty) {

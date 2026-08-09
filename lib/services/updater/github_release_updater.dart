@@ -326,11 +326,13 @@ class GitHubReleaseUpdater {
       );
     }
 
-    // Inno Setup: sin asistente ni mensajes que requieran clic (ver installer.iss).
+    // Inno Setup: silent upgrade (ver installer/folio_setup.iss.template).
+    // CloseApplications en el .iss cierra folio.exe; no usamos /FORCECLOSEAPPLICATIONS.
     await Process.start(installerFile.path, const [
       '/VERYSILENT',
       '/SUPPRESSMSGBOXES',
       '/NOCANCEL',
+      '/NORESTART',
       '/SP-',
       '/CLOSEAPPLICATIONS',
     ], mode: ProcessStartMode.detached);

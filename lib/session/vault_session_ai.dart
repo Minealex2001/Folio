@@ -993,6 +993,11 @@ For images/blocks: use the + button or / command in a paragraph.
       maxTokens: wantsCreatePage ? _kAiMaxTokensContent : _kAiMaxTokensChat,
     );
 
+    // Fase B3 del plan Quill/MCP — agrupa en un único "turno" todos los
+    // puntos de undo de contenido que este bucle de tool-calling produzca,
+    // para poder ofrecer "Deshacer" sobre el turno completo en vez de uno
+    // por uno. Ver `beginAiTurnUndoGroup`/`undoAiTurn` en `vault_session.dart`.
+    final aiTurnId = beginAiTurnUndoGroup();
     final outcome = await runToolLoop(
       ai: toolAi,
       baseRequest: baseRequest,
@@ -1002,6 +1007,29 @@ For images/blocks: use the + button or / command in a paragraph.
       maxSteps: maxSteps,
       onReplyTextDelta: onReplyDelta,
     );
+    endAiTurnUndoGroup(aiTurnId);
+    // Si el turno usó alguna tool no reversible (estructural o destructiva —
+    // ver `AiToolDefinition.isReversible`, Fase B1), no se ofrece "deshacer"
+    // para nada de este turno: sería engañoso deshacer solo la parte de
+    // contenido y dejar la parte estructural intacta sin avisar.
+    final turnUsedNonReversibleTool = outcome.steps.any((step) {
+      final def = registry.definitionByName(step.call.name);
+      return def != null && !def.isReversible;
+    });
+    final resolvedAiTurnId =
+        !turnUsedNonReversibleTool && aiTurnHasUndoableChanges(aiTurnId)
+        ? aiTurnId
+        : null;
+    // Se calcula antes de descartar/consumir el grupo: `aiTurnChangeCount`
+    // lee `_aiTurnPreUndoLengths`, que `discardAiTurnUndoGroup` borra.
+    final resolvedAiTurnChangeCount = resolvedAiTurnId != null
+        ? aiTurnChangeCount(resolvedAiTurnId)
+        : null;
+    // Fase 4 del roadmap de producto — registra el evento de actividad
+    // ANTES de descartar el grupo (discard borra `_aiTurnPreUndoLengths`,
+    // la misma fuente que lee `recordAiTurnActivity`).
+    if (resolvedAiTurnId != null) recordAiTurnActivity(resolvedAiTurnId);
+    if (resolvedAiTurnId == null) discardAiTurnUndoGroup(aiTurnId);
 
     await _maybeEnrichThinCreatePageFromToolLoop(
       outcome: outcome,
@@ -1048,6 +1076,8 @@ For images/blocks: use the + button or / command in a paragraph.
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
       generatedImagePath: generatedImagePath,
       generatedImagePrompt: generatedImagePrompt,
+      aiTurnId: resolvedAiTurnId,
+      aiTurnChangeCount: resolvedAiTurnChangeCount,
     );
   }
 

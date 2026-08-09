@@ -27,12 +27,20 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
   late final AppSettings _appSettings;
   Timer? _timer;
   String _title = 'Folio';
-  String _status = 'Cargando…';
+  String _status = '';
   String? _error;
   int _rev = -1;
   String? _fingerprint;
   final Set<String> _collapsed = {};
   bool _ready = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_status.isEmpty) {
+      _status = AppLocalizations.of(context).publicShareLoading;
+    }
+  }
 
   @override
   void initState() {
@@ -66,7 +74,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
       if (unchanged) {
         setState(() {
           _error = null;
-          _status = 'Al día · rev $_rev';
+          _status = AppLocalizations.of(context).publicShareUpToDateRev('$_rev');
         });
         return;
       }
@@ -83,7 +91,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
         _fingerprint = fp;
         _error = null;
         _ready = true;
-        _status = 'Actualizado · rev $rev';
+        _status = AppLocalizations.of(context).publicShareUpdatedRev('$rev');
         if (name.isEmpty) {
           final dn = '${content['displayName'] ?? ''}'.trim();
           if (dn.isNotEmpty) _title = dn;
@@ -93,7 +101,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
       if (!mounted) return;
       setState(() {
         _error = '$e';
-        _status = 'Error al cargar';
+        _status = AppLocalizations.of(context).publicShareLoadError;
       });
     }
   }
@@ -136,7 +144,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'Solo lectura',
+                            AppLocalizations.of(context).publicShareReadOnly,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
@@ -161,7 +169,7 @@ class _PublicVaultSharePageState extends State<PublicVaultSharePage> {
                 child: Padding(
                   padding: const EdgeInsets.all(FolioSpace.xl),
                   child: Text(
-                    'No se pudo cargar esta libreta.\n$_error',
+                    AppLocalizations.of(context).publicShareCouldNotLoad(_error!),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: scheme.error),
                   ),
@@ -325,7 +333,7 @@ class _PublicShareEditor extends StatelessWidget {
     if (page == null) {
       return Center(
         child: Text(
-          'Selecciona una página',
+          AppLocalizations.of(context).publicShareSelectPage,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,7 +26,9 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
   @override
   void initState() {
     super.initState();
-    _run();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_run());
+    });
   }
 
   Future<void> _goHome() async {
@@ -33,13 +37,13 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
   }
 
   Future<void> _run() async {
+    final l10n = AppLocalizations.of(context);
     final token = widget.token.trim();
     if (token.isEmpty) {
       setState(() {
         _loading = false;
         _ok = false;
-        _message =
-            'Falta el token del enlace. Solicita un nuevo correo de verificación.';
+        _message = l10n.verifyEmailMissingToken;
       });
       return;
     }
@@ -49,9 +53,7 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
       setState(() {
         _loading = false;
         _ok = true;
-        _message =
-            'Tu elegibilidad de estudiante en Folio Cloud está activa durante 4 años. '
-            'Puedes volver a la app y contratar la tarifa de estudiante.';
+        _message = l10n.verifyStudentSuccessBody;
       });
     } catch (e) {
       if (!mounted) return;
@@ -99,8 +101,8 @@ class _VerifyStudentEmailPageState extends State<VerifyStudentEmailPage> {
                     const SizedBox(height: FolioSpace.md),
                     Text(
                       _ok
-                          ? 'Correo de estudiante verificado'
-                          : 'No se pudo verificar',
+                          ? l10n.verifyStudentTitleOk
+                          : l10n.verifyEmailTitleFail,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),

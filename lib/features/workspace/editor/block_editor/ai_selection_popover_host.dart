@@ -20,7 +20,10 @@ mixin _AiSelectionPopoverHost on State<BlockEditor> {
 
   bool get isAiSelectionPopoverOpen => _aiSelectionOverlayEntry != null;
 
-  void showAiSelectionPopover({required String blockId}) {
+  /// [blockIds]: Fase 0 del roadmap de producto — bloques de la selección
+  /// multi-bloque activa (si hay más de uno), para que el popover ofrezca
+  /// acciones de IA sobre toda la selección en vez de solo [blockId].
+  void showAiSelectionPopover({required String blockId, List<String>? blockIds}) {
     if (_aiSelectionOverlayEntry != null) return;
     final st = _aiPopoverSelf;
     final overlay = Overlay.of(context, rootOverlay: true);
@@ -29,6 +32,7 @@ mixin _AiSelectionPopoverHost on State<BlockEditor> {
         resolveCommands: () => st._aiPaletteCommands(
           AppLocalizations.of(context),
           anchorBlockId: blockId,
+          anchorBlockIds: blockIds,
         ),
         recentScores: _aiSelectionRecentScores,
         onDismiss: dismissAiSelectionPopover,

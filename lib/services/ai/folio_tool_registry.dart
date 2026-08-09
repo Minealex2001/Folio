@@ -1,8 +1,14 @@
+import 'dart:convert';
+
+import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../models/block.dart';
 import '../../models/folio_page.dart';
 import '../../models/folio_task_data.dart';
+import '../../models/meeting_note_bookmark.dart';
+import '../meeting_note_preparation_service.dart';
 import '../../session/vault_session.dart';
 import 'ai_tool.dart';
 import 'quill_tools.dart';
@@ -95,10 +101,113 @@ class FolioToolRegistry {
     _listTasksDef,
     _updateTaskDef,
     _generateImageDef,
+    // --- Evolución de meeting_note (Fase 4: bookmarks, Fase 5: contexto) ---
+    _meetingCreateBookmarkDef,
+    _meetingGetContextDef,
+    _meetingGeneratePrepDef,
+    _meetingGenerateChecklistDef,
+    _meetingGenerateSummaryDef,
   ];
+
+  /// Subconjunto curado de tools permitidas para el auto-trigger MCP opt-in
+  /// de meeting_note (Fase 11): solo contexto/bookmark/checklist — NUNCA
+  /// tools destructivas ni de gestión de páginas. `MeetingNoteAutoTriggerService`
+  /// filtra `definitions` con esta lista antes de declarárselas al modelo,
+  /// así que el modelo físicamente no puede pedir invocar nada fuera de
+  /// este conjunto durante una pasada de auto-trigger.
+  static const List<String> meetingAutoTriggerToolNames = [
+    'meeting_get_context',
+    'meeting_create_bookmark',
+    'meeting_generate_checklist',
+  ];
+
+  int _countDescendants(String pageId) {
+    var count = 0;
+    for (final child in _session.childrenOf(pageId)) {
+      count += 1 + _countDescendants(child.id);
+    }
+    return count;
+  }
+
+  AiToolDefinition? definitionByName(String name) {
+    for (final d in definitions) {
+      if (d.name == name) return d;
+    }
+    return null;
+  }
+
+  /// Previsualiza lo que haría [call] sin ejecutarlo — solo para tools con
+  /// `supportsPreview: true` (Fase B1). Devuelve `null` si la tool no
+  /// soporta preview; el llamador debe manejar ese caso mostrando solo
+  AppLocalizations get _l10n =>
+      lookupAppLocalizations(_session.titleLocale ?? const Locale('es'));
+
+  /// nombre+argumentos, no fingir un preview vacío.
+  AiToolPreview? preview(AiToolCall call) {
+    final def = definitionByName(call.name);
+    if (def == null || !def.supportsPreview) return null;
+    final l10n = _l10n;
+    switch (call.name) {
+      case 'trash_page':
+        final page = _pageById((call.arguments['pageId'] as String?)?.trim() ?? '');
+        if (page == null) return null;
+        final descendantCount = _countDescendants(page.id);
+        return AiToolPreview(
+          summary: descendantCount > 0
+              ? l10n.mcpPreviewTrashWithDescendants(page.title, descendantCount)
+              : l10n.mcpPreviewTrashPage(page.title),
+          affectedItems: [page.title],
+        );
+      case 'permanently_delete_page':
+        final page = _pageById((call.arguments['pageId'] as String?)?.trim() ?? '');
+        if (page == null) return null;
+        return AiToolPreview(
+          summary: l10n.mcpPreviewPermanentDelete(page.title),
+          affectedItems: [page.title],
+        );
+      case 'empty_trash':
+        final trashed = _session.pages.where((p) => p.isTrashed).toList();
+        return AiToolPreview(
+          summary: trashed.isEmpty
+              ? l10n.mcpPreviewTrashEmpty
+              : l10n.mcpPreviewEmptyTrash(trashed.length),
+          affectedItems: [for (final p in trashed) p.title],
+        );
+      case 'delete_folder_flatten_children':
+        final folder = _pageById((call.arguments['folderId'] as String?)?.trim() ?? '');
+        if (folder == null) return null;
+        final children = _session.childrenOf(folder.id);
+        return AiToolPreview(
+          summary: children.isEmpty
+              ? l10n.mcpPreviewDeleteEmptyFolder(folder.title)
+              : l10n.mcpPreviewDeleteFolderFlatten(folder.title, children.length),
+          affectedItems: [for (final c in children) c.title],
+        );
+      default:
+        return null;
+    }
+  }
 
   Future<AiToolResult> execute(AiToolCall call) async {
     try {
+      // Gate de confirmación centralizado y data-driven (Fase B1/B2): antes
+      // de esta fase, solo `permanently_delete_page`/`empty_trash` llamaban
+      // a `onConfirmIrreversibleTool` cada una por su cuenta. Ahora
+      // cualquier tool con `requiresConfirmation: true` en su definición
+      // pasa por aquí — un único punto, no uno por tool.
+      final def = definitionByName(call.name);
+      if (def != null && def.requiresConfirmation) {
+        final confirm = onConfirmIrreversibleTool;
+        if (confirm != null) {
+          final ok = await confirm(call.name, call.arguments);
+          if (!ok) {
+            return AiToolResult.error(
+              call.id,
+              _l10n.mcpActionCancelledByUser(call.name),
+            );
+          }
+        }
+      }
       switch (call.name) {
         case 'create_page':
           return _createPage(call);
@@ -154,6 +263,16 @@ class FolioToolRegistry {
           return _updateTask(call);
         case 'generate_image':
           return _generateImage(call);
+        case 'meeting_create_bookmark':
+          return _meetingCreateBookmark(call);
+        case 'meeting_get_context':
+          return await _meetingGetContext(call);
+        case 'meeting_generate_prep':
+          return await _meetingGeneratePrep(call);
+        case 'meeting_generate_checklist':
+          return _meetingGenerateChecklist(call);
+        case 'meeting_generate_summary':
+          return await _meetingGenerateSummary(call);
         default:
           return AiToolResult.error(call.id, 'Tool desconocido: ${call.name}');
       }
@@ -253,6 +372,9 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
+    isReversible: false,
   );
 
   AiToolResult _createPage(AiToolCall call) {
@@ -302,6 +424,7 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
   );
 
   AiToolResult _appendBlocksToPage(AiToolCall call) {
@@ -339,6 +462,8 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
   );
 
   AiToolResult _replacePageBlocks(AiToolCall call) {
@@ -384,6 +509,8 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
   );
 
   AiToolResult _editPageBlocks(AiToolCall call) {
@@ -455,6 +582,7 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.task,
   );
 
   AiToolResult _insertTodos(AiToolCall call) {
@@ -483,6 +611,7 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.task,
   );
 
   AiToolResult _insertTasks(AiToolCall call) {
@@ -513,6 +642,8 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
   );
 
   AiToolResult _translateBilingual(AiToolCall call) {
@@ -552,6 +683,7 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
   );
 
   Future<AiToolResult> _getPageContent(AiToolCall call) async {
@@ -659,6 +791,8 @@ class FolioToolRegistry {
         description: 'Id de la carpeta padre. Omitir para crearla en la raíz.',
       ),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _createFolder(AiToolCall call) {
@@ -688,6 +822,8 @@ class FolioToolRegistry {
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
       AiToolParam(name: 'title', type: 'string', description: 'Nuevo título.', required: true),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _renamePage(AiToolCall call) {
@@ -719,6 +855,8 @@ class FolioToolRegistry {
         description: 'Posición dentro del nuevo padre (0 = primero).',
       ),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _movePage(AiToolCall call) {
@@ -748,6 +886,8 @@ class FolioToolRegistry {
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
       AiToolParam(name: 'newIndex', type: 'integer', description: 'Nueva posición (0 = primero).', required: true),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _reorderPage(AiToolCall call) {
@@ -770,6 +910,8 @@ class FolioToolRegistry {
         description: 'Padre para la copia. Omitir para usar el mismo padre que el original.',
       ),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _duplicatePage(AiToolCall call) {
@@ -792,6 +934,8 @@ class FolioToolRegistry {
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
       AiToolParam(name: 'emoji', type: 'string', description: 'Emoji nuevo, o vacío para quitarlo.'),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _setPageEmoji(AiToolCall call) {
@@ -809,6 +953,8 @@ class FolioToolRegistry {
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
       AiToolParam(name: 'tag', type: 'string', description: 'Etiqueta a añadir.', required: true),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _addPageTag(AiToolCall call) {
@@ -827,6 +973,8 @@ class FolioToolRegistry {
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
       AiToolParam(name: 'tag', type: 'string', description: 'Etiqueta a quitar.', required: true),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _removePageTag(AiToolCall call) {
@@ -844,6 +992,9 @@ class FolioToolRegistry {
     parameters: [
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página.', required: true),
     ],
+    category: AiToolCategory.destructive,
+    isReversible: false,
+    supportsPreview: true,
   );
 
   AiToolResult _trashPage(AiToolCall call) {
@@ -862,6 +1013,8 @@ class FolioToolRegistry {
     parameters: [
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página en papelera.', required: true),
     ],
+    category: AiToolCategory.organization,
+    isReversible: false,
   );
 
   AiToolResult _restorePage(AiToolCall call) {
@@ -878,22 +1031,21 @@ class FolioToolRegistry {
     parameters: [
       AiToolParam(name: 'pageId', type: 'string', description: 'Id de la página en papelera.', required: true),
     ],
+    category: AiToolCategory.destructive,
+    complexity: AiToolComplexity.advanced,
+    isReversible: false,
+    requiresConfirmation: true,
+    supportsPreview: true,
   );
 
-  Future<AiToolResult> _permanentlyDeletePage(AiToolCall call) async {
+  // La confirmación (`onConfirmIrreversibleTool`) ya se resuelve de forma
+  // centralizada y data-driven en `execute()` a partir de
+  // `requiresConfirmation` antes de llegar aquí — este método asume que, si
+  // se está ejecutando, ya fue confirmado (o no hacía falta confirmación).
+  AiToolResult _permanentlyDeletePage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
     if (page == null || !page.isTrashed) return AiToolResult.error(call.id, 'Página no está en la papelera: $pageId');
-    final confirm = onConfirmIrreversibleTool;
-    if (confirm != null) {
-      final ok = await confirm(call.name, call.arguments);
-      if (!ok) {
-        return AiToolResult.error(
-          call.id,
-          'Acción cancelada por el usuario: permanently_delete_page',
-        );
-      }
-    }
     _session.permanentlyDeleteFromTrash(pageId);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
   }
@@ -901,19 +1053,14 @@ class FolioToolRegistry {
   static const _emptyTrashDef = AiToolDefinition(
     name: 'empty_trash',
     description: 'Vacía la papelera por completo. Irreversible.',
+    category: AiToolCategory.destructive,
+    complexity: AiToolComplexity.advanced,
+    isReversible: false,
+    requiresConfirmation: true,
+    supportsPreview: true,
   );
 
-  Future<AiToolResult> _emptyTrash(AiToolCall call) async {
-    final confirm = onConfirmIrreversibleTool;
-    if (confirm != null) {
-      final ok = await confirm(call.name, call.arguments);
-      if (!ok) {
-        return AiToolResult.error(
-          call.id,
-          'Acción cancelada por el usuario: empty_trash',
-        );
-      }
-    }
+  AiToolResult _emptyTrash(AiToolCall call) {
     _session.emptyTrash();
     return AiToolResult.ok(call.id, '{"emptied":true}');
   }
@@ -926,6 +1073,10 @@ class FolioToolRegistry {
     parameters: [
       AiToolParam(name: 'folderId', type: 'string', description: 'Id de la carpeta.', required: true),
     ],
+    category: AiToolCategory.destructive,
+    complexity: AiToolComplexity.moderate,
+    isReversible: false,
+    supportsPreview: true,
   );
 
   AiToolResult _deleteFolderFlattenChildren(AiToolCall call) {
@@ -943,6 +1094,7 @@ class FolioToolRegistry {
       AiToolParam(name: 'query', type: 'string', description: 'Texto a buscar.', required: true),
       AiToolParam(name: 'limit', type: 'integer', description: 'Máximo de resultados (por defecto 10).'),
     ],
+    category: AiToolCategory.organization,
   );
 
   AiToolResult _searchPages(AiToolCall call) {
@@ -976,6 +1128,7 @@ class FolioToolRegistry {
         description: 'Id de la página padre. Omitir o vacío para listar la raíz.',
       ),
     ],
+    category: AiToolCategory.organization,
   );
 
   AiToolResult _listChildren(AiToolCall call) {
@@ -1008,6 +1161,7 @@ class FolioToolRegistry {
         required: true,
       ),
     ],
+    category: AiToolCategory.content,
   );
 
   AiToolResult _insertBlocksAtPosition(AiToolCall call) {
@@ -1075,6 +1229,7 @@ class FolioToolRegistry {
         description: 'Máximo de resultados (default 50).',
       ),
     ],
+    category: AiToolCategory.task,
   );
 
   Future<AiToolResult> _listTasks(AiToolCall call) async {
@@ -1193,6 +1348,7 @@ class FolioToolRegistry {
         description: 'Id de columna del tablero (si aplica).',
       ),
     ],
+    category: AiToolCategory.task,
   );
 
   Future<AiToolResult> _updateTask(AiToolCall call) async {
@@ -1277,6 +1433,9 @@ class FolioToolRegistry {
             'pidió explícitamente; por defecto false.',
       ),
     ],
+    category: AiToolCategory.media,
+    complexity: AiToolComplexity.advanced,
+    estimatedDuration: Duration(seconds: 8),
   );
 
   Future<AiToolResult> _generateImage(AiToolCall call) async {
@@ -1299,6 +1458,381 @@ class FolioToolRegistry {
     } catch (e) {
       return AiToolResult.error(call.id, 'No se pudo generar la imagen: $e');
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Evolución de meeting_note (Fase 4): bookmarks
+  // ---------------------------------------------------------------------
+
+  static const _meetingCreateBookmarkDef = AiToolDefinition(
+    name: 'meeting_create_bookmark',
+    description:
+        'Marca un momento importante en una nota de reunión (meeting_note) '
+        'en curso o ya grabada, para poder navegar a él después.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current".',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'blockId',
+        type: 'string',
+        description: 'Id del bloque meeting_note a marcar.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'timestampMs',
+        type: 'integer',
+        description:
+            'Offset en milisegundos desde el inicio de la grabación.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'type',
+        type: 'string',
+        description: 'Tipo de marca.',
+        enumValues: [
+          'important',
+          'decision',
+          'actionItem',
+          'question',
+          'note',
+        ],
+      ),
+      AiToolParam(
+        name: 'label',
+        type: 'string',
+        description: 'Texto/contexto opcional asociado a la marca.',
+      ),
+    ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.simple,
+  );
+
+  AiToolResult _meetingCreateBookmark(AiToolCall call) {
+    final pageId = _resolvePageId(call.arguments);
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == blockId) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || block.type != 'meeting_note') {
+      return AiToolResult.error(
+        call.id,
+        'Bloque meeting_note no encontrado: $blockId',
+      );
+    }
+    final timestampMs = (call.arguments['timestampMs'] as num?)?.toInt() ?? 0;
+    final typeRaw = (call.arguments['type'] as String?)?.trim();
+    final label = (call.arguments['label'] as String?)?.trim() ?? '';
+    final bookmark = MeetingNoteBookmark(
+      id: '${blockId}_bm_${_uuid.v4()}',
+      timestampMs: timestampMs,
+      type: switch (typeRaw) {
+        'decision' => MeetingNoteBookmarkType.decision,
+        'actionItem' => MeetingNoteBookmarkType.actionItem,
+        'question' => MeetingNoteBookmarkType.question,
+        'note' => MeetingNoteBookmarkType.note,
+        _ => MeetingNoteBookmarkType.important,
+      },
+      label: label,
+      createdAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    _session.addBlockMeetingNoteBookmark(pageId, blockId, bookmark);
+    return AiToolResult.ok(
+      call.id,
+      _jsonMap({
+        'pageId': pageId,
+        'blockId': blockId,
+        'bookmarkId': bookmark.id,
+      }),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Evolución de meeting_note (Fase 5): contexto de la reunión
+  // ---------------------------------------------------------------------
+
+  static const _meetingGetContextDef = AiToolDefinition(
+    name: 'meeting_get_context',
+    description:
+        'Devuelve un bundle compacto de contexto para una reunión: página '
+        'padre, páginas hijas y páginas que enlazan a esta (backlinks/'
+        '@menciones/folio://), más sus tags. Reutiliza el grafo de páginas '
+        'ya existente en Folio — no crea un índice nuevo. Punto de entrada '
+        'para preparación de reunión, live assist y auto-trigger MCP.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current".',
+        required: true,
+      ),
+    ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.simple,
+  );
+
+  String _jsonPageRef(FolioPage p) =>
+      '{"id":${_jsonStr(p.id)},"title":${_jsonStr(p.title)}}';
+
+  Future<AiToolResult> _meetingGetContext(AiToolCall call) async {
+    final pageId = _resolvePageId(call.arguments);
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+
+    // Fase 23 (privacidad): esta tool revela títulos de OTRAS páginas
+    // (padre/hijas/relacionadas) que el llamador no pidió explícitamente
+    // por id — mismo riesgo de disclosure que `get_page_content`/
+    // `search_pages`, así que respeta la misma allowlist MCP. Sin esto, un
+    // cliente MCP externo con acceso solo a la página del meeting_note
+    // podía enumerar títulos de páginas fuera de su allowlist.
+    if (!await _ensureMcpReadAccess(page)) {
+      return AiToolResult.error(
+        call.id,
+        'Lectura no autorizada para la página $pageId.',
+      );
+    }
+
+    final parent = page.parentId != null ? _pageById(page.parentId!) : null;
+    final allowedParent =
+        parent != null && await _ensureMcpReadAccess(parent) ? parent : null;
+
+    final children = <FolioPage>[];
+    for (final c in _session.childrenOf(pageId)) {
+      if (await _ensureMcpReadAccess(c)) children.add(c);
+    }
+
+    final backlinks = <FolioPage>[];
+    for (final b in _session.backlinkPagesFor(pageId)) {
+      if (await _ensureMcpReadAccess(b)) backlinks.add(b);
+    }
+
+    final buffer = StringBuffer('{');
+    buffer.write('"pageId":${_jsonStr(page.id)},');
+    buffer.write('"pageTitle":${_jsonStr(page.title)},');
+    buffer.write(
+      '"tags":[${page.tags.map(_jsonStr).join(',')}],',
+    );
+    buffer.write(
+      '"parent":${allowedParent == null ? 'null' : _jsonPageRef(allowedParent)},',
+    );
+    buffer.write(
+      '"children":[${children.map(_jsonPageRef).join(',')}],',
+    );
+    buffer.write(
+      '"relatedPages":[${backlinks.map(_jsonPageRef).join(',')}]',
+    );
+    buffer.write('}');
+
+    return AiToolResult.ok(call.id, buffer.toString());
+  }
+
+  // ---------------------------------------------------------------------
+  // Evolución de meeting_note (Fase 6): preparación de reunión
+  // ---------------------------------------------------------------------
+
+  static const _meetingGeneratePrepDef = AiToolDefinition(
+    name: 'meeting_generate_prep',
+    description:
+        'Genera notas de preparación (agenda sugerida, preguntas, temas) '
+        'para un meeting_note antes de grabar, usando el AiService activo '
+        '(local u opt-in cloud) y el contexto de la página. Opcional — '
+        'nunca bloquea el inicio de la grabación.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current".',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'blockId',
+        type: 'string',
+        description: 'Id del bloque meeting_note.',
+        required: true,
+      ),
+    ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
+  );
+
+  Future<AiToolResult> _meetingGeneratePrep(AiToolCall call) async {
+    final pageId = _resolvePageId(call.arguments);
+    final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    try {
+      final prepNotes = await MeetingNotePreparationService.instance.generate(
+        session: _session,
+        pageId: pageId,
+        blockId: blockId,
+      );
+      if (prepNotes == null) {
+        return AiToolResult.error(
+          call.id,
+          'No se pudo generar preparación (sin IA activa, o bloque/página '
+          'no encontrados).',
+        );
+      }
+      return AiToolResult.ok(
+        call.id,
+        _jsonMap({'pageId': pageId, 'blockId': blockId, 'prepNotes': prepNotes}),
+      );
+    } catch (e) {
+      return AiToolResult.error(call.id, 'No se pudo generar preparación: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Evolución de meeting_note (Fase 13): resumen post-reunión (opcional,
+  // para paridad con el auto-trigger — la vía principal sigue siendo el
+  // botón "Generate summary" del bloque)
+  // ---------------------------------------------------------------------
+
+  static const _meetingGenerateSummaryDef = AiToolDefinition(
+    name: 'meeting_generate_summary',
+    description:
+        'Genera resumen narrativo, key points y action items (texto, sin '
+        'crear tareas todavía) de un meeting_note ya grabado.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current".',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'blockId',
+        type: 'string',
+        description: 'Id del bloque meeting_note.',
+        required: true,
+      ),
+    ],
+    category: AiToolCategory.content,
+    complexity: AiToolComplexity.moderate,
+  );
+
+  Future<AiToolResult> _meetingGenerateSummary(AiToolCall call) async {
+    final pageId = _resolvePageId(call.arguments);
+    final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    try {
+      final summary = await MeetingNotePreparationService.instance
+          .generateSummary(session: _session, pageId: pageId, blockId: blockId);
+      if (summary == null) {
+        return AiToolResult.error(
+          call.id,
+          'No se pudo generar resumen (sin IA activa, transcript vacío, o '
+          'bloque/página no encontrados).',
+        );
+      }
+      // `_jsonMap` solo maneja mapas planos (listas de String/num/bool) —
+      // `actionItems` es una lista de mapas anidados, así que este
+      // resultado en concreto usa `jsonEncode` en vez del encoder casero.
+      return AiToolResult.ok(
+        call.id,
+        jsonEncode({'pageId': pageId, 'blockId': blockId, ...summary}),
+      );
+    } catch (e) {
+      return AiToolResult.error(call.id, 'No se pudo generar resumen: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Evolución de meeting_note (Fase 7): checklist dinámico
+  // ---------------------------------------------------------------------
+
+  static const _meetingGenerateChecklistDef = AiToolDefinition(
+    name: 'meeting_generate_checklist',
+    description:
+        'Crea un checklist para una reunión como bloques `task` normales de '
+        'Folio, vinculados al meeting_note vía `createdFromBlockId` (mismo '
+        'mecanismo que cualquier tarea creada desde IA) — no es un tipo de '
+        'bloque nuevo ni un sistema de checklist paralelo.',
+    parameters: [
+      AiToolParam(
+        name: 'pageId',
+        type: 'string',
+        description: 'Id de la página, o "current".',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'blockId',
+        type: 'string',
+        description: 'Id del bloque meeting_note origen del checklist.',
+        required: true,
+      ),
+      AiToolParam(
+        name: 'items',
+        type: 'array',
+        itemsType: 'string',
+        description: 'Un título de item de checklist por elemento.',
+        required: true,
+      ),
+    ],
+    category: AiToolCategory.task,
+  );
+
+  AiToolResult _meetingGenerateChecklist(AiToolCall call) {
+    final pageId = _resolvePageId(call.arguments);
+    final page = _pageById(pageId);
+    if (page == null) {
+      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    }
+    final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
+    final hasMeetingBlock = page.blocks.any(
+      (b) => b.id == blockId && b.type == 'meeting_note',
+    );
+    if (!hasMeetingBlock) {
+      return AiToolResult.error(
+        call.id,
+        'Bloque meeting_note no encontrado: $blockId',
+      );
+    }
+    final items = (call.arguments['items'] as List?)
+            ?.map((e) => '$e'.trim())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    if (items.isEmpty) {
+      return AiToolResult.error(call.id, 'No se especificaron items.');
+    }
+    final payloads = items
+        .map(
+          (title) => FolioTaskData(
+            title: title,
+            status: 'todo',
+            createdFromBlockId: blockId,
+            aiContextPageId: pageId,
+          ).encode(),
+        )
+        .toList();
+    QuillToolExecutor.insertTasksFromEncodedLines(
+      _session,
+      pageId: pageId,
+      payloads: payloads,
+    );
+    return AiToolResult.ok(
+      call.id,
+      _jsonMap({'pageId': pageId, 'blockId': blockId, 'insertedCount': items.length}),
+    );
   }
 
   // ---------------------------------------------------------------------

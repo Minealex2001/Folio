@@ -608,17 +608,20 @@ function Build-MacOS {
 
 # ---------------------------------------------------------------------------
 # Instalador Windows (Inno Setup) -> Folio-Setup-<semver>.exe
+# Fuente unica: installer/folio_setup.iss.template via tool/windows/build_installer.ps1
 # ---------------------------------------------------------------------------
 
 function Find-Iscc {
-    # 1) En el PATH.
     $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
 
-    # 2) Rutas de instalacion comunes (incluye instalacion por-usuario de winget).
+    # Prefer Inno Setup 7, then 6/5. Compile with ISCC.exe (CLI), not ISIDE.exe (IDE).
     $candidates = @(
-        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:ProgramFiles 'Inno Setup 7\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 7\ISCC.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 7\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
         (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 5\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 5\ISCC.exe')
@@ -627,8 +630,10 @@ function Find-Iscc {
         if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
     }
 
-    # 3) Registro de desinstalacion de Inno Setup (InstallLocation).
     $regRoots = @(
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
         'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1'
@@ -651,87 +656,38 @@ function Build-WindowsInstaller {
     )
     Build-WindowsGitHub
 
-    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
-    $iscc = Find-Iscc
-    if (-not $iscc) {
+    if (-not (Find-Iscc)) {
         throw "No se encontro ISCC.exe (Inno Setup). Instalalo con 'winget install JRSoftware.InnoSetup' o 'choco install innosetup'."
     }
 
-    $mainExe = Get-ChildItem -LiteralPath $release -Filter '*.exe' -File |
-        Where-Object { $_.Name -notmatch '^(vcruntime|msvcp|api-ms).*' } |
-        Sort-Object Length -Descending |
-        Select-Object -First 1
-    if (-not $mainExe) {
-        throw "No se encontro el ejecutable principal en $release."
+    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
+    $builder = Join-Path $RepoRoot 'tool\windows\build_installer.ps1'
+    if (-not (Test-Path -LiteralPath $builder)) {
+        throw "No se encontro $builder"
     }
 
     $semver = Get-PubspecSemver
     $outputBase = "Folio-Setup-$semver"
-    $sourceGlob = Join-Path $release '*'
-    $icon = Join-Path $RepoRoot 'assets\icons\folio.ico'
-    $iconLine = if (Test-Path -LiteralPath $icon) { "SetupIconFile=$icon" } else { '' }
-
-    $iss = @"
-#define MyAppName "Folio"
-#define MyAppVersion "$semver"
-#define MyAppPublisher "Minealex Games"
-#define MyAppURL "https://minealexgames.com/"
-#define MyAppExeName "$($mainExe.Name)"
-
-[Setup]
-AppId={{46CD296E-B5B7-433A-9063-C17444F19FBE}
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}
-AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\{#MyAppName}
-DefaultGroupName={#MyAppName}
-UninstallDisplayIcon={app}\{#MyAppExeName}
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
-DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
-CloseApplications=yes
-OutputDir=$OutputDir
-OutputBaseFilename=$outputBase
-$iconLine
-Compression=lzma
-SolidCompression=yes
-WizardStyle=modern
-
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-
-[Files]
-Source: "$sourceGlob"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-[Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-"@
-
-    $issPath = Join-Path $env:TEMP 'folio_installer.iss'
-    Set-Content -LiteralPath $issPath -Value $iss -Encoding utf8
-
-    Write-Host "`n[installer] Generando instalador con Inno Setup..." -ForegroundColor Cyan
-    & $iscc $issPath
-    Assert-LastExitCode 'ISCC (Inno Setup)'
-
-    $installerPath = Join-Path $OutputDir "$outputBase.exe"
-    if (-not (Test-Path -LiteralPath $installerPath)) {
-        throw "No se genero el instalador esperado: $installerPath"
+    $installerPath = & $builder `
+        -RepoRoot $RepoRoot `
+        -SourceDir $release `
+        -OutputDir $OutputDir `
+        -AppVersion $semver `
+        -OutputBase $outputBase
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        throw "build_installer.ps1 failed with exit code $LASTEXITCODE"
     }
-    Write-Host "[ok] Instalador: $installerPath" -ForegroundColor Green
+    # Script writes path to output stream; take last non-empty line.
+    if ($installerPath -is [array]) {
+        $installerPath = ($installerPath | Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+    }
+    $installerPath = "$installerPath".Trim()
+    if (-not $installerPath -or -not (Test-Path -LiteralPath $installerPath)) {
+        $fallback = Join-Path $OutputDir "$outputBase.exe"
+        if (Test-Path -LiteralPath $fallback) { return $fallback }
+        throw "No se genero el instalador esperado: $outputBase.exe"
+    }
+    return $installerPath
 }
 
 # ---------------------------------------------------------------------------

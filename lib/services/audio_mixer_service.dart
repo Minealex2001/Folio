@@ -87,13 +87,38 @@ class AudioMixerService {
   final _chunkController = StreamController<File>.broadcast();
   Stream<File> get chunkStream => _chunkController.stream;
 
+  // Contadores de diagnóstico de canal (solo activos si se pide explícitamente
+  // vía [start(trackChannelMeta: true)]). No alteran la mezcla ni la escritura
+  // del WAV — son puramente informativos para `meetingNoteChannelMeta`.
+  bool _trackChannelMeta = false;
+  int _micChunkCount = 0;
+  int _sysChunkCount = 0;
+
+  /// Metadata de diagnóstico de canales de la última/actual sesión. `null` si
+  /// el tracking no estaba activo.
+  Map<String, Object?>? get channelMeta => _trackChannelMeta
+      ? <String, Object?>{
+          'micChunks': _micChunkCount,
+          'systemChunks': _sysChunkCount,
+          'dualChannel': _micChunkCount > 0 && _sysChunkCount > 0,
+        }
+      : null;
+
   /// Inicia la grabación mixta. Devuelve false si el micrófono no está disponible.
+  ///
+  /// [trackChannelMeta]: si es `true`, cuenta los chunks recibidos de cada
+  /// canal (mic/system) por separado para diagnóstico/atribución, sin
+  /// modificar el pipeline de mezcla existente. Default `false`.
   Future<bool> start({
     InputDevice? micDevice,
     String? micDeviceId,
     String? systemOutputDeviceId,
+    bool trackChannelMeta = false,
   }) async {
     if (_active) return true;
+    _trackChannelMeta = trackChannelMeta;
+    _micChunkCount = 0;
+    _sysChunkCount = 0;
 
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) return false;
@@ -199,11 +224,13 @@ class AudioMixerService {
   // ───────────── handlers de datos PCM
 
   void _onMicData(Uint8List data) {
+    if (_trackChannelMeta) _micChunkCount++;
     _micBuf.add(data);
     _tryMix();
   }
 
   void _onSysData(Uint8List data) {
+    if (_trackChannelMeta) _sysChunkCount++;
     _sysBuf.add(data);
     _tryMix();
   }

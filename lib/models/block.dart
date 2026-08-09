@@ -1,3 +1,5 @@
+import 'meeting_note_bookmark.dart';
+
 class FolioBlockAppearance {
   const FolioBlockAppearance({
     this.textColorRole,
@@ -77,6 +79,14 @@ class FolioBlock {
     this.appearance,
     this.meetingNoteProvider,
     this.meetingNoteTranscriptionEnabled,
+    this.meetingNoteTitle,
+    this.meetingNoteLanguage,
+    this.meetingNoteChannelMeta,
+    this.meetingNoteBookmarks,
+    this.meetingNotePrepNotes,
+    this.meetingNoteMetricsSummary,
+    this.meetingNoteAutoAssistEnabled,
+    this.meetingNoteSummary,
     this.syncGroupId,
     this.aiGenerated,
   });
@@ -127,6 +137,43 @@ class FolioBlock {
   /// `null` o `true` = generar transcripción; `false` = solo audio (sin Whisper).
   bool? meetingNoteTranscriptionEnabled;
 
+  /// Título opcional de la reunión, distinto del título de la página.
+  String? meetingNoteTitle;
+
+  /// Código de locale hint para la transcripción (ej. `es`, `en`).
+  String? meetingNoteLanguage;
+
+  /// Metadata de diagnóstico de canales de audio (ej. `{"micChunks": n,
+  /// "systemChunks": n, "dualChannel": true}`). Opcional, informativo.
+  Map<String, Object?>? meetingNoteChannelMeta;
+
+  /// Marcas de momentos importantes durante la grabación (Fase 4). `null` o
+  /// vacío si no hay bookmarks.
+  List<MeetingNoteBookmark>? meetingNoteBookmarks;
+
+  /// Notas de preparación (agenda/preguntas/temas) generadas o editadas
+  /// antes de la reunión (Fase 6). `null` si no se generó preparación.
+  String? meetingNotePrepNotes;
+
+  /// Snapshot final de métricas de conversación al detener la grabación
+  /// (Fase 8): `{wordsPerMinute, questionCount, longestMonologueWords,
+  /// speakerWordCounts, totalWords}`. Las métricas en vivo se mantienen
+  /// efímeras en `MeetingNoteSessionController`, no se persisten por
+  /// segundo para no inflar el JSON del vault.
+  Map<String, Object?>? meetingNoteMetricsSummary;
+
+  /// `true` si el usuario activó el auto-trigger MCP opt-in (Fase 11) para
+  /// este meeting_note. `null`/`false` = desactivado (default).
+  bool? meetingNoteAutoAssistEnabled;
+
+  /// Resumen post-reunión estructurado (Fase 13): narrative (String),
+  /// keyPoints (lista de String), actionItems (lista de mapas
+  /// `{title, taskBlockId}`).
+  /// `taskBlockId` de cada action item es `null` hasta que el usuario lo
+  /// materializa explícitamente como tarea real (Fase 14) — la extracción
+  /// nunca crea tareas por sí sola.
+  Map<String, Object?>? meetingNoteSummary;
+
   /// UUID que identifica el grupo de bloques sincronizados. Todos los bloques
   /// con el mismo [syncGroupId] comparten contenido y se actualizan en cascada.
   String? syncGroupId;
@@ -153,6 +200,21 @@ class FolioBlock {
     if (meetingNoteProvider != null) 'meetingNoteProvider': meetingNoteProvider,
     if (meetingNoteTranscriptionEnabled == false)
       'meetingNoteTranscriptionEnabled': false,
+    if (meetingNoteTitle != null) 'meetingNoteTitle': meetingNoteTitle,
+    if (meetingNoteLanguage != null) 'meetingNoteLanguage': meetingNoteLanguage,
+    if (meetingNoteChannelMeta != null)
+      'meetingNoteChannelMeta': meetingNoteChannelMeta,
+    if (MeetingNoteBookmark.listToJson(meetingNoteBookmarks) != null)
+      'meetingNoteBookmarks': MeetingNoteBookmark.listToJson(
+        meetingNoteBookmarks,
+      ),
+    if (meetingNotePrepNotes != null)
+      'meetingNotePrepNotes': meetingNotePrepNotes,
+    if (meetingNoteMetricsSummary != null)
+      'meetingNoteMetricsSummary': meetingNoteMetricsSummary,
+    if (meetingNoteAutoAssistEnabled == true)
+      'meetingNoteAutoAssistEnabled': true,
+    if (meetingNoteSummary != null) 'meetingNoteSummary': meetingNoteSummary,
     if (syncGroupId != null) 'syncGroupId': syncGroupId,
     if (aiGenerated == true) 'aiGenerated': true,
   };
@@ -190,6 +252,22 @@ class FolioBlock {
       meetingNoteProvider: j['meetingNoteProvider'] as String?,
       meetingNoteTranscriptionEnabled:
           j['meetingNoteTranscriptionEnabled'] as bool?,
+      meetingNoteTitle: j['meetingNoteTitle'] as String?,
+      meetingNoteLanguage: j['meetingNoteLanguage'] as String?,
+      meetingNoteChannelMeta: j['meetingNoteChannelMeta'] is Map
+          ? Map<String, Object?>.from(j['meetingNoteChannelMeta'] as Map)
+          : null,
+      meetingNoteBookmarks: j['meetingNoteBookmarks'] == null
+          ? null
+          : MeetingNoteBookmark.listFromJson(j['meetingNoteBookmarks']),
+      meetingNotePrepNotes: j['meetingNotePrepNotes'] as String?,
+      meetingNoteMetricsSummary: j['meetingNoteMetricsSummary'] is Map
+          ? Map<String, Object?>.from(j['meetingNoteMetricsSummary'] as Map)
+          : null,
+      meetingNoteAutoAssistEnabled: j['meetingNoteAutoAssistEnabled'] as bool?,
+      meetingNoteSummary: j['meetingNoteSummary'] is Map
+          ? Map<String, Object?>.from(j['meetingNoteSummary'] as Map)
+          : null,
       syncGroupId: j['syncGroupId'] as String?,
       aiGenerated: j['aiGenerated'] as bool?,
     );
@@ -210,6 +288,14 @@ class FolioBlock {
     FolioBlockAppearance? appearance,
     String? meetingNoteProvider,
     bool? meetingNoteTranscriptionEnabled,
+    String? meetingNoteTitle,
+    String? meetingNoteLanguage,
+    Map<String, Object?>? meetingNoteChannelMeta,
+    List<MeetingNoteBookmark>? meetingNoteBookmarks,
+    String? meetingNotePrepNotes,
+    Map<String, Object?>? meetingNoteMetricsSummary,
+    bool? meetingNoteAutoAssistEnabled,
+    Map<String, Object?>? meetingNoteSummary,
     String? syncGroupId,
     bool clearSyncGroupId = false,
     bool? aiGenerated,
@@ -233,6 +319,19 @@ class FolioBlock {
       meetingNoteTranscriptionEnabled:
           meetingNoteTranscriptionEnabled ??
           this.meetingNoteTranscriptionEnabled,
+      meetingNoteTitle: meetingNoteTitle ?? this.meetingNoteTitle,
+      meetingNoteLanguage: meetingNoteLanguage ?? this.meetingNoteLanguage,
+      meetingNoteChannelMeta:
+          meetingNoteChannelMeta ?? this.meetingNoteChannelMeta,
+      meetingNoteBookmarks:
+          meetingNoteBookmarks ?? this.meetingNoteBookmarks,
+      meetingNotePrepNotes:
+          meetingNotePrepNotes ?? this.meetingNotePrepNotes,
+      meetingNoteMetricsSummary:
+          meetingNoteMetricsSummary ?? this.meetingNoteMetricsSummary,
+      meetingNoteAutoAssistEnabled:
+          meetingNoteAutoAssistEnabled ?? this.meetingNoteAutoAssistEnabled,
+      meetingNoteSummary: meetingNoteSummary ?? this.meetingNoteSummary,
       syncGroupId: clearSyncGroupId ? null : (syncGroupId ?? this.syncGroupId),
       aiGenerated: clearAiGenerated ? null : (aiGenerated ?? this.aiGenerated),
     );

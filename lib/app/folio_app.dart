@@ -27,6 +27,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
+import '../services/ai/ai_tool.dart';
 import '../services/ai/folio_tool_registry.dart';
 import '../services/ai/gemini_nano_ai_service.dart';
 import '../services/ai/lmstudio_ai_service.dart';
@@ -145,6 +146,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   OrganizationContextController? _organizationContextInstance;
   FolioMcpServer? _mcpServer;
   Future<void>? _mcpServerApplyInFlight;
+
+  /// Fase B2 del plan Quill/MCP — referencia al mismo `FolioToolRegistry` que
+  /// usa `_mcpServer`, solo para poder llamar `preview()` desde el diálogo de
+  /// confirmación (`_confirmMcpIrreversibleTool`) sin exponer el registro
+  /// privado de `FolioMcpServer`.
+  FolioToolRegistry? _mcpToolRegistry;
 
   /// Inicialización perezosa: tras hot reload [initState] no se vuelve a llamar y un `late final` fallaría.
   FolioCloudEntitlementsController get _folioCloudEntitlements {
@@ -838,7 +845,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     try {
       await _integrationsBridge.start();
     } catch (e) {
-      _showSnack('No se pudo iniciar el bridge de integraciones: $e');
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(
+        AppLocalizations.of(errCtx).integrationsBridgeStartFailed('$e'),
+      );
     }
   }
 
@@ -923,6 +934,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         await server.stop();
       }
       _mcpServer = null;
+      _mcpToolRegistry = null;
       _integrationsBridge.setMcpServer(null);
       folioMcpServerStatus.value = null;
       return;
@@ -938,11 +950,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       );
       return;
     }
+    // Fase B2 del plan Quill/MCP — hallazgo de seguridad: antes de esta fase
+    // este registro NO pasaba `onConfirmIrreversibleTool`, así que un
+    // cliente MCP externo aprobado podía llamar `permanently_delete_page`/
+    // `empty_trash` sin ninguna confirmación, a diferencia del chat en-app
+    // (que sí la pide en modo Plan). Ahora usa el mismo mecanismo.
+    final toolRegistry = FolioToolRegistry(
+      widget.session,
+      onRequestMcpReadAccess: _requestMcpReadAccess,
+      onConfirmIrreversibleTool: _confirmMcpIrreversibleTool,
+    );
+    _mcpToolRegistry = toolRegistry;
     final active = FolioMcpServer(
-      FolioToolRegistry(
-        widget.session,
-        onRequestMcpReadAccess: _requestMcpReadAccess,
-      ),
+      toolRegistry,
       onApproveClient: _approveMcpClient,
       isClientApproved: _isMcpClientApproved,
       onClientObserved: _syncObservedMcpClient,
@@ -1558,6 +1578,39 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return decision ?? McpReadAccessDecision.deny;
   }
 
+  /// Fase B2 del plan Quill/MCP — confirmación bloqueante antes de ejecutar
+  /// una tool marcada `requiresConfirmation: true` (hoy: `permanently_delete_page`,
+  /// `empty_trash`) pedida por un cliente MCP externo ya aprobado. Antes de
+  /// esta fase, `onConfirmIrreversibleTool` se dejaba `null` para el registro
+  /// de MCP y esas tools se ejecutaban sin preguntar nada — mismo patrón de
+  /// diálogo bloqueante que `_requestMcpReadAccess`, reutilizando `preview()`
+  /// (Fase B1) para mostrar qué se verá afectado en vez de solo el nombre
+  /// crudo de la tool.
+  Future<bool> _confirmMcpIrreversibleTool(
+    String toolName,
+    Map<String, dynamic> arguments,
+  ) async {
+    final ctx = _navKey.currentContext ?? context;
+    if (!ctx.mounted) return false;
+    final clientName =
+        _mcpServer?.connectedClient?.appName.trim().isNotEmpty == true
+        ? _mcpServer!.connectedClient!.appName.trim()
+        : 'MCP';
+    final preview = _mcpToolRegistry?.preview(
+      AiToolCall(id: 'mcp_confirm', name: toolName, arguments: arguments),
+    );
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpConfirmIrreversibleDialog(
+        clientName: clientName,
+        toolName: toolName,
+        preview: preview,
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   bool _isMcpClientApproved(McpClientIdentity client) {
     return widget.appSettings.isIntegrationAppApproved(
       client.appId,
@@ -1687,7 +1740,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         await _desktop?.showAndFocus();
       }
     } catch (e) {
-      _showSnack('No se pudo activar la integración: $e');
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(AppLocalizations.of(errCtx).integrationActivateFailed('$e'));
     }
   }
 
@@ -2825,6 +2880,158 @@ class _McpReadAccessDialog extends StatelessWidget {
           onPressed: () =>
               Navigator.pop(context, McpReadAccessDecision.allowAndRemember),
           child: Text(l10n.mcpReadAccessAllow),
+        ),
+      ],
+    );
+  }
+}
+
+/// Fase B2 del plan Quill/MCP — mismo lenguaje visual que
+/// `_McpReadAccessDialog`, pero para confirmar (o cancelar) una tool
+/// irreversible antes de ejecutarla. Muestra el `preview()` (Fase B1) cuando
+/// está disponible en vez de solo el nombre crudo de la tool.
+class _McpConfirmIrreversibleDialog extends StatelessWidget {
+  const _McpConfirmIrreversibleDialog({
+    required this.clientName,
+    required this.toolName,
+    required this.preview,
+  });
+
+  final String clientName;
+  final String toolName;
+  final AiToolPreview? preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final summary = preview?.summary ?? toolName;
+    final affected = preview?.affectedItems ?? const <String>[];
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.errorContainer.withValues(alpha: 0.5),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        color: scheme.error,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpConfirmIrreversibleTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.mcpConfirmIrreversibleBody(clientName, toolName),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (affected.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      for (final item in affected.take(8))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            '• $item',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      if (affected.length > 8)
+                        Text(
+                          '… (+${affected.length - 8})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.mcpConfirmIrreversibleCancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: scheme.error),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.mcpConfirmIrreversibleConfirm),
         ),
       ],
     );

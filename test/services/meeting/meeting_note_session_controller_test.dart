@@ -19,6 +19,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/models/block.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_callable.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_exception.dart';
 import 'package:folio/services/meeting_note_session_controller.dart';
@@ -257,6 +258,140 @@ void main() {
         expect(text, contains('FRAGMENTO_DOS'));
       },
     );
+  });
+
+  group('meeting_note — campos Fase 1 (título/idioma/channelMeta)', () {
+    test(
+      'updateBlockMeetingNoteChannelMeta persiste y sobrevive a un round-trip JSON',
+      () async {
+        final session = VaultSession();
+        session.addPage();
+        final page = session.selectedPage!;
+        final pageId = page.id;
+        final blockId = page.blocks.first.id;
+
+        session.updateBlockMeetingNoteChannelMeta(pageId, blockId, {
+          'micChunks': 12,
+          'systemChunks': 7,
+          'dualChannel': true,
+        });
+
+        final updated = session.selectedPage!.blocks.first;
+        expect(updated.meetingNoteChannelMeta, {
+          'micChunks': 12,
+          'systemChunks': 7,
+          'dualChannel': true,
+        });
+
+        // El campo debe sobrevivir toJson -> fromJson igual que el resto de
+        // campos de meeting_note (sin migración, aditivo/nullable-safe).
+        final roundTripped = FolioBlock.fromJson(updated.toJson());
+        expect(roundTripped.meetingNoteChannelMeta, {
+          'micChunks': 12,
+          'systemChunks': 7,
+          'dualChannel': true,
+        });
+      },
+    );
+
+    test(
+      'meetingNoteTitle y meetingNoteLanguage sobreviven a un round-trip JSON',
+      () {
+        final block = FolioBlock(
+          id: 'b1',
+          type: 'meeting_note',
+          text: '',
+          meetingNoteTitle: 'Weekly sync',
+          meetingNoteLanguage: 'es',
+        );
+        final roundTripped = FolioBlock.fromJson(block.toJson());
+        expect(roundTripped.meetingNoteTitle, 'Weekly sync');
+        expect(roundTripped.meetingNoteLanguage, 'es');
+      },
+    );
+
+    test('un bloque meeting_note sin los campos nuevos sigue cargando (blocks legacy)', () {
+      final legacyJson = <String, dynamic>{
+        'id': 'legacy1',
+        'type': 'meeting_note',
+        'text': 'Speaker 1: hola',
+        'meetingNoteProvider': 'local',
+      };
+      final block = FolioBlock.fromJson(legacyJson);
+      expect(block.meetingNoteTitle, isNull);
+      expect(block.meetingNoteLanguage, isNull);
+      expect(block.meetingNoteChannelMeta, isNull);
+    });
+  });
+
+  group('metricsSnapshot — cache (Fase 22, rendimiento)', () {
+    setUp(() => MeetingNoteSessionController.instance.debugResetForTest());
+    tearDown(() => MeetingNoteSessionController.instance.debugResetForTest());
+
+    test(
+      'con el mismo transcript devuelve la MISMA instancia (no recalcula)',
+      () {
+        final controller = MeetingNoteSessionController.instance;
+        controller.debugForceRecordingStateForTest(
+          pageId: 'p1',
+          blockId: 'b1',
+          transcript: 'Speaker 1: hola a todos',
+          elapsed: const Duration(minutes: 1),
+        );
+
+        final first = controller.metricsSnapshot;
+        final second = controller.metricsSnapshot;
+
+        expect(identical(first, second), isTrue);
+      },
+    );
+
+    test('al cambiar el transcript, recalcula (instancia distinta)', () {
+      final controller = MeetingNoteSessionController.instance;
+      controller.debugForceRecordingStateForTest(
+        pageId: 'p1',
+        blockId: 'b1',
+        transcript: 'Speaker 1: hola',
+        elapsed: const Duration(minutes: 1),
+      );
+      final first = controller.metricsSnapshot;
+
+      controller.debugForceRecordingStateForTest(
+        pageId: 'p1',
+        blockId: 'b1',
+        transcript: 'Speaker 1: hola a todos, buenas tardes',
+        elapsed: const Duration(minutes: 1),
+      );
+      final second = controller.metricsSnapshot;
+
+      expect(identical(first, second), isFalse);
+      expect(second.totalWords, greaterThan(first.totalWords));
+    });
+
+    test('debugResetForTest limpia la cache (no filtra entre sesiones)', () {
+      final controller = MeetingNoteSessionController.instance;
+      controller.debugForceRecordingStateForTest(
+        pageId: 'p1',
+        blockId: 'b1',
+        transcript: 'Speaker 1: hola a todos',
+        elapsed: const Duration(minutes: 1),
+      );
+      final beforeReset = controller.metricsSnapshot;
+
+      controller.debugResetForTest();
+      controller.debugForceRecordingStateForTest(
+        pageId: 'p2',
+        blockId: 'b2',
+        transcript: 'Speaker 1: hola a todos',
+        elapsed: const Duration(minutes: 1),
+      );
+      final afterReset = controller.metricsSnapshot;
+
+      // Mismo contenido de transcript, pero una instancia recién calculada
+      // para la nueva sesión — no una cache que sobrevivió al reset.
+      expect(identical(beforeReset, afterReset), isFalse);
+      expect(afterReset.totalWords, beforeReset.totalWords);
+    });
   });
 }
 

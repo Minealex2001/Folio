@@ -125,9 +125,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
-                child: _aiToolActivityLabel != null
-                    ? AiToolActivityIndicator(
-                        label: _aiToolActivityLabel!,
+                child: _aiToolTrace.isNotEmpty
+                    ? ToolInspectorPanel(
+                        steps: _aiToolTrace,
                         colorScheme: scheme,
                       )
                     : FolioAiChatReplySkeleton(colorScheme: scheme),
@@ -975,6 +975,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                     backgroundColor: scheme.primaryContainer,
                                   )
                                 : null,
+                          ),
+                          // Fase A5 del plan Quill/MCP — atajos nombrados
+                          // hacia Plan-mode ("Workflows"), no un ejecutor
+                          // nuevo. Primary Surface de disparo: este botón.
+                          IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openQuillWorkflowsPicker,
+                            icon: const Icon(Icons.auto_awesome_motion_outlined),
+                            tooltip: l10n.quillWorkflowsPickerTooltip,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
                           ),
                           if (_transcribingVoice)
                             const Padding(

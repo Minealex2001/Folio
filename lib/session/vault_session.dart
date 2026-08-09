@@ -32,6 +32,7 @@ import '../data/vault_registry.dart';
 import '../data/vault_repository.dart';
 import '../data/storage/vault_storage.dart';
 import '../models/block.dart';
+import '../models/meeting_note_bookmark.dart';
 import '../models/folio_page.dart';
 import '../models/folio_section.dart';
 import '../models/folio_usage_intent.dart';
@@ -134,6 +135,30 @@ class VaultSearchResult {
   final String? blockType;
   final int pageLastEditedMs;
   final int score;
+}
+
+/// Fase 4 del roadmap de producto (Cambios recientes) — un evento de
+/// actividad de sesión. Deliberadamente NO persistido ni un sistema de
+/// eventos genérico: complementa las fuentes de verdad reales que ya
+/// existen (`RecentPageVisitsStore` para visitas, revisiones de página para
+/// ediciones manuales) con la única señal que hoy no se guarda en ningún
+/// sitio — que Quill modificó contenido, y qué páginas tocó — para poder
+/// mostrar "Quill modificó X" en un feed unificado. Vive y muere con la
+/// sesión de la app, igual que `aiTurnId`/`_lastFocusedBlockByPage`.
+enum VaultActivityEventKind { aiEdit }
+
+class VaultActivityEvent {
+  const VaultActivityEvent({
+    required this.kind,
+    required this.timestampMs,
+    required this.pageId,
+    required this.pageTitle,
+  });
+
+  final VaultActivityEventKind kind;
+  final int timestampMs;
+  final String pageId;
+  final String pageTitle;
 }
 
 class _PageUndoSnapshot {
@@ -798,6 +823,17 @@ class VaultSession extends ChangeNotifier {
   final Map<String, List<_PageUndoSnapshot>> _redoByPage = {};
   final Map<String, DateTime> _lastUndoTypingCaptureAt = {};
 
+  // Fase B3 del plan Quill/MCP — undo agrupado por turno de IA. Alcance de
+  // v1, deliberadamente acotado tras verificar el código existente: solo
+  // agrupa los puntos de undo de CONTENIDO que `_rememberUndoBeforePageMutation`
+  // ya produce (mismo primitivo que usa Ctrl+Z, sin reimplementar
+  // snapshotting). Operaciones estructurales (crear/mover/borrar página,
+  // crear carpeta...) NO tienen hoy ningún mecanismo de undo, ni siquiera
+  // para una acción manual del usuario — extender a eso queda
+  // explícitamente fuera de este plan, es un proyecto propio.
+  String? _activeAiTurnId;
+  final Map<String, Map<String, int>> _aiTurnPreUndoLengths = {};
+
   /// Evita un `notifyListeners` por tecla: un único aviso al cerrar el frame.
   bool _typingNotifyFrameScheduled = false;
 
@@ -859,6 +895,74 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: id);
   }
 
+  /// Fase B3 — abre un grupo de undo para un turno de IA con potencialmente
+  /// varias tool-calls: cada página tocada durante el turno (vía
+  /// `_rememberUndoBeforePageMutation`) registra su longitud de pila de undo
+  /// ANTES del turno, una sola vez. Devuelve el id del turno, que
+  /// `undoAiTurn` usa después para deshacer exactamente lo que cambió en
+  /// este turno (y nada más).
+  String beginAiTurnUndoGroup() {
+    final turnId = _uuid.v4();
+    _activeAiTurnId = turnId;
+    _aiTurnPreUndoLengths[turnId] = {};
+    return turnId;
+  }
+
+  /// Cierra el turno — deja de registrar páginas nuevas en su grupo. El
+  /// grupo en sí permanece disponible para `undoAiTurn`/`aiTurnHasUndoableChanges`
+  /// hasta que se consuma o se descarte explícitamente.
+  void endAiTurnUndoGroup(String turnId) {
+    if (_activeAiTurnId == turnId) _activeAiTurnId = null;
+  }
+
+  /// Descarta el grupo sin deshacer nada (p. ej. el turno usó alguna tool no
+  /// reversible y no se va a ofrecer "deshacer" en absoluto).
+  void discardAiTurnUndoGroup(String turnId) {
+    if (_activeAiTurnId == turnId) _activeAiTurnId = null;
+    _aiTurnPreUndoLengths.remove(turnId);
+  }
+
+  /// true si el turno [turnId] efectivamente empujó algún snapshot de undo
+  /// (es decir, hay algo real que deshacer).
+  bool aiTurnHasUndoableChanges(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return false;
+    for (final entry in pre.entries) {
+      if ((_undoByPage[entry.key]?.length ?? 0) > entry.value) return true;
+    }
+    return false;
+  }
+
+  /// Fase 0 del roadmap de producto — cuenta cuántos snapshots de undo de
+  /// contenido empujó el turno [turnId], sin consumir el grupo (a diferencia
+  /// de `undoAiTurn`). Se usa para mostrar "Quill hizo N cambios" en vez de
+  /// un "Deshacer" genérico. 0 si el turno no existe o no tuvo cambios.
+  int aiTurnChangeCount(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return 0;
+    var total = 0;
+    for (final entry in pre.entries) {
+      final delta = (_undoByPage[entry.key]?.length ?? 0) - entry.value;
+      if (delta > 0) total += delta;
+    }
+    return total;
+  }
+
+  /// Deshace, página por página, exactamente los pasos de contenido
+  /// empujados durante el turno [turnId] — reutiliza `undoPageEdits` (el
+  /// mismo primitivo de Ctrl+Z), no reimplementa restauración de snapshots.
+  void undoAiTurn(String turnId) {
+    final pre = _aiTurnPreUndoLengths.remove(turnId);
+    if (pre == null) return;
+    for (final entry in pre.entries) {
+      final pageId = entry.key;
+      final targetLength = entry.value;
+      while ((_undoByPage[pageId]?.length ?? 0) > targetLength) {
+        undoPageEdits(pageId: pageId);
+      }
+    }
+  }
+
   void redoPageEdits({String? pageId}) {
     final id = pageId ?? _selectedPageId;
     if (id == null) return;
@@ -902,6 +1006,14 @@ class VaultSession extends ChangeNotifier {
               meetingNoteProvider: b.meetingNoteProvider,
               meetingNoteTranscriptionEnabled:
                   b.meetingNoteTranscriptionEnabled,
+              meetingNoteTitle: b.meetingNoteTitle,
+              meetingNoteLanguage: b.meetingNoteLanguage,
+              meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+              meetingNoteBookmarks: b.meetingNoteBookmarks,
+              meetingNotePrepNotes: b.meetingNotePrepNotes,
+              meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+              meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+              meetingNoteSummary: b.meetingNoteSummary,
             ),
           )
           .toList(),
@@ -927,6 +1039,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -937,6 +1057,20 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final now = DateTime.now();
     final stack = _undoByPage.putIfAbsent(pageId, () => []);
+
+    // Fase B3 — registra, una sola vez por página y por turno, la longitud
+    // de la pila de undo ANTES de cualquier cambio de este turno (capturada
+    // aquí arriba de cualquier `stack.add` de más abajo, incluso si esta
+    // llamada concreta termina sin empujar nada por coalescing/fingerprint
+    // duplicado — la primera llamada real del turno es la que fija el punto
+    // de referencia).
+    final activeTurnId = _activeAiTurnId;
+    if (activeTurnId != null) {
+      _aiTurnPreUndoLengths[activeTurnId]?.putIfAbsent(
+        pageId,
+        () => stack.length,
+      );
+    }
 
     // Chequeo barato de la ventana de coalescing ANTES del fingerprint caro
     // (jsonEncode de toda la página): en páginas con miles de bloques,
@@ -2535,6 +2669,14 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
         await _importBlockAttachmentIfNeeded(
           copied,
@@ -3344,6 +3486,62 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Fase 2 del roadmap de producto — "continuar donde lo dejaste" necesita
+  // saber en qué bloque estaba el usuario al salir de una página, no solo
+  // qué página visitó. Deliberadamente en memoria y sin `notifyListeners`
+  // (se actualiza en cada cambio de foco de bloque — Sidebar/`RecentPageVisit`
+  // lo lee solo al detectar un cambio de página, no lo observa en vivo):
+  // persistirlo vive en `RecentPageVisitsStore` (Sidebar), este mapa es solo
+  // la fuente de verdad de sesión, mismo patrón que `_lastSelectedPagePrefsKey`.
+  final Map<String, String> _lastFocusedBlockByPage = {};
+
+  void noteLastFocusedBlock(String pageId, String blockId) {
+    _lastFocusedBlockByPage[pageId] = blockId;
+  }
+
+  String? lastFocusedBlockForPage(String pageId) =>
+      _lastFocusedBlockByPage[pageId];
+
+  // Fase 4 del roadmap de producto — feed de actividad de sesión (ver
+  // `VaultActivityEvent`). Acotado a los últimos N eventos, más nuevo
+  // primero, sin persistir.
+  static const int _maxActivityEvents = 30;
+  final List<VaultActivityEvent> _activityEvents = [];
+
+  List<VaultActivityEvent> get recentActivityEvents =>
+      List.unmodifiable(_activityEvents);
+
+  void _recordActivityEvent(VaultActivityEvent event) {
+    _activityEvents.insert(0, event);
+    if (_activityEvents.length > _maxActivityEvents) {
+      _activityEvents.removeRange(_maxActivityEvents, _activityEvents.length);
+    }
+  }
+
+  /// Fase 4 — registra un evento "Quill modificó <página>" por cada página
+  /// realmente tocada durante el turno [turnId] (mismo `_aiTurnPreUndoLengths`
+  /// que ya usa `aiTurnChangeCount`, leído ANTES de que `undoAiTurn` o
+  /// `discardAiTurnUndoGroup` lo consuman/borren).
+  void recordAiTurnActivity(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final entry in pre.entries) {
+      final delta = (_undoByPage[entry.key]?.length ?? 0) - entry.value;
+      if (delta <= 0) continue;
+      final page = _pageById(entry.key);
+      if (page == null) continue;
+      _recordActivityEvent(
+        VaultActivityEvent(
+          kind: VaultActivityEventKind.aiEdit,
+          timestampMs: now,
+          pageId: page.id,
+          pageTitle: page.title.trim().isEmpty ? _titleL10n.untitled : page.title,
+        ),
+      );
+    }
+  }
+
   void clearSelectedPage() {
     if (_selectedPageId == null) return;
     touchActivity();
@@ -3480,6 +3678,28 @@ class VaultSession extends ChangeNotifier {
       attachmentPaths: cur.attachmentPaths,
       includePageContext: cur.includePageContext,
       contextPageIds: next,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Fase A1 del plan Quill/MCP — toggle explícito por hilo: si está activo,
+  /// la selección del editor se adjunta en cada envío sin que el usuario
+  /// tenga que volver a elegir "@" → "Selección del editor" cada vez.
+  void setActiveAiChatAutoIncludeSelection(bool value) {
+    if (_state != VaultFlowState.unlocked) return;
+    final i = _aiActiveChatIndex;
+    if (i < 0 || i >= _aiChatThreads.length) return;
+    final cur = _aiChatThreads[i];
+    if (cur.autoIncludeSelection == value) return;
+    _aiChatThreads[i] = AiChatThreadData(
+      id: cur.id,
+      title: cur.title,
+      messages: cur.messages,
+      attachmentPaths: cur.attachmentPaths,
+      includePageContext: cur.includePageContext,
+      contextPageIds: cur.contextPageIds,
+      autoIncludeSelection: value,
     );
     notifyListeners();
     scheduleSave();
@@ -4447,6 +4667,14 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
       }
       return b;
@@ -4533,6 +4761,14 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
       }
       return b;
@@ -5510,6 +5746,145 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void updateBlockMeetingNoteChannelMeta(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? channelMeta,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteChannelMeta = channelMeta;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Añade un bookmark a un bloque `meeting_note` (Fase 4). No valida
+  /// duplicados por id — el llamador genera ids únicos (ver
+  /// `MeetingNoteSessionController`/tool MCP `meeting_create_bookmark`).
+  void addBlockMeetingNoteBookmark(
+    String pageId,
+    String blockId,
+    MeetingNoteBookmark bookmark,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final current = List<MeetingNoteBookmark>.from(
+      b.meetingNoteBookmarks ?? const <MeetingNoteBookmark>[],
+    );
+    current.add(bookmark);
+    b.meetingNoteBookmarks = current;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNotePrepNotes(
+    String pageId,
+    String blockId,
+    String? prepNotes,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNotePrepNotes = prepNotes;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteMetricsSummary(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? metricsSummary,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteMetricsSummary = metricsSummary;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteAutoAssistEnabled(
+    String pageId,
+    String blockId,
+    bool? enabled,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteAutoAssistEnabled = enabled;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteSummary(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? summary,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteSummary = summary;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Marca el action item [index] del resumen post-reunión como
+  /// materializado (Fase 14): guarda el id del bloque `task` real creado.
+  /// No hace nada si el bloque/summary/índice no existen.
+  void setMeetingNoteSummaryActionItemTaskBlockId(
+    String pageId,
+    String blockId,
+    int index,
+    String taskBlockId,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final summary = b.meetingNoteSummary;
+    if (summary == null) return;
+    final actionItems = summary['actionItems'];
+    if (actionItems is! List || index < 0 || index >= actionItems.length) {
+      return;
+    }
+    final item = actionItems[index];
+    if (item is! Map) return;
+    final updatedItems = List<Object?>.from(actionItems);
+    updatedItems[index] = Map<String, Object?>.from(item)
+      ..['taskBlockId'] = taskBlockId;
+    b.meetingNoteSummary = Map<String, Object?>.from(summary)
+      ..['actionItems'] = updatedItems;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void removeBlockMeetingNoteBookmark(
+    String pageId,
+    String blockId,
+    String bookmarkId,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final current = b.meetingNoteBookmarks;
+    if (current == null || current.isEmpty) return;
+    final next = current.where((bm) => bm.id != bookmarkId).toList();
+    if (next.length == current.length) return;
+    b.meetingNoteBookmarks = next;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void updateBlockUrl(String pageId, String blockId, String? url) {
     final page = _pageById(pageId);
     if (page == null) return;
@@ -5822,6 +6197,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -6274,6 +6657,14 @@ class VaultSession extends ChangeNotifier {
       appearance: b.appearance,
       meetingNoteProvider: b.meetingNoteProvider,
       meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+      meetingNoteTitle: b.meetingNoteTitle,
+      meetingNoteLanguage: b.meetingNoteLanguage,
+      meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+      meetingNoteBookmarks: b.meetingNoteBookmarks,
+      meetingNotePrepNotes: b.meetingNotePrepNotes,
+      meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+      meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+      meetingNoteSummary: b.meetingNoteSummary,
       syncGroupId: b.syncGroupId,
     );
     to.blocks.add(moved);
@@ -7978,6 +8369,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -8001,6 +8400,11 @@ class VaultSession extends ChangeNotifier {
     if (txt.isNotEmpty && url.isNotEmpty) return '$txt $url';
     return txt.isNotEmpty ? txt : url;
   }
+
+  /// Fase 2 del roadmap de producto (Daily Brief) — expone
+  /// `_pageLastEditedMs` para widgets del dashboard. Dato real (última
+  /// revisión guardada de la página), no una aproximación por visitas.
+  int pageLastEditedMs(String pageId) => _pageLastEditedMs(pageId);
 
   int _pageLastEditedMs(String pageId) {
     final list = _pageRevisions[pageId];

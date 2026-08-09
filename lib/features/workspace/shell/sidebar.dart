@@ -25,6 +25,7 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import 'sidebar/sidebar_footer.dart';
 import 'sidebar/sidebar_page_tree.dart';
+import 'sidebar/sidebar_pillar_rail.dart';
 import 'sidebar/sidebar_recents.dart';
 import 'sidebar/sidebar_vault_toolbar.dart';
 import '../collab/vault_share_sheet.dart';
@@ -155,6 +156,17 @@ class _SidebarState extends State<Sidebar> {
     }
     final selectedId = session.selectedPageId;
     if (selectedId != null && selectedId != _lastSelectedPageId) {
+      // Fase 2 del roadmap de producto — antes de perder la referencia a la
+      // página que se abandona, guarda en qué bloque estaba enfocado el
+      // usuario (si alguno), para que "continuar donde lo dejaste" pueda
+      // saltar directo a esa posición la próxima vez.
+      final leavingPageId = _lastSelectedPageId;
+      if (leavingPageId != null) {
+        final lastBlockId = session.lastFocusedBlockForPage(leavingPageId);
+        if (lastBlockId != null) {
+          _updateRecentLastBlock(leavingPageId, lastBlockId);
+        }
+      }
       _lastSelectedPageId = selectedId;
       _registerRecentPage(selectedId);
     }
@@ -248,6 +260,21 @@ class _SidebarState extends State<Sidebar> {
       visits: _recentVisits,
       limit: kRecentPageVisitsStorageLimit,
     );
+  }
+
+  void _updateRecentLastBlock(String pageId, String blockId) {
+    final next = RecentPageVisitsStore.withUpdatedLastBlock(
+      _recentVisits,
+      pageId,
+      blockId,
+    );
+    if (identical(next, _recentVisits)) return;
+    setState(() {
+      _recentVisits
+        ..clear()
+        ..addAll(next);
+    });
+    unawaited(_persistRecentState());
   }
 
   void _registerRecentPage(String pageId) {
@@ -860,6 +887,13 @@ class _SidebarState extends State<Sidebar> {
               onShareVault: () => unawaited(
                 showVaultShareSheet(context: context, session: session),
               ),
+            ),
+            SidebarPillarRail(
+              onWrite: () => session.addPage(parentId: null),
+              onThink: widget.onSearch,
+              onOrganize: widget.onOpenVaultTaskHub,
+              onConnect: widget.onOpenCloudStatus,
+              onCustomize: widget.onOpenSettings,
             ),
             if (showDeskTools)
               Padding(

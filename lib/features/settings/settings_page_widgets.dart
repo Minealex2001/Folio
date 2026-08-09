@@ -229,13 +229,13 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.cloud_outlined;
         gradientColors = const [Color(0xFF42A5F5), Color(0xFF1E88E5)];
         subtitle = widget.cloud.isSignedIn
-            ? (widget.cloud.email ?? 'Sesión iniciada')
-            : 'Configura tu cuenta';
+            ? (widget.cloud.email ?? widget.l10n.settingsHeroCloudSignedIn)
+            : widget.l10n.settingsHeroCloudSignedOut;
         break;
       case _SettingsSectionId.vault:
         icon = Icons.lock_outline_rounded;
         gradientColors = const [Color(0xFFAB47BC), Color(0xFF7B1FA2)];
-        subtitle = 'Copia de seguridad, seguridad y datos';
+        subtitle = widget.l10n.settingsHeroVaultSubtitle;
         break;
       case _SettingsSectionId.appearance:
         icon = Icons.palette_outlined;
@@ -251,23 +251,27 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = FolioIcons.quillOutlined;
         gradientColors = const [Color(0xFF26A69A), Color(0xFF00796B)];
         subtitle = widget.app.aiEnabled
-            ? 'Proveedor: ${_providerLabel(widget.app.aiProvider, widget.l10n)}'
-            : 'Deshabilitado';
+            ? widget.l10n.settingsHeroAiProvider(
+                _providerLabel(widget.app.aiProvider, widget.l10n),
+              )
+            : widget.l10n.settingsHeroAiDisabled;
         break;
       case _SettingsSectionId.sync:
         icon = Icons.sync_rounded;
         gradientColors = const [Color(0xFFEC407A), Color(0xFFC2185B)];
-        subtitle = 'Sincronizar tus dispositivos';
+        subtitle = widget.l10n.settingsHeroSyncSubtitle;
         break;
       case _SettingsSectionId.about:
         icon = Icons.info_outline_rounded;
         gradientColors = const [Color(0xFF00F3FF), Color(0xFFFF00FF)];
-        subtitle = 'Versión ${widget.installedVersionLabel}';
+        subtitle = widget.l10n.settingsHeroAboutVersion(
+          widget.installedVersionLabel,
+        );
         break;
       case _SettingsSectionId.integrations:
         icon = Icons.extension_outlined;
         gradientColors = const [Color(0xFF26C6DA), Color(0xFF0097A7)];
-        subtitle = 'Conexiones con Jira, YouTrack y más';
+        subtitle = widget.l10n.settingsHeroIntegrationsSubtitle;
         break;
       case _SettingsSectionId.organization:
         icon = Icons.groups_outlined;
@@ -277,7 +281,7 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
       case _SettingsSectionId.personalization:
         icon = Icons.dashboard_customize_outlined;
         gradientColors = const [Color(0xFF8D6E63), Color(0xFF5D4037)];
-        subtitle = 'Motor de layout, tema y dashboard (beta)';
+        subtitle = widget.l10n.settingsHeroPersonalizationSubtitle;
         break;
     }
 

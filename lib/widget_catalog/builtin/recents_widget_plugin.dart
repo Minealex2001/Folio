@@ -162,7 +162,18 @@ class _RecentsListState extends State<_RecentsList> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              onTap: () => widget.ctx.onSelectPage?.call(page.id),
+              onTap: () {
+                widget.ctx.onSelectPage?.call(page.id);
+                // Fase 2 del roadmap de producto — "continuar donde lo
+                // dejaste": si se registró un bloque enfocado al salir de
+                // esta página la última vez, salta directo ahí en vez de
+                // abrir la página desde arriba (mismo mecanismo que usa la
+                // búsqueda global — `requestScrollToBlock`).
+                final lastBlockId = visit.lastBlockId;
+                if (lastBlockId != null && lastBlockId.isNotEmpty) {
+                  widget.ctx.session.requestScrollToBlock(lastBlockId);
+                }
+              },
             );
           },
         );

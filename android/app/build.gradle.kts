@@ -22,7 +22,8 @@ if (hasReleaseKeystore) {
 
 android {
     namespace = "com.minealexgames.folio"
-    compileSdk = flutter.compileSdkVersion
+    // Google Play exige targetSdk 36 (Android 16) o superior.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -38,7 +39,7 @@ android {
         applicationId = "com.minealexgames.folio"
         // ML Kit GenAI Prompt (Gemini Nano) requiere API 26+.
         minSdk = maxOf(26, flutter.minSdkVersion)
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

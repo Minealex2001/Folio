@@ -55,6 +55,56 @@ void main() {
       );
       expect(result.map((c) => c.id).toList(), ['c', 'a', 'b']);
     });
+
+    group('capa de intención en lenguaje natural (Fase 1 del roadmap)', () {
+      test('frase sin match literal cae al fallback por sinónimos', () {
+        final commands = [
+          cmd('cmd_workspace_new_page', 'Nuevo folio'),
+          cmd('cmd_workspace_settings', 'Ajustes'),
+        ];
+        final result = filterPaletteCommands(
+          commands,
+          'necesito crear pagina para esto',
+        );
+        expect(result.map((c) => c.id).toList(), ['cmd_workspace_new_page']);
+      });
+
+      test('funciona igual en inglés', () {
+        final commands = [
+          cmd('cmd_workspace_search', 'Search'),
+          cmd('cmd_workspace_settings', 'Settings'),
+        ];
+        final result = filterPaletteCommands(commands, 'search for something');
+        expect(result.map((c) => c.id).toList(), ['cmd_workspace_search']);
+      });
+
+      test('un match literal gana y el fallback NL no se activa (aunque la '
+          'frase también dispararía un sinónimo de otro comando)', () {
+        final commands = [
+          cmd('a', 'crear pagina nueva'),
+          cmd('cmd_workspace_new_page', 'Nuevo folio'),
+        ];
+        // La frase completa hace match literal en el label de 'a' — el
+        // fallback ni se evalúa, así que cmd_workspace_new_page (que
+        // también dispararía por sinónimo) no debe aparecer.
+        final result = filterPaletteCommands(commands, 'crear pagina nueva');
+        expect(result.map((c) => c.id).toList(), ['a']);
+      });
+
+      test('frase sin ningún sinónimo conocido sigue sin resultados', () {
+        final commands = [cmd('cmd_workspace_new_page', 'Nuevo folio')];
+        expect(
+          filterPaletteCommands(commands, 'algo totalmente distinto'),
+          isEmpty,
+        );
+      });
+
+      test('una sola palabra sin match no activa el fallback NL '
+          '(reservado a frases)', () {
+        final commands = [cmd('cmd_workspace_new_page', 'Nuevo folio')];
+        expect(filterPaletteCommands(commands, 'pagina'), isEmpty);
+      });
+    });
   });
 
   group('PaletteCommandRegistry', () {

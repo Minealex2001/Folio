@@ -647,8 +647,46 @@ extension _SettingsPageAiSection on _SettingsPageState {
                   }
                 : null,
           ),
+          // Fase A3 del plan Quill/MCP — sugerencias proactivas (v1: solo
+          // tras transcribir una reunión).
+          SwitchListTile(
+            secondary: const Icon(Icons.tips_and_updates_outlined),
+            title: Text(l10n.settingsProactiveSuggestionsTitle),
+            subtitle: Text(l10n.settingsProactiveSuggestionsSubtitle),
+            value: _app.proactiveSuggestionsEnabled,
+            onChanged: (v) async {
+              await _app.setProactiveSuggestionsEnabled(v);
+              if (mounted) _rebuild(() {});
+            },
+          ),
           const Divider(height: 1),
           _buildQuillInstructionsBlock(l10n, scheme),
+          const Divider(height: 1),
+          // Fase A4 del plan Quill/MCP — pantalla de gestión de los hechos
+          // que Quill incluye automáticamente como contexto en cada envío.
+          ListTile(
+            leading: const Icon(Icons.bookmark_added_outlined),
+            title: Text(l10n.vaultMemoryFactsTitle),
+            subtitle: Text(l10n.settingsVaultMemoryFactsSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => VaultMemoryFactsPage(appSettings: _app),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          // Fase A5 del plan Quill/MCP — atajos nombrados hacia Plan-mode.
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_motion_outlined),
+            title: Text(l10n.quillWorkflowsTitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => QuillWorkflowsPage(appSettings: _app),
+              ),
+            ),
+          ),
 
           // ── Avanzado ──
           Theme(

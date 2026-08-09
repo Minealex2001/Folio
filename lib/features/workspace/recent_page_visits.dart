@@ -37,10 +37,26 @@ class RecentPageVisit {
   const RecentPageVisit({
     required this.pageId,
     required this.visitedAtMs,
+    this.lastBlockId,
   });
 
   final String pageId;
   final int visitedAtMs;
+
+  /// Fase 2 del roadmap de producto — último bloque enfocado en esta página
+  /// al salir de ella (ver `VaultSession.noteLastFocusedBlock`), para que
+  /// "continuar donde lo dejaste" pueda saltar directo a la posición de
+  /// edición en vez de solo abrir la página desde arriba. `null` = no se
+  /// registró ningún foco (o la página se visitó sin editar nada).
+  final String? lastBlockId;
+
+  RecentPageVisit copyWith({String? lastBlockId, bool clearLastBlockId = false}) {
+    return RecentPageVisit(
+      pageId: pageId,
+      visitedAtMs: visitedAtMs,
+      lastBlockId: clearLastBlockId ? null : (lastBlockId ?? this.lastBlockId),
+    );
+  }
 }
 
 /// Carga, guarda y migra la lista de páginas recientes en [SharedPreferences].
@@ -52,9 +68,13 @@ class RecentPageVisitsStore {
   RecentPageVisitsStore._();
 
   static bool _entryHasTimestamp(String e) {
-    final pipe = e.lastIndexOf('|');
-    if (pipe <= 0) return false;
-    return int.tryParse(e.substring(pipe + 1)) != null;
+    // Fase 2 del roadmap de producto — formato extendido a
+    // `pageId|visitedAtMs|blockId` (blockId opcional): ya no se puede
+    // asumir que el segmento tras el ÚLTIMO `|` es el timestamp, así que
+    // se parte por `|` y se mira siempre la posición 1.
+    final parts = e.split('|');
+    if (parts.length < 2) return false;
+    return int.tryParse(parts[1]) != null;
   }
 
   static List<RecentPageVisit> decodeRawList(List<String> saved) {
@@ -79,21 +99,26 @@ class RecentPageVisitsStore {
   }
 
   static RecentPageVisit? _parseEntry(String e, int fallbackMs) {
-    final pipe = e.lastIndexOf('|');
-    if (pipe <= 0) {
-      final id = e.trim();
-      if (id.isEmpty) return null;
+    final parts = e.split('|');
+    final id = parts[0].trim();
+    if (id.isEmpty) return null;
+    if (parts.length < 2) {
       return RecentPageVisit(pageId: id, visitedAtMs: fallbackMs);
     }
-    final id = e.substring(0, pipe).trim();
-    final ms = int.tryParse(e.substring(pipe + 1));
-    if (id.isEmpty || ms == null) return null;
-    return RecentPageVisit(pageId: id, visitedAtMs: ms);
+    final ms = int.tryParse(parts[1]);
+    if (ms == null) return null;
+    final blockId = (parts.length >= 3 && parts[2].trim().isNotEmpty)
+        ? parts[2].trim()
+        : null;
+    return RecentPageVisit(pageId: id, visitedAtMs: ms, lastBlockId: blockId);
   }
 
   static List<String> encodeList(List<RecentPageVisit> visits) {
     return [
-      for (final v in visits) '${v.pageId}|${v.visitedAtMs}',
+      for (final v in visits)
+        (v.lastBlockId == null || v.lastBlockId!.isEmpty)
+            ? '${v.pageId}|${v.visitedAtMs}'
+            : '${v.pageId}|${v.visitedAtMs}|${v.lastBlockId}',
     ];
   }
 
@@ -152,6 +177,22 @@ class RecentPageVisitsStore {
     final trimmed = visits.take(limit).toList(growable: false);
     await prefs.setStringList(key, encodeList(trimmed));
     RecentPageVisitsChangeNotifier.instance.notifyRecentsPersisted();
+  }
+
+  /// Fase 2 del roadmap de producto — actualiza el `lastBlockId` de la
+  /// entrada de [pageId] si existe, sin tocar su posición ni `visitedAtMs`.
+  /// No-op si [pageId] no está en la lista (p. ej. se cerró la app antes de
+  /// que esa visita llegara a persistirse).
+  static List<RecentPageVisit> withUpdatedLastBlock(
+    List<RecentPageVisit> current,
+    String pageId,
+    String blockId,
+  ) {
+    final idx = current.indexWhere((v) => v.pageId == pageId);
+    if (idx < 0 || current[idx].lastBlockId == blockId) return current;
+    final next = List<RecentPageVisit>.of(current);
+    next[idx] = next[idx].copyWith(lastBlockId: blockId);
+    return next;
   }
 
   /// Coloca [pageId] al frente con tiempo actual (o [visitedAtMs]).

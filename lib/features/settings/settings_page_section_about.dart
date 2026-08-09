@@ -28,6 +28,52 @@ extension _SettingsPageAboutSection on _SettingsPageState {
                 description: l10n.settingsAboutHeroDescription,
               ),
               const Divider(height: 1),
+              // Fase 3 del roadmap de producto (idea #6, "Folio Health") —
+              // agrega sync/backup/vault ya observables en otras
+              // sub-pantallas de Settings en una sola vista de solo
+              // lectura; ver `folio_health_screen.dart`.
+              ListTile(
+                leading: const Icon(Icons.health_and_safety_outlined),
+                title: Text(l10n.folioHealthTitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => FolioHealthScreen(
+                        session: widget.session,
+                        appSettings: _app,
+                        folioCloudEntitlements: widget.folioCloudEntitlements,
+                        cloudDeviceSyncController:
+                            widget.cloudDeviceSyncController,
+                        onResolveSyncConflicts: _showSyncConflictsDialog,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              // Fase 3 del roadmap de producto (idea #8, "Privacy Center").
+              ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text(l10n.privacyCenterTitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openPrivacyCenter,
+              ),
+              const Divider(height: 1),
+              // Fase 3 del roadmap de producto (idea #7, "Permisos").
+              ListTile(
+                leading: const Icon(Icons.shield_outlined),
+                title: Text(l10n.permissionsTitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const FolioPermissionsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
               ..._buildPrivacyDiagnosticsChildren(
                 l10n: l10n,
                 scheme: scheme,
@@ -46,6 +92,19 @@ extension _SettingsPageAboutSection on _SettingsPageState {
                     ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : null,
                 onTap: _openingReleaseNotes ? null : _openReleaseNotesNow,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.balance_outlined),
+                title: Text(l10n.settingsOpenThirdPartyLicenses),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ThirdPartyLicensesPage(),
+                    ),
+                  );
+                },
               ),
               if (FolioDistribution.offersGitHubSelfUpdate) ...[
                 if (showDesktopOnlySections) ...[

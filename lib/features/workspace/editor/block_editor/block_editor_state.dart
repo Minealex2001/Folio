@@ -910,10 +910,26 @@ class BlockEditorState extends State<BlockEditor>
     });
   }
 
+  /// Fase 0 del roadmap de producto — texto plano combinado de varios
+  /// bloques seleccionados, en el orden en que aparecen en la página.
+  /// Usado para que las acciones de IA operen sobre una selección
+  /// multi-bloque en vez de estar limitadas a un solo bloque enfocado.
+  String _combinedPlainTextForBlocks(List<String> blockIds) {
+    final page = _s.selectedPage;
+    if (page == null) return '';
+    final idSet = blockIds.toSet();
+    return page.blocks
+        .where((b) => idSet.contains(b.id))
+        .map((b) => _livePlainTextForBlock(b.id))
+        .where((t) => t.trim().isNotEmpty)
+        .join('\n\n');
+  }
+
   Future<void> _dispatchAiSlashFromToolbar({
     required AiSlashIntent intent,
     required String pageId,
     required String blockId,
+    String? selectionOverride,
   }) async {
     if (widget.readOnlyMode) return;
     final cb = widget.onAiSlashCommand;
@@ -926,8 +942,8 @@ class BlockEditorState extends State<BlockEditor>
       }
       return;
     }
-    final sel = _plainAiSelectionForBlock(blockId);
-    final plain = _livePlainTextForBlock(blockId);
+    final sel = selectionOverride ?? _plainAiSelectionForBlock(blockId);
+    final plain = selectionOverride ?? _livePlainTextForBlock(blockId);
     try {
       await cb(
         FolioAiSlashParams(
@@ -3773,6 +3789,10 @@ class BlockEditorState extends State<BlockEditor>
       // FocusNode de la página.
       if (fn.hasFocus) {
         _focusedBlockId = bid;
+        // Fase 2 del roadmap de producto — "continuar donde lo dejaste"
+        // (ver `VaultSession.noteLastFocusedBlock`). Barato: un write a un
+        // Map por evento de foco, no por cada tecla.
+        _s.noteLastFocusedBlock(pid, bid);
       } else if (_focusedBlockId == bid) {
         _focusedBlockId = null;
       }
@@ -4770,15 +4790,28 @@ class BlockEditorState extends State<BlockEditor>
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       label: Text(l10n.blockEditorDuplicate),
                     ),
+                    // Fase 0 del roadmap de producto — cierra el hueco que
+                    // dejó deliberadamente abierto la Fase E1/E2/E3 (ver
+                    // comentario debajo): "IA sobre selección" ya tiene su
+                    // propio disparador (el popover Raycast de la Fase D1),
+                    // solo faltaba engancharlo aquí para selección
+                    // multi-bloque.
+                    if (!widget.readOnlyMode && widget.onAiSlashCommand != null)
+                      TextButton.icon(
+                        onPressed: () => showAiSelectionPopover(
+                          blockId: _selectedBlockIds.first,
+                          blockIds: _selectedBlockIds.toList(),
+                        ),
+                        icon: const Icon(FolioIcons.quillOutlined, size: 18),
+                        label: Text(l10n.blockEditorAskQuillTooltip),
+                      ),
                     // Fase E1/E2/E3 del rediseño UX: "Agrupar" es la Primary
                     // Surface de convertir-a-columnas y agrupar-en-sección —
                     // ambas acciones solo existen aquí, no se duplican en
-                    // ningún otro menú. "Mover" (multi-bloque) e "IA" sobre
-                    // selección quedan fuera de esta fase: "Mover" no tiene
-                    // semántica clara para selecciones no contiguas sin un
-                    // selector de página propio, e "IA sobre selección" es
-                    // exactamente el trabajo de la Fase D1 (popover
-                    // estilo Raycast), que construye su propio disparador.
+                    // ningún otro menú. "Mover" (multi-bloque) sigue fuera de
+                    // esta fase: no tiene semántica clara para selecciones no
+                    // contiguas sin un selector de página propio. ("IA sobre
+                    // selección" ya está resuelta arriba, Fase 0 del roadmap.)
                     PopupMenuButton<VoidCallback>(
                       enabled: _isContiguousSelection(page, _selectedBlockIds),
                       tooltip: l10n.blockEditorGroupAction,

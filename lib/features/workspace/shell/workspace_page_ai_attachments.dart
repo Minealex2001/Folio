@@ -49,7 +49,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
       return preview;
     }
     final url = (b.url ?? '').split(RegExp(r'[/\\]')).last;
-    return url.isNotEmpty ? url : 'Nota de reunión';
+    return url.isNotEmpty ? url : AppLocalizations.of(context).meetingNoteFallbackTitle;
   }
 
   bool _meetingNoteHasTranscriptForAi(FolioBlock b) {
@@ -99,7 +99,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
                 children: [
                   if (meetingBlocks.length > 1) ...[
                     Text(
-                      'Selecciona la nota:',
+                      l10n.meetingNoteSelectNote,
                       style: Theme.of(ctx).textTheme.labelMedium,
                     ),
                     ...meetingBlocks.map(

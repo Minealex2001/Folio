@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,7 +26,9 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   @override
   void initState() {
     super.initState();
-    _run();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_run());
+    });
   }
 
   Future<void> _goHome() async {
@@ -33,13 +37,13 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   }
 
   Future<void> _run() async {
+    final l10n = AppLocalizations.of(context);
     final token = widget.token.trim();
     if (token.isEmpty) {
       setState(() {
         _loading = false;
         _ok = false;
-        _message =
-            'Falta el token del enlace. Solicita un nuevo correo de verificación.';
+        _message = l10n.verifyEmailMissingToken;
       });
       return;
     }
@@ -49,8 +53,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
       setState(() {
         _loading = false;
         _ok = true;
-        _message =
-            'Tu correo ya está verificado. Ya puedes usar Folio Cloud con normalidad.';
+        _message = l10n.verifyEmailSuccessBody;
       });
     } catch (e) {
       if (!mounted) return;
@@ -97,7 +100,9 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                     ),
                     const SizedBox(height: FolioSpace.md),
                     Text(
-                      _ok ? 'Correo verificado' : 'No se pudo verificar',
+                      _ok
+                          ? l10n.verifyEmailTitleOk
+                          : l10n.verifyEmailTitleFail,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),

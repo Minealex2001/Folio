@@ -23,10 +23,31 @@ String _relativeVisitTime(AppLocalizations l10n, DateTime visited, DateTime now)
   return l10n.widgetRelativeDaysAgo(ago.inDays);
 }
 
-/// Actividad reciente — Folio no lleva un log de eventos dedicado, así que
-/// esto reutiliza la misma fuente de verdad que "Recientes"
-/// (`RecentPageVisitsStore`) presentada como una línea de tiempo relativa,
-/// en vez de inventar un feed de actividad separado.
+enum _TimelineEntryKind { visit, aiEdit }
+
+class _TimelineEntry {
+  const _TimelineEntry({
+    required this.kind,
+    required this.timestampMs,
+    required this.pageId,
+  });
+
+  final _TimelineEntryKind kind;
+  final int timestampMs;
+  final String pageId;
+}
+
+/// Fase 4 del roadmap de producto — "Cambios recientes". Antes esto solo
+/// reutilizaba `RecentPageVisitsStore` (visitas de navegación) porque Folio
+/// no tenía ninguna otra señal de actividad real que mostrar. Ahora también
+/// fusiona `VaultSession.recentActivityEvents` (turnos de Quill que
+/// modificaron contenido — Fase 4, alimentado por el mismo gancho de la
+/// Fase 0/`recordAiTurnActivity`), ordenado por tiempo — una sola línea de
+/// tiempo, no dos widgets paralelos. Ediciones manuales y eventos de sync
+/// quedan fuera de este merge: no hay hoy una fuente de verdad equivalente
+/// para "edición manual puntual" (solo revisiones completas de página) ni
+/// para "evento de sync" en un formato compatible con esta lista — añadirlos
+/// es una extensión directa de este mismo esquema, no una reescritura.
 class ActivityWidgetPlugin extends FolioWidgetPlugin {
   const ActivityWidgetPlugin();
 
@@ -130,37 +151,80 @@ class _ActivityListState extends State<_ActivityList> {
             ),
           );
         }
-        final l10n = AppLocalizations.of(context);
-        if (visits.isEmpty) {
-          return BuiltinWidgetEmpty(message: l10n.widgetActivityEmpty);
-        }
-        final byId = {for (final p in widget.ctx.session.pages) p.id: p};
-        final now = DateTime.now();
-        final scheme = Theme.of(context).colorScheme;
-        return ListView.builder(
-          itemCount: visits.length,
-          itemBuilder: (context, index) {
-            final visit = visits[index];
-            final page = byId[visit.pageId];
-            if (page == null) return const SizedBox.shrink();
-            final visited = DateTime.fromMillisecondsSinceEpoch(
-              visit.visitedAtMs,
-            );
-            final agoText = _relativeVisitTime(l10n, visited, now);
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        // Fase 4 — se envuelve en ListenableBuilder solo aquí (no en todo
+        // el FutureBuilder) para que los turnos de Quill nuevos aparezcan
+        // en vivo sin tener que releer `RecentPageVisitsStore` del disco.
+        return ListenableBuilder(
+          listenable: widget.ctx.session,
+          builder: (context, _) => _buildTimeline(context, visits),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeline(BuildContext context, List<RecentPageVisit> visits) {
+    final l10n = AppLocalizations.of(context);
+    final byId = {for (final p in widget.ctx.session.pages) p.id: p};
+
+    final entries = <_TimelineEntry>[
+      for (final v in visits)
+        if (byId.containsKey(v.pageId))
+          _TimelineEntry(
+            kind: _TimelineEntryKind.visit,
+            timestampMs: v.visitedAtMs,
+            pageId: v.pageId,
+          ),
+      for (final e in widget.ctx.session.recentActivityEvents)
+        if (byId.containsKey(e.pageId))
+          _TimelineEntry(
+            kind: _TimelineEntryKind.aiEdit,
+            timestampMs: e.timestampMs,
+            pageId: e.pageId,
+          ),
+    ]..sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
+    final shown = entries.take(widget.limit).toList();
+
+    if (shown.isEmpty) {
+      return BuiltinWidgetEmpty(message: l10n.widgetActivityEmpty);
+    }
+
+    final now = DateTime.now();
+    final scheme = Theme.of(context).colorScheme;
+    return ListView.builder(
+      itemCount: shown.length,
+      itemBuilder: (context, index) {
+        final entry = shown[index];
+        final page = byId[entry.pageId]!;
+        final at = DateTime.fromMillisecondsSinceEpoch(entry.timestampMs);
+        final agoText = _relativeVisitTime(l10n, at, now);
+        final isAiEdit = entry.kind == _TimelineEntryKind.aiEdit;
+        final title = isAiEdit
+            ? l10n.widgetActivityQuillEdited(
+                page.title.isEmpty ? l10n.untitled : page.title,
+              )
+            : (page.title.isEmpty ? l10n.untitled : page.title);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
               children: [
-                Column(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: page.emoji != null && page.emoji!.isNotEmpty
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isAiEdit
+                        ? scheme.primaryContainer.withValues(alpha: 0.5)
+                        : scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: isAiEdit
+                      ? Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 16,
+                          color: scheme.primary,
+                        )
+                      : (page.emoji != null && page.emoji!.isNotEmpty
                           ? Text(
                               page.emoji!,
                               style: const TextStyle(fontSize: 14),
@@ -171,46 +235,44 @@ class _ActivityListState extends State<_ActivityList> {
                                   : Icons.description_outlined,
                               size: 16,
                               color: scheme.onSurfaceVariant,
-                            ),
-                    ),
-                    if (index < visits.length - 1)
-                      Container(
-                        width: 2,
-                        height: 20,
-                        margin: const EdgeInsets.symmetric(vertical: 2),
-                        color: scheme.outlineVariant.withValues(alpha: 0.5),
-                      ),
-                  ],
+                            )),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => widget.ctx.onSelectPage?.call(page.id),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            page.title.isEmpty ? l10n.untitled : page.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          Text(
-                            agoText,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                if (index < shown.length - 1)
+                  Container(
+                    width: 2,
+                    height: 20,
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: InkWell(
+                onTap: () => widget.ctx.onSelectPage?.call(page.id),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                    ),
+                      Text(
+                        agoText,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         );
       },
     );

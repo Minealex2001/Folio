@@ -1,0 +1,84 @@
+; Folio Windows installer — unique source of truth.
+; Placeholders filled by tool/windows/build_installer.ps1
+; Non-commercial use of Inno Setup script patterns only.
+
+#define MyAppName "Folio"
+#define MyAppVersion "__APP_VERSION__"
+#define MyAppPublisher "Minealex Games"
+#define MyAppURL "https://minealexgames.com/"
+#define MyAppExeName "__APP_EXE_NAME__"
+
+[Setup]
+; Canonical AppId — must stay identical across CI and local builds.
+AppId={{46CD296E-B5B7-433A-9063-C17444F19FBE}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+UninstallDisplayIcon={app}\{#MyAppExeName}
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+DisableProgramGroupPage=yes
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
+; Matches Local\FolioSingleInstanceMutex in windows/runner/main.cpp
+AppMutex=Local\FolioSingleInstanceMutex
+CloseApplications=yes
+CloseApplicationsFilter=folio.exe,__APP_EXE_NAME__
+RestartApplications=yes
+OutputDir=__OUTPUT_DIR__
+OutputBaseFilename=__OUTPUT_BASE__
+SetupIconFile=__SETUP_ICON__
+WizardImageFile=__WIZARD_IMAGE__
+WizardSmallImageFile=__WIZARD_SMALL_IMAGE__
+Compression=lzma
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayName={#MyAppName}
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "__EULA_EN__"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "__EULA_ES__"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Files]
+Source: "__SOURCE_DIR__\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; VC++ redistributable bootstrapper (downloaded at build time; not always required).
+Source: "__VCREDIST_PATH__"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion skipifsourcedoesntexist
+
+[Icons]
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+; System VC++ redist only when missing and install is elevated (per-user relies on bundled DLLs).
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ Redistributable..."; Check: VCRedistNeedsInstall; Flags: waituntilterminated skipifdoesntexist
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Only leftovers under the app install dir — never user vaults/AppData.
+Type: filesandordirs; Name: "{app}"
+
+[Code]
+function VCRedistIsInstalled: Boolean;
+var
+  Installed: Cardinal;
+begin
+  Result := False;
+  if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) then
+    Result := Installed = 1
+  else if RegQueryDWordValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) then
+    Result := Installed = 1;
+end;
+
+function VCRedistNeedsInstall: Boolean;
+begin
+  { Flutter already ships private VC runtime DLLs; system redist needs admin. }
+  Result := IsAdminInstallMode and (not VCRedistIsInstalled);
+end;

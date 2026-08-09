@@ -284,6 +284,14 @@
   "forceSyncTooltip": "Forzar sincronización",
   "searchDialogFooterHint": "Enter abre el resultado resaltado · ↑ / ↓ navegar · Esc cierra",
   "searchFilterTasks": "Tareas",
+  "searchBacklinkCount": "{count,plural, =1{1 mención} other{{count} menciones}}",
+  "@searchBacklinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "searchRecentQueries": "Búsquedas recientes",
   "searchClearRecent": "Borrar búsquedas recientes",
   "searchShortcutsHelpTooltip": "Atajos de teclado",
@@ -463,6 +471,75 @@
       "model": {}
     }
   },
+  "meetingNoteRecordingLiveBadge": "Grabando…",
+  "meetingNoteAddBookmark": "Añadir marcador",
+  "meetingNoteBookmarkAdded": "Marcador añadido",
+  "meetingNoteBookmarkTypeImportant": "Importante",
+  "meetingNoteBookmarkTypeDecision": "Decisión",
+  "meetingNoteBookmarkTypeActionItem": "Acción",
+  "meetingNoteBookmarkTypeQuestion": "Pregunta",
+  "meetingNoteBookmarkTypeNote": "Nota",
+  "meetingNoteRelatedPages": "Relacionadas:",
+  "meetingNoteUntitledPage": "Sin título",
+  "meetingNotePrepareMeeting": "Preparar reunión",
+  "meetingNoteRegeneratePrep": "Regenerar preparación",
+  "meetingNotePrepFailed": "No se pudo generar la preparación.",
+  "meetingNoteGenerateChecklist": "Generar checklist",
+  "meetingNoteChecklistGenerated": "{count} elemento(s) de checklist añadidos",
+  "@meetingNoteChecklistGenerated": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteTalkRatioCompact": "{speaker} {percent}%",
+  "@meetingNoteTalkRatioCompact": {
+    "placeholders": {
+      "speaker": {},
+      "percent": {}
+    }
+  },
+  "meetingNoteMetricsSummaryTitle": "Métricas de conversación",
+  "meetingNoteMetricsWpm": "{wpm} palabras/min",
+  "@meetingNoteMetricsWpm": {
+    "placeholders": {
+      "wpm": {}
+    }
+  },
+  "meetingNoteMetricsQuestions": "{count} pregunta(s)",
+  "@meetingNoteMetricsQuestions": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteNudgeMonologueLong": "Turno largo sin interrupción — puede ser buen momento para pausar.",
+  "meetingNoteLiveAssistTitle": "Live Assist",
+  "meetingNoteLiveAssistSuggest": "Sugerir",
+  "meetingNoteLiveAssistEmpty": "No hay sugerencias por ahora.",
+  "meetingNoteLiveAssistFailed": "No se pudieron obtener sugerencias.",
+  "meetingNoteLiveAssistCloudOptInTitle": "¿Usar IA en la nube para Live Assist?",
+  "meetingNoteLiveAssistCloudOptInBody": "Live Assist enviará un fragmento reciente del transcript a tu proveedor de IA en la nube durante esta sesión.",
+  "meetingNoteLiveAssistCloudOptInConfirm": "Usar IA en la nube",
+  "meetingNoteAutoAssistToggle": "Auto-asistencia (MCP)",
+  "meetingNoteMcpResultsTitle": "Resultados MCP",
+  "meetingNoteMcpResultBookmark": "Marcador añadido",
+  "meetingNoteMcpResultChecklist": "Checklist creado",
+  "meetingNoteMcpResultContext": "Contexto obtenido",
+  "meetingNoteMcpResultError": "{tool} falló",
+  "@meetingNoteMcpResultError": {
+    "placeholders": {
+      "tool": {}
+    }
+  },
+  "meetingNoteGenerateSummary": "Generar resumen",
+  "meetingNoteRegenerateSummary": "Regenerar resumen",
+  "meetingNoteSummaryTitle": "Resumen",
+  "meetingNoteKeyPointsTitle": "Puntos clave",
+  "meetingNoteActionItemsTitle": "Acciones",
+  "meetingNoteCreateTask": "Crear tarea",
+  "meetingNotesHistoryTitle": "Historial de reuniones",
+  "meetingNotesHistorySearchHint": "Buscar reuniones",
+  "meetingNotesHistoryEmpty": "Todavía no hay notas de reunión.",
+  "meetingNotesHistoryNoTranscript": "Sin transcripción",
   "meetingNoteSystemAudioCaptured": "Audio del sistema capturado",
   "meetingNoteStop": "Detener",
   "meetingNoteStopping": "Deteniendo…",
@@ -710,6 +787,10 @@
   "aiContextAddFile": "Adjuntar archivo",
   "aiContextAddPage": "Adjuntar folio",
   "aiContextEditorSelection": "Incluir selección del editor (próximo envío)",
+  "aiContextAutoSelectionOn": "Adjuntar selección automáticamente",
+  "aiContextAutoSelectionOff": "Dejar de adjuntar selección automáticamente",
+  "aiContextAutoSelectionSubtitle": "Adjunta la selección del editor en cada envío de este hilo, no solo el próximo",
+  "aiContextAutoSelectionChip": "Selección automática",
   "aiContextLastMeetingOnPage": "Incluir última reunión de el folio (próximo envío)",
   "aiAttachMenuTitle": "Añadir a la nota",
   "aiAttachMenuSubtitle": "Contexto, archivos o notas de reunión para esta pregunta",
@@ -809,6 +890,20 @@
   "mcpReadAccessAllow": "Permitir y recordar",
   "mcpReadAccessAllowOnce": "Permitir solo esta vez",
   "mcpReadAccessDeny": "Denegar",
+  "mcpConfirmIrreversibleTitle": "Acción irreversible solicitada",
+  "mcpConfirmIrreversibleBody": "El cliente «{clientName}» quiere ejecutar «{toolName}». Esta acción no se puede deshacer.",
+  "@mcpConfirmIrreversibleBody": {
+    "placeholders": {
+      "clientName": {
+        "type": "String"
+      },
+      "toolName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpConfirmIrreversibleCancel": "Cancelar",
+  "mcpConfirmIrreversibleConfirm": "Sí, ejecutar",
   "mcpApprovalTitle": "¿Permitir que «{clientName}» gestione tu libreta?",
   "@mcpApprovalTitle": {
     "placeholders": {
@@ -1005,6 +1100,11 @@
   "taskVaultMovePickTitle": "Elige el folio de destino",
   "sidebarQuickAddTask": "Tarea rápida",
   "sidebarTaskHub": "Todas las tareas",
+  "sidebarPillarWrite": "Escribir — nueva página",
+  "sidebarPillarThink": "Pensar — buscar en todo el vault",
+  "sidebarPillarOrganize": "Organizar — todas las tareas",
+  "sidebarPillarConnect": "Conectar — Folio Cloud",
+  "sidebarPillarCustomize": "Personalizar — ajustes",
   "shortcutTestAction": "Probar",
   "shortcutChangeAction": "Cambiar",
   "shortcutTestHint": "Con el foco fuera de un campo de texto, “{combo}” debería funcionar en el escritorio.",
@@ -1636,6 +1736,99 @@
   "folioCloudDeviceSyncStatusError": "Error de sincronización — reintentando…",
   "folioCloudDeviceSyncStatusPending": "Esperando la primera sincronización…",
   "folioCloudDeviceSyncStatusSynced": "Sincronizado {time}",
+  "folioHealthTitle": "Salud de Folio",
+  "folioHealthAllGood": "Todo en orden.",
+  "folioHealthNeedsAttention": "Hay algo que necesita tu atención.",
+  "folioHealthSyncSectionTitle": "Sincronización",
+  "folioHealthSyncDisabled": "La sincronización entre dispositivos no está activada.",
+  "folioHealthPendingConflicts": "{count,plural, =1{1 conflicto pendiente} other{{count} conflictos pendientes}}",
+  "@folioHealthPendingConflicts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "folioHealthResolveConflicts": "Resolver",
+  "folioHealthBackupSectionTitle": "Almacenamiento y backup",
+  "folioHealthBackupUnavailable": "No hay datos de almacenamiento disponibles todavía.",
+  "folioHealthBackupUnlimited": "{used} usados · almacenamiento ilimitado",
+  "@folioHealthBackupUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      }
+    }
+  },
+  "folioHealthBackupUsage": "{used} de {quota} usados",
+  "@folioHealthBackupUsage": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "quota": {
+        "type": "String"
+      }
+    }
+  },
+  "folioHealthVaultSectionTitle": "Libreta",
+  "folioHealthVaultEncrypted": "Libreta cifrada",
+  "folioHealthVaultNotEncrypted": "Libreta sin cifrar",
+  "folioHealthVaultDiskUsage": "{size} en disco",
+  "@folioHealthVaultDiskUsage": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyCenterTitle": "Tu privacidad",
+  "privacyCenterIntro": "Qué datos guarda Folio, dónde viven y qué controlas tú.",
+  "privacyCenterLocalSectionTitle": "Dónde viven tus datos",
+  "privacyCenterLocalDataLabel": "Datos en este dispositivo",
+  "privacyCenterCloudSyncLabel": "Sincronización con Folio Cloud",
+  "privacyCenterAlwaysOn": "Siempre",
+  "privacyCenterEnabled": "Activada",
+  "privacyCenterDisabled": "Desactivada",
+  "privacyCenterDiagnosticsSectionTitle": "Diagnósticos",
+  "privacyCenterYourDataSectionTitle": "Tus datos en Folio Cloud",
+  "permissionsTitle": "Privacidad y permisos",
+  "permissionsIntro": "Qué puede usar Folio del sistema y para qué.",
+  "permissionsMicTitle": "Micrófono",
+  "permissionsMicExplanation": "Necesario para notas de reunión y transcripción.",
+  "permissionsSystemAudioTitle": "Audio del sistema (reproduciendo ahora)",
+  "permissionsSystemAudioExplanation": "Muestra qué se está reproduciendo en el sistema (Spotify y similares) en la barra lateral.",
+  "permissionsNotificationsTitle": "Notificaciones",
+  "permissionsNotificationsExplanation": "Folio usa avisos dentro de la app para recordatorios de tareas; todavía no envía notificaciones del sistema operativo.",
+  "permissionsFilesTitle": "Archivos",
+  "permissionsFilesExplanation": "El selector de archivos del sistema pide acceso cada vez que adjuntas o importas un archivo.",
+  "permissionsCalendarTitle": "Calendario",
+  "permissionsCalendarExplanation": "Folio no se integra hoy con el calendario del sistema.",
+  "permissionsGranted": "Permitido",
+  "permissionsDenied": "Denegado",
+  "permissionsManagedBySystem": "Gestionado por el sistema",
+  "permissionsNotImplemented": "No implementado",
+  "permissionsNotRequested": "No solicitado",
+  "permissionsConfigure": "Configurar",
+  "permissionsRefresh": "Actualizar",
+  "teamHomeTitle": "Team Home",
+  "teamHomeOpenButton": "Abrir Team Home",
+  "teamHomeWorkspacesTitle": "Proyectos",
+  "teamHomeWorkspacesEmpty": "Todavía no hay proyectos en este equipo.",
+  "teamHomeCreateWorkspaceTitle": "Nuevo proyecto",
+  "teamHomeWorkspaceNameLabel": "Nombre del proyecto",
+  "teamHomeCreateWorkspaceButton": "Crear",
+  "teamHomeMembersTitle": "{count,plural, =1{1 miembro} other{{count} miembros}}",
+  "@teamHomeMembersTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "teamHomeMembersEmpty": "Todavía no hay miembros.",
+  "teamHomeActivityTitle": "Actividad del equipo",
+  "teamHomeActivityEmpty": "Sin actividad todavía.",
   "@folioCloudDeviceSyncStatusSynced": {
     "placeholders": {
       "time": {}
@@ -2417,6 +2610,61 @@
   "settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)",
   "settingsAiQuillCopilotExperimentalSubtitle": "Muestra sugerencias de Quill en línea mientras escribes; pulsa Tab para aceptarlas. Requiere un proveedor de Quill configurado.",
   "aiChatApplyInsertEnd": "Insertar bloques al final",
+  "aiChatApplyInsertTextEnd": "Insertar al final",
+  "aiChatSaveFactTemporary": "Guardar temporalmente",
+  "aiChatSaveFactPermanent": "Guardar permanentemente",
+  "aiChatSaveFactTemporarySuccess": "Guardado como hecho temporal.",
+  "aiChatSaveFactPermanentSuccess": "Guardado como hecho permanente.",
+  "aiChatUndoTurn": "Deshacer",
+  "aiChatUndoTurnWithCount": "{count,plural, =1{Deshacer (1 cambio)} other{Deshacer ({count} cambios)}}",
+  "@aiChatUndoTurnWithCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsProactiveSuggestionsTitle": "Sugerencias proactivas",
+  "settingsProactiveSuggestionsSubtitle": "Quill sugiere una acción tras eventos concretos (por ahora: tras transcribir una reunión)",
+  "meetingSuggestionExtractActionItems": "Transcripción lista. ¿Extraer tareas de esta reunión?",
+  "meetingSuggestionExtractActionButton": "Extraer",
+  "vaultMemoryFactsTitle": "Hechos guardados de Quill",
+  "settingsVaultMemoryFactsSubtitle": "Datos que Quill recuerda e incluye automáticamente en cada conversación",
+  "vaultMemoryFactsEmpty": "Aún no hay hechos guardados. Quill los incluirá automáticamente como contexto en cada conversación.",
+  "vaultMemoryFactsTemporarySection": "Temporales",
+  "vaultMemoryFactsTemporaryEmpty": "Ningún hecho temporal.",
+  "vaultMemoryFactsPermanentSection": "Permanentes",
+  "vaultMemoryFactsPermanentEmpty": "Ningún hecho permanente.",
+  "vaultMemoryFactsClearTemporary": "Vaciar temporales",
+  "vaultMemoryFactsDelete": "Borrar",
+  "vaultMemoryFactsAddTemporaryTitle": "Nuevo hecho temporal",
+  "vaultMemoryFactsAddPermanentTitle": "Nuevo hecho permanente",
+  "vaultMemoryFactsAddHint": "Ej.: \"Este proyecto usa Spring Boot y Maven\"",
+  "vaultMemoryFactsAddConfirm": "Guardar",
+  "vaultMemoryFactsAddTemporaryShort": "Temporal",
+  "vaultMemoryFactsAddPermanentShort": "Permanente",
+  "quillWorkflowsPickerTooltip": "Workflows",
+  "quillWorkflowsPickerTitle": "Elegir un workflow",
+  "quillWorkflowsEmptyPicker": "Aún no hay workflows guardados. Crea uno desde Ajustes → Quill → Workflows.",
+  "quillWorkflowsTitle": "Workflows de Quill",
+  "quillWorkflowsEmpty": "Ningún workflow todavía. Un workflow es un prompt de plan guardado con nombre, con variables de plantilla opcionales.",
+  "quillWorkflowsAddTitle": "Nuevo workflow",
+  "quillWorkflowsEditTitle": "Editar workflow",
+  "quillWorkflowsNameHint": "Nombre (ej. \"Reunión → resumen → tareas\")",
+  "quillWorkflowsPromptHint": "Prompt, con variables de plantilla opcionales (ej. nombre)",
+  "quillWorkflowsSave": "Guardar",
+  "quillWorkflowsDelete": "Borrar",
+  "quillWorkflowsVersionLabel": "v{version}",
+  "@quillWorkflowsVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
+  "quillWorkflowsHistoryTitle": "Historial de versiones",
+  "quillWorkflowsHistoryEmpty": "Sin versiones anteriores.",
+  "quillWorkflowsRestoreVersion": "Restaurar esta versión",
   "aiChatApplyReplacePage": "Reemplazar folio",
   "aiChatApplyOperations": "Aplicar operaciones",
   "aiChatApplySnapshotSuccess": "Cambios aplicados en el folio abierto.",
@@ -3574,8 +3822,30 @@
   "settingsAdminTemplateByIdTitle": "Plantilla por ID",
   "settingsAdminTemplateIdHint": "UUID de la plantilla",
   "settingsAdminActionError": "Error de administracion",
-  "settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación y canal de actualización.",
+  "settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación, licencias de terceros y canal de actualización.",
   "settingsOpenReleaseNotes": "Ver notas de versión",
+  "settingsOpenThirdPartyLicenses": "Software de código abierto y licencias de terceros",
+  "thirdPartyLicensesTitle": "Software de código abierto y licencias de terceros",
+  "thirdPartyLicensesIntro": "Folio utiliza software de código abierto y componentes de terceros.",
+  "thirdPartyLicensesEmpty": "No hay licencias disponibles.",
+  "thirdPartyLicensesCategoryOpenSource": "Software de código abierto",
+  "thirdPartyLicensesCategoryDartPackages": "Paquetes Dart y Flutter",
+  "thirdPartyLicensesCategoryBackendPackages": "Backend (Folio Cloud)",
+  "thirdPartyLicensesCategoryFonts": "Fuentes",
+  "thirdPartyLicensesCategoryAssets": "Recursos",
+  "thirdPartyLicensesCategoryNativeOrRuntime": "Nativo y tiempo de ejecución",
+  "thirdPartyLicensesCategoryOther": "Otros",
+  "thirdPartyLicensesLicenseLabel": "Licencia",
+  "thirdPartyLicensesCopyrightLabel": "Copyright",
+  "thirdPartyLicensesSourceLabel": "Fuente",
+  "thirdPartyLicensesViewLicense": "Ver licencia",
+  "thirdPartyLicensesOpenRepository": "Abrir repositorio",
+  "thirdPartyLicensesFlutterPackagesTitle": "Licencias de paquetes Flutter y Dart",
+  "thirdPartyLicensesFlutterPackagesSubtitle": "Ver el árbol completo de dependencias empaquetadas con Folio",
+  "thirdPartyLicensesCopyLicense": "Copiar texto de la licencia",
+  "thirdPartyLicensesLicenseCopied": "Texto de la licencia copiado",
+  "thirdPartyLicensesSearchHint": "Buscar licencias…",
+  "thirdPartyLicensesClearSearch": "Borrar búsqueda",
   "settingsUpdateChannelLabel": "Canal",
   "settingsUpdateChannelRelease": "Release",
   "settingsUpdateChannelBeta": "Beta",
@@ -5681,6 +5951,14 @@
   "widgetRootPagesMaxLabel": "Máximo de páginas",
   "widgetActivity": "Actividad",
   "widgetActivityEmpty": "Sin actividad todavía.",
+  "widgetActivityQuillEdited": "Quill modificó {pageTitle}",
+  "@widgetActivityQuillEdited": {
+    "placeholders": {
+      "pageTitle": {
+        "type": "String"
+      }
+    }
+  },
   "widgetMaxEntriesLabel": "Máximo de entradas",
   "widgetRelativeJustNow": "ahora mismo",
   "widgetRelativeMinutesAgo": "hace {minutes} min",
@@ -5711,6 +5989,11 @@
   "widgetRecentsEmpty": "Todavía no has visitado ninguna página.",
   "widgetAgenda": "Agenda",
   "widgetAgendaEmpty": "No hay tareas con fecha próxima.",
+  "widgetDailyBrief": "Resumen del día",
+  "widgetDailyBriefDueToday": "Para hoy",
+  "widgetDailyBriefOverdue": "Vencidas",
+  "widgetDailyBriefEditedToday": "Editadas hoy",
+  "widgetDailyBriefAllClear": "Sin tareas vencidas ni para hoy. Buen momento para revisar algo editado hoy.",
   "widgetAgendaMaxLabel": "Máximo de tareas",
   "widgetClock": "Reloj",
   "widgetClock24HourFormat": "Formato 24 horas",
@@ -5969,6 +6252,7 @@
   "quillSummarizerName": "Resumidor",
   "quillCoderName": "Programador",
   "aiChatEditorSelectionHeader": "--- Selección del editor ---",
+  "aiChatMemoryFactsHeader": "--- Hechos guardados sobre este vault ---",
   "visualEditorBeta": "Editor visual (beta)",
   "closeTooltip": "Cerrar",
   "cmdSearchNotebook": "Buscar en la libreta",
@@ -6525,6 +6809,168 @@
         "type": "String"
       },
       "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilityExplorerTitle": "Explorador de capacidades",
+  "capabilityExplorerExportAll": "Exportar todo el catálogo",
+  "capabilityExplorerSearchHint": "Buscar tool por nombre o descripción…",
+  "capabilityExplorerNoResults": "Ninguna tool coincide con la búsqueda.",
+  "capabilityExplorerCategoryContent": "Contenido",
+  "capabilityExplorerCategoryOrganization": "Organización",
+  "capabilityExplorerCategoryTask": "Tareas",
+  "capabilityExplorerCategoryMedia": "Media",
+  "capabilityExplorerCategoryDestructive": "Destructivas",
+  "capabilityExplorerCategoryExperimental": "Experimental",
+  "capabilityExplorerExportedToClipboard": "Copiado al portapapeles.",
+  "capabilityExplorerNotReversible": "No reversible",
+  "capabilityExplorerRequiresConfirmation": "Requiere confirmación",
+  "capabilityExplorerSupportsPreview": "Con preview",
+  "capabilityExplorerPreview": "Preview",
+  "capabilityExplorerExecute": "Ejecutar",
+  "capabilityExplorerExport": "Exportar",
+  "capabilityExplorerPreviewResultTitle": "Preview (sin ejecutar)",
+  "capabilityExplorerExecuteResultTitle": "Resultado",
+  "capabilityExplorerConfirmTitle": "¿Ejecutar esta acción irreversible?",
+  "capabilityExplorerCancel": "Cancelar",
+  "mcpPreviewTrashWithDescendants": "Se enviará a la papelera \"{title}\" y {count} página(s) dentro de ella.",
+  "@mcpPreviewTrashWithDescendants": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpPreviewTrashPage": "Se enviará a la papelera \"{title}\".",
+  "@mcpPreviewTrashPage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpPreviewPermanentDelete": "Se borrará permanentemente \"{title}\". No se puede deshacer.",
+  "@mcpPreviewPermanentDelete": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpPreviewTrashEmpty": "La papelera ya está vacía.",
+  "mcpPreviewEmptyTrash": "Se borrarán permanentemente {count} página(s) de la papelera. No se puede deshacer.",
+  "@mcpPreviewEmptyTrash": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpPreviewDeleteEmptyFolder": "Se borrará la carpeta \"{title}\" (sin páginas dentro).",
+  "@mcpPreviewDeleteEmptyFolder": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpPreviewDeleteFolderFlatten": "Se borrará la carpeta \"{title}\" y {count} página(s) se moverán a la raíz.",
+  "@mcpPreviewDeleteFolderFlatten": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpActionCancelledByUser": "Acción cancelada por el usuario: {tool}",
+  "@mcpActionCancelledByUser": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
+  "meetingNoteSelectNote": "Selecciona la nota:",
+  "meetingNoteFallbackTitle": "Nota de reunión",
+  "settingsHeroCloudSignedIn": "Sesión iniciada",
+  "settingsHeroCloudSignedOut": "Configura tu cuenta",
+  "settingsHeroVaultSubtitle": "Copia de seguridad, seguridad y datos",
+  "settingsHeroAiProvider": "Proveedor: {provider}",
+  "@settingsHeroAiProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsHeroAiDisabled": "Deshabilitado",
+  "settingsHeroSyncSubtitle": "Sincronizar tus dispositivos",
+  "settingsHeroAboutVersion": "Versión {version}",
+  "@settingsHeroAboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsHeroIntegrationsSubtitle": "Conexiones con Jira, YouTrack y más",
+  "settingsHeroPersonalizationSubtitle": "Motor de layout, tema y dashboard (beta)",
+  "publicShareLoading": "Cargando…",
+  "publicShareUpToDateRev": "Al día · rev {rev}",
+  "@publicShareUpToDateRev": {
+    "placeholders": {
+      "rev": {
+        "type": "String"
+      }
+    }
+  },
+  "publicShareUpdatedRev": "Actualizado · rev {rev}",
+  "@publicShareUpdatedRev": {
+    "placeholders": {
+      "rev": {
+        "type": "String"
+      }
+    }
+  },
+  "publicShareLoadError": "Error al cargar",
+  "publicShareReadOnly": "Solo lectura",
+  "publicShareCouldNotLoad": "No se pudo cargar esta libreta.\n{error}",
+  "@publicShareCouldNotLoad": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "publicShareSelectPage": "Selecciona una página",
+  "verifyEmailMissingToken": "Falta el token del enlace. Solicita un nuevo correo de verificación.",
+  "verifyEmailSuccessBody": "Tu correo ya está verificado. Ya puedes usar Folio Cloud con normalidad.",
+  "verifyEmailTitleOk": "Correo verificado",
+  "verifyEmailTitleFail": "No se pudo verificar",
+  "verifyStudentSuccessBody": "Tu elegibilidad de estudiante en Folio Cloud está activa durante 4 años. Puedes volver a la app y contratar la tarifa de estudiante.",
+  "verifyStudentTitleOk": "Correo de estudiante verificado",
+  "resetPasswordMissingToken": "Falta el token del enlace. Solicita un nuevo restablecimiento.",
+  "resetPasswordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+  "resetPasswordMismatch": "Las contraseñas no coinciden.",
+  "integrationsBridgeStartFailed": "No se pudo iniciar el bridge de integraciones: {error}",
+  "@integrationsBridgeStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "integrationActivateFailed": "No se pudo activar la integración: {error}",
+  "@integrationActivateFailed": {
+    "placeholders": {
+      "error": {
         "type": "String"
       }
     }

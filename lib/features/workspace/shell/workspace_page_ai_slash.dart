@@ -66,6 +66,7 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
     _setStateSafe(() {
       _aiPanelCollapsed = false;
       _aiChatBusy = true;
+      _aiToolTrace.clear();
     });
     unawaited(widget.appSettings.setAiChatPanelCollapsed(false));
     _scheduleAiChatScrollToBottom();
@@ -101,6 +102,7 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
           role: 'assistant',
           content: outcome.reply,
           agentApplySnapshot: outcome.agentApplySnapshot,
+          aiTurnId: outcome.aiTurnId,
         ),
       );
     } catch (e) {

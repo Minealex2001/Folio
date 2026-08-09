@@ -30,11 +30,17 @@ class DiarizationService {
   /// 1) Segmenta texto por frases.
   /// 2) Detecta cambios de voz aproximados en el WAV por energia + ZCR.
   /// 3) Asigna etiquetas Speaker 1/2 alternando en los turnos estimados.
+  /// [channelHint]: cuando se conoce el canal de origen del chunk ('mic' o
+  /// 'system', p.ej. si el llamador tiene buffers separados por canal), se
+  /// usa como ancla determinista de speaker en el fallback heurístico de
+  /// turno único. Opcional; si es `null` el comportamiento es idéntico al
+  /// heurístico existente.
   Future<String?> diarizeChunk({
     required File audioChunk,
     required String transcript,
     required String language,
     required String sessionId,
+    String? channelHint,
   }) async {
     final safeTranscript = transcript.trim();
     if (safeTranscript.isEmpty) return null;
@@ -92,13 +98,29 @@ class DiarizationService {
       );
 
       if (lines.isEmpty) {
-        final speaker = session.assignSpeaker(_TurnFeature.silent());
+        final hintId = _channelHintToId(channelHint);
+        final speaker = hintId != null
+            ? session.assignSpeakerFromHint(hintId, _TurnFeature.silent())
+            : session.assignSpeaker(_TurnFeature.silent());
         return 'Speaker $speaker: $safeTranscript';
       }
       return lines.join('\n');
     } catch (e) {
       lastError = e.toString();
       return null;
+    }
+  }
+
+  /// Mapea un hint de canal ('mic'/'system') a un id de hint de speaker
+  /// estable. `null` si el canal es desconocido/no aplica.
+  int? _channelHintToId(String? channelHint) {
+    switch (channelHint) {
+      case 'mic':
+        return 0;
+      case 'system':
+        return 1;
+      default:
+        return null;
     }
   }
 
