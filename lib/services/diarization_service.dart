@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+
+import 'audio_mixer_service.dart';
 import 'whisper_service.dart';
 
 class DiarizationService {
@@ -24,23 +26,50 @@ class DiarizationService {
     _sessions.remove(safe);
   }
 
+  /// Asigna speakers desde vectores de turno precomputados (tests / debugging).
+  /// Conserva memoria de sesión: el mismo perfil reaparece como el mismo ID.
+  @visibleForTesting
+  String? diarizeFromTurnVectors({
+    required String sessionId,
+    required List<({String text, List<double> vector})> turns,
+  }) {
+    final safeSession = sessionId.trim();
+    if (safeSession.isEmpty || turns.isEmpty) return null;
+    final session = _sessions.putIfAbsent(safeSession, _DiarizationSession.new);
+    final candidates = <_TurnCandidate>[];
+    for (final t in turns) {
+      final text = t.text.trim();
+      if (text.isEmpty) continue;
+      candidates.add(
+        _TurnCandidate(
+          text: text,
+          feature: _TurnFeature(vector: List<double>.from(t.vector), weight: 1),
+        ),
+      );
+    }
+    if (candidates.isEmpty) return null;
+    final lines = _linesFromTurnCandidates(session: session, turns: candidates);
+    if (lines.isEmpty) return null;
+    return lines.join('\n');
+  }
+
   /// Diarización local sin backend.
   ///
   /// Estrategia:
-  /// 1) Segmenta texto por frases.
-  /// 2) Detecta cambios de voz aproximados en el WAV por energia + ZCR.
-  /// 3) Asigna etiquetas Speaker 1/2 alternando en los turnos estimados.
-  /// [channelHint]: cuando se conoce el canal de origen del chunk ('mic' o
-  /// 'system', p.ej. si el llamador tiene buffers separados por canal), se
-  /// usa como ancla determinista de speaker en el fallback heurístico de
-  /// turno único. Opcional; si es `null` el comportamiento es idéntico al
-  /// heurístico existente.
+  /// 1) Intenta tinydiarize (marcadores de turno) si el modelo lo soporta.
+  /// 2) Segmenta turnos por silencio, salto acústico y cambio de dominancia
+  ///    mic/system ([channelWindows]).
+  /// 3) Asigna Speaker N vía perfiles de sesión (memoria entre chunks, N ilimitado).
+  /// [channelWindows]: energías mic/system por ventana (~250 ms) del mixer.
+  /// [channelHint]: legacy; solo se usa si no hay ventanas y el fallback es
+  /// un único turno silencioso. No limita a 2 speakers en el path principal.
   Future<String?> diarizeChunk({
     required File audioChunk,
     required String transcript,
     required String language,
     required String sessionId,
     String? channelHint,
+    List<ChannelEnergyWindow> channelWindows = const <ChannelEnergyWindow>[],
   }) async {
     final safeTranscript = transcript.trim();
     if (safeTranscript.isEmpty) return null;
@@ -55,7 +84,7 @@ class DiarizationService {
         _DiarizationSession.new,
       );
 
-      // Motor principal: Whisper local con tinydiarize.
+      // Motor opcional: Whisper local con tinydiarize (solo fronteras de turno).
       final iaTurns = await _tryWhisperLocalTurns(
         audioChunk: audioChunk,
         language: language,
@@ -66,6 +95,7 @@ class DiarizationService {
           audioChunk: audioChunk,
           turns: iaTurns,
           fallbackTranscript: safeTranscript,
+          channelWindows: channelWindows,
         );
         if (formatted != null && formatted.trim().isNotEmpty) {
           return formatted;
@@ -77,31 +107,38 @@ class DiarizationService {
         }
       }
 
-      // Fallback: heurístico local actual.
+      // Heurístico local: turnos + clustering N-way con memoria de sesión.
       final sentences = _splitSentences(safeTranscript);
       if (sentences.isEmpty) return null;
+
+      final turnFeatures = await _extractTurnFeaturesFromAudio(
+        audioChunk,
+        channelWindows: channelWindows,
+      );
 
       final turnTexts = _distributeTextAcrossTurns(
         rawTranscript: safeTranscript,
         sentenceFallback: sentences,
-        turns: await _extractTurnFeaturesFromAudio(audioChunk),
+        turns: turnFeatures,
       );
 
-      final turnCandidates = turnTexts
-          .map((t) => _TurnCandidate(text: t))
-          .toList();
+      final turnCandidates = <_TurnCandidate>[];
+      for (var i = 0; i < turnTexts.length; i++) {
+        final text = turnTexts[i].trim();
+        if (text.isEmpty) continue;
+        final feature = i < turnFeatures.length
+            ? turnFeatures[i]
+            : _TurnFeature.silent();
+        turnCandidates.add(_TurnCandidate(text: text, feature: feature));
+      }
 
-      final lines = await _linesFromTurns(
-        session: session,
-        audioChunk: audioChunk,
-        turns: turnCandidates,
-      );
+      final lines = _linesFromTurnCandidates(session: session, turns: turnCandidates);
 
       if (lines.isEmpty) {
-        final hintId = _channelHintToId(channelHint);
-        final speaker = hintId != null
-            ? session.assignSpeakerFromHint(hintId, _TurnFeature.silent())
-            : session.assignSpeaker(_TurnFeature.silent());
+        final feature = turnFeatures.isNotEmpty
+            ? turnFeatures.first
+            : _featureFromChannelHint(channelHint);
+        final speaker = session.assignSpeaker(feature);
         return 'Speaker $speaker: $safeTranscript';
       }
       return lines.join('\n');
@@ -111,16 +148,20 @@ class DiarizationService {
     }
   }
 
-  /// Mapea un hint de canal ('mic'/'system') a un id de hint de speaker
-  /// estable. `null` si el canal es desconocido/no aplica.
-  int? _channelHintToId(String? channelHint) {
+  _TurnFeature _featureFromChannelHint(String? channelHint) {
     switch (channelHint) {
       case 'mic':
-        return 0;
+        return const _TurnFeature(
+          vector: <double>[0.08, 0.08, 0.04, 0.5, 0.85],
+          weight: 1,
+        );
       case 'system':
-        return 1;
+        return const _TurnFeature(
+          vector: <double>[0.08, 0.08, 0.04, 0.5, 0.15],
+          weight: 1,
+        );
       default:
-        return null;
+        return _TurnFeature.silent();
     }
   }
 
@@ -129,46 +170,64 @@ class DiarizationService {
     required File audioChunk,
     required List<_TurnCandidate> turns,
     required String fallbackTranscript,
+    List<ChannelEnergyWindow> channelWindows = const <ChannelEnergyWindow>[],
   }) async {
-    final lines = await _linesFromTurns(
-      session: session,
-      audioChunk: audioChunk,
-      turns: turns,
+    final turnFeatures = await _extractTurnFeaturesFromAudio(
+      audioChunk,
+      channelWindows: channelWindows,
     );
-
-    if (lines.isNotEmpty) return lines.join('\n');
-    if (fallbackTranscript.isEmpty) return null;
-    final speaker = session.assignSpeaker(_TurnFeature.silent());
-    return 'Speaker $speaker: $fallbackTranscript';
-  }
-
-  Future<List<String>> _linesFromTurns({
-    required _DiarizationSession session,
-    required File audioChunk,
-    required List<_TurnCandidate> turns,
-  }) async {
-    final normalizedTurns = turns
-        .map(
-          (t) =>
-              _TurnCandidate(text: t.text.trim(), speakerHint: t.speakerHint),
-        )
-        .where((t) => t.text.isNotEmpty)
-        .toList();
-    if (normalizedTurns.isEmpty) return const <String>[];
-
-    final turnFeatures = await _extractTurnFeaturesFromAudio(audioChunk);
     final featureCount = math.max(1, turnFeatures.length);
-
-    final assignments = <_TurnAssignment>[];
-    for (var i = 0; i < normalizedTurns.length; i++) {
-      final featureIndex = (i * featureCount ~/ normalizedTurns.length).clamp(
+    final enriched = <_TurnCandidate>[];
+    for (var i = 0; i < turns.length; i++) {
+      final t = turns[i];
+      if (t.text.trim().isEmpty) continue;
+      final featureIndex = (i * featureCount ~/ turns.length).clamp(
         0,
         featureCount - 1,
       );
       final feature = featureIndex < turnFeatures.length
           ? turnFeatures[featureIndex]
-          : _TurnFeature.silent();
-      final turn = normalizedTurns[i];
+          : (t.feature ?? _TurnFeature.silent());
+      enriched.add(
+        _TurnCandidate(
+          text: t.text.trim(),
+          speakerHint: t.speakerHint,
+          feature: feature,
+        ),
+      );
+    }
+
+    final lines = _linesFromTurnCandidates(session: session, turns: enriched);
+
+    if (lines.isNotEmpty) return lines.join('\n');
+    if (fallbackTranscript.isEmpty) return null;
+    final speaker = session.assignSpeaker(
+      turnFeatures.isNotEmpty ? turnFeatures.first : _TurnFeature.silent(),
+    );
+    return 'Speaker $speaker: $fallbackTranscript';
+  }
+
+  List<String> _linesFromTurnCandidates({
+    required _DiarizationSession session,
+    required List<_TurnCandidate> turns,
+  }) {
+    final normalizedTurns = turns
+        .map(
+          (t) => _TurnCandidate(
+            text: t.text.trim(),
+            speakerHint: t.speakerHint,
+            feature: t.feature,
+          ),
+        )
+        .where((t) => t.text.isNotEmpty)
+        .toList();
+    if (normalizedTurns.isEmpty) return const <String>[];
+
+    final assignments = <_TurnAssignment>[];
+    for (final turn in normalizedTurns) {
+      final feature = turn.feature ?? _TurnFeature.silent();
+      // Solo usar speakerHint cuando el motor aporta un ID real (p.ej. etiqueta
+      // parseada). No usar hints 0/1 alternados — limitaría a 2 speakers.
       final speaker = turn.speakerHint == null
           ? session.assignSpeaker(feature)
           : session.assignSpeakerFromHint(turn.speakerHint!, feature);
@@ -181,11 +240,15 @@ class DiarizationService {
   }
 
   Future<List<_TurnFeature>> _extractTurnFeaturesFromAudio(
-    File audioChunk,
-  ) async {
+    File audioChunk, {
+    List<ChannelEnergyWindow> channelWindows = const <ChannelEnergyWindow>[],
+  }) async {
     final samples = await _readWavPcm16Mono(audioChunk);
     if (samples.isEmpty) return <_TurnFeature>[_TurnFeature.silent()];
-    final extracted = _extractTurnFeatures(samples);
+    final extracted = _extractTurnFeatures(
+      samples,
+      channelWindows: channelWindows,
+    );
     if (extracted.isEmpty) return <_TurnFeature>[_TurnFeature.silent()];
     return extracted;
   }
@@ -232,19 +295,12 @@ class DiarizationService {
 
     if (parts.isEmpty) return const <_TurnCandidate>[];
 
-    final labeled = <_TurnCandidate>[];
-    for (var i = 0; i < parts.length; i++) {
-      final p = parts[i];
+    // Solo fronteras de turno: sin hint 0/1. El clustering de sesión asigna IDs.
+    return parts.map((p) {
       final parsed = _parseInlineSpeakerPrefix(p);
-      if (parsed != null) {
-        labeled.add(parsed);
-      } else {
-        // Cuando Whisper marca cambio de turno pero no ID de speaker,
-        // alternamos hints para evitar colapso inmediato al heurístico.
-        labeled.add(_TurnCandidate(text: p, speakerHint: i % 2));
-      }
-    }
-    return labeled;
+      if (parsed != null) return parsed;
+      return _TurnCandidate(text: p);
+    }).toList();
   }
 
   List<_TurnCandidate> _parseSpeakerLabeledLines(String raw) {
@@ -322,12 +378,9 @@ class DiarizationService {
         .toList();
 
     if (words.length < 2) {
-      // Fallback para transcripciones extremadamente cortas.
       return _distributeSentencesFallback(sentenceFallback, turnCount);
     }
 
-    // Evita explosión de líneas: si hay muchos turnos de audio, limitarlos
-    // en función de la cantidad de palabras transcritas.
     const minWordsPerTurn = 5;
     final maxTurnsByWords = math.max(1, words.length ~/ minWordsPerTurn);
     final effectiveTurns = math.max(1, math.min(turnCount, maxTurnsByWords));
@@ -350,53 +403,40 @@ class DiarizationService {
       assigned += c;
     }
 
-    while (assigned > words.length) {
-      for (var i = effectiveTurns - 1; i >= 0 && assigned > words.length; i--) {
-        if (counts[i] > 1) {
-          counts[i]--;
-          assigned--;
-        }
-      }
-      if (counts.every((c) => c == 1)) break;
-    }
-
-    while (assigned < words.length) {
-      for (var i = 0; i < effectiveTurns && assigned < words.length; i++) {
-        counts[i]++;
-        assigned++;
-      }
-    }
-
+    // Ajuste para cuadrar exactamente el número de palabras.
+    var diff = words.length - assigned;
     var cursor = 0;
+    while (diff != 0 && effectiveTurns > 0) {
+      if (diff > 0) {
+        counts[cursor % effectiveTurns]++;
+        diff--;
+      } else if (counts[cursor % effectiveTurns] > 1) {
+        counts[cursor % effectiveTurns]--;
+        diff++;
+      }
+      cursor++;
+      if (cursor > words.length * 2) break;
+    }
+
+    var offset = 0;
     for (var i = 0; i < effectiveTurns; i++) {
-      final take = counts[i];
-      if (take <= 0 || cursor >= words.length) continue;
-      final end = math.min(words.length, cursor + take);
-      output[i] = words.sublist(cursor, end).join(' ').trim();
-      cursor = end;
+      final end = math.min(words.length, offset + counts[i]);
+      if (offset < end) {
+        output[i] = words.sublist(offset, end).join(' ');
+      }
+      offset = end;
     }
-
-    if (cursor < words.length) {
-      final rest = words.sublist(cursor).join(' ').trim();
-      final idx = effectiveTurns - 1;
-      output[idx] = output[idx].isEmpty ? rest : '${output[idx]} $rest';
+    if (offset < words.length && effectiveTurns > 0) {
+      final tail = words.sublist(offset).join(' ');
+      output[effectiveTurns - 1] = output[effectiveTurns - 1].isEmpty
+          ? tail
+          : '${output[effectiveTurns - 1]} $tail';
     }
-
     return output;
   }
 
-  String _joinText(String left, String right) {
-    final a = left.trimRight();
-    final b = right.trimLeft();
-    if (a.isEmpty) return b;
-    if (b.isEmpty) return a;
-    if (a.endsWith('-')) return '$a$b';
-    if (RegExp(r'^[,.;:!?\)]').hasMatch(b)) return '$a$b';
-    return '$a $b';
-  }
-
   List<_TurnAssignment> _smoothAssignments(List<_TurnAssignment> input) {
-    if (input.length <= 1) return input;
+    if (input.length <= 1) return input.map((a) => a.copy()).toList();
     final out = <_TurnAssignment>[input.first.copy()];
 
     for (var i = 1; i < input.length; i++) {
@@ -447,29 +487,26 @@ class DiarizationService {
         .where((w) => w.isNotEmpty)
         .length;
 
-    // Solo consideramos continuidad cuando el nuevo bloque es corto (cola de frase)
-    // o cuando el bloque anterior era claramente incompleto.
     final shortTail = curWords <= 5;
     final previousLooksIncomplete = prevWords <= 4;
 
     final prevHasStrongEnd = RegExp(r'[\.\!\?…]["”’\)\]]*$').hasMatch(prev);
-    if (!prevHasStrongEnd) {
-      if (!shortTail && !previousLooksIncomplete) return false;
-      return true;
+    if (prevHasStrongEnd) {
+      // Tras fin de frase no absorber el siguiente turno (nuevo speaker).
+      // Solo colas tipográficas o conectores de 1–2 palabras.
+      if (RegExp(r'^[,.;:\)\]]').hasMatch(cur)) return true;
+      if (curWords <= 2 &&
+          RegExp(
+            r'^(y|e|o|u|and|but|or|so)\b',
+            caseSensitive: false,
+          ).hasMatch(cur)) {
+        return true;
+      }
+      return false;
     }
 
-    if (RegExp(r'^[a-záéíóúñü]').hasMatch(cur)) return shortTail;
-    if (RegExp(r'^[,.;:\)\]]').hasMatch(cur)) return true;
-    if (RegExp(
-      r'^(y|e|o|u|de|que|pero|pues|entonces|ademas|además|and|but|or|so|because|then)\b',
-      caseSensitive: false,
-    ).hasMatch(cur)) {
-      return shortTail || previousLooksIncomplete;
-    }
-
-    if (previousLooksIncomplete && shortTail) return true;
-
-    return false;
+    // Frase anterior incompleta: solo fusionar cola corta.
+    return previousLooksIncomplete && shortTail;
   }
 
   List<String> _distributeSentencesFallback(
@@ -492,12 +529,19 @@ class DiarizationService {
     return out;
   }
 
+  String _joinText(String a, String b) {
+    final left = a.trimRight();
+    final right = b.trimLeft();
+    if (left.isEmpty) return right;
+    if (right.isEmpty) return left;
+    return '$left $right';
+  }
+
   Future<List<int>> _readWavPcm16Mono(File file) async {
     final bytes = await file.readAsBytes();
     if (bytes.length <= 44) return const [];
 
     final bd = ByteData.sublistView(bytes);
-    // Header WAV mínimo: canal en offset 22, bits por sample en 34, data en 44.
     final channels = bd.getUint16(22, Endian.little);
     final bitsPerSample = bd.getUint16(34, Endian.little);
     if (bitsPerSample != 16) return const [];
@@ -505,7 +549,6 @@ class DiarizationService {
     final pcmOffset = 44;
     final out = <int>[];
     for (var i = pcmOffset; i + 1 < bytes.length; i += 2 * channels) {
-      // Si es estéreo, tomamos canal 0.
       final lo = bytes[i];
       final hi = bytes[i + 1];
       var v = (hi << 8) | lo;
@@ -515,14 +558,24 @@ class DiarizationService {
     return out;
   }
 
-  List<_TurnFeature> _extractTurnFeatures(List<int> samples) {
+  List<_TurnFeature> _extractTurnFeatures(
+    List<int> samples, {
+    List<ChannelEnergyWindow> channelWindows = const <ChannelEnergyWindow>[],
+  }) {
     // Frame de 20ms a 16kHz.
     const frame = 320;
+    const windowSamples = AudioMixerService.windowSamples; // 4000 (~250ms)
     if (samples.length < frame * 2) return const <_TurnFeature>[];
 
     final feats = <_FrameFeature>[];
     for (var i = 0; i + frame <= samples.length; i += frame) {
-      feats.add(_computeFrameFeature(samples, i, frame));
+      final windowIdx = channelWindows.isEmpty
+          ? -1
+          : (i ~/ windowSamples).clamp(0, channelWindows.length - 1);
+      final micRatio = windowIdx >= 0
+          ? channelWindows[windowIdx].micRatio
+          : 0.5;
+      feats.add(_computeFrameFeature(samples, i, frame, micRatio: micRatio));
     }
     if (feats.isEmpty) return const <_TurnFeature>[];
 
@@ -530,33 +583,62 @@ class DiarizationService {
         feats.map((f) => f.energy).reduce((a, b) => a + b) / feats.length;
     final silenceThreshold = meanEnergy * 0.48;
 
+    String? dominanceAt(int frameIndex) {
+      if (channelWindows.isEmpty) return null;
+      final samplePos = frameIndex * frame;
+      final wi = (samplePos ~/ windowSamples).clamp(
+        0,
+        channelWindows.length - 1,
+      );
+      return channelWindows[wi].dominant;
+    }
+
     final turns = <_TurnFeature>[];
     var current = <_FrameFeature>[];
     var silenceRun = 0;
+    String? lastDominance;
 
     for (var i = 0; i < feats.length; i++) {
       final f = feats[i];
       final voiced = f.energy >= silenceThreshold;
+      final dominance = dominanceAt(i);
 
       if (!voiced) {
         silenceRun++;
-        if (silenceRun >= 8 && current.isNotEmpty) {
+        if (silenceRun >= 6 && current.isNotEmpty) {
           turns.add(_TurnFeature.fromFrames(current));
           current = <_FrameFeature>[];
+          lastDominance = null;
         }
         continue;
       }
 
       silenceRun = 0;
+
+      // Frontera fuerte: cambio claro de canal dominante mic ↔ system.
+      if (dominance != null &&
+          dominance != 'mixed' &&
+          lastDominance != null &&
+          lastDominance != 'mixed' &&
+          dominance != lastDominance &&
+          current.length >= 3) {
+        turns.add(_TurnFeature.fromFrames(current));
+        current = <_FrameFeature>[];
+      }
+
       if (current.isNotEmpty) {
         final prev = current.last;
         final jump = _featureDistance(prev.vector, f.vector);
-        if (jump > 0.33 && current.length >= 4) {
+        // Umbral un poco más sensible para no colapsar voces distintas.
+        if (jump > 0.28 && current.length >= 4) {
           turns.add(_TurnFeature.fromFrames(current));
           current = <_FrameFeature>[];
         }
       }
       current.add(f);
+      if (dominance != null && dominance != 'mixed') {
+        lastDominance = dominance;
+      }
     }
 
     if (current.isNotEmpty) {
@@ -566,7 +648,12 @@ class DiarizationService {
     return turns;
   }
 
-  _FrameFeature _computeFrameFeature(List<int> s, int start, int size) {
+  _FrameFeature _computeFrameFeature(
+    List<int> s,
+    int start,
+    int size, {
+    double micRatio = 0.5,
+  }) {
     double sumSq = 0;
     double sumDiff = 0;
     double weightedAbs = 0;
@@ -587,7 +674,6 @@ class DiarizationService {
       if ((cur >= 0 && prev < 0) || (cur < 0 && prev >= 0)) {
         zc++;
       }
-      // Aproximación de centroid espectral con peso por índice.
       final localIdx = (i - start + 1).toDouble();
       weightedAbs += localIdx * f.abs();
       prev = cur;
@@ -600,7 +686,7 @@ class DiarizationService {
 
     return _FrameFeature(
       energy: rms,
-      vector: <double>[rms, zcr, slope, centroid],
+      vector: <double>[rms, zcr, slope, centroid, micRatio.clamp(0.0, 1.0)],
     );
   }
 
@@ -633,8 +719,10 @@ class _TurnFeature {
   final List<double> vector;
   final double weight;
 
-  factory _TurnFeature.silent() =>
-      const _TurnFeature(vector: <double>[0.04, 0.08, 0.04, 0.5], weight: 1);
+  factory _TurnFeature.silent() => const _TurnFeature(
+    vector: <double>[0.04, 0.08, 0.04, 0.5, 0.5],
+    weight: 1,
+  );
 
   factory _TurnFeature.fromFrames(List<_FrameFeature> frames) {
     if (frames.isEmpty) return _TurnFeature.silent();
@@ -720,12 +808,14 @@ class _DiarizationSession {
       }
     }
 
-    // Umbrales con histéresis para mantener IDs estables y permitir multi-speaker.
-    const acceptThreshold = 0.115;
-    const keepLastThreshold = 0.165;
+    // Umbrales con histéresis: IDs estables + apertura a Speaker 3+.
+    const acceptThreshold = 0.105;
+    const keepLastThreshold = 0.145;
 
-    // Cuando solo hay un speaker, bajar la barrera para abrir el segundo.
-    final novelThreshold = _profiles.length <= 1 ? 0.155 : 0.235;
+    // Primera bifurcación más fácil; siguientes también razonables.
+    final novelThreshold = _profiles.length <= 1
+        ? 0.135
+        : (_profiles.length <= 2 ? 0.155 : 0.175);
 
     if (best != null && bestDist <= acceptThreshold) {
       _pendingNovel = null;
@@ -738,9 +828,8 @@ class _DiarizationSession {
     if (_lastSpeaker != null) {
       final last = _profiles.firstWhere((p) => p.id == _lastSpeaker);
       final dLast = _distance(last.centroid, turn.vector);
-      // Para la primera bifurcación (crear speaker 2), evitamos pegarnos tanto al último.
       final effectiveKeepLast = _profiles.length <= 1
-          ? 0.125
+          ? 0.115
           : keepLastThreshold;
       if (dLast <= effectiveKeepLast) {
         _pendingNovel = null;
@@ -750,17 +839,17 @@ class _DiarizationSession {
       }
     }
 
-    // Evita crear un speaker nuevo por un único fallo aislado.
+    // Evita crear un speaker nuevo por un único fallo aislado (salvo 1→2).
     if (bestDist > novelThreshold) {
       if (_pendingNovel != null &&
-          _distance(_pendingNovel!, turn.vector) <= 0.135) {
+          _distance(_pendingNovel!, turn.vector) <= 0.125) {
         _pendingNovelCount++;
       } else {
         _pendingNovel = List<double>.from(turn.vector);
         _pendingNovelCount = 1;
       }
 
-      final requiredNovelHits = _profiles.length <= 1 ? 1 : 2;
+      final requiredNovelHits = _profiles.length <= 2 ? 1 : 2;
       if (_pendingNovelCount >= requiredNovelHits) {
         final id = _nextId++;
         final profile = _SpeakerProfile(
@@ -776,8 +865,6 @@ class _DiarizationSession {
     }
 
     // Fallback estable: mejor speaker existente.
-    // No actualizamos centroides en fallback incierto para no arrastrar un speaker
-    // y terminar absorbiendo voces distintas en Speaker 1.
     final chosen = best ?? _profiles.first;
     if (bestDist <= acceptThreshold) {
       _update(chosen, turn.vector);
@@ -787,6 +874,17 @@ class _DiarizationSession {
   }
 
   void _update(_SpeakerProfile p, List<double> v) {
+    if (p.centroid.length != v.length) {
+      // Dimensiones nuevas (p.ej. micRatio): reinicia centroide.
+      for (var i = 0; i < p.centroid.length && i < v.length; i++) {
+        p.centroid[i] = v[i];
+      }
+      while (p.centroid.length < v.length) {
+        p.centroid.add(v[p.centroid.length]);
+      }
+      p.seen++;
+      return;
+    }
     final alpha = 1.0 / (p.seen + 1);
     for (var i = 0; i < p.centroid.length; i++) {
       p.centroid[i] = (p.centroid[i] * (1 - alpha)) + (v[i] * alpha);
@@ -797,8 +895,8 @@ class _DiarizationSession {
   double _distance(List<double> a, List<double> b) {
     if (a.length != b.length || a.isEmpty) return 1.0;
 
-    // Pesos por dimensión: energía y zcr suelen diferenciar mejor voces.
-    const w = <double>[0.34, 0.30, 0.22, 0.14];
+    // rms, zcr, slope, centroid, micRatio
+    const w = <double>[0.22, 0.18, 0.12, 0.10, 0.38];
     double manhattan = 0;
     double dot = 0;
     double na = 0;
@@ -818,8 +916,17 @@ class _DiarizationSession {
     final cos = (dot / (math.sqrt(na) * math.sqrt(nb))).clamp(-1.0, 1.0);
     final angular = 1.0 - cos;
 
-    // Distancia híbrida: más sensible que coseno puro.
-    return (manhattan * 0.62) + (angular * 0.38);
+    var dist = (manhattan * 0.62) + (angular * 0.38);
+
+    // Canal muy distinto (mic vs system) → empujar a novel speaker.
+    if (a.length > 4 && b.length > 4) {
+      final micDelta = (a[4] - b[4]).abs();
+      if (micDelta > 0.45) {
+        dist = math.max(dist, 0.22 + (micDelta - 0.45) * 0.5);
+      }
+    }
+
+    return dist.clamp(0.0, 1.0);
   }
 }
 
@@ -833,8 +940,9 @@ class _TurnAssignment {
 }
 
 class _TurnCandidate {
-  _TurnCandidate({required this.text, this.speakerHint});
+  _TurnCandidate({required this.text, this.speakerHint, this.feature});
 
   final String text;
   final int? speakerHint;
+  final _TurnFeature? feature;
 }

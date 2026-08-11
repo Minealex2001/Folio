@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
@@ -8,6 +9,38 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import 'system_audio_service.dart';
+
+/// Energía RMS normalizada (0..1 approx) de mic y system en una ventana corta.
+class ChannelEnergyWindow {
+  const ChannelEnergyWindow({required this.micRms, required this.sysRms});
+
+  final double micRms;
+  final double sysRms;
+
+  double get micRatio {
+    final sum = micRms + sysRms;
+    if (sum <= 1e-12) return 0.5;
+    return (micRms / sum).clamp(0.0, 1.0);
+  }
+
+  /// `mic`, `system` o `mixed` según dominancia relativa.
+  String get dominant {
+    if (micRms > sysRms * 1.2) return 'mic';
+    if (sysRms > micRms * 1.2) return 'system';
+    return 'mixed';
+  }
+}
+
+/// Chunk WAV listo para STT + serie de energías por canal (diarización).
+class AudioChunkEvent {
+  const AudioChunkEvent({
+    required this.file,
+    this.channelWindows = const <ChannelEnergyWindow>[],
+  });
+
+  final File file;
+  final List<ChannelEnergyWindow> channelWindows;
+}
 
 /// FIFO de muestras PCM respaldado por chunks `Uint8List` en vez de un
 /// `List<int>` byte a byte: consumir con `removeAt(0)` sobre una lista
@@ -63,6 +96,8 @@ class AudioMixerService {
   static const int _sampleRate = 16000;
   static const int _chunkSeconds = 15;
   static const int _chunkSamples = _sampleRate * _chunkSeconds; // 240 000
+  /// Ventana de energía mic/system (~250 ms) para fronteras de turno.
+  static const int windowSamples = _sampleRate ~/ 4; // 4000
 
   final _record = AudioRecorder();
   StreamSubscription<Uint8List>? _micSub;
@@ -74,6 +109,10 @@ class AudioMixerService {
 
   // Acumulador de samples mezclados para el chunk actual
   final List<int> _chunkSamples_ = [];
+  final List<ChannelEnergyWindow> _chunkWindows = [];
+  double _windowMicSumSq = 0;
+  double _windowSysSumSq = 0;
+  int _windowSampleCount = 0;
 
   // Archivo WAV activo (audio completo de la sesión)
   RandomAccessFile? _wavRaf;
@@ -84,8 +123,8 @@ class AudioMixerService {
   bool get isActive => _active;
 
   // Stream de chunks para transcripción
-  final _chunkController = StreamController<File>.broadcast();
-  Stream<File> get chunkStream => _chunkController.stream;
+  final _chunkController = StreamController<AudioChunkEvent>.broadcast();
+  Stream<AudioChunkEvent> get chunkStream => _chunkController.stream;
 
   // Contadores de diagnóstico de canal (solo activos si se pide explícitamente
   // vía [start(trackChannelMeta: true)]). No alteran la mezcla ni la escritura
@@ -119,6 +158,8 @@ class AudioMixerService {
     _trackChannelMeta = trackChannelMeta;
     _micChunkCount = 0;
     _sysChunkCount = 0;
+    _resetWindowAccumulators();
+    _chunkWindows.clear();
 
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) return false;
@@ -216,6 +257,8 @@ class AudioMixerService {
     _micBuf.clear();
     _sysBuf.clear();
     _chunkSamples_.clear();
+    _chunkWindows.clear();
+    _resetWindowAccumulators();
     _wavDataBytes = 0;
 
     return dest;
@@ -240,10 +283,12 @@ class AudioMixerService {
     // mezclamos con cero para evitar bloquear el pipeline.
     while (_micBuf.lengthInBytes >= 2) {
       final micSample = _micBuf.readInt16LE();
+      final sysSample =
+          _sysBuf.lengthInBytes >= 2 ? _sysBuf.readInt16LE() : 0;
 
-      final mixed = _sysBuf.lengthInBytes >= 2
-          ? (micSample + _sysBuf.readInt16LE()).clamp(-32768, 32767)
-          : micSample;
+      final mixed = (micSample + sysSample).clamp(-32768, 32767);
+
+      _accumulateChannelEnergy(micSample, sysSample);
 
       // Escribir al WAV
       final lo = mixed & 0xFF;
@@ -266,6 +311,7 @@ class AudioMixerService {
     // Vaciar micBuf sin sistema
     while (_micBuf.lengthInBytes >= 2) {
       final sample = _micBuf.readInt16LE();
+      _accumulateChannelEnergy(sample, 0);
       final lo = sample & 0xFF;
       final hi = (sample >> 8) & 0xFF;
       _wavRaf?.writeByteSync(lo);
@@ -279,10 +325,42 @@ class AudioMixerService {
     }
   }
 
+  void _accumulateChannelEnergy(int micSample, int sysSample) {
+    _windowMicSumSq += micSample * micSample;
+    _windowSysSumSq += sysSample * sysSample;
+    _windowSampleCount++;
+    if (_windowSampleCount >= windowSamples) {
+      _flushEnergyWindow();
+    }
+  }
+
+  void _flushEnergyWindow() {
+    if (_windowSampleCount <= 0) return;
+    final n = _windowSampleCount.toDouble();
+    _chunkWindows.add(
+      ChannelEnergyWindow(
+        micRms: math.sqrt(_windowMicSumSq / n) / 32768.0,
+        sysRms: math.sqrt(_windowSysSumSq / n) / 32768.0,
+      ),
+    );
+    _resetWindowAccumulators();
+  }
+
+  void _resetWindowAccumulators() {
+    _windowMicSumSq = 0;
+    _windowSysSumSq = 0;
+    _windowSampleCount = 0;
+  }
+
   Future<void> _emitChunk() async {
     if (_chunkSamples_.isEmpty) return;
+    if (_windowSampleCount > 0) {
+      _flushEnergyWindow();
+    }
     final pcm = Uint8List.fromList(List.unmodifiable(_chunkSamples_));
+    final windows = List<ChannelEnergyWindow>.unmodifiable(_chunkWindows);
     _chunkSamples_.clear();
+    _chunkWindows.clear();
 
     final tempDir = await getTemporaryDirectory();
     final chunkPath = p.join(
@@ -296,7 +374,7 @@ class AudioMixerService {
     _finalizeWav(raf, pcm.length);
     raf.closeSync();
 
-    _chunkController.add(chunkFile);
+    _chunkController.add(AudioChunkEvent(file: chunkFile, channelWindows: windows));
   }
 
   // ───────────── WAV header helpers

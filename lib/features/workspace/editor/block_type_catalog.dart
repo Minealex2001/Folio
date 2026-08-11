@@ -115,7 +115,6 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     key: 'meeting_note',
     icon: Icons.mic_rounded,
     section: BlockTypeSection.media,
-    beta: true,
   ),
   BlockTypeTemplate(
     key: 'code',
