@@ -357,7 +357,8 @@ mixin _BlockContextMenu on State<BlockEditor> {
         if (!mounted) return;
         await st._openMeetingNoteAiDialog(menuContext, page, b);
       });
-    } else if (v == 'meeting_transcribe') {
+    } else if (v == 'meeting_transcribe' ||
+        v == 'meeting_regenerate_transcript') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final file = await st._resolveBlockUrlFileCached(b.url);
@@ -799,6 +800,13 @@ mixin _BlockContextMenu on State<BlockEditor> {
             value: 'meeting_transcribe',
             icon: Icons.subtitles_rounded,
             label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
+          ),
+        if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'meeting_regenerate_transcript',
+            icon: Icons.refresh_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteRegenerateTranscription,
           ),
       ],
       if (b.type == 'column_list') ...[

@@ -68,12 +68,14 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
       _aiChatBusy = true;
       _aiToolTrace.clear();
     });
+    final cancelToken = _beginAiChatCancelToken();
     unawaited(widget.appSettings.setAiChatPanelCollapsed(false));
     _scheduleAiChatScrollToBottom();
     try {
       await _s.pingAi();
     } catch (e) {
       if (mounted) {
+        _endAiChatCancelToken(cancelToken);
         _setStateSafe(() => _aiChatBusy = false);
         final l10n = AppLocalizations.of(context);
         final msg = e is AiServiceUnreachableException
@@ -84,6 +86,11 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
       return;
     }
     if (!mounted) return;
+    if (cancelToken.isCancelled) {
+      _endAiChatCancelToken(cancelToken);
+      _setStateSafe(() => _aiChatBusy = false);
+      return;
+    }
     _s.appendMessageToAiChatById(targetChatId, userMessage);
     try {
       final outcome = await _runAiFromChat(
@@ -91,8 +98,10 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
         threadMessages,
         includePageContext: includePageContext,
         contextPageIds: contextPageIds,
+        cancelToken: cancelToken,
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) return;
       if (_activeChat.id == targetChatId) {
         _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
       }
@@ -107,6 +116,7 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
       );
     } catch (e) {
       if (!mounted) return;
+      if (e is AiRequestCancelledException || cancelToken.isCancelled) return;
       final l10n = AppLocalizations.of(context);
       if (e is FolioCloudAiException && e.isInkExhausted) {
         await showFolioCloudAiInkExhaustedDialog(
@@ -118,6 +128,7 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
         _snack(l10n.aiErrorWithDetails(e), error: true);
       }
     } finally {
+      _endAiChatCancelToken(cancelToken);
       if (mounted) {
         _setStateSafe(() => _aiChatBusy = false);
       }

@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import 'ai_cancel_token.dart';
 import 'ai_tool.dart';
 
+export 'ai_cancel_token.dart';
 export 'ai_tool.dart';
 
 class AiChatMessage {
@@ -348,6 +350,8 @@ class AiCompletionRequest {
     this.cloudInkOperation,
     this.tools = const [],
     this.toolChoice,
+    /// Si se cancela, los proveedores deben abortar HTTP/SSE en curso.
+    this.cancelToken,
   });
 
   final String prompt;
@@ -380,6 +384,9 @@ class AiCompletionRequest {
 
   /// Valores alineados con `INK_COST_BY_OPERATION` en Cloud Functions.
   final String? cloudInkOperation;
+
+  /// Cancelación cooperativa del turno (Stop en Quill). Ver [AiCancelToken].
+  final AiCancelToken? cancelToken;
 }
 
 class AiCompletionResult {

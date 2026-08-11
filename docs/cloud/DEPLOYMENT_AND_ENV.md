@@ -106,6 +106,16 @@ Canonical production hosts:
 
 Legacy Minealex hosts remain accepted by CORS and client host checks during migration.
 
+### Corporate / VPN fallback (`backendfolio*`)
+
+Railway Hobby allows **one custom domain per service**, so `backendfolio.minealexgames.com`
+and `backendfoliobeta.minealexgames.com` cannot be registered alongside `api*.folio.com.es`.
+
+Instead, Cloudflare Worker **`folio-api-fallback`** (see `infra/cloudflare/folio-api-fallback`)
+proxies those hosts to the canonical API with the correct `Host` header. DNS for the Minealex
+fallback hosts must stay **proxied** (orange cloud). Hardening checklist:
+[`infra/cloudflare/HARDENING.md`](../../../infra/cloudflare/HARDENING.md).
+
 ---
 
 ## 7. API Testing & Postman Collection

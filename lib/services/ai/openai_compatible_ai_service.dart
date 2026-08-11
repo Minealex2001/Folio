@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'ai_http_cancel.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
 import 'openai_compatible_sse.dart';
@@ -205,7 +206,11 @@ class OpenAiCompatibleAiService implements AiService {
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = _buildEndpoint('chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -245,7 +250,10 @@ class OpenAiCompatibleAiService implements AiService {
         usage: usage,
         toolCalls: toolCalls,
       );
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }
@@ -256,7 +264,11 @@ class OpenAiCompatibleAiService implements AiService {
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = _buildEndpoint('chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -274,7 +286,10 @@ class OpenAiCompatibleAiService implements AiService {
       }
 
       yield* parseOpenAiCompatibleSseStream(response);
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }

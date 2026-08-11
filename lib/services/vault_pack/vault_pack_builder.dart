@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 import '../../data/folio_cloud_pack_format.dart';
 import '../../data/vault_backup.dart';
 import '../../data/vault_paths.dart';
+import '../folio_cloud/folio_cloud_blob_codec.dart';
 import '../folio_cloud/folio_cloud_pack_crypto.dart';
+import '../folio_cloud/folio_storage_transport.dart';
 
 /// Un blob cifrado listo para subir al pack.
 class VaultPackPreparedBlob {
@@ -28,6 +30,10 @@ class VaultPackPreparedBlob {
 /// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
 /// disco: funciona igual en v0 y v1, sin depender de que ese archivo siga
 /// existiendo tras migrar.
+///
+/// Formato v2: comprime (gzip cuando ayuda) y trocea payloads grandes en
+/// partes ≤ [kFolioCloudBlobChunkPlainBytes] antes de cifrar, para no
+/// superar el tope HTTP de [kFolioStorageMaxObjectBytes].
 Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manifest})>
     buildVaultPackSnapshot({
   required SecretKey packKey,
@@ -75,19 +81,42 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
     required List<int> plainBytes,
     String? attachmentPosix,
   }) async {
-    final cipherBytes = await cloudPackEncryptPlainBlob(
+    final preparedPlain = prepareCloudBlobPlainChunks(
       plain: plainBytes,
-      packKey: packKey,
-      role: role.name,
+      role: folioCloudPackRoleWire(role),
+      attachmentRelativePath: attachmentPosix,
     );
-    final id = await cloudPackBlobIdFromCipherBytes(cipherBytes);
-    final item = FolioCloudPackSnapshotItem(
-      role: role,
-      blobId: id,
-      relativePath: attachmentPosix,
-    );
-    items.add(item);
-    prepared.add(VaultPackPreparedBlob(item: item, cipherBytes: cipherBytes));
+    final chunkCount = preparedPlain.chunks.length;
+    for (var i = 0; i < chunkCount; i++) {
+      final chunkPlain = preparedPlain.chunks[i];
+      // Incluir índice en el role del nonce para que trozos distintos del
+      // mismo contenido (imposible en content-addressed, pero sí si se
+      // re-parte) no reutilicen nonce.
+      final cipherBytes = await cloudPackEncryptPlainBlob(
+        plain: chunkPlain,
+        packKey: packKey,
+        role: chunkCount == 1
+            ? role.name
+            : '${role.name}:chunk:$i/$chunkCount',
+      );
+      if (cipherBytes.length > kFolioStorageMaxObjectBytes) {
+        throw StateError(
+          'Cloud-pack chunk too large after encrypt '
+          '(${cipherBytes.length} > $kFolioStorageMaxObjectBytes)',
+        );
+      }
+      final id = await cloudPackBlobIdFromCipherBytes(cipherBytes);
+      final item = FolioCloudPackSnapshotItem(
+        role: role,
+        blobId: id,
+        relativePath: attachmentPosix,
+        chunkIndex: i,
+        chunkCount: chunkCount,
+        compression: preparedPlain.compression,
+      );
+      items.add(item);
+      prepared.add(VaultPackPreparedBlob(item: item, cipherBytes: cipherBytes));
+    }
   }
 
   await addBlob(

@@ -72,6 +72,7 @@ class _SidebarState extends State<Sidebar> {
 
   List<VaultEntry> _vaults = [];
   var _vaultsLoading = true;
+  var _adoptableVaultCount = 0;
   Set<String> _lastVaultIds = const <String>{};
   final Set<String> _collapsedPageIds = <String>{};
   // Performance: track what's visible in the sidebar to skip unnecessary rebuilds
@@ -294,6 +295,10 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _reloadVaults() async {
     final list = await session.listVaultEntries();
+    final uid = widget.cloudAccountController.uid ?? '';
+    final adoptable = uid.isEmpty
+        ? <VaultEntry>[]
+        : VaultRegistry.instance.adoptablePersonalVaultsFor(uid);
     final validPageIds = session.activePages.map((p) => p.id).toSet();
     var changedCollapsedState = false;
     _collapsedPageIds.removeWhere((id) {
@@ -318,7 +323,43 @@ class _SidebarState extends State<Sidebar> {
         _vaults = list;
         _vaultsLoading = false;
         _lastVaultIds = {for (final e in list) e.id};
+        _adoptableVaultCount = adoptable.length;
       });
+    }
+  }
+
+  Future<void> _adoptLocalVaults() async {
+    final uid = widget.cloudAccountController.uid?.trim() ?? '';
+    if (uid.isEmpty || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.sidebarAdoptLocalVaultsConfirmTitle),
+      content: Text(l10n.sidebarAdoptLocalVaultsConfirmBody),
+      confirmLabel: l10n.sidebarAdoptLocalVaults,
+    );
+    if (confirmed != true || !mounted) return;
+
+    // Las libretas personales solo son visibles en contexto personal.
+    final orgCtx = widget.organizationContext;
+    final personalId = orgCtx?.personalOrganization?.id;
+    if (orgCtx != null &&
+        personalId != null &&
+        orgCtx.activeOrganization?.isPersonal != true) {
+      await orgCtx.setActiveOrganizationId(personalId);
+    }
+
+    final count =
+        await VaultRegistry.instance.adoptPersonalVaultsToAccount(uid);
+    AppLogger.info(
+      'adopted local vaults to account',
+      tag: 'org',
+      context: {'uid': uid, 'count': count},
+    );
+    await _applyLibraryContextAndReload();
+    if (!mounted) return;
+    if (count > 0) {
+      showFolioSnack(context, l10n.sidebarAdoptLocalVaultsDone(count));
     }
   }
 
@@ -887,6 +928,10 @@ class _SidebarState extends State<Sidebar> {
               onShareVault: () => unawaited(
                 showVaultShareSheet(context: context, session: session),
               ),
+              adoptableVaultCount: _adoptableVaultCount,
+              onAdoptLocalVaults: _adoptableVaultCount > 0
+                  ? () => unawaited(_adoptLocalVaults())
+                  : null,
             ),
             SidebarPillarRail(
               onWrite: () => session.addPage(parentId: null),

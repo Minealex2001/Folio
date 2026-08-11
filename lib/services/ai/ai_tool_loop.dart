@@ -89,9 +89,17 @@ Future<AiToolLoopOutcome> runToolLoop({
   /// brevemente antes de que el turno siguiente lo reemplace — aceptable
   /// frente a duplicar la llamada al modelo solo para evitarlo.
   void Function(String textSoFarThisStep)? onReplyTextDelta,
+  AiCancelToken? cancelToken,
 }) async {
   final steps = <AiToolLoopStepRecord>[];
   final messages = List<AiChatMessage>.from(baseRequest.messages);
+  final effectiveCancel = cancelToken ?? baseRequest.cancelToken;
+
+  void throwIfCancelled() {
+    if (effectiveCancel?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
+  }
 
   int? promptTokens;
   int? completionTokens;
@@ -132,6 +140,7 @@ Future<AiToolLoopOutcome> runToolLoop({
       cloudInkOperation: baseRequest.cloudInkOperation,
       tools: forceFinalReply ? const [] : tools,
       toolChoice: forceFinalReply ? 'none' : baseRequest.toolChoice,
+      cancelToken: effectiveCancel,
     );
   }
 
@@ -139,26 +148,43 @@ Future<AiToolLoopOutcome> runToolLoop({
   /// si no, cae al `ai.complete()` bloqueante de siempre (comportamiento
   /// idéntico para llamadores que no wireen streaming, p. ej. modo Plan).
   Future<AiCompletionResult> completeStep(AiCompletionRequest request) async {
-    if (onReplyTextDelta == null) return ai.complete(request);
-    final buffer = StringBuffer();
-    AiTokenUsage? usage;
-    List<AiToolCall>? toolCalls;
-    await for (final chunk in ai.completeStream(request)) {
-      if (chunk.textDelta.isNotEmpty) {
-        buffer.write(chunk.textDelta);
-        onReplyTextDelta(buffer.toString());
+    throwIfCancelled();
+    try {
+      if (onReplyTextDelta == null) return await ai.complete(request);
+      final buffer = StringBuffer();
+      AiTokenUsage? usage;
+      List<AiToolCall>? toolCalls;
+      await for (final chunk in ai.completeStream(request)) {
+        throwIfCancelled();
+        if (chunk.textDelta.isNotEmpty) {
+          buffer.write(chunk.textDelta);
+          onReplyTextDelta(buffer.toString());
+        }
+        if (chunk.isFinal) {
+          usage = chunk.usage;
+          toolCalls = chunk.toolCalls;
+        }
       }
-      if (chunk.isFinal) {
-        usage = chunk.usage;
-        toolCalls = chunk.toolCalls;
+      throwIfCancelled();
+      return AiCompletionResult(
+        text: buffer.toString(),
+        usage: usage,
+        toolCalls: toolCalls,
+      );
+    } on AiRequestCancelledException {
+      rethrow;
+    } catch (e) {
+      if (effectiveCancel?.isCancelled == true) {
+        throw const AiRequestCancelledException();
       }
+      rethrow;
     }
-    return AiCompletionResult(text: buffer.toString(), usage: usage, toolCalls: toolCalls);
   }
 
   String? lastCallSignature;
 
   for (var step = 0; step < maxSteps; step++) {
+    throwIfCancelled();
     final result = await completeStep(
       requestFor(includeAttachments: step == 0, forceFinalReply: false),
     );
@@ -181,8 +207,10 @@ Future<AiToolLoopOutcome> runToolLoop({
     }
 
     for (final call in calls) {
+      throwIfCancelled();
       onEvent?.call(AiToolLoopEvent.toolCallStart(call));
       final toolResult = await executeTool(call);
+      throwIfCancelled();
       onEvent?.call(AiToolLoopEvent.toolCallResult(call, toolResult));
       steps.add(AiToolLoopStepRecord(call: call, result: toolResult));
       messages.add(

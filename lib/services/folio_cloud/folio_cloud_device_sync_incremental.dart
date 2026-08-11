@@ -11,6 +11,7 @@ import '../../utils/concurrency.dart';
 import '../app_logger.dart';
 import '../sync/vault_sync_pack.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_cloud_blob_codec.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_storage_transport.dart';
 
@@ -38,7 +39,16 @@ Future<List<Map<String, Object?>>> _encryptPackItemsIsolate(
       role: item['role'] as String,
     );
     final blobId = await cloudPackBlobIdFromCipherBytes(cipher);
-    out.add({'id': item['id'], 'cipher': cipher, 'blobId': blobId});
+    out.add({
+      'id': item['id'],
+      'cipher': cipher,
+      'blobId': blobId,
+      if (item.containsKey('chunkIndex')) 'chunkIndex': item['chunkIndex'],
+      if (item.containsKey('chunkCount')) 'chunkCount': item['chunkCount'],
+      if (item.containsKey('compression')) 'compression': item['compression'],
+      if (item.containsKey('path')) 'path': item['path'],
+      if (item.containsKey('sha256')) 'sha256': item['sha256'],
+    });
   }
   return out;
 }
@@ -63,11 +73,15 @@ Future<List<Uint8List>> _decryptPackItemsIsolate(
 /// v3 sube cada página como blob independiente (content-addressed), igual
 /// que los adjuntos; v2 (legacy, aún leído) sube todo el payload en un único
 /// blob. `kDeviceSyncFormatVersion`/`kDeviceSyncManifestFormat` son siempre
-/// los del formato que este cliente ESCRIBE; el pull acepta ambos.
-const int kDeviceSyncFormatVersion = 3;
-const String kDeviceSyncManifestFormat = kDeviceSyncManifestFormatV3;
+/// los del formato que este cliente ESCRIBE; el pull acepta v2–v4.
+///
+/// v4: los adjuntos grandes se comprimen (envelope gzip) y se trocean en
+/// partes ≤ [kFolioCloudBlobChunkPlainBytes] para no superar el tope HTTP.
+const int kDeviceSyncFormatVersion = 4;
+const String kDeviceSyncManifestFormat = kDeviceSyncManifestFormatV4;
 const String kDeviceSyncManifestFormatV2 = 'folio.device.sync.manifest.v2';
 const String kDeviceSyncManifestFormatV3 = 'folio.device.sync.manifest.v3';
+const String kDeviceSyncManifestFormatV4 = 'folio.device.sync.manifest.v4';
 
 typedef DeviceSyncTransferProgress = void Function(
   int completed,
@@ -162,9 +176,9 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
       'attachments': pack.attachments.length,
     },
   );
-  // v3: cada página es su propio blob content-addressed (como los adjuntos);
+  // v4: cada página es su propio blob content-addressed (como los adjuntos);
   // el resto del payload (metadatos de libreta, integraciones, etc.) va en
-  // un único blob aparte. Así un push solo sube lo que cambió de verdad.
+  // un único blob aparte. Los adjuntos grandes se comprimen y trocean.
   //
   // El jsonEncode+AES-GCM+SHA-256 de "resto" + páginas + adjuntos se manda
   // de una vez a un isolate aparte en vez de uno a uno en el isolate de UI
@@ -182,13 +196,40 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
         'role': 'device-sync-page:${page.id}',
         'json': VaultPayload.pageSliceJson(page, pack.payload.comments),
       },
-    for (final a in pack.attachments)
-      {
-        'id': a.path,
-        'role': 'device-sync-att:${a.path}',
-        'bytes': a.bytes,
-      },
   ];
+
+  // Adjuntos: envelope + troceo antes de cifrar (v4).
+  final attachmentMeta = <Map<String, Object?>>[];
+  for (final a in pack.attachments) {
+    final prepared = prepareCloudBlobPlainChunks(
+      plain: a.bytes,
+      role: 'device-sync-att:${a.path}',
+      attachmentRelativePath: a.path,
+    );
+    final chunkCount = prepared.chunks.length;
+    attachmentMeta.add({
+      'path': a.path,
+      'sha256': a.sha256Hex,
+      'chunkCount': chunkCount,
+      'compression': folioCloudBlobCompressionWire(prepared.compression),
+      'firstBatchIndex': batchItems.length,
+    });
+    for (var i = 0; i < chunkCount; i++) {
+      batchItems.add({
+        'id': '${a.path}#$i',
+        'role': chunkCount == 1
+            ? 'device-sync-att:${a.path}'
+            : 'device-sync-att:${a.path}:chunk:$i/$chunkCount',
+        'bytes': prepared.chunks[i],
+        'chunkIndex': i,
+        'chunkCount': chunkCount,
+        'compression': folioCloudBlobCompressionWire(prepared.compression),
+        'path': a.path,
+        'sha256': a.sha256Hex,
+      });
+    }
+  }
+
   final encrypted = await compute(_encryptPackItemsIsolate, {
     'keyBytes': packKeyBytes,
     'items': batchItems,
@@ -208,17 +249,39 @@ Future<DeviceSyncPushResult> pushDeviceSyncIncremental({
     pageEntries.add({'pageId': e['id'] as String, 'blobId': blobId});
   }
 
-  final attachmentEntries = <Map<String, String>>[];
-  for (var i = 0; i < pack.attachments.length; i++) {
-    final e = encrypted[1 + pageCount + i];
-    final a = pack.attachments[i];
-    final blobId = e['blobId'] as String;
-    cipherByBlobId[blobId] = e['cipher'] as Uint8List;
-    attachmentEntries.add({
-      'path': a.path,
-      'blobId': blobId,
-      if (a.sha256Hex.isNotEmpty) 'sha256': a.sha256Hex,
-    });
+  final attachmentEntries = <Map<String, Object?>>[];
+  for (final meta in attachmentMeta) {
+    final first = meta['firstBatchIndex'] as int;
+    final chunkCount = meta['chunkCount'] as int;
+    final path = meta['path'] as String;
+    final sha = meta['sha256'] as String;
+    final compression = meta['compression'] as String;
+    final chunkBlobIds = <String>[];
+    for (var i = 0; i < chunkCount; i++) {
+      final e = encrypted[first + i];
+      final blobId = e['blobId'] as String;
+      cipherByBlobId[blobId] = e['cipher'] as Uint8List;
+      chunkBlobIds.add(blobId);
+    }
+    if (chunkCount == 1) {
+      attachmentEntries.add({
+        'path': path,
+        'blobId': chunkBlobIds.first,
+        if (sha.isNotEmpty) 'sha256': sha,
+        if (compression != 'none') 'compression': compression,
+      });
+    } else {
+      attachmentEntries.add({
+        'path': path,
+        'chunkCount': chunkCount,
+        'chunks': [
+          for (var i = 0; i < chunkCount; i++)
+            {'blobId': chunkBlobIds[i], 'chunkIndex': i},
+        ],
+        if (sha.isNotEmpty) 'sha256': sha,
+        'compression': compression,
+      });
+    }
   }
 
   final allBlobIds = cipherByBlobId.keys.toSet();
@@ -411,7 +474,8 @@ Future<DeviceSyncManifestPageBlobIds> peekDeviceSyncManifestPageBlobIds({
   final map = Map<String, dynamic>.from(decoded);
   final format = map['format'];
   if (format != kDeviceSyncManifestFormatV2 &&
-      format != kDeviceSyncManifestFormatV3) {
+      format != kDeviceSyncManifestFormatV3 &&
+      format != kDeviceSyncManifestFormatV4) {
     return const DeviceSyncManifestPageBlobIds(vaultBlobId: '', pageBlobIds: {});
   }
   if (format == kDeviceSyncManifestFormatV2) {
@@ -458,7 +522,8 @@ Future<Set<String>> peekDeviceSyncManifestBlobIds({
   final map = Map<String, dynamic>.from(decoded);
   final format = map['format'];
   if (format != kDeviceSyncManifestFormatV2 &&
-      format != kDeviceSyncManifestFormatV3) {
+      format != kDeviceSyncManifestFormatV3 &&
+      format != kDeviceSyncManifestFormatV4) {
     return {};
   }
   final out = <String>{};
@@ -483,6 +548,14 @@ Future<Set<String>> peekDeviceSyncManifestBlobIds({
       if (item is! Map) continue;
       final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
       if (cloudPackIsValidBlobId(blobId)) out.add(blobId);
+      final chunks = item['chunks'];
+      if (chunks is List) {
+        for (final c in chunks) {
+          if (c is! Map) continue;
+          final cid = '${c['blobId'] ?? ''}'.trim().toLowerCase();
+          if (cloudPackIsValidBlobId(cid)) out.add(cid);
+        }
+      }
     }
   }
   return out;
@@ -522,15 +595,15 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   }
   final map = Map<String, dynamic>.from(decoded);
   final format = map['format'];
-  final isV3 = format == kDeviceSyncManifestFormatV3;
+  final isV4 = format == kDeviceSyncManifestFormatV4;
+  final isV3 = format == kDeviceSyncManifestFormatV3 || isV4;
   final isV2 = format == kDeviceSyncManifestFormatV2;
   if (!isV2 && !isV3) {
     throw StateError('Unsupported device-sync manifest format: $format');
   }
 
-  // v2: un único blob con todo el payload. v3: un blob "resto de libreta" +
-  // un blob por página. Ambos casos se resuelven a un conjunto de blobs de
-  // contenido antes de descargar, para reutilizar el mismo downloader.
+  // v2: un único blob con todo el payload. v3/v4: un blob "resto de libreta" +
+  // un blob por página. v4: adjuntos pueden ir troceados + envelope gzip.
   final manifestPageCountRaw = map['pageCount'];
   final manifestPageCount =
       manifestPageCountRaw is num ? manifestPageCountRaw.toInt() : null;
@@ -560,22 +633,61 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   }
 
   final attRaw = map['attachments'];
-  final attSpecs = <({String path, String blobId, String sha})>[];
+  final attSpecs =
+      <({String path, List<String> blobIds, String sha, bool enveloped})>[];
   if (attRaw is List) {
     for (final item in attRaw) {
       if (item is! Map) continue;
       final path = '${item['path'] ?? ''}'.trim().replaceAll(r'\', '/');
-      final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
       final sha = '${item['sha256'] ?? ''}'.trim().toLowerCase();
-      if (path.isEmpty || !cloudPackIsValidBlobId(blobId)) continue;
-      attSpecs.add((path: path, blobId: blobId, sha: sha));
+      if (path.isEmpty) continue;
+
+      final chunkBlobIds = <String>[];
+      final chunks = item['chunks'];
+      if (chunks is List && chunks.isNotEmpty) {
+        final byIndex = <int, String>{};
+        for (final c in chunks) {
+          if (c is! Map) continue;
+          final cid = '${c['blobId'] ?? ''}'.trim().toLowerCase();
+          final idx = c['chunkIndex'];
+          final index = idx is num
+              ? idx.toInt()
+              : int.tryParse('$idx') ?? -1;
+          if (!cloudPackIsValidBlobId(cid) || index < 0) continue;
+          byIndex[index] = cid;
+        }
+        final count = item['chunkCount'] is num
+            ? (item['chunkCount'] as num).toInt()
+            : byIndex.length;
+        if (count < 1 || byIndex.length != count) {
+          throw StateError('Invalid chunked attachment: $path');
+        }
+        for (var i = 0; i < count; i++) {
+          final cid = byIndex[i];
+          if (cid == null) {
+            throw StateError('Missing chunk $i for attachment: $path');
+          }
+          chunkBlobIds.add(cid);
+        }
+      } else {
+        final blobId = '${item['blobId'] ?? ''}'.trim().toLowerCase();
+        if (!cloudPackIsValidBlobId(blobId)) continue;
+        chunkBlobIds.add(blobId);
+      }
+
+      attSpecs.add((
+        path: path,
+        blobIds: chunkBlobIds,
+        sha: sha,
+        enveloped: isV4,
+      ));
     }
   }
 
   final allIds = <String>{
     payloadBlobId,
     ...pageSpecs.map((e) => e.blobId),
-    ...attSpecs.map((e) => e.blobId),
+    for (final a in attSpecs) ...a.blobIds,
   };
 
   final localPagesById = <String, FolioPage>{
@@ -593,7 +705,7 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   final toDownloadIds = <String>{
     if (!canReuseRest) payloadBlobId,
     ...pageSpecs.where((s) => !canReusePage(s)).map((e) => e.blobId),
-    ...attSpecs.map((e) => e.blobId),
+    for (final a in attSpecs) ...a.blobIds,
   };
   final total = toDownloadIds.length;
 
@@ -689,7 +801,12 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
   }
 
   final attachments = attSpecs.map((spec) {
-    final bytes = blobPlain(spec.blobId);
+    final chunkPlains = [for (final id in spec.blobIds) blobPlain(id)];
+    final bytes = spec.enveloped
+        ? decodeCloudBlobPlainChunks(chunkPlains)
+        : (chunkPlains.length == 1
+            ? chunkPlains.first
+            : decodeCloudBlobPlainChunks(chunkPlains));
     return VaultSyncPackAttachment(
       path: spec.path,
       sha256Hex: spec.sha,

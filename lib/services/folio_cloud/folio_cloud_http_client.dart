@@ -90,7 +90,15 @@ bool _isHostBlockTransportError(Object e) {
 
 http.BaseRequest _copyRequest(http.BaseRequest request, Uri newUrl) {
   late final http.BaseRequest copy;
-  if (request is http.Request) {
+  if (request is http.AbortableRequest) {
+    copy = http.AbortableRequest(
+      request.method,
+      newUrl,
+      abortTrigger: request.abortTrigger,
+    )
+      ..encoding = request.encoding
+      ..bodyBytes = request.bodyBytes;
+  } else if (request is http.Request) {
     copy = http.Request(request.method, newUrl)
       ..encoding = request.encoding
       ..bodyBytes = request.bodyBytes;

@@ -54,6 +54,9 @@ import '../legal/third_party_licenses_page.dart';
 import 'vault_trash_sheet.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
+import '../../services/notion/notion_api_client.dart';
+import '../../services/notion/notion_auth_service.dart';
+import '../notion_import/notion_page_picker.dart';
 import '../../data/vault_registry.dart';
 import '../../data/vault_paths.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -2544,6 +2547,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                       subtitle: Text(l10n.importNotionSubtitle),
                                       onTap: _s.state == VaultFlowState.unlocked
                                           ? _openImportNotionFlow
+                                          : null,
+                                    ),
+                                    const Divider(height: 1),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.link_rounded,
+                                      ),
+                                      title: Text(l10n.notionApiImportTitle),
+                                      subtitle: Text(l10n.notionApiImportSubtitle),
+                                      onTap: _s.state == VaultFlowState.unlocked
+                                          ? _openNotionApiImportFlow
                                           : null,
                                     ),
                                     const Divider(height: 1),

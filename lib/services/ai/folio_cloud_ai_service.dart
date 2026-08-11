@@ -147,6 +147,10 @@ class FolioCloudAiService implements AiService {
     if (!folioCloudHasSession()) {
       throw StateError('Not signed in');
     }
+    final cancelToken = request.cancelToken;
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete-stream');
     final payload = jsonEncode(_buildCompletePayload(request));
@@ -154,12 +158,19 @@ class FolioCloudAiService implements AiService {
     http.StreamedResponse? resp;
     Object? lastSendError;
     for (var attempt = 0; attempt < 2; attempt++) {
+      if (cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final token = await folioCloudBearerToken(forceRefresh: attempt > 0);
       if (token == null || token.isEmpty) {
         throw StateError('Not signed in');
       }
 
-      final httpReq = http.Request('POST', uri)
+      final httpReq = http.AbortableRequest(
+        'POST',
+        uri,
+        abortTrigger: cancelToken?.abortTrigger,
+      )
         ..headers['Authorization'] = 'Bearer $token'
         ..headers['Content-Type'] = 'application/json; charset=utf-8'
         ..headers['Accept'] = 'text/event-stream'
@@ -167,7 +178,12 @@ class FolioCloudAiService implements AiService {
 
       try {
         resp = await folioCloudHttpClient.send(httpReq);
+      } on http.RequestAbortedException {
+        throw const AiRequestCancelledException();
       } catch (e) {
+        if (cancelToken?.isCancelled == true) {
+          throw const AiRequestCancelledException();
+        }
         lastSendError = e;
         resp = null;
         break;
@@ -182,6 +198,9 @@ class FolioCloudAiService implements AiService {
     }
 
     if (resp == null) {
+      if (cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       throw FolioCloudAiException(
         _mapFolioCloudAiError(
           FolioCloudException(
@@ -224,45 +243,57 @@ class FolioCloudAiService implements AiService {
     }
 
     String? currentEvent;
-    final lines =
-        resp.stream.transform(utf8.decoder).transform(const LineSplitter());
-    await for (final line in lines) {
-      if (line.isEmpty) {
-        currentEvent = null;
-        continue;
-      }
-      if (line.startsWith('event:')) {
-        currentEvent = line.substring(6).trim();
-        continue;
-      }
-      if (!line.startsWith('data:')) continue;
-      final dataStr = line.substring(5).trim();
-      if (dataStr.isEmpty) continue;
-      final obj = jsonDecode(dataStr);
-      if (currentEvent == 'delta') {
-        final delta = obj is Map ? '${obj['textDelta'] ?? ''}' : '';
-        if (delta.isNotEmpty) {
-          yield AiCompletionChunk(textDelta: delta);
+    try {
+      final lines =
+          resp.stream.transform(utf8.decoder).transform(const LineSplitter());
+      await for (final line in lines) {
+        if (cancelToken?.isCancelled == true) {
+          throw const AiRequestCancelledException();
         }
-      } else if (currentEvent == 'done') {
-        final toolCalls = obj is Map ? _parseToolCalls(obj['toolCalls']) : null;
-        final inkRaw = obj is Map ? obj['ink'] : null;
-        final ent = _entitlements;
-        if (inkRaw is Map && ent != null) {
-          final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
-          final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
-          if (monthly != null &&
-              purchased != null &&
-              monthly >= 0 &&
-              purchased >= 0) {
-            ent.applyInkBalancesFromCloudAi(
-              monthlyBalance: monthly,
-              purchasedBalance: purchased,
-            );
+        if (line.isEmpty) {
+          currentEvent = null;
+          continue;
+        }
+        if (line.startsWith('event:')) {
+          currentEvent = line.substring(6).trim();
+          continue;
+        }
+        if (!line.startsWith('data:')) continue;
+        final dataStr = line.substring(5).trim();
+        if (dataStr.isEmpty) continue;
+        final obj = jsonDecode(dataStr);
+        if (currentEvent == 'delta') {
+          final delta = obj is Map ? '${obj['textDelta'] ?? ''}' : '';
+          if (delta.isNotEmpty) {
+            yield AiCompletionChunk(textDelta: delta);
           }
+        } else if (currentEvent == 'done') {
+          final toolCalls = obj is Map ? _parseToolCalls(obj['toolCalls']) : null;
+          final inkRaw = obj is Map ? obj['ink'] : null;
+          final ent = _entitlements;
+          if (inkRaw is Map && ent != null) {
+            final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+            final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+            if (monthly != null &&
+                purchased != null &&
+                monthly >= 0 &&
+                purchased >= 0) {
+              ent.applyInkBalancesFromCloudAi(
+                monthlyBalance: monthly,
+                purchasedBalance: purchased,
+              );
+            }
+          }
+          yield AiCompletionChunk(isFinal: true, toolCalls: toolCalls);
         }
-        yield AiCompletionChunk(isFinal: true, toolCalls: toolCalls);
       }
+    } on http.RequestAbortedException {
+      throw const AiRequestCancelledException();
+    } catch (e) {
+      if (cancelToken?.isCancelled == true || e is AiRequestCancelledException) {
+        throw const AiRequestCancelledException();
+      }
+      rethrow;
     }
   }
 
@@ -365,6 +396,10 @@ class FolioCloudAiService implements AiService {
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
+    final cancelToken = request.cancelToken;
+    if (cancelToken != null) {
+      return _completeViaHttp(request, cancelToken);
+    }
     try {
       final res = await callFolioHttpsCallable(
         'folioCloudAiComplete',
@@ -408,6 +443,127 @@ class FolioCloudAiService implements AiService {
         functionsCode: 'unavailable',
       );
     }
+  }
+
+  /// Variante abortable de [complete] vía `POST /ai/complete` (mismo payload
+  /// que el stream). Se usa cuando hay [AiCancelToken] (botón Stop).
+  Future<AiCompletionResult> _completeViaHttp(
+    AiCompletionRequest request,
+    AiCancelToken cancelToken,
+  ) async {
+    if (cancelToken.isCancelled) {
+      throw const AiRequestCancelledException();
+    }
+    final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete');
+    final payload = jsonEncode(_buildCompletePayload(request));
+
+    http.Response? resp;
+    Object? lastSendError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (cancelToken.isCancelled) {
+        throw const AiRequestCancelledException();
+      }
+      final token = await folioCloudBearerToken(forceRefresh: attempt > 0);
+      if (token == null || token.isEmpty) {
+        throw StateError('Not signed in');
+      }
+
+      final httpReq = http.AbortableRequest(
+        'POST',
+        uri,
+        abortTrigger: cancelToken.abortTrigger,
+      )
+        ..headers['Authorization'] = 'Bearer $token'
+        ..headers['Content-Type'] = 'application/json; charset=utf-8'
+        ..body = payload;
+
+      try {
+        final streamed = await folioCloudHttpClient.send(httpReq);
+        final body = await streamed.stream.bytesToString();
+        resp = http.Response(body, streamed.statusCode, headers: streamed.headers);
+      } on http.RequestAbortedException {
+        throw const AiRequestCancelledException();
+      } catch (e) {
+        if (cancelToken.isCancelled) {
+          throw const AiRequestCancelledException();
+        }
+        lastSendError = e;
+        resp = null;
+        break;
+      }
+
+      if (resp.statusCode == 401 && attempt == 0) {
+        continue;
+      }
+      break;
+    }
+
+    if (resp == null) {
+      if (cancelToken.isCancelled) {
+        throw const AiRequestCancelledException();
+      }
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: '${lastSendError ?? 'unavailable'}',
+            code: 'unavailable',
+          ),
+        ),
+        functionsCode: 'unavailable',
+      );
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      String message = 'HTTP ${resp.statusCode}';
+      String code = 'unavailable';
+      try {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          message = '${decoded['message'] ?? decoded['error'] ?? message}';
+          final status = decoded['status'] ?? decoded['error'];
+          if (status != null) {
+            code = '$status'.toLowerCase().replaceAll('_', '-');
+          }
+        }
+      } catch (_) {}
+      final normalized = _normalizeCloudAiHttpFailure(
+        statusCode: resp.statusCode,
+        message: message,
+        code: code,
+      );
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: normalized.message,
+            code: normalized.code,
+          ),
+        ),
+        functionsCode: normalized.code,
+      );
+    }
+
+    final decoded = jsonDecode(resp.body);
+    final raw = decoded is Map ? decoded : const <String, dynamic>{};
+    final text = '${raw['text'] ?? ''}';
+    final toolCalls = _parseToolCalls(raw['toolCalls']);
+    final inkRaw = raw['ink'];
+    final ent = _entitlements;
+    if (inkRaw is Map && ent != null) {
+      final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+      final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+      if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+        ent.applyInkBalancesFromCloudAi(
+          monthlyBalance: monthly,
+          purchasedBalance: purchased,
+        );
+      }
+    }
+    return AiCompletionResult(
+      text: text.trim(),
+      provider: providerName,
+      model: request.model,
+      toolCalls: toolCalls,
+    );
   }
 
   @override

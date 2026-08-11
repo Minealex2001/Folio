@@ -445,6 +445,25 @@
   "activeVaultLabel": "Caderno ativo",
   "sidebarVaultsLoading": "Carregando cadernos…",
   "sidebarVaultsEmpty": "Nenhum caderno disponível",
+  "sidebarAdoptLocalVaults": "Adotar cadernos locais",
+  "sidebarAdoptLocalVaultsHint": "{count, plural, one{Há 1 caderno neste dispositivo de outra conta.} other{Há {count} cadernos neste dispositivo de outra conta.}}",
+  "@sidebarAdoptLocalVaultsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarAdoptLocalVaultsConfirmTitle": "Adotar cadernos nesta conta?",
+  "sidebarAdoptLocalVaultsConfirmBody": "Serão vinculados à conta com a qual iniciou sessão. O conteúdo local não é apagado; a sincronização na nuvem usará esta conta a partir de agora.",
+  "sidebarAdoptLocalVaultsDone": "{count, plural, one{Foi adotado 1 caderno.} other{Foram adotados {count} cadernos.}}",
+  "@sidebarAdoptLocalVaultsDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "forceSyncTooltip": "Forçar sincronização",
   "searchDialogFooterHint": "Enter abre o resultado destacado · ↑ / ↓ navegar · Esc fecha",
   "searchFilterTasks": "Tarefas",
@@ -659,6 +678,7 @@
   "meetingNoteModelMedium": "Avançado",
   "meetingNoteModelTurbo": "Máxima qualidade",
   "meetingNoteCopyTranscript": "Copiar transcrição",
+  "meetingNoteRegenerateTranscription": "Regenerar transcrição",
   "meetingNoteSendToAi": "Enviar para Quill…",
   "meetingNoteAiPayloadLabel": "O que enviar para a Quill?",
   "meetingNoteAiPayloadTranscript": "Apenas transcrição",
@@ -862,6 +882,7 @@
   "aiChatEmptyFocusComposer": "Escreva uma mensagem",
   "aiInputHint": "Digite sua mensagem. O Quill agirá como um agente.",
   "aiInputHintCopilot": "Digite sua mensagem...",
+  "aiStopGenerating": "Parar",
   "aiContextComposerHint": "Nenhum contexto adicionado",
   "aiContextComposerHelper": "Use @ para adicionar contexto",
   "aiContextCurrentPageChip": "Fólio atual: {title}",
@@ -1387,6 +1408,48 @@
   },
   "importNotionWarningsTitle": "Avisos de importação",
   "importNotionWarningsBody": "A importação foi concluída com alguns avisos:",
+  "notionApiImportTitle": "Conectar com o Notion",
+  "notionApiImportSubtitle": "Importe páginas e bases de dados diretamente, sem exportar nada",
+  "notionApiConnectTitle": "Conectar com o Notion",
+  "notionApiConnectBody": "Vai autorizar o Folio no seu navegador. Depois poderá escolher quais páginas e bases de dados importar das que partilhar com a integração.",
+  "notionApiConnectCta": "Conectar com o Notion",
+  "notionApiConnectError": "Não foi possível conectar ao Notion: {error}",
+  "@notionApiConnectError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionApiPasswordBody": "Escolha uma palavra-passe mestra para o novo caderno que será criado com o conteúdo importado.",
+  "notionPagePickerTitle": "Escolha o que importar",
+  "notionPagePickerBody": "Marque as páginas e bases de dados que quer trazer para o Folio. Só é mostrado o que partilhou com a integração ao conectar.",
+  "notionPagePickerSectionPages": "Páginas",
+  "notionPagePickerSectionDatabases": "Bases de dados",
+  "notionPagePickerSelectAll": "Selecionar tudo",
+  "notionPagePickerEmptyState": "Ainda não partilhou nenhuma página com a integração. No Notion, abra uma página, toque em \"Partilhar\" e conecte a integração do Folio.",
+  "notionPagePickerLoadError": "Não foi possível carregar a lista do Notion: {error}",
+  "@notionPagePickerLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionPagePickerTruncatedNotice": "A mostrar os primeiros {cap} elementos. Partilhe menos páginas com a integração no Notion para ver o resto.",
+  "@notionPagePickerTruncatedNotice": {
+    "placeholders": {
+      "cap": {}
+    }
+  },
+  "notionPagePickerSelectedCount": "{count,plural, =0{Nenhuma selecionada} =1{1 selecionada} other{{count} selecionadas}}",
+  "notionApiImportSuccessCurrent": "Notion importado para o caderno atual.",
+  "notionApiImportSuccessNew": "Novo caderno importado do Notion.",
+  "notionApiImportError": "Não foi possível importar do Notion: {error}",
+  "@notionApiImportError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "onboardingFreeMonthGrantedTitle": "Ganhou 1 mês grátis de Folio Cloud!",
+  "onboardingFreeMonthGrantedBody": "Por importar o seu conteúdo do Notion, oferecemos-lhe 1 mês grátis de Folio Cloud. Já está ativo na sua conta.",
+  "folioCloudBonusActiveBanner": "Tem ativo o seu mês de oferta do Folio Cloud por importar do Notion.",
   "ok": "OK",
   "notionExportGuideTitle": "Como exportar do Notion",
   "notionExportGuideBody": "No Notion, vá em Configurações -> Exportar todo o conteúdo do espaço de trabalho, escolha HTML ou Markdown e baixe o arquivo ZIP. Depois, use esta opção de importação no Folio.",

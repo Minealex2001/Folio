@@ -228,6 +228,115 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     }
   }
 
+  Future<void> _openNotionApiImportFlow() async {
+    final l10n = AppLocalizations.of(context);
+    if (_s.state != VaultFlowState.unlocked) return;
+
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => VaultIdentityVerifyDialog(
+        session: _s,
+        quickEnabled: _quickEnabled,
+        passkeyRegistered: _passkeyRegistered,
+        title: Text(l10n.notionApiConnectTitle),
+        body: Text(l10n.notionApiConnectBody),
+        passwordButtonLabel: l10n.verifyAndContinue,
+      ),
+    );
+    if (verified != true || !mounted) return;
+
+    final cancelToken = NotionAuthCancelToken();
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => FolioDialog(
+          title: Text(l10n.notionApiConnectTitle),
+          content: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: FolioLoadingIndicator(centered: true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                cancelToken.cancel();
+                Navigator.pop(ctx);
+              },
+              child: Text(l10n.cancel),
+            ),
+          ],
+        ),
+      ),
+    );
+    NotionOAuthSession session;
+    try {
+      session = await NotionAuthService().connect(label: 'Folio', cancelToken: cancelToken);
+    } on NotionAuthCancelledException {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      return;
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (mounted) _snack(l10n.notionApiConnectError('$e'));
+      return;
+    }
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (!mounted) return;
+
+    final client = NotionApiClient(accessToken: session.accessToken);
+    final selected = await Navigator.of(context).push<List<NotionSearchResultItem>>(
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          appBar: AppBar(title: Text(l10n.notionPagePickerTitle)),
+          body: SafeArea(
+            child: NotionPagePicker(
+              client: client,
+              onCancel: () => Navigator.of(ctx).pop(),
+              onConfirm: (items) => Navigator.of(ctx).pop(items),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    final mode = await showDialog<_NotionImportMode>(
+      context: context,
+      builder: (ctx) => const _NotionImportModeDialog(),
+    );
+    if (mode == null || !mounted) return;
+
+    try {
+      if (mode == _NotionImportMode.currentVault) {
+        await _s.importNotionApiIntoCurrentVault(selected, client);
+        if (!mounted) return;
+        _snack(l10n.notionApiImportSuccessCurrent);
+      } else {
+        final newPassword = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const _NewVaultPasswordDialog(),
+        );
+        if (newPassword == null || newPassword.isEmpty || !mounted) return;
+        await _s.importNotionApiAsNewVault(
+          selected,
+          client,
+          masterPassword: newPassword,
+          displayName: l10n.importNotionDefaultVaultName,
+        );
+        if (!mounted) return;
+        _snack(l10n.notionApiImportSuccessNew);
+      }
+    } catch (e) {
+      if (mounted) _snack(l10n.notionApiImportError('$e'));
+    }
+    if (!mounted) return;
+    final warnings = _s.lastImportWarnings;
+    if (warnings.isNotEmpty) {
+      await _showImportWarningsDialog(warnings);
+    }
+  }
+
   Future<void> _showImportWarningsDialog(
     List<NotionImportWarning> warnings,
   ) async {

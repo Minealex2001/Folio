@@ -278,6 +278,25 @@
   "activeVaultLabel": "Koaderno aktiboa",
   "sidebarVaultsLoading": "Koadernoak kargatzen…",
   "sidebarVaultsEmpty": "Ez dago koadernorik eskuragarri",
+  "sidebarAdoptLocalVaults": "Bertako koadernoak hartu",
+  "sidebarAdoptLocalVaultsHint": "{count, plural, one{Gailu honetan beste kontu bateko koaderno 1 dago.} other{Gailu honetan beste kontu bateko {count} koaderno daude.}}",
+  "@sidebarAdoptLocalVaultsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarAdoptLocalVaultsConfirmTitle": "Koadernoak kontu honetan hartu?",
+  "sidebarAdoptLocalVaultsConfirmBody": "Saioa hasi duzun kontuari lotuko zaizkio. Tokiko edukia ez da ezabatzen; hodeiko sinkronizazioak kontu hau erabiliko du hemendik aurrera.",
+  "sidebarAdoptLocalVaultsDone": "{count, plural, one{Koaderno 1 hartu da.} other{{count} koaderno hartu dira.}}",
+  "@sidebarAdoptLocalVaultsDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "forceSyncTooltip": "Behartu sinkronizazioa",
   "searchDialogFooterHint": "Sartu-k nabarmendutako emaitza irekitzen du · ↑ / ↓ nabigatzeko · Esc itxi",
   "searchFilterTasks": "Atazak",
@@ -492,6 +511,7 @@
   "meetingNoteModelMedium": "Aurreratua",
   "meetingNoteModelTurbo": "Kalitate maximoa",
   "meetingNoteCopyTranscript": "Kopiatu transkripzioa",
+  "meetingNoteRegenerateTranscription": "Birsortu transkripzioa",
   "meetingNoteSendToAi": "Bidali AAra…",
   "meetingNoteAiPayloadLabel": "Zer bidali AAra?",
   "meetingNoteAiPayloadTranscript": "Transkripzioa bakarrik",
@@ -695,6 +715,7 @@
   "aiChatEmptyFocusComposer": "Idatzi mezu bat",
   "aiInputHint": "Idatzi zure mezua. Quillek agente gisa jardungo du.",
   "aiInputHintCopilot": "Idatzi zure mezua...",
+  "aiStopGenerating": "Gelditu",
   "aiContextComposerHint": "Ez da testuingururik gehitu",
   "aiContextComposerHelper": "Erabili @ testuingurua gehitzeko",
   "aiContextCurrentPageChip": "Uneko folioa: {title}",
@@ -1220,6 +1241,48 @@
   },
   "importNotionWarningsTitle": "Inportazio abisuak",
   "importNotionWarningsBody": "Inportazioa abisu batzuekin osatu da:",
+  "notionApiImportTitle": "Konektatu Notion-ekin",
+  "notionApiImportSubtitle": "Inportatu orriak eta datu-baseak zuzenean, ezer esportatu gabe",
+  "notionApiConnectTitle": "Konektatu Notion-ekin",
+  "notionApiConnectBody": "Folio zure nabigatzailean baimenduko duzu. Ondoren, integrazioarekin partekatzen dituzun orrietatik zeintzuk inportatu aukeratu ahalko duzu.",
+  "notionApiConnectCta": "Konektatu Notion-ekin",
+  "notionApiConnectError": "Ezin izan da Notion-ekin konektatu: {error}",
+  "@notionApiConnectError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionApiPasswordBody": "Aukeratu pasahitz nagusia inportatutako edukiarekin sortuko den koaderno berrirako.",
+  "notionPagePickerTitle": "Aukeratu zer inportatu",
+  "notionPagePickerBody": "Markatu Foliora ekarri nahi dituzun orriak eta datu-baseak. Konektatzean integrazioarekin partekatutakoa bakarrik erakusten da.",
+  "notionPagePickerSectionPages": "Orriak",
+  "notionPagePickerSectionDatabases": "Datu-baseak",
+  "notionPagePickerSelectAll": "Hautatu guztiak",
+  "notionPagePickerEmptyState": "Ez duzu orririk partekatu integrazioarekin oraindik. Notion-en, ireki orri bat, sakatu \"Partekatu\" eta konektatu Folio integrazioa.",
+  "notionPagePickerLoadError": "Ezin izan da Notion-en zerrenda kargatu: {error}",
+  "@notionPagePickerLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionPagePickerTruncatedNotice": "Lehen {cap} elementuak erakusten dira. Partekatu orri gutxiago integrazioarekin Notion-en gainerakoak ikusteko.",
+  "@notionPagePickerTruncatedNotice": {
+    "placeholders": {
+      "cap": {}
+    }
+  },
+  "notionPagePickerSelectedCount": "{count,plural, =0{Bat ere ez hautatuta} =1{1 hautatuta} other{{count} hautatuta}}",
+  "notionApiImportSuccessCurrent": "Notion uneko koadernoan inportatu da.",
+  "notionApiImportSuccessNew": "Koaderno berria Notion-etik inportatu da.",
+  "notionApiImportError": "Ezin izan da Notion-etik inportatu: {error}",
+  "@notionApiImportError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "onboardingFreeMonthGrantedTitle": "Folio Cloud-eko doako hilabete bat lortu duzu!",
+  "onboardingFreeMonthGrantedBody": "Zure Notion edukia inportatzeagatik, Folio Cloud-eko doako hilabete bat oparitu dizugu. Jada zure kontuan aktibatuta dago.",
+  "folioCloudBonusActiveBanner": "Notion-etik inportatzeagatiko Folio Cloud opari-hilabetea aktibo duzu.",
   "ok": "Ados",
   "notionExportGuideTitle": "Nola esportatu Notion-etik",
   "notionExportGuideBody": "Notion-en, ireki Settings -> Export all workspace content, hautatu HTML edo Markdown eta deskargatu ZIP fitxategia. Ondoren, erabili inportazio aukera hau Folio-n.",

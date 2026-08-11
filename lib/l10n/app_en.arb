@@ -281,6 +281,25 @@
   "activeVaultLabel": "Active notebook",
   "sidebarVaultsLoading": "Loading notebooks…",
   "sidebarVaultsEmpty": "No notebooks available",
+  "sidebarAdoptLocalVaults": "Adopt local notebooks",
+  "sidebarAdoptLocalVaultsHint": "{count, plural, one{There is 1 notebook on this device from another account.} other{There are {count} notebooks on this device from another account.}}",
+  "@sidebarAdoptLocalVaultsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarAdoptLocalVaultsConfirmTitle": "Adopt notebooks into this account?",
+  "sidebarAdoptLocalVaultsConfirmBody": "They will be linked to the account you are signed in with. Local content is kept; cloud sync will use this account from now on.",
+  "sidebarAdoptLocalVaultsDone": "{count, plural, one{Adopted 1 notebook.} other{Adopted {count} notebooks.}}",
+  "@sidebarAdoptLocalVaultsDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "forceSyncTooltip": "Force sync",
   "searchDialogFooterHint": "Enter opens the highlighted result · ↑ / ↓ navigate · Esc closes",
   "searchFilterTasks": "Tasks",
@@ -572,6 +591,7 @@
   "meetingNoteModelMedium": "Advanced",
   "meetingNoteModelTurbo": "Best quality",
   "meetingNoteCopyTranscript": "Copy transcript",
+  "meetingNoteRegenerateTranscription": "Regenerate transcription",
   "meetingNoteSendToAi": "Send to Quill…",
   "meetingNoteAiPayloadLabel": "What to send to Quill?",
   "meetingNoteAiPayloadTranscript": "Transcript only",
@@ -775,6 +795,7 @@
   "aiChatEmptyFocusComposer": "Write a message",
   "aiInputHint": "Type your message. Quill will act as an agent.",
   "aiInputHintCopilot": "Type your message...",
+  "aiStopGenerating": "Stop",
   "aiContextComposerHint": "No context added",
   "aiContextComposerHelper": "Use @ to add context",
   "aiContextCurrentPageChip": "Current page: {title}",
@@ -1335,6 +1356,48 @@
   },
   "importNotionWarningsTitle": "Import warnings",
   "importNotionWarningsBody": "The import completed with some warnings:",
+  "notionApiImportTitle": "Connect with Notion",
+  "notionApiImportSubtitle": "Import pages and databases directly, no export needed",
+  "notionApiConnectTitle": "Connect with Notion",
+  "notionApiConnectBody": "You'll authorize Folio in your browser. Afterwards you can choose which pages and databases to import from the ones you share with the integration.",
+  "notionApiConnectCta": "Connect with Notion",
+  "notionApiConnectError": "Could not connect to Notion: {error}",
+  "@notionApiConnectError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionApiPasswordBody": "Choose a master password for the new notebook that will be created with the imported content.",
+  "notionPagePickerTitle": "Choose what to import",
+  "notionPagePickerBody": "Check the pages and databases you want to bring into Folio. Only what you shared with the integration when connecting is shown here.",
+  "notionPagePickerSectionPages": "Pages",
+  "notionPagePickerSectionDatabases": "Databases",
+  "notionPagePickerSelectAll": "Select all",
+  "notionPagePickerEmptyState": "You haven't shared any pages with the integration yet. In Notion, open a page, tap \"Share\", and connect the Folio integration.",
+  "notionPagePickerLoadError": "Could not load the Notion list: {error}",
+  "@notionPagePickerLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionPagePickerTruncatedNotice": "Showing the first {cap} items. Share fewer pages with the integration in Notion to see the rest.",
+  "@notionPagePickerTruncatedNotice": {
+    "placeholders": {
+      "cap": {}
+    }
+  },
+  "notionPagePickerSelectedCount": "{count,plural, =0{Nothing selected} =1{1 selected} other{{count} selected}}",
+  "notionApiImportSuccessCurrent": "Notion imported into the current notebook.",
+  "notionApiImportSuccessNew": "New notebook imported from Notion.",
+  "notionApiImportError": "Could not import from Notion: {error}",
+  "@notionApiImportError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "onboardingFreeMonthGrantedTitle": "You've unlocked 1 free month of Folio Cloud!",
+  "onboardingFreeMonthGrantedBody": "As a thank-you for importing your Notion content, we've gifted you 1 free month of Folio Cloud. It's already active on your account.",
+  "folioCloudBonusActiveBanner": "Your free month of Folio Cloud (for importing from Notion) is active.",
   "ok": "OK",
   "notionExportGuideTitle": "How to export from Notion",
   "notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio.",

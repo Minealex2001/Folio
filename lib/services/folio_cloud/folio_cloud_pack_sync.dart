@@ -17,6 +17,7 @@ import '../folio_telemetry.dart';
 import '../app_logger.dart';
 import '../vault_pack/vault_pack_builder.dart';
 import 'folio_cloud_backup.dart';
+import 'folio_cloud_blob_codec.dart';
 import 'folio_cloud_callable.dart';
 import '../../crypto/vault_crypto.dart';
 import 'folio_cloud_entitlements.dart';
@@ -615,18 +616,45 @@ Future<ExtractedVaultBackup> _downloadCloudPackTreeToMemory({
     throw StateError('No se pudo leer la copia incremental (clave o datos).');
   }
 
-  final backup = ExtractedVaultBackup();
+  // Agrupar items por rol lógico (adjuntos por path) para reensamblar trozos.
+  final groups = <String, List<FolioCloudPackSnapshotItem>>{};
   for (final item in manifest.items) {
-    final path =
-        'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}';
-    final max = 512 * 1024 * 1024;
-    final data = await folioStorageGetData(path, max);
-    if (data == null || data.isEmpty) {
-      throw StateError('Falta un blob en la nube: ${item.blobId}');
-    }
-    final clear = await cloudPackDecryptBytes(blob: data, packKey: packKey);
+    final key = item.role == FolioCloudPackBlobRole.attachment
+        ? 'att:${item.relativePath}'
+        : 'role:${folioCloudPackRoleWire(item.role)}';
+    groups.putIfAbsent(key, () => []).add(item);
+  }
 
-    switch (item.role) {
+  final isLegacyV1 = manifest.formatVersion < 2;
+  final backup = ExtractedVaultBackup();
+  for (final group in groups.values) {
+    group.sort((a, b) => a.chunkIndex.compareTo(b.chunkIndex));
+    final chunkPlains = <Uint8List>[];
+    for (final item in group) {
+      final path =
+          'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}';
+      final max = kFolioStorageMaxObjectBytes;
+      final data = await folioStorageGetData(path, max);
+      if (data == null || data.isEmpty) {
+        throw StateError('Falta un blob en la nube: ${item.blobId}');
+      }
+      final clear = await cloudPackDecryptBytes(blob: data, packKey: packKey);
+      chunkPlains.add(clear);
+    }
+
+    final Uint8List clear;
+    if (isLegacyV1) {
+      // v1: plaintext crudo sin envelope ni troceo.
+      if (chunkPlains.length != 1) {
+        throw StateError('Cloud-pack v1 with unexpected chunk count');
+      }
+      clear = decodeCloudBlobEnvelope(chunkPlains.first, legacyRaw: true);
+    } else {
+      clear = decodeCloudBlobPlainChunks(chunkPlains);
+    }
+
+    final role = group.first.role;
+    switch (role) {
       case FolioCloudPackBlobRole.backupManifest:
         backup.put(kVaultBackupManifestFile, clear);
       case FolioCloudPackBlobRole.vaultKeys:
@@ -636,7 +664,7 @@ Future<ExtractedVaultBackup> _downloadCloudPackTreeToMemory({
       case FolioCloudPackBlobRole.vaultMode:
         backup.put(VaultPaths.vaultModeFile, clear);
       case FolioCloudPackBlobRole.attachment:
-        backup.put(item.relativePath!, clear);
+        backup.put(group.first.relativePath!, clear);
     }
   }
   return backup;

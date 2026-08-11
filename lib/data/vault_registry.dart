@@ -146,6 +146,53 @@ class VaultRegistry {
     if (changed) await _saveVaultsJson();
   }
 
+  /// Libretas personales locales que no pertenecen a [targetAccountUid]
+  /// (otra cuenta o legacy sin `accountUid`). Candidatas a adoptar.
+  List<VaultEntry> adoptablePersonalVaultsFor(String targetAccountUid) {
+    final target = targetAccountUid.trim();
+    if (target.isEmpty) return const [];
+    return List.unmodifiable(
+      _vaults.where((e) {
+        if (e.isTrashed || e.isShared || e.isTeamWorkspace) return false;
+        final acc = e.accountUid?.trim() ?? '';
+        return acc.isEmpty || acc != target;
+      }),
+    );
+  }
+
+  /// Reasigna la libreta local [vaultId] a [newAccountUid].
+  ///
+  /// Por defecto limpia vínculo de equipo para que quede como libreta personal
+  /// de la cuenta destino (migración cuenta personal → cuenta empresa).
+  Future<void> rebindAccountUid({
+    required String vaultId,
+    required String newAccountUid,
+    bool clearTeamWorkspace = true,
+  }) async {
+    final uid = newAccountUid.trim();
+    if (uid.isEmpty) return;
+    final entry = entryFor(vaultId);
+    if (entry == null) return;
+    await upsert(
+      entry.copyWith(
+        accountUid: uid,
+        clearOrganization: clearTeamWorkspace,
+      ),
+    );
+  }
+
+  /// Adopta todas las libretas personales locales huérfanas / de otra cuenta
+  /// bajo [newAccountUid]. Devuelve cuántas se reasignaron.
+  Future<int> adoptPersonalVaultsToAccount(String newAccountUid) async {
+    final uid = newAccountUid.trim();
+    if (uid.isEmpty) return 0;
+    final adoptable = adoptablePersonalVaultsFor(uid);
+    for (final e in adoptable) {
+      await rebindAccountUid(vaultId: e.id, newAccountUid: uid);
+    }
+    return adoptable.length;
+  }
+
   Future<void> _saveVaultsJson() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode(_vaults.map((e) => e.toJson()).toList());

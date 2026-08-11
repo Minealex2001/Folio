@@ -222,6 +222,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final Map<String, String> _aiMeetingTranscripts = {};
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
+  /// Token del turno Quill en curso; Stop llama a [AiCancelToken.cancel].
+  AiCancelToken? _aiChatCancelToken;
   String? _aiToolActivityLabel;
   // Fase A6 del plan Quill/MCP — traza acumulada de pasos del turno de IA en
   // curso (se limpia al empezar un turno nuevo, no se consume por paso como

@@ -619,6 +619,34 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
+        if (snap.subscriptionStatus?.toLowerCase() == 'promo') ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: scheme.primaryContainer.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.celebration_outlined, size: 18, color: scheme.onPrimaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.folioCloudBonusActiveBanner,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
         if (snap.hasScheduledSubscriptionEnd) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

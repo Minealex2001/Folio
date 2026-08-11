@@ -278,6 +278,25 @@
   "activeVaultLabel": "Llibreta activa",
   "sidebarVaultsLoading": "Carregant llibretes fortes…",
   "sidebarVaultsEmpty": "No hi ha llibretes fortes disponibles",
+  "sidebarAdoptLocalVaults": "Adoptar llibretes locals",
+  "sidebarAdoptLocalVaultsHint": "{count, plural, one{Hi ha 1 llibreta en aquest dispositiu d'un altre compte.} other{Hi ha {count} llibretes en aquest dispositiu d'un altre compte.}}",
+  "@sidebarAdoptLocalVaultsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarAdoptLocalVaultsConfirmTitle": "Adoptar llibretes en aquest compte?",
+  "sidebarAdoptLocalVaultsConfirmBody": "Es vincularan al compte amb què has iniciat la sessió. El contingut local no s'esborra; la sincronització al núvol farà servir aquest compte a partir d'ara.",
+  "sidebarAdoptLocalVaultsDone": "{count, plural, one{S'ha adoptat 1 llibreta.} other{S'han adoptat {count} llibretes.}}",
+  "@sidebarAdoptLocalVaultsDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "forceSyncTooltip": "Força la sincronització",
   "searchDialogFooterHint": "Retorn obre el resultat destacat · ↑ / ↓ per navegar · Esc tanca",
   "searchFilterTasks": "Tasques",
@@ -492,6 +511,7 @@
   "meetingNoteModelMedium": "Avançat",
   "meetingNoteModelTurbo": "Màxima qualitat",
   "meetingNoteCopyTranscript": "Copia la transcripció",
+  "meetingNoteRegenerateTranscription": "Regenera la transcripció",
   "meetingNoteSendToAi": "Envia a la Quill…",
   "meetingNoteAiPayloadLabel": "Què vols enviar a la Quill?",
   "meetingNoteAiPayloadTranscript": "Només la transcripció",
@@ -695,6 +715,7 @@
   "aiChatEmptyFocusComposer": "Escriu un missatge",
   "aiInputHint": "Escriu el missatge. El Quill actuarà com un agent.",
   "aiInputHintCopilot": "Escriu el missatge...",
+  "aiStopGenerating": "Atura",
   "aiContextComposerHint": "Sense context afegit",
   "aiContextComposerHelper": "Utilitza @ per afegir context",
   "aiContextCurrentPageChip": "Fòli actual: {title}",
@@ -1220,6 +1241,48 @@
   },
   "importNotionWarningsTitle": "Avisos d'importació",
   "importNotionWarningsBody": "La importació s'ha completat amb alguns avisos:",
+  "notionApiImportTitle": "Connectar amb Notion",
+  "notionApiImportSubtitle": "Importa pàgines i bases de dades directament, sense exportar res",
+  "notionApiConnectTitle": "Connectar amb Notion",
+  "notionApiConnectBody": "Autoritzaràs Folio al navegador. Després podràs triar quines pàgines i bases de dades importar de les que comparteixis amb la integració.",
+  "notionApiConnectCta": "Connectar amb Notion",
+  "notionApiConnectError": "No s'ha pogut connectar amb Notion: {error}",
+  "@notionApiConnectError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionApiPasswordBody": "Tria una contrasenya mestra per a la llibreta nova que es crearà amb el contingut importat.",
+  "notionPagePickerTitle": "Tria què importar",
+  "notionPagePickerBody": "Marca les pàgines i bases de dades que vulguis portar a Folio. Només es mostra el que vas compartir amb la integració en connectar.",
+  "notionPagePickerSectionPages": "Pàgines",
+  "notionPagePickerSectionDatabases": "Bases de dades",
+  "notionPagePickerSelectAll": "Seleccionar-ho tot",
+  "notionPagePickerEmptyState": "No has compartit cap pàgina amb la integració. A Notion, obre una pàgina, prem \"Compartir\" i connecta la integració de Folio.",
+  "notionPagePickerLoadError": "No s'ha pogut carregar la llista de Notion: {error}",
+  "@notionPagePickerLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "notionPagePickerTruncatedNotice": "Es mostren els primers {cap} elements. Comparteix menys pàgines amb la integració a Notion per veure la resta.",
+  "@notionPagePickerTruncatedNotice": {
+    "placeholders": {
+      "cap": {}
+    }
+  },
+  "notionPagePickerSelectedCount": "{count,plural, =0{Cap seleccionada} =1{1 seleccionada} other{{count} seleccionades}}",
+  "notionApiImportSuccessCurrent": "Notion importat a la llibreta actual.",
+  "notionApiImportSuccessNew": "Llibreta nova importada des de Notion.",
+  "notionApiImportError": "No s'ha pogut importar des de Notion: {error}",
+  "@notionApiImportError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "onboardingFreeMonthGrantedTitle": "Tens 1 mes de Folio Cloud de regal!",
+  "onboardingFreeMonthGrantedBody": "Per importar el teu contingut de Notion, et regalem 1 mes de Folio Cloud. Ja està activat al teu compte.",
+  "folioCloudBonusActiveBanner": "Tens actiu el teu mes de regal de Folio Cloud per importar des de Notion.",
   "ok": "D'acord",
   "notionExportGuideTitle": "Com exportar de Notion",
   "notionExportGuideBody": "A Notion, ves a Settings -> Export all workspace content, tria HTML o Markdown i descarrega el ZIP. Després utilitza aquesta opció d'importació al Folio.",

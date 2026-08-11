@@ -24,6 +24,10 @@ import '../../services/folio_cloud/folio_cloud_pack_sync.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_telemetry.dart';
 import '../../services/app_logger.dart';
+import '../../services/folio_cloud/folio_cloud_billing.dart';
+import '../../services/notion/notion_api_client.dart';
+import '../../services/notion/notion_auth_service.dart';
+import '../notion_import/notion_page_picker.dart';
 import '../settings/folio_cloud_import_all_dialog.dart';
 import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
@@ -65,6 +69,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool? _onboardingCloudPackIsPlain;
   String? _error;
   var _busy = false;
+
+  // Importación directa de Notion (OAuth), distinta del ZIP de arriba.
+  NotionOAuthSession? _notionSession;
+  NotionApiClient? _notionApiClient;
+  List<NotionSearchResultItem>? _notionSelectedItems;
+  var _notionConnecting = false;
+  String? _notionConnectError;
+  NotionAuthCancelToken? _notionCancelToken;
   var _obscurePassword = true;
   var _obscureConfirm = true;
   var _obscureBackupPassword = true;
@@ -146,6 +158,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           _OnboardingStepId.welcome,
           _OnboardingStepId.importChooser,
           _OnboardingStepId.importNotionForm,
+        ];
+      case _OnboardingMode.notionApiImport:
+        return const [
+          _OnboardingStepId.welcome,
+          _OnboardingStepId.importChooser,
+          _OnboardingStepId.connectNotion,
+          _OnboardingStepId.notionPagePicker,
+          _OnboardingStepId.notionApiPassword,
         ];
       case _OnboardingMode.create:
         final steps = <_OnboardingStepId>[
@@ -269,6 +289,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _notionConfirm.dispose();
     _cloud.dispose();
     _folio.dispose();
+    _notionCancelToken?.cancel();
     super.dispose();
   }
 
@@ -457,6 +478,61 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _notionConfirm.clear();
       _page = 2;
     });
+  }
+
+  void _chooseImportNotionApi() {
+    setState(() {
+      _error = null;
+      _mode = _OnboardingMode.notionApiImport;
+      _notionSession = null;
+      _notionApiClient = null;
+      _notionSelectedItems = null;
+      _notionConnecting = false;
+      _notionConnectError = null;
+      _notionPassword.clear();
+      _notionConfirm.clear();
+      _page = 2;
+    });
+    unawaited(_connectNotion());
+  }
+
+  Future<void> _connectNotion() async {
+    setState(() {
+      _notionConnecting = true;
+      _notionConnectError = null;
+    });
+    _notionCancelToken = NotionAuthCancelToken();
+    try {
+      final session = await NotionAuthService().connect(
+        label: 'Folio',
+        cancelToken: _notionCancelToken,
+      );
+      if (!mounted) return;
+      setState(() {
+        _notionSession = session;
+        _notionApiClient = NotionApiClient(accessToken: session.accessToken);
+        _notionConnecting = false;
+      });
+      // El paso del picker es el siguiente de la secuencia — avanzar solo si
+      // seguimos en el paso de conexión (el usuario no navegó ya para atrás).
+      if (_currentStepId == _OnboardingStepId.connectNotion) {
+        setState(() => _page += 1);
+      }
+    } on NotionAuthCancelledException {
+      if (!mounted) return;
+      setState(() {
+        _notionConnecting = false;
+        _notionConnectError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _notionConnecting = false;
+        _notionConnectError = '$e';
+      });
+    } finally {
+      _notionCancelToken = null;
+    }
   }
 
   void _nextCreatePassword() {
@@ -665,6 +741,86 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _error = l10n.importNotionError('$e');
       });
     }
+  }
+
+  Future<void> _finishNotionApiImport() async {
+    final l10n = AppLocalizations.of(context);
+    final selected = _notionSelectedItems;
+    final client = _notionApiClient;
+    if (selected == null || selected.isEmpty || client == null) {
+      setState(() => _error = l10n.notionPagePickerEmptyState);
+      return;
+    }
+    final pwd = _notionPassword.text;
+    final confirm = _notionConfirm.text;
+    if (pwd.length < _minLen) {
+      setState(() => _error = l10n.minCharactersError(_minLen));
+      return;
+    }
+    if (!_meetsVaultMasterPasswordPolicy(_passwordStrengthFor(pwd))) {
+      setState(() => _error = l10n.passwordMustBeStrongError);
+      return;
+    }
+    if (pwd != confirm) {
+      setState(() => _error = l10n.passwordMismatchError);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.importNotionApiAsNewVault(
+        selected,
+        client,
+        masterPassword: pwd,
+        displayName: l10n.importNotionDefaultVaultName,
+      );
+      await widget.session.unlockWithPassword(pwd);
+      await widget.appSettings.setHasSeenQuillIntro(true);
+      // Incentivo de primer uso: solo en onboarding (nunca desde Settings),
+      // y solo si hay sesión Folio Cloud a la que atar el bono — fallo
+      // silencioso, nunca bloquea el resultado del import en sí.
+      try {
+        final granted = await claimNotionImportBonus();
+        if (mounted && granted) {
+          await _showNotionImportBonusDialog();
+        }
+      } catch (_) {}
+      final warnings = widget.session.lastImportWarnings;
+      if (mounted && warnings.isNotEmpty) {
+        await _showImportWarningsDialog(warnings);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = l10n.importNotionError('$e');
+      });
+    }
+  }
+
+  Future<void> _showNotionImportBonusDialog() async {
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Row(
+          children: [
+            Icon(Icons.celebration_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l10n.onboardingFreeMonthGrantedTitle)),
+          ],
+        ),
+        content: Text(l10n.onboardingFreeMonthGrantedBody),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showImportWarningsDialog(
@@ -961,6 +1117,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _stepImportBackup(context);
       case _OnboardingStepId.importNotionForm:
         return _stepImportNotion(context);
+      case _OnboardingStepId.connectNotion:
+        return _stepConnectNotion(context);
+      case _OnboardingStepId.notionPagePicker:
+        return _stepNotionPicker(context);
+      case _OnboardingStepId.notionApiPassword:
+        return _stepNotionApiPassword(context);
       case _OnboardingStepId.vaultSetup:
         return _stepPassword(context);
       case _OnboardingStepId.ready:
@@ -986,6 +1148,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _OnboardingStepId.importBackupForm:
       case _OnboardingStepId.importNotionForm:
         return Icons.archive_outlined;
+      case _OnboardingStepId.connectNotion:
+      case _OnboardingStepId.notionPagePicker:
+      case _OnboardingStepId.notionApiPassword:
+        return Icons.note_alt_outlined;
       case _OnboardingStepId.personalize:
         return Icons.palette_outlined;
       case _OnboardingStepId.reliability:
@@ -1020,6 +1186,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.importBackupTitle;
       case _OnboardingStepId.importNotionForm:
         return l10n.importNotionTitle;
+      case _OnboardingStepId.connectNotion:
+        return l10n.notionApiImportTitle;
+      case _OnboardingStepId.notionPagePicker:
+        return l10n.notionPagePickerTitle;
+      case _OnboardingStepId.notionApiPassword:
+        return l10n.importNotionNewVaultPasswordTitle;
       case _OnboardingStepId.personalize:
         return l10n.onboardingPersonalizeTitle;
       case _OnboardingStepId.reliability:
@@ -1054,6 +1226,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.importBackupBody;
       case _OnboardingStepId.importNotionForm:
         return l10n.importNotionDialogBody;
+      case _OnboardingStepId.connectNotion:
+        return l10n.notionApiConnectBody;
+      case _OnboardingStepId.notionPagePicker:
+        return l10n.notionPagePickerBody;
+      case _OnboardingStepId.notionApiPassword:
+        return l10n.notionApiPasswordBody;
       case _OnboardingStepId.personalize:
         return l10n.onboardingPersonalizeBody;
       case _OnboardingStepId.reliability:
@@ -1453,13 +1631,26 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             title: l10n.importNotionTitle,
             subtitle: l10n.importSourceNotionSubtitle,
           ),
-        ] else
+          const SizedBox(height: FolioSpace.sm),
+          WebDesktopOnlyNotice(
+            icon: Icons.link_rounded,
+            title: l10n.notionApiImportTitle,
+            subtitle: l10n.notionApiImportSubtitle,
+          ),
+        ] else ...[
           tile(
             icon: Icons.note_alt_outlined,
             title: l10n.importNotionTitle,
             subtitle: l10n.importSourceNotionSubtitle,
             onTap: _chooseImportNotion,
           ),
+          tile(
+            icon: Icons.link_rounded,
+            title: l10n.notionApiImportTitle,
+            subtitle: l10n.notionApiImportSubtitle,
+            onTap: _chooseImportNotionApi,
+          ),
+        ],
         const SizedBox(height: FolioSpace.md),
         _onboardingBottomActions(
           onBack: () {
@@ -2767,6 +2958,176 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       ],
     );
   }
+
+  Widget _stepConnectNotion(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.xl),
+        Icon(Icons.note_alt_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.notionApiConnectTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.notionApiConnectBody,
+          style: theme.textTheme.bodyLarge?.copyWith(height: 1.45, color: scheme.onSurfaceVariant),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        if (_notionConnecting)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: FolioSpace.lg),
+            child: FolioLoadingIndicator(centered: true),
+          )
+        else ...[
+          if (_notionConnectError != null) ...[
+            Text(
+              l10n.notionApiConnectError(_notionConnectError!),
+              style: TextStyle(color: scheme.error),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: FolioSpace.md),
+          ],
+          FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            onPressed: () => unawaited(_connectNotion()),
+            icon: const Icon(Icons.link_rounded),
+            label: Text(l10n.notionApiConnectCta),
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _onboardingBottomActions(
+          onBack: _notionConnecting
+              ? null
+              : () {
+                  _notionCancelToken?.cancel();
+                  setState(() {
+                    _mode = _OnboardingMode.importChooser;
+                    _page = 1;
+                  });
+                },
+          onPrimary: null,
+        ),
+      ],
+    );
+  }
+
+  Widget _stepNotionPicker(BuildContext context) {
+    final client = _notionApiClient;
+    if (client == null) {
+      // No debería alcanzarse (el picker solo se muestra tras conectar con
+      // éxito) — red de seguridad si el usuario navega hacia atrás y algo
+      // deja el estado a medias.
+      return const SizedBox.shrink();
+    }
+    final workspace = _notionSession?.workspaceName;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (workspace != null && workspace.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    workspace,
+                    style: Theme.of(context).textTheme.labelMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        NotionPagePicker(
+          client: client,
+          onCancel: () {
+            setState(() {
+              _mode = _OnboardingMode.importChooser;
+              _page = 1;
+            });
+          },
+          onConfirm: (selected) {
+            setState(() {
+              _notionSelectedItems = selected;
+              _page += 1;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _stepNotionApiPassword(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.xl),
+        Icon(Icons.note_alt_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.importNotionNewVaultPasswordTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        FolioPasswordField(
+          controller: _notionPassword,
+          obscureText: _obscureNotionPassword,
+          enabled: !_busy,
+          labelText: l10n.passwordLabel,
+          showPasswordTooltip: l10n.showPassword,
+          hidePasswordTooltip: l10n.hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureNotionPassword = !_obscureNotionPassword);
+          },
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        FolioPasswordField(
+          controller: _notionConfirm,
+          obscureText: _obscureNotionConfirm,
+          enabled: !_busy,
+          labelText: l10n.confirmPasswordLabel,
+          showPasswordTooltip: l10n.showPassword,
+          hidePasswordTooltip: l10n.hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureNotionConfirm = !_obscureNotionConfirm);
+          },
+          onSubmitted: (_) {
+            if (!_busy) unawaited(_finishNotionApiImport());
+          },
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        _onboardingBottomActions(
+          onBack: _busy
+              ? null
+              : () {
+                  setState(() {
+                    _page -= 1;
+                  });
+                },
+          onPrimary: _busy ? null : () => unawaited(_finishNotionApiImport()),
+          primaryLabel: l10n.importAction,
+          primaryBusy: _busy,
+        ),
+      ],
+    );
+  }
 }
 
 enum _OnboardingStepId {
@@ -2782,9 +3143,18 @@ enum _OnboardingStepId {
   usageProfile,
   importBackupForm,
   importNotionForm,
+  connectNotion,
+  notionPagePicker,
+  notionApiPassword,
 }
 
-enum _OnboardingMode { create, importChooser, backupImport, notionImport }
+enum _OnboardingMode {
+  create,
+  importChooser,
+  backupImport,
+  notionImport,
+  notionApiImport,
+}
 
 class _StepSegments extends StatelessWidget {
   const _StepSegments({required this.current, required this.total});

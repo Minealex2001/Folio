@@ -439,6 +439,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
             'Notes:\n$notes\n\nCurrent plan:\n$currentPlanText';
 
     _setStateSafe(() => _aiChatBusy = true);
+    final cancelToken = _beginAiChatCancelToken();
     try {
       final outcome = await _s.agentChatWithAiPlanProposal(
         messages: msgs.sublist(0, messageIndex + 1),
@@ -451,8 +452,10 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
         languageCode: (plan['languageCode'] as String?) ?? languageCode,
         cloudInkOperation: plan['cloudInkOperation'] as String?,
         systemPromptOverride: (plan['systemPromptOverride'] as String?) ?? '',
+        cancelToken: cancelToken,
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) return;
       final newText = outcome.reply.trim().isEmpty
           ? currentPlanText
           : outcome.reply.trim();
@@ -476,6 +479,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
       );
     } catch (e) {
       if (!mounted) return;
+      if (e is AiRequestCancelledException || cancelToken.isCancelled) return;
       final l10n = AppLocalizations.of(context);
       if (e is FolioCloudAiException && e.isInkExhausted) {
         await showFolioCloudAiInkExhaustedDialog(
@@ -487,6 +491,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
         _snack(l10n.aiErrorWithDetails(e), error: true);
       }
     } finally {
+      _endAiChatCancelToken(cancelToken);
       if (mounted) {
         _setStateSafe(() {
           _aiChatBusy = false;
@@ -550,6 +555,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
       _aiChatBusy = true;
       _aiToolTrace.clear();
     });
+    final cancelToken = _beginAiChatCancelToken();
 
     try {
       final outcome = await _s.agentChatWithAiExecuteApprovedPlan(
@@ -557,8 +563,23 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
         planContext: planContext,
         onToolEvent: _onAiToolEvent,
         onConfirmIrreversibleTool: _confirmIrreversibleToolCall,
+        cancelToken: cancelToken,
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) {
+        if (_activeChat.id == chatId) {
+          final current = _activeChat.messages;
+          if (messageIndex >= 0 && messageIndex < current.length) {
+            final pendingPlan = Map<String, dynamic>.from(planContext)
+              ..['status'] = 'pending';
+            _s.updateMessageInActiveAiChat(
+              messageIndex,
+              current[messageIndex].copyWith(agentPlan: pendingPlan),
+            );
+          }
+        }
+        return;
+      }
 
       final approvedPlan = Map<String, dynamic>.from(planContext)
         ..['status'] = 'approved';
@@ -599,6 +620,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
           );
         }
       }
+      if (e is AiRequestCancelledException || cancelToken.isCancelled) return;
       final l10n = AppLocalizations.of(context);
       if (e is FolioCloudAiException && e.isInkExhausted) {
         await showFolioCloudAiInkExhaustedDialog(
@@ -610,6 +632,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
         _snack(l10n.aiErrorWithDetails(e), error: true);
       }
     } finally {
+      _endAiChatCancelToken(cancelToken);
       if (mounted) {
         _setStateSafe(() {
           _aiChatBusy = false;

@@ -1052,23 +1052,26 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          FilledButton(
-                            onPressed:
-                                (_aiChatBusy || !aiReady) ? null : _sendAiChat,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              shape: const CircleBorder(),
-                              padding: EdgeInsets.zero,
+                          Tooltip(
+                            message: _aiChatBusy ? l10n.aiStopGenerating : '',
+                            child: FilledButton(
+                              onPressed: !aiReady
+                                  ? null
+                                  : _aiChatBusy
+                                      ? _stopAiChat
+                                      : _sendAiChat,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                shape: const CircleBorder(),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: Icon(
+                                _aiChatBusy
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward_rounded,
+                                size: 18,
+                              ),
                             ),
-                            child: _aiChatBusy
-                                ? FolioLoadingIndicator(
-                                    size: FolioLoadingSize.small,
-                                    color: scheme.onPrimary,
-                                  )
-                                : const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 18,
-                                  ),
                           ),
                         ],
                       ),

@@ -24,6 +24,8 @@ import '../crypto/vault_crypto.dart';
 import '../crypto/vault_share_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
+import '../data/notion_import/notion_api_mapper.dart';
+import '../services/notion/notion_api_client.dart';
 import '../data/import/simple_html_blocks.dart';
 import '../app/workspace_prefs_keys.dart';
 import '../data/vault_paths.dart';
@@ -67,6 +69,7 @@ import '../data/folio_internal_link.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
+import '../services/ai/ai_service_with_cancel_token.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_app_question_detector.dart';
 import '../services/ai/ai_tool_json_emulation.dart';
@@ -2678,6 +2681,18 @@ class VaultSession extends ChangeNotifier {
           meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
           meetingNoteSummary: b.meetingNoteSummary,
         );
+        // child_page (`text` = id de la página destino, ver
+        // BLOCK_TYPES_AUDIT.md) referencia el `sourcePath` de origen hasta
+        // este punto — el importador ZIP nunca emite este tipo (los
+        // subenlaces de Markdown/HTML son hipervínculos planos), pero la
+        // importación directa de la API de Notion sí, así que resolvemos
+        // aquí el id real ya materializado. Si no se encuentra (p. ej. la
+        // subpágina no se seleccionó para importar), se deja como bookmark
+        // best-effort en el propio mapper antes de llegar aquí.
+        if (copied.type == 'child_page') {
+          final resolved = sourceToPageId[copied.text];
+          if (resolved != null) copied.text = resolved;
+        }
         await _importBlockAttachmentIfNeeded(
           copied,
           baseDir: src.sourceDirPath,
@@ -2691,13 +2706,19 @@ class VaultSession extends ChangeNotifier {
       }
     }
 
-    // Importar bases de datos CSV de Notion como páginas con un bloque database.
+    // Importar bases de datos de Notion (CSV del ZIP, o child_database de la
+    // API) como páginas con un bloque database, anidadas bajo su página padre
+    // si la tienen (parentSourcePath — siempre null para el importador ZIP,
+    // que las trata como top-level).
     for (final db in parsed.databases) {
       final pageId = _uuid.v4();
       pages.add(
         FolioPage(
           id: pageId,
           title: db.title.trim().isEmpty ? 'Database' : db.title.trim(),
+          parentId: db.parentSourcePath == null
+              ? null
+              : sourceToPageId[db.parentSourcePath],
           blocks: [
             FolioBlock(
               id: _newBlockId(pageId),
@@ -2856,6 +2877,138 @@ class VaultSession extends ChangeNotifier {
       try {
         if (temp.existsSync()) {
           await temp.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Importa la selección del picker de la API directa de Notion (OAuth) a
+  /// la libreta actual (debe estar desbloqueada). Par de
+  /// [importNotionIntoCurrentVault] para el ZIP: misma plomería de backup
+  /// previo/materialización, solo cambia la fuente de los datos (API en vivo
+  /// en vez de un export ya extraído a disco).
+  Future<NotionParsedExport> importNotionApiIntoCurrentVault(
+    List<NotionSearchResultItem> selected,
+    NotionApiClient client,
+  ) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para importar.');
+    }
+    await flushPendingSave();
+    try {
+      await createPreImportBackupZip(
+        vaultBinBytes: await vaultBinEquivalentBytes(),
+      );
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo crear el backup pre-import',
+        tag: 'vault',
+        context: {'error': '$e'},
+      );
+    }
+    final attachmentsDir = await Directory.systemTemp.createTemp('folio_notion_api_import_');
+    try {
+      final parsed = await mapNotionSelectionToParsedExport(
+        client: client,
+        selected: selected,
+        attachmentsDir: attachmentsDir,
+      );
+      lastImportWarnings = parsed.warnings;
+      final pages = await _materializeNotionPages(parsed);
+      _pages.addAll(pages);
+      if (_selectedPageId == null && _pages.isNotEmpty) {
+        _selectedPageId = _pages.first.id;
+      }
+      notifyListeners();
+      await persistNow();
+      return parsed;
+    } finally {
+      try {
+        if (attachmentsDir.existsSync()) {
+          await attachmentsDir.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Importa la selección del picker de la API directa de Notion (OAuth)
+  /// creando una libreta nueva. Par de [importNotionAsNewVault] para el ZIP.
+  Future<String> importNotionApiAsNewVault(
+    List<NotionSearchResultItem> selected,
+    NotionApiClient client, {
+    required String masterPassword,
+    String? displayName,
+  }) async {
+    if (kIsWeb) throw UnsupportedError('Notion import not available on web');
+    final attachmentsDir = await Directory.systemTemp.createTemp('folio_notion_api_import_');
+    final prevVaultId = VaultPaths.activeVaultId;
+    final newId = _uuid.v4();
+    final createdAt = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final parsed = await mapNotionSelectionToParsedExport(
+        client: client,
+        selected: selected,
+        attachmentsDir: attachmentsDir,
+      );
+      await _registry.load();
+      VaultPaths.setActiveVaultId(newId);
+      await VaultPaths.vaultDirectoryForId(newId);
+      final newDek = await _repo.createVault(
+        password: masterPassword,
+        encrypted: true,
+        starterContent: VaultStarterContent.disabled,
+      );
+      final oldDek = _dek;
+      final oldPages = _pages;
+      final oldSelected = _selectedPageId;
+      _dek = newDek!.toList();
+      _pages = [];
+      _selectedPageId = null;
+      final pages = await _materializeNotionPages(parsed);
+      _pages = pages;
+      _pickInitialSelection();
+      await _repo.savePayload(
+        VaultPayload(
+          version: kVaultPayloadVersion,
+          pages: _pages,
+          displayName: displayName ?? 'Notion importado',
+          pageRevisions: const {},
+          pageAcl: const {},
+          localProfiles: [
+            LocalProfile(id: 'local-default', name: 'Local user'),
+          ],
+          comments: const [],
+        ),
+        _dek!,
+      );
+      _dek = oldDek;
+      _pages = oldPages;
+      _selectedPageId = oldSelected;
+
+      await _registry.add(
+        VaultEntry(
+          id: newId,
+          displayName: displayName ?? 'Notion importado',
+          createdAtMs: createdAt,
+        ),
+      );
+      if (prevVaultId != null) {
+        VaultPaths.setActiveVaultId(prevVaultId);
+      }
+      lastImportWarnings = parsed.warnings;
+      notifyListeners();
+      return newId;
+    } catch (_) {
+      await VaultPaths.deleteVaultDirectory(newId);
+      rethrow;
+    } finally {
+      if (prevVaultId != null) {
+        VaultPaths.setActiveVaultId(prevVaultId);
+      }
+      try {
+        if (attachmentsDir.existsSync()) {
+          await attachmentsDir.delete(recursive: true);
         }
       } catch (_) {}
     }
