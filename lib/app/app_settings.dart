@@ -457,6 +457,9 @@ class AppSettings extends ChangeNotifier {
   static const _enableGlobalSearchHotkeyKey =
       'folio_enable_global_search_hotkey';
   static const _globalSearchHotkeyKey = 'folio_global_search_hotkey';
+  static const _enableMeetingBookmarkHotkeyKey =
+      'folio_enable_meeting_bookmark_hotkey';
+  static const _meetingBookmarkHotkeyKey = 'folio_meeting_bookmark_hotkey';
   static const _minimizeToTrayKey = 'folio_minimize_to_tray';
   static const _closeToTrayKey = 'folio_close_to_tray';
   static const _windowsNotificationsEnabledKey =
@@ -672,6 +675,12 @@ class AppSettings extends ChangeNotifier {
 
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
+  /// Hotkey global (Fase de mejoras post-lanzamiento de meeting_note) para
+  /// marcar un bookmark en la grabación activa sin tener que enfocar Folio
+  /// — pensado para cuando el usuario está compartiendo pantalla o dentro
+  /// de otra app de videollamada. Mismo mecanismo (`HotKeyScope.system`,
+  /// `hotkey_manager`) que el hotkey de búsqueda ya existente.
+  static const String defaultMeetingBookmarkHotkey = 'Ctrl+Shift+B';
   static const int defaultAiTimeoutMs = 30000;
   static const String defaultOllamaUrl = 'http://127.0.0.1:11434';
   static const String defaultLmStudioUrl = 'http://127.0.0.1:1234';
@@ -723,6 +732,8 @@ class AppSettings extends ChangeNotifier {
   bool _lockScreenAutoQuickUnlockDone = false;
   bool _enableGlobalSearchHotkey = true;
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
+  bool _enableMeetingBookmarkHotkey = true;
+  String _meetingBookmarkHotkey = defaultMeetingBookmarkHotkey;
   bool _minimizeToTray = false;
   bool _closeToTray = true;
   bool _windowsNotificationsEnabled = false;
@@ -925,6 +936,8 @@ class AppSettings extends ChangeNotifier {
   bool get lockScreenAutoQuickUnlockDone => _lockScreenAutoQuickUnlockDone;
   bool get enableGlobalSearchHotkey => _enableGlobalSearchHotkey;
   String get globalSearchHotkey => _globalSearchHotkey;
+  bool get enableMeetingBookmarkHotkey => _enableMeetingBookmarkHotkey;
+  String get meetingBookmarkHotkey => _meetingBookmarkHotkey;
   bool get minimizeToTray => _minimizeToTray;
   bool get closeToTray => _closeToTray;
   bool get windowsNotificationsEnabled => _windowsNotificationsEnabled;
