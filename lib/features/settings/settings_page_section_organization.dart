@@ -11,17 +11,17 @@ extension _SettingsPageOrganizationSection on _SettingsPageState {
     required _SettingsSectionId? activeSection,
   }) {
     final controller = _organizationContext;
-    return Visibility(
-      visible: activeSection == _SettingsSectionId.organization,
-      maintainState: false,
-      child: KeyedSubtree(
-        key: const ValueKey(_SettingsSectionId.organization),
-        child: _SettingsPanel(
-          margin: const EdgeInsets.only(bottom: 24),
-          child: controller == null
-              ? const SizedBox.shrink()
-              : OrganizationManagementPanel(controller: controller),
-        ),
+    // Cambio 4: construcción perezosa.
+    if (activeSection != _SettingsSectionId.organization) {
+      return const SizedBox.shrink();
+    }
+    return KeyedSubtree(
+      key: const ValueKey(_SettingsSectionId.organization),
+      child: _SettingsPanel(
+        margin: const EdgeInsets.only(bottom: 24),
+        child: controller == null
+            ? const SizedBox.shrink()
+            : OrganizationManagementPanel(controller: controller),
       ),
     );
   }

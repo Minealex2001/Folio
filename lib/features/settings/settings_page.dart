@@ -127,6 +127,7 @@ import 'folio_cloud_import_all_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
+import '../../core/perf/folio_perf_trace.dart';
 import '../../services/app_logger.dart';
 import '../../services/platform/browser_file_download.dart';
 import '../../services/secure_credential_storage.dart';
@@ -226,6 +227,12 @@ class SettingsPage extends StatefulWidget {
 
   /// `account` | `plan` | `status` — pestaña interna de Folio Cloud.
   final String? initialCloudTab;
+
+  /// Nº de veces que `_SettingsPageState.build()` se ha ejecutado (heavy o
+  /// light). Solo tests/instrumentación — verifica que `VaultSession` /
+  /// `AppSettings` ya no reconstruyen todo Settings.
+  @visibleForTesting
+  static int debugBuildCount = 0;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -589,25 +596,144 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _deferHeavyBuild = true;
   bool _didRunDeferredInit = false;
 
+  // --- Cambio 2: cache del uso de disco de la libreta ---
+  // `directoryTotalFileBytes` recorre `repo/` + `versions/` entero. Antes se
+  // creaba como `future:` DENTRO de `build()` → se re-ejecutaba en cada
+  // rebuild de la sección Vault/Backup. Ahora se calcula una sola vez y solo
+  // se recalcula al cambiar de libreta o por refresh explícito.
+  Future<int>? _diskUsageFuture;
+  Future<String>? _vaultLabelFuture;
+  String? _diskUsageVaultId;
+
+  void _ensureDiskUsageFuture({bool force = false}) {
+    final vid = _s.activeVaultId;
+    if (!force && _diskUsageFuture != null && _diskUsageVaultId == vid) return;
+    _diskUsageVaultId = vid;
+    _diskUsageFuture = _loadActiveVaultDiskUsageBytes();
+    _vaultLabelFuture = _s.getActiveVaultDisplayLabel();
+  }
+
+  /// Refresh explícito del uso de disco (cambia el tamaño real de la libreta:
+  /// import/export de backup, borrado masivo…). Recalcula el walk y repinta.
+  void _refreshDiskUsage() {
+    if (!mounted) return;
+    setState(() => _ensureDiskUsageFuture(force: true));
+  }
+
+  @visibleForTesting
+  void debugRefreshDiskUsage() => _refreshDiskUsage();
+
+  /// Identidad del `Future` de uso de disco cacheado. Los tests comprueban que
+  /// NO cambia entre rebuilds normales y SÍ cambia al cambiar de libreta o
+  /// hacer refresh explícito (prueba el contrato de cache sin depender de que
+  /// el walk del filesystem termine en el harness).
+  @visibleForTesting
+  Object? get debugDiskUsageFutureRef => _diskUsageFuture;
+
+  /// Cambio 3: `true` mientras la ventana de coalescencia de cargas diferidas
+  /// está abierta. Los tests comprueban que se cierra al terminar la entrada.
+  @visibleForTesting
+  bool get debugCoalescingRebuilds => _coalesceRebuilds;
+
+  /// Etiqueta de versión instalada — se puebla por `_loadInstalledVersionInfo`
+  /// (carga diferida). `'...'` = aún no cargada.
+  @visibleForTesting
+  String get debugInstalledVersionLabel => _installedVersionLabel;
+
+  // --- Instrumentación Fase 4 (FOLIO_PERF_TRACE), coste cero en release ---
+  int _perfBuildCount = 0;
+  int _perfCloudFolioNotifyCount = 0;
+  DateTime? _perfOpenedAt;
+
+  Future<void> _perfTracedLoad(String name, Future<void> Function() fn) async {
+    if (!FolioPerfTrace.enabled) return fn();
+    final sw = FolioPerfTrace.begin();
+    try {
+      await fn();
+    } finally {
+      FolioPerfTrace.log('settings.deferredLoad', {
+        'load': name,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(sw)),
+      });
+    }
+  }
+
   /// `setState` is `@protected`, so the `extension ... on _SettingsPageState`
   /// blocks in the `settings_page_state_*.dart` part files (used to split
   /// this class's methods across files) can't call it directly. Route
   /// through this regular instance method instead.
-  void _rebuild(VoidCallback fn) => setState(fn);
+  ///
+  /// Cambio 3: durante la entrada a Settings ([_coalesceRebuilds] `true`), las
+  /// cargas locales rápidas aplican su estado SIN repintar; un único
+  /// `setState` consolidado se dispara cuando todas resuelven (sub-10 ms, sin
+  /// timers). Fuera de esa ventana el comportamiento es idéntico al anterior.
+  bool _coalesceRebuilds = false;
+
+  void _rebuild(VoidCallback fn) {
+    if (_coalesceRebuilds) {
+      fn(); // estado aplicado ya; el repaint lo hace el flush consolidado
+      return;
+    }
+    setState(fn);
+  }
+
+  /// `_rebuild` inmune a la coalescencia de Cambio 3 — repaint inmediato.
+  /// Lo usa `_refreshOpenDiagnosticReports` (que el plan pide NO tocar) para
+  /// que su temporización de repintado no cambie por Cambio 3.
+  void _rebuildNow(VoidCallback fn) => setState(fn);
 
   void _runDeferredInitIfNeeded() {
     if (_didRunDeferredInit) return;
     _didRunDeferredInit = true;
 
-    unawaited(_loadMeetingNoteDevices());
-    _refreshSecurityFlags();
-    _loadInstalledVersionInfo();
-    _refreshReleaseReadiness();
-    unawaited(_refreshCloudBackupCount());
-    unawaited(_loadTaskCapturePrefs());
-    unawaited(_loadVaultBackupPrefs());
-    unawaited(_refreshOnDeviceAiInfo());
-    unawaited(_refreshOpenDiagnosticReports());
+    _ensureDiskUsageFuture(); // una sola vez al abrir Settings
+
+    // Cambio 3 — grupo local rápido (I/O local sub-10 ms): se aplican los
+    // estados sin repintar y se hace UN único `setState` cuando todo resuelve.
+    // Mismas llamadas, mismo orden y mismos estados finales que antes.
+    _coalesceRebuilds = true;
+    void closeCoalesceWindow() {
+      if (!_coalesceRebuilds) return;
+      _coalesceRebuilds = false;
+      if (mounted) setState(() {});
+    }
+
+    // Failsafe (sin timers): pase lo que pase, la ventana se cierra en el
+    // primer frame tras la entrada. Si una carga de plataforma se colgara,
+    // el resto de cargas repinta con normalidad a partir de ahí.
+    WidgetsBinding.instance.addPostFrameCallback((_) => closeCoalesceWindow());
+
+    final fastLocal = <Future<void>>[
+      _refreshSecurityFlags(),
+      _loadInstalledVersionInfo(),
+      _refreshReleaseReadiness(),
+      _perfTracedLoad('taskCapturePrefs', () => _loadTaskCapturePrefs()),
+      _perfTracedLoad('vaultBackupPrefs', () => _loadVaultBackupPrefs()),
+    ];
+    unawaited(
+      Future.wait(fastLocal.map((f) => f.catchError((Object _) {})))
+          .whenComplete(closeCoalesceWindow),
+    );
+
+    // Cargas lentas / independientes: su propio repaint al completar (red,
+    // enumeración de dispositivos de plataforma). No se agrupan para no
+    // retrasar el estado local rápido tras un enum de audio lento.
+    unawaited(
+      _perfTracedLoad('meetingNoteDevices', () => _loadMeetingNoteDevices()),
+    );
+    unawaited(
+      _perfTracedLoad('cloudBackupCount', () => _refreshCloudBackupCount()),
+    );
+    unawaited(
+      _perfTracedLoad('onDeviceAiInfo', () => _refreshOnDeviceAiInfo()),
+    );
+    // NO tocar: su propio `setState` inmediato vía `_rebuildNow`.
+    unawaited(
+      _perfTracedLoad(
+        'openDiagnosticReports',
+        () => _refreshOpenDiagnosticReports(),
+      ),
+    );
     // Si el flag local dice "sin verificar", consulta el servidor (evita banner fantasma).
     if (_cloud.isSignedIn && !_cloud.emailVerified) {
       unawaited(_cloud.reloadCurrentUser());
@@ -615,25 +741,27 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _refreshOpenDiagnosticReports() async {
+    // Sin tocar (Cambio 3): repaint inmediato, ajeno a la coalescencia.
     if (!_cloud.isSignedIn) {
       if (!mounted) return;
-      _rebuild(() {
+      _rebuildNow(() {
         _openDiagnosticReports = const [];
         _openDiagnosticReportsLoading = false;
       });
       return;
     }
     if (!mounted) return;
-    _rebuild(() => _openDiagnosticReportsLoading = true);
+    _rebuildNow(() => _openDiagnosticReportsLoading = true);
     final reports = await FolioDiagnosticReporter.listMyOpenReports();
     if (!mounted) return;
-    _rebuild(() {
+    _rebuildNow(() {
       _openDiagnosticReports = reports;
       _openDiagnosticReportsLoading = false;
     });
   }
 
   void _onCloudOrFolioChanged() {
+    _perfCloudFolioNotifyCount++;
     if (mounted) {
       setState(() {});
     }
@@ -663,6 +791,7 @@ class _SettingsPageState extends State<SettingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Evita el “parón” al navegar: primer frame ligero, luego render/cargas.
+      _perfOpenedAt = DateTime.now();
       setState(() => _deferHeavyBuild = false);
       _runDeferredInitIfNeeded();
       // Jump to a specific section if requested (e.g. opening from the chat panel)
@@ -821,11 +950,23 @@ class _SettingsPageState extends State<SettingsPage> {
     _customIconLabelController.dispose();
     _webLinkCodeController.dispose();
     unawaited(_meetingNoteDeviceProbe.dispose());
+    if (FolioPerfTrace.enabled) {
+      final openedAt = _perfOpenedAt;
+      FolioPerfTrace.log('settings.lifetime', {
+        'builds': _perfBuildCount,
+        'cloudFolioNotifies': _perfCloudFolioNotifyCount,
+        'open_ms': openedAt == null
+            ? '?'
+            : DateTime.now().difference(openedAt).inMilliseconds.toString(),
+      });
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _perfBuildCount++;
+    SettingsPage.debugBuildCount++;
     final l10n = AppLocalizations.of(context);
     if (_deferHeavyBuild) {
       return Scaffold(
@@ -842,6 +983,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
+    // Recalcula el uso de disco solo si cambió la libreta activa (comparación
+    // de String + early return). Un rebuild normal NO relanza el walk.
+    _ensureDiskUsageFuture();
     final scheme = Theme.of(context).colorScheme;
     final windowWidth = MediaQuery.sizeOf(context).width;
     final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
@@ -924,10 +1068,10 @@ class _SettingsPageState extends State<SettingsPage> {
         label: l10n.settingsPersonalizationBeta,
       ),
     ];
-    return AnimatedBuilder(
-      animation: _app,
-      builder: (context, _) {
-        return PopScope(
+    // Cambio 1: `AnimatedBuilder(animation: _app)` ya NO envuelve
+    // PopScope/Scaffold/AppBar/rail — solo el contenido (`body`). Un cambio
+    // de `AppSettings` deja de reconstruir el chrome de la pantalla.
+    return PopScope(
           canPop: wide || _selectedMobileSection == null,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
@@ -957,12 +1101,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     )
                   : null,
             ),
-            body: LayoutBuilder(
+            body: AnimatedBuilder(
+              animation: _app,
+              builder: (context, _) {
+                // Idempotente y barato (compara String + early return);
+                // detecta cambio de libreta aunque el rebuild venga de `_app`.
+                _ensureDiskUsageFuture();
+                return LayoutBuilder(
               builder: (context, constraints) {
-                final settingsContent = ListenableBuilder(
-                  listenable: _s,
-                  builder: (context, _) {
-                    return RepaintBoundary(
+                // Cambio 1: sin `ListenableBuilder(listenable: _s)` de nivel
+                // superior. Un `VaultSession.notifyListeners()` (typing,
+                // save-status, sync) YA NO reconstruye todo Settings; los
+                // pocos widgets que leen `_s` (banner, sección Vault, sección
+                // Sync) van envueltos en su propio `ListenableBuilder(_s)`.
+                final settingsContent = RepaintBoundary(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -1005,10 +1157,16 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             children: [
                               if (!wide && _selectedMobileSection == null) ...[
-                                _SettingsOverviewBanner(
-                                  appSettings: _app,
-                                  session: _s,
-                                  entitlements: _folio,
+                                // Cambio 1: el banner lee `_s` (cifrado/formato)
+                                // pero no escucha; lo mantenemos reactivo con un
+                                // listener acotado en vez del global removido.
+                                ListenableBuilder(
+                                  listenable: _s,
+                                  builder: (context, _) => _SettingsOverviewBanner(
+                                    appSettings: _app,
+                                    session: _s,
+                                    entitlements: _folio,
+                                  ),
                                 ),
                                 const SizedBox(height: 12),
                                 Semantics(
@@ -1088,10 +1246,10 @@ class _SettingsPageState extends State<SettingsPage> {
                               scheme,
                             ),
                           ] else ...[
-                          Visibility(
-                            visible: activeSection == _SettingsSectionId.cloud,
-                            maintainState: false,
-                            child: KeyedSubtree(
+                          // Cambio 4: construcción perezosa — el subárbol de
+                          // cada sección solo se instancia si es la activa.
+                          if (activeSection == _SettingsSectionId.cloud)
+                            KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.cloud),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
@@ -2177,12 +2335,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                          ),
 
-                          Visibility(
-                            visible: activeSection == _SettingsSectionId.vault,
-                            maintainState: false,
-                            child: KeyedSubtree(
+                          // Cambio 1 + 4: `_s` acotado a la sección Vault, y
+                          // construcción perezosa (solo si es la activa).
+                          if (activeSection == _SettingsSectionId.vault)
+                            ListenableBuilder(
+                            listenable: _s,
+                            builder: (context, _) => KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.vault),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
@@ -2454,8 +2613,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         child: FutureBuilder<String>(
                                           key: ValueKey(_s.activeVaultId),
-                                          future: _s
-                                              .getActiveVaultDisplayLabel(),
+                                          future: _vaultLabelFuture,
                                           builder: (ctx, snap) {
                                             if (!snap.hasData) {
                                               return const SizedBox.shrink();
@@ -2486,8 +2644,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         child: FutureBuilder<int>(
                                           key: ValueKey(_s.activeVaultId),
-                                          future:
-                                              _loadActiveVaultDiskUsageBytes(),
+                                          future: _diskUsageFuture,
                                           builder: (ctx, diskSnap) {
                                             final small = Theme.of(context)
                                                 .textTheme
@@ -3239,10 +3396,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
 
-                          Visibility(
-                            visible: activeSection == _SettingsSectionId.appearance,
-                            maintainState: false,
-                            child: KeyedSubtree(
+                          if (activeSection == _SettingsSectionId.appearance)
+                            KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.appearance),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
@@ -4032,13 +4187,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                          ),
 
-                          if (showDesktopOnlySections)
-                            Visibility(
-                              visible: activeSection == _SettingsSectionId.desktop,
-                              maintainState: false,
-                              child: KeyedSubtree(
+                          if (showDesktopOnlySections &&
+                              activeSection == _SettingsSectionId.desktop)
+                            KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.desktop),
                                 child: _SettingsPanel(
                                   margin: const EdgeInsets.only(bottom: 24),
@@ -4407,14 +4559,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                 ),
                               ),
-                            ),
 
-
-                          if (_app.isAiAvailable) ...[
-                            Visibility(
-                              visible: activeSection == _SettingsSectionId.ai,
-                              maintainState: false,
-                              child: KeyedSubtree(
+                          if (_app.isAiAvailable &&
+                              activeSection == _SettingsSectionId.ai)
+                            KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.ai),
                                 child: _buildAiSettingsSection(
                                   l10n: l10n,
@@ -4426,13 +4574,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                       showDesktopOnlySections,
                                 ),
                               ),
-                            ),
-                          ],
 
-                          Visibility(
-                            visible: activeSection == _SettingsSectionId.sync,
-                            maintainState: false,
-                            child: KeyedSubtree(
+                          if (activeSection == _SettingsSectionId.sync)
+                            KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.sync),
                               child: AnimatedBuilder(
                                 animation: _sync,
@@ -4811,7 +4955,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                          ),
 
                           _buildAboutSection(
                             l10n: l10n,
@@ -4831,10 +4974,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             activeSection: activeSection,
                           ),
 
-                          Visibility(
-                              visible: activeSection == _SettingsSectionId.integrations,
-                              maintainState: false,
-                              child: KeyedSubtree(
+                          if (activeSection == _SettingsSectionId.integrations)
+                            KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.integrations),
                                 child: Column(
                                   crossAxisAlignment:
@@ -5129,7 +5270,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ],
                                 ),
                               ),
-                            ),
                           ],
                           const SizedBox(height: 24),
                         ],
@@ -5137,8 +5277,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 );
-                },
-              );
               final detailPane = Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1000),
@@ -5173,11 +5311,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               );
             },
-          ),
+          );
+              },
+            ),
         ),
       );
-    },
-  );
 }
 }
 

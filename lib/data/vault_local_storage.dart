@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'vault_paths.dart';
 import 'vault_payload.dart';
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../git/vault_payload_converters.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../models/folio_page.dart';
@@ -81,6 +82,27 @@ class VaultLocalStorage {
     return n;
   }
 
+  /// Ids de página presentes en el árbol `repo/pages/` en disco (una carpeta
+  /// con `meta.json`). Usado por el guardado incremental para verificar que el
+  /// conjunto de páginas en disco coincide con el de la sesión antes de
+  /// escribir solo unas pocas — si difiere (página creada/borrada/importada
+  /// por cualquier ruta), se cae al guardado completo.
+  static Set<String> listPageIdsOnDisk(Directory treeDir) {
+    final pagesDir = Directory(p.join(treeDir.path, 'pages'));
+    final out = <String>{};
+    if (!pagesDir.existsSync()) return out;
+    for (final prefix in pagesDir.listSync()) {
+      if (prefix is! Directory) continue;
+      for (final pageDir in prefix.listSync()) {
+        if (pageDir is! Directory) continue;
+        if (File(p.join(pageDir.path, 'meta.json')).existsSync()) {
+          out.add(p.basename(pageDir.path));
+        }
+      }
+    }
+    return out;
+  }
+
   /// Descompone un VaultPayload al árbol de archivos en <vault>/repo/.
   /// Usa staging `repo.tmp` y swap atómico para no dejar el árbol a medias.
   static Future<void> decomposeAndStore(VaultPayload payload) async {
@@ -120,7 +142,13 @@ class VaultLocalStorage {
     bool allowEmptyOverwrite = false,
     bool guardAgainstPartialOverwrite = false,
   }) {
+    final swLockWait = FolioPerfTrace.begin();
     return runExclusive(vaultDir.path, () async {
+      final lockWaitUs = FolioPerfTrace.us(swLockWait);
+      final swWork = FolioPerfTrace.begin();
+      final perf = FolioPerfTrace.enabled ? DecomposePerf() : null;
+      if (perf != null) FolioPerfTrace.decompose = perf;
+      try {
       final treeDir = Directory(p.join(vaultDir.path, 'repo'));
       final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
       final incomingPages = payload.pages.length;
@@ -179,6 +207,24 @@ class VaultLocalStorage {
       await tmpDir.rename(treeDir.path);
       if (oldDir.existsSync()) {
         await oldDir.delete(recursive: true);
+      }
+      } finally {
+        if (perf != null) {
+          perf.pageCount = payload.pages.length;
+          FolioPerfTrace.decompose = null;
+          final workUs = FolioPerfTrace.us(swWork);
+          FolioPerfTrace.log('decomposeAndStore', {
+            'pages': perf.pageCount,
+            'files': perf.fileCount,
+            'lockWait_ms': FolioPerfTrace.ms(lockWaitUs),
+            'work_ms': FolioPerfTrace.ms(workUs),
+            'serialize_ms': FolioPerfTrace.ms(perf.serializeUs),
+            'writeAtomic_ms': FolioPerfTrace.ms(perf.writeUs),
+            'other_ms': FolioPerfTrace.ms(
+              workUs - perf.serializeUs - perf.writeUs,
+            ),
+          });
+        }
       }
     });
   }

@@ -13,10 +13,10 @@ extension _SettingsPageAboutSection on _SettingsPageState {
     required bool showDesktopOnlySections,
     required _SettingsSectionId? activeSection,
   }) {
-    return Visibility(
-      visible: activeSection == _SettingsSectionId.about,
-      maintainState: false,
-      child: KeyedSubtree(
+    // Cambio 4: construcción perezosa — nada del subárbol se instancia si la
+    // sección no está activa.
+    if (activeSection != _SettingsSectionId.about) return const SizedBox.shrink();
+    return KeyedSubtree(
         key: const ValueKey(_SettingsSectionId.about),
         child: _SettingsPanel(
           margin: const EdgeInsets.only(bottom: 24),
@@ -215,7 +215,6 @@ extension _SettingsPageAboutSection on _SettingsPageState {
             ],
           ),
         ),
-      ),
     );
   }
 }

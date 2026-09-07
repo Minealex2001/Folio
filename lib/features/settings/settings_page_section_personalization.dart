@@ -11,20 +11,20 @@ extension _SettingsPagePersonalizationSection on _SettingsPageState {
     required ColorScheme scheme,
     required _SettingsSectionId? activeSection,
   }) {
-    return Visibility(
-      visible: activeSection == _SettingsSectionId.personalization,
-      maintainState: false,
-      child: KeyedSubtree(
-        key: const ValueKey(_SettingsSectionId.personalization),
-        child: _SettingsPanel(
-          margin: const EdgeInsets.only(bottom: 24),
-          child: _PersonalizationSectionBody(
-            appSettings: _app,
-            layoutEngine: _layoutEngine,
-            themeConfig: _themeConfig,
-            dashboardGrid: _dashboardGrid,
-            activePack: _activePack,
-          ),
+    // Cambio 4: construcción perezosa.
+    if (activeSection != _SettingsSectionId.personalization) {
+      return const SizedBox.shrink();
+    }
+    return KeyedSubtree(
+      key: const ValueKey(_SettingsSectionId.personalization),
+      child: _SettingsPanel(
+        margin: const EdgeInsets.only(bottom: 24),
+        child: _PersonalizationSectionBody(
+          appSettings: _app,
+          layoutEngine: _layoutEngine,
+          themeConfig: _themeConfig,
+          dashboardGrid: _dashboardGrid,
+          activePack: _activePack,
         ),
       ),
     );

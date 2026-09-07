@@ -374,7 +374,10 @@ class BlockEditorState extends State<BlockEditor>
 
     void flushNow() {
       if (!mounted) return;
+      final swTotal = FolioPerfTrace.begin();
+      final swMd = FolioPerfTrace.begin();
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final mdUs = FolioPerfTrace.us(swMd);
       final caret = qc.selection.baseOffset;
       final idx = _controllerBlockIds.indexOf(block.id);
       if (!_ignoreShortcuts &&
@@ -389,8 +392,11 @@ class BlockEditorState extends State<BlockEditor>
           )) {
         return;
       }
+      final swDelta = FolioPerfTrace.begin();
       final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      final deltaUs = FolioPerfTrace.us(swDelta);
       _quillLastMdByBlockId[block.id] = md;
+      final swUpdate = FolioPerfTrace.begin();
       _runWithShortcutsIgnored(() {
         _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
         if (idx >= 0 && idx < _controllers.length) {
@@ -401,6 +407,16 @@ class BlockEditorState extends State<BlockEditor>
           );
         }
       });
+      if (FolioPerfTrace.enabled) {
+        FolioPerfTrace.log('editor.quillFlush', {
+          'mdChars': md.length,
+          'deltaChars': deltaStr.length,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+          'docToMarkdown_ms': FolioPerfTrace.ms(mdUs),
+          'deltaJsonEncode_ms': FolioPerfTrace.ms(deltaUs),
+          'updateBlockTextFull_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swUpdate)),
+        });
+      }
     }
 
     _quillFlushNowByBlockId[block.id] = flushNow;
@@ -3519,6 +3535,20 @@ class BlockEditorState extends State<BlockEditor>
   }
 
   void _onSession() {
+    if (!FolioPerfTrace.enabled) {
+      _onSessionImpl();
+      return;
+    }
+    final sw = FolioPerfTrace.begin();
+    final blocks = _s.selectedPage?.blocks.length ?? 0;
+    _onSessionImpl();
+    FolioPerfTrace.log('editor._onSession', {
+      'blocks': blocks,
+      'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(sw)),
+    });
+  }
+
+  void _onSessionImpl() {
     if (!mounted) return;
     final page = _s.selectedPage;
     if (page == null) {

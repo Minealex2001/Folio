@@ -20,6 +20,7 @@ import '../application/vault_collab_controller.dart';
 import '../application/vault_persistence_controller.dart';
 import '../application/vault_search_index.dart';
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../crypto/vault_crypto.dart';
 import '../crypto/vault_share_crypto.dart';
 import '../data/vault_backup.dart';
@@ -607,6 +608,53 @@ class VaultSession extends ChangeNotifier {
 
   /// Debounce del árbol v1 (equivalente al de [_persistence] en v0).
   static const Duration _v1TreeSaveDebounce = Duration(milliseconds: 450);
+
+  // --- Guardado incremental v1 (Fase 3, optimización S1) ---
+  //
+  // Por defecto el guardado v1 reescribe TODO el árbol `repo/` en cada save
+  // (coste ∝ nº total de páginas). Cuando el único cambio pendiente es
+  // contenido de páginas que YA existen en disco, se persiste solo esas
+  // páginas con `VaultLocalStorage.storePageAt` (coste ∝ páginas tocadas).
+  //
+  // Invariante de seguridad: el guardado incremental SOLO se elige si
+  // `_persistNeedsFullRewrite == false`. Cualquier `scheduleSave()` sin
+  // `contentOnlyPageId` (todas las mutaciones estructurales: crear/borrar/
+  // mover/reordenar páginas, integraciones, plantillas, ACL, tombstones,
+  // displayName, orden del árbol...) lo pone a `true`. Sync/merge también
+  // (ver `_persistNowRespectingFormat`). Además, antes de escribir se verifica
+  // que el conjunto de ids de página en disco == el de la sesión.
+
+  /// Páginas cuyo contenido cambió por una ruta segura para persistencia
+  /// incremental (edición de bloques de una página existente).
+  final Set<String> _dirtyContentPageIds = {};
+
+  /// Si `true`, el próximo guardado v1 debe reescribir el árbol completo.
+  /// Arranca en `true` (fail-safe): el primer guardado tras desbloquear
+  /// siempre es completo.
+  bool _persistNeedsFullRewrite = true;
+
+  /// Se incrementa cada vez que se marca [_persistNeedsFullRewrite]. Permite
+  /// que un guardado en vuelo detecte una mutación estructural que llegó
+  /// DURANTE su escritura (y por tanto no reflejada en disco) y no reponga
+  /// el flag a `false` por error al terminar.
+  int _structuralMutationSeq = 0;
+
+  void _markPersistNeedsFullRewrite() {
+    _persistNeedsFullRewrite = true;
+    _structuralMutationSeq++;
+  }
+
+  /// Contadores de diagnóstico (tests / FOLIO_PERF_TRACE): cuántos guardados
+  /// v1 tomaron cada ruta desde que arrancó la sesión.
+  @visibleForTesting
+  int debugFullPersistV1Count = 0;
+  @visibleForTesting
+  int debugIncrementalPersistV1Count = 0;
+
+  /// Fuerza que el próximo guardado v1 sea completo (sin cambiar el estado).
+  /// Solo para tests que comparan el árbol incremental vs. el completo.
+  @visibleForTesting
+  void debugForceFullPersistNext() => _markPersistNeedsFullRewrite();
 
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
   bool get hasPendingDiskSave =>
@@ -2790,6 +2838,7 @@ class VaultSession extends ChangeNotifier {
       lastImportWarnings = parsed.warnings;
       final pages = await _materializeNotionPages(parsed);
       _pages.addAll(pages);
+      _markPersistNeedsFullRewrite(); // alta masiva de páginas → guardado completo
       if (_selectedPageId == null && _pages.isNotEmpty) {
         _selectedPageId = _pages.first.id;
       }
@@ -2917,6 +2966,7 @@ class VaultSession extends ChangeNotifier {
       lastImportWarnings = parsed.warnings;
       final pages = await _materializeNotionPages(parsed);
       _pages.addAll(pages);
+      _markPersistNeedsFullRewrite(); // alta masiva de páginas → guardado completo
       if (_selectedPageId == null && _pages.isNotEmpty) {
         _selectedPageId = _pages.first.id;
       }
@@ -5642,19 +5692,21 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     _rememberUndoBeforePageMutation(pageId, isTyping: true);
+    var contentSafe = true;
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
       _deleteManagedAttachmentIfUnused(
         b.text,
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+      contentSafe = false; // borró un adjunto gestionado → guardado completo
     }
     if (b.aiGenerated == true && b.text != text) {
       b.aiGenerated = null;
     }
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: contentSafe, notify: false);
   }
 
   /// Variante de [updateBlockText] para actualizaciones de alta frecuencia
@@ -5676,7 +5728,7 @@ class VaultSession extends ChangeNotifier {
     if (b == null) return;
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: true, notify: false);
   }
 
   /// Actualiza texto y Delta de un bloque de forma atómica.
@@ -5693,12 +5745,14 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     _rememberUndoBeforePageMutation(pageId, isTyping: true);
+    var contentSafe = true;
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
       _deleteManagedAttachmentIfUnused(
         b.text,
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+      contentSafe = false; // borró un adjunto gestionado → guardado completo
     }
     if (b.aiGenerated == true &&
         (b.text != text || b.richTextDeltaJson != richTextDeltaJson)) {
@@ -5716,7 +5770,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: contentSafe, notify: false);
   }
 
   void _propagateSyncedBlockContent(
@@ -5736,7 +5790,9 @@ class VaultSession extends ChangeNotifier {
       }
     }
     for (final pid in pagesChanged) {
-      scheduleSave(trackRevisionForPageId: pid);
+      // Propagación de bloque sincronizado = solo contenido de páginas
+      // existentes → apto para guardado incremental.
+      scheduleSave(contentOnlyPageId: pid);
     }
   }
 
@@ -5821,7 +5877,7 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     b.checked = checked;
     notifyListeners();
-    scheduleSave(trackRevisionForPageId: pageId);
+    _scheduleBlockContentSave(pageId, contentSafe: true);
   }
 
   void setBlockExpanded(String pageId, String blockId, bool expanded) {
@@ -5832,7 +5888,7 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     b.expanded = expanded;
     notifyListeners();
-    scheduleSave(trackRevisionForPageId: pageId);
+    _scheduleBlockContentSave(pageId, contentSafe: true);
   }
 
   void updateBlockIcon(String pageId, String blockId, String? icon) {
@@ -7116,11 +7172,28 @@ class VaultSession extends ChangeNotifier {
   /// se añade una entrada al historial (si el contenido difiere de la última revisión).
   /// [notify]: si `false`, el llamador ya programó su propio aviso coalescido
   /// (ver [_scheduleCoalescedTypingNotify]) y este método no debe duplicarlo.
-  void scheduleSave({String? trackRevisionForPageId, bool notify = true}) {
+  /// [contentOnlyPageId]: la mutación fue exclusivamente contenido de bloques
+  /// de esa página YA existente (Quill flush, checkbox, toggle, propagación de
+  /// bloque sincronizado). Habilita el guardado incremental para esa página y,
+  /// como [trackRevisionForPageId], programa la captura de revisión. Cualquier
+  /// `scheduleSave` SIN este parámetro fuerza el guardado completo del árbol.
+  void scheduleSave({
+    String? trackRevisionForPageId,
+    String? contentOnlyPageId,
+    bool notify = true,
+  }) {
     if (vaultUsesEncryption && _dek == null) return;
     touchActivity();
-    if (trackRevisionForPageId != null) {
-      _pageIdsPendingRevision.add(trackRevisionForPageId);
+    if (contentOnlyPageId != null) {
+      _dirtyContentPageIds.add(contentOnlyPageId);
+    } else {
+      // Mutación no clasificada como "solo contenido" → el próximo guardado
+      // v1 reescribe el árbol completo (comportamiento histórico).
+      _markPersistNeedsFullRewrite();
+    }
+    final revisionPageId = trackRevisionForPageId ?? contentOnlyPageId;
+    if (revisionPageId != null) {
+      _pageIdsPendingRevision.add(revisionPageId);
       _revisionIdleTimer?.cancel();
       _revisionIdleTimer = Timer(_revisionIdleDelay, () {
         unawaited(_capturePendingRevisionsAndPersist());
@@ -7133,6 +7206,21 @@ class VaultSession extends ChangeNotifier {
       _scheduleV1TreeSave(notify: notify);
     }
     if (notify) notifyListeners();
+  }
+
+  /// `scheduleSave` para una edición de contenido de bloques de una página
+  /// existente. Con [contentSafe] `false` (p. ej. se borró un adjunto
+  /// gestionado y el manifiesto podría quedar stale) cae al guardado completo.
+  void _scheduleBlockContentSave(
+    String pageId, {
+    required bool contentSafe,
+    bool notify = true,
+  }) {
+    scheduleSave(
+      contentOnlyPageId: contentSafe ? pageId : null,
+      trackRevisionForPageId: contentSafe ? null : pageId,
+      notify: notify,
+    );
   }
 
   void _scheduleV1TreeSave({bool notify = true}) {
@@ -7646,15 +7734,26 @@ class VaultSession extends ChangeNotifier {
         if (identical(_v1ActiveWrite, write)) _v1ActiveWrite = null;
       }
     }
+    final swIndex = FolioPerfTrace.begin();
     _rebuildSearchIndex();
+    if (FolioPerfTrace.enabled) {
+      FolioPerfTrace.log('rebuildSearchIndex', {
+        'pages': _pages.where((p) => !p.isTrashed).length,
+        'encrypted': _vaultUsesEncryption,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swIndex)),
+      });
+    }
   }
 
   Future<void> _doPersistV1() async {
     // Format v1: solo árbol en repo/ (sin snapshot automático ni vault.bin).
+    final swTotal = FolioPerfTrace.begin();
     try {
       _v1TreeSaveTimer?.cancel();
       _v1TreeSaveTimer = null;
+      final swBuild = FolioPerfTrace.begin();
       final payload = _buildVaultPayloadForPersist();
+      final buildUs = FolioPerfTrace.us(swBuild);
       // Defensa: no persistir 0 páginas sobre un árbol que aún tiene datos
       // (p. ej. tras unlock fallido / carrera con sync headless).
       if (payload.pages.isEmpty) {
@@ -7668,9 +7767,43 @@ class VaultSession extends ChangeNotifier {
           return;
         }
       }
+      // --- S1: guardado incremental (solo contenido de páginas existentes) ---
+      if (await _tryIncrementalPersistV1(swTotal, buildUs)) {
+        return;
+      }
+
+      // --- Guardado completo (comportamiento histórico) ---
+      final structuralSeqAtStart = _structuralMutationSeq;
+      final dirtyAtStart = Set<String>.of(_dirtyContentPageIds);
+      final swStore = FolioPerfTrace.begin();
       await VaultLocalStorage.decomposeAndStore(payload);
+      debugFullPersistV1Count++;
+      final storeUs = FolioPerfTrace.us(swStore);
+      // Éxito: el árbol en disco refleja `_pages` tal como estaba al construir
+      // `payload`. Consumimos solo lo marcado ANTES del await (lo que llegara
+      // durante la escritura re-programa su propio guardado). El flag de
+      // "reescritura completa" solo se limpia si no llegó una mutación
+      // estructural mientras escribíamos.
+      _dirtyContentPageIds.removeAll(dirtyAtStart);
+      if (_structuralMutationSeq == structuralSeqAtStart) {
+        _persistNeedsFullRewrite = false;
+      }
       // Nunca borrar vault.bin aquí: solo tras sync/verificación
       // (cleanupV0AfterSuccessfulSync).
+      if (FolioPerfTrace.enabled) {
+        var blocks = 0;
+        for (final p in payload.pages) {
+          blocks += p.blocks.length;
+        }
+        FolioPerfTrace.log('doPersistV1', {
+          'mode': 'full',
+          'pages': payload.pages.length,
+          'blocks': blocks,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+          'buildPayload_ms': FolioPerfTrace.ms(buildUs),
+          'decomposeStore_ms': FolioPerfTrace.ms(storeUs),
+        });
+      }
     } on VaultEmptyOverwriteException catch (e) {
       AppLogger.error('Blocked empty vault tree overwrite: $e');
     } catch (e) {
@@ -7679,11 +7812,126 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Intenta persistir solo las páginas con contenido modificado
+  /// ([_dirtyContentPageIds]) vía `VaultLocalStorage.storePageAt`, sin
+  /// reescribir el árbol entero. Devuelve `true` si la persistencia quedó
+  /// resuelta por esta vía; `false` si el llamador debe hacer el guardado
+  /// completo.
+  ///
+  /// Condiciones (todas obligatorias) para elegir incremental:
+  ///  - formato v1;
+  ///  - `_persistNeedsFullRewrite == false` (ninguna mutación estructural,
+  ///    de sync o no clasificada como "solo contenido" pendiente);
+  ///  - hay al menos una página en [_dirtyContentPageIds];
+  ///  - el árbol `repo/` ya existe en disco;
+  ///  - el conjunto de ids de página en disco == el de la sesión (si difiere,
+  ///    hubo alta/baja de página por cualquier ruta → hay que reescribir
+  ///    `tree.json` y limpiar carpetas stale);
+  ///  - todas las páginas marcadas siguen existiendo en la sesión.
+  Future<bool> _tryIncrementalPersistV1(Stopwatch? swTotal, int buildUs) async {
+    if (_vaultFormatVersion != 1) return false;
+    if (_persistNeedsFullRewrite) return false;
+    if (_dirtyContentPageIds.isEmpty) return false;
+
+    final vaultDir = await VaultPaths.vaultDirectory();
+    final treeDir = await VaultPaths.vaultTreeDirectory();
+    if (!treeDir.existsSync()) return false;
+
+    final onDiskIds = VaultLocalStorage.listPageIdsOnDisk(treeDir);
+    final sessionIds = _pages.map((p) => p.id).toSet();
+    if (!setEquals(onDiskIds, sessionIds)) return false;
+
+    // Captura y consume el set ANTES del await.
+    final ids = Set<String>.of(_dirtyContentPageIds);
+    _dirtyContentPageIds.removeAll(ids);
+    final structuralSeqAtStart = _structuralMutationSeq;
+
+    final pages = <FolioPage>[];
+    for (final id in ids) {
+      final page = _pageById(id);
+      if (page == null) {
+        // Desapareció entre el marcado y ahora → operación estructural en
+        // curso: que el llamador haga el guardado completo (limpia stale).
+        _markPersistNeedsFullRewrite();
+        return false;
+      }
+      pages.add(page);
+    }
+
+    final perf = FolioPerfTrace.enabled ? DecomposePerf() : null;
+    if (perf != null) FolioPerfTrace.decompose = perf;
+    final swStore = FolioPerfTrace.begin();
+    try {
+      for (final page in pages) {
+        // Cada `storePageAt` es atómico por fichero (mismo `_writeAtomic` +
+        // `runExclusive` que el guardado completo). Se pierde la
+        // transaccionalidad ENTRE páginas: un cierre inesperado a mitad deja
+        // unas páginas guardadas y otras no — equivalente a haber pausado la
+        // edición antes; nunca corrompe (cada línea de `blocks.jsonl` es una
+        // escritura atómica completa) ni resucita páginas borradas (una baja
+        // de página fuerza guardado completo por el guard de conjunto de ids).
+        // ponytail: atomicidad por página, no por árbol; el guardado completo
+        // periódico (cualquier op estructural) restablece la consistencia total.
+        await VaultLocalStorage.storePageAt(vaultDir, page, _comments);
+      }
+    } finally {
+      if (perf != null) FolioPerfTrace.decompose = null;
+    }
+    debugIncrementalPersistV1Count++;
+    final storeUs = FolioPerfTrace.us(swStore);
+
+    // Si durante la escritura llegó una mutación estructural o de sync,
+    // reconcilia el árbol completo ahora (tree.json / carpetas stale).
+    if (_structuralMutationSeq != structuralSeqAtStart ||
+        _persistNeedsFullRewrite) {
+      final full = _buildVaultPayloadForPersist();
+      final seqBeforeReconcile = _structuralMutationSeq;
+      final dirtyBeforeReconcile = Set<String>.of(_dirtyContentPageIds);
+      await VaultLocalStorage.decomposeAndStore(full);
+      debugFullPersistV1Count++;
+      _dirtyContentPageIds.removeAll(dirtyBeforeReconcile);
+      if (_structuralMutationSeq == seqBeforeReconcile) {
+        _persistNeedsFullRewrite = false;
+      }
+      if (FolioPerfTrace.enabled) {
+        FolioPerfTrace.log('doPersistV1', {
+          'mode': 'incremental+reconcile',
+          'incrementalPages': pages.length,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+        });
+      }
+      return true;
+    }
+
+    if (FolioPerfTrace.enabled) {
+      var blocks = 0;
+      for (final p in pages) {
+        blocks += p.blocks.length;
+      }
+      FolioPerfTrace.log('doPersistV1', {
+        'mode': 'incremental',
+        'pagesWritten': pages.length,
+        'blocks': blocks,
+        'files': perf?.fileCount ?? 0,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+        'buildPayload_ms': FolioPerfTrace.ms(buildUs),
+        'storePages_ms': FolioPerfTrace.ms(storeUs),
+        'writeAtomic_ms': FolioPerfTrace.ms(perf?.writeUs ?? 0),
+        'serialize_ms': FolioPerfTrace.ms(perf?.serializeUs ?? 0),
+      });
+    }
+    return true;
+  }
+
   /// Persistencia inmediata respetando formato: v0 puede suprimir `onPersisted`
   /// (evitar bucles de sync); v1 siempre escribe solo el árbol.
   Future<void> _persistNowRespectingFormat({
     bool suppressPersistedCallback = false,
   }) async {
+    // Solo lo usan las rutas de sync/merge, que pueden haber cambiado
+    // contenido de páginas existentes, orden del árbol o el conjunto de
+    // páginas sin pasar por `scheduleSave`. Fuerza guardado v1 completo.
+    _markPersistNeedsFullRewrite();
     if (_vaultFormatVersion == 0) {
       if (suppressPersistedCallback) {
         await _persistence.persistNowSuppressed();

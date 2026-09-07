@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../data/vault_payload.dart';
 import '../models/folio_page.dart';
 import '../models/folio_page_import_info.dart';
@@ -53,6 +54,8 @@ Directory _pageDirIn(Directory repoDir, String pageId) {
 }
 
 Future<void> _writeAtomic(String path, String content) async {
+  final perf = FolioPerfTrace.enabled ? FolioPerfTrace.decompose : null;
+  final sw = perf == null ? null : (Stopwatch()..start());
   final file = File(path);
   final dir = file.parent;
   if (!dir.existsSync()) {
@@ -64,6 +67,10 @@ Future<void> _writeAtomic(String path, String content) async {
     await file.delete();
   }
   await tmp.rename(path);
+  if (perf != null && sw != null) {
+    perf.writeUs += sw.elapsedMicroseconds;
+    perf.fileCount++;
+  }
 }
 
 /// Descompone VaultPayload al árbol de archivos.
@@ -121,14 +128,20 @@ class VaultPayloadToTree {
           'properties': page.properties.map((prop) => prop.toJson()).toList(),
         if (page.tags.isNotEmpty) 'tags': page.tags,
       };
-      await _writeAtomic(
-        p.join(pageDir.path, 'meta.json'),
-        canonicalJson(meta),
-      );
-
+      final serPerf = FolioPerfTrace.enabled ? FolioPerfTrace.decompose : null;
+      final swSer = serPerf == null ? null : (Stopwatch()..start());
+      final metaJson = canonicalJson(meta);
       final blocksFile = File(p.join(pageDir.path, 'blocks.jsonl'));
       final blocksLines =
           page.blocks.map((b) => canonicalJson(b.toJson())).toList();
+      if (serPerf != null && swSer != null) {
+        serPerf.serializeUs += swSer.elapsedMicroseconds;
+      }
+      await _writeAtomic(
+        p.join(pageDir.path, 'meta.json'),
+        metaJson,
+      );
+
       if (blocksLines.isNotEmpty) {
         await _writeAtomic(
           blocksFile.path,
