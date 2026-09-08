@@ -720,6 +720,22 @@ function Resolve-ReleaseTarget {
 function Assert-GhReady {
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     if (-not $gh) {
+        $candidates = @(
+            (Join-Path $env:ProgramFiles 'GitHub CLI\gh.exe'),
+            (Join-Path ${env:ProgramFiles(x86)} 'GitHub CLI\gh.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\GitHub CLI\gh.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\gh.exe')
+        )
+        foreach ($candidate in $candidates) {
+            if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+                $dir = Split-Path -Parent $candidate
+                $env:PATH = "$dir;$env:PATH"
+                $gh = Get-Command gh -ErrorAction SilentlyContinue
+                if ($gh) { break }
+            }
+        }
+    }
+    if (-not $gh) {
         throw "No se encontro GitHub CLI (gh). Instalalo con 'winget install GitHub.cli'."
     }
     & gh auth status *> $null
