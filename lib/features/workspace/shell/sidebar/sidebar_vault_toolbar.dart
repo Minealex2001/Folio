@@ -15,6 +15,8 @@ class SidebarVaultToolbar extends StatelessWidget {
     required this.onAddVault,
     required this.onRenameVault,
     this.onShareVault,
+    this.adoptableVaultCount = 0,
+    this.onAdoptLocalVaults,
   });
 
   final List<VaultEntry> vaults;
@@ -24,6 +26,10 @@ class SidebarVaultToolbar extends StatelessWidget {
   final VoidCallback onAddVault;
   final VoidCallback onRenameVault;
   final VoidCallback? onShareVault;
+
+  /// Libretas personales locales de otra cuenta (o sin dueño) adoptables.
+  final int adoptableVaultCount;
+  final VoidCallback? onAdoptLocalVaults;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +73,8 @@ class SidebarVaultToolbar extends StatelessWidget {
       );
     }
     if (vaults.isEmpty) {
+      final canAdopt =
+          adoptableVaultCount > 0 && onAdoptLocalVaults != null;
       return Padding(
         padding: const EdgeInsets.fromLTRB(
           FolioSpace.sm,
@@ -83,22 +91,42 @@ class SidebarVaultToolbar extends StatelessWidget {
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(FolioRadius.md),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.folder_off_outlined,
-                    color: scheme.onSurfaceVariant,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.folder_off_outlined,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: FolioSpace.sm),
+                      Expanded(
+                        child: Text(
+                          l10n.sidebarVaultsEmpty,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: FolioSpace.sm),
-                  Expanded(
-                    child: Text(
-                      l10n.sidebarVaultsEmpty,
+                  if (canAdopt) ...[
+                    const SizedBox(height: FolioSpace.sm),
+                    Text(
+                      l10n.sidebarAdoptLocalVaultsHint(adoptableVaultCount),
                       style: textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: FolioSpace.sm),
+                    FilledButton.tonalIcon(
+                      onPressed: onAdoptLocalVaults,
+                      icon: const Icon(Icons.login_outlined, size: 18),
+                      label: Text(l10n.sidebarAdoptLocalVaults),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -128,8 +156,8 @@ class SidebarVaultToolbar extends StatelessWidget {
           subtitle: e.isShared
               ? Text(
                   e.ownerDisplayName?.trim().isNotEmpty == true
-                      ? 'Compartida · ${e.ownerDisplayName}'
-                      : 'Compartida conmigo',
+                      ? l10n.sidebarVaultSharedByOwner(e.ownerDisplayName!)
+                      : l10n.sidebarVaultSharedWithMe,
                 )
               : null,
           trailing: e.id == activeVaultId ? const Icon(Icons.check) : null,
@@ -162,7 +190,7 @@ class SidebarVaultToolbar extends StatelessWidget {
             PopupMenuItem(
               enabled: false,
               child: Text(
-                'Mis libretas',
+                l10n.sidebarVaultsMineLabel,
                 style: textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -175,7 +203,7 @@ class SidebarVaultToolbar extends StatelessWidget {
             PopupMenuItem(
               enabled: false,
               child: Text(
-                'Compartidas conmigo',
+                l10n.sidebarVaultsSharedWithMeHeader,
                 style: textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -206,7 +234,7 @@ class SidebarVaultToolbar extends StatelessWidget {
               value: 'share',
               child: ListTile(
                 leading: const Icon(Icons.ios_share_outlined),
-                title: const Text('Compartir libreta'),
+                title: Text(l10n.shareNotebookTooltip),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -238,7 +266,7 @@ class SidebarVaultToolbar extends StatelessWidget {
                   children: [
                     Text(
                       current.isShared
-                          ? 'Compartida'
+                          ? l10n.sidebarVaultSharedLabel
                           : l10n.activeVaultLabel,
                       style: textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,

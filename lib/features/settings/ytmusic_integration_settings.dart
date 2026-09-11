@@ -30,6 +30,10 @@ class YtMusicIntegrationCard extends StatelessWidget {
         return IntegrationCard(
           logoAsset: 'appLogos/ytMusic.png',
           brandColor: brandColor,
+<<<<<<< HEAD
+=======
+          alpha: true,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
           title: 'YouTube Music',
           subtitle: l10n.ytmusicCardSubtitle,
           configureLabel: l10n.ytmusicConfigure,
@@ -157,6 +161,10 @@ class _YtMusicIntegrationConfigDialogState
     return IntegrationConfigDialogShell(
       logoAsset: 'appLogos/ytMusic.png',
       brandColor: YtMusicIntegrationCard.brandColor,
+<<<<<<< HEAD
+=======
+      alpha: true,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       title: l10n.ytmusicIntegrationTitle,
       tabController: _tabController,
       connectionsTabLabel: l10n.ytmusicConnectionsTab,

@@ -303,23 +303,22 @@ mixin _CollabMediaUpload on State<BlockEditor> {
     final u = st._collabUploadByBlockId[blockId];
     if (u == null) return const SizedBox.shrink();
     if (u.error != null) {
+      final l10n = AppLocalizations.of(st.context);
       return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
-          st._t(
-            'Error al subir a sala: ${u.error}',
-            'Room upload failed: ${u.error}',
-          ),
+          l10n.collabMediaUploadError('${u.error}'),
           style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
         ),
       );
     }
     final progress = u.progress;
+    final l10n = AppLocalizations.of(st.context);
     final pct = progress == null
-        ? st._t('Preparando cifrado…', 'Preparing encryption...')
-        : st._t(
-            'Subiendo ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
-            'Uploading ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
+        ? l10n.collabMediaPreparingEncryption
+        : l10n.collabMediaUploadingProgress(
+            (progress * 100).toStringAsFixed(0),
+            _formatEta(u.eta),
           );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

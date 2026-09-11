@@ -107,8 +107,11 @@ class _BlockEditorDragHandleState extends State<BlockEditorDragHandle> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        width: 22,
-        height: 32,
+        // Fase B3 del rediseño UX: hit target ampliado a `minTapTarget(false)`
+        // (ver `BlockEditorState._dragGutterWidth/Height`) — el icono visible
+        // se queda en 18px, solo crece el área pulsable/arrastrable.
+        width: 40,
+        height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: _hovered

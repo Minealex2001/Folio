@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/folio_spring_auth_session.dart';
 
 /// Formulario de restablecimiento en `…/reset-password?token=…`.
@@ -36,24 +37,20 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     final token = widget.token.trim();
     if (token.isEmpty) {
-      setState(
-        () => _error =
-            'Falta el token del enlace. Solicita un nuevo restablecimiento.',
-      );
+      setState(() => _error = l10n.resetPasswordMissingToken);
       return;
     }
     final pass = _password.text;
     final confirm = _confirm.text;
     if (pass.length < 8) {
-      setState(
-        () => _error = 'La contraseña debe tener al menos 8 caracteres.',
-      );
+      setState(() => _error = l10n.resetPasswordTooShort);
       return;
     }
     if (pass != confirm) {
-      setState(() => _error = 'Las contraseñas no coinciden.');
+      setState(() => _error = l10n.resetPasswordMismatch);
       return;
     }
     setState(() {
@@ -78,6 +75,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -99,13 +97,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         ),
                         const SizedBox(height: FolioSpace.lg),
                         Text(
-                          'Contraseña actualizada',
+                          l10n.passwordUpdatedTitle,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: FolioSpace.sm),
                         Text(
-                          'Ya puedes iniciar sesión con tu nueva contraseña.',
+                          l10n.passwordUpdatedBody,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: scheme.onSurfaceVariant),
@@ -113,7 +111,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         const SizedBox(height: FolioSpace.xl),
                         FilledButton(
                           onPressed: _goHome,
-                          child: const Text('Ir a Folio'),
+                          child: Text(l10n.goToFolio),
                         ),
                       ],
                     )
@@ -129,13 +127,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         ),
                         const SizedBox(height: FolioSpace.lg),
                         Text(
-                          'Restablecer contraseña',
+                          l10n.resetPasswordTitle,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: FolioSpace.sm),
                         Text(
-                          'Elige una contraseña nueva para tu cuenta.',
+                          l10n.resetPasswordBody,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: scheme.onSurfaceVariant),
@@ -146,7 +144,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           obscureText: _obscure,
                           enabled: !_busy,
                           decoration: InputDecoration(
-                            labelText: 'Nueva contraseña',
+                            labelText: l10n.newPasswordLabel,
                             suffixIcon: IconButton(
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
@@ -164,8 +162,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           controller: _confirm,
                           obscureText: _obscure,
                           enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Confirmar contraseña',
+                          decoration: InputDecoration(
+                            labelText: l10n.resetPasswordConfirmLabel,
                           ),
                           onSubmitted: (_) => _submit(),
                         ),
@@ -187,7 +185,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Guardar contraseña'),
+                              : Text(l10n.savePassword),
                         ),
                       ],
                     ),

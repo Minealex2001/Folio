@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_skeletons.dart';
+<<<<<<< HEAD
+=======
+import '../../l10n/generated/app_localizations.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../../services/admin/admin_users_api.dart';
 import 'admin_object_explorer_page.dart';
 import 'admin_user_detail_page.dart';
@@ -14,6 +18,11 @@ import 'sections/admin_collab_section.dart';
 import 'sections/admin_dashboard_section.dart';
 import 'sections/admin_diagnostics_section.dart';
 import 'sections/admin_families_section.dart';
+<<<<<<< HEAD
+=======
+import 'sections/admin_moderation_section.dart';
+import 'sections/admin_organizations_section.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import 'sections/admin_published_pages_section.dart';
 import 'sections/admin_vault_shares_section.dart';
 import 'widgets/admin_paginated_list.dart';
@@ -21,6 +30,11 @@ import 'widgets/admin_paginated_list.dart';
 enum _AdminSection {
   dashboard,
   users,
+<<<<<<< HEAD
+=======
+  teams,
+  moderation,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   publishedPages,
   diagnostics,
   billing,
@@ -48,6 +62,7 @@ class _NavEntry {
   final bool Function(String role) visible;
 }
 
+<<<<<<< HEAD
 final _navEntries = <_NavEntry>[
   _NavEntry(_AdminSection.dashboard, 'Inicio', Icons.dashboard_outlined, (r) => _roleLevel(r) >= 10),
   _NavEntry(_AdminSection.users, 'Usuarios', Icons.people_alt_outlined, (r) => _roleLevel(r) >= 10),
@@ -61,6 +76,23 @@ final _navEntries = <_NavEntry>[
   _NavEntry(_AdminSection.auditLog, 'Auditoría', Icons.history_rounded, (r) => r == 'SUPER_ADMIN'),
   _NavEntry(_AdminSection.appSettings, 'Ajustes de la app', Icons.tune_rounded, (r) => r == 'SUPER_ADMIN'),
 ];
+=======
+List<_NavEntry> _navEntriesFor(AppLocalizations l10n) => <_NavEntry>[
+      _NavEntry(_AdminSection.dashboard, l10n.adminNavDashboard, Icons.dashboard_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.users, l10n.adminNavUsers, Icons.people_alt_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.teams, l10n.adminNavTeams, Icons.groups_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.moderation, l10n.adminNavModeration, Icons.gavel_outlined, (r) => _roleLevel(r) >= 20),
+      _NavEntry(_AdminSection.publishedPages, l10n.adminNavPublishedPages, Icons.public_rounded, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.diagnostics, l10n.adminNavDiagnostics, Icons.bug_report_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.billing, l10n.adminNavBilling, Icons.payments_outlined, (r) => r == 'BILLING_ADMIN' || r == 'SUPER_ADMIN'),
+      _NavEntry(_AdminSection.catalog, l10n.adminNavCatalog, Icons.grid_view_rounded, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.families, l10n.adminNavFamilies, Icons.family_restroom_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.collab, l10n.adminNavCollab, Icons.groups_2_outlined, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.vaultShares, l10n.adminNavVaultShares, Icons.link_rounded, (r) => _roleLevel(r) >= 10),
+      _NavEntry(_AdminSection.auditLog, l10n.adminNavAuditLog, Icons.history_rounded, (r) => r == 'SUPER_ADMIN'),
+      _NavEntry(_AdminSection.appSettings, l10n.adminNavAppSettings, Icons.tune_rounded, (r) => r == 'SUPER_ADMIN'),
+    ];
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
 /// Top-level admin console: staff-only, reachable from the workspace (not nested in Settings —
 /// this is meant to grow into "manage the whole app/backend", which doesn't fit a Settings
@@ -104,15 +136,29 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
     }
   }
 
+<<<<<<< HEAD
   List<_NavEntry> get _visibleEntries => _navEntries.where((e) => e.visible(_role)).toList();
 
   bool get _isModeratorOrAbove => const {'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'}.contains(_role);
   bool get _isSuperAdmin => _role == 'SUPER_ADMIN';
+=======
+  List<_NavEntry> _visibleEntries(AppLocalizations l10n) =>
+      _navEntriesFor(l10n).where((e) => e.visible(_role)).toList();
+
+  bool get _isModeratorOrAbove => const {'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'}.contains(_role);
+  bool get _isSuperAdmin => _role == 'SUPER_ADMIN';
+  bool get _canBillingGrant => _role == 'BILLING_ADMIN' || _role == 'SUPER_ADMIN';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
   Widget _buildSection(_AdminSection section) {
     return switch (section) {
       _AdminSection.dashboard => AdminDashboardSection(role: _role),
       _AdminSection.users => _UsersSection(role: _role),
+<<<<<<< HEAD
+=======
+      _AdminSection.teams => AdminOrganizationsSection(canGrant: _canBillingGrant),
+      _AdminSection.moderation => const AdminModerationSection(),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       _AdminSection.publishedPages => AdminPublishedPagesSection(canDelete: _isModeratorOrAbove),
       _AdminSection.diagnostics => AdminDiagnosticsSection(canResolve: _roleLevel(_role) >= 10),
       _AdminSection.billing => const AdminBillingSection(),
@@ -125,28 +171,50 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
     };
   }
 
+<<<<<<< HEAD
   String _titleFor(_AdminSection section) =>
       _navEntries.firstWhere((e) => e.section == section).label;
 
   @override
   Widget build(BuildContext context) {
+=======
+  String _titleFor(_AdminSection section, AppLocalizations l10n) =>
+      _navEntriesFor(l10n).firstWhere((e) => e.section == section).label;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     if (_roleLoading) {
       return const Scaffold(body: Center(child: FolioLoadingIndicator()));
     }
     if (_role == 'NONE') {
       return Scaffold(
+<<<<<<< HEAD
         appBar: AppBar(title: const Text('Consola de administración')),
         body: _buildNoAccess(Theme.of(context).colorScheme),
       );
     }
 
     final entries = _visibleEntries;
+=======
+        appBar: AppBar(title: Text(l10n.adminConsoleTitle)),
+        body: _buildNoAccess(Theme.of(context).colorScheme, l10n),
+      );
+    }
+
+    final entries = _visibleEntries(l10n);
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 900;
         return Scaffold(
           appBar: AppBar(
+<<<<<<< HEAD
             title: Text(_titleFor(_active)),
+=======
+            title: Text(_titleFor(_active, l10n)),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             leading: wide
                 ? null
                 : Builder(
@@ -158,7 +226,11 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
             actions: [
               if (_isSuperAdmin)
                 IconButton(
+<<<<<<< HEAD
                   tooltip: 'Explorador de objetos',
+=======
+                  tooltip: l10n.adminObjectExplorerTitle,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                   icon: const Icon(Icons.folder_open_outlined),
                   onPressed: () => Navigator.of(context).push<void>(
                     MaterialPageRoute<void>(builder: (_) => const AdminObjectExplorerPage()),
@@ -184,9 +256,18 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
       child: Builder(
         builder: (innerContext) => ListView(
           children: [
+<<<<<<< HEAD
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text('Admin', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+=======
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                AppLocalizations.of(innerContext).adminBrandHeader,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             ),
             for (final entry in entries)
               ListTile(
@@ -204,7 +285,11 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildNoAccess(ColorScheme scheme) {
+=======
+  Widget _buildNoAccess(ColorScheme scheme, AppLocalizations l10n) {
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -213,7 +298,11 @@ class _AdminConsolePageState extends State<AdminConsolePage> {
           children: [
             Icon(Icons.lock_outline_rounded, size: 40, color: scheme.error),
             const SizedBox(height: 12),
+<<<<<<< HEAD
             const Text('No tienes acceso a la consola de administración.'),
+=======
+            Text(l10n.adminNoAccessMessage),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             if (_error != null) ...[
               const SizedBox(height: 8),
               Text(_error!, style: TextStyle(color: scheme.error)),
@@ -241,9 +330,16 @@ class _UsersSectionState extends State<_UsersSection> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+<<<<<<< HEAD
     return AdminPaginatedList(
       searchHint: 'Buscar por email o uid',
       emptyLabel: 'Sin resultados',
+=======
+    final l10n = AppLocalizations.of(context);
+    return AdminPaginatedList(
+      searchHint: l10n.adminUsersSearchHint,
+      emptyLabel: l10n.adminNoResults,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       controllerBuilder: (c) => _listController = c,
       fetch: (page, limit, query) => _usersApi.listUsers(page: page, limit: limit, query: query),
       itemBuilder: (context, u) {
@@ -258,7 +354,11 @@ class _UsersSectionState extends State<_UsersSection> {
           title: Text(u['email']?.toString() ?? uid),
           subtitle: Text(
             '$uid · ${_formatBytes(usedBytes)}'
+<<<<<<< HEAD
             '${u['folioStaff'] == true ? ' · staff' : ''}'
+=======
+            '${u['folioStaff'] == true ? ' · ${l10n.adminStaffBadge}' : ''}'
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             '${u['adminRole'] != null && u['adminRole'] != 'NONE' ? ' · ${u['adminRole']}' : ''}',
           ),
           trailing: const Icon(Icons.chevron_right_rounded),

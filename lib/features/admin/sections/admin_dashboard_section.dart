@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_skeletons.dart';
+<<<<<<< HEAD
+=======
+import '../../../l10n/generated/app_localizations.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../../../services/admin/admin_diagnostics_api.dart';
 import '../../../services/admin/admin_users_api.dart';
 
@@ -50,12 +54,22 @@ class _AdminDashboardSectionState extends State<AdminDashboardSection> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+<<<<<<< HEAD
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         Text('Bienvenido a la consola de administración', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         Text('Rol actual: ${widget.role}', style: TextStyle(color: scheme.onSurfaceVariant)),
+=======
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(l10n.adminWelcomeTitle, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 4),
+        Text(l10n.adminCurrentRole(widget.role), style: TextStyle(color: scheme.onSurfaceVariant)),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         const SizedBox(height: 24),
         if (_loading)
           const Center(child: FolioLoadingIndicator())
@@ -66,12 +80,20 @@ class _AdminDashboardSectionState extends State<AdminDashboardSection> {
             children: [
               _StatCard(
                 icon: Icons.people_alt_outlined,
+<<<<<<< HEAD
                 label: 'Usuarios totales',
+=======
+                label: l10n.adminTotalUsersLabel,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                 value: '${_totalUsers ?? '—'}',
               ),
               _StatCard(
                 icon: Icons.bug_report_outlined,
+<<<<<<< HEAD
                 label: 'Diagnósticos abiertos',
+=======
+                label: l10n.adminOpenDiagnosticsLabel,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                 value: '${_openDiagnostics ?? '—'}',
                 highlight: (_openDiagnostics ?? 0) > 0,
               ),

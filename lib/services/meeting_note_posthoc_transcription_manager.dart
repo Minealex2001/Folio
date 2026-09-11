@@ -10,6 +10,10 @@ import 'package:uuid/uuid.dart';
 import '../session/vault_session.dart';
 import 'folio_cloud/cloud_transcription_chunk_uploader.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
+<<<<<<< HEAD
+=======
+import 'diarization_service.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import 'meeting_note_transcript_merge.dart';
 import 'wav_chunk_splitter.dart';
 import 'whisper_service.dart';
@@ -212,7 +216,29 @@ class PostHocTranscriptionJobManager extends ChangeNotifier {
         return;
       }
 
+<<<<<<< HEAD
       session.updateBlockText(job.pageId, job.blockId, text);
+=======
+      var finalText = text.trim();
+      final sid = 'posthoc_${job.pageId}_${job.blockId}';
+      try {
+        final diarized = await DiarizationService.instance.diarizeChunk(
+          audioChunk: audioFile,
+          transcript: text,
+          language: language ?? 'auto',
+          sessionId: sid,
+        );
+        if (diarized != null && diarized.trim().isNotEmpty) {
+          finalText = diarized.trim();
+        }
+      } catch (_) {
+        // Fallback a texto transcrito directo
+      } finally {
+        DiarizationService.instance.endSession(sid);
+      }
+
+      session.updateBlockText(job.pageId, job.blockId, finalText);
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       job._finish(PostHocTranscriptionJobState.done);
     } catch (e) {
       if (job.cancelRequested) {

@@ -24,7 +24,6 @@ class GitHubIntegrationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
@@ -33,9 +32,7 @@ class GitHubIntegrationCard extends StatelessWidget {
         return IntegrationCard(
           logoAsset: 'appLogos/github.png',
           title: 'GitHub',
-          subtitle: isEs
-              ? 'Conecta GitHub para sincronizar Issues y Pull Requests con Kanban.'
-              : 'Connect GitHub to sync Issues and Pull Requests with Kanban.',
+          subtitle: l10n.githubCardSubtitle,
           configureLabel: l10n.githubConfigure,
           onConfigure: session.state == VaultFlowState.unlocked
               ? () => showIntegrationConfigSheet(
@@ -49,13 +46,11 @@ class GitHubIntegrationCard extends StatelessWidget {
           chips: [
             IntegrationStatChip(
               icon: Icons.link_rounded,
-              label: isEs
-                  ? '${connections.length} conexiones'
-                  : '${connections.length} connections',
+              label: l10n.githubConnectionsCount(connections.length),
             ),
             IntegrationStatChip(
               icon: Icons.dashboard_outlined,
-              label: isEs ? '${sources.length} repos' : '${sources.length} repos',
+              label: '${sources.length} repos',
             ),
           ],
         );

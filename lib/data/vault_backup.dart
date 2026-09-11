@@ -175,11 +175,35 @@ Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint({
 /// [vaultBinBytes] viene del estado en memoria
 /// (`VaultSession.vaultBinEquivalentBytes()`), no de leer `vault.bin` del
 /// disco: funciona igual en v0 y v1.
+///
+/// Wrapper compatible: resuelve rutas vía [VaultPaths] y delega en
+/// [computeVaultCloudPackContentFingerprintCore] (invocable desde un isolate).
 Future<String> computeVaultCloudPackContentFingerprint({
   required Uint8List vaultBinBytes,
 }) async {
   if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
+  final modeFile = await VaultPaths.vaultModePath();
+  final vaultDir = await VaultPaths.vaultDirectory();
+  return computeVaultCloudPackContentFingerprintCore(
+    vaultBinBytes: vaultBinBytes,
+    wrappedDekPath: wrapped.path,
+    vaultModePath: modeFile.path,
+    vaultDirPath: vaultDir.path,
+  );
+}
+
+/// Núcleo del fingerprint por contenido, parametrizado solo por tipos
+/// transferibles entre isolates (rutas `String`, bytes). Misma lógica de
+/// hashing y mismo texto-resumen que la versión previa → mismo fingerprint.
+Future<String> computeVaultCloudPackContentFingerprintCore({
+  required Uint8List vaultBinBytes,
+  required String wrappedDekPath,
+  required String vaultModePath,
+  required String vaultDirPath,
+  String attachmentsDirName = 'attachments', // == VaultPaths.attachmentsDirName
+}) async {
+  final wrapped = File(wrappedDekPath);
 
   final parts = <String>[];
   final cipherHash = await _sha256BytesHex(vaultBinBytes);
@@ -192,17 +216,14 @@ Future<String> computeVaultCloudPackContentFingerprint({
     parts.add('vault.keys:$keysHash:$keysLen');
   }
 
-  final modeFile = await VaultPaths.vaultModePath();
+  final modeFile = File(vaultModePath);
   if (modeFile.existsSync()) {
     final modeHash = await _sha256FileHex(modeFile);
     final modeLen = await modeFile.length();
     parts.add('vault.mode:$modeHash:$modeLen');
   }
 
-  final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(
-    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
-  );
+  final attDir = Directory(p.join(vaultDirPath, attachmentsDirName));
   if (attDir.existsSync()) {
     final attEntries = <String>[];
     await for (final entity in attDir.list(

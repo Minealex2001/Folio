@@ -17,7 +17,7 @@ class MeetingWorkerHost {
 
   final Socket socket;
 
-  StreamSubscription<File>? _chunkSub;
+  StreamSubscription<AudioChunkEvent>? _chunkSub;
   StreamSubscription<List<int>>? _socketSub;
   Timer? _elapsedTimer;
   Future<void> _chunkChain = Future<void>.value();
@@ -144,6 +144,7 @@ class MeetingWorkerHost {
         micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
         systemOutputDeviceId:
             systemDeviceId.isEmpty ? null : systemDeviceId,
+        trackChannelMeta: true,
       );
     } catch (_) {
       ok = false;
@@ -171,9 +172,9 @@ class MeetingWorkerHost {
     }
 
     _chunkChain = Future<void>.value();
-    _chunkSub = AudioMixerService.instance.chunkStream.listen((chunkFile) {
+    _chunkSub = AudioMixerService.instance.chunkStream.listen((event) {
       _chunkChain = _chunkChain
-          .then((_) => _onChunk(chunkFile))
+          .then((_) => _onChunk(event))
           .catchError((_) {});
     });
 
@@ -192,7 +193,8 @@ class MeetingWorkerHost {
     });
   }
 
-  Future<void> _onChunk(File chunkFile) async {
+  Future<void> _onChunk(AudioChunkEvent event) async {
+    final chunkFile = event.file;
     if (!_runLocalWhisper && !_saveCloudChunks) {
       unawaited(chunkFile.delete().catchError((_) => File('')));
       return;
@@ -223,6 +225,7 @@ class MeetingWorkerHost {
         transcript: text,
         language: _language ?? 'auto',
         sessionId: sid ?? 'meeting-worker',
+        channelWindows: event.channelWindows,
       );
       if (diarized != null && diarized.trim().isNotEmpty) {
         finalText = diarized.trim();
@@ -308,6 +311,7 @@ class MeetingWorkerHost {
       'type': MeetingWorkerEvent.stopped,
       'wavPath': wavFile?.path ?? '',
       'transcript': _transcript,
+      'channelMeta': AudioMixerService.instance.channelMeta,
     });
     _emit({
       'type': MeetingWorkerEvent.state,

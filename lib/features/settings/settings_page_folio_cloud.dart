@@ -619,6 +619,37 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
+<<<<<<< HEAD
+=======
+        if (snap.subscriptionStatus?.toLowerCase() == 'promo') ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: scheme.primaryContainer.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.celebration_outlined, size: 18, color: scheme.onPrimaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.folioCloudBonusActiveBanner,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         if (snap.hasScheduledSubscriptionEnd) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -2147,5 +2178,10 @@ enum _SettingsSectionId {
   sync,
   integrations,
   about,
+<<<<<<< HEAD
   admin,
+=======
+  organization,
+  personalization,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

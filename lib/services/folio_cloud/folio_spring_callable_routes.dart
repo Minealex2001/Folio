@@ -74,6 +74,11 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'billing/microsoft-store/validate',
   ),
+  'claimNotionImportBonus': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'billing/notion-import-bonus',
+    omitBody: true,
+  ),
 
   // Family
   'inviteFamilyMember': FolioSpringApiRoute(

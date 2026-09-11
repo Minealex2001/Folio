@@ -357,7 +357,12 @@ mixin _BlockContextMenu on State<BlockEditor> {
         if (!mounted) return;
         await st._openMeetingNoteAiDialog(menuContext, page, b);
       });
+<<<<<<< HEAD
     } else if (v == 'meeting_transcribe') {
+=======
+    } else if (v == 'meeting_transcribe' ||
+        v == 'meeting_regenerate_transcript') {
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final file = await st._resolveBlockUrlFileCached(b.url);
@@ -389,6 +394,8 @@ mixin _BlockContextMenu on State<BlockEditor> {
       st._s.updateBlockIcon(page.id, b.id, '🚨');
     } else if (v == 'callout_tone_note') {
       st._s.updateBlockIcon(page.id, b.id, 'ℹ️');
+    } else if (v == 'ungroup_columns') {
+      st._s.ungroupColumnsBlock(page.id, b.id);
     } else if (v == 'sync_create') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -798,6 +805,25 @@ mixin _BlockContextMenu on State<BlockEditor> {
             icon: Icons.subtitles_rounded,
             label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
           ),
+<<<<<<< HEAD
+=======
+        if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'meeting_regenerate_transcript',
+            icon: Icons.refresh_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteRegenerateTranscription,
+          ),
+      ],
+      if (b.type == 'column_list') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'ungroup_columns',
+          icon: Icons.view_agenda_outlined,
+          label: l10n.blockEditorUngroupColumns,
+        ),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       ],
       if (b.type == 'table' && data != null) ...[
         const PopupMenuDivider(),

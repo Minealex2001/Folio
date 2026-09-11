@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/widgets/folio_skeletons.dart';
+<<<<<<< HEAD
+=======
+import '../../../l10n/generated/app_localizations.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../../../services/admin/admin_api_base.dart';
 
 /// Reusable searchable/paginated list for every admin console section — one fetch signature,
@@ -12,8 +16,13 @@ class AdminPaginatedList extends StatefulWidget {
     required this.fetch,
     required this.itemBuilder,
     this.searchable = true,
+<<<<<<< HEAD
     this.searchHint = 'Buscar',
     this.emptyLabel = 'Sin resultados',
+=======
+    required this.searchHint,
+    required this.emptyLabel,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     this.pageSize = 25,
     this.extraActions,
     this.controllerBuilder,
@@ -90,6 +99,10 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+<<<<<<< HEAD
+=======
+    final l10n = AppLocalizations.of(context);
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     return Column(
       children: [
         if (widget.searchable || widget.extraActions != null)
@@ -114,7 +127,11 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
                 if (widget.searchable)
                   FilledButton.tonal(
                     onPressed: () => _load(page: 0),
+<<<<<<< HEAD
                     child: const Text('Buscar'),
+=======
+                    child: Text(l10n.search),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                   ),
                 if (widget.extraActions != null) ...[
                   const SizedBox(width: 12),
@@ -154,7 +171,11 @@ class _AdminPaginatedListState extends State<AdminPaginatedList> {
                   onPressed: _page > 0 ? () => _load(page: _page - 1) : null,
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
+<<<<<<< HEAD
                 Text('Página ${_page + 1} de ${_data!.totalPages} · ${_data!.total} en total'),
+=======
+                Text(l10n.adminPaginationSummary(_page + 1, _data!.totalPages, _data!.total)),
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                 IconButton(
                   onPressed: _page + 1 < _data!.totalPages ? () => _load(page: _page + 1) : null,
                   icon: const Icon(Icons.chevron_right_rounded),

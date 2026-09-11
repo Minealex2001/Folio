@@ -1,7 +1,12 @@
 import 'dart:typed_data';
 
+<<<<<<< HEAD
+=======
+import 'ai_cancel_token.dart';
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import 'ai_tool.dart';
 
+export 'ai_cancel_token.dart';
 export 'ai_tool.dart';
 
 class AiChatMessage {
@@ -17,6 +22,11 @@ class AiChatMessage {
     this.toolErrors,
     this.generatedImagePath,
     this.generatedImagePrompt,
+<<<<<<< HEAD
+=======
+    this.aiTurnId,
+    this.aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   });
 
   factory AiChatMessage.now({
@@ -30,6 +40,11 @@ class AiChatMessage {
     List<String>? toolErrors,
     String? generatedImagePath,
     String? generatedImagePrompt,
+<<<<<<< HEAD
+=======
+    String? aiTurnId,
+    int? aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   }) {
     return AiChatMessage(
       role: role,
@@ -43,6 +58,11 @@ class AiChatMessage {
       toolErrors: toolErrors,
       generatedImagePath: generatedImagePath,
       generatedImagePrompt: generatedImagePrompt,
+<<<<<<< HEAD
+=======
+      aiTurnId: aiTurnId,
+      aiTurnChangeCount: aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 
@@ -80,6 +100,22 @@ class AiChatMessage {
   /// en la tarjeta de imagen. Nulo si [generatedImagePath] es nulo.
   final String? generatedImagePrompt;
 
+<<<<<<< HEAD
+=======
+  /// Fase B3 del plan Quill/MCP — id del grupo de undo de este turno
+  /// (`VaultSession.undoAiTurn`), si lo hubo. Deliberadamente NO se
+  /// persiste (`toJson`/`fromJson` lo omiten): alcance de sesión, no
+  /// sobrevive a un reinicio de la app — mantiene la implementación simple;
+  /// extenderlo a persistir entre reinicios queda fuera de este plan.
+  final String? aiTurnId;
+
+  /// Fase 0 del roadmap de producto — número de cambios de contenido
+  /// (snapshots de undo) que empujó este turno, para mostrar "Quill hizo N
+  /// cambios" junto al botón de deshacer en vez de un "Deshacer" genérico.
+  /// Igual que [aiTurnId], no se persiste: es informativo de sesión.
+  final int? aiTurnChangeCount;
+
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   AiChatMessage copyWith({
     String? role,
     String? content,
@@ -100,6 +136,11 @@ class AiChatMessage {
     bool clearGeneratedImagePath = false,
     String? generatedImagePrompt,
     bool clearGeneratedImagePrompt = false,
+<<<<<<< HEAD
+=======
+    String? aiTurnId,
+    int? aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   }) {
     return AiChatMessage(
       role: role ?? this.role,
@@ -119,6 +160,11 @@ class AiChatMessage {
       generatedImagePrompt: clearGeneratedImagePrompt
           ? null
           : (generatedImagePrompt ?? this.generatedImagePrompt),
+<<<<<<< HEAD
+=======
+      aiTurnId: aiTurnId ?? this.aiTurnId,
+      aiTurnChangeCount: aiTurnChangeCount ?? this.aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 
@@ -259,10 +305,26 @@ class AgentChatOutcome {
     this.toolErrors,
     this.generatedImagePath,
     this.generatedImagePrompt,
+<<<<<<< HEAD
+=======
+    this.aiTurnId,
+    this.aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   });
 
   final String reply;
   final AiTokenUsage? usage;
+
+  /// Fase B3 del plan Quill/MCP — id del grupo de undo (`VaultSession.undoAiTurn`)
+  /// para este turno, si tuvo al menos un cambio de contenido reversible y
+  /// ninguna tool no-reversible. `null` = no hay nada que ofrecer deshacer
+  /// para este turno (ni contenido cambiado, ni grupo válido).
+  final String? aiTurnId;
+
+  /// Fase 0 del roadmap de producto — número de snapshots de undo de
+  /// contenido que empujó este turno (ver `VaultSession.aiTurnChangeCount`).
+  /// Nulo si [aiTurnId] es nulo.
+  final int? aiTurnChangeCount;
 
   /// Solo en modo `chat` con `blocks` u `operations` no auto-aplicadas.
   final Map<String, dynamic>? agentApplySnapshot;
@@ -312,6 +374,8 @@ class AiCompletionRequest {
     this.cloudInkOperation,
     this.tools = const [],
     this.toolChoice,
+    /// Si se cancela, los proveedores deben abortar HTTP/SSE en curso.
+    this.cancelToken,
   });
 
   final String prompt;
@@ -344,6 +408,9 @@ class AiCompletionRequest {
 
   /// Valores alineados con `INK_COST_BY_OPERATION` en Cloud Functions.
   final String? cloudInkOperation;
+
+  /// Cancelación cooperativa del turno (Stop en Quill). Ver [AiCancelToken].
+  final AiCancelToken? cancelToken;
 }
 
 class AiCompletionResult {
@@ -396,6 +463,7 @@ class AiChatThreadData {
     this.attachmentPaths = const [],
     this.includePageContext = true,
     this.contextPageIds = const [],
+    this.autoIncludeSelection = false,
   });
 
   final String id;
@@ -411,6 +479,14 @@ class AiChatThreadData {
   /// Páginas cuyo texto entra en el contexto. Vacío = al enviar se usa la página abierta.
   final List<String> contextPageIds;
 
+  /// Fase A1 del plan Quill/MCP — si es `true`, la selección actual del
+  /// editor se adjunta automáticamente en cada envío de este hilo, en vez de
+  /// requerir "@" → "Selección del editor" cada vez (`_aiAttachNextEditorSelection`,
+  /// que sigue existiendo como el modo "una sola vez" para hilos que no
+  /// activan este toggle). Explícito y visible (aparece en la fila de chips
+  /// de contexto), nunca inferencia silenciosa.
+  final bool autoIncludeSelection;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -418,6 +494,7 @@ class AiChatThreadData {
     if (attachmentPaths.isNotEmpty) 'attachmentPaths': attachmentPaths,
     'includePageContext': includePageContext,
     'contextPageIds': contextPageIds,
+    if (autoIncludeSelection) 'autoIncludeSelection': true,
   };
 
   factory AiChatThreadData.fromJson(Map<String, dynamic> json) {
@@ -434,6 +511,7 @@ class AiChatThreadData {
       attachmentPaths: rawAtt.map((e) => '$e').toList(),
       includePageContext: json['includePageContext'] as bool? ?? true,
       contextPageIds: rawCtx.map((e) => '$e').toList(),
+      autoIncludeSelection: json['autoIncludeSelection'] as bool? ?? false,
     );
   }
 }

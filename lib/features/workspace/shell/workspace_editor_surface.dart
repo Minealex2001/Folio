@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
+import '../../../config/models/dashboard_config.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../visual_editor/visual_editor_controller.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_region.dart';
+import '../../../widget_catalog/widget_plugin_context.dart';
 import 'workspace_home_view.dart';
 
 class WorkspaceEditorSurface extends StatelessWidget {
@@ -26,6 +31,9 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.propertiesSection,
     required this.session,
     required this.appSettings,
+    required this.dashboardGridController,
+    this.dashboardEditModeActive = false,
+    this.visualEditor,
     required this.onSelectPage,
     this.onOpenTaskInPage,
     this.onAskAiAboutUpcomingTasks,
@@ -60,6 +68,19 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final Widget? propertiesSection;
   final VaultSession session;
   final AppSettings appSettings;
+  final DashboardGridController dashboardGridController;
+
+  /// Fase 4/5 "conectar todo con la app": cuando está activo, la región de
+  /// inicio (`page == null`) renderiza el `DashboardGridRegion` real
+  /// (drag & drop entre columnas) en vez de `WorkspaceHomeView`. Alternado
+  /// desde el botón "Editar inicio (beta)" de la toolbar del workspace.
+  final bool dashboardEditModeActive;
+
+  /// Editor visual (Fase 6/9): cuando está activo, las instancias de
+  /// widgets del dashboard también son seleccionables/editables desde el
+  /// inspector — no solo el sidebar. Null = no seleccionables (comportamiento
+  /// anterior a esta fase).
+  final VisualEditorController? visualEditor;
   final ValueChanged<String> onSelectPage;
   final void Function(String pageId, String blockId)? onOpenTaskInPage;
   final VoidCallback? onAskAiAboutUpcomingTasks;
@@ -129,11 +150,39 @@ class WorkspaceEditorSurface extends StatelessWidget {
                 child: child,
               ),
             ),
-            child: page == null
+            child: page == null && dashboardEditModeActive
+                ? Padding(
+                    key: const ValueKey('workspace_home_dashboard_edit'),
+                    padding: contentPadding,
+                    child: DashboardGridRegion(
+                      controller: dashboardGridController,
+                      pluginContext: WidgetPluginContext(
+                        appSettings: appSettings,
+                        configStore: dashboardGridController.store,
+                        session: session,
+                        cloudAccount: cloudAccount,
+                        folioCloudEntitlements: folioCloudEntitlements,
+                        onOpenSearch: onOpenSearch,
+                        onCreatePage: onCreatePage,
+                        onSelectPage: onSelectPage,
+                        onUpdateInstanceSettings:
+                            dashboardGridController.setInstanceSettings,
+                        onOpenSettings: onOpenSettings,
+                        onOpenFolioCloudPitch: onOpenFolioCloudPitch,
+                      ),
+                      columnRegionIds: const [
+                        DashboardRegionIds.left,
+                        DashboardRegionIds.right,
+                      ],
+                      visualEditor: visualEditor,
+                    ),
+                  )
+                : page == null
                 ? WorkspaceHomeView(
                     key: const ValueKey('workspace_home'),
                     session: session,
                     appSettings: appSettings,
+                    dashboardGridController: dashboardGridController,
                     onCreatePage: onCreatePage,
                     onOpenSearch: onOpenSearch,
                     onSelectPage: onSelectPage,

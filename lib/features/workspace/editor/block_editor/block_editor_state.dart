@@ -57,6 +57,19 @@ class _BlockEditingObjects {
   final VoidCallback focusDecorListener;
 }
 
+/// Ver `BlockEditorState._buildSectionRenderItemsFor` (Fase E0C).
+class _SectionRenderItem {
+  const _SectionRenderItem.header(this.section) : blockIndex = -1;
+  const _SectionRenderItem.block(this.blockIndex) : section = null;
+
+  final Section? section;
+
+  /// -1 para ítems de cabecera.
+  final int blockIndex;
+
+  bool get isHeader => section != null;
+}
+
 class BlockEditorState extends State<BlockEditor>
     with
         _BlockRowBuild,
@@ -65,8 +78,81 @@ class BlockEditorState extends State<BlockEditor>
         _BlockMediaPicking,
         _BlockContextMenu,
         _MultiSelectDragDrop,
-        _FormatToolbarOverlay {
+        _FormatToolbarOverlay,
+        _AiPaletteProvider,
+        _CommandPaletteOverlayHost,
+        _AiSelectionPopoverHost,
+        _SmartTemplateFlowHost {
   static const _uuid = Uuid();
+
+  /// Fase E0C del rediseño UX del editor — ítem de render de la lista del
+  /// editor: o bien la cabecera de una sección real, o bien un bloque (por
+  /// su índice en `page.blocks`). Si `page.sections` es `null`/vacío (el
+  /// caso de hoy para cada página existente), `_buildSectionRenderItems`
+  /// devuelve exactamente un `block(i)` por cada `page.blocks[i]` en orden —
+  /// mismo árbol de render que antes de esta fase, byte a byte (ver el test
+  /// dorado en `block_editor_sections_render_test.dart`).
+  static List<_SectionRenderItem> _buildSectionRenderItemsFor(FolioPage page) {
+    final sections = page.sections;
+    if (sections == null || sections.isEmpty) {
+      return [
+        for (var i = 0; i < page.blocks.length; i++) _SectionRenderItem.block(i),
+      ];
+    }
+    final headerAtBlockId = <String, Section>{};
+    for (final section in sections) {
+      final covered = blocksInRange(page, section.range);
+      if (covered.isEmpty) continue; // rango huérfano — defensivo, E0B ya lo evita
+      headerAtBlockId[covered.first.id] = section;
+    }
+    final items = <_SectionRenderItem>[];
+    var i = 0;
+    while (i < page.blocks.length) {
+      final block = page.blocks[i];
+      final header = headerAtBlockId[block.id];
+      if (header != null) {
+        items.add(_SectionRenderItem.header(header));
+        if (header.metadata.collapsed) {
+          final covered = blocksInRange(page, header.range);
+          i += covered.length;
+          continue;
+        }
+      }
+      items.add(_SectionRenderItem.block(i));
+      i++;
+    }
+    return items;
+  }
+
+  /// Tokens estructurales del editor (Fase A1 del rediseño UX) — `null` en
+  /// `widget.editorLayoutTokens` (el caso de hoy salvo que
+  /// `workspace_page.dart` inyecte `LayoutConfig.editor`) resuelve a los
+  /// defaults de `EditorLayoutTokens`, que reproducen exactamente los
+  /// literales hardcodeados de siempre. Cero regresión visual sin cambiar
+  /// nada más.
+  EditorLayoutTokens get _layoutTokens =>
+      widget.editorLayoutTokens ?? const EditorLayoutTokens();
+
+  /// Resuelve un `TokenRef<double>?` a un literal. Deliberadamente NO
+  /// resuelve referencias de `DesignTokens`/`DesignVariables` (eso
+  /// requeriría enhebrar `DesignTokensResolver` hasta el editor, fuera de
+  /// alcance de esta fase de "conectar lo ya construido") — una referencia
+  /// (`@algo`) cae al fallback, exactamente igual que si el campo fuera
+  /// `null`, así que nunca es una regresión, solo una referencia sin
+  /// resolver todavía.
+  double _resolveLayoutDouble(TokenRef<double>? ref, double fallback) {
+    if (ref == null || ref.isReference) return fallback;
+    return ref.literalValue ?? fallback;
+  }
+
+  /// Espaciado vertical entre bloques — reemplaza el `2.0` hardcodeado que
+  /// tanto `BlockRowChrome` como `_specialRowChrome` usaban como default.
+  double get _blockVerticalSpacing =>
+      _resolveLayoutDouble(_layoutTokens.blockSpacing, 2.0);
+
+  /// Preset de estilo de callout resuelto desde `LayoutConfig.editor.calloutStyle`.
+  CalloutStylePreset get _calloutPreset =>
+      calloutStylePresetFor(_layoutTokens.calloutStyle);
 
   /// Único almacén real de controllers/FocusNodes de bloque, indexado por
   /// id (no por posición): un reorder no mueve nada aquí. Poblado de forma
@@ -288,7 +374,10 @@ class BlockEditorState extends State<BlockEditor>
 
     void flushNow() {
       if (!mounted) return;
+      final swTotal = FolioPerfTrace.begin();
+      final swMd = FolioPerfTrace.begin();
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final mdUs = FolioPerfTrace.us(swMd);
       final caret = qc.selection.baseOffset;
       final idx = _controllerBlockIds.indexOf(block.id);
       if (!_ignoreShortcuts &&
@@ -303,8 +392,11 @@ class BlockEditorState extends State<BlockEditor>
           )) {
         return;
       }
+      final swDelta = FolioPerfTrace.begin();
       final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      final deltaUs = FolioPerfTrace.us(swDelta);
       _quillLastMdByBlockId[block.id] = md;
+      final swUpdate = FolioPerfTrace.begin();
       _runWithShortcutsIgnored(() {
         _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
         if (idx >= 0 && idx < _controllers.length) {
@@ -315,6 +407,16 @@ class BlockEditorState extends State<BlockEditor>
           );
         }
       });
+      if (FolioPerfTrace.enabled) {
+        FolioPerfTrace.log('editor.quillFlush', {
+          'mdChars': md.length,
+          'deltaChars': deltaStr.length,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+          'docToMarkdown_ms': FolioPerfTrace.ms(mdUs),
+          'deltaJsonEncode_ms': FolioPerfTrace.ms(deltaUs),
+          'updateBlockTextFull_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swUpdate)),
+        });
+      }
     }
 
     _quillFlushNowByBlockId[block.id] = flushNow;
@@ -824,10 +926,26 @@ class BlockEditorState extends State<BlockEditor>
     });
   }
 
+  /// Fase 0 del roadmap de producto — texto plano combinado de varios
+  /// bloques seleccionados, en el orden en que aparecen en la página.
+  /// Usado para que las acciones de IA operen sobre una selección
+  /// multi-bloque en vez de estar limitadas a un solo bloque enfocado.
+  String _combinedPlainTextForBlocks(List<String> blockIds) {
+    final page = _s.selectedPage;
+    if (page == null) return '';
+    final idSet = blockIds.toSet();
+    return page.blocks
+        .where((b) => idSet.contains(b.id))
+        .map((b) => _livePlainTextForBlock(b.id))
+        .where((t) => t.trim().isNotEmpty)
+        .join('\n\n');
+  }
+
   Future<void> _dispatchAiSlashFromToolbar({
     required AiSlashIntent intent,
     required String pageId,
     required String blockId,
+    String? selectionOverride,
   }) async {
     if (widget.readOnlyMode) return;
     final cb = widget.onAiSlashCommand;
@@ -840,8 +958,8 @@ class BlockEditorState extends State<BlockEditor>
       }
       return;
     }
-    final sel = _plainAiSelectionForBlock(blockId);
-    final plain = _livePlainTextForBlock(blockId);
+    final sel = selectionOverride ?? _plainAiSelectionForBlock(blockId);
+    final plain = selectionOverride ?? _livePlainTextForBlock(blockId);
     try {
       await cb(
         FolioAiSlashParams(
@@ -1013,6 +1131,13 @@ class BlockEditorState extends State<BlockEditor>
       if (mounted) setState(() {});
       return;
     }
+
+    if (actionKey.startsWith('cmd_smart_')) {
+      final template = smartTemplateForCmdKey(actionKey);
+      if (template == null) return;
+      showSmartTemplateFlow(template: template, pageId: pageId, blockId: blockId);
+      return;
+    }
   }
 
   void _dismissInlineMention() {
@@ -1086,17 +1211,22 @@ class BlockEditorState extends State<BlockEditor>
 
   List<BlockTypeDef> _catalogFilteredForSlash(String q) {
     final l10n = AppLocalizations.of(context);
-    final inline = _inlineSlashActionCatalog(l10n);
+    final inline = resolveInlineSlashActionCatalog(l10n);
+    // Fase G2: las smart templates (/meeting, /sprint, /roadmap) se
+    // consolidan en el mismo catálogo — mismo filtro/ranking, no una
+    // tercera lista paralela.
+    final smartTemplates = resolveSmartTemplateCatalog(l10n);
     final filtered = List<BlockTypeDef>.from(_catalogFiltered(q, l10n));
     final normalized = q.trim().toLowerCase();
-    filtered.addAll(
-      inline.where((a) {
-        if (normalized.isEmpty) return true;
-        return a.key.contains(normalized) ||
-            a.label.toLowerCase().contains(normalized) ||
-            a.hint.toLowerCase().contains(normalized);
-      }),
-    );
+    bool matches(BlockTypeDef a) {
+      if (normalized.isEmpty) return true;
+      return a.key.contains(normalized) ||
+          a.label.toLowerCase().contains(normalized) ||
+          a.hint.toLowerCase().contains(normalized);
+    }
+
+    filtered.addAll(inline.where(matches));
+    filtered.addAll(smartTemplates.where(matches));
 
     if (filtered.length < 2) return filtered;
     final catalogIndex = {
@@ -1104,6 +1234,8 @@ class BlockEditorState extends State<BlockEditor>
         blockTypeTemplates[i].key: i,
       for (var i = 0; i < inline.length; i++)
         inline[i].key: blockTypeTemplates.length + i,
+      for (var i = 0; i < smartTemplates.length; i++)
+        smartTemplates[i].key: blockTypeTemplates.length + inline.length + i,
     };
     filtered.sort((a, b) {
       final aScore = _slashRecentByType[a.key] ?? 0;
@@ -1303,6 +1435,14 @@ class BlockEditorState extends State<BlockEditor>
         if (mounted) setState(() {});
         break;
       case FolioPasteUrlMode.bookmark:
+      case FolioPasteUrlMode.githubImport:
+      case FolioPasteUrlMode.pdfSummarize:
+        // Fase D2: GitHub/PDF reutilizan el mismo bloque bookmark + el mismo
+        // fetch de título que la opción "Marcador" genérica — la detección
+        // de tipo (mostrar una opción con nombre específico en el sheet) es
+        // real; el contenido insertado es, deliberadamente, el mismo
+        // mecanismo probado, no un pipeline nuevo sin construir. Ver nota
+        // de alcance en `paste_url_sheet.dart`.
         _ignoreShortcuts = true;
         _s.changeBlockType(page.id, blockId, 'bookmark');
         _s.updateBlockUrl(page.id, blockId, url);
@@ -2690,13 +2830,6 @@ class BlockEditorState extends State<BlockEditor>
     );
   }
 
-  String _t(String es, String en) {
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    return isEs ? es : en;
-  }
-
   List<CodeLanguageOption> _codeLanguageOptionsForBlock(FolioBlock block) {
     final l10n = AppLocalizations.of(context);
     final out = List<CodeLanguageOption>.from(
@@ -3149,12 +3282,20 @@ class BlockEditorState extends State<BlockEditor>
     );
   }
 
-  static const _menuSlotWidth = 40.0;
-  static const _menuSlotWidthPhone = 28.0;
+  /// Fase B3 del rediseño UX del editor: el slot ⋮ y el asa de arrastre
+  /// usaban un hit target de 32/28/22px — por debajo del mínimo recomendado
+  /// y de lo que el brief señala explícitamente como insuficiente ("no
+  /// obligar al usuario a acertar un icono de 16 px"). Se reutiliza
+  /// `minTapTarget` del motor de accesibilidad ya construido (Fase 22 del
+  /// plan anterior, `theme_engine/accessibility_resolver.dart`) en vez de
+  /// duplicar un literal — el icono visible sigue siendo pequeño (20-22px),
+  /// solo crece el área invisible alrededor que de verdad se puede pulsar.
+  static final _menuSlotWidth = minTapTarget(false);
+  static final _menuSlotWidthPhone = minTapTarget(false);
   /// Altura reservada del slot ⋮ para que al revelar acciones no crezca la fila.
-  static const _menuSlotHeight = 32.0;
-  static const _dragGutterWidth = 22.0;
-  static const _dragGutterHeight = 32.0;
+  static final _menuSlotHeight = minTapTarget(false);
+  static final _dragGutterWidth = minTapTarget(false);
+  static final _dragGutterHeight = minTapTarget(false);
 
   /// Ancho fijo para viñeta / checkbox / hueco: alinea el texto con Notion.
   static const _markerColumnWidth = 30.0;
@@ -3394,6 +3535,20 @@ class BlockEditorState extends State<BlockEditor>
   }
 
   void _onSession() {
+    if (!FolioPerfTrace.enabled) {
+      _onSessionImpl();
+      return;
+    }
+    final sw = FolioPerfTrace.begin();
+    final blocks = _s.selectedPage?.blocks.length ?? 0;
+    _onSessionImpl();
+    FolioPerfTrace.log('editor._onSession', {
+      'blocks': blocks,
+      'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(sw)),
+    });
+  }
+
+  void _onSessionImpl() {
     if (!mounted) return;
     final page = _s.selectedPage;
     if (page == null) {
@@ -3664,6 +3819,10 @@ class BlockEditorState extends State<BlockEditor>
       // FocusNode de la página.
       if (fn.hasFocus) {
         _focusedBlockId = bid;
+        // Fase 2 del roadmap de producto — "continuar donde lo dejaste"
+        // (ver `VaultSession.noteLastFocusedBlock`). Barato: un write a un
+        // Map por evento de foco, no por cada tecla.
+        _s.noteLastFocusedBlock(pid, bid);
       } else if (_focusedBlockId == bid) {
         _focusedBlockId = null;
       }
@@ -4314,10 +4473,7 @@ class BlockEditorState extends State<BlockEditor>
       style: IconButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.all(4),
-        minimumSize: Size(
-          androidPhoneLayout ? 28 : _menuSlotHeight,
-          androidPhoneLayout ? 28 : _menuSlotHeight,
-        ),
+        minimumSize: Size.square(_menuSlotHeight),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
@@ -4613,19 +4769,17 @@ class BlockEditorState extends State<BlockEditor>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!readOnlyMode)
-            Padding(
+            _EditorShortcutsHint(
+              text: androidPhoneLayout
+                  ? l10n.blockEditorShortcutsHintMobile(enterHint)
+                  : l10n.blockEditorShortcutsHintDesktop(enterHint),
+              style: mono,
+              hasFocusedBlock: _focusedBlockId != null,
               padding: EdgeInsets.fromLTRB(
                 androidPhoneLayout ? 14 : 12,
                 0,
                 androidPhoneLayout ? 14 : 12,
                 androidPhoneLayout ? 8 : 10,
-              ),
-              child: Text(
-                androidPhoneLayout
-                    ? l10n.blockEditorShortcutsHintMobile(enterHint)
-                    : l10n.blockEditorShortcutsHintDesktop(enterHint),
-                textAlign: TextAlign.center,
-                style: mono,
               ),
             ),
           if (!readOnlyMode && selectedCount > 1)
@@ -4666,6 +4820,91 @@ class BlockEditorState extends State<BlockEditor>
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       label: Text(l10n.blockEditorDuplicate),
                     ),
+                    // Fase 0 del roadmap de producto — cierra el hueco que
+                    // dejó deliberadamente abierto la Fase E1/E2/E3 (ver
+                    // comentario debajo): "IA sobre selección" ya tiene su
+                    // propio disparador (el popover Raycast de la Fase D1),
+                    // solo faltaba engancharlo aquí para selección
+                    // multi-bloque.
+                    if (!widget.readOnlyMode && widget.onAiSlashCommand != null)
+                      TextButton.icon(
+                        onPressed: () => showAiSelectionPopover(
+                          blockId: _selectedBlockIds.first,
+                          blockIds: _selectedBlockIds.toList(),
+                        ),
+                        icon: const Icon(FolioIcons.quillOutlined, size: 18),
+                        label: Text(l10n.blockEditorAskQuillTooltip),
+                      ),
+                    // Fase E1/E2/E3 del rediseño UX: "Agrupar" es la Primary
+                    // Surface de convertir-a-columnas y agrupar-en-sección —
+                    // ambas acciones solo existen aquí, no se duplican en
+                    // ningún otro menú. "Mover" (multi-bloque) sigue fuera de
+                    // esta fase: no tiene semántica clara para selecciones no
+                    // contiguas sin un selector de página propio. ("IA sobre
+                    // selección" ya está resuelta arriba, Fase 0 del roadmap.)
+                    PopupMenuButton<VoidCallback>(
+                      enabled: _isContiguousSelection(page, _selectedBlockIds),
+                      tooltip: l10n.blockEditorGroupAction,
+                      onSelected: (action) => action(),
+                      itemBuilder: (menuContext) => [
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _convertSelectionToColumns(page, 2),
+                          enabled: _selectedBlockIds.length >= 2,
+                          child: Text(l10n.blockEditorGroupAsColumns2),
+                        ),
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _convertSelectionToColumns(page, 3),
+                          enabled: _selectedBlockIds.length >= 3,
+                          child: Text(l10n.blockEditorGroupAsColumns3),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _groupSelectionIntoSection(
+                            page,
+                            title: l10n.blockEditorNewSectionDefaultTitle,
+                          ),
+                          child: Text(l10n.blockEditorGroupAsSection),
+                        ),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.dashboard_customize_outlined,
+                              size: 18,
+                              color: _isContiguousSelection(
+                                page,
+                                _selectedBlockIds,
+                              )
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              l10n.blockEditorGroupAction,
+                              style: TextStyle(
+                                color: _isContiguousSelection(
+                                  page,
+                                  _selectedBlockIds,
+                                )
+                                    ? scheme.primary
+                                    : scheme.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     TextButton.icon(
                       onPressed: page.blocks.length > 1
                           ? () => _deleteSelectedBlocks(
@@ -4704,60 +4943,153 @@ class BlockEditorState extends State<BlockEditor>
                       focusedErrorBorder: InputBorder.none,
                     ),
                   ),
-                  child: ReorderableListView.builder(
-                    scrollController: _blockListScrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
-                      0,
-                      androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
-                      androidPhoneLayout ? 112 : 24,
-                    ),
-                    buildDefaultDragHandles: false,
-                    itemCount: page.blocks.length,
-                    onReorder: (oldIndex, newIndex) =>
-                        _onBlocksReordered(page, oldIndex, newIndex),
-                    itemBuilder: (context, index) {
-                      final b = page.blocks[index];
-                      final ctrl = _controllers[index];
-                      final focus = _focusNodes[index];
-                      final isLast = index == page.blocks.length - 1;
-                      final hideTrailingSentinel =
-                          page.blocks.length > 1 &&
-                          isLast &&
-                          _isTrailingSentinel(b) &&
-                          ctrl.text.trim().isEmpty &&
-                          !focus.hasFocus;
-                      if (hideTrailingSentinel) {
-                        return KeyedSubtree(
-                          key: ValueKey('block_row_${b.id}'),
-                          child: const SizedBox.shrink(),
-                        );
-                      }
-                      final style = _styleFor(b.type, theme.textTheme);
-                      final selected = _isBlockSelected(b.id);
-                      final showActionsBaseline =
-                          selected ||
-                          focus.hasFocus ||
-                          _menuOpenBlockId == b.id ||
-                          (!androidPhoneLayout && _selectedBlockIds.length > 1);
-                      return KeyedSubtree(
-                        key: ValueKey('block_row_${b.id}'),
-                        child: RepaintBoundary(
-                          child: _BlockListRow(
-                            editor: this,
-                            readOnlyMode: readOnlyMode,
-                            androidPhoneLayout: androidPhoneLayout,
-                            scheme: scheme,
-                            page: page,
-                            block: b,
-                            index: index,
-                            ctrl: ctrl,
-                            focus: focus,
-                            style: style,
-                            selected: selected,
-                            showActionsBaseline: showActionsBaseline,
-                          ),
+                  child: Builder(
+                    builder: (context) {
+                      // Fase E0C: si `page.sections` es null/vacío (el caso
+                      // de hoy para cada página existente), `renderItems` es
+                      // exactamente un `block(i)` por cada `page.blocks[i]`
+                      // en orden — la rama de abajo se comporta byte a byte
+                      // igual que antes de esta fase (ver test dorado en
+                      // `block_editor_sections_render_test.dart`).
+                      final renderItems = _buildSectionRenderItemsFor(page);
+                      return ReorderableListView.builder(
+                        scrollController: _blockListScrollController,
+                        padding: EdgeInsets.fromLTRB(
+                          androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
+                          0,
+                          androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
+                          androidPhoneLayout ? 112 : 24,
                         ),
+                        buildDefaultDragHandles: false,
+                        // Fase F2 del rediseño UX del editor: feedback
+                        // táctil-visual de "lift" al empezar a arrastrar un
+                        // bloque — extiende (no sustituye) el elevation
+                        // sutil que `ReorderableListView` ya aplica por
+                        // defecto durante el drag, con un ligero
+                        // escalado (1.0 -> 1.02) y una curva `easeOutBack`
+                        // que da una sensación de "asentarse" al terminar de
+                        // levantarlo. Puramente visual (curvas de
+                        // animación), no haptics de hardware.
+                        proxyDecorator: (child, index, animation) {
+                          return AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) {
+                              final t = Curves.easeOutBack.transform(
+                                animation.value,
+                              );
+                              final scale = 1.0 + (0.02 * t).clamp(0.0, 0.02);
+                              return Transform.scale(
+                                scale: scale,
+                                child: Material(
+                                  elevation: 6 * animation.value,
+                                  shadowColor: scheme.shadow.withValues(
+                                    alpha: 0.35,
+                                  ),
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: child,
+                          );
+                        },
+                        itemCount: renderItems.length,
+                        onReorder: (oldIndex, newIndex) {
+                          if (oldIndex < 0 || oldIndex >= renderItems.length) {
+                            return;
+                          }
+                          final oldItem = renderItems[oldIndex];
+                          // v1: no reordenar cabeceras de sección, ni soltar
+                          // un bloque justo sobre una cabecera — mecánica de
+                          // drag&drop entre secciones queda para la Fase E4
+                          // (panel de outline), no alcanzable hoy por
+                          // ninguna UI real (crear una sección real requiere
+                          // la Fase E1/E3, aún no construidas).
+                          if (oldItem.isHeader) return;
+                          // `newIndex` sigue la misma convención "posición
+                          // antes de quitar oldIndex" que `oldIndex` — se
+                          // traduce a índice de bloque y se delega en
+                          // `_onBlocksReordered`/`reorderBlockAt`, que ya
+                          // hacen su propio ajuste `newIndex > oldIndex`
+                          // internamente. Sin secciones (caso de hoy),
+                          // `renderItems[i].blockIndex == i` siempre, así
+                          // que esto se reduce exactamente a la llamada
+                          // original `_onBlocksReordered(page, oldIndex,
+                          // newIndex)` — cero cambio de comportamiento.
+                          final int targetBlockIndex;
+                          if (newIndex >= renderItems.length) {
+                            targetBlockIndex = page.blocks.length;
+                          } else {
+                            final targetItem = renderItems[newIndex];
+                            if (targetItem.isHeader) return;
+                            targetBlockIndex = targetItem.blockIndex;
+                          }
+                          _onBlocksReordered(
+                            page,
+                            oldItem.blockIndex,
+                            targetBlockIndex,
+                          );
+                        },
+                        itemBuilder: (context, renderIndex) {
+                          final item = renderItems[renderIndex];
+                          if (item.isHeader) {
+                            return KeyedSubtree(
+                              key: ValueKey('section_header_${item.section!.id}'),
+                              child: _sectionHeaderRow(
+                                st: this,
+                                section: item.section!,
+                                scheme: scheme,
+                                textTheme: theme.textTheme,
+                                l10n: l10n,
+                              ),
+                            );
+                          }
+                          final index = item.blockIndex;
+                          final b = page.blocks[index];
+                          final ctrl = _controllers[index];
+                          final focus = _focusNodes[index];
+                          final isLast = index == page.blocks.length - 1;
+                          final hideTrailingSentinel =
+                              page.blocks.length > 1 &&
+                              isLast &&
+                              _isTrailingSentinel(b) &&
+                              ctrl.text.trim().isEmpty &&
+                              !focus.hasFocus;
+                          if (hideTrailingSentinel) {
+                            return KeyedSubtree(
+                              key: ValueKey('block_row_${b.id}'),
+                              child: const SizedBox.shrink(),
+                            );
+                          }
+                          final style = _styleFor(b.type, theme.textTheme);
+                          final selected = _isBlockSelected(b.id);
+                          final showActionsBaseline =
+                              selected ||
+                              focus.hasFocus ||
+                              _menuOpenBlockId == b.id ||
+                              (!androidPhoneLayout &&
+                                  _selectedBlockIds.length > 1);
+                          return KeyedSubtree(
+                            key: ValueKey('block_row_${b.id}'),
+                            child: RepaintBoundary(
+                              child: _BlockListRow(
+                                editor: this,
+                                readOnlyMode: readOnlyMode,
+                                androidPhoneLayout: androidPhoneLayout,
+                                scheme: scheme,
+                                page: page,
+                                block: b,
+                                index: index,
+                                ctrl: ctrl,
+                                focus: focus,
+                                style: style,
+                                selected: selected,
+                                showActionsBaseline: showActionsBaseline,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

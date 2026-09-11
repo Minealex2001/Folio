@@ -1,0 +1,38 @@
+FOLIO — ACUERDO DE LICENCIA DE USUARIO FINAL (EULA)
+
+Copyright (c) Minealex Games. Todos los derechos reservados.
+
+Al instalar o usar Folio («el Software»), aceptas los siguientes términos.
+
+1. Licencia
+Minealex Games te concede una licencia personal, no exclusiva e intransferible para instalar y usar el Software en dispositivos de tu propiedad o bajo tu control, sujeta a este EULA y a los términos de la tienda o canal de distribución que correspondan.
+
+2. Propiedad
+El Software se licencia, no se vende. Minealex Games y sus licenciantes conservan todos los derechos, título e interés sobre el Software, incluidas marcas, imagen y documentación.
+
+3. Privacidad y datos locales
+Folio está pensado para que tus notas y vaults permanezcan bajo tu control. Los datos locales que crees son tuyos. Las funciones cloud opcionales (si las activas) se rigen por los términos de Folio Cloud y los avisos de privacidad publicados en https://minealexgames.com/ y páginas relacionadas del producto.
+
+4. Restricciones
+No puedes: descompilar o realizar ingeniería inversa salvo lo permitido por la ley; eliminar avisos de copyright; alquilar, arrendar o sublicenciar el Software; ni usarlo con fines ilícitos.
+
+5. Actualizaciones
+El Software puede comprobar actualizaciones (por ejemplo mediante GitHub Releases). Instalar una actualización sustituye o modifica archivos previos. Los instaladores de auto-actualización pueden ejecutarse en modo silencioso.
+
+6. Componentes de terceros
+El Software puede incluir componentes de código abierto o de terceros bajo sus propias licencias, que siguen aplicando a dichos componentes.
+
+7. Exclusión de garantías
+EL SOFTWARE SE PROPORCIONA «TAL CUAL», SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUIDAS ENTRE OTRAS LAS DE COMERCIABILIDAD, IDONEIDAD PARA UN FIN DETERMINADO Y NO INFRACCIÓN.
+
+8. Limitación de responsabilidad
+EN LA MÁXIMA MEDIDA PERMITIDA POR LA LEY, MINEALEX GAMES NO SERÁ RESPONSABLE DE DAÑOS INDIRECTOS, INCIDENTALES, ESPECIALES, CONSECUENTES O PUNITIVOS, NI DE PÉRDIDA DE DATOS, BENEFICIOS O NEGOCIO, DERIVADOS DEL USO DEL SOFTWARE.
+
+9. Terminación
+Esta licencia termina si incumples estos términos. Tras la terminación debes dejar de usar el Software y desinstalarlo. Desinstalar no borra tus vaults locales salvo que tú elimines esos datos.
+
+10. Contacto
+Editor: Minealex Games
+Web: https://minealexgames.com/
+
+Si no estás de acuerdo con estos términos, no instales ni uses el Software.

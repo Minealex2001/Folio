@@ -15,6 +15,7 @@ import '../session/vault_session.dart';
 import 'app_logger.dart';
 import 'folio_cloud/cloud_transcription_chunk_uploader.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
+import 'meeting_note_metrics_service.dart';
 import 'meeting_note_transcript_merge.dart';
 import 'system_audio_service.dart';
 
@@ -128,6 +129,56 @@ class MeetingNoteSessionController extends ChangeNotifier {
   int get cloudProcessedChunks => _cloudProcessedChunks;
   DateTime? get cloudProcessingStartedAt => _cloudProcessingStartedAt;
 
+  MeetingNoteMetricsSnapshot? _cachedMetricsSnapshot;
+  String? _cachedMetricsTranscript;
+
+  /// Fase 8: métricas de conversación en vivo, calculadas bajo demanda
+  /// (cálculo puro, sin estado propio) a partir del transcript acumulado y
+  /// el tiempo transcurrido. Reactivo vía `notifyListeners()` en cada
+  /// transcript-delta/tick de elapsed, igual que [transcript]/[elapsed].
+  ///
+  /// Fase 22 (rendimiento): la UI (barra activa + panel de Live Assist) lee
+  /// este getter en cada rebuild, que en grabación ocurre ~1 vez/segundo
+  /// por el tick de `elapsed` — sin cache, eso reprocesaba el transcript
+  /// completo (todas las líneas/palabras acumuladas) cada segundo durante
+  /// toda una reunión larga. Los deltas de transcript llegan por chunk
+  /// (~cada 15s), así que memoizar por identidad de `_transcript` (String
+  /// inmutable en Dart) evita ~14 de cada 15 recomputaciones — el único
+  /// coste es que el WPM mostrado puede quedar hasta ~15s por detrás del
+  /// tiempo transcurrido real entre chunks, imperceptible para un
+  /// indicador "en vivo".
+  MeetingNoteMetricsSnapshot get metricsSnapshot {
+    final cached = _cachedMetricsSnapshot;
+    if (cached != null && _cachedMetricsTranscript == _transcript) {
+      return cached;
+    }
+    final snapshot = MeetingMetricsService.instance.computeSnapshot(
+      transcript: _transcript,
+      elapsed: _elapsed,
+    );
+    _cachedMetricsSnapshot = snapshot;
+    _cachedMetricsTranscript = _transcript;
+    return snapshot;
+  }
+
+  DateTime? _lastMonologueNudgeAt;
+
+  /// Fase 10: código del nudge activo (p. ej. `'monologue_long'`) o `null`
+  /// si no aplica ninguno ahora mismo. Llamar solo mientras `state ==
+  /// recording`; consulta y actualiza el rate-limit internamente cada vez
+  /// que se llama, así que no debe invocarse más de una vez por rebuild.
+  String? consumeActiveNudge() {
+    final nudge = MeetingMetricsService.instance.checkMonologueNudge(
+      snapshot: metricsSnapshot,
+      lastNudgeAt: _lastMonologueNudgeAt,
+      now: DateTime.now(),
+    );
+    if (nudge != null) {
+      _lastMonologueNudgeAt = DateTime.now();
+    }
+    return nudge;
+  }
+
   /// Hay fragmentos de audio sin transcribir en la nube que sobrevivieron a
   /// un fallo previo (no se borran hasta subirse con éxito) y se pueden
   /// reintentar.
@@ -193,6 +244,9 @@ class MeetingNoteSessionController extends ChangeNotifier {
     _pendingCloudChunks.clear();
     _cloudInkChargeSent = false;
     _cloudTranscriptAccum = '';
+    _lastMonologueNudgeAt = null;
+    _cachedMetricsSnapshot = null;
+    _cachedMetricsTranscript = null;
     _setupLabel = '';
     _setupProgress = 0;
     _state = MeetingNoteSessionState.setup;
@@ -331,6 +385,21 @@ class MeetingNoteSessionController extends ChangeNotifier {
 
       session.updateBlockUrl(pageId, blockId, relative);
       session.updateBlockText(pageId, blockId, _transcript);
+      final channelMeta = stopped['channelMeta'];
+      if (channelMeta is Map) {
+        session.updateBlockMeetingNoteChannelMeta(
+          pageId,
+          blockId,
+          Map<String, Object?>.from(channelMeta),
+        );
+      }
+      if (_transcript.trim().isNotEmpty) {
+        session.updateBlockMeetingNoteMetricsSummary(
+          pageId,
+          blockId,
+          metricsSnapshot.toJson(),
+        );
+      }
       _savedAudioPath = wavPath;
 
       final shouldCloud = startCloudProcessing &&
@@ -404,6 +473,25 @@ class MeetingNoteSessionController extends ChangeNotifier {
     await _runCloudProcessing();
   }
 
+  /// Solo para tests: fuerza el estado `recording` para (pageId, blockId)
+  /// sin arrancar el worker real (no es viable en `flutter test`) — útil
+  /// para probar UI que reacciona a `MeetingNoteSessionController` en vivo
+  /// (p.ej. el indicador "grabando…" de la preview colapsada).
+  @visibleForTesting
+  void debugForceRecordingStateForTest({
+    required String pageId,
+    required String blockId,
+    String? transcript,
+    Duration? elapsed,
+  }) {
+    _pageId = pageId;
+    _blockId = blockId;
+    _state = MeetingNoteSessionState.recording;
+    if (transcript != null) _transcript = transcript;
+    if (elapsed != null) _elapsed = elapsed;
+    notifyListeners();
+  }
+
   /// Solo para tests: reinicia por completo el estado del singleton entre
   /// casos de test (evita fugas de estado entre tests).
   @visibleForTesting
@@ -426,6 +514,9 @@ class MeetingNoteSessionController extends ChangeNotifier {
     _pageId = null;
     _blockId = null;
     _state = MeetingNoteSessionState.idle;
+    _lastMonologueNudgeAt = null;
+    _cachedMetricsSnapshot = null;
+    _cachedMetricsTranscript = null;
   }
 
   Future<void> cancelAndTeardown() async {

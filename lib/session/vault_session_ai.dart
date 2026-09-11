@@ -867,6 +867,7 @@ For images/blocks: use the + button or / command in a paragraph.
     /// `runToolLoop` en cada fragmento nuevo (ver doc de `onReplyTextDelta`
     /// en `ai_tool_loop.dart`). `null` = comportamiento bloqueante de siempre.
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     final isEs = languageCode.toLowerCase().startsWith('es');
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -991,8 +992,14 @@ For images/blocks: use the + button or / command in a paragraph.
       tools: registry.definitions,
       toolChoice: 'auto',
       maxTokens: wantsCreatePage ? _kAiMaxTokensContent : _kAiMaxTokensChat,
+      cancelToken: cancelToken,
     );
 
+    // Fase B3 del plan Quill/MCP — agrupa en un único "turno" todos los
+    // puntos de undo de contenido que este bucle de tool-calling produzca,
+    // para poder ofrecer "Deshacer" sobre el turno completo en vez de uno
+    // por uno. Ver `beginAiTurnUndoGroup`/`undoAiTurn` en `vault_session.dart`.
+    final aiTurnId = beginAiTurnUndoGroup();
     final outcome = await runToolLoop(
       ai: toolAi,
       baseRequest: baseRequest,
@@ -1001,7 +1008,31 @@ For images/blocks: use the + button or / command in a paragraph.
       onEvent: onToolEvent,
       maxSteps: maxSteps,
       onReplyTextDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
+    endAiTurnUndoGroup(aiTurnId);
+    // Si el turno usó alguna tool no reversible (estructural o destructiva —
+    // ver `AiToolDefinition.isReversible`, Fase B1), no se ofrece "deshacer"
+    // para nada de este turno: sería engañoso deshacer solo la parte de
+    // contenido y dejar la parte estructural intacta sin avisar.
+    final turnUsedNonReversibleTool = outcome.steps.any((step) {
+      final def = registry.definitionByName(step.call.name);
+      return def != null && !def.isReversible;
+    });
+    final resolvedAiTurnId =
+        !turnUsedNonReversibleTool && aiTurnHasUndoableChanges(aiTurnId)
+        ? aiTurnId
+        : null;
+    // Se calcula antes de descartar/consumir el grupo: `aiTurnChangeCount`
+    // lee `_aiTurnPreUndoLengths`, que `discardAiTurnUndoGroup` borra.
+    final resolvedAiTurnChangeCount = resolvedAiTurnId != null
+        ? aiTurnChangeCount(resolvedAiTurnId)
+        : null;
+    // Fase 4 del roadmap de producto — registra el evento de actividad
+    // ANTES de descartar el grupo (discard borra `_aiTurnPreUndoLengths`,
+    // la misma fuente que lee `recordAiTurnActivity`).
+    if (resolvedAiTurnId != null) recordAiTurnActivity(resolvedAiTurnId);
+    if (resolvedAiTurnId == null) discardAiTurnUndoGroup(aiTurnId);
 
     await _maybeEnrichThinCreatePageFromToolLoop(
       outcome: outcome,
@@ -1048,6 +1079,11 @@ For images/blocks: use the + button or / command in a paragraph.
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
       generatedImagePath: generatedImagePath,
       generatedImagePrompt: generatedImagePrompt,
+<<<<<<< HEAD
+=======
+      aiTurnId: resolvedAiTurnId,
+      aiTurnChangeCount: resolvedAiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 
@@ -1065,6 +1101,7 @@ For images/blocks: use the + button or / command in a paragraph.
     String extraContextSections = '',
     String systemPromptOverride = '',
     bool systemPromptOverrideIsNarrowTask = false,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -1073,6 +1110,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -1146,8 +1186,12 @@ For images/blocks: use the + button or / command in a paragraph.
         tools: registry.definitions,
         toolChoice: 'none',
         maxTokens: _kAiMaxTokensChat,
+        cancelToken: cancelToken,
       ),
     );
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final rawReply = result.text.trim().isEmpty
         ? (isEs
@@ -1183,6 +1227,7 @@ For images/blocks: use the + button or / command in a paragraph.
     Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
         onConfirmIrreversibleTool,
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -1191,6 +1236,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final originalPrompt =
         (planContext['originalPrompt'] as String?)?.trim() ?? '';
@@ -1276,6 +1324,7 @@ Execute that plan with tools NOW, in order, this turn.
       maxSteps: _kPlanExecutionMaxSteps,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
       onReplyDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
   }
 
@@ -1593,14 +1642,21 @@ Plan mode (proposal only, do not execute):
     /// `onReplyDelta` en `_agentChatWithAiToolLoop`). `null` = sin streaming
     /// (comportamiento bloqueante de siempre).
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
-    final ai = _aiService;
-    if (ai == null) throw StateError('IA no configurada.');
+    final baseAi = _aiService;
+    if (baseAi == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
+    final ai = cancelToken != null
+        ? AiServiceWithCancelToken(baseAi, cancelToken)
+        : baseAi;
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -1626,6 +1682,7 @@ Plan mode (proposal only, do not execute):
         extraContextSections: combinedExtraContextSections,
         onToolEvent: onToolEvent,
         onReplyDelta: onReplyDelta,
+        cancelToken: cancelToken,
       );
     }
 

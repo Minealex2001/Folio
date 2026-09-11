@@ -11,8 +11,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/config_store.dart';
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
+import '../layout_engine/layout_engine_controller.dart';
+import '../theme_engine/theme_config_controller.dart';
+import '../theme_engine/theme_resolver.dart';
+import '../visual_packs/active_pack_controller.dart';
+import '../widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'widgets/folio_dialog.dart';
 import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
@@ -21,6 +27,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
+import '../services/ai/ai_tool.dart';
 import '../services/ai/folio_tool_registry.dart';
 import '../services/ai/gemini_nano_ai_service.dart';
 import '../services/ai/lmstudio_ai_service.dart';
@@ -29,8 +36,10 @@ import '../services/ai/on_device_ai_bridge.dart';
 import '../services/ai/openai_compatible_ai_service.dart';
 import '../services/mcp/folio_mcp_server.dart';
 import '../services/mcp/folio_mcp_server_status.dart';
+import '../services/whisper_service.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
+import '../services/cloud_account/organization_context_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../services/folio_cloud/folio_cloud_device_sync.dart';
@@ -65,7 +74,6 @@ import '../features/vault/recovery_screen.dart';
 import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
-import 'folio_theme.dart';
 import 'ui_tokens.dart';
 
 import '../services/folio_cloud/folio_cloud_identity.dart';
@@ -75,7 +83,13 @@ class FolioApp extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.cloudAccountController,
+    required this.configStore,
+    required this.layoutEngineController,
+    required this.dashboardGridController,
+    required this.themeConfigController,
+    required this.activePackController,
     this.folioCloudEntitlements,
+    this.organizationContext,
     this.initialLaunchArgs = const <String>[],
   });
 
@@ -83,8 +97,41 @@ class FolioApp extends StatefulWidget {
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
 
+  /// Sistema de personalización de UI (Fase 1 del plan): persistencia de
+  /// LayoutConfig/ThemeConfig/DashboardConfig.
+  final ConfigStore configStore;
+
+  /// Motor de layout (Fase 2/7). WorkspacePage renderiza el ancho del
+  /// sidebar desde aquí (no de `AppSettings` directamente) —
+  /// `AppSettings.onWorkspaceSidebarWidthChanged` mantiene ambos
+  /// sincronizados en cada resize.
+  final LayoutEngineController layoutEngineController;
+
+  /// Catálogo de widgets de dashboard (Fase 4/5). WorkspaceHomeView lee el
+  /// orden de secciones desde aquí — ver
+  /// `AppSettings.onWorkspaceHomeDashboardChanged`.
+  final DashboardGridController dashboardGridController;
+
+  /// Motor de tema (Fase 3 + editor de temas). `_buildApp()` renderiza
+  /// `resolveThemeData` a partir de este controller directamente (no de
+  /// `AppSettings` cada build) — `AppSettings.onThemeAccentChanged`
+  /// mantiene accentMode/light/dark sincronizados con el picker existente
+  /// en Settings; el editor de temas nuevo edita
+  /// shape/spacing/motion/surfaceOpacity directo aquí.
+  final ThemeConfigController themeConfigController;
+
+  /// Packs visuales (Fase 8): qué pack está activo, solo informativo — el
+  /// contenido de un pack se aplica directo a los tres controllers de
+  /// arriba vía `VisualPackInstaller`.
+  final ActivePackController activePackController;
+
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
+
+  /// Fase 12 del roadmap de Organizations. Si es null, el estado crea uno
+  /// (mismo patrón que [folioCloudEntitlements]) — sin UI todavía que lo
+  /// consuma (llega en las fases 13-14).
+  final OrganizationContextController? organizationContext;
   final List<String> initialLaunchArgs;
 
   @override
@@ -96,14 +143,28 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   FolioCloudEntitlementsController? _folioCloudEntitlementsInstance;
+  OrganizationContextController? _organizationContextInstance;
   FolioMcpServer? _mcpServer;
   Future<void>? _mcpServerApplyInFlight;
+
+  /// Fase B2 del plan Quill/MCP — referencia al mismo `FolioToolRegistry` que
+  /// usa `_mcpServer`, solo para poder llamar `preview()` desde el diálogo de
+  /// confirmación (`_confirmMcpIrreversibleTool`) sin exponer el registro
+  /// privado de `FolioMcpServer`.
+  FolioToolRegistry? _mcpToolRegistry;
 
   /// Inicialización perezosa: tras hot reload [initState] no se vuelve a llamar y un `late final` fallaría.
   FolioCloudEntitlementsController get _folioCloudEntitlements {
     _folioCloudEntitlementsInstance ??=
         widget.folioCloudEntitlements ?? FolioCloudEntitlementsController();
     return _folioCloudEntitlementsInstance!;
+  }
+
+  /// Fase 12 del roadmap de Organizations — mismo patrón perezoso que [_folioCloudEntitlements].
+  OrganizationContextController get _organizationContext {
+    _organizationContextInstance ??= widget.organizationContext ??
+        OrganizationContextController(account: widget.cloudAccountController);
+    return _organizationContextInstance!;
   }
 
   DesktopIntegration? _desktop;
@@ -164,6 +225,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
     if (!mounted) return;
     _applySessionSecurityPolicy();
+    // Fase 12 del roadmap de Organizations: carga best-effort, no bloquea el
+    // arranque — sin UI todavía que dependa de esto.
+    unawaited(_organizationContext.refresh());
     _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     _folioCloudEntitlements.setWebPortalBaseUrlResolver(
       () => AppSettings.folioWebPortalLinkEnabled
@@ -219,8 +283,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     WidgetsBinding.instance.addObserver(this);
     widget.session.titleLocale = widget.appSettings.locale;
+    if (widget.appSettings.locale != null) {
+      WhisperService.instance.locale = widget.appSettings.locale!;
+    }
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
+    widget.themeConfigController.addListener(_onThemeConfigChanged);
     _integrationsBridge = IntegrationsBridgeController(
       onImport: _importIntegrationsMarkdown,
       onUpdate: _updateIntegrationsPage,
@@ -340,8 +408,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.cloudAccountController.dispose();
     _folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _folioCloudEntitlementsInstance?.dispose();
+    _organizationContextInstance?.dispose();
     unawaited(_mcpServer?.stop());
     folioMcpServerStatus.value = null;
+    widget.appSettings.onWorkspaceSidebarWidthChanged = null;
+    widget.appSettings.onWorkspaceHomeDashboardChanged = null;
+    widget.appSettings.onThemeAccentChanged = null;
+    widget.themeConfigController.removeListener(_onThemeConfigChanged);
+    widget.layoutEngineController.dispose();
+    widget.dashboardGridController.dispose();
+    widget.themeConfigController.dispose();
+    widget.activePackController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -678,9 +755,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       if (!mounted) return;
       final ctx = _navKey.currentContext;
       if (ctx == null) return;
-      final isEs = widget.appSettings.locale?.languageCode == 'es';
+      final l10n = AppLocalizations.of(ctx);
       final who = request.trimmedRequesterName.isEmpty
-          ? (isEs ? 'Otro dispositivo' : 'Another device')
+          ? l10n.devicePairAnotherDevice
           : request.trimmedRequesterName;
       final emojis = request.sharedEmojis.join(' ');
       showDialog<void>(
@@ -688,16 +765,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         barrierDismissible: false,
         builder: (dialogCtx) {
           return FolioDialog(
-            title: Text(isEs ? 'Solicitud de vinculacion' : 'Link request'),
+            title: Text(l10n.devicePairLinkRequest),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isEs
-                      ? '$who quiere enlazar este dispositivo.'
-                      : '$who wants to link this device.',
-                ),
+                Text(l10n.devicePairWantsToLink(who)),
                 if (emojis.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   SelectableText(
@@ -706,18 +779,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    isEs
-                        ? '¿Aparecen estos mismos 3 emojis en el otro dispositivo? Si coinciden, pulsa Vincular.'
-                        : 'Do these same 3 emojis appear on the other device? If they match, press Link.',
-                  ),
+                  Text(l10n.devicePairEmojiMatchHint),
                 ] else ...[
                   const SizedBox(height: 12),
-                  Text(
-                    isEs
-                        ? 'No se pudo calcular la coincidencia visual. Activa el modo vinculacion en ambos dispositivos y vuelve a intentarlo.'
-                        : 'Could not calculate the visual match. Enable pairing mode on both devices and try again.',
-                  ),
+                  Text(l10n.devicePairVisualMatchFailed),
                 ],
               ],
             ),
@@ -727,7 +792,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                   Navigator.of(dialogCtx).pop();
                   unawaited(_deviceSyncController.respondIncomingPair(false));
                 },
-                child: Text(isEs ? 'No coinciden' : 'No match'),
+                child: Text(l10n.devicePairNoMatch),
               ),
               FilledButton(
                 onPressed: () async {
@@ -744,15 +809,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                       session: widget.session,
                       quickEnabled: false,
                       passkeyRegistered: false,
-                      title: Text(
-                        isEs ? 'Confirmar identidad' : 'Confirm identity',
-                      ),
-                      body: Text(
-                        isEs
-                            ? 'Introduce la contraseña de la libreta para aceptar la vinculación con otro dispositivo.'
-                            : 'Enter your vault password to accept linking with another device.',
-                      ),
-                      passwordButtonLabel: isEs ? 'Verificar' : 'Verify',
+                      title: Text(l10n.devicePairConfirmIdentity),
+                      body: Text(l10n.devicePairConfirmIdentityBody),
+                      passwordButtonLabel: l10n.devicePairVerify,
                     ),
                   );
                   if (!mounted) return;
@@ -760,7 +819,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                     _deviceSyncController.respondIncomingPair(ok == true),
                   );
                 },
-                child: Text(isEs ? 'Vincular' : 'Link'),
+                child: Text(l10n.devicePairLink),
               ),
             ],
           );
@@ -786,7 +845,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     try {
       await _integrationsBridge.start();
     } catch (e) {
-      _showSnack('No se pudo iniciar el bridge de integraciones: $e');
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(
+        AppLocalizations.of(errCtx).integrationsBridgeStartFailed('$e'),
+      );
     }
   }
 
@@ -805,6 +868,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onSettings() {
     widget.session.titleLocale = widget.appSettings.locale;
+    if (widget.appSettings.locale != null) {
+      WhisperService.instance.locale = widget.appSettings.locale!;
+    }
     _applySessionSecurityPolicy();
     _applyAiSettings();
     _applyDeviceSyncSettings();
@@ -815,6 +881,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_applyMcpServerSettings());
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     unawaited(FolioTelemetry.onSettingsChanged(widget.appSettings));
+    if (mounted) setState(() {});
+  }
+
+  /// Editor de temas: `_buildApp()` lee `widget.themeConfigController.config`
+  /// directamente (Fase 3), así que un cambio ahí (desde el editor de temas
+  /// o desde `AppSettings.onThemeAccentChanged`) necesita este rebuild
+  /// explícito — a diferencia de `_onSettings`, no hay nada más que hacer.
+  void _onThemeConfigChanged() {
     if (mounted) setState(() {});
   }
 
@@ -860,6 +934,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         await server.stop();
       }
       _mcpServer = null;
+      _mcpToolRegistry = null;
       _integrationsBridge.setMcpServer(null);
       folioMcpServerStatus.value = null;
       return;
@@ -875,11 +950,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       );
       return;
     }
+    // Fase B2 del plan Quill/MCP — hallazgo de seguridad: antes de esta fase
+    // este registro NO pasaba `onConfirmIrreversibleTool`, así que un
+    // cliente MCP externo aprobado podía llamar `permanently_delete_page`/
+    // `empty_trash` sin ninguna confirmación, a diferencia del chat en-app
+    // (que sí la pide en modo Plan). Ahora usa el mismo mecanismo.
+    final toolRegistry = FolioToolRegistry(
+      widget.session,
+      onRequestMcpReadAccess: _requestMcpReadAccess,
+      onConfirmIrreversibleTool: _confirmMcpIrreversibleTool,
+    );
+    _mcpToolRegistry = toolRegistry;
     final active = FolioMcpServer(
-      FolioToolRegistry(
-        widget.session,
-        onRequestMcpReadAccess: _requestMcpReadAccess,
-      ),
+      toolRegistry,
       onApproveClient: _approveMcpClient,
       isClientApproved: _isMcpClientApproved,
       onClientObserved: _syncObservedMcpClient,
@@ -1495,6 +1578,39 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return decision ?? McpReadAccessDecision.deny;
   }
 
+  /// Fase B2 del plan Quill/MCP — confirmación bloqueante antes de ejecutar
+  /// una tool marcada `requiresConfirmation: true` (hoy: `permanently_delete_page`,
+  /// `empty_trash`) pedida por un cliente MCP externo ya aprobado. Antes de
+  /// esta fase, `onConfirmIrreversibleTool` se dejaba `null` para el registro
+  /// de MCP y esas tools se ejecutaban sin preguntar nada — mismo patrón de
+  /// diálogo bloqueante que `_requestMcpReadAccess`, reutilizando `preview()`
+  /// (Fase B1) para mostrar qué se verá afectado en vez de solo el nombre
+  /// crudo de la tool.
+  Future<bool> _confirmMcpIrreversibleTool(
+    String toolName,
+    Map<String, dynamic> arguments,
+  ) async {
+    final ctx = _navKey.currentContext ?? context;
+    if (!ctx.mounted) return false;
+    final clientName =
+        _mcpServer?.connectedClient?.appName.trim().isNotEmpty == true
+        ? _mcpServer!.connectedClient!.appName.trim()
+        : 'MCP';
+    final preview = _mcpToolRegistry?.preview(
+      AiToolCall(id: 'mcp_confirm', name: toolName, arguments: arguments),
+    );
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpConfirmIrreversibleDialog(
+        clientName: clientName,
+        toolName: toolName,
+        preview: preview,
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   bool _isMcpClientApproved(McpClientIdentity client) {
     return widget.appSettings.isIntegrationAppApproved(
       client.appId,
@@ -1624,7 +1740,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         await _desktop?.showAndFocus();
       }
     } catch (e) {
-      _showSnack('No se pudo activar la integración: $e');
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(AppLocalizations.of(errCtx).integrationActivateFailed('$e'));
     }
   }
 
@@ -1714,23 +1832,41 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Widget _buildApp(BuildContext context, ColorScheme? androidLightDynamic) {
     final androidAccent = androidLightDynamic?.primary;
-    final lightScheme = widget.appSettings.resolveColorScheme(
-      brightness: Brightness.light,
-      androidDynamicAccent: androidAccent,
-    );
-    final darkScheme = widget.appSettings.resolveColorScheme(
-      brightness: Brightness.dark,
-      androidDynamicAccent: androidAccent,
-    );
+    // Motor de tema (Fase 3 + editor de temas): la fuente de verdad
+    // renderizada es ThemeConfigController, no AppSettings directamente —
+    // AppSettings.onThemeAccentChanged ya mantiene accentMode/light/dark
+    // sincronizados en cada cambio del picker existente, y el editor de
+    // temas nuevo escribe shape/spacing/motion/surfaceOpacity directo aquí,
+    // sin que AppSettings tenga nunca esos campos. Ver ThemeResolverTest
+    // para la verificación de equivalencia estructural con el ThemeData
+    // legacy del ThemeConfig por defecto.
+    final themeConfig = widget.themeConfigController.config;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      theme: folioLightTheme(lightScheme),
-      darkTheme: widget.appSettings.oledThemeEnabled
-          ? folioOledTheme(darkScheme)
-          : folioDarkTheme(darkScheme),
+      theme: resolveThemeData(
+        themeConfig,
+        Brightness.light,
+        androidDynamicAccent: androidAccent,
+      ),
+      darkTheme: resolveThemeData(
+        themeConfig,
+        Brightness.dark,
+        androidDynamicAccent: androidAccent,
+      ),
+      // Fase 9: cross-fade de colores/formas al cambiar de tema (incluido un
+      // pack visual completo, Fase 8) en vez de un corte abrupto —
+      // `themeAnimationDuration`/`themeAnimationCurve` son el mecanismo
+      // stock de Flutter para esto (usan AnimatedTheme internamente), leídos
+      // del propio ThemeConfig activo para que un pack como Cyberpunk
+      // (curva rápida/aguda) se sienta genuinamente distinto de Cozy
+      // (curva suave/lenta) al aplicarse.
+      themeAnimationDuration: Duration(
+        milliseconds: themeConfig.motion.themeChangeMs,
+      ),
+      themeAnimationCurve: resolveMotionCurve(themeConfig.motion.curveName),
       themeMode: widget.appSettings.materialThemeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -1832,12 +1968,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       home: _HomeByState(
         session: widget.session,
         appSettings: widget.appSettings,
+        layoutEngineController: widget.layoutEngineController,
+        dashboardGridController: widget.dashboardGridController,
+        themeConfigController: widget.themeConfigController,
+        activePackController: widget.activePackController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
         cloudStatusController: _cloudStatusController,
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
+        organizationContext: _organizationContext,
         onOpenSearch: _handleSearchRequested,
         onOpenReleaseNotes: _openReleaseNotesForUser,
       ),
@@ -2745,6 +2886,158 @@ class _McpReadAccessDialog extends StatelessWidget {
   }
 }
 
+/// Fase B2 del plan Quill/MCP — mismo lenguaje visual que
+/// `_McpReadAccessDialog`, pero para confirmar (o cancelar) una tool
+/// irreversible antes de ejecutarla. Muestra el `preview()` (Fase B1) cuando
+/// está disponible en vez de solo el nombre crudo de la tool.
+class _McpConfirmIrreversibleDialog extends StatelessWidget {
+  const _McpConfirmIrreversibleDialog({
+    required this.clientName,
+    required this.toolName,
+    required this.preview,
+  });
+
+  final String clientName;
+  final String toolName;
+  final AiToolPreview? preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final summary = preview?.summary ?? toolName;
+    final affected = preview?.affectedItems ?? const <String>[];
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.errorContainer.withValues(alpha: 0.5),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                      ),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        color: scheme.error,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.mcpConfirmIrreversibleTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.mcpConfirmIrreversibleBody(clientName, toolName),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (affected.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      for (final item in affected.take(8))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            '• $item',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      if (affected.length > 8)
+                        Text(
+                          '… (+${affected.length - 8})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.mcpConfirmIrreversibleCancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: scheme.error),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.mcpConfirmIrreversibleConfirm),
+        ),
+      ],
+    );
+  }
+}
+
 class _IntegrationApprovalChip extends StatelessWidget {
   const _IntegrationApprovalChip({required this.icon, required this.label});
 
@@ -2823,24 +3116,34 @@ class _HomeByState extends StatelessWidget {
   const _HomeByState({
     required this.session,
     required this.appSettings,
+    required this.layoutEngineController,
+    required this.dashboardGridController,
+    required this.themeConfigController,
+    required this.activePackController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
     this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.organizationContext,
     required this.onOpenSearch,
     required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final LayoutEngineController layoutEngineController;
+  final DashboardGridController dashboardGridController;
+  final ThemeConfigController themeConfigController;
+  final ActivePackController activePackController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+  final OrganizationContextController? organizationContext;
   final void Function([String? initialQuery]) onOpenSearch;
   final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
@@ -2878,12 +3181,17 @@ class _HomeByState extends StatelessWidget {
         return WorkspacePage(
           session: session,
           appSettings: appSettings,
+          layoutEngineController: layoutEngineController,
+          dashboardGridController: dashboardGridController,
+          themeConfigController: themeConfigController,
+          activePackController: activePackController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,
           cloudStatusController: cloudStatusController,
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
+          organizationContext: organizationContext,
           onOpenSearch: onOpenSearch,
           onOpenReleaseNotes: onOpenReleaseNotes,
         );

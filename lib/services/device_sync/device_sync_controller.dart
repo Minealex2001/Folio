@@ -5,9 +5,11 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_settings.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../platform/android_multicast_lock.dart';
 import 'device_sync_crypto.dart';
 import 'device_sync_models.dart';
@@ -162,9 +164,7 @@ class DeviceSyncController extends ChangeNotifier {
     await _startSnapshotServer();
     _ensureDiscoveryPulse();
     notifyListeners();
-    _onEvent?.call(
-      _localized('Sincronizacion activada.', 'Device sync enabled.'),
-    );
+    _onEvent?.call(_l10n.deviceSyncEnabled);
   }
 
   void _tearDownUdpStack() {
@@ -288,10 +288,7 @@ class DeviceSyncController extends ChangeNotifier {
         alsoToHost: replyHost,
       );
       _onEvent?.call(
-        _localized(
-          'El codigo de vinculacion expiro o ya no coincide.',
-          'The link code expired or no longer matches.',
-        ),
+        _l10n.deviceSyncLinkCodeExpired,
       );
       return;
     }
@@ -507,10 +504,7 @@ class DeviceSyncController extends ChangeNotifier {
       return true;
     } catch (e) {
       _onEvent?.call(
-        _localized(
-          'No se pudo iniciar descubrimiento LAN: $e',
-          'Could not start LAN discovery: $e',
-        ),
+        _l10n.deviceSyncLanDiscoveryFailed('$e'),
       );
       return false;
     }
@@ -599,10 +593,7 @@ class DeviceSyncController extends ChangeNotifier {
       final ok = await _startUdpDiscovery();
       if (!ok) {
         _onEvent?.call(
-          _localized(
-            'Reintentando conectividad LAN de sincronizacion...',
-            'Retrying sync LAN connectivity...',
-          ),
+          _l10n.deviceSyncRetryingLan,
         );
       }
     } finally {
@@ -662,7 +653,7 @@ class DeviceSyncController extends ChangeNotifier {
     final newPeer = SyncPeer(
       peerId: deviceId,
       deviceName: deviceName.isEmpty
-          ? _localized('Dispositivo Folio', 'Folio device')
+          ? _l10n.deviceSyncFolioDevice
           : deviceName,
       lastSeenAtMs: now,
       paired: _peers.any((peer) => peer.peerId == deviceId),
@@ -727,10 +718,7 @@ class DeviceSyncController extends ChangeNotifier {
         return;
       }
       _onEvent?.call(
-        _localized(
-          'Intento de vinculacion: codigo incorrecto o sin codigo activo en este dispositivo. Genera un codigo aqui y usa el mismo en el otro equipo.',
-          'Link attempt: wrong code, or no active code on this device. Generate a code here and enter it on the other device.',
-        ),
+        _l10n.deviceSyncWrongLinkCode,
       );
       _emitPairAccept(
         toDeviceId: requesterId,
@@ -961,8 +949,7 @@ class DeviceSyncController extends ChangeNotifier {
       peerId: peerId,
       displayName: pending.remoteDeviceName,
       alsoToHost: pending.alsoToHost,
-      successMessageEs: 'Dispositivo enlazado correctamente.',
-      successMessageEn: 'Device linked successfully.',
+      successMessage: _l10n.deviceSyncLinkedOk,
     );
   }
 
@@ -982,11 +969,10 @@ class DeviceSyncController extends ChangeNotifier {
     await _finalizePairingWithPeer(
       peerId: request.requesterId,
       displayName: request.trimmedRequesterName.isEmpty
-          ? _localized('Dispositivo Folio', 'Folio device')
+          ? _l10n.deviceSyncFolioDevice
           : request.trimmedRequesterName,
       alsoToHost: replyHost,
-      successMessageEs: 'Dispositivo enlazado desde solicitud remota.',
-      successMessageEn: 'Device linked from remote request.',
+      successMessage: _l10n.deviceSyncLinkedRemote,
     );
   }
 
@@ -994,8 +980,7 @@ class DeviceSyncController extends ChangeNotifier {
     required String peerId,
     required String displayName,
     required InternetAddress? alsoToHost,
-    required String successMessageEs,
-    required String successMessageEn,
+    required String successMessage,
   }) async {
     _activePairingCode = null;
     await _markPeerPaired(
@@ -1014,7 +999,7 @@ class DeviceSyncController extends ChangeNotifier {
       peerName: _settings.syncDeviceName,
       alsoToHost: alsoToHost,
     );
-    _onEvent?.call(_localized(successMessageEs, successMessageEn));
+    _onEvent?.call(successMessage);
   }
 
   void _emitPairedNotice({
@@ -1095,7 +1080,7 @@ class DeviceSyncController extends ChangeNotifier {
     if (fromDeviceId.isEmpty || fromDeviceId == _settings.syncDeviceId) return;
     _peerLastUdpHost[fromDeviceId] = remoteHost;
     final fromDeviceName = _stringField(map, 'fromDeviceName');
-    final fallbackName = _localized('Dispositivo Folio', 'Folio device');
+    final fallbackName = _l10n.deviceSyncFolioDevice;
     final existing = _discoveredById[fromDeviceId];
     final displayName = fromDeviceName.isNotEmpty
         ? fromDeviceName
@@ -1273,10 +1258,7 @@ class DeviceSyncController extends ChangeNotifier {
       });
     } catch (e) {
       _onEvent?.call(
-        _localized(
-          'No se pudo iniciar servidor de sincronizacion: $e',
-          'Could not start synchronization server: $e',
-        ),
+        _l10n.deviceSyncServerStartFailed('$e'),
       );
     }
   }
@@ -1621,10 +1603,7 @@ class DeviceSyncController extends ChangeNotifier {
     }
     if (current != pubKey) {
       _onEvent?.call(
-        _localized(
-          'Aviso de seguridad: la clave del dispositivo "${_peers[index].deviceName}" cambio. Sincronizacion pausada con ese equipo; vuelve a vincularlo si confias en el cambio.',
-          'Security notice: the key for device "${_peers[index].deviceName}" changed. Sync with that device is paused; re-link it if you trust the change.',
-        ),
+        _l10n.deviceSyncPeerKeyChanged(_peers[index].deviceName),
       );
     }
   }
@@ -1755,8 +1734,8 @@ class DeviceSyncController extends ChangeNotifier {
     return emojis;
   }
 
-  String _localized(String es, String en) =>
-      _settings.locale?.languageCode == 'es' ? es : en;
+  AppLocalizations get _l10n =>
+      lookupAppLocalizations(_settings.locale ?? const Locale('es'));
 
   static String _stringField(Map map, String key) {
     final v = map[key];

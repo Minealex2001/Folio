@@ -147,6 +147,13 @@ class FolioCloudAiService implements AiService {
     if (!folioCloudHasSession()) {
       throw StateError('Not signed in');
     }
+<<<<<<< HEAD
+=======
+    final cancelToken = request.cancelToken;
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
     final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete-stream');
     final payload = jsonEncode(_buildCompletePayload(request));
@@ -154,12 +161,26 @@ class FolioCloudAiService implements AiService {
     http.StreamedResponse? resp;
     Object? lastSendError;
     for (var attempt = 0; attempt < 2; attempt++) {
+<<<<<<< HEAD
+=======
+      if (cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       final token = await folioCloudBearerToken(forceRefresh: attempt > 0);
       if (token == null || token.isEmpty) {
         throw StateError('Not signed in');
       }
 
+<<<<<<< HEAD
       final httpReq = http.Request('POST', uri)
+=======
+      final httpReq = http.AbortableRequest(
+        'POST',
+        uri,
+        abortTrigger: cancelToken?.abortTrigger,
+      )
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ..headers['Authorization'] = 'Bearer $token'
         ..headers['Content-Type'] = 'application/json; charset=utf-8'
         ..headers['Accept'] = 'text/event-stream'
@@ -167,7 +188,16 @@ class FolioCloudAiService implements AiService {
 
       try {
         resp = await folioCloudHttpClient.send(httpReq);
+<<<<<<< HEAD
       } catch (e) {
+=======
+      } on http.RequestAbortedException {
+        throw const AiRequestCancelledException();
+      } catch (e) {
+        if (cancelToken?.isCancelled == true) {
+          throw const AiRequestCancelledException();
+        }
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         lastSendError = e;
         resp = null;
         break;
@@ -182,6 +212,12 @@ class FolioCloudAiService implements AiService {
     }
 
     if (resp == null) {
+<<<<<<< HEAD
+=======
+      if (cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       throw FolioCloudAiException(
         _mapFolioCloudAiError(
           FolioCloudException(
@@ -224,6 +260,7 @@ class FolioCloudAiService implements AiService {
     }
 
     String? currentEvent;
+<<<<<<< HEAD
     final lines =
         resp.stream.transform(utf8.decoder).transform(const LineSplitter());
     await for (final line in lines) {
@@ -259,10 +296,59 @@ class FolioCloudAiService implements AiService {
               monthlyBalance: monthly,
               purchasedBalance: purchased,
             );
-          }
+=======
+    try {
+      final lines =
+          resp.stream.transform(utf8.decoder).transform(const LineSplitter());
+      await for (final line in lines) {
+        if (cancelToken?.isCancelled == true) {
+          throw const AiRequestCancelledException();
         }
-        yield AiCompletionChunk(isFinal: true, toolCalls: toolCalls);
+        if (line.isEmpty) {
+          currentEvent = null;
+          continue;
+        }
+        if (line.startsWith('event:')) {
+          currentEvent = line.substring(6).trim();
+          continue;
+        }
+        if (!line.startsWith('data:')) continue;
+        final dataStr = line.substring(5).trim();
+        if (dataStr.isEmpty) continue;
+        final obj = jsonDecode(dataStr);
+        if (currentEvent == 'delta') {
+          final delta = obj is Map ? '${obj['textDelta'] ?? ''}' : '';
+          if (delta.isNotEmpty) {
+            yield AiCompletionChunk(textDelta: delta);
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
+          }
+        } else if (currentEvent == 'done') {
+          final toolCalls = obj is Map ? _parseToolCalls(obj['toolCalls']) : null;
+          final inkRaw = obj is Map ? obj['ink'] : null;
+          final ent = _entitlements;
+          if (inkRaw is Map && ent != null) {
+            final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+            final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+            if (monthly != null &&
+                purchased != null &&
+                monthly >= 0 &&
+                purchased >= 0) {
+              ent.applyInkBalancesFromCloudAi(
+                monthlyBalance: monthly,
+                purchasedBalance: purchased,
+              );
+            }
+          }
+          yield AiCompletionChunk(isFinal: true, toolCalls: toolCalls);
+        }
       }
+    } on http.RequestAbortedException {
+      throw const AiRequestCancelledException();
+    } catch (e) {
+      if (cancelToken?.isCancelled == true || e is AiRequestCancelledException) {
+        throw const AiRequestCancelledException();
+      }
+      rethrow;
     }
   }
 
@@ -365,6 +451,10 @@ class FolioCloudAiService implements AiService {
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
+    final cancelToken = request.cancelToken;
+    if (cancelToken != null) {
+      return _completeViaHttp(request, cancelToken);
+    }
     try {
       final res = await callFolioHttpsCallable(
         'folioCloudAiComplete',
@@ -391,6 +481,182 @@ class FolioCloudAiService implements AiService {
         model: request.model,
         toolCalls: toolCalls,
       );
+    } on FolioCloudException catch (e) {
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(e),
+        functionsCode: e.code,
+      );
+    } catch (e) {
+      if (e is StateError) rethrow;
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: e.toString(),
+            code: 'unavailable',
+          ),
+        ),
+        functionsCode: 'unavailable',
+      );
+    }
+  }
+
+  /// Variante abortable de [complete] vía `POST /ai/complete` (mismo payload
+  /// que el stream). Se usa cuando hay [AiCancelToken] (botón Stop).
+  Future<AiCompletionResult> _completeViaHttp(
+    AiCompletionRequest request,
+    AiCancelToken cancelToken,
+  ) async {
+    if (cancelToken.isCancelled) {
+      throw const AiRequestCancelledException();
+    }
+    final uri = Uri.parse('${FolioBackendConfig.apiV1Prefix}/ai/complete');
+    final payload = jsonEncode(_buildCompletePayload(request));
+
+    http.Response? resp;
+    Object? lastSendError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (cancelToken.isCancelled) {
+        throw const AiRequestCancelledException();
+      }
+      final token = await folioCloudBearerToken(forceRefresh: attempt > 0);
+      if (token == null || token.isEmpty) {
+        throw StateError('Not signed in');
+      }
+
+      final httpReq = http.AbortableRequest(
+        'POST',
+        uri,
+        abortTrigger: cancelToken.abortTrigger,
+      )
+        ..headers['Authorization'] = 'Bearer $token'
+        ..headers['Content-Type'] = 'application/json; charset=utf-8'
+        ..body = payload;
+
+      try {
+        final streamed = await folioCloudHttpClient.send(httpReq);
+        final body = await streamed.stream.bytesToString();
+        resp = http.Response(body, streamed.statusCode, headers: streamed.headers);
+      } on http.RequestAbortedException {
+        throw const AiRequestCancelledException();
+      } catch (e) {
+        if (cancelToken.isCancelled) {
+          throw const AiRequestCancelledException();
+        }
+        lastSendError = e;
+        resp = null;
+        break;
+      }
+
+      if (resp.statusCode == 401 && attempt == 0) {
+        continue;
+      }
+      break;
+    }
+
+    if (resp == null) {
+      if (cancelToken.isCancelled) {
+        throw const AiRequestCancelledException();
+      }
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: '${lastSendError ?? 'unavailable'}',
+            code: 'unavailable',
+          ),
+        ),
+        functionsCode: 'unavailable',
+      );
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      String message = 'HTTP ${resp.statusCode}';
+      String code = 'unavailable';
+      try {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          message = '${decoded['message'] ?? decoded['error'] ?? message}';
+          final status = decoded['status'] ?? decoded['error'];
+          if (status != null) {
+            code = '$status'.toLowerCase().replaceAll('_', '-');
+          }
+        }
+      } catch (_) {}
+      final normalized = _normalizeCloudAiHttpFailure(
+        statusCode: resp.statusCode,
+        message: message,
+        code: code,
+      );
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FolioCloudException(
+            message: normalized.message,
+            code: normalized.code,
+          ),
+        ),
+        functionsCode: normalized.code,
+      );
+    }
+
+    final decoded = jsonDecode(resp.body);
+    final raw = decoded is Map ? decoded : const <String, dynamic>{};
+    final text = '${raw['text'] ?? ''}';
+    final toolCalls = _parseToolCalls(raw['toolCalls']);
+    final inkRaw = raw['ink'];
+    final ent = _entitlements;
+    if (inkRaw is Map && ent != null) {
+      final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+      final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+      if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+        ent.applyInkBalancesFromCloudAi(
+          monthlyBalance: monthly,
+          purchasedBalance: purchased,
+        );
+      }
+    }
+    return AiCompletionResult(
+      text: text.trim(),
+      provider: providerName,
+      model: request.model,
+      toolCalls: toolCalls,
+    );
+  }
+
+  @override
+  bool get supportsImageGeneration => true;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    if (!folioCloudHasSession()) { throw StateError('Not signed in'); }
+    try {
+      final payload = <String, dynamic>{
+        'prompt': prompt.trim(),
+        if (pageContextText != null && pageContextText.trim().isNotEmpty)
+          'pageContextText': pageContextText.trim(),
+        'operationKind': 'generate_image',
+      };
+      final res = await callFolioHttpsCallable('folioCloudGenerateImage', payload);
+      final raw = res;
+      final b64 = raw is Map ? '${raw['imageBase64'] ?? ''}' : '';
+      if (b64.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      final mimeType = raw is Map ? '${raw['mimeType'] ?? 'image/png'}' : 'image/png';
+      final inkRaw = raw is Map ? raw['ink'] : null;
+      final ent = _entitlements;
+      if (inkRaw is Map && ent != null) {
+        final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
+        final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
+        if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
+          ent.applyInkBalancesFromCloudAi(
+            monthlyBalance: monthly,
+            purchasedBalance: purchased,
+          );
+        }
+      }
+      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: mimeType);
     } on FolioCloudException catch (e) {
       throw FolioCloudAiException(
         _mapFolioCloudAiError(e),

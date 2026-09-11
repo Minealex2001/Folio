@@ -1,6 +1,24 @@
 part of 'settings_page.dart';
 
 extension _SettingsPageBackupSecurityActions on _SettingsPageState {
+  /// Carga asíncrona del perfil de hardware (CPU/RAM) fuera del UI isolate: en
+  /// Windows la lectura de RAM lanza PowerShell, que síncrono bloqueaba el
+  /// primer `build()` de Settings → Quill. `loadCachedAsync` usa `Process.run`
+  /// (async), dedup de trabajo en vuelo y la misma cache de 5 min; si la
+  /// lectura falla devuelve el mismo fallback que antes (`RAM desconocida`).
+  Future<void> _loadHardwareProfile() async {
+    try {
+      final snap = await TranscriptionHardwareProfile.loadCachedAsync();
+      if (!mounted) return;
+      _rebuild(() => _hardwareSnapshot = snap);
+    } catch (_) {
+      if (!mounted) return;
+      _rebuild(
+        () => _hardwareSnapshot ??= TranscriptionHardwareProfile.safeFallback(),
+      );
+    }
+  }
+
   Future<void> _loadMeetingNoteDevices() async {
     try {
       final micDevices = await _meetingNoteDeviceProbe.listInputDevices();

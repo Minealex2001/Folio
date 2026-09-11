@@ -125,9 +125,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
-                child: _aiToolActivityLabel != null
-                    ? AiToolActivityIndicator(
-                        label: _aiToolActivityLabel!,
+                child: _aiToolTrace.isNotEmpty
+                    ? ToolInspectorPanel(
+                        steps: _aiToolTrace,
                         colorScheme: scheme,
                       )
                     : FolioAiChatReplySkeleton(colorScheme: scheme),
@@ -976,6 +976,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                   )
                                 : null,
                           ),
+                          // Fase A5 del plan Quill/MCP — atajos nombrados
+                          // hacia Plan-mode ("Workflows"), no un ejecutor
+                          // nuevo. Primary Surface de disparo: este botón.
+                          IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openQuillWorkflowsPicker,
+                            icon: const Icon(Icons.auto_awesome_motion_outlined),
+                            tooltip: l10n.quillWorkflowsPickerTooltip,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
+                          ),
                           if (_transcribingVoice)
                             const Padding(
                               padding: EdgeInsets.all(10),
@@ -1040,23 +1052,26 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          FilledButton(
-                            onPressed:
-                                (_aiChatBusy || !aiReady) ? null : _sendAiChat,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              shape: const CircleBorder(),
-                              padding: EdgeInsets.zero,
+                          Tooltip(
+                            message: _aiChatBusy ? l10n.aiStopGenerating : '',
+                            child: FilledButton(
+                              onPressed: !aiReady
+                                  ? null
+                                  : _aiChatBusy
+                                      ? _stopAiChat
+                                      : _sendAiChat,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                shape: const CircleBorder(),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: Icon(
+                                _aiChatBusy
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward_rounded,
+                                size: 18,
+                              ),
                             ),
-                            child: _aiChatBusy
-                                ? FolioLoadingIndicator(
-                                    size: FolioLoadingSize.small,
-                                    color: scheme.onPrimary,
-                                  )
-                                : const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 18,
-                                  ),
                           ),
                         ],
                       ),

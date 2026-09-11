@@ -1,6 +1,43 @@
 part of 'workspace_page.dart';
 
 extension _WorkspacePageAiChatModule on _WorkspacePageState {
+  AiCancelToken _beginAiChatCancelToken() {
+    final token = AiCancelToken();
+    _aiChatCancelToken = token;
+    return token;
+  }
+
+  void _endAiChatCancelToken(AiCancelToken token) {
+    if (identical(_aiChatCancelToken, token)) {
+      _aiChatCancelToken = null;
+    }
+  }
+
+  void _stopAiChat() {
+    _aiChatCancelToken?.cancel();
+  }
+
+  /// Tras cancelar: conserva texto parcial; si la burbuja está vacía, la quita
+  /// (o restaura [originalIfEmpty] en regenerar).
+  void _finalizeCancelledAiPlaceholder({
+    required String targetChatId,
+    required int messageIndex,
+    AiChatMessage? originalIfEmpty,
+  }) {
+    final threads = _s.aiChatThreads;
+    final i = threads.indexWhere((c) => c.id == targetChatId);
+    if (i < 0) return;
+    final messages = threads[i].messages;
+    if (messageIndex < 0 || messageIndex >= messages.length) return;
+    final current = messages[messageIndex];
+    if (current.content.trim().isNotEmpty) return;
+    if (originalIfEmpty != null) {
+      _s.updateMessageInAiChatById(targetChatId, messageIndex, originalIfEmpty);
+    } else {
+      _s.removeMessageInAiChatById(targetChatId, messageIndex);
+    }
+  }
+
   Future<void> _sendAiChat() async {
     if (_aiChatBusy) return;
     final text = _chatInputController.text.trim();
@@ -12,12 +49,17 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final userMessage = AiChatMessage.now(role: 'user', content: text);
     final threadMessages = List<AiChatMessage>.from(targetChat.messages)
       ..add(userMessage);
-    _setStateSafe(() => _aiChatBusy = true);
+    final cancelToken = _beginAiChatCancelToken();
+    _setStateSafe(() {
+      _aiChatBusy = true;
+      _aiToolTrace.clear();
+    });
     _scheduleAiChatScrollToBottom();
     try {
       await _s.pingAi();
     } catch (e) {
       if (mounted) {
+        _endAiChatCancelToken(cancelToken);
         _setStateSafe(() => _aiChatBusy = false);
         final l10n = AppLocalizations.of(context);
         final msg = e is AiServiceUnreachableException
@@ -28,6 +70,11 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       return;
     }
     if (!mounted) return;
+    if (cancelToken.isCancelled) {
+      _endAiChatCancelToken(cancelToken);
+      _setStateSafe(() => _aiChatBusy = false);
+      return;
+    }
     _setStateSafe(() {
       _chatInputController.clear();
     });
@@ -35,9 +82,12 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     _updateInkEstimateFromComposer();
     _s.appendMessageToAiChatById(targetChatId, userMessage);
 
-      if (_planModeEnabled) {
+    if (_planModeEnabled) {
       final pendingIdx = _indexOfLatestPendingPlanInChat(targetChatId);
       if (pendingIdx >= 0 && _looksLikePlanApproval(text)) {
+        // Libera el busy del send para que `_approveAgentPlan` pueda arrancar.
+        _endAiChatCancelToken(cancelToken);
+        _setStateSafe(() => _aiChatBusy = false);
         await _approveAgentPlan(pendingIdx);
         return;
       }
@@ -56,8 +106,10 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           threadMessages,
           includePageContext: includePageContext,
           contextPageIds: contextPageIds,
+          cancelToken: cancelToken,
         );
         if (!mounted) return;
+        if (cancelToken.isCancelled) return;
         if (_activeChat.id == targetChatId) {
           _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
         }
@@ -72,12 +124,21 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             toolErrors: outcome.toolErrors,
             generatedImagePath: outcome.generatedImagePath,
             generatedImagePrompt: outcome.generatedImagePrompt,
+<<<<<<< HEAD
+=======
+            aiTurnId: outcome.aiTurnId,
+            aiTurnChangeCount: outcome.aiTurnChangeCount,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
           ),
         );
       } catch (e) {
         if (!mounted) return;
+        if (e is AiRequestCancelledException || cancelToken.isCancelled) {
+          return;
+        }
         _handleAiChatError(e);
       } finally {
+        _endAiChatCancelToken(cancelToken);
         if (mounted) {
           _setStateSafe(() {
             _aiChatBusy = false;
@@ -102,8 +163,9 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         threadMessages,
         includePageContext: includePageContext,
         contextPageIds: contextPageIds,
+        cancelToken: cancelToken,
         onReplyDelta: (textSoFar) {
-          if (!mounted) return;
+          if (!mounted || cancelToken.isCancelled) return;
           _s.updateMessageInAiChatById(
             targetChatId,
             placeholderIndex,
@@ -112,6 +174,13 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         },
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) {
+        _finalizeCancelledAiPlaceholder(
+          targetChatId: targetChatId,
+          messageIndex: placeholderIndex,
+        );
+        return;
+      }
       if (_activeChat.id == targetChatId) {
         _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
       }
@@ -127,13 +196,25 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
+<<<<<<< HEAD
+=======
+          aiTurnId: outcome.aiTurnId,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
       );
     } catch (e) {
+      if (e is AiRequestCancelledException || cancelToken.isCancelled) {
+        _finalizeCancelledAiPlaceholder(
+          targetChatId: targetChatId,
+          messageIndex: placeholderIndex,
+        );
+        return;
+      }
       _s.removeMessageInAiChatById(targetChatId, placeholderIndex);
       if (!mounted) return;
       _handleAiChatError(e);
     } finally {
+      _endAiChatCancelToken(cancelToken);
       if (mounted) {
         _setStateSafe(() {
           _aiChatBusy = false;
@@ -146,6 +227,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
   }
 
   void _handleAiChatError(Object e) {
+    if (e is AiRequestCancelledException) return;
     final l10n = AppLocalizations.of(context);
     if (e is FolioCloudAiException && e.isInkExhausted) {
       unawaited(
@@ -180,9 +262,11 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final contextPageIds = List<String>.from(targetChat.contextPageIds);
     final threadMessages = targetChat.messages.sublist(0, messageIndex - 1);
     final placeholderKey = '$targetChatId#$messageIndex';
+    final cancelToken = _beginAiChatCancelToken();
 
     _setStateSafe(() {
       _aiChatBusy = true;
+      _aiToolTrace.clear();
       _aiStreamingMessageKeys.add(placeholderKey);
     });
     _s.updateMessageInAiChatById(
@@ -196,8 +280,9 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         threadMessages,
         includePageContext: includePageContext,
         contextPageIds: contextPageIds,
+        cancelToken: cancelToken,
         onReplyDelta: (textSoFar) {
-          if (!mounted) return;
+          if (!mounted || cancelToken.isCancelled) return;
           _s.updateMessageInAiChatById(
             targetChatId,
             messageIndex,
@@ -206,6 +291,14 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         },
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) {
+        _finalizeCancelledAiPlaceholder(
+          targetChatId: targetChatId,
+          messageIndex: messageIndex,
+          originalIfEmpty: original,
+        );
+        return;
+      }
       if (_activeChat.id == targetChatId) {
         _setStateSafe(() => _lastChatTokenUsage = outcome.usage);
       }
@@ -221,13 +314,26 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
+<<<<<<< HEAD
+=======
+          aiTurnId: outcome.aiTurnId,
+>>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
       );
     } catch (e) {
+      if (e is AiRequestCancelledException || cancelToken.isCancelled) {
+        _finalizeCancelledAiPlaceholder(
+          targetChatId: targetChatId,
+          messageIndex: messageIndex,
+          originalIfEmpty: original,
+        );
+        return;
+      }
       _s.updateMessageInAiChatById(targetChatId, messageIndex, original);
       if (!mounted) return;
       _handleAiChatError(e);
     } finally {
+      _endAiChatCancelToken(cancelToken);
       if (mounted) {
         _setStateSafe(() {
           _aiChatBusy = false;
@@ -249,9 +355,28 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             toolName: event.call.name,
             l10n: l10n,
           );
+          // Fase A6 — cada paso se acumula (no reemplaza al anterior como
+          // `_aiToolActivityLabel`), para que `ToolInspectorPanel` muestre
+          // la secuencia completa del turno, no solo el paso actual.
+          _aiToolTrace.add(
+            ToolInspectorStep(
+              label: _aiToolActivityLabel!,
+              status: ToolInspectorStepStatus.running,
+            ),
+          );
         });
       case AiToolLoopEventKind.toolCallResult:
-        _setStateSafe(() => _aiToolActivityLabel = null);
+        _setStateSafe(() {
+          _aiToolActivityLabel = null;
+          if (_aiToolTrace.isNotEmpty) {
+            final last = _aiToolTrace.length - 1;
+            _aiToolTrace[last] = _aiToolTrace[last].copyWith(
+              status: (event.result?.isError ?? false)
+                  ? ToolInspectorStepStatus.error
+                  : ToolInspectorStepStatus.success,
+            );
+          }
+        });
     }
   }
 
@@ -263,6 +388,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     /// Streaming en vivo del texto de respuesta final (solo camino de
     /// tool-calling; el modo Plan sigue sin streaming, ver `_sendAiChat`).
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -291,6 +417,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         extraContextSections: extra,
         systemPromptOverride: preset.prompt,
         systemPromptOverrideIsNarrowTask: preset.isNarrowTask,
+        cancelToken: cancelToken,
       );
     }
 
@@ -309,19 +436,34 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       useToolCalling: widget.appSettings.quillToolCallingEnabled,
       onToolEvent: _onAiToolEvent,
       onReplyDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
   }
 
   String _composeAiExtraContextForNextSend() {
-    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final l10n = AppLocalizations.of(context);
     final b = StringBuffer();
-    if (_aiAttachNextEditorSelection) {
+    // Fase A4 del plan Quill/MCP — hechos guardados por el usuario (nunca
+    // por la IA sola, ver `vault_memory_fact.dart`) se incluyen en TODOS los
+    // envíos, no solo el próximo — a diferencia de selección/última reunión,
+    // que sí son de un solo uso. Ambos scopes (temporal/permanente) se
+    // envían igual; la distinción es solo de gestión/limpieza.
+    final facts = widget.appSettings.vaultMemoryFacts;
+    if (facts.isNotEmpty) {
+      b.writeln(l10n.aiChatMemoryFactsHeader);
+      for (final fact in facts) {
+        b.writeln('- ${fact.text.trim()}');
+      }
+    }
+    // Fase A1 del plan Quill/MCP — `autoIncludeSelection` es el toggle
+    // persistente por hilo (no se consume tras un envío, a diferencia de
+    // `_aiAttachNextEditorSelection`, que sigue siendo el modo "una sola
+    // vez" para hilos que no lo activan).
+    if (_aiAttachNextEditorSelection || _activeChat.autoIncludeSelection) {
       _aiAttachNextEditorSelection = false;
       final snippet = _readEditorSelectionPlainForAi();
       if (snippet != null && snippet.trim().isNotEmpty) {
-        b.writeln(
-          isEs ? '--- Selección del editor ---' : '--- Editor selection ---',
-        );
+        b.writeln(l10n.aiChatEditorSelectionHeader);
         b.writeln(snippet.trim());
       }
     }
@@ -329,11 +471,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       _aiAttachNextLastMeeting = false;
       final m = _readLastMeetingSnippetOnPage();
       if (m != null && m.trim().isNotEmpty) {
-        b.writeln(
-          isEs
-              ? '--- Última nota de reunión en la página ---'
-              : '--- Last meeting note on this page ---',
-        );
+        b.writeln(l10n.aiChatLastMeetingHeader);
         b.writeln(m.trim());
       }
     }

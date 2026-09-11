@@ -216,6 +216,90 @@ mixin _MultiSelectDragDrop on State<BlockEditor> {
     });
   }
 
+  /// Fases E1-E3 del rediseño UX del editor: "Agrupar" (columnas/sección)
+  /// solo tiene sentido sobre una selección contigua en `page.blocks` — ni
+  /// `FolioColumnsData` ni `Section.range` (Fase E0A) representan bloques
+  /// dispersos. Pura, sin efectos, para poder deshabilitar el botón en la
+  /// UI antes de que el usuario intente una acción que no puede completarse.
+  bool _isContiguousSelection(FolioPage page, Set<String> ids) {
+    if (ids.length < 2) return false;
+    final indices = <int>[];
+    for (var i = 0; i < page.blocks.length; i++) {
+      if (ids.contains(page.blocks[i].id)) indices.add(i);
+    }
+    if (indices.length != ids.length) return false;
+    for (var i = 1; i < indices.length; i++) {
+      if (indices[i] != indices[i - 1] + 1) return false;
+    }
+    return true;
+  }
+
+  /// Fase E2 — convierte una selección contigua en un bloque `column_list`
+  /// con [columnCount] columnas (2 o 3), reutilizando el tipo de bloque ya
+  /// existente (`FolioColumnsData`) en vez de inventar un segundo primitivo
+  /// de layout. Reparte los bloques seleccionados en tramos consecutivos
+  /// (los primeros a la columna 1, los siguientes a la columna 2, ...) —
+  /// `FolioColumnsData` no soporta anchos por ratio hoy (70/30 etc.), así
+  /// que solo se ofrece el número de columnas, no la proporción.
+  void _convertSelectionToColumns(FolioPage page, int columnCount) {
+    assert(columnCount == 2 || columnCount == 3);
+    final st = _selectionSelf;
+    final ids = st._selectedBlockIds;
+    if (!_isContiguousSelection(page, ids)) return;
+    final selected = page.blocks.where((b) => ids.contains(b.id)).toList();
+    if (selected.length < columnCount) return;
+
+    final perColumn = (selected.length / columnCount).ceil();
+    final columns = <FolioColumnData>[];
+    for (var i = 0; i < columnCount; i++) {
+      final start = i * perColumn;
+      if (start >= selected.length) {
+        columns.add(FolioColumnData.empty());
+        continue;
+      }
+      final end = math.min(start + perColumn, selected.length);
+      columns.add(FolioColumnData(blocks: selected.sublist(start, end)));
+    }
+
+    final columnsBlockId = '${page.id}_columns_${BlockEditorState._uuid.v4()}';
+    st._s.insertBlockAfter(
+      pageId: page.id,
+      afterBlockId: selected.last.id,
+      block: FolioBlock(
+        id: columnsBlockId,
+        type: 'column_list',
+        text: FolioColumnsData(columns: columns).encode(),
+      ),
+    );
+    st._s.removeBlocksIfMultiple(page.id, selected.map((b) => b.id).toList());
+    setState(() {
+      st._selectedBlockIds
+        ..clear()
+        ..add(columnsBlockId);
+      st._selectionAnchorBlockId = columnsBlockId;
+    });
+  }
+
+  /// Fase E3 — agrupa una selección contigua en una `Section` real (Fase
+  /// E0A/E0B). Los bloques no se mueven ni se duplican, solo se referencian
+  /// por rango — reutiliza `VaultSession.createSectionFromRange` tal cual.
+  void _groupSelectionIntoSection(FolioPage page, {required String title}) {
+    final st = _selectionSelf;
+    final ids = st._selectedBlockIds;
+    if (!_isContiguousSelection(page, ids)) return;
+    final selected = page.blocks.where((b) => ids.contains(b.id)).toList();
+    if (selected.isEmpty) return;
+    st._s.createSectionFromRange(
+      page.id,
+      title: title,
+      range: BlockRange(
+        firstBlockId: selected.first.id,
+        lastBlockId: selected.last.id,
+      ),
+    );
+    _clearBlockSelection();
+  }
+
   void _clearBlockSelection() {
     final st = _selectionSelf;
     if (st._selectedBlockIds.isEmpty) return;

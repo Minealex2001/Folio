@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/perf/folio_perf_trace.dart';
 import 'storage/vault_storage.dart';
 
 class VaultPaths {
@@ -249,15 +250,37 @@ class VaultPaths {
   }
 
   /// Suma los tamaños de todos los archivos bajo [root] (recursivo).
+  ///
+  /// Camina TODO el árbol de la libreta (`repo/` con todas las páginas +
+  /// `versions/` con todos los snapshots .zip + `.bak` …) y hace un
+  /// `entity.length()` (stat) por fichero. Es asíncrono pero el nº de
+  /// syscalls crece con el historial de la libreta. Instrumentado para la
+  /// investigación de Settings/Cloud (Fase 4).
+  /// Nº de veces que se ha invocado [directoryTotalFileBytes] en esta sesión.
+  /// Solo para tests/instrumentación (verifica que Settings no lo re-ejecuta
+  /// en cada rebuild). No usar en lógica de producción.
+  static int debugDirectoryTotalFileBytesCalls = 0;
+
   static Future<int> directoryTotalFileBytes(Directory root) async {
+    debugDirectoryTotalFileBytesCalls++;
     if (!await root.exists()) return 0;
+    final sw = FolioPerfTrace.begin();
     var total = 0;
+    var files = 0;
     await for (final entity in root.list(recursive: true, followLinks: false)) {
       if (entity is File) {
+        files++;
         try {
           total += await entity.length();
         } catch (_) {}
       }
+    }
+    if (FolioPerfTrace.enabled) {
+      FolioPerfTrace.log('vaultDirTotalFileBytes', {
+        'files': files,
+        'bytes': total,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(sw)),
+      });
     }
     return total;
   }

@@ -23,7 +23,7 @@ Razones:
 
 1. **Sin bundling WASM.** Folio ya tiene un pipeline de build multiplataforma
    complejo (Windows MSIX, macOS, Linux, Android, iOS, Web — ver
-   `builld_all.ps1`, `installer.iss`, `msix_config` en `pubspec.yaml`).
+   `builld_all.ps1`, `installer/folio_setup.iss.template`, `msix_config` en `pubspec.yaml`).
    `y_crdt` añadiría runtime WASM compilado en Rust por plataforma; `crdt_lf`
    no añade nada nativo.
 2. **`y_crdt` es demasiado inmaduro para este uso.** Versión 0.2.0 recién
