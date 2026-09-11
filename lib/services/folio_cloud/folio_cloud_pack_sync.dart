@@ -4,11 +4,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'folio_cloud_identity.dart';
 import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../core/perf/folio_perf_trace.dart';
 import '../../data/folio_cloud_pack_format.dart';
 import '../../data/vault_backup.dart';
 import '../../data/vault_paths.dart';
@@ -41,6 +43,41 @@ void _logSyncTelemetry(
       errorMessage: errorMessage,
       durationMs: durationMs,
     ),
+  );
+}
+
+/// Entrypoint del isolate para el fingerprint de contenido (Paso 2). Recibe
+/// solo `vaultBinBytes` + rutas `String`; lee los adjuntos de disco él mismo.
+/// No toca `VaultSession`, `VaultPaths`, ni plugins.
+Future<String> _fingerprintPackInIsolate(Map<String, Object?> msg) {
+  return computeVaultCloudPackContentFingerprintCore(
+    vaultBinBytes: msg['vaultBinBytes'] as Uint8List,
+    wrappedDekPath: msg['wrappedDekPath'] as String,
+    vaultModePath: msg['vaultModePath'] as String,
+    vaultDirPath: msg['vaultDirPath'] as String,
+  );
+}
+
+/// Entrypoint del isolate para construir el pack (Paso 3): gzip nivel 6
+/// (síncrono), SHA-256, AES-GCM y lectura/procesado de adjuntos. Recibe solo
+/// `vaultBinBytes` + `contentFingerprint` + bytes de la pack key + rutas
+/// `String`; lee `vault.keys`/`vault.mode`/adjuntos de disco él mismo. No toca
+/// `VaultSession`, `VaultPaths`, `File`/`Directory` recibidos, ni plugins.
+///
+/// El record de retorno (manifest + blobs cifrados) cruza el límite de
+/// `compute()` vía `Isolate.exit` (transferencia, sin copia): son clases de
+/// datos planas (`FolioCloudPackSnapshotManifest` / `VaultPackPreparedBlob` con
+/// `Uint8List`/`String`/`int`/enum).
+Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manifest})>
+    _buildPackInIsolate(Map<String, Object?> msg) {
+  return buildVaultPackSnapshotCore(
+    vaultDirPath: msg['vaultDirPath'] as String,
+    wrappedDekPath: msg['wrappedDekPath'] as String,
+    vaultModePath: msg['vaultModePath'] as String,
+    keyMaterial: msg['keyMaterial'] as Uint8List,
+    isPlain: false,
+    contentFingerprint: msg['contentFingerprint'] as String,
+    vaultBinBytes: msg['vaultBinBytes'] as Uint8List,
   );
 }
 
@@ -83,17 +120,50 @@ Future<String?> uploadOpenVaultCloudPack({
     );
   }
 
+  // --- Instrumentación opt-in (FOLIO_PERF_TRACE): coste por fase de la
+  // preparación local ANTES de la primera subida de blob. No cambia
+  // comportamiento; `begin()` devuelve null y el `if (enabled)` se
+  // tree-shakea cuando la traza está desactivada. ---
   rep(VaultCloudPackProgressStep.preparing, 0.02);
   rep(VaultCloudPackProgressStep.persisting, 0.04);
+  final swPersist = FolioPerfTrace.begin();
   await session.persistNow();
+  final perfPersistUs = FolioPerfTrace.us(swPersist);
+
   rep(VaultCloudPackProgressStep.fingerprinting, 0.07);
+  final swVbin = FolioPerfTrace.begin();
   final vaultBinBytes = await session.vaultBinEquivalentBytes();
-  final contentFp = await computeVaultCloudPackContentFingerprint(
-    vaultBinBytes: vaultBinBytes,
+  final perfVbinUs = FolioPerfTrace.us(swVbin);
+
+  // Rutas resueltas en el UI isolate (VaultPaths usa plugins) para pasarlas
+  // como String al worker. Los adjuntos NO se pasan: el worker los lee de
+  // disco él mismo.
+  final swPaths = FolioPerfTrace.begin();
+  final vaultDirPath = (await VaultPaths.vaultDirectory()).path;
+  final wrappedDekPath = (await VaultPaths.wrappedDekPath()).path;
+  final vaultModePath = (await VaultPaths.vaultModePath()).path;
+  final perfPathsUs = FolioPerfTrace.us(swPaths);
+
+  // Paso 2: fingerprint en un isolate secundario (SHA-256 del blob + de cada
+  // adjunto). `contentFingerprint_ms` pasa a ser WALL time del round-trip del
+  // isolate; el UI isolate solo se bloquea en `perfPathsUs` + el marshalling
+  // de `vaultBinBytes` como entrada.
+  final swFp = FolioPerfTrace.begin();
+  final contentFp = await compute(
+    _fingerprintPackInIsolate,
+    <String, Object?>{
+      'vaultBinBytes': vaultBinBytes,
+      'wrappedDekPath': wrappedDekPath,
+      'vaultModePath': vaultModePath,
+      'vaultDirPath': vaultDirPath,
+    },
   );
+  final perfFpUs = FolioPerfTrace.us(swFp);
 
   rep(VaultCloudPackProgressStep.fetchingMeta, 0.09);
+  final swMeta = FolioPerfTrace.begin();
   final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
+  final perfMetaUs = FolioPerfTrace.us(swMeta);
 
   // No dejar que una libreta local vacía (p. ej. estado en memoria vaciado
   // transitoriamente) sobreescriba/rote un cloud-pack existente con
@@ -147,12 +217,25 @@ Future<String?> uploadOpenVaultCloudPack({
     return '';
   }
 
-  final packKey = await session.cloudPackEncryptionKey();
+  // Pack key en el UI isolate: la necesitamos aquí para `restoreWrap`,
+  // descifrar el manifiesto previo y cifrar el nuevo. Para libreta EN CLARO
+  // NO llamamos a `session.cloudPackEncryptionKey()` (re-serializaría la
+  // libreta una 2ª vez): la derivamos de `vaultBinBytes` ya en memoria con la
+  // misma construcción (2× SHA-256). Para libreta cifrada es `dekFromBytes`
+  // (barato). Los bytes se pasan al worker, que hace `SecretKey(keyMaterial)`
+  // — resultado byte-idéntico.
+  final swKey = FolioPerfTrace.begin();
+  final packKey = session.vaultUsesEncryption
+      ? await session.cloudPackEncryptionKey()
+      : await derivePlainPackKey(vaultBinBytes);
+  final packKeyBytes = Uint8List.fromList(await packKey.extractBytes());
+  final perfKeyUs = FolioPerfTrace.us(swKey);
 
   if (encryptedNeedsWrap || plainNeedsWrap || pw.isNotEmpty) {
     rep(VaultCloudPackProgressStep.restoreWrap, 0.11);
   }
 
+  final swWrap = FolioPerfTrace.begin();
   Uint8List? restoreWrapBytes;
   String? restoreWrapKind;
   if (session.vaultUsesEncryption && !hasRestoreWrap) {
@@ -188,9 +271,12 @@ Future<String?> uploadOpenVaultCloudPack({
     restoreWrapKind = 'packKey';
   }
 
+  final perfWrapUs = FolioPerfTrace.us(swWrap);
+
   FolioCloudPackSnapshotManifest? oldManifest;
   final oldSnapPath = latest?['snapshotStoragePath']?.toString().trim() ?? '';
   final oldSnapSize = _parseInt(latest?['snapshotSizeBytes']);
+  final swManifest = FolioPerfTrace.begin();
   if (oldSnapPath.isNotEmpty) {
     rep(VaultCloudPackProgressStep.downloadingPreviousManifest, 0.125);
     oldManifest = await _downloadDecryptManifest(
@@ -198,25 +284,67 @@ Future<String?> uploadOpenVaultCloudPack({
       packKey: packKey,
     );
   }
+  final perfManifestUs = FolioPerfTrace.us(swManifest);
   rep(VaultCloudPackProgressStep.indexingLocal, 0.135);
 
-  final built = await buildVaultPackSnapshot(
-    packKey: packKey,
-    contentFingerprint: contentFp,
-    vaultBinBytes: vaultBinBytes,
+  // Paso 3: construcción del pack en un isolate secundario (gzip nivel 6
+  // síncrono + SHA-256 + AES-GCM de todos los blobs + lectura/procesado de
+  // adjuntos). `buildVaultPackSnapshot_ms` pasa a ser WALL time del round-trip
+  // del isolate; el UI isolate solo se bloquea marshalling `vaultBinBytes` de
+  // entrada y recibiendo el record de salida (transferido, sin copia).
+  final swBuild = FolioPerfTrace.begin();
+  final built = await compute(
+    _buildPackInIsolate,
+    <String, Object?>{
+      'vaultBinBytes': vaultBinBytes,
+      'contentFingerprint': contentFp,
+      'keyMaterial': packKeyBytes,
+      'vaultDirPath': vaultDirPath,
+      'wrappedDekPath': wrappedDekPath,
+      'vaultModePath': vaultModePath,
+    },
   );
+  final perfBuildUs = FolioPerfTrace.us(swBuild);
   final items = built.manifest.items;
   final snapClear = built.manifest;
   final totalBlobs = built.blobs.length;
   var blobsDone = 0;
 
+  if (FolioPerfTrace.enabled) {
+    FolioPerfTrace.log('cloudPackUpload.prepare', {
+      'vaultBinBytes': vaultBinBytes.length,
+      'encrypted': session.vaultUsesEncryption,
+      'pages': session.pages.length,
+      'blobsToUpload': totalBlobs,
+      'persistNow_ms': FolioPerfTrace.ms(perfPersistUs),
+      'vaultBinEquivalentBytes_ms': FolioPerfTrace.ms(perfVbinUs),
+      'resolvePaths_ms': FolioPerfTrace.ms(perfPathsUs),
+      'contentFingerprint_wall_ms': FolioPerfTrace.ms(perfFpUs),
+      'latestCloudPackMeta_ms': FolioPerfTrace.ms(perfMetaUs),
+      'packKeyDerive_ms': FolioPerfTrace.ms(perfKeyUs),
+      'restoreWrap_ms': FolioPerfTrace.ms(perfWrapUs),
+      'downloadPrevManifest_ms': FolioPerfTrace.ms(perfManifestUs),
+      'buildVaultPackSnapshot_wall_ms': FolioPerfTrace.ms(perfBuildUs),
+    });
+  }
+
   for (final b in built.blobs) {
+    final swBlob = (FolioPerfTrace.enabled && blobsDone == 0)
+        ? FolioPerfTrace.begin()
+        : null;
     await _ensureBlobUploaded(
       uid: uid,
       vaultId: vaultId,
       blobId: b.item.blobId,
       bytes: b.cipherBytes,
     );
+    if (swBlob != null) {
+      FolioPerfTrace.log('cloudPackUpload.firstBlob', {
+        'role': b.item.role.name,
+        'cipherBytes': b.cipherBytes.length,
+        'ms': FolioPerfTrace.ms(FolioPerfTrace.us(swBlob)),
+      });
+    }
     blobsDone++;
     final frac = totalBlobs <= 0 ? 1.0 : blobsDone / totalBlobs;
     onProgress?.call(

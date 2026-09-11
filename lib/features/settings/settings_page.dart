@@ -586,6 +586,13 @@ class _SettingsPageState extends State<SettingsPage> {
   final AudioRecorder _meetingNoteDeviceProbe = AudioRecorder();
   List<InputDevice> _meetingNoteMicDevices = const [];
   List<SystemAudioDevice> _meetingNoteSystemDevices = const [];
+
+  /// Perfil de hardware para transcripción (CPU/RAM → modelo Whisper). Se puebla
+  /// de forma asíncrona en la entrada a Settings ([_loadHardwareProfile]) para
+  /// no bloquear `build()` con la lectura de RAM (Windows: PowerShell). `null`
+  /// hasta que resuelve; la sección Quill pinta con un fallback seguro entre
+  /// tanto y repinta al llegar.
+  TranscriptionHardwareSnapshot? _hardwareSnapshot;
   final CustomIconImportService _customIconImportService =
       CustomIconImportService();
 
@@ -639,6 +646,11 @@ class _SettingsPageState extends State<SettingsPage> {
   /// (carga diferida). `'...'` = aún no cargada.
   @visibleForTesting
   String get debugInstalledVersionLabel => _installedVersionLabel;
+
+  /// Snapshot de hardware ya resuelto (o `null` mientras carga). Los tests H2
+  /// comprueban que la sección Quill se construye sin él y repinta al llegar.
+  @visibleForTesting
+  TranscriptionHardwareSnapshot? get debugHardwareSnapshot => _hardwareSnapshot;
 
   // --- Instrumentación Fase 4 (FOLIO_PERF_TRACE), coste cero en release ---
   int _perfBuildCount = 0;
@@ -720,6 +732,9 @@ class _SettingsPageState extends State<SettingsPage> {
     // retrasar el estado local rápido tras un enum de audio lento.
     unawaited(
       _perfTracedLoad('meetingNoteDevices', () => _loadMeetingNoteDevices()),
+    );
+    unawaited(
+      _perfTracedLoad('hardwareProfile', () => _loadHardwareProfile()),
     );
     unawaited(
       _perfTracedLoad('cloudBackupCount', () => _refreshCloudBackupCount()),

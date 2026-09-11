@@ -503,6 +503,44 @@
   "meetingNotePrepareMeeting": "Preparar reunión",
   "meetingNoteRegeneratePrep": "Regenerar preparación",
   "meetingNotePrepFailed": "No se pudo generar la preparación.",
+  "meetingNoteType": "Tipo de reunión",
+  "meetingNoteTypeGeneral": "General",
+  "meetingNoteTypeOneOnOne": "1 a 1 (Feedback/Objetivos)",
+  "meetingNoteTypeStandup": "Seguimiento (Daily/Status)",
+  "meetingNoteTypeKickoff": "Planificación (Kickoff)",
+  "meetingNoteTypeClientSync": "Cliente / Comercial",
+  "meetingNoteEditPrep": "Editar preparación",
+  "meetingNoteInsertPrepInPage": "Insertar en página",
+  "meetingNotePrepInserted": "Notas de preparación insertadas en la página.",
+  "meetingNoteChecklistDialogTitle": "Checklist de la reunión",
+  "meetingNoteChecklistDialogSubtitle": "Selecciona los elementos que deseas insertar como tareas en la página:",
+  "meetingNoteChecklistAddCustom": "Añadir tarea personalizada…",
+  "meetingNoteChecklistConfirm": "Crear {count} tarea(s)",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Refinar hablantes con IA",
+  "meetingNoteReconcilingSpeakers": "Refinando hablantes…",
+  "meetingNoteReconcileSpeakersSuccess": "Hablantes y turnos refinados con éxito.",
+  "meetingNoteRenameSpeaker": "Renombrar hablante",
+  "meetingNoteRenameSpeakerDialogTitle": "Renombrar \"{speaker}\"",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "Nuevo nombre del hablante",
+  "meetingNoteMergeSpeaker": "Fusionar hablante",
+  "meetingNoteMergeSpeakerWith": "Fusionar con:",
+  "meetingNoteActiveChecklistTitle": "Checklist de reunión ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Generar checklist",
   "meetingNoteChecklistGenerated": "{count} elemento(s) de checklist añadidos",
   "@meetingNoteChecklistGenerated": {

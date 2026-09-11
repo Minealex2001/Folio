@@ -6,6 +6,7 @@
 /// existente. Este test verifica el contrato del servicio, no reimplementa
 /// cobertura de `backlinkPagesFor`/`childrenOf`.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/models/block.dart';
 import 'package:folio/services/ai/ai_service.dart';
 import 'package:folio/services/ai/ai_tool.dart';
 import 'package:folio/services/ai/ai_types.dart';
@@ -167,6 +168,99 @@ void main() {
 
       expect(ai.lastRequest?.prompt, contains('importante'));
       expect(ai.lastRequest?.prompt, contains('Subpágina hija'));
+    });
+
+    test('incluye contenido de bloques existentes y participantes en el prompt', () async {
+      final ai = _ScriptedAiService(const AiCompletionResult(text: 'ok'));
+      final session = _readySession(ai);
+
+      session.addPage();
+      final pageId = session.selectedPageId!;
+      final blockId = session.selectedPage!.blocks.first.id;
+      session.changeBlockType(pageId, blockId, 'meeting_note');
+
+      session.appendBlock(
+        pageId: pageId,
+        block: FolioBlock(
+          id: 'p_sprint',
+          type: 'paragraph',
+          text: 'Objetivo crítico del sprint',
+        ),
+      );
+
+      await MeetingNotePreparationService.instance.generate(
+        session: session,
+        pageId: pageId,
+        blockId: blockId,
+        type: MeetingNoteType.oneOnOne,
+        participants: 'Carlos, Ana',
+      );
+
+      expect(ai.lastRequest?.prompt, contains('Objetivo crítico del sprint'));
+      expect(ai.lastRequest?.prompt, contains('Carlos, Ana'));
+      expect(ai.lastRequest?.prompt, contains('1 a 1'));
+    });
+
+    test('insertPrepAsBlocks convierte el markdown en bloques h2, bullet y paragraph en la página', () {
+      final session = _readySession(null);
+      session.addPage();
+      final pageId = session.selectedPageId!;
+      final blockId = session.selectedPage!.blocks.first.id;
+      session.changeBlockType(pageId, blockId, 'meeting_note');
+
+      session.updateBlockMeetingNotePrepNotes(
+        pageId,
+        blockId,
+        '## Agenda sugerida\n- Punto uno\n- Punto dos\nPárrafo de cierre',
+      );
+
+      final count = MeetingNotePreparationService.instance.insertPrepAsBlocks(
+        session: session,
+        pageId: pageId,
+        blockId: blockId,
+      );
+
+      expect(count, 4);
+      final blocks = session.selectedPage!.blocks;
+      expect(blocks.length, 5); // 1 meeting_note + 4 creados
+      expect(blocks[1].type, 'h2');
+      expect(blocks[1].text, 'Agenda sugerida');
+      expect(blocks[2].type, 'bullet');
+      expect(blocks[2].text, 'Punto uno');
+      expect(blocks[3].type, 'bullet');
+      expect(blocks[3].text, 'Punto dos');
+      expect(blocks[4].type, 'paragraph');
+      expect(blocks[4].text, 'Párrafo de cierre');
+    });
+
+    test('suggestChecklistItems devuelve lista de items y insertSelectedChecklistItems inserta los elegidos', () async {
+      final ai = _ScriptedAiService(
+        const AiCompletionResult(text: '- Preparar métricas\n- Enviar invite\n- Revisar backlog'),
+      );
+      final session = _readySession(ai);
+      session.addPage();
+      final pageId = session.selectedPageId!;
+      final blockId = session.selectedPage!.blocks.first.id;
+      session.changeBlockType(pageId, blockId, 'meeting_note');
+
+      final suggestions = await MeetingNotePreparationService.instance.suggestChecklistItems(
+        session: session,
+        pageId: pageId,
+        blockId: blockId,
+      );
+
+      expect(suggestions.length, 3);
+      expect(suggestions, contains('Preparar métricas'));
+      expect(suggestions, contains('Enviar invite'));
+
+      final inserted = MeetingNotePreparationService.instance.insertSelectedChecklistItems(
+        session: session,
+        pageId: pageId,
+        blockId: blockId,
+        items: [suggestions[0], suggestions[2]], // Solo 2 elegidos
+      );
+
+      expect(inserted, 2);
     });
   });
 }

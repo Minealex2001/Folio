@@ -503,6 +503,44 @@
   "meetingNotePrepareMeeting": "Prepare meeting",
   "meetingNoteRegeneratePrep": "Regenerate preparation",
   "meetingNotePrepFailed": "Couldn't generate preparation notes.",
+  "meetingNoteType": "Meeting type",
+  "meetingNoteTypeGeneral": "General",
+  "meetingNoteTypeOneOnOne": "1:1 (Feedback/Goals)",
+  "meetingNoteTypeStandup": "Status / Daily standup",
+  "meetingNoteTypeKickoff": "Planning / Kickoff",
+  "meetingNoteTypeClientSync": "Client / Sales sync",
+  "meetingNoteEditPrep": "Edit preparation",
+  "meetingNoteInsertPrepInPage": "Insert into page",
+  "meetingNotePrepInserted": "Preparation notes inserted into page.",
+  "meetingNoteChecklistDialogTitle": "Meeting checklist",
+  "meetingNoteChecklistDialogSubtitle": "Select items you want to insert as tasks in the page:",
+  "meetingNoteChecklistAddCustom": "Add custom task…",
+  "meetingNoteChecklistConfirm": "Create {count} task(s)",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Refine speakers with AI",
+  "meetingNoteReconcilingSpeakers": "Refining speakers…",
+  "meetingNoteReconcileSpeakersSuccess": "Speakers and turns refined successfully.",
+  "meetingNoteRenameSpeaker": "Rename speaker",
+  "meetingNoteRenameSpeakerDialogTitle": "Rename \"{speaker}\"",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "New speaker name",
+  "meetingNoteMergeSpeaker": "Merge speaker",
+  "meetingNoteMergeSpeakerWith": "Merge with:",
+  "meetingNoteActiveChecklistTitle": "Meeting checklist ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Generate checklist",
   "meetingNoteChecklistGenerated": "{count} checklist item(s) added",
   "@meetingNoteChecklistGenerated": {

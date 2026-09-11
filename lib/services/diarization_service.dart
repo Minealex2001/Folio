@@ -370,68 +370,24 @@ class DiarizationService {
     final turnCount = math.max(1, turns.length);
     if (turnCount == 1) return <String>[rawTranscript.trim()];
 
-    final words = rawTranscript
-        .trim()
-        .split(RegExp(r'\s+'))
-        .map((w) => w.trim())
-        .where((w) => w.isNotEmpty)
-        .toList();
-
-    if (words.length < 2) {
+    // Si tenemos frases delimitadas, distribuirlas respetando la integridad
+    // lingüística de cada frase en lugar de cortar palabras a ciegas.
+    if (sentenceFallback.length > 1) {
       return _distributeSentencesFallback(sentenceFallback, turnCount);
     }
 
-    const minWordsPerTurn = 5;
-    final maxTurnsByWords = math.max(1, words.length ~/ minWordsPerTurn);
-    final effectiveTurns = math.max(1, math.min(turnCount, maxTurnsByWords));
+    // Una sola frase no se trocea arbitrariamente entre hablantes distintos
+    // sin marcadores explícitos; pertenece al turno con mayor peso acústico.
     final output = List<String>.filled(turnCount, '', growable: false);
-
-    final totalWeight = turns
-        .take(effectiveTurns)
-        .map((t) => t.weight)
-        .fold<double>(0.0, (a, b) => a + b);
-
-    final counts = List<int>.filled(effectiveTurns, 0, growable: false);
-    var assigned = 0;
-
-    for (var i = 0; i < effectiveTurns; i++) {
-      final weight = totalWeight <= 1e-9
-          ? 1.0
-          : (turns[i].weight / totalWeight);
-      final c = math.max(1, (words.length * weight).round());
-      counts[i] = c;
-      assigned += c;
-    }
-
-    // Ajuste para cuadrar exactamente el número de palabras.
-    var diff = words.length - assigned;
-    var cursor = 0;
-    while (diff != 0 && effectiveTurns > 0) {
-      if (diff > 0) {
-        counts[cursor % effectiveTurns]++;
-        diff--;
-      } else if (counts[cursor % effectiveTurns] > 1) {
-        counts[cursor % effectiveTurns]--;
-        diff++;
+    var bestTurn = 0;
+    var maxWeight = -1.0;
+    for (var i = 0; i < turns.length; i++) {
+      if (turns[i].weight > maxWeight) {
+        maxWeight = turns[i].weight;
+        bestTurn = i;
       }
-      cursor++;
-      if (cursor > words.length * 2) break;
     }
-
-    var offset = 0;
-    for (var i = 0; i < effectiveTurns; i++) {
-      final end = math.min(words.length, offset + counts[i]);
-      if (offset < end) {
-        output[i] = words.sublist(offset, end).join(' ');
-      }
-      offset = end;
-    }
-    if (offset < words.length && effectiveTurns > 0) {
-      final tail = words.sublist(offset).join(' ');
-      output[effectiveTurns - 1] = output[effectiveTurns - 1].isEmpty
-          ? tail
-          : '${output[effectiveTurns - 1]} $tail';
-    }
+    output[bestTurn] = rawTranscript.trim();
     return output;
   }
 
@@ -605,7 +561,9 @@ class DiarizationService {
 
       if (!voiced) {
         silenceRun++;
-        if (silenceRun >= 6 && current.isNotEmpty) {
+        // Requiere una pausa real (~400 ms) para cortar turno, no una simple
+        // respiración o vacilación de 120 ms.
+        if (silenceRun >= 20 && current.isNotEmpty) {
           turns.add(_TurnFeature.fromFrames(current));
           current = <_FrameFeature>[];
           lastDominance = null;
@@ -621,7 +579,7 @@ class DiarizationService {
           lastDominance != null &&
           lastDominance != 'mixed' &&
           dominance != lastDominance &&
-          current.length >= 3) {
+          current.length >= 6) {
         turns.add(_TurnFeature.fromFrames(current));
         current = <_FrameFeature>[];
       }
@@ -629,8 +587,8 @@ class DiarizationService {
       if (current.isNotEmpty) {
         final prev = current.last;
         final jump = _featureDistance(prev.vector, f.vector);
-        // Umbral un poco más sensible para no colapsar voces distintas.
-        if (jump > 0.28 && current.length >= 4) {
+        // Umbral robusto para no fragmentar fonemas ni cambios de volumen.
+        if (jump > 0.40 && current.length >= 12) {
           turns.add(_TurnFeature.fromFrames(current));
           current = <_FrameFeature>[];
         }
@@ -796,6 +754,24 @@ class _DiarizationSession {
       );
       _lastSpeaker = id;
       return id;
+    }
+
+    // Anclaje determinista de canal: si el turno es indiscutiblemente del
+    // micrófono local (micRatio >= 0.70), asociarlo de forma estable al perfil
+    // del micrófono para que cambios de entonación o volumen no creen falsos hablantes.
+    if (turn.vector.length > 4 && turn.vector[4] >= 0.70) {
+      _SpeakerProfile? micProfile;
+      for (final p in _profiles) {
+        if (p.centroid.length > 4 && p.centroid[4] >= 0.65) {
+          micProfile = p;
+          break;
+        }
+      }
+      if (micProfile != null) {
+        _update(micProfile, turn.vector);
+        _lastSpeaker = micProfile.id;
+        return micProfile.id;
+      }
     }
 
     _SpeakerProfile? best;

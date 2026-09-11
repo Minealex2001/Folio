@@ -34,6 +34,11 @@ class VaultPackPreparedBlob {
 /// Formato v2: comprime (gzip cuando ayuda) y trocea payloads grandes en
 /// partes ≤ [kFolioCloudBlobChunkPlainBytes] antes de cifrar, para no
 /// superar el tope HTTP de [kFolioStorageMaxObjectBytes].
+///
+/// Wrapper compatible con la API previa: resuelve rutas vía [VaultPaths] y
+/// delega en [buildVaultPackSnapshotCore]. La lógica real (gzip / hashing /
+/// AES-GCM / blobIds / orden / manifest / formato) vive en el núcleo, que es
+/// invocable desde un isolate (no toca plugins).
 Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manifest})>
     buildVaultPackSnapshot({
   required SecretKey packKey,
@@ -42,15 +47,55 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
 }) async {
   final wrapped = await VaultPaths.wrappedDekPath();
   final modeFile = await VaultPaths.vaultModePath();
+  final vaultDir = await VaultPaths.vaultDirectory();
+  final keyBytes = Uint8List.fromList(await packKey.extractBytes());
+  return buildVaultPackSnapshotCore(
+    vaultDirPath: vaultDir.path,
+    wrappedDekPath: wrapped.path,
+    vaultModePath: modeFile.path,
+    keyMaterial: keyBytes,
+    // El wrapper recibe una `packKey` ya derivada por el llamador: se usa
+    // tal cual (`SecretKey(keyMaterial)`), sin re-derivar en el núcleo.
+    isPlain: false,
+    contentFingerprint: contentFingerprint,
+    vaultBinBytes: vaultBinBytes,
+  );
+}
+
+/// Núcleo reutilizable de [buildVaultPackSnapshot], parametrizado solo por
+/// tipos transferibles entre isolates (rutas `String`, bytes, `bool`).
+///
+/// - [keyMaterial]: si [isPlain] es `false`, se usa como `SecretKey` directa
+///   (DEK de la libreta cifrada, o pack key ya derivada). Si [isPlain] es
+///   `true`, se **ignora** y la pack key se deriva aquí de [vaultBinBytes]
+///   con la misma construcción que `VaultSession.cloudPackEncryptionKey()`
+///   (evita serializar la libreta una segunda vez en el UI isolate).
+///
+/// NO cambia ninguna lógica de gzip / hashing / AES-GCM / blobIds / orden de
+/// blobs / manifest / formato respecto a la versión previa.
+Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manifest})>
+    buildVaultPackSnapshotCore({
+  required String vaultDirPath,
+  required String wrappedDekPath,
+  required String vaultModePath,
+  required Uint8List keyMaterial,
+  required bool isPlain,
+  required String contentFingerprint,
+  required Uint8List vaultBinBytes,
+  String attachmentsDirName = 'attachments', // == VaultPaths.attachmentsDirName
+}) async {
+  final wrapped = File(wrappedDekPath);
+  final modeFile = File(vaultModePath);
   final plain = _modeFileIsPlain(modeFile);
   if (!plain && !wrapped.existsSync()) {
     throw VaultBackupException('No hay libreta para exportar.');
   }
 
-  final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(
-    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
-  );
+  final packKey = isPlain
+      ? await derivePlainPackKey(vaultBinBytes)
+      : SecretKey(keyMaterial);
+
+  final attDir = Directory(p.join(vaultDirPath, attachmentsDirName));
   final attPaths = <String>[];
   if (attDir.existsSync()) {
     await for (final entity in attDir.list(
@@ -61,7 +106,7 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
       final rel = p
           .relative(entity.path, from: attDir.path)
           .replaceAll(r'\', '/');
-      attPaths.add('${VaultPaths.attachmentsDirName}/$rel');
+      attPaths.add('$attachmentsDirName/$rel');
     }
     attPaths.sort();
   }
@@ -144,7 +189,7 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
   }
 
   for (final posix in attPaths) {
-    final f = File(p.join(vaultDir.path, posix));
+    final f = File(p.join(vaultDirPath, posix));
     if (!f.existsSync()) continue;
     await addBlob(
       role: FolioCloudPackBlobRole.attachment,
@@ -166,4 +211,20 @@ Future<({List<VaultPackPreparedBlob> blobs, FolioCloudPackSnapshotManifest manif
 bool _modeFileIsPlain(File modeFile) {
   if (!modeFile.existsSync()) return false;
   return modeFile.readAsStringSync().trim().toLowerCase() == 'plain';
+}
+
+/// Deriva la pack key de una libreta EN CLARO a partir de sus bytes
+/// serializados. Misma construcción que `VaultSession.cloudPackEncryptionKey()`
+/// (rama plana) — se duplica aquí porque un isolate no puede llamar a
+/// `VaultSession`. NO cambia la semántica de cifrado del pack.
+///
+/// Pública para que el UI isolate pueda derivar la misma pack key sin volver a
+/// serializar la libreta (la necesita para `restoreWrap` y cifrar/descifrar el
+/// manifiesto), mientras el worker la deriva por su cuenta.
+Future<SecretKey> derivePlainPackKey(Uint8List vaultBinBytes) async {
+  final h = await Sha256().hash(vaultBinBytes);
+  final h2 = await Sha256().hash(
+    Uint8List.fromList(utf8.encode('FolioCloudPackPlainV1') + h.bytes),
+  );
+  return SecretKey(h2.bytes);
 }

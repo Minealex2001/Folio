@@ -18,9 +18,13 @@ import '../../../services/system_audio_service.dart';
 import '../../../services/transcription_hardware_profile.dart';
 import '../../../services/whisper_service.dart';
 import '../../../session/vault_session.dart';
+import '../../../models/folio_task_data.dart';
+import '../../../services/meeting_note_reconciliation_service.dart';
 import 'folio_special_block_widgets.dart';
+import 'meeting_note_checklist_dialog.dart';
 import 'meeting_note_live_assist_panel.dart';
 import 'meeting_note_posthoc_dialog.dart';
+import '../../../core/perf/folio_perf_trace.dart';
 
 class MeetingNoteBlockWidget extends StatefulWidget {
   const MeetingNoteBlockWidget({
@@ -72,6 +76,8 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   bool _generatingChecklist = false;
   bool _generatingSummary = false;
   String? _summaryError;
+  bool _reconcilingSpeakers = false;
+  MeetingNoteType _selectedMeetingType = MeetingNoteType.general;
   final Set<int> _materializingActionItem = {};
 
   /// Fase 16 (auditoría de gating local/cloud): confirmado una vez por
@@ -82,9 +88,28 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   /// porque los tres viven en el mismo widget/sesión de edición.
   bool _cloudOptInConfirmed = false;
 
+  // --- Memoización del subárbol de transcript por contenido (fix del freeze
+  // medido: el tick de `elapsed` re-ejecuta `build()` cada segundo, pero el
+  // transcript no cambia). Al devolver el MISMO `Widget`, `Element.update`
+  // detecta `identical(child, oldChild)` y salta build + layout de todo el
+  // transcript. Se invalida solo cuando cambia (text, style, interactive). ---
+  String? _ctMemoText;
+  TextStyle? _ctMemoStyle;
+  bool _ctMemoInteractive = true;
+  Widget? _ctMemo;
+
+  // --- Instrumentación opt-in (FOLIO_PERF_TRACE). Solo se usa/loguea cuando
+  // FolioPerfTrace.enabled; sin efecto en builds normales. ---
+  int _perfRebuildCount = 0;
+  int _perfLastColoredTranscriptUs = 0;
+  int _perfLastColoredTranscriptLines = 0;
+  int _perfWidgetMountedAtMs = 0;
+  int _perfLastBuildLogMs = 0;
+
   @override
   void initState() {
     super.initState();
+    _perfWidgetMountedAtMs = DateTime.now().millisecondsSinceEpoch;
     _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
     _generateTranscription =
         widget.block.meetingNoteTranscriptionEnabled != false;
@@ -131,6 +156,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
 
   void _onSessionChanged() {
     if (!mounted) return;
+    if (FolioPerfTrace.enabled) _perfRebuildCount++;
     setState(() {});
   }
 
@@ -273,7 +299,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   }
 
   // Colores estables por speaker (ciclan si hay más hablantes que colores).
-  // Se reutiliza el mismo color para "Speaker N" en toda la sesión para que
+  // Se reutiliza el mismo color para cada hablante en toda la sesión para que
   // el ojo pueda seguir a un hablante mientras el transcript sigue creciendo.
   static const List<Color> _speakerPalette = [
     Color(0xFF6750A4), // primary-like violeta
@@ -284,47 +310,257 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     Color(0xFF1565C0), // azul
   ];
 
-  Color _speakerColor(int speakerId) =>
-      _speakerPalette[(speakerId - 1) % _speakerPalette.length];
+  Color _speakerColorForName(String name) {
+    final m = RegExp(r'^Speaker\s+(\d+)$', caseSensitive: false)
+        .firstMatch(name.trim());
+    if (m != null) {
+      final id = int.tryParse(m.group(1) ?? '') ?? 1;
+      return _speakerPalette[(id - 1) % _speakerPalette.length];
+    }
+    final hash = name.trim().codeUnits.fold<int>(0, (a, b) => a + b);
+    return _speakerPalette[hash.abs() % _speakerPalette.length];
+  }
 
-  static final RegExp _speakerLinePrefix = RegExp(r'^Speaker (\d+): ');
+  static final RegExp _speakerLinePrefix =
+      RegExp(r'^([A-Za-zÁ-Úá-ú0-9 _\-]{2,30}):\s*');
 
-  /// Construye el transcript con color por speaker cuando el texto sigue el
-  /// formato `Speaker N: ...` (una o varias líneas). Si no hay etiquetas de
-  /// speaker reconocibles, cae al texto plano sin colorear.
-  Widget _buildColoredTranscript(String text, TextStyle? baseStyle) {
-    final lines = text.split('\n');
-    final hasSpeakerLabels = lines.any(
-      (l) => _speakerLinePrefix.hasMatch(l),
+  List<String> _extractDistinctSpeakers(String text) {
+    final pattern = RegExp(
+      r'^([A-Za-zÁ-Úá-ú0-9 _\-]{2,30}):\s*',
+      multiLine: true,
     );
+    final seen = <String>{};
+    final list = <String>[];
+    for (final m in pattern.allMatches(text)) {
+      final name = m.group(1)?.trim();
+      if (name != null && name.isNotEmpty && seen.add(name.toLowerCase())) {
+        list.add(name);
+      }
+    }
+    return list;
+  }
+
+  Future<void> _handleSpeakerAction(String action, String speakerName) async {
+    final l10n = AppLocalizations.of(context);
+    if (action == 'rename') {
+      final controller = TextEditingController(text: speakerName);
+      final newName = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.meetingNoteRenameSpeakerDialogTitle(speakerName)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: l10n.meetingNoteNewSpeakerName,
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+              child: Text(MaterialLocalizations.of(ctx).okButtonLabel),
+            ),
+          ],
+        ),
+      );
+      if (newName != null && newName.isNotEmpty && newName != speakerName) {
+        MeetingNoteReconciliationService.instance.renameSpeaker(
+          session: widget.session,
+          pageId: widget.page.id,
+          blockId: widget.block.id,
+          oldSpeaker: speakerName,
+          newSpeaker: newName,
+        );
+        setState(() {});
+      }
+    } else if (action == 'merge') {
+      final currentTranscript = _displayTranscript;
+      final others = _extractDistinctSpeakers(currentTranscript)
+          .where((s) => s.toLowerCase() != speakerName.toLowerCase())
+          .toList();
+      if (others.isEmpty) return;
+      final target = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(l10n.meetingNoteMergeSpeakerWith),
+          children: others
+              .map(
+                (s) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(ctx).pop(s),
+                  child: Text(s),
+                ),
+              )
+              .toList(),
+        ),
+      );
+      if (target != null && target.isNotEmpty) {
+        MeetingNoteReconciliationService.instance.mergeSpeakers(
+          session: widget.session,
+          pageId: widget.page.id,
+          blockId: widget.block.id,
+          sourceSpeaker: speakerName,
+          targetSpeaker: target,
+        );
+        setState(() {});
+      }
+    }
+  }
+
+  /// Construye el transcript con color y etiquetas interactivas por speaker.
+  /// Si el usuario pulsa en el badge del hablante, puede renombrarlo o fusionarlo.
+  ///
+  /// Envoltura memoizada: si `(text, baseStyle, interactiveSpeakers)` no ha
+  /// cambiado desde el último build, devuelve el MISMO `Widget` → Flutter
+  /// salta el build+layout del transcript entero (el caso del tick de
+  /// `elapsed`, ~1/segundo durante toda la reunión).
+  Widget _buildColoredTranscript(
+    String text,
+    TextStyle? baseStyle, {
+    bool interactiveSpeakers = true,
+  }) {
+    if (_ctMemo != null &&
+        _ctMemoText == text &&
+        _ctMemoStyle == baseStyle &&
+        _ctMemoInteractive == interactiveSpeakers) {
+      if (FolioPerfTrace.enabled) _perfLastColoredTranscriptUs = 0;
+      return _ctMemo!;
+    }
+    final swCt = FolioPerfTrace.begin();
+    final built = _buildColoredTranscriptImpl(
+      text,
+      baseStyle,
+      interactiveSpeakers: interactiveSpeakers,
+    );
+    if (swCt != null) _perfLastColoredTranscriptUs = FolioPerfTrace.us(swCt);
+    _ctMemoText = text;
+    _ctMemoStyle = baseStyle;
+    _ctMemoInteractive = interactiveSpeakers;
+    _ctMemo = built;
+    return built;
+  }
+
+  Widget _buildColoredTranscriptImpl(
+    String text,
+    TextStyle? baseStyle, {
+    bool interactiveSpeakers = true,
+  }) {
+    final lines = text.split('\n');
+    if (FolioPerfTrace.enabled) _perfLastColoredTranscriptLines = lines.length;
+    final hasSpeakerLabels = lines.any((l) => _speakerLinePrefix.hasMatch(l));
     if (!hasSpeakerLabels) {
       return SelectableText(text, style: baseStyle);
     }
 
-    final spans = <TextSpan>[];
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final match = _speakerLinePrefix.firstMatch(line);
-      if (match != null) {
-        final speakerId = int.tryParse(match.group(1) ?? '') ?? 1;
-        spans.add(
-          TextSpan(
-            text: match.group(0),
-            style: baseStyle?.copyWith(
-              color: _speakerColor(speakerId),
-              fontWeight: FontWeight.w700,
-            ),
+    final l10n = AppLocalizations.of(context);
+    final distinctSpeakers = _extractDistinctSpeakers(text);
+
+    final col = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < lines.length; i++) ...[
+          Builder(
+            builder: (ctx) {
+              final line = lines[i];
+              final match = _speakerLinePrefix.firstMatch(line);
+              if (match != null) {
+                final speakerName = match.group(1)!.trim();
+                final speechContent = line.substring(match.end).trim();
+                final speakerColor = _speakerColorForName(speakerName);
+                final otherSpeakers = distinctSpeakers
+                    .where((s) => s.toLowerCase() != speakerName.toLowerCase())
+                    .toList();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (interactiveSpeakers)
+                        PopupMenuButton<String>(
+                          tooltip: l10n.meetingNoteRenameSpeaker,
+                          padding: EdgeInsets.zero,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: speakerColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: speakerColor.withValues(alpha: 0.35),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              '$speakerName:',
+                              style: baseStyle?.copyWith(
+                                color: speakerColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          onSelected: (action) =>
+                              _handleSpeakerAction(action, speakerName),
+                          itemBuilder: (ctx) => [
+                            PopupMenuItem(
+                              value: 'rename',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.edit_outlined, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.meetingNoteRenameSpeaker),
+                                ],
+                              ),
+                            ),
+                            if (otherSpeakers.isNotEmpty)
+                              PopupMenuItem(
+                                value: 'merge',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.merge_type_rounded, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.meetingNoteMergeSpeaker),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        )
+                      else
+                        Text(
+                          '$speakerName: ',
+                          style: baseStyle?.copyWith(
+                            color: speakerColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: SelectableText(
+                          speechContent,
+                          style: baseStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: SelectableText(line, style: baseStyle),
+              );
+            },
           ),
-        );
-        spans.add(
-          TextSpan(text: line.substring(match.end), style: baseStyle),
-        );
-      } else {
-        spans.add(TextSpan(text: line, style: baseStyle));
-      }
-      if (i < lines.length - 1) spans.add(TextSpan(text: '\n', style: baseStyle));
-    }
-    return SelectableText.rich(TextSpan(children: spans));
+        ],
+      ],
+    );
+    return col;
   }
 
   String? _resolveRuntimeError(AppLocalizations l10n) {
@@ -474,6 +710,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         session: widget.session,
         pageId: widget.page.id,
         blockId: widget.block.id,
+        type: _selectedMeetingType,
       );
       if (!mounted) return;
       setState(() {
@@ -491,28 +728,62 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     }
   }
 
-  Future<void> _generateChecklist() async {
-    if (!await _ensureCloudOptIn()) return;
-    if (!mounted) return;
+  Future<void> _openEditPrepDialog() async {
     final l10n = AppLocalizations.of(context);
-    setState(() => _generatingChecklist = true);
-    int inserted = 0;
-    try {
-      inserted = await MeetingNotePreparationService.instance.generateChecklist(
-        session: widget.session,
-        pageId: widget.page.id,
-        blockId: widget.block.id,
+    final currentNotes = widget.block.meetingNotePrepNotes ?? '';
+    final controller = TextEditingController(text: currentNotes);
+
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.meetingNoteEditPrep),
+        content: SizedBox(
+          width: 500,
+          child: TextField(
+            controller: controller,
+            maxLines: 12,
+            style: Theme.of(ctx).textTheme.bodySmall,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.all(10),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: Text(MaterialLocalizations.of(ctx).okButtonLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (saved != null) {
+      widget.session.updateBlockMeetingNotePrepNotes(
+        widget.page.id,
+        widget.block.id,
+        saved.isEmpty ? null : saved,
       );
-    } catch (_) {
-      inserted = 0;
+      setState(() {});
     }
-    if (!mounted) return;
-    setState(() => _generatingChecklist = false);
+  }
+
+  void _insertPrepInPage() {
+    final l10n = AppLocalizations.of(context);
+    final inserted = MeetingNotePreparationService.instance.insertPrepAsBlocks(
+      session: widget.session,
+      pageId: widget.page.id,
+      blockId: widget.block.id,
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           inserted > 0
-              ? l10n.meetingNoteChecklistGenerated(inserted)
+              ? l10n.meetingNotePrepInserted
               : l10n.meetingNotePrepFailed,
         ),
         duration: const Duration(seconds: 2),
@@ -520,8 +791,85 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     );
   }
 
+  Future<void> _generateChecklist() async {
+    if (!await _ensureCloudOptIn()) return;
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _generatingChecklist = true);
+    List<String> suggestions = [];
+    try {
+      suggestions = await MeetingNotePreparationService.instance.suggestChecklistItems(
+        session: widget.session,
+        pageId: widget.page.id,
+        blockId: widget.block.id,
+        type: _selectedMeetingType,
+      );
+    } catch (_) {
+      suggestions = [];
+    }
+    if (!mounted) return;
+    setState(() => _generatingChecklist = false);
+
+    if (suggestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.meetingNotePrepFailed)),
+      );
+      return;
+    }
+
+    final selected = await showMeetingChecklistDialog(
+      context: context,
+      suggestions: suggestions,
+      scheme: widget.scheme,
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    final inserted = MeetingNotePreparationService.instance.insertSelectedChecklistItems(
+      session: widget.session,
+      pageId: widget.page.id,
+      blockId: widget.block.id,
+      items: selected,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.meetingNoteChecklistGenerated(inserted)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _reconcileSpeakers() async {
+    if (!await _ensureCloudOptIn()) return;
+    if (!mounted) return;
+    setState(() => _reconcilingSpeakers = true);
+    final l10n = AppLocalizations.of(context);
+    try {
+      final result = await MeetingNoteReconciliationService.instance.reconcileTranscript(
+        session: widget.session,
+        pageId: widget.page.id,
+        blockId: widget.block.id,
+      );
+      if (!mounted) return;
+      setState(() => _reconcilingSpeakers = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result != null
+                ? l10n.meetingNoteReconcileSpeakersSuccess
+                : l10n.meetingNotePrepFailed,
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _reconcilingSpeakers = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final swBuild = FolioPerfTrace.begin();
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
@@ -544,7 +892,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     // `Material` ancestro más cercano, que sería el de más arriba en el
     // árbol, detrás del `DecoratedBox`. Un `Material` transparente aquí
     // resuelve el aviso de Flutter sin tocar el `Container` del dispatcher.
-    return Material(
+    final tree = Material(
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -554,6 +902,28 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         ],
       ),
     );
+
+    if (FolioPerfTrace.enabled) {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final ticking = _effectiveState == MeetingNoteSessionState.recording ||
+          _effectiveState == MeetingNoteSessionState.cloudProcessing;
+      // En estados "tick" (rebuild ~1/s por el worker) se loguea cada rebuild
+      // para poder correlacionar timestamp → nº líneas → coste; en el resto,
+      // como mucho una vez cada 3 s.
+      if (ticking || nowMs - _perfLastBuildLogMs >= 3000) {
+        _perfLastBuildLogMs = nowMs;
+        FolioPerfTrace.log('meetingNote.build', {
+          'state': _effectiveState.name,
+          'rebuildsSinceMount': _perfRebuildCount,
+          'msSinceMount': nowMs - _perfWidgetMountedAtMs,
+          'transcriptChars': _displayTranscript.length,
+          'transcriptLines': _perfLastColoredTranscriptLines,
+          'coloredTranscript_ms': FolioPerfTrace.ms(_perfLastColoredTranscriptUs),
+          'build_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swBuild)),
+        });
+      }
+    }
+    return tree;
   }
 
   // Fase 5 de la evolución de meeting_note: contexto — reutiliza
@@ -703,7 +1073,44 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
           ),
         ],
         if (_prepAvailable) ...[
-          if (widget.block.meetingNotePrepNotes?.trim().isNotEmpty == true)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: DropdownButtonFormField<MeetingNoteType>(
+              initialValue: _selectedMeetingType,
+              decoration: InputDecoration(
+                labelText: l10n.meetingNoteType,
+                isDense: true,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.category_outlined, size: 18),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: MeetingNoteType.general,
+                  child: Text(l10n.meetingNoteTypeGeneral),
+                ),
+                DropdownMenuItem(
+                  value: MeetingNoteType.oneOnOne,
+                  child: Text(l10n.meetingNoteTypeOneOnOne),
+                ),
+                DropdownMenuItem(
+                  value: MeetingNoteType.standup,
+                  child: Text(l10n.meetingNoteTypeStandup),
+                ),
+                DropdownMenuItem(
+                  value: MeetingNoteType.kickoff,
+                  child: Text(l10n.meetingNoteTypeKickoff),
+                ),
+                DropdownMenuItem(
+                  value: MeetingNoteType.clientSync,
+                  child: Text(l10n.meetingNoteTypeClientSync),
+                ),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedMeetingType = val);
+              },
+            ),
+          ),
+          if (widget.block.meetingNotePrepNotes?.trim().isNotEmpty == true) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Container(
@@ -727,8 +1134,10 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 ),
               ),
             ),
+          ],
           Wrap(
             spacing: 4,
+            runSpacing: 4,
             children: [
               _loadingTextButton(
                 loading: _generatingPrep,
@@ -744,6 +1153,18 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 icon: Icons.checklist_rounded,
                 label: l10n.meetingNoteGenerateChecklist,
               ),
+              if (widget.block.meetingNotePrepNotes?.trim().isNotEmpty == true) ...[
+                TextButton.icon(
+                  onPressed: _openEditPrepDialog,
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: Text(l10n.meetingNoteEditPrep),
+                ),
+                TextButton.icon(
+                  onPressed: _insertPrepInPage,
+                  icon: const Icon(Icons.post_add_rounded, size: 16),
+                  label: Text(l10n.meetingNoteInsertPrepInPage),
+                ),
+              ],
             ],
           ),
           if (_prepError != null)
@@ -847,6 +1268,121 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
           value: progress == 0 ? null : progress,
         ),
       ],
+    );
+  }
+
+  Widget _buildRecordingChecklist(ThemeData theme, AppLocalizations l10n) {
+    final linkedTasks = widget.page.blocks.where((b) {
+      if (b.type != 'task') return false;
+      final data = FolioTaskData.tryParse(b.text);
+      return data?.createdFromBlockId == widget.block.id;
+    }).toList();
+
+    if (linkedTasks.isEmpty) return const SizedBox.shrink();
+
+    final completedCount = linkedTasks.where((b) {
+      final data = FolioTaskData.tryParse(b.text);
+      return data?.status == 'done';
+    }).length;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: widget.scheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: widget.scheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.checklist_rounded,
+                  size: 16,
+                  color: widget.scheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    l10n.meetingNoteActiveChecklistTitle(
+                      completedCount,
+                      linkedTasks.length,
+                    ),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: widget.scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: linkedTasks.length,
+                itemBuilder: (ctx, idx) {
+                  final taskBlock = linkedTasks[idx];
+                  final taskData = FolioTaskData.tryParse(taskBlock.text);
+                  if (taskData == null) return const SizedBox.shrink();
+                  final isDone = taskData.status == 'done';
+
+                  return InkWell(
+                    onTap: () {
+                      final newStatus = isDone ? 'todo' : 'done';
+                      final updated = taskData.copyWith(status: newStatus);
+                      widget.session.updateBlockText(
+                        widget.page.id,
+                        taskBlock.id,
+                        updated.encode(),
+                      );
+                      setState(() {});
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isDone
+                                ? Icons.check_box_rounded
+                                : Icons.check_box_outline_blank_rounded,
+                            size: 16,
+                            color: isDone
+                                ? widget.scheme.primary
+                                : widget.scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              taskData.title,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                decoration: isDone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: isDone
+                                    ? widget.scheme.onSurfaceVariant
+                                    : widget.scheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -986,6 +1522,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
           ),
         ),
+        _buildRecordingChecklist(theme, l10n),
         if (widget.appSettings.isAiRuntimeEnabled && _isThisSession)
           MeetingNoteLiveAssistPanel(
             session: widget.session,
@@ -1392,12 +1929,25 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
         ],
         if (transcript.isNotEmpty) ...[
-          Text(
-            l10n.meetingNoteTranscriptionTitle,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: widget.scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.meetingNoteTranscriptionTitle,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: widget.scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (widget.appSettings.isAiRuntimeEnabled)
+                _loadingTextButton(
+                  loading: _reconcilingSpeakers,
+                  onPressed: _reconcileSpeakers,
+                  icon: Icons.auto_fix_high_rounded,
+                  label: l10n.meetingNoteReconcileSpeakers,
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Container(
