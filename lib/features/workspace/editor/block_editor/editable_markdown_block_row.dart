@@ -296,16 +296,22 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     );
   } else if (block.type == 'callout') {
     final calloutTone = calloutToneForIcon(block.icon);
+    final calloutPreset = st._calloutPreset;
     textContainer = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color:
-            customBackground ?? calloutBackgroundForTone(scheme, calloutTone),
+            customBackground ??
+            calloutBackgroundForTone(
+              scheme,
+              calloutTone,
+              preset: calloutPreset,
+            ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: customBackground != null
               ? customBackgroundBorder
-              : calloutBorderForTone(scheme, calloutTone),
+              : calloutBorderForTone(scheme, calloutTone, preset: calloutPreset),
         ),
       ),
       child: Row(
@@ -318,7 +324,11 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: calloutChipForTone(scheme, calloutTone),
+                    color: calloutChipForTone(
+                      scheme,
+                      calloutTone,
+                      preset: calloutPreset,
+                    ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Padding(
@@ -533,6 +543,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   return BlockRowChrome(
     depth: block.depth,
     compactReadOnlyMobile: compactReadOnlyMobile,
+    verticalPadding: st._blockVerticalSpacing,
     crossAxisAlignment: isTopAlignedSlashBlock
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.center,

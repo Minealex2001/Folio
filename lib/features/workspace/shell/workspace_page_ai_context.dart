@@ -33,6 +33,13 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
           id: '__editor_selection__',
           label: l10n.aiContextEditorSelection,
         ),
+        _AiContextItem(
+          kind: _AiContextItemKind.autoSelectionToggle,
+          id: '__auto_selection_toggle__',
+          label: _activeChat.autoIncludeSelection
+              ? l10n.aiContextAutoSelectionOff
+              : l10n.aiContextAutoSelectionOn,
+        ),
         if (hasMeetingText)
           _AiContextItem(
             kind: _AiContextItemKind.lastMeetingOnPage,
@@ -99,15 +106,17 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         return l10n.aiAttachFileSubtitle;
       case _AiContextItemKind.page:
         if (item.id == '__open_pages__') return l10n.aiAttachPageSubtitle;
-        return null;
+        return l10n.aiContextMentionHint;
       case _AiContextItemKind.editorSelection:
         return l10n.aiAttachSelectionSubtitle;
+      case _AiContextItemKind.autoSelectionToggle:
+        return l10n.aiContextAutoSelectionSubtitle;
       case _AiContextItemKind.meetingNote:
         return l10n.aiAttachMeetingSubtitle;
       case _AiContextItemKind.lastMeetingOnPage:
         return l10n.aiAttachLastMeetingSubtitle;
       case _AiContextItemKind.currentPage:
-        return l10n.aiAttachCurrentPageSubtitle;
+        return l10n.aiContextMentionHint;
       case _AiContextItemKind.file:
         return null;
     }
@@ -499,6 +508,8 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         return Icons.text_fields_rounded;
       case _AiContextItemKind.lastMeetingOnPage:
         return Icons.transcribe_rounded;
+      case _AiContextItemKind.autoSelectionToggle:
+        return Icons.center_focus_strong_rounded;
     }
   }
 
@@ -554,6 +565,11 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         break;
       case _AiContextItemKind.editorSelection:
         _aiAttachNextEditorSelection = true;
+        _stripComposerAtTokenIfAny();
+        _hideAiContextMenu();
+        break;
+      case _AiContextItemKind.autoSelectionToggle:
+        _s.setActiveAiChatAutoIncludeSelection(!_activeChat.autoIncludeSelection);
         _stripComposerAtTokenIfAny();
         _hideAiContextMenu();
         break;
@@ -624,6 +640,9 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         break;
       case _AiContextItemKind.editorSelection:
       case _AiContextItemKind.lastMeetingOnPage:
+        break;
+      case _AiContextItemKind.autoSelectionToggle:
+        _s.setActiveAiChatAutoIncludeSelection(false);
         break;
     }
   }

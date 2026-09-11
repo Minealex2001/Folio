@@ -20,10 +20,13 @@ import '../application/vault_collab_controller.dart';
 import '../application/vault_persistence_controller.dart';
 import '../application/vault_search_index.dart';
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../crypto/vault_crypto.dart';
 import '../crypto/vault_share_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
+import '../data/notion_import/notion_api_mapper.dart';
+import '../services/notion/notion_api_client.dart';
 import '../data/import/simple_html_blocks.dart';
 import '../app/workspace_prefs_keys.dart';
 import '../data/vault_paths.dart';
@@ -32,7 +35,9 @@ import '../data/vault_registry.dart';
 import '../data/vault_repository.dart';
 import '../data/storage/vault_storage.dart';
 import '../models/block.dart';
+import '../models/meeting_note_bookmark.dart';
 import '../models/folio_page.dart';
+import '../models/folio_section.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_database_data.dart';
@@ -51,6 +56,7 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/ytmusic_integration_state.dart';
 import '../models/system_media_integration_state.dart';
 import '../models/discord_integration_state.dart';
 import '../services/integrations/integration_notification_dispatcher.dart';
@@ -64,6 +70,7 @@ import '../data/folio_internal_link.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
+import '../services/ai/ai_service_with_cancel_token.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_app_question_detector.dart';
 import '../services/ai/ai_tool_json_emulation.dart';
@@ -75,6 +82,8 @@ import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
+import '../services/folio_cloud/folio_cloud_organizations.dart';
+import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
 import '../services/unlock_attempt_throttle.dart';
@@ -130,6 +139,30 @@ class VaultSearchResult {
   final String? blockType;
   final int pageLastEditedMs;
   final int score;
+}
+
+/// Fase 4 del roadmap de producto (Cambios recientes) — un evento de
+/// actividad de sesión. Deliberadamente NO persistido ni un sistema de
+/// eventos genérico: complementa las fuentes de verdad reales que ya
+/// existen (`RecentPageVisitsStore` para visitas, revisiones de página para
+/// ediciones manuales) con la única señal que hoy no se guarda en ningún
+/// sitio — que Quill modificó contenido, y qué páginas tocó — para poder
+/// mostrar "Quill modificó X" en un feed unificado. Vive y muere con la
+/// sesión de la app, igual que `aiTurnId`/`_lastFocusedBlockByPage`.
+enum VaultActivityEventKind { aiEdit }
+
+class VaultActivityEvent {
+  const VaultActivityEvent({
+    required this.kind,
+    required this.timestampMs,
+    required this.pageId,
+    required this.pageTitle,
+  });
+
+  final VaultActivityEventKind kind;
+  final int timestampMs;
+  final String pageId;
+  final String pageTitle;
 }
 
 class _PageUndoSnapshot {
@@ -421,6 +454,7 @@ class VaultSession extends ChangeNotifier {
   SlackIntegrationState _slack = SlackIntegrationState.empty;
   TeamsIntegrationState _teams = TeamsIntegrationState.empty;
   SpotifyIntegrationState _spotify = SpotifyIntegrationState.empty;
+  YtMusicIntegrationState _ytMusic = YtMusicIntegrationState.empty;
   DiscordIntegrationState _discord = DiscordIntegrationState.empty;
   SystemMediaIntegrationState _systemMedia = SystemMediaIntegrationState.empty;
   final IntegrationNotificationDispatcher _notificationDispatcher =
@@ -574,6 +608,53 @@ class VaultSession extends ChangeNotifier {
 
   /// Debounce del árbol v1 (equivalente al de [_persistence] en v0).
   static const Duration _v1TreeSaveDebounce = Duration(milliseconds: 450);
+
+  // --- Guardado incremental v1 (Fase 3, optimización S1) ---
+  //
+  // Por defecto el guardado v1 reescribe TODO el árbol `repo/` en cada save
+  // (coste ∝ nº total de páginas). Cuando el único cambio pendiente es
+  // contenido de páginas que YA existen en disco, se persiste solo esas
+  // páginas con `VaultLocalStorage.storePageAt` (coste ∝ páginas tocadas).
+  //
+  // Invariante de seguridad: el guardado incremental SOLO se elige si
+  // `_persistNeedsFullRewrite == false`. Cualquier `scheduleSave()` sin
+  // `contentOnlyPageId` (todas las mutaciones estructurales: crear/borrar/
+  // mover/reordenar páginas, integraciones, plantillas, ACL, tombstones,
+  // displayName, orden del árbol...) lo pone a `true`. Sync/merge también
+  // (ver `_persistNowRespectingFormat`). Además, antes de escribir se verifica
+  // que el conjunto de ids de página en disco == el de la sesión.
+
+  /// Páginas cuyo contenido cambió por una ruta segura para persistencia
+  /// incremental (edición de bloques de una página existente).
+  final Set<String> _dirtyContentPageIds = {};
+
+  /// Si `true`, el próximo guardado v1 debe reescribir el árbol completo.
+  /// Arranca en `true` (fail-safe): el primer guardado tras desbloquear
+  /// siempre es completo.
+  bool _persistNeedsFullRewrite = true;
+
+  /// Se incrementa cada vez que se marca [_persistNeedsFullRewrite]. Permite
+  /// que un guardado en vuelo detecte una mutación estructural que llegó
+  /// DURANTE su escritura (y por tanto no reflejada en disco) y no reponga
+  /// el flag a `false` por error al terminar.
+  int _structuralMutationSeq = 0;
+
+  void _markPersistNeedsFullRewrite() {
+    _persistNeedsFullRewrite = true;
+    _structuralMutationSeq++;
+  }
+
+  /// Contadores de diagnóstico (tests / FOLIO_PERF_TRACE): cuántos guardados
+  /// v1 tomaron cada ruta desde que arrancó la sesión.
+  @visibleForTesting
+  int debugFullPersistV1Count = 0;
+  @visibleForTesting
+  int debugIncrementalPersistV1Count = 0;
+
+  /// Fuerza que el próximo guardado v1 sea completo (sin cambiar el estado).
+  /// Solo para tests que comparan el árbol incremental vs. el completo.
+  @visibleForTesting
+  void debugForceFullPersistNext() => _markPersistNeedsFullRewrite();
 
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
   bool get hasPendingDiskSave =>
@@ -773,6 +854,8 @@ class VaultSession extends ChangeNotifier {
   List<TeamsConnection> get teamsConnections => _teams.connections;
   SpotifyIntegrationState get spotifyIntegrationState => _spotify;
   List<SpotifyConnection> get spotifyConnections => _spotify.connections;
+  YtMusicIntegrationState get ytMusicIntegrationState => _ytMusic;
+  List<YtMusicConnection> get ytMusicConnections => _ytMusic.connections;
   DiscordIntegrationState get discordIntegrationState => _discord;
   List<DiscordConnection> get discordConnections => _discord.connections;
   SystemMediaIntegrationState get systemMediaIntegrationState => _systemMedia;
@@ -790,6 +873,17 @@ class VaultSession extends ChangeNotifier {
   final Map<String, List<_PageUndoSnapshot>> _undoByPage = {};
   final Map<String, List<_PageUndoSnapshot>> _redoByPage = {};
   final Map<String, DateTime> _lastUndoTypingCaptureAt = {};
+
+  // Fase B3 del plan Quill/MCP — undo agrupado por turno de IA. Alcance de
+  // v1, deliberadamente acotado tras verificar el código existente: solo
+  // agrupa los puntos de undo de CONTENIDO que `_rememberUndoBeforePageMutation`
+  // ya produce (mismo primitivo que usa Ctrl+Z, sin reimplementar
+  // snapshotting). Operaciones estructurales (crear/mover/borrar página,
+  // crear carpeta...) NO tienen hoy ningún mecanismo de undo, ni siquiera
+  // para una acción manual del usuario — extender a eso queda
+  // explícitamente fuera de este plan, es un proyecto propio.
+  String? _activeAiTurnId;
+  final Map<String, Map<String, int>> _aiTurnPreUndoLengths = {};
 
   /// Evita un `notifyListeners` por tecla: un único aviso al cerrar el frame.
   bool _typingNotifyFrameScheduled = false;
@@ -852,6 +946,74 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: id);
   }
 
+  /// Fase B3 — abre un grupo de undo para un turno de IA con potencialmente
+  /// varias tool-calls: cada página tocada durante el turno (vía
+  /// `_rememberUndoBeforePageMutation`) registra su longitud de pila de undo
+  /// ANTES del turno, una sola vez. Devuelve el id del turno, que
+  /// `undoAiTurn` usa después para deshacer exactamente lo que cambió en
+  /// este turno (y nada más).
+  String beginAiTurnUndoGroup() {
+    final turnId = _uuid.v4();
+    _activeAiTurnId = turnId;
+    _aiTurnPreUndoLengths[turnId] = {};
+    return turnId;
+  }
+
+  /// Cierra el turno — deja de registrar páginas nuevas en su grupo. El
+  /// grupo en sí permanece disponible para `undoAiTurn`/`aiTurnHasUndoableChanges`
+  /// hasta que se consuma o se descarte explícitamente.
+  void endAiTurnUndoGroup(String turnId) {
+    if (_activeAiTurnId == turnId) _activeAiTurnId = null;
+  }
+
+  /// Descarta el grupo sin deshacer nada (p. ej. el turno usó alguna tool no
+  /// reversible y no se va a ofrecer "deshacer" en absoluto).
+  void discardAiTurnUndoGroup(String turnId) {
+    if (_activeAiTurnId == turnId) _activeAiTurnId = null;
+    _aiTurnPreUndoLengths.remove(turnId);
+  }
+
+  /// true si el turno [turnId] efectivamente empujó algún snapshot de undo
+  /// (es decir, hay algo real que deshacer).
+  bool aiTurnHasUndoableChanges(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return false;
+    for (final entry in pre.entries) {
+      if ((_undoByPage[entry.key]?.length ?? 0) > entry.value) return true;
+    }
+    return false;
+  }
+
+  /// Fase 0 del roadmap de producto — cuenta cuántos snapshots de undo de
+  /// contenido empujó el turno [turnId], sin consumir el grupo (a diferencia
+  /// de `undoAiTurn`). Se usa para mostrar "Quill hizo N cambios" en vez de
+  /// un "Deshacer" genérico. 0 si el turno no existe o no tuvo cambios.
+  int aiTurnChangeCount(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return 0;
+    var total = 0;
+    for (final entry in pre.entries) {
+      final delta = (_undoByPage[entry.key]?.length ?? 0) - entry.value;
+      if (delta > 0) total += delta;
+    }
+    return total;
+  }
+
+  /// Deshace, página por página, exactamente los pasos de contenido
+  /// empujados durante el turno [turnId] — reutiliza `undoPageEdits` (el
+  /// mismo primitivo de Ctrl+Z), no reimplementa restauración de snapshots.
+  void undoAiTurn(String turnId) {
+    final pre = _aiTurnPreUndoLengths.remove(turnId);
+    if (pre == null) return;
+    for (final entry in pre.entries) {
+      final pageId = entry.key;
+      final targetLength = entry.value;
+      while ((_undoByPage[pageId]?.length ?? 0) > targetLength) {
+        undoPageEdits(pageId: pageId);
+      }
+    }
+  }
+
   void redoPageEdits({String? pageId}) {
     final id = pageId ?? _selectedPageId;
     if (id == null) return;
@@ -895,6 +1057,14 @@ class VaultSession extends ChangeNotifier {
               meetingNoteProvider: b.meetingNoteProvider,
               meetingNoteTranscriptionEnabled:
                   b.meetingNoteTranscriptionEnabled,
+              meetingNoteTitle: b.meetingNoteTitle,
+              meetingNoteLanguage: b.meetingNoteLanguage,
+              meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+              meetingNoteBookmarks: b.meetingNoteBookmarks,
+              meetingNotePrepNotes: b.meetingNotePrepNotes,
+              meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+              meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+              meetingNoteSummary: b.meetingNoteSummary,
             ),
           )
           .toList(),
@@ -920,6 +1090,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -930,6 +1108,20 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final now = DateTime.now();
     final stack = _undoByPage.putIfAbsent(pageId, () => []);
+
+    // Fase B3 — registra, una sola vez por página y por turno, la longitud
+    // de la pila de undo ANTES de cualquier cambio de este turno (capturada
+    // aquí arriba de cualquier `stack.add` de más abajo, incluso si esta
+    // llamada concreta termina sin empujar nada por coalescing/fingerprint
+    // duplicado — la primera llamada real del turno es la que fija el punto
+    // de referencia).
+    final activeTurnId = _activeAiTurnId;
+    if (activeTurnId != null) {
+      _aiTurnPreUndoLengths[activeTurnId]?.putIfAbsent(
+        pageId,
+        () => stack.length,
+      );
+    }
 
     // Chequeo barato de la ventana de coalescing ANTES del fingerprint caro
     // (jsonEncode de toda la página): en páginas con miles de bloques,
@@ -1256,6 +1448,7 @@ class VaultSession extends ChangeNotifier {
     _slack = payload.slack;
     _teams = payload.teams;
     _spotify = payload.spotify;
+    _ytMusic = payload.ytMusic;
     _discord = payload.discord;
     _systemMedia = payload.systemMedia;
     _pageTombstones
@@ -1640,6 +1833,29 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void upsertYtMusicConnection(YtMusicConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YtMusicConnection>.from(_ytMusic.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _ytMusic = YtMusicIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYtMusicConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next =
+        _ytMusic.connections.where((c) => c.id != connectionId).toList();
+    _ytMusic = YtMusicIntegrationState(connections: List.unmodifiable(next));
+    notifyListeners();
+    scheduleSave();
+  }
+
   void updateSystemMediaIntegration(SystemMediaIntegrationState state) {
     if (_state != VaultFlowState.unlocked) return;
     _systemMedia = state;
@@ -1734,6 +1950,7 @@ class VaultSession extends ChangeNotifier {
     List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
     bool includeQuillStarterPage = false,
     int? kdfProfile,
+    String? displayName,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -1742,15 +1959,22 @@ class VaultSession extends ChangeNotifier {
       VaultPaths.setActiveVaultId(id);
     }
     await VaultPaths.initVaultStorage(id);
+    final ordinal = _registry.vaults.length + 1;
+    final resolvedName = () {
+      final t = displayName?.trim() ?? '';
+      return t.isNotEmpty ? t : 'Libreta $ordinal';
+    }();
     if (!_registry.containsVault(id)) {
-      final ordinal = _registry.vaults.length + 1;
       await _registry.add(
         VaultEntry(
           id: id,
-          displayName: 'Libreta $ordinal',
+          displayName: resolvedName,
           createdAtMs: DateTime.now().millisecondsSinceEpoch,
         ),
       );
+    } else if (displayName != null && displayName.trim().isNotEmpty) {
+      // prepareNewVault() pre-registra un nombre genérico; lo sustituimos.
+      await _registry.rename(id, resolvedName);
     }
     await _registry.setActiveVaultId(id);
 
@@ -1798,24 +2022,48 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Añade una libreta vacía y pasa a onboarding (el usuario debe completar contraseña o import).
-  Future<void> prepareNewVault() async {
+  ///
+  /// En contexto de equipo crea un [OrganizationWorkspace] y una libreta local
+  /// ligada a ese workspace.
+  Future<void> prepareNewVault({
+    String? organizationId,
+    String? accountUid,
+  }) async {
     await _registry.load();
     final current = VaultPaths.activeVaultId;
-    if (current == null) {
-      throw StateError('No hay libreta activa');
-    }
+    // Permitir crear la primera libreta de un equipo vacío (sin libreta activa).
     _resumeVaultIdAfterNewVault = current;
-    final newId = _uuid.v4();
+
+    final orgId = organizationId ?? _registry.boundOrganizationId;
+    final accUid = accountUid ?? _registry.boundAccountUid;
+    String newId;
+    String displayName;
+    final ordinal = _registry.vaults.length + 1;
+    displayName = 'Libreta $ordinal';
+
+    if (orgId != null && orgId.isNotEmpty) {
+      final ws = await createOrganizationWorkspace(
+        orgId: orgId,
+        name: displayName,
+      );
+      newId = ws.id;
+      displayName = ws.name;
+    } else {
+      newId = _uuid.v4();
+    }
+
     await VaultPaths.initVaultStorage(newId);
     if (!kIsWeb) {
       await VaultPaths.vaultDirectoryForId(newId);
     }
-    final ordinal = _registry.vaults.length + 1;
     await _registry.add(
       VaultEntry(
         id: newId,
-        displayName: 'Libreta $ordinal',
+        displayName: displayName,
         createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        accountUid: accUid,
+        organizationId: orgId,
+        workspaceId: orgId != null ? newId : null,
       ),
     );
     VaultPaths.setActiveVaultId(newId);
@@ -2472,7 +2720,27 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
+        // child_page (`text` = id de la página destino, ver
+        // BLOCK_TYPES_AUDIT.md) referencia el `sourcePath` de origen hasta
+        // este punto — el importador ZIP nunca emite este tipo (los
+        // subenlaces de Markdown/HTML son hipervínculos planos), pero la
+        // importación directa de la API de Notion sí, así que resolvemos
+        // aquí el id real ya materializado. Si no se encuentra (p. ej. la
+        // subpágina no se seleccionó para importar), se deja como bookmark
+        // best-effort en el propio mapper antes de llegar aquí.
+        if (copied.type == 'child_page') {
+          final resolved = sourceToPageId[copied.text];
+          if (resolved != null) copied.text = resolved;
+        }
         await _importBlockAttachmentIfNeeded(
           copied,
           baseDir: src.sourceDirPath,
@@ -2486,13 +2754,19 @@ class VaultSession extends ChangeNotifier {
       }
     }
 
-    // Importar bases de datos CSV de Notion como páginas con un bloque database.
+    // Importar bases de datos de Notion (CSV del ZIP, o child_database de la
+    // API) como páginas con un bloque database, anidadas bajo su página padre
+    // si la tienen (parentSourcePath — siempre null para el importador ZIP,
+    // que las trata como top-level).
     for (final db in parsed.databases) {
       final pageId = _uuid.v4();
       pages.add(
         FolioPage(
           id: pageId,
           title: db.title.trim().isEmpty ? 'Database' : db.title.trim(),
+          parentId: db.parentSourcePath == null
+              ? null
+              : sourceToPageId[db.parentSourcePath],
           blocks: [
             FolioBlock(
               id: _newBlockId(pageId),
@@ -2564,6 +2838,7 @@ class VaultSession extends ChangeNotifier {
       lastImportWarnings = parsed.warnings;
       final pages = await _materializeNotionPages(parsed);
       _pages.addAll(pages);
+      _markPersistNeedsFullRewrite(); // alta masiva de páginas → guardado completo
       if (_selectedPageId == null && _pages.isNotEmpty) {
         _selectedPageId = _pages.first.id;
       }
@@ -2651,6 +2926,139 @@ class VaultSession extends ChangeNotifier {
       try {
         if (temp.existsSync()) {
           await temp.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Importa la selección del picker de la API directa de Notion (OAuth) a
+  /// la libreta actual (debe estar desbloqueada). Par de
+  /// [importNotionIntoCurrentVault] para el ZIP: misma plomería de backup
+  /// previo/materialización, solo cambia la fuente de los datos (API en vivo
+  /// en vez de un export ya extraído a disco).
+  Future<NotionParsedExport> importNotionApiIntoCurrentVault(
+    List<NotionSearchResultItem> selected,
+    NotionApiClient client,
+  ) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para importar.');
+    }
+    await flushPendingSave();
+    try {
+      await createPreImportBackupZip(
+        vaultBinBytes: await vaultBinEquivalentBytes(),
+      );
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo crear el backup pre-import',
+        tag: 'vault',
+        context: {'error': '$e'},
+      );
+    }
+    final attachmentsDir = await Directory.systemTemp.createTemp('folio_notion_api_import_');
+    try {
+      final parsed = await mapNotionSelectionToParsedExport(
+        client: client,
+        selected: selected,
+        attachmentsDir: attachmentsDir,
+      );
+      lastImportWarnings = parsed.warnings;
+      final pages = await _materializeNotionPages(parsed);
+      _pages.addAll(pages);
+      _markPersistNeedsFullRewrite(); // alta masiva de páginas → guardado completo
+      if (_selectedPageId == null && _pages.isNotEmpty) {
+        _selectedPageId = _pages.first.id;
+      }
+      notifyListeners();
+      await persistNow();
+      return parsed;
+    } finally {
+      try {
+        if (attachmentsDir.existsSync()) {
+          await attachmentsDir.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Importa la selección del picker de la API directa de Notion (OAuth)
+  /// creando una libreta nueva. Par de [importNotionAsNewVault] para el ZIP.
+  Future<String> importNotionApiAsNewVault(
+    List<NotionSearchResultItem> selected,
+    NotionApiClient client, {
+    required String masterPassword,
+    String? displayName,
+  }) async {
+    if (kIsWeb) throw UnsupportedError('Notion import not available on web');
+    final attachmentsDir = await Directory.systemTemp.createTemp('folio_notion_api_import_');
+    final prevVaultId = VaultPaths.activeVaultId;
+    final newId = _uuid.v4();
+    final createdAt = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final parsed = await mapNotionSelectionToParsedExport(
+        client: client,
+        selected: selected,
+        attachmentsDir: attachmentsDir,
+      );
+      await _registry.load();
+      VaultPaths.setActiveVaultId(newId);
+      await VaultPaths.vaultDirectoryForId(newId);
+      final newDek = await _repo.createVault(
+        password: masterPassword,
+        encrypted: true,
+        starterContent: VaultStarterContent.disabled,
+      );
+      final oldDek = _dek;
+      final oldPages = _pages;
+      final oldSelected = _selectedPageId;
+      _dek = newDek!.toList();
+      _pages = [];
+      _selectedPageId = null;
+      final pages = await _materializeNotionPages(parsed);
+      _pages = pages;
+      _pickInitialSelection();
+      await _repo.savePayload(
+        VaultPayload(
+          version: kVaultPayloadVersion,
+          pages: _pages,
+          displayName: displayName ?? 'Notion importado',
+          pageRevisions: const {},
+          pageAcl: const {},
+          localProfiles: [
+            LocalProfile(id: 'local-default', name: 'Local user'),
+          ],
+          comments: const [],
+        ),
+        _dek!,
+      );
+      _dek = oldDek;
+      _pages = oldPages;
+      _selectedPageId = oldSelected;
+
+      await _registry.add(
+        VaultEntry(
+          id: newId,
+          displayName: displayName ?? 'Notion importado',
+          createdAtMs: createdAt,
+        ),
+      );
+      if (prevVaultId != null) {
+        VaultPaths.setActiveVaultId(prevVaultId);
+      }
+      lastImportWarnings = parsed.warnings;
+      notifyListeners();
+      return newId;
+    } catch (_) {
+      await VaultPaths.deleteVaultDirectory(newId);
+      rethrow;
+    } finally {
+      if (prevVaultId != null) {
+        VaultPaths.setActiveVaultId(prevVaultId);
+      }
+      try {
+        if (attachmentsDir.existsSync()) {
+          await attachmentsDir.delete(recursive: true);
         }
       } catch (_) {}
     }
@@ -3118,6 +3526,10 @@ class VaultSession extends ChangeNotifier {
     // bóveda a mitad de una reunión (ver Bug de pérdida de datos).
     await MeetingNoteSessionController.instance
         .saveActiveRecordingBeforeTeardown(budget: const Duration(seconds: 12));
+    // Igual para transcripciones a posteriori en curso: cancelarlas antes de
+    // bloquear evita que sigan tocando esta sesión una vez bloqueada.
+    await PostHocTranscriptionJobManager.instance
+        .cancelAllAndAwait(budget: const Duration(seconds: 12));
     await _persistLastSelectedPageBeforeLock();
     // Asegura DEK en caché para sync en segundo plano tras bloquear.
     await _cacheDeviceSyncKeyAfterUnlock();
@@ -3277,6 +3689,62 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Fase 2 del roadmap de producto — "continuar donde lo dejaste" necesita
+  // saber en qué bloque estaba el usuario al salir de una página, no solo
+  // qué página visitó. Deliberadamente en memoria y sin `notifyListeners`
+  // (se actualiza en cada cambio de foco de bloque — Sidebar/`RecentPageVisit`
+  // lo lee solo al detectar un cambio de página, no lo observa en vivo):
+  // persistirlo vive en `RecentPageVisitsStore` (Sidebar), este mapa es solo
+  // la fuente de verdad de sesión, mismo patrón que `_lastSelectedPagePrefsKey`.
+  final Map<String, String> _lastFocusedBlockByPage = {};
+
+  void noteLastFocusedBlock(String pageId, String blockId) {
+    _lastFocusedBlockByPage[pageId] = blockId;
+  }
+
+  String? lastFocusedBlockForPage(String pageId) =>
+      _lastFocusedBlockByPage[pageId];
+
+  // Fase 4 del roadmap de producto — feed de actividad de sesión (ver
+  // `VaultActivityEvent`). Acotado a los últimos N eventos, más nuevo
+  // primero, sin persistir.
+  static const int _maxActivityEvents = 30;
+  final List<VaultActivityEvent> _activityEvents = [];
+
+  List<VaultActivityEvent> get recentActivityEvents =>
+      List.unmodifiable(_activityEvents);
+
+  void _recordActivityEvent(VaultActivityEvent event) {
+    _activityEvents.insert(0, event);
+    if (_activityEvents.length > _maxActivityEvents) {
+      _activityEvents.removeRange(_maxActivityEvents, _activityEvents.length);
+    }
+  }
+
+  /// Fase 4 — registra un evento "Quill modificó <página>" por cada página
+  /// realmente tocada durante el turno [turnId] (mismo `_aiTurnPreUndoLengths`
+  /// que ya usa `aiTurnChangeCount`, leído ANTES de que `undoAiTurn` o
+  /// `discardAiTurnUndoGroup` lo consuman/borren).
+  void recordAiTurnActivity(String turnId) {
+    final pre = _aiTurnPreUndoLengths[turnId];
+    if (pre == null || pre.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final entry in pre.entries) {
+      final delta = (_undoByPage[entry.key]?.length ?? 0) - entry.value;
+      if (delta <= 0) continue;
+      final page = _pageById(entry.key);
+      if (page == null) continue;
+      _recordActivityEvent(
+        VaultActivityEvent(
+          kind: VaultActivityEventKind.aiEdit,
+          timestampMs: now,
+          pageId: page.id,
+          pageTitle: page.title.trim().isEmpty ? _titleL10n.untitled : page.title,
+        ),
+      );
+    }
+  }
+
   void clearSelectedPage() {
     if (_selectedPageId == null) return;
     touchActivity();
@@ -3413,6 +3881,28 @@ class VaultSession extends ChangeNotifier {
       attachmentPaths: cur.attachmentPaths,
       includePageContext: cur.includePageContext,
       contextPageIds: next,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Fase A1 del plan Quill/MCP — toggle explícito por hilo: si está activo,
+  /// la selección del editor se adjunta en cada envío sin que el usuario
+  /// tenga que volver a elegir "@" → "Selección del editor" cada vez.
+  void setActiveAiChatAutoIncludeSelection(bool value) {
+    if (_state != VaultFlowState.unlocked) return;
+    final i = _aiActiveChatIndex;
+    if (i < 0 || i >= _aiChatThreads.length) return;
+    final cur = _aiChatThreads[i];
+    if (cur.autoIncludeSelection == value) return;
+    _aiChatThreads[i] = AiChatThreadData(
+      id: cur.id,
+      title: cur.title,
+      messages: cur.messages,
+      attachmentPaths: cur.attachmentPaths,
+      includePageContext: cur.includePageContext,
+      contextPageIds: cur.contextPageIds,
+      autoIncludeSelection: value,
     );
     notifyListeners();
     scheduleSave();
@@ -4380,6 +4870,14 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
       }
       return b;
@@ -4466,6 +4964,14 @@ class VaultSession extends ChangeNotifier {
           appearance: b.appearance,
           meetingNoteProvider: b.meetingNoteProvider,
           meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          meetingNoteTitle: b.meetingNoteTitle,
+          meetingNoteLanguage: b.meetingNoteLanguage,
+          meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+          meetingNoteBookmarks: b.meetingNoteBookmarks,
+          meetingNotePrepNotes: b.meetingNotePrepNotes,
+          meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+          meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+          meetingNoteSummary: b.meetingNoteSummary,
         );
       }
       return b;
@@ -5186,16 +5692,21 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     _rememberUndoBeforePageMutation(pageId, isTyping: true);
+    var contentSafe = true;
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
       _deleteManagedAttachmentIfUnused(
         b.text,
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+      contentSafe = false; // borró un adjunto gestionado → guardado completo
+    }
+    if (b.aiGenerated == true && b.text != text) {
+      b.aiGenerated = null;
     }
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: contentSafe, notify: false);
   }
 
   /// Variante de [updateBlockText] para actualizaciones de alta frecuencia
@@ -5217,7 +5728,7 @@ class VaultSession extends ChangeNotifier {
     if (b == null) return;
     b.text = text;
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: true, notify: false);
   }
 
   /// Actualiza texto y Delta de un bloque de forma atómica.
@@ -5234,12 +5745,18 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     _rememberUndoBeforePageMutation(pageId, isTyping: true);
+    var contentSafe = true;
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
       _deleteManagedAttachmentIfUnused(
         b.text,
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+      contentSafe = false; // borró un adjunto gestionado → guardado completo
+    }
+    if (b.aiGenerated == true &&
+        (b.text != text || b.richTextDeltaJson != richTextDeltaJson)) {
+      b.aiGenerated = null;
     }
     b.text = text;
     b.richTextDeltaJson = richTextDeltaJson;
@@ -5253,7 +5770,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     _scheduleCoalescedTypingNotify();
-    scheduleSave(trackRevisionForPageId: pageId, notify: false);
+    _scheduleBlockContentSave(pageId, contentSafe: contentSafe, notify: false);
   }
 
   void _propagateSyncedBlockContent(
@@ -5273,7 +5790,9 @@ class VaultSession extends ChangeNotifier {
       }
     }
     for (final pid in pagesChanged) {
-      scheduleSave(trackRevisionForPageId: pid);
+      // Propagación de bloque sincronizado = solo contenido de páginas
+      // existentes → apto para guardado incremental.
+      scheduleSave(contentOnlyPageId: pid);
     }
   }
 
@@ -5358,7 +5877,7 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     b.checked = checked;
     notifyListeners();
-    scheduleSave(trackRevisionForPageId: pageId);
+    _scheduleBlockContentSave(pageId, contentSafe: true);
   }
 
   void setBlockExpanded(String pageId, String blockId, bool expanded) {
@@ -5369,7 +5888,7 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     b.expanded = expanded;
     notifyListeners();
-    scheduleSave(trackRevisionForPageId: pageId);
+    _scheduleBlockContentSave(pageId, contentSafe: true);
   }
 
   void updateBlockIcon(String pageId, String blockId, String? icon) {
@@ -5432,6 +5951,145 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     b.meetingNoteTranscriptionEnabled = enabled;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteChannelMeta(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? channelMeta,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteChannelMeta = channelMeta;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Añade un bookmark a un bloque `meeting_note` (Fase 4). No valida
+  /// duplicados por id — el llamador genera ids únicos (ver
+  /// `MeetingNoteSessionController`/tool MCP `meeting_create_bookmark`).
+  void addBlockMeetingNoteBookmark(
+    String pageId,
+    String blockId,
+    MeetingNoteBookmark bookmark,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final current = List<MeetingNoteBookmark>.from(
+      b.meetingNoteBookmarks ?? const <MeetingNoteBookmark>[],
+    );
+    current.add(bookmark);
+    b.meetingNoteBookmarks = current;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNotePrepNotes(
+    String pageId,
+    String blockId,
+    String? prepNotes,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNotePrepNotes = prepNotes;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteMetricsSummary(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? metricsSummary,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteMetricsSummary = metricsSummary;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteAutoAssistEnabled(
+    String pageId,
+    String blockId,
+    bool? enabled,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteAutoAssistEnabled = enabled;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockMeetingNoteSummary(
+    String pageId,
+    String blockId,
+    Map<String, Object?>? summary,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteSummary = summary;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Marca el action item [index] del resumen post-reunión como
+  /// materializado (Fase 14): guarda el id del bloque `task` real creado.
+  /// No hace nada si el bloque/summary/índice no existen.
+  void setMeetingNoteSummaryActionItemTaskBlockId(
+    String pageId,
+    String blockId,
+    int index,
+    String taskBlockId,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final summary = b.meetingNoteSummary;
+    if (summary == null) return;
+    final actionItems = summary['actionItems'];
+    if (actionItems is! List || index < 0 || index >= actionItems.length) {
+      return;
+    }
+    final item = actionItems[index];
+    if (item is! Map) return;
+    final updatedItems = List<Object?>.from(actionItems);
+    updatedItems[index] = Map<String, Object?>.from(item)
+      ..['taskBlockId'] = taskBlockId;
+    b.meetingNoteSummary = Map<String, Object?>.from(summary)
+      ..['actionItems'] = updatedItems;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void removeBlockMeetingNoteBookmark(
+    String pageId,
+    String blockId,
+    String bookmarkId,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final current = b.meetingNoteBookmarks;
+    if (current == null || current.isEmpty) return;
+    final next = current.where((bm) => bm.id != bookmarkId).toList();
+    if (next.length == current.length) return;
+    b.meetingNoteBookmarks = next;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -5748,6 +6406,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -6081,6 +6747,7 @@ class VaultSession extends ChangeNotifier {
     if (!folioBlocksCanMerge(prev, cur)) {
       return false;
     }
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     prev.text = prev.text + cur.text;
     // El Delta de `prev` solo cubría su contenido antiguo; tras fusionar, el
@@ -6088,6 +6755,7 @@ class VaultSession extends ChangeNotifier {
     // texto fusionado al recargar (donde el Delta tendría prioridad).
     prev.richTextDeltaJson = null;
     page.blocks.removeAt(i);
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, {cur.id});
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
     return true;
@@ -6198,6 +6866,14 @@ class VaultSession extends ChangeNotifier {
       appearance: b.appearance,
       meetingNoteProvider: b.meetingNoteProvider,
       meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+      meetingNoteTitle: b.meetingNoteTitle,
+      meetingNoteLanguage: b.meetingNoteLanguage,
+      meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+      meetingNoteBookmarks: b.meetingNoteBookmarks,
+      meetingNotePrepNotes: b.meetingNotePrepNotes,
+      meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+      meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+      meetingNoteSummary: b.meetingNoteSummary,
       syncGroupId: b.syncGroupId,
     );
     to.blocks.add(moved);
@@ -6232,8 +6908,10 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: victim.id,
       );
     }
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.removeWhere((b) => b.id == blockId);
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, {blockId});
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -6274,8 +6952,218 @@ class VaultSession extends ChangeNotifier {
       }
     }
 
+    final blocksBeforeRemoval = List<FolioBlock>.of(page.blocks);
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.removeWhere((b) => victimIds.contains(b.id));
+    _repairSectionRangesAfterBlocksRemoved(page, blocksBeforeRemoval, victimIds);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  // ---------------------------------------------------------------------
+  // Secciones (Fase E0B del rediseño UX del editor) — capa estructural
+  // ortogonal al modelo de bloques, ver `lib/models/folio_section.dart`.
+  // Mismo patrón de mutación-directa-y-notify que el resto de este archivo.
+  // ---------------------------------------------------------------------
+
+  /// Reasigna el extremo de un rango de sección que apuntaba a
+  /// [removedIds] al bloque superviviente más cercano en el orden original
+  /// de la página — nunca deja un `firstBlockId`/`lastBlockId` apuntando a
+  /// un id ya borrado. Si una sección de un solo bloque pierde su único
+  /// bloque, se colapsa a un único ancla superviviente (preferentemente el
+  /// bloque anterior); si no queda ningún bloque superviviente cerca (caso
+  /// límite que no debería darse dado que estos métodos nunca vacían una
+  /// página por completo), la sección se elimina en vez de quedar con un
+  /// rango inválido.
+  void _repairSectionRangesAfterBlocksRemoved(
+    FolioPage page,
+    List<FolioBlock> blocksBeforeRemoval,
+    Set<String> removedIds,
+  ) {
+    final sections = page.sections;
+    if (sections == null || sections.isEmpty || removedIds.isEmpty) return;
+    final survivingIds = page.blocks.map((b) => b.id).toSet();
+
+    String? nearestSurvivor(String deadId, {required bool forward}) {
+      final idx = blocksBeforeRemoval.indexWhere((b) => b.id == deadId);
+      if (idx < 0) return null;
+      if (forward) {
+        for (var i = idx + 1; i < blocksBeforeRemoval.length; i++) {
+          if (survivingIds.contains(blocksBeforeRemoval[i].id)) {
+            return blocksBeforeRemoval[i].id;
+          }
+        }
+      } else {
+        for (var i = idx - 1; i >= 0; i--) {
+          if (survivingIds.contains(blocksBeforeRemoval[i].id)) {
+            return blocksBeforeRemoval[i].id;
+          }
+        }
+      }
+      return null;
+    }
+
+    final toDrop = <String>[];
+    for (final section in sections) {
+      final first = section.range.firstBlockId;
+      final last = section.range.lastBlockId;
+      final firstDead = !survivingIds.contains(first);
+      final lastDead = !survivingIds.contains(last);
+      if (!firstDead && !lastDead) continue;
+
+      if (first == last) {
+        // Sección de un solo bloque: un único ancla de reemplazo (nunca dos
+        // búsquedas independientes, que podrían invertir el rango).
+        final replacement =
+            nearestSurvivor(first, forward: false) ??
+            nearestSurvivor(first, forward: true);
+        if (replacement == null) {
+          toDrop.add(section.id);
+        } else {
+          section.range = BlockRange(
+            firstBlockId: replacement,
+            lastBlockId: replacement,
+          );
+        }
+        continue;
+      }
+
+      var newFirst = first;
+      var newLast = last;
+      if (firstDead) {
+        final replacement = nearestSurvivor(first, forward: true);
+        if (replacement == null) {
+          toDrop.add(section.id);
+          continue;
+        }
+        newFirst = replacement;
+      }
+      if (lastDead) {
+        final replacement = nearestSurvivor(last, forward: false);
+        if (replacement == null) {
+          toDrop.add(section.id);
+          continue;
+        }
+        newLast = replacement;
+      }
+      section.range = BlockRange(firstBlockId: newFirst, lastBlockId: newLast);
+    }
+    if (toDrop.isNotEmpty) {
+      sections.removeWhere((s) => toDrop.contains(s.id));
+    }
+  }
+
+  /// Desagrupar (pedido explícitamente por el usuario junto con "Agrupar"
+  /// en la Fase E1-E3 del rediseño UX): deshace un bloque `column_list`,
+  /// sustituyéndolo en su misma posición por los bloques planos de todas
+  /// sus columnas, en orden (columna 1 primero, luego columna 2, ...).
+  /// No-op (devuelve `false`) si el bloque no es `column_list`, no tiene
+  /// contenido parseable, o resultaría en cero bloques.
+  bool ungroupColumnsBlock(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return false;
+    final idx = page.blocks.indexWhere((b) => b.id == blockId);
+    if (idx < 0) return false;
+    final block = page.blocks[idx];
+    if (block.type != 'column_list') return false;
+    final data = FolioColumnsData.tryParse(block.text);
+    if (data == null) return false;
+    final flatBlocks = <FolioBlock>[
+      for (final col in data.columns) ...col.blocks,
+    ];
+    if (flatBlocks.isEmpty) return false;
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.removeAt(idx);
+    page.blocks.insertAll(idx, flatBlocks);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return true;
+  }
+
+  /// Crea una sección real a partir de un rango de bloques ya seleccionado
+  /// (típicamente el primer/último id de una selección múltiple contigua en
+  /// el editor — Fase E1/E3). Devuelve la sección creada, o `null` si la
+  /// página no existe o el rango no resuelve a ningún bloque.
+  Section? createSectionFromRange(
+    String pageId, {
+    required String title,
+    required BlockRange range,
+    SectionMetadata metadata = const SectionMetadata(),
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return null;
+    if (blocksInRange(page, range).isEmpty) return null;
+    _rememberUndoBeforePageMutation(pageId);
+    final section = Section(
+      id: '${pageId}_section_${_uuid.v4()}',
+      title: title,
+      range: range,
+      metadata: metadata,
+    );
+    page.sections = [...?page.sections, section];
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return section;
+  }
+
+  void renameSection(String pageId, String sectionId, String title) {
+    final page = _pageById(pageId);
+    final section = page?.sections?.firstWhereOrNull((s) => s.id == sectionId);
+    if (page == null || section == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    section.title = title;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Reemplaza la metadata de la sección por completo — el llamador debe
+  /// construir el nuevo valor con `SectionMetadata.copyWith` si solo quiere
+  /// tocar un campo.
+  void updateSectionMetadata(
+    String pageId,
+    String sectionId,
+    SectionMetadata metadata,
+  ) {
+    final page = _pageById(pageId);
+    final section = page?.sections?.firstWhereOrNull((s) => s.id == sectionId);
+    if (page == null || section == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    section.metadata = metadata;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Elimina la sección — los bloques que cubría NO se borran, simplemente
+  /// dejan de estar cubiertos por una sección real (vuelven a caer bajo la
+  /// sección raíz virtual que el editor sintetiza cuando no hay ninguna
+  /// sección real ahí).
+  void deleteSection(String pageId, String sectionId) {
+    final page = _pageById(pageId);
+    if (page == null || page.sections == null) return;
+    final existed = page.sections!.any((s) => s.id == sectionId);
+    if (!existed) return;
+    _rememberUndoBeforePageMutation(pageId);
+    page.sections!.removeWhere((s) => s.id == sectionId);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Reordena la lista de secciones (arrastre en el panel de outline —
+  /// Fase E4). [newIndex] sigue la misma convención que
+  /// [ReorderableListView] (igual que `reorderBlockAt`).
+  void reorderSections(String pageId, int oldIndex, int newIndex) {
+    final page = _pageById(pageId);
+    final sections = page?.sections;
+    if (page == null || sections == null) return;
+    final len = sections.length;
+    if (oldIndex < 0 || oldIndex >= len) return;
+    if (newIndex < 0 || newIndex > len) return;
+    var insertAt = newIndex;
+    if (insertAt > oldIndex) insertAt -= 1;
+    if (insertAt == oldIndex) return;
+    _rememberUndoBeforePageMutation(pageId);
+    final s = sections.removeAt(oldIndex);
+    sections.insert(insertAt, s);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -6284,11 +7172,28 @@ class VaultSession extends ChangeNotifier {
   /// se añade una entrada al historial (si el contenido difiere de la última revisión).
   /// [notify]: si `false`, el llamador ya programó su propio aviso coalescido
   /// (ver [_scheduleCoalescedTypingNotify]) y este método no debe duplicarlo.
-  void scheduleSave({String? trackRevisionForPageId, bool notify = true}) {
+  /// [contentOnlyPageId]: la mutación fue exclusivamente contenido de bloques
+  /// de esa página YA existente (Quill flush, checkbox, toggle, propagación de
+  /// bloque sincronizado). Habilita el guardado incremental para esa página y,
+  /// como [trackRevisionForPageId], programa la captura de revisión. Cualquier
+  /// `scheduleSave` SIN este parámetro fuerza el guardado completo del árbol.
+  void scheduleSave({
+    String? trackRevisionForPageId,
+    String? contentOnlyPageId,
+    bool notify = true,
+  }) {
     if (vaultUsesEncryption && _dek == null) return;
     touchActivity();
-    if (trackRevisionForPageId != null) {
-      _pageIdsPendingRevision.add(trackRevisionForPageId);
+    if (contentOnlyPageId != null) {
+      _dirtyContentPageIds.add(contentOnlyPageId);
+    } else {
+      // Mutación no clasificada como "solo contenido" → el próximo guardado
+      // v1 reescribe el árbol completo (comportamiento histórico).
+      _markPersistNeedsFullRewrite();
+    }
+    final revisionPageId = trackRevisionForPageId ?? contentOnlyPageId;
+    if (revisionPageId != null) {
+      _pageIdsPendingRevision.add(revisionPageId);
       _revisionIdleTimer?.cancel();
       _revisionIdleTimer = Timer(_revisionIdleDelay, () {
         unawaited(_capturePendingRevisionsAndPersist());
@@ -6301,6 +7206,21 @@ class VaultSession extends ChangeNotifier {
       _scheduleV1TreeSave(notify: notify);
     }
     if (notify) notifyListeners();
+  }
+
+  /// `scheduleSave` para una edición de contenido de bloques de una página
+  /// existente. Con [contentSafe] `false` (p. ej. se borró un adjunto
+  /// gestionado y el manifiesto podría quedar stale) cae al guardado completo.
+  void _scheduleBlockContentSave(
+    String pageId, {
+    required bool contentSafe,
+    bool notify = true,
+  }) {
+    scheduleSave(
+      contentOnlyPageId: contentSafe ? pageId : null,
+      trackRevisionForPageId: contentSafe ? null : pageId,
+      notify: notify,
+    );
   }
 
   void _scheduleV1TreeSave({bool notify = true}) {
@@ -6782,6 +7702,7 @@ class VaultSession extends ChangeNotifier {
       slack: _slack,
       teams: _teams,
       spotify: _spotify,
+      ytMusic: _ytMusic,
       discord: _discord,
       systemMedia: _systemMedia,
       pageTombstones: Map<String, int>.from(_pageTombstones),
@@ -6813,15 +7734,26 @@ class VaultSession extends ChangeNotifier {
         if (identical(_v1ActiveWrite, write)) _v1ActiveWrite = null;
       }
     }
+    final swIndex = FolioPerfTrace.begin();
     _rebuildSearchIndex();
+    if (FolioPerfTrace.enabled) {
+      FolioPerfTrace.log('rebuildSearchIndex', {
+        'pages': _pages.where((p) => !p.isTrashed).length,
+        'encrypted': _vaultUsesEncryption,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swIndex)),
+      });
+    }
   }
 
   Future<void> _doPersistV1() async {
     // Format v1: solo árbol en repo/ (sin snapshot automático ni vault.bin).
+    final swTotal = FolioPerfTrace.begin();
     try {
       _v1TreeSaveTimer?.cancel();
       _v1TreeSaveTimer = null;
+      final swBuild = FolioPerfTrace.begin();
       final payload = _buildVaultPayloadForPersist();
+      final buildUs = FolioPerfTrace.us(swBuild);
       // Defensa: no persistir 0 páginas sobre un árbol que aún tiene datos
       // (p. ej. tras unlock fallido / carrera con sync headless).
       if (payload.pages.isEmpty) {
@@ -6835,9 +7767,43 @@ class VaultSession extends ChangeNotifier {
           return;
         }
       }
+      // --- S1: guardado incremental (solo contenido de páginas existentes) ---
+      if (await _tryIncrementalPersistV1(swTotal, buildUs)) {
+        return;
+      }
+
+      // --- Guardado completo (comportamiento histórico) ---
+      final structuralSeqAtStart = _structuralMutationSeq;
+      final dirtyAtStart = Set<String>.of(_dirtyContentPageIds);
+      final swStore = FolioPerfTrace.begin();
       await VaultLocalStorage.decomposeAndStore(payload);
+      debugFullPersistV1Count++;
+      final storeUs = FolioPerfTrace.us(swStore);
+      // Éxito: el árbol en disco refleja `_pages` tal como estaba al construir
+      // `payload`. Consumimos solo lo marcado ANTES del await (lo que llegara
+      // durante la escritura re-programa su propio guardado). El flag de
+      // "reescritura completa" solo se limpia si no llegó una mutación
+      // estructural mientras escribíamos.
+      _dirtyContentPageIds.removeAll(dirtyAtStart);
+      if (_structuralMutationSeq == structuralSeqAtStart) {
+        _persistNeedsFullRewrite = false;
+      }
       // Nunca borrar vault.bin aquí: solo tras sync/verificación
       // (cleanupV0AfterSuccessfulSync).
+      if (FolioPerfTrace.enabled) {
+        var blocks = 0;
+        for (final p in payload.pages) {
+          blocks += p.blocks.length;
+        }
+        FolioPerfTrace.log('doPersistV1', {
+          'mode': 'full',
+          'pages': payload.pages.length,
+          'blocks': blocks,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+          'buildPayload_ms': FolioPerfTrace.ms(buildUs),
+          'decomposeStore_ms': FolioPerfTrace.ms(storeUs),
+        });
+      }
     } on VaultEmptyOverwriteException catch (e) {
       AppLogger.error('Blocked empty vault tree overwrite: $e');
     } catch (e) {
@@ -6846,11 +7812,126 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Intenta persistir solo las páginas con contenido modificado
+  /// ([_dirtyContentPageIds]) vía `VaultLocalStorage.storePageAt`, sin
+  /// reescribir el árbol entero. Devuelve `true` si la persistencia quedó
+  /// resuelta por esta vía; `false` si el llamador debe hacer el guardado
+  /// completo.
+  ///
+  /// Condiciones (todas obligatorias) para elegir incremental:
+  ///  - formato v1;
+  ///  - `_persistNeedsFullRewrite == false` (ninguna mutación estructural,
+  ///    de sync o no clasificada como "solo contenido" pendiente);
+  ///  - hay al menos una página en [_dirtyContentPageIds];
+  ///  - el árbol `repo/` ya existe en disco;
+  ///  - el conjunto de ids de página en disco == el de la sesión (si difiere,
+  ///    hubo alta/baja de página por cualquier ruta → hay que reescribir
+  ///    `tree.json` y limpiar carpetas stale);
+  ///  - todas las páginas marcadas siguen existiendo en la sesión.
+  Future<bool> _tryIncrementalPersistV1(Stopwatch? swTotal, int buildUs) async {
+    if (_vaultFormatVersion != 1) return false;
+    if (_persistNeedsFullRewrite) return false;
+    if (_dirtyContentPageIds.isEmpty) return false;
+
+    final vaultDir = await VaultPaths.vaultDirectory();
+    final treeDir = await VaultPaths.vaultTreeDirectory();
+    if (!treeDir.existsSync()) return false;
+
+    final onDiskIds = VaultLocalStorage.listPageIdsOnDisk(treeDir);
+    final sessionIds = _pages.map((p) => p.id).toSet();
+    if (!setEquals(onDiskIds, sessionIds)) return false;
+
+    // Captura y consume el set ANTES del await.
+    final ids = Set<String>.of(_dirtyContentPageIds);
+    _dirtyContentPageIds.removeAll(ids);
+    final structuralSeqAtStart = _structuralMutationSeq;
+
+    final pages = <FolioPage>[];
+    for (final id in ids) {
+      final page = _pageById(id);
+      if (page == null) {
+        // Desapareció entre el marcado y ahora → operación estructural en
+        // curso: que el llamador haga el guardado completo (limpia stale).
+        _markPersistNeedsFullRewrite();
+        return false;
+      }
+      pages.add(page);
+    }
+
+    final perf = FolioPerfTrace.enabled ? DecomposePerf() : null;
+    if (perf != null) FolioPerfTrace.decompose = perf;
+    final swStore = FolioPerfTrace.begin();
+    try {
+      for (final page in pages) {
+        // Cada `storePageAt` es atómico por fichero (mismo `_writeAtomic` +
+        // `runExclusive` que el guardado completo). Se pierde la
+        // transaccionalidad ENTRE páginas: un cierre inesperado a mitad deja
+        // unas páginas guardadas y otras no — equivalente a haber pausado la
+        // edición antes; nunca corrompe (cada línea de `blocks.jsonl` es una
+        // escritura atómica completa) ni resucita páginas borradas (una baja
+        // de página fuerza guardado completo por el guard de conjunto de ids).
+        // ponytail: atomicidad por página, no por árbol; el guardado completo
+        // periódico (cualquier op estructural) restablece la consistencia total.
+        await VaultLocalStorage.storePageAt(vaultDir, page, _comments);
+      }
+    } finally {
+      if (perf != null) FolioPerfTrace.decompose = null;
+    }
+    debugIncrementalPersistV1Count++;
+    final storeUs = FolioPerfTrace.us(swStore);
+
+    // Si durante la escritura llegó una mutación estructural o de sync,
+    // reconcilia el árbol completo ahora (tree.json / carpetas stale).
+    if (_structuralMutationSeq != structuralSeqAtStart ||
+        _persistNeedsFullRewrite) {
+      final full = _buildVaultPayloadForPersist();
+      final seqBeforeReconcile = _structuralMutationSeq;
+      final dirtyBeforeReconcile = Set<String>.of(_dirtyContentPageIds);
+      await VaultLocalStorage.decomposeAndStore(full);
+      debugFullPersistV1Count++;
+      _dirtyContentPageIds.removeAll(dirtyBeforeReconcile);
+      if (_structuralMutationSeq == seqBeforeReconcile) {
+        _persistNeedsFullRewrite = false;
+      }
+      if (FolioPerfTrace.enabled) {
+        FolioPerfTrace.log('doPersistV1', {
+          'mode': 'incremental+reconcile',
+          'incrementalPages': pages.length,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+        });
+      }
+      return true;
+    }
+
+    if (FolioPerfTrace.enabled) {
+      var blocks = 0;
+      for (final p in pages) {
+        blocks += p.blocks.length;
+      }
+      FolioPerfTrace.log('doPersistV1', {
+        'mode': 'incremental',
+        'pagesWritten': pages.length,
+        'blocks': blocks,
+        'files': perf?.fileCount ?? 0,
+        'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+        'buildPayload_ms': FolioPerfTrace.ms(buildUs),
+        'storePages_ms': FolioPerfTrace.ms(storeUs),
+        'writeAtomic_ms': FolioPerfTrace.ms(perf?.writeUs ?? 0),
+        'serialize_ms': FolioPerfTrace.ms(perf?.serializeUs ?? 0),
+      });
+    }
+    return true;
+  }
+
   /// Persistencia inmediata respetando formato: v0 puede suprimir `onPersisted`
   /// (evitar bucles de sync); v1 siempre escribe solo el árbol.
   Future<void> _persistNowRespectingFormat({
     bool suppressPersistedCallback = false,
   }) async {
+    // Solo lo usan las rutas de sync/merge, que pueden haber cambiado
+    // contenido de páginas existentes, orden del árbol o el conjunto de
+    // páginas sin pasar por `scheduleSave`. Fuerza guardado v1 completo.
+    _markPersistNeedsFullRewrite();
     if (_vaultFormatVersion == 0) {
       if (suppressPersistedCallback) {
         await _persistence.persistNowSuppressed();
@@ -6952,6 +8033,11 @@ class VaultSession extends ChangeNotifier {
   Future<({bool ok, bool changed})> applySyncSnapshotBytes(
     List<int> rawBytes, [
     String fromPeerId = '',
+    /// Recuento de páginas que el propio manifiesto remoto declara tener
+    /// (`DeviceSyncPullResult.manifestPageCount`), si se conoce. Permite
+    /// distinguir un remoto genuinamente pequeño de un manifiesto parcial
+    /// que casualmente coincide en tamaño con lo esperado.
+    int? remoteExpectedPageCount,
   ]) async {
     if (_state != VaultFlowState.unlocked) {
       return (ok: false, changed: false);
@@ -6993,10 +8079,33 @@ class VaultSession extends ChangeNotifier {
         return (ok: true, changed: false);
       }
 
+      // Mismo riesgo que el guard de arriba pero para un remoto PARCIAL (no
+      // vacío del todo): si el baseline en memoria aún no se sembró (p. ej.
+      // recién desbloqueada), `merge()` vería un baseline vacío y su propio
+      // guard de páginas parciales no dispararía. Comparar contra lo local
+      // aquí cubre ese hueco sin esperar a que el baseline exista.
+      if (VaultSyncMergeEngine.looksSuspiciouslyPartial(
+        basePageCount: localPayload.pages.length,
+        remotePageCount: remotePayload.pages.length,
+        remoteExpectedPageCount: remoteExpectedPageCount,
+      )) {
+        AppLogger.warn(
+          'applySyncSnapshotBytes skipped: remote looks like a partial manifest',
+          tag: 'sync',
+          context: {
+            'localPages': localPayload.pages.length,
+            'remotePages': remotePayload.pages.length,
+            'remoteExpectedPageCount': remoteExpectedPageCount,
+          },
+        );
+        return (ok: true, changed: false);
+      }
+
       final result = _syncMerge.merge(
         local: localPayload,
         remote: remotePayload,
         baseline: _syncBaselinePayload,
+        remoteExpectedPageCount: remoteExpectedPageCount,
       );
 
       for (final conflict in result.blockConflicts) {
@@ -7661,6 +8770,14 @@ class VaultSession extends ChangeNotifier {
             appearance: b.appearance,
             meetingNoteProvider: b.meetingNoteProvider,
             meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+            meetingNoteTitle: b.meetingNoteTitle,
+            meetingNoteLanguage: b.meetingNoteLanguage,
+            meetingNoteChannelMeta: b.meetingNoteChannelMeta,
+            meetingNoteBookmarks: b.meetingNoteBookmarks,
+            meetingNotePrepNotes: b.meetingNotePrepNotes,
+            meetingNoteMetricsSummary: b.meetingNoteMetricsSummary,
+            meetingNoteAutoAssistEnabled: b.meetingNoteAutoAssistEnabled,
+            meetingNoteSummary: b.meetingNoteSummary,
           ),
         )
         .toList();
@@ -7684,6 +8801,11 @@ class VaultSession extends ChangeNotifier {
     if (txt.isNotEmpty && url.isNotEmpty) return '$txt $url';
     return txt.isNotEmpty ? txt : url;
   }
+
+  /// Fase 2 del roadmap de producto (Daily Brief) — expone
+  /// `_pageLastEditedMs` para widgets del dashboard. Dato real (última
+  /// revisión guardada de la página), no una aproximación por visitas.
+  int pageLastEditedMs(String pageId) => _pageLastEditedMs(pageId);
 
   int _pageLastEditedMs(String pageId) {
     final list = _pageRevisions[pageId];
@@ -7854,6 +8976,7 @@ class VaultSession extends ChangeNotifier {
     unawaited(
       MeetingNoteSessionController.instance.saveActiveRecordingBeforeTeardown(),
     );
+    unawaited(PostHocTranscriptionJobManager.instance.cancelAllAndAwait());
     _notificationDispatcher.dispose();
     _persistence.dispose();
     _revisionIdleTimer?.cancel();

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import 'ai_http_cancel.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
 
@@ -48,9 +49,24 @@ class OllamaAiService implements AiService {
   }
 
   @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
+
+  @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = baseUrl.resolve('/api/chat');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -75,7 +91,10 @@ class OllamaAiService implements AiService {
         usage: _parseUsage(json),
         toolCalls: toolCalls,
       );
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }
@@ -88,7 +107,11 @@ class OllamaAiService implements AiService {
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = baseUrl.resolve('/api/chat');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -100,6 +123,9 @@ class OllamaAiService implements AiService {
       }
       final lines = response.transform(utf8.decoder).transform(const LineSplitter());
       await for (final line in lines) {
+        if (request.cancelToken?.isCancelled == true) {
+          throw const AiRequestCancelledException();
+        }
         if (line.trim().isEmpty) continue;
         final json = jsonDecode(line) as Map<String, dynamic>;
         final msg = (json['message'] as Map<String, dynamic>?) ?? const {};
@@ -116,7 +142,10 @@ class OllamaAiService implements AiService {
           toolCalls: _parseToolCalls(msg),
         );
       }
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }

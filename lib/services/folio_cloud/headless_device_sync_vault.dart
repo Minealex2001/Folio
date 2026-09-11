@@ -237,6 +237,11 @@ class HeadlessDeviceSyncVault {
     required String vaultId,
     required SecretKey packKey,
     required VaultPayload payload,
+    /// Solo lo activan los llamadores que instalan contenido REMOTO (p. ej.
+    /// `applyRemotePack`) — última red de seguridad en disco por si el
+    /// guard de más arriba (merge engine) fallara o cambiara sin querer.
+    /// Nunca lo activa un guardado de la propia edición local del usuario.
+    bool guardAgainstPartialOverwrite = false,
   }) async {
     AppLogger.debug(
       'headless savePayload',
@@ -251,10 +256,14 @@ class HeadlessDeviceSyncVault {
     final format = await _formatVersion(vaultId);
     final dir = await VaultPaths.vaultDirectoryForId(vaultId);
     if (format >= 1) {
-      await VaultLocalStorage.decomposeAndStoreAt(dir, payload);
+      await VaultLocalStorage.decomposeAndStoreAt(
+        dir,
+        payload,
+        guardAgainstPartialOverwrite: guardAgainstPartialOverwrite,
+      );
       return;
     }
-    if (payload.pages.isEmpty) {
+    if (payload.pages.isEmpty || guardAgainstPartialOverwrite) {
       // Libreta aún no migrada localmente a v1 (p. ej. dispositivo que nunca
       // se desbloqueó en UI): vault.bin no tiene ningún guard de escritura,
       // a diferencia del árbol v1. Best-effort: si no se puede leer el
@@ -269,11 +278,28 @@ class HeadlessDeviceSyncVault {
       } catch (_) {
         existingPages = 0;
       }
-      if (existingPages > 0) {
+      if (payload.pages.isEmpty && existingPages > 0) {
         AppLogger.warn(
           'headless savePayload (v0) skipped: refusing empty overwrite',
           tag: 'cloud_sync',
           context: {'vaultId': vaultId, 'existingPages': existingPages},
+        );
+        return;
+      }
+      if (guardAgainstPartialOverwrite &&
+          payload.pages.isNotEmpty &&
+          VaultLocalStorage.looksLikePartialOverwrite(
+            existingPages: existingPages,
+            incomingPages: payload.pages.length,
+          )) {
+        AppLogger.warn(
+          'headless savePayload (v0) skipped: refusing partial overwrite',
+          tag: 'cloud_sync',
+          context: {
+            'vaultId': vaultId,
+            'existingPages': existingPages,
+            'incomingPages': payload.pages.length,
+          },
         );
         return;
       }
@@ -360,6 +386,9 @@ class HeadlessDeviceSyncVault {
     required SecretKey packKey,
     required List<int> remotePackBytes,
     VaultPayload? baseline,
+    /// Recuento de páginas declarado por el propio manifiesto remoto
+    /// (`DeviceSyncPullResult.manifestPageCount`), si se conoce.
+    int? remoteExpectedPageCount,
   }) async {
     try {
       final pack = await VaultSyncPack.decodeFlexibleAsync(remotePackBytes);
@@ -391,6 +420,7 @@ class HeadlessDeviceSyncVault {
           vaultId: vaultId,
           packKey: packKey,
           payload: pack.payload,
+          guardAgainstPartialOverwrite: true,
         );
         final outFp = VaultSyncMergeEngine.payloadFingerprint(pack.payload);
         AppLogger.info(
@@ -427,15 +457,39 @@ class HeadlessDeviceSyncVault {
         await _applyDisplayNameToRegistry(vaultId, pack.payload.displayName);
         return (ok: true, changed: false, fingerprint: localFp);
       }
+      // Mismo motivo que el guard de remoto vacío de más arriba, pero para un
+      // manifiesto PARCIAL: si el baseline pasado (o local) no alcanza para
+      // que `merge()` lo detecte por sí solo (p. ej. baseline null en la
+      // primera sync headless de la sesión), esto evita instalar/mergear un
+      // remoto que colapsaría las páginas locales.
+      if (VaultSyncMergeEngine.looksSuspiciouslyPartial(
+        basePageCount: (baseline ?? local).pages.length,
+        remotePageCount: pack.payload.pages.length,
+        remoteExpectedPageCount: remoteExpectedPageCount,
+      )) {
+        AppLogger.warn(
+          'headless applyRemotePack skipped: remote looks like a partial manifest',
+          tag: 'cloud_sync',
+          context: {
+            'vaultId': vaultId,
+            'localPages': local.pages.length,
+            'remotePages': pack.payload.pages.length,
+            'remoteExpectedPageCount': remoteExpectedPageCount,
+          },
+        );
+        return (ok: true, changed: false, fingerprint: localFp);
+      }
       final result = _merge.merge(
         local: local,
         remote: pack.payload,
         baseline: baseline,
+        remoteExpectedPageCount: remoteExpectedPageCount,
       );
       await savePayload(
         vaultId: vaultId,
         packKey: packKey,
         payload: result.payload,
+        guardAgainstPartialOverwrite: true,
       );
       await materializeVaultSyncPackAttachmentsForVault(
         vaultId,

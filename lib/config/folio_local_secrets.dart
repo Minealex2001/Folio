@@ -33,7 +33,7 @@ abstract final class FolioLocalSecrets {
   /// (`windows-release-on-merge.yml`) sobrescribe explícitamente con el
   /// backend de producción — ver ese workflow y `builld_all.ps1`.
   static const String folioBackendBaseUrl =
-      'https://backendfoliobeta.minealexgames.com';
+      'https://api-beta.folio.com.es';
 
   /// Mismas claves que `String.fromEnvironment` y las entradas de `.env`.
   static String valueForDefineKey(String key) {

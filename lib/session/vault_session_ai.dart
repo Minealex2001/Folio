@@ -632,6 +632,63 @@ extension VaultSessionAi on VaultSession {
     return buf.toString();
   }
 
+  // ---------------------------------------------------------------------
+  // Generación de imágenes (Quill)
+  // ---------------------------------------------------------------------
+
+  /// Genera bytes de imagen con [ai] y los importa al vault como adjunto,
+  /// devolviendo la ruta relativa (attachments/<uuid>.png) — el mismo formato
+  /// que produce el picker de imagen local del editor. Lanza
+  /// [AiImageGenerationUnsupportedException] si [ai] no soporta la capacidad.
+  Future<String> _generateImageAndImport({
+    required AiService ai,
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    if (!ai.supportsImageGeneration) {
+      throw AiImageGenerationUnsupportedException(ai.providerName);
+    }
+    final result = await ai.generateImage(
+      prompt: prompt,
+      pageContextText: pageContextText,
+    );
+    final ext = result.mimeType.contains('png') ? '.png' : '.jpg';
+    return VaultPaths.importAttachmentBytes(result.bytes, ext);
+  }
+
+  /// Camino dedicado para la entrada de UI explícita ("Generar imagen"), sin
+  /// pasar por `runToolLoop` — el usuario ya decidió generar, no hace falta
+  /// que el modelo decida invocar la tool. Devuelve un [AiChatMessage] listo
+  /// para anexar al hilo activo vía [appendMessageToAiChatById].
+  Future<AiChatMessage> generateImageForChatDirect({
+    required AiService ai,
+    required String prompt,
+    bool useCurrentPageContext = false,
+    String? scopePageId,
+    bool isEs = true,
+  }) async {
+    final trimmedPrompt = prompt.trim();
+    final contextText =
+        (useCurrentPageContext && scopePageId != null && scopePageId.isNotEmpty)
+        ? _buildAiChatPagesTextContext(
+            [scopePageId],
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
+        : null;
+    final relPath = await _generateImageAndImport(
+      ai: ai,
+      prompt: trimmedPrompt,
+      pageContextText: contextText,
+    );
+    return AiChatMessage.now(
+      role: 'assistant',
+      content: '',
+      generatedImagePath: relPath,
+      generatedImagePrompt: trimmedPrompt,
+    );
+  }
+
   String _plainChatContextFromPageIds(List<String> pageIds) {
     if (pageIds.isEmpty) return '';
     final b = StringBuffer('\n\nContexto de folios:\n');
@@ -810,6 +867,7 @@ For images/blocks: use the + button or / command in a paragraph.
     /// `runToolLoop` en cada fragmento nuevo (ver doc de `onReplyTextDelta`
     /// en `ai_tool_loop.dart`). `null` = comportamiento bloqueante de siempre.
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     final isEs = languageCode.toLowerCase().startsWith('es');
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -840,6 +898,10 @@ For images/blocks: use the + button or / command in a paragraph.
       prompt,
       languageCode: languageCode,
     );
+    final wantsGenerateImage = _looksLikeGenerateImageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
 
     final systemPrompt = StringBuffer()
       ..writeln(agentIdentity)
@@ -864,6 +926,23 @@ For images/blocks: use the + button or / command in a paragraph.
                     'page. Do not tell the user to fill the page themselves.',
         );
     }
+    if (wantsGenerateImage) {
+      systemPrompt
+        ..writeln()
+        ..writeln(
+          isEs
+              ? 'El usuario pide una imagen generada. Debes llamar a la tool generate_image '
+                    'con un "prompt" descriptivo y detallado (traduce/expande la petición del usuario a una '
+                    'buena descripción visual en inglés o español). No respondas solo en texto ni digas que no '
+                    'puedes: si el proveedor no soporta la generación, la tool devolverá un error que debes '
+                    'explicar; en ese caso responde con el error real, no con una respuesta vacía.'
+              : 'The user wants a generated image. You must call generate_image with a detailed, descriptive '
+                    '"prompt" (expand the user\'s request into a good visual description). Do not answer with '
+                    'plain text only, and do not say you cannot help: if the provider does not support image '
+                    'generation, the tool will return an error you must explain — reply with that actual error, '
+                    'never with an empty response.',
+        );
+    }
     systemPrompt
       ..writeln()
       ..writeln(_aiLanguageRule(languageCode, isEsInstruction: isEs))
@@ -879,6 +958,25 @@ For images/blocks: use the + button or / command in a paragraph.
       this,
       scopePageId: scopePageId,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+      onGenerateImage: (imagePrompt, useContext) async {
+        final contextText = useContext && scopePageId != null && scopePageId.isNotEmpty
+            ? _buildAiChatPagesTextContext(
+                [scopePageId],
+                isEs: isEs,
+                activePageId: scopePageId,
+              )
+            : null;
+        final relPath = await _generateImageAndImport(
+          ai: ai,
+          prompt: imagePrompt,
+          pageContextText: contextText,
+        );
+        return jsonEncode({
+          'status': 'generated',
+          'path': relPath,
+          'prompt': imagePrompt,
+        });
+      },
     );
     final toolAi = withToolCallingSupport(ai, isEs: isEs);
 
@@ -894,8 +992,14 @@ For images/blocks: use the + button or / command in a paragraph.
       tools: registry.definitions,
       toolChoice: 'auto',
       maxTokens: wantsCreatePage ? _kAiMaxTokensContent : _kAiMaxTokensChat,
+      cancelToken: cancelToken,
     );
 
+    // Fase B3 del plan Quill/MCP — agrupa en un único "turno" todos los
+    // puntos de undo de contenido que este bucle de tool-calling produzca,
+    // para poder ofrecer "Deshacer" sobre el turno completo en vez de uno
+    // por uno. Ver `beginAiTurnUndoGroup`/`undoAiTurn` en `vault_session.dart`.
+    final aiTurnId = beginAiTurnUndoGroup();
     final outcome = await runToolLoop(
       ai: toolAi,
       baseRequest: baseRequest,
@@ -904,7 +1008,31 @@ For images/blocks: use the + button or / command in a paragraph.
       onEvent: onToolEvent,
       maxSteps: maxSteps,
       onReplyTextDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
+    endAiTurnUndoGroup(aiTurnId);
+    // Si el turno usó alguna tool no reversible (estructural o destructiva —
+    // ver `AiToolDefinition.isReversible`, Fase B1), no se ofrece "deshacer"
+    // para nada de este turno: sería engañoso deshacer solo la parte de
+    // contenido y dejar la parte estructural intacta sin avisar.
+    final turnUsedNonReversibleTool = outcome.steps.any((step) {
+      final def = registry.definitionByName(step.call.name);
+      return def != null && !def.isReversible;
+    });
+    final resolvedAiTurnId =
+        !turnUsedNonReversibleTool && aiTurnHasUndoableChanges(aiTurnId)
+        ? aiTurnId
+        : null;
+    // Se calcula antes de descartar/consumir el grupo: `aiTurnChangeCount`
+    // lee `_aiTurnPreUndoLengths`, que `discardAiTurnUndoGroup` borra.
+    final resolvedAiTurnChangeCount = resolvedAiTurnId != null
+        ? aiTurnChangeCount(resolvedAiTurnId)
+        : null;
+    // Fase 4 del roadmap de producto — registra el evento de actividad
+    // ANTES de descartar el grupo (discard borra `_aiTurnPreUndoLengths`,
+    // la misma fuente que lee `recordAiTurnActivity`).
+    if (resolvedAiTurnId != null) recordAiTurnActivity(resolvedAiTurnId);
+    if (resolvedAiTurnId == null) discardAiTurnUndoGroup(aiTurnId);
 
     await _maybeEnrichThinCreatePageFromToolLoop(
       outcome: outcome,
@@ -916,12 +1044,43 @@ For images/blocks: use the + button or / command in a paragraph.
     if (reply.isEmpty && outcome.hasToolCalls) {
       reply = _summarizeToolLoopOutcome(outcome, isEs: isEs);
     }
+    if (reply.isEmpty) {
+      // El modelo no llamó ninguna tool y devolvió texto vacío (raro, pero
+      // observado: el proveedor responde sin contenido ni tool_calls). Antes
+      // esto dejaba una burbuja de Quill en blanco sin explicación — nunca
+      // se debe dejar una respuesta vacía sin más.
+      reply = isEs
+          ? 'No obtuve una respuesta del modelo. Prueba a reformular el mensaje o inténtalo de nuevo.'
+          : 'I did not get a response from the model. Try rephrasing your message or try again.';
+    }
+
+    String? generatedImagePath;
+    String? generatedImagePrompt;
+    for (final step in outcome.steps) {
+      if (step.call.name == 'generate_image' && !step.result.isError) {
+        try {
+          final decoded = jsonDecode(step.result.content);
+          if (decoded is Map) {
+            generatedImagePath = decoded['path'] as String?;
+            generatedImagePrompt = decoded['prompt'] as String?;
+          }
+        } catch (_) {
+          // Resultado inesperado (no debería pasar: el propio callback lo
+          // codifica); se ignora en vez de romper el turno.
+        }
+        break;
+      }
+    }
 
     return AgentChatOutcome(
       reply: reply,
       usage: outcome.usage,
       toolCalls: outcome.steps.map((s) => s.call).toList(),
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
+      generatedImagePath: generatedImagePath,
+      generatedImagePrompt: generatedImagePrompt,
+      aiTurnId: resolvedAiTurnId,
+      aiTurnChangeCount: resolvedAiTurnChangeCount,
     );
   }
 
@@ -939,6 +1098,7 @@ For images/blocks: use the + button or / command in a paragraph.
     String extraContextSections = '',
     String systemPromptOverride = '',
     bool systemPromptOverrideIsNarrowTask = false,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -947,6 +1107,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -1020,8 +1183,12 @@ For images/blocks: use the + button or / command in a paragraph.
         tools: registry.definitions,
         toolChoice: 'none',
         maxTokens: _kAiMaxTokensChat,
+        cancelToken: cancelToken,
       ),
     );
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final rawReply = result.text.trim().isEmpty
         ? (isEs
@@ -1057,6 +1224,7 @@ For images/blocks: use the + button or / command in a paragraph.
     Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
         onConfirmIrreversibleTool,
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -1065,6 +1233,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final originalPrompt =
         (planContext['originalPrompt'] as String?)?.trim() ?? '';
@@ -1150,6 +1321,7 @@ Execute that plan with tools NOW, in order, this turn.
       maxSteps: _kPlanExecutionMaxSteps,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
       onReplyDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
   }
 
@@ -1467,14 +1639,21 @@ Plan mode (proposal only, do not execute):
     /// `onReplyDelta` en `_agentChatWithAiToolLoop`). `null` = sin streaming
     /// (comportamiento bloqueante de siempre).
     void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
-    final ai = _aiService;
-    if (ai == null) throw StateError('IA no configurada.');
+    final baseAi = _aiService;
+    if (baseAi == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
+    final ai = cancelToken != null
+        ? AiServiceWithCancelToken(baseAi, cancelToken)
+        : baseAi;
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -1500,6 +1679,7 @@ Plan mode (proposal only, do not execute):
         extraContextSections: combinedExtraContextSections,
         onToolEvent: onToolEvent,
         onReplyDelta: onReplyDelta,
+        cancelToken: cancelToken,
       );
     }
 
@@ -2746,6 +2926,23 @@ Plan mode (proposal only, do not execute):
     return hasPagina && hasCreateVerb;
   }
 
+  /// True si el usuario pide explícitamente una imagen generada (no un folio,
+  /// no una imagen elegida del disco). Dispara el nudge de sistema que le
+  /// pide al modelo llamar a `generate_image` en vez de responder solo en
+  /// texto — sin esto, algunos modelos devuelven una respuesta vacía en vez
+  /// de invocar la tool para peticiones de imagen ambiguas.
+  bool _looksLikeGenerateImageIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.generateImage,
+      languageCode: languageCode,
+    );
+    return hints.any((h) => _containsIntentPhrase(p, h));
+  }
+
   /// True si algún token es verbo de creación (`crea`, `crearme`, `generame`…).
   /// Usa prefijo de raíz porque `_containsIntentPhrase` exige token exacto y
   /// fallaba con «crearme» / «créame» (bug: página vacía sin generador dedicado).
@@ -3675,6 +3872,7 @@ Plan mode (proposal only, do not execute):
           url: hasUrl ? url : null,
           imageWidth: s.imageWidth,
           expanded: s.expanded,
+          aiGenerated: true,
         ),
       );
     }
@@ -3684,6 +3882,7 @@ Plan mode (proposal only, do not execute):
           id: '${pageId}_${VaultSession._uuid.v4()}',
           type: 'paragraph',
           text: '',
+          aiGenerated: true,
         ),
       );
     }

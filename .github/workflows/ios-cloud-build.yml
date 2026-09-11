@@ -55,12 +55,12 @@ jobs:
       - name: Build iOS app (no codesign)
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
-        run: flutter build ios --release --no-codesign --dart-define=FOLIO_BACKEND_BASE_URL=https://backendfoliobeta.minealexgames.com
+        run: flutter build ios --release --no-codesign --dart-define=FOLIO_BACKEND_BASE_URL=https://api-beta.folio.com.es
 
       - name: Build iOS IPA (no codesign)
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
-        run: flutter build ipa --release --no-codesign --dart-define=FOLIO_BACKEND_BASE_URL=https://backendfoliobeta.minealexgames.com
+        run: flutter build ipa --release --no-codesign --dart-define=FOLIO_BACKEND_BASE_URL=https://api-beta.folio.com.es
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

@@ -357,6 +357,22 @@ mixin _BlockContextMenu on State<BlockEditor> {
         if (!mounted) return;
         await st._openMeetingNoteAiDialog(menuContext, page, b);
       });
+    } else if (v == 'meeting_transcribe' ||
+        v == 'meeting_regenerate_transcript') {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final file = await st._resolveBlockUrlFileCached(b.url);
+        if (file == null || !mounted) return;
+        await showPostHocTranscribeDialog(
+          context: menuContext,
+          session: st._s,
+          appSettings: st.widget.appSettings,
+          page: page,
+          block: b,
+          audioFile: file,
+          entitlements: st.widget.folioCloudEntitlements,
+        );
+      });
     } else if (v == 'callout_pick_icon') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -374,6 +390,8 @@ mixin _BlockContextMenu on State<BlockEditor> {
       st._s.updateBlockIcon(page.id, b.id, '🚨');
     } else if (v == 'callout_tone_note') {
       st._s.updateBlockIcon(page.id, b.id, 'ℹ️');
+    } else if (v == 'ungroup_columns') {
+      st._s.ungroupColumnsBlock(page.id, b.id);
     } else if (v == 'sync_create') {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -776,6 +794,29 @@ mixin _BlockContextMenu on State<BlockEditor> {
             icon: Icons.auto_fix_high_rounded,
             label: AppLocalizations.of(ctx).meetingNoteSendToAi,
           ),
+        if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isEmpty)
+          item(
+            ctx,
+            value: 'meeting_transcribe',
+            icon: Icons.subtitles_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
+          ),
+        if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'meeting_regenerate_transcript',
+            icon: Icons.refresh_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteRegenerateTranscription,
+          ),
+      ],
+      if (b.type == 'column_list') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'ungroup_columns',
+          icon: Icons.view_agenda_outlined,
+          label: l10n.blockEditorUngroupColumns,
+        ),
       ],
       if (b.type == 'table' && data != null) ...[
         const PopupMenuDivider(),

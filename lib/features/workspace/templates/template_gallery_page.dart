@@ -312,10 +312,81 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
         SnackBar(content: Text(l10n.templateCommunityShareSuccess)),
       );
       await _loadCommunityTemplates();
+    } on CommunityTemplateApiException catch (e) {
+      if (!mounted) return;
+      final msg = e.code == 'community_template_upload_banned'
+          ? l10n.templateCommunityUploadBanned
+          : l10n.templateCommunityShareError(e.message);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.templateCommunityShareError('$e'))),
+      );
+    }
+  }
+
+  Future<void> _reportCommunityListing(CommunityTemplateEntry entry) async {
+    final l10n = AppLocalizations.of(context);
+    if (!widget.cloud.isSignedIn) {
+      await _openCloudSignIn();
+      if (!widget.cloud.isSignedIn || !mounted) return;
+    }
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(l10n.templateCommunityReportTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.templateCommunityReportBody),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                maxLength: 500,
+                decoration: InputDecoration(
+                  labelText: l10n.templateCommunityReportReasonHint,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.templateCommunityReportConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    final reason = reasonController.text;
+    reasonController.dispose();
+    if (confirmed != true || !mounted) return;
+    try {
+      await _communityStore.reportTemplate(entry.docId, reason: reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.templateCommunityReportSuccess)),
+      );
+    } on CommunityTemplateApiException catch (e) {
+      if (!mounted) return;
+      final msg = e.code == 'already_reported'
+          ? l10n.templateCommunityReportAlready
+          : l10n.templateCommunityReportError(e.message);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.templateCommunityReportError('$e'))),
       );
     }
   }
@@ -991,6 +1062,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                       entry: communitySelected,
                       l10n: l10n,
                       isOwner: widget.cloud.uid == communitySelected.ownerUid,
+                      canReport: widget.cloud.isSignedIn,
                       onPreview: () {
                         unawaited(_previewCommunityTemplate(communitySelected));
                       },
@@ -1002,6 +1074,9 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                       },
                       onDelete: () {
                         unawaited(_deleteCommunityListing(communitySelected));
+                      },
+                      onReport: () {
+                        unawaited(_reportCommunityListing(communitySelected));
                       },
                     ),
                   ),
@@ -1306,7 +1381,7 @@ class _CommunityTemplateCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     entry.name,
                     maxLines: 2,
@@ -1318,7 +1393,7 @@ class _CommunityTemplateCard extends StatelessWidget {
                           : scheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     templateCategoryLabel(
                       l10n,
@@ -1333,17 +1408,19 @@ class _CommunityTemplateCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    previewText.trim().isEmpty
-                        ? AppLocalizations.of(context).templatePreviewEmpty
-                        : previewText.replaceAll('\n', ' '),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: selected
-                          ? scheme.onSecondaryContainer.withAlpha(210)
-                          : scheme.onSurfaceVariant,
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Text(
+                      previewText.trim().isEmpty
+                          ? AppLocalizations.of(context).templatePreviewEmpty
+                          : previewText.replaceAll('\n', ' '),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: selected
+                            ? scheme.onSecondaryContainer.withAlpha(210)
+                            : scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -1374,19 +1451,23 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
     required this.entry,
     required this.l10n,
     required this.isOwner,
+    required this.canReport,
     required this.onPreview,
     required this.onUse,
     required this.onAddToVault,
     required this.onDelete,
+    required this.onReport,
   });
 
   final CommunityTemplateEntry entry;
   final AppLocalizations l10n;
   final bool isOwner;
+  final bool canReport;
   final VoidCallback onPreview;
   final VoidCallback onUse;
   final VoidCallback onAddToVault;
   final VoidCallback onDelete;
+  final VoidCallback onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -1509,6 +1590,17 @@ class _CommunityTemplateDetailPanel extends StatelessWidget {
               ),
               label: Text(l10n.templateCommunityAddToVault),
             ),
+            if (canReport) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: onReport,
+                icon: const Icon(Icons.flag_outlined, size: 18),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(40),
+                ),
+                label: Text(l10n.templateCommunityReportTitle),
+              ),
+            ],
             if (isOwner) ...[
               const SizedBox(height: 8),
               TextButton.icon(
@@ -1783,17 +1875,19 @@ class _TemplateCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const Spacer(),
-                  Text(
-                    previewText.isEmpty
-                        ? AppLocalizations.of(context).templatePreviewEmpty
-                        : previewText,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: selected
-                          ? scheme.onSecondaryContainer.withAlpha(210)
-                          : scheme.onSurfaceVariant,
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Text(
+                      previewText.isEmpty
+                          ? AppLocalizations.of(context).templatePreviewEmpty
+                          : previewText,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: selected
+                            ? scheme.onSecondaryContainer.withAlpha(210)
+                            : scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],

@@ -37,7 +37,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
           ),
         );
         if (mounted) {
-          await _folio.refreshFolioCloudBillingFromServers();
+          await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
         }
       } else {
         final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -466,7 +466,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
       );
       if (success == true && mounted) {
         _snack(l10n.folioCloudCheckoutSuccess);
-        await _folio.refreshFolioCloudBillingFromServers();
+        await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
       }
     } else {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -605,6 +605,37 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     final l10n = AppLocalizations.of(context);
     try {
       await _cloud.signOut();
+      if (mounted) _snack(l10n.settingsSessionEndedSnack);
+    } catch (e) {
+      if (mounted) _snack('$e');
+    }
+  }
+
+  /// Quita solo la cuenta activa del dispositivo (las demás siguen).
+  Future<void> _removeActiveCloudAccountFromDevice() async {
+    final l10n = AppLocalizations.of(context);
+    final uid = _cloud.activeUid;
+    if (uid == null) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.cloudAccountSwitcherRemoveTitle),
+        content: Text(l10n.cloudAccountSwitcherRemoveBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.cloudAccountSwitcherRemove),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    try {
+      await _cloud.removeAccount(uid);
       if (mounted) _snack(l10n.settingsSessionEndedSnack);
     } catch (e) {
       if (mounted) _snack('$e');

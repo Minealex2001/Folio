@@ -25,6 +25,17 @@ class GeminiNanoAiService implements AiService {
   bool get supportsNativeToolCalling => false;
 
   @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
+
+  @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final prompt = _buildPrompt(request);
     final text = await OnDeviceAiBridge.generateContent(prompt).timeout(timeout);

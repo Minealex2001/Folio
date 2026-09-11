@@ -127,26 +127,6 @@ extension _WorkspacePageAiThreadsModule on _WorkspacePageState {
     });
   }
 
-  String _aiPanelContextSubtitle(AppLocalizations l10n) {
-    final chat = _activeChat;
-    if (!chat.includePageContext) return l10n.aiChatContextDisabledSubtitle;
-    if (chat.contextPageIds.isEmpty) {
-      final t = _s.selectedPage?.title;
-      if (t != null && t.isNotEmpty) {
-        return l10n.aiChatContextUsesCurrentPage(t);
-      }
-      return l10n.aiNoPageSelected;
-    }
-    if (chat.contextPageIds.length == 1) {
-      final id = chat.contextPageIds.first;
-      for (final p in _s.pages) {
-        if (p.id == id) return p.title;
-      }
-      return l10n.aiChatContextOnePageFallback;
-    }
-    return l10n.aiChatContextNPages(chat.contextPageIds.length);
-  }
-
   Future<void> _showRenameActiveChatDialog() async {
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: _s.activeAiChat.title);

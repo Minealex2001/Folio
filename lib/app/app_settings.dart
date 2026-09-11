@@ -17,7 +17,11 @@ import 'folio_in_app_shortcuts.dart';
 import 'ui_tokens.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
+import '../models/active_music_provider.dart';
 import '../models/quill_system_prompt.dart';
+import '../models/quill_workflow.dart';
+import '../models/vault_memory_fact.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
@@ -407,6 +411,32 @@ class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
 
+  /// Hook opcional (sistema de personalización de UI, Fase 2): cuando está
+  /// registrado, cada resize real del sidebar también se refleja en el
+  /// `LayoutEngineController`/`ConfigStore` nuevo, además de en
+  /// `SharedPreferences` como hasta ahora. `AppSettings` sigue siendo la
+  /// única fuente que el resto de la app lee/escribe — este campo solo
+  /// mantiene sincronizado el `LayoutConfig` activo hacia adelante, sin
+  /// tocar ningún call site existente. Se registra una vez en el bootstrap
+  /// (`main.dart`), tras migrar `ConfigStore` — ver `ConfigBootstrap`.
+  void Function(double width)? onWorkspaceSidebarWidthChanged;
+
+  /// Hook opcional (Fase 4): igual que [onWorkspaceSidebarWidthChanged] pero
+  /// para cualquier cambio que afecte el `DashboardConfig` del inicio
+  /// (orden/visibilidad de secciones, layout de columnas). Un solo callback
+  /// para los 12 setters relacionados — cada uno solo señaliza "algo
+  /// cambió"; quien escucha decide cómo re-derivar el `DashboardConfig`
+  /// completo (ver `ConfigBootstrap.dashboardConfigFromAppSettings`).
+  VoidCallback? onWorkspaceHomeDashboardChanged;
+
+  /// Hook opcional (Fase 3/editor de temas): igual que los anteriores pero
+  /// para los 3 setters que afectan accentMode/light/dark en `ThemeConfig`
+  /// (modo de tema, modo de acento, ARGB custom). El editor de temas nuevo
+  /// (radio/espaciado/opacidad/movimiento) escribe directo a
+  /// `ThemeConfigController` sin pasar por aquí — son campos que
+  /// `AppSettings` nunca tuvo.
+  VoidCallback? onThemeAccentChanged;
+
   SharedPreferences? _cachedPrefs;
 
   /// Cachea la instancia tras la primera resolución: cada setter la pedía por
@@ -427,6 +457,9 @@ class AppSettings extends ChangeNotifier {
   static const _enableGlobalSearchHotkeyKey =
       'folio_enable_global_search_hotkey';
   static const _globalSearchHotkeyKey = 'folio_global_search_hotkey';
+  static const _enableMeetingBookmarkHotkeyKey =
+      'folio_enable_meeting_bookmark_hotkey';
+  static const _meetingBookmarkHotkeyKey = 'folio_meeting_bookmark_hotkey';
   static const _minimizeToTrayKey = 'folio_minimize_to_tray';
   static const _closeToTrayKey = 'folio_close_to_tray';
   static const _windowsNotificationsEnabledKey =
@@ -452,6 +485,8 @@ class AppSettings extends ChangeNotifier {
   static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
   static const _activeQuillPromptIdKey = 'folio_active_quill_prompt_id';
   static const _quillSystemPromptsJsonKey = 'folio_quill_system_prompts_json';
+  static const _vaultMemoryFactsJsonKey = 'folio_vault_memory_facts_json';
+  static const _quillWorkflowsJsonKey = 'folio_quill_workflows_json';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
@@ -479,6 +514,9 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_recent_pages_collapsed';
   static const _workspaceSidebarSpotifyExpandedKey =
       'folio_workspace_sidebar_spotify_expanded';
+  static const _workspaceSidebarSpotifyFullPlayerKey =
+      'folio_workspace_sidebar_spotify_full_player';
+  static const _activeMusicProviderKey = 'folio_active_music_provider';
   static const _workspaceSidebarCollapsedPagesPrefix =
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
@@ -522,6 +560,7 @@ class AppSettings extends ChangeNotifier {
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
   static const _aiChatSplitViewKey = 'folio_ai_chat_split_view';
+  static const _proactiveSuggestionsEnabledKey = 'folio_proactive_suggestions_enabled';
   static const _aiQuillCopilotExperimentalKey =
       'folio_ai_quill_copilot_experimental';
   static const _customIconsKey = 'folio_custom_icons_v1';
@@ -636,6 +675,12 @@ class AppSettings extends ChangeNotifier {
 
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
+  /// Hotkey global (Fase de mejoras post-lanzamiento de meeting_note) para
+  /// marcar un bookmark en la grabación activa sin tener que enfocar Folio
+  /// — pensado para cuando el usuario está compartiendo pantalla o dentro
+  /// de otra app de videollamada. Mismo mecanismo (`HotKeyScope.system`,
+  /// `hotkey_manager`) que el hotkey de búsqueda ya existente.
+  static const String defaultMeetingBookmarkHotkey = 'Ctrl+Shift+B';
   static const int defaultAiTimeoutMs = 30000;
   static const String defaultOllamaUrl = 'http://127.0.0.1:11434';
   static const String defaultLmStudioUrl = 'http://127.0.0.1:1234';
@@ -687,6 +732,8 @@ class AppSettings extends ChangeNotifier {
   bool _lockScreenAutoQuickUnlockDone = false;
   bool _enableGlobalSearchHotkey = true;
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
+  bool _enableMeetingBookmarkHotkey = true;
+  String _meetingBookmarkHotkey = defaultMeetingBookmarkHotkey;
   bool _minimizeToTray = false;
   bool _closeToTray = true;
   bool _windowsNotificationsEnabled = false;
@@ -719,6 +766,8 @@ class AppSettings extends ChangeNotifier {
   String _aiCustomSystemPrompt = '';
   String _activeQuillPromptId = 'quill_default';
   List<QuillSystemPrompt> _quillSystemPrompts = [];
+  List<VaultMemoryFact> _vaultMemoryFacts = [];
+  List<QuillWorkflow> _quillWorkflows = [];
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
@@ -735,6 +784,8 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarShowRecentPages = true;
   bool _workspaceSidebarRecentPagesCollapsed = true;
   bool _workspaceSidebarSpotifyExpanded = false;
+  bool _workspaceSidebarSpotifyFullPlayer = false;
+  ActiveMusicProvider _activeMusicProvider = ActiveMusicProvider.none;
   bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
@@ -762,6 +813,11 @@ class AppSettings extends ChangeNotifier {
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
   bool _aiChatSplitView = false;
+  // Fase A3 del plan Quill/MCP — sugerencias proactivas (v1 acotado a un
+  // único disparador: transcripción de reunión completada). Default `true`
+  // porque el affordance es un SnackBar transitorio, fácil de ignorar/
+  // descartar — no un diálogo bloqueante; el usuario puede apagarlo aquí.
+  bool _proactiveSuggestionsEnabled = true;
   bool _aiQuillCopilotExperimental = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
@@ -880,6 +936,8 @@ class AppSettings extends ChangeNotifier {
   bool get lockScreenAutoQuickUnlockDone => _lockScreenAutoQuickUnlockDone;
   bool get enableGlobalSearchHotkey => _enableGlobalSearchHotkey;
   String get globalSearchHotkey => _globalSearchHotkey;
+  bool get enableMeetingBookmarkHotkey => _enableMeetingBookmarkHotkey;
+  String get meetingBookmarkHotkey => _meetingBookmarkHotkey;
   bool get minimizeToTray => _minimizeToTray;
   bool get closeToTray => _closeToTray;
   bool get windowsNotificationsEnabled => _windowsNotificationsEnabled;
@@ -902,6 +960,8 @@ class AppSettings extends ChangeNotifier {
   String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
   String get activeQuillPromptId => _activeQuillPromptId;
   List<QuillSystemPrompt> get quillSystemPrompts => _quillSystemPrompts;
+  List<VaultMemoryFact> get vaultMemoryFacts => _vaultMemoryFacts;
+  List<QuillWorkflow> get quillWorkflows => _quillWorkflows;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   List<FolioUsageIntent> get usageIntents =>
@@ -923,6 +983,9 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarShowRecentPages => _workspaceSidebarShowRecentPages;
   bool get workspaceSidebarRecentPagesCollapsed => _workspaceSidebarRecentPagesCollapsed;
   bool get workspaceSidebarSpotifyExpanded => _workspaceSidebarSpotifyExpanded;
+  bool get workspaceSidebarSpotifyFullPlayer =>
+      _workspaceSidebarSpotifyFullPlayer;
+  ActiveMusicProvider get activeMusicProvider => _activeMusicProvider;
   bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
@@ -952,6 +1015,7 @@ class AppSettings extends ChangeNotifier {
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
   bool get aiChatSplitView => _aiChatSplitView;
+  bool get proactiveSuggestionsEnabled => _proactiveSuggestionsEnabled;
   bool get aiQuillCopilotExperimental => _aiQuillCopilotExperimental;
   String get integrationSecret => _integrationSecret;
 
@@ -1213,13 +1277,39 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
-    final locale = PlatformDispatcher.instance.locale.languageCode;
-    final isEs = locale == 'es';
+    final memoryFactsJson = p.getString(_vaultMemoryFactsJsonKey);
+    if (memoryFactsJson != null) {
+      try {
+        final decoded = jsonDecode(memoryFactsJson) as List<dynamic>;
+        _vaultMemoryFacts = decoded
+            .map((item) => VaultMemoryFact.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _vaultMemoryFacts = [];
+      }
+    }
+
+    final workflowsJson = p.getString(_quillWorkflowsJsonKey);
+    if (workflowsJson != null) {
+      try {
+        final decoded = jsonDecode(workflowsJson) as List<dynamic>;
+        _quillWorkflows = decoded
+            .map((item) => QuillWorkflow.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _quillWorkflows = [];
+      }
+    }
+
+    final deviceLang = PlatformDispatcher.instance.locale.languageCode;
+    final isEs = deviceLang == 'es';
+    final l10n = lookupAppLocalizations(Locale(deviceLang.isEmpty ? 'es' : deviceLang));
 
     final List<QuillSystemPrompt> defaultPrompts = [
       QuillSystemPrompt(
         id: 'quill_default',
-        name: isEs ? 'Quill (Predeterminado)' : 'Quill (Default)',
+        name: l10n.quillDefaultName,
+        // System prompts stay bilingual (sent to the model, not UI chrome).
         prompt: isEs
             ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
             : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.',
@@ -1227,7 +1317,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_translator',
-        name: isEs ? 'Traductor' : 'Translator',
+        name: l10n.quillTranslatorName,
         prompt: isEs
             ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
             : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.',
@@ -1236,7 +1326,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_summarizer',
-        name: isEs ? 'Resumidor' : 'Summarizer',
+        name: l10n.quillSummarizerName,
         prompt: isEs
             ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
             : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.',
@@ -1245,7 +1335,7 @@ class AppSettings extends ChangeNotifier {
       ),
       QuillSystemPrompt(
         id: 'quill_coder',
-        name: isEs ? 'Programador' : 'Coder',
+        name: l10n.quillCoderName,
         prompt: isEs
             ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
             : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.',
@@ -1286,6 +1376,15 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? true;
     _workspaceSidebarSpotifyExpanded =
         p.getBool(_workspaceSidebarSpotifyExpandedKey) ?? false;
+    _workspaceSidebarSpotifyFullPlayer =
+        p.getBool(_workspaceSidebarSpotifyFullPlayerKey) ?? false;
+    _activeMusicProvider = ActiveMusicProviderCodec.fromStorage(
+      p.getString(_activeMusicProviderKey),
+    );
+    // Migración: si hay Spotify pero aún no se eligió proveedor, asumir Spotify.
+    if (_activeMusicProvider == ActiveMusicProvider.none) {
+      // No conocemos vault aquí; se fijará al conectar o desde Ajustes.
+    }
     _workspaceOpenToHome =
         p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
@@ -1338,6 +1437,8 @@ class AppSettings extends ChangeNotifier {
       p.getDouble(_aiChatPanelHeightKey),
     );
     _aiChatSplitView = p.getBool(_aiChatSplitViewKey) ?? false;
+    _proactiveSuggestionsEnabled =
+        p.getBool(_proactiveSuggestionsEnabledKey) ?? true;
     _aiQuillCopilotExperimental =
         p.getBool(_aiQuillCopilotExperimentalKey) ?? false;
     _inAppShortcuts = parseShortcutOverrides(
@@ -1786,6 +1887,7 @@ class AppSettings extends ChangeNotifier {
     if (p.containsKey(_oledThemeEnabledKey)) {
       await p.setBool(_oledThemeEnabledKey, false);
     }
+    onThemeAccentChanged?.call();
   }
 
   /// Compatibilidad con perfiles antiguos que aún envían el toggle OLED.
@@ -2010,6 +2112,60 @@ class AppSettings extends ChangeNotifier {
     }
     notifyListeners();
     await _saveQuillSystemPrompts();
+  }
+
+  Future<void> _saveVaultMemoryFacts() async {
+    final p = await _prefs();
+    final encoded = jsonEncode(_vaultMemoryFacts.map((e) => e.toJson()).toList());
+    await p.setString(_vaultMemoryFactsJsonKey, encoded);
+  }
+
+  Future<void> addVaultMemoryFact(VaultMemoryFact fact) async {
+    _vaultMemoryFacts.add(fact);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  Future<void> deleteVaultMemoryFact(String id) async {
+    _vaultMemoryFacts.removeWhere((e) => e.id == id);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  /// Acción rápida de gestión de la pantalla de hechos (Fase A4) — borra
+  /// solo los de `scope == temporary`, deja los permanentes intactos.
+  Future<void> clearTemporaryVaultMemoryFacts() async {
+    _vaultMemoryFacts.removeWhere((e) => e.scope == MemoryFactScope.temporary);
+    notifyListeners();
+    await _saveVaultMemoryFacts();
+  }
+
+  Future<void> _saveQuillWorkflows() async {
+    final p = await _prefs();
+    final encoded = jsonEncode(_quillWorkflows.map((e) => e.toJson()).toList());
+    await p.setString(_quillWorkflowsJsonKey, encoded);
+  }
+
+  Future<void> addQuillWorkflow(QuillWorkflow workflow) async {
+    _quillWorkflows.add(workflow);
+    notifyListeners();
+    await _saveQuillWorkflows();
+  }
+
+  /// Aplica `QuillWorkflow.edited(...)` (archiva versión anterior) y
+  /// persiste — nunca sobrescribe `promptTemplate` en el sitio.
+  Future<void> updateQuillWorkflow(QuillWorkflow workflow) async {
+    final idx = _quillWorkflows.indexWhere((e) => e.id == workflow.id);
+    if (idx == -1) return;
+    _quillWorkflows[idx] = workflow;
+    notifyListeners();
+    await _saveQuillWorkflows();
+  }
+
+  Future<void> deleteQuillWorkflow(String id) async {
+    _quillWorkflows.removeWhere((e) => e.id == id);
+    notifyListeners();
+    await _saveQuillWorkflows();
   }
 
   Future<void> setAiBaseUrl(String value) async {
@@ -2237,6 +2393,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setDouble(_workspaceSidebarWidthKey, safe);
+    onWorkspaceSidebarWidthChanged?.call(safe);
   }
 
   String _workspaceSidebarCollapsedPagesKey(String? vaultId) {
@@ -2298,6 +2455,22 @@ class AppSettings extends ChangeNotifier {
     await p.setBool(_workspaceSidebarSpotifyExpandedKey, value);
   }
 
+  Future<void> setWorkspaceSidebarSpotifyFullPlayer(bool value) async {
+    if (_workspaceSidebarSpotifyFullPlayer == value) return;
+    _workspaceSidebarSpotifyFullPlayer = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarSpotifyFullPlayerKey, value);
+  }
+
+  Future<void> setActiveMusicProvider(ActiveMusicProvider value) async {
+    if (_activeMusicProvider == value) return;
+    _activeMusicProvider = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_activeMusicProviderKey, value.storageValue);
+  }
+
   Future<void> setAiChatPanelCollapsed(bool value) async {
     if (_aiChatPanelCollapsed == value) return;
     _aiChatPanelCollapsed = value;
@@ -2330,6 +2503,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_aiChatSplitViewKey, value);
+  }
+
+  Future<void> setProactiveSuggestionsEnabled(bool value) async {
+    if (_proactiveSuggestionsEnabled == value) return;
+    _proactiveSuggestionsEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_proactiveSuggestionsEnabledKey, value);
   }
 
   Future<void> setAiQuillCopilotExperimental(bool value) async {
@@ -2386,6 +2567,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowFolioCloudCardKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowRootPages(bool value) async {
@@ -2394,6 +2576,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowRootPagesKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowMiniStats(bool value) async {
@@ -2402,6 +2585,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowMiniStatsKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowTasksSection(bool value) async {
@@ -2410,6 +2594,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowTasksSectionKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowQuickActions(bool value) async {
@@ -2418,6 +2603,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowQuickActionsKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowTip(bool value) async {
@@ -2426,6 +2612,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowTipKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowVaultStatus(bool value) async {
@@ -2434,6 +2621,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowVaultStatusKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowOnboarding(bool value) async {
@@ -2442,6 +2630,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowOnboardingKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeShowWhatsNew(bool value) async {
@@ -2450,6 +2639,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_workspaceHomeShowWhatsNewKey, value);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeColumnLayout(
@@ -2460,6 +2650,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeColumnLayoutKey, value.name);
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeClockShowSeconds(bool value) async {
@@ -2507,6 +2698,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeLeftSectionOrderKey, jsonEncode(next));
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setWorkspaceHomeRightSectionOrder(List<String> value) async {
@@ -2519,6 +2711,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setString(_workspaceHomeRightSectionOrderKey, jsonEncode(next));
+    onWorkspaceHomeDashboardChanged?.call();
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {
@@ -2802,6 +2995,7 @@ class AppSettings extends ChangeNotifier {
       FolioAccentColorMode.custom => 'custom',
     };
     await p.setString(_accentColorModeKey, v);
+    onThemeAccentChanged?.call();
   }
 
   Future<void> setCustomAccentArgb(int argb) async {
@@ -2810,6 +3004,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setInt(_customAccentArgbKey, argb);
+    onThemeAccentChanged?.call();
   }
 
   Future<void> setInAppShortcut(

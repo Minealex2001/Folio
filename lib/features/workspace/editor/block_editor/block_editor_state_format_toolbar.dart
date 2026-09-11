@@ -216,12 +216,8 @@ mixin _FormatToolbarOverlay on State<BlockEditor> {
                         onAskQuill: widget.readOnlyMode ||
                                 widget.onAiSlashCommand == null
                             ? null
-                            : () => unawaited(
-                                st._dispatchAiSlashFromToolbar(
-                                  intent: AiSlashIntent.explain,
-                                  pageId: page.id,
-                                  blockId: forToolbar.id,
-                                ),
+                            : () => st.showAiSelectionPopover(
+                                blockId: forToolbar.id,
                               ),
                       )
                     : FolioFormatToolbar(
@@ -233,12 +229,8 @@ mixin _FormatToolbarOverlay on State<BlockEditor> {
                         onAskQuill: widget.readOnlyMode ||
                                 widget.onAiSlashCommand == null
                             ? null
-                            : () => unawaited(
-                                st._dispatchAiSlashFromToolbar(
-                                  intent: AiSlashIntent.explain,
-                                  pageId: page.id,
-                                  blockId: forToolbar.id,
-                                ),
+                            : () => st.showAiSelectionPopover(
+                                blockId: forToolbar.id,
                               ),
                         onOpenBlockAppearance: st._blockSupportsAppearance(forToolbar)
                             ? () => unawaited(

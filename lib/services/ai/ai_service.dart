@@ -21,4 +21,16 @@ abstract class AiService {
   Future<void> ping();
 
   Future<List<String>> listModels();
+
+  /// Si `false`, [generateImage] no está soportado por este proveedor/modelo
+  /// y no debe llamarse (la UI debe deshabilitar/ocultar la acción en su lugar).
+  bool get supportsImageGeneration;
+
+  /// Genera una imagen a partir de [prompt] (y opcionalmente [pageContextText],
+  /// ya truncado por el llamador). Lanza [AiImageGenerationUnsupportedException]
+  /// si [supportsImageGeneration] es `false`.
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  });
 }

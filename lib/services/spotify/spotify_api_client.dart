@@ -20,6 +20,10 @@ class SpotifyPlaybackSnapshot {
     this.deviceName,
     this.trackUri,
     this.volumePercent,
+    this.shuffleState = false,
+    this.repeatState = 'off',
+    this.contextUri,
+    this.contextType,
     this.premiumRequired = false,
     this.noActiveDevice = false,
     this.noContent = false,
@@ -35,11 +39,23 @@ class SpotifyPlaybackSnapshot {
   final String? trackUri;
   /// Volumen del dispositivo activo (0–100), si Spotify lo reporta.
   final int? volumePercent;
+  final bool shuffleState;
+  /// `off` | `track` | `context`
+  final String repeatState;
+  final String? contextUri;
+  final String? contextType;
   final bool premiumRequired;
   final bool noActiveDevice;
   final bool noContent;
 
   static const empty = SpotifyPlaybackSnapshot(noContent: true);
+
+  String? get trackId {
+    final uri = trackUri?.trim() ?? '';
+    if (!uri.startsWith('spotify:')) return null;
+    final parts = uri.split(':');
+    return parts.length >= 3 ? parts.last : null;
+  }
 
   SpotifyPlaybackSnapshot copyWith({
     String? trackName,
@@ -51,6 +67,10 @@ class SpotifyPlaybackSnapshot {
     String? deviceName,
     String? trackUri,
     int? volumePercent,
+    bool? shuffleState,
+    String? repeatState,
+    String? contextUri,
+    String? contextType,
     bool? premiumRequired,
     bool? noActiveDevice,
     bool? noContent,
@@ -65,11 +85,26 @@ class SpotifyPlaybackSnapshot {
       deviceName: deviceName ?? this.deviceName,
       trackUri: trackUri ?? this.trackUri,
       volumePercent: volumePercent ?? this.volumePercent,
+      shuffleState: shuffleState ?? this.shuffleState,
+      repeatState: repeatState ?? this.repeatState,
+      contextUri: contextUri ?? this.contextUri,
+      contextType: contextType ?? this.contextType,
       premiumRequired: premiumRequired ?? this.premiumRequired,
       noActiveDevice: noActiveDevice ?? this.noActiveDevice,
       noContent: noContent ?? this.noContent,
     );
   }
+}
+
+/// Cola de reproducción actual.
+class SpotifyQueueSnapshot {
+  const SpotifyQueueSnapshot({
+    this.currentlyPlaying,
+    this.queue = const [],
+  });
+
+  final SpotifyTrackSummary? currentlyPlaying;
+  final List<SpotifyTrackSummary> queue;
 }
 
 class SpotifyPlaylistSummary {
@@ -101,6 +136,112 @@ class SpotifyPlaylistPage {
   final int nextOffset;
 }
 
+/// Dispositivo Spotify Connect disponible (incluye "Folio" cuando el SDK
+/// local está listo y activo).
+class SpotifyDevice {
+  const SpotifyDevice({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.isActive = false,
+    this.isRestricted = false,
+    this.volumePercent,
+  });
+
+  final String id;
+  final String name;
+  final String type;
+  final bool isActive;
+  final bool isRestricted;
+  final int? volumePercent;
+}
+
+/// Resultado de búsqueda / listado de canciones.
+class SpotifyTrackSummary {
+  const SpotifyTrackSummary({
+    required this.id,
+    required this.name,
+    required this.uri,
+    required this.artistName,
+    this.albumName,
+    this.albumArtUrl,
+    this.durationMs = 0,
+  });
+
+  final String id;
+  final String name;
+  final String uri;
+  final String artistName;
+  final String? albumName;
+  final String? albumArtUrl;
+  final int durationMs;
+}
+
+/// Página paginada de tracks (liked / playlist / álbum).
+class SpotifyTrackPage {
+  const SpotifyTrackPage({
+    required this.items,
+    required this.hasMore,
+    required this.nextOffset,
+  });
+
+  final List<SpotifyTrackSummary> items;
+  final bool hasMore;
+  final int nextOffset;
+}
+
+/// Resumen de álbum para búsqueda / detalle.
+class SpotifyAlbumSummary {
+  const SpotifyAlbumSummary({
+    required this.id,
+    required this.name,
+    required this.uri,
+    required this.artistName,
+    this.imageUrl,
+    this.trackCount,
+  });
+
+  final String id;
+  final String name;
+  final String uri;
+  final String artistName;
+  final String? imageUrl;
+  final int? trackCount;
+}
+
+/// Resumen de artista para búsqueda.
+class SpotifyArtistSummary {
+  const SpotifyArtistSummary({
+    required this.id,
+    required this.name,
+    required this.uri,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String name;
+  final String uri;
+  final String? imageUrl;
+}
+
+/// Resultado de búsqueda multi-tipo.
+class SpotifySearchResults {
+  const SpotifySearchResults({
+    this.tracks = const [],
+    this.albums = const [],
+    this.artists = const [],
+    this.playlists = const [],
+  });
+
+  final List<SpotifyTrackSummary> tracks;
+  final List<SpotifyAlbumSummary> albums;
+  final List<SpotifyArtistSummary> artists;
+  final List<SpotifyPlaylistSummary> playlists;
+
+  bool get isEmpty =>
+      tracks.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty;
+}
+
 typedef SpotifyTokenRefreshCallback = Future<SpotifyConnection> Function(
   SpotifyConnection updated,
 );
@@ -123,6 +264,14 @@ class SpotifyApiClient {
 
   SpotifyConnection get connection => _connection;
 
+  /// Devuelve un access token vigente, refrescándolo primero si hace falta.
+  /// Usado por el host del dispositivo local para alimentar al Web Playback
+  /// SDK con un token siempre fresco.
+  Future<String> freshAccessToken() async {
+    final conn = await _ensureFreshToken();
+    return conn.accessToken;
+  }
+
   /// Actualiza el token en el cliente existente sin recrearlo.
   void updateConnection(SpotifyConnection updated) {
     _connection = updated;
@@ -140,10 +289,14 @@ class SpotifyApiClient {
     final expiresIn = (tokenJson['expires_in'] as num?)?.toInt() ?? 3600;
     final newRefresh =
         (tokenJson['refresh_token'] as String? ?? _connection.refreshToken).trim();
+    final scope = (tokenJson['scope'] as String? ?? '').trim();
     final updated = _connection.copyWith(
       accessToken: accessToken,
       refreshToken: newRefresh,
       expiresAt: DateTime.now().toUtc().add(Duration(seconds: expiresIn)),
+      grantedScopes: scope.isEmpty
+          ? null
+          : scope.split(' ').where((s) => s.isNotEmpty).toList(growable: false),
     );
     _connection = updated;
     await onConnectionUpdated(updated);
@@ -320,6 +473,15 @@ class SpotifyApiClient {
     }
     final duration = (trackMap['duration_ms'] as num?)?.toInt() ?? 0;
     final uri = (trackMap['uri'] as String? ?? '').trim();
+    final shuffle = map['shuffle_state'] == true;
+    final repeat = (map['repeat_state'] as String? ?? 'off').trim();
+    String? contextUri;
+    String? contextType;
+    final context = map['context'];
+    if (context is Map) {
+      contextUri = (context['uri'] as String?)?.trim();
+      contextType = (context['type'] as String?)?.trim();
+    }
     return SpotifyPlaybackSnapshot(
       trackName: name.isEmpty ? null : name,
       artistName: artist.isEmpty ? null : artist,
@@ -330,16 +492,40 @@ class SpotifyApiClient {
       deviceName: deviceName.isEmpty ? null : deviceName,
       trackUri: uri.isEmpty ? null : uri,
       volumePercent: volumePercent,
+      shuffleState: shuffle,
+      repeatState: repeat.isEmpty ? 'off' : repeat,
+      contextUri: contextUri,
+      contextType: contextType,
     );
   }
 
-  Future<void> play({String? contextUri, List<String>? uris}) async {
-    final uri = Uri.https('api.spotify.com', '/v1/me/player/play');
+  Future<void> play({
+    String? contextUri,
+    List<String>? uris,
+    String? offsetUri,
+    int? offsetPosition,
+    String? deviceId,
+  }) async {
+    final query = <String, String>{};
+    final trimmedDevice = deviceId?.trim() ?? '';
+    if (trimmedDevice.isNotEmpty) {
+      query['device_id'] = trimmedDevice;
+    }
+    final uri = Uri.https(
+      'api.spotify.com',
+      '/v1/me/player/play',
+      query.isEmpty ? null : query,
+    );
     Map<String, Object?>? bodyMap;
     if (uris != null && uris.isNotEmpty) {
       bodyMap = {'uris': uris};
     } else if (contextUri != null && contextUri.isNotEmpty) {
       bodyMap = {'context_uri': contextUri};
+      if (offsetUri != null && offsetUri.isNotEmpty) {
+        bodyMap['offset'] = {'uri': offsetUri};
+      } else if (offsetPosition != null && offsetPosition >= 0) {
+        bodyMap['offset'] = {'position': offsetPosition};
+      }
     }
     final body = bodyMap != null ? jsonEncode(bodyMap) : null;
     final resp = await _request(
@@ -397,6 +583,493 @@ class SpotifyApiClient {
       }),
     );
     _throwIfPlaybackError(resp);
+  }
+
+  /// Transfiere la reproducción al dispositivo [deviceId] (p.ej. el device_id
+  /// que reporta el Web Playback SDK local de Folio). Esto lo activa como
+  /// dispositivo Spotify Connect, visible desde otros clientes del usuario.
+  Future<void> transferPlayback(String deviceId, {bool play = true}) async {
+    final resp = await _request(
+      'PUT',
+      Uri.https('api.spotify.com', '/v1/me/player'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({
+        'device_ids': [deviceId],
+        'play': play,
+      }),
+    );
+    _throwIfPlaybackError(resp);
+  }
+
+  /// Lista los dispositivos Spotify Connect disponibles para el usuario.
+  Future<List<SpotifyDevice>> listDevices() async {
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/me/player/devices'),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return const [];
+    final map = _tryDecodeMap(resp.body);
+    final devices = map?['devices'];
+    if (devices is! List) return const [];
+    final out = <SpotifyDevice>[];
+    for (final raw in devices) {
+      if (raw is! Map) continue;
+      final m = Map<String, dynamic>.from(raw);
+      final id = (m['id'] as String? ?? '').trim();
+      final name = (m['name'] as String? ?? '').trim();
+      if (id.isEmpty || name.isEmpty) continue;
+      out.add(
+        SpotifyDevice(
+          id: id,
+          name: name,
+          type: (m['type'] as String? ?? '').trim(),
+          isActive: m['is_active'] == true,
+          isRestricted: m['is_restricted'] == true,
+          volumePercent: (m['volume_percent'] as num?)?.toInt(),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Cola actual (`GET /v1/me/player/queue`).
+  Future<SpotifyQueueSnapshot> getQueue() async {
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/me/player/queue'),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      return const SpotifyQueueSnapshot();
+    }
+    final map = _tryDecodeMap(resp.body);
+    if (map == null) return const SpotifyQueueSnapshot();
+    SpotifyTrackSummary? current;
+    final playing = map['currently_playing'];
+    if (playing is Map) {
+      current = _parseTrackMap(Map<String, dynamic>.from(playing));
+    }
+    final queueRaw = map['queue'];
+    final queue = <SpotifyTrackSummary>[];
+    if (queueRaw is List) {
+      for (final raw in queueRaw) {
+        if (raw is! Map) continue;
+        final parsed = _parseTrackMap(Map<String, dynamic>.from(raw));
+        if (parsed != null) queue.add(parsed);
+      }
+    }
+    return SpotifyQueueSnapshot(currentlyPlaying: current, queue: queue);
+  }
+
+  /// Añade un URI a la cola (`POST /v1/me/player/queue`).
+  Future<void> addToQueue(String spotifyUri) async {
+    final uri = spotifyUri.trim();
+    if (uri.isEmpty) return;
+    final resp = await _request(
+      'POST',
+      Uri.https('api.spotify.com', '/v1/me/player/queue', {'uri': uri}),
+    );
+    _throwIfPlaybackError(resp);
+  }
+
+  Future<void> setShuffle(bool state) async {
+    final resp = await _request(
+      'PUT',
+      Uri.https('api.spotify.com', '/v1/me/player/shuffle', {
+        'state': state ? 'true' : 'false',
+      }),
+    );
+    _throwIfPlaybackError(resp);
+  }
+
+  /// [state]: `off` | `track` | `context`
+  Future<void> setRepeat(String state) async {
+    final s = state.trim().isEmpty ? 'off' : state.trim();
+    final resp = await _request(
+      'PUT',
+      Uri.https('api.spotify.com', '/v1/me/player/repeat', {'state': s}),
+    );
+    _throwIfPlaybackError(resp);
+  }
+
+  /// Busca canciones por texto libre (`GET /v1/search`, solo tracks).
+  Future<List<SpotifyTrackSummary>> search(String query, {int limit = 20}) async {
+    final results = await searchCatalog(query, limit: limit);
+    return results.tracks;
+  }
+
+  /// Búsqueda multi-tipo: tracks, albums, artists, playlists.
+  Future<SpotifySearchResults> searchCatalog(
+    String query, {
+    int limit = 12,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const SpotifySearchResults();
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/search', {
+        'q': trimmed,
+        'type': 'track,album,artist,playlist',
+        'limit': '$limit',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      return const SpotifySearchResults();
+    }
+    final map = _tryDecodeMap(resp.body);
+    if (map == null) return const SpotifySearchResults();
+    return SpotifySearchResults(
+      tracks: _parseTrackList(map['tracks']),
+      albums: _parseAlbumList(map['albums']),
+      artists: _parseArtistList(map['artists']),
+      playlists: _parsePlaylistList(map['playlists']),
+    );
+  }
+
+  /// Pistas reproducidas recientemente.
+  Future<List<SpotifyTrackSummary>> getRecentlyPlayed({int limit = 20}) async {
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/me/player/recently-played', {
+        'limit': '$limit',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return const [];
+    final map = _tryDecodeMap(resp.body);
+    final items = map?['items'];
+    if (items is! List) return const [];
+    final out = <SpotifyTrackSummary>[];
+    final seen = <String>{};
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final track = raw['track'];
+      if (track is! Map) continue;
+      final parsed = _parseTrackMap(Map<String, dynamic>.from(track));
+      if (parsed == null || !seen.add(parsed.id)) continue;
+      out.add(parsed);
+    }
+    return out;
+  }
+
+  /// Canciones guardadas (Me gusta).
+  Future<SpotifyTrackPage> getSavedTracks({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/me/tracks', {
+        'limit': '$limit',
+        'offset': '$offset',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final map = _tryDecodeMap(resp.body);
+    if (map == null) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final items = map['items'];
+    final out = <SpotifyTrackSummary>[];
+    if (items is List) {
+      for (final raw in items) {
+        if (raw is! Map) continue;
+        final track = raw['track'];
+        if (track is! Map) continue;
+        final parsed = _parseTrackMap(Map<String, dynamic>.from(track));
+        if (parsed != null) out.add(parsed);
+      }
+    }
+    final total = (map['total'] as num?)?.toInt();
+    final nextOffset = offset + out.length;
+    final hasMore =
+        map['next'] != null || (total != null && nextOffset < total);
+    return SpotifyTrackPage(
+      items: out,
+      hasMore: hasMore,
+      nextOffset: nextOffset,
+    );
+  }
+
+  /// Tracks de una playlist.
+  Future<SpotifyTrackPage> getPlaylistTracks(
+    String playlistId, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final id = playlistId.trim();
+    if (id.isEmpty) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/playlists/$id/tracks', {
+        'limit': '$limit',
+        'offset': '$offset',
+        'fields':
+            'total,next,items(track(id,name,uri,duration_ms,artists(name),album(name,images)))',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final map = _tryDecodeMap(resp.body);
+    if (map == null) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final items = map['items'];
+    final out = <SpotifyTrackSummary>[];
+    if (items is List) {
+      for (final raw in items) {
+        if (raw is! Map) continue;
+        final track = raw['track'];
+        if (track is! Map) continue;
+        final parsed = _parseTrackMap(Map<String, dynamic>.from(track));
+        if (parsed != null) out.add(parsed);
+      }
+    }
+    final total = (map['total'] as num?)?.toInt();
+    final nextOffset = offset + out.length;
+    final hasMore =
+        map['next'] != null || (total != null && nextOffset < total);
+    return SpotifyTrackPage(
+      items: out,
+      hasMore: hasMore,
+      nextOffset: nextOffset,
+    );
+  }
+
+  /// Tracks de un álbum.
+  Future<SpotifyTrackPage> getAlbumTracks(
+    String albumId, {
+    int limit = 50,
+    int offset = 0,
+    String? albumArtUrl,
+    String? albumName,
+  }) async {
+    final id = albumId.trim();
+    if (id.isEmpty) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/albums/$id/tracks', {
+        'limit': '$limit',
+        'offset': '$offset',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final map = _tryDecodeMap(resp.body);
+    if (map == null) {
+      return const SpotifyTrackPage(items: [], hasMore: false, nextOffset: 0);
+    }
+    final items = map['items'];
+    final out = <SpotifyTrackSummary>[];
+    if (items is List) {
+      for (final raw in items) {
+        if (raw is! Map) continue;
+        final parsed = _parseTrackMap(
+          Map<String, dynamic>.from(raw),
+          fallbackArtUrl: albumArtUrl,
+          fallbackAlbumName: albumName,
+        );
+        if (parsed != null) out.add(parsed);
+      }
+    }
+    final total = (map['total'] as num?)?.toInt();
+    final nextOffset = offset + out.length;
+    final hasMore =
+        map['next'] != null || (total != null && nextOffset < total);
+    return SpotifyTrackPage(
+      items: out,
+      hasMore: hasMore,
+      nextOffset: nextOffset,
+    );
+  }
+
+  /// Top tracks de un artista.
+  Future<List<SpotifyTrackSummary>> getArtistTopTracks(String artistId) async {
+    final id = artistId.trim();
+    if (id.isEmpty) return const [];
+    final resp = await _request(
+      'GET',
+      Uri.https('api.spotify.com', '/v1/artists/$id/top-tracks', {
+        'market': 'ES',
+      }),
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return const [];
+    final map = _tryDecodeMap(resp.body);
+    return _parseTrackList(map);
+  }
+
+  SpotifyTrackSummary? _parseTrackMap(
+    Map<String, dynamic> m, {
+    String? fallbackArtUrl,
+    String? fallbackAlbumName,
+  }) {
+    final id = (m['id'] as String? ?? '').trim();
+    final name = (m['name'] as String? ?? '').trim();
+    final uri = (m['uri'] as String? ?? '').trim();
+    if (id.isEmpty || name.isEmpty || uri.isEmpty) return null;
+    var artist = '';
+    final artists = m['artists'];
+    if (artists is List && artists.isNotEmpty) {
+      final first = artists.first;
+      if (first is Map) artist = (first['name'] as String? ?? '').trim();
+    }
+    String? artUrl = fallbackArtUrl;
+    String? albumName = fallbackAlbumName;
+    final album = m['album'];
+    if (album is Map) {
+      final rawAlbumName = (album['name'] as String? ?? '').trim();
+      if (rawAlbumName.isNotEmpty) albumName = rawAlbumName;
+      final images = album['images'];
+      if (images is List && images.isNotEmpty) {
+        final img = images.first;
+        if (img is Map) artUrl = (img['url'] as String?)?.trim() ?? artUrl;
+      }
+    }
+    return SpotifyTrackSummary(
+      id: id,
+      name: name,
+      uri: uri,
+      artistName: artist,
+      albumName: albumName,
+      albumArtUrl: artUrl,
+      durationMs: (m['duration_ms'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  List<SpotifyTrackSummary> _parseTrackList(Object? container) {
+    if (container is Map) {
+      final items = container['items'] ?? container['tracks'];
+      if (items is! List) return const [];
+      final out = <SpotifyTrackSummary>[];
+      for (final raw in items) {
+        if (raw is! Map) continue;
+        final parsed = _parseTrackMap(Map<String, dynamic>.from(raw));
+        if (parsed != null) out.add(parsed);
+      }
+      return out;
+    }
+    if (container is List) {
+      final out = <SpotifyTrackSummary>[];
+      for (final raw in container) {
+        if (raw is! Map) continue;
+        final parsed = _parseTrackMap(Map<String, dynamic>.from(raw));
+        if (parsed != null) out.add(parsed);
+      }
+      return out;
+    }
+    return const [];
+  }
+
+  List<SpotifyAlbumSummary> _parseAlbumList(Object? container) {
+    if (container is! Map) return const [];
+    final items = container['items'];
+    if (items is! List) return const [];
+    final out = <SpotifyAlbumSummary>[];
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final m = Map<String, dynamic>.from(raw);
+      final id = (m['id'] as String? ?? '').trim();
+      final name = (m['name'] as String? ?? '').trim();
+      final uri = (m['uri'] as String? ?? '').trim();
+      if (id.isEmpty || name.isEmpty || uri.isEmpty) continue;
+      var artist = '';
+      final artists = m['artists'];
+      if (artists is List && artists.isNotEmpty) {
+        final first = artists.first;
+        if (first is Map) artist = (first['name'] as String? ?? '').trim();
+      }
+      String? imageUrl;
+      final images = m['images'];
+      if (images is List && images.isNotEmpty) {
+        final img = images.first;
+        if (img is Map) imageUrl = (img['url'] as String?)?.trim();
+      }
+      out.add(
+        SpotifyAlbumSummary(
+          id: id,
+          name: name,
+          uri: uri,
+          artistName: artist,
+          imageUrl: imageUrl,
+          trackCount: (m['total_tracks'] as num?)?.toInt(),
+        ),
+      );
+    }
+    return out;
+  }
+
+  List<SpotifyArtistSummary> _parseArtistList(Object? container) {
+    if (container is! Map) return const [];
+    final items = container['items'];
+    if (items is! List) return const [];
+    final out = <SpotifyArtistSummary>[];
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final m = Map<String, dynamic>.from(raw);
+      final id = (m['id'] as String? ?? '').trim();
+      final name = (m['name'] as String? ?? '').trim();
+      final uri = (m['uri'] as String? ?? '').trim();
+      if (id.isEmpty || name.isEmpty || uri.isEmpty) continue;
+      String? imageUrl;
+      final images = m['images'];
+      if (images is List && images.isNotEmpty) {
+        final img = images.first;
+        if (img is Map) imageUrl = (img['url'] as String?)?.trim();
+      }
+      out.add(
+        SpotifyArtistSummary(
+          id: id,
+          name: name,
+          uri: uri,
+          imageUrl: imageUrl,
+        ),
+      );
+    }
+    return out;
+  }
+
+  List<SpotifyPlaylistSummary> _parsePlaylistList(Object? container) {
+    if (container is! Map) return const [];
+    final items = container['items'];
+    if (items is! List) return const [];
+    final out = <SpotifyPlaylistSummary>[];
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      // Search may return null playlist entries.
+      if (raw.isEmpty) continue;
+      final m = Map<String, dynamic>.from(raw);
+      final id = (m['id'] as String? ?? '').trim();
+      final name = (m['name'] as String? ?? '').trim();
+      final uri = (m['uri'] as String? ?? '').trim();
+      if (id.isEmpty || name.isEmpty || uri.isEmpty) continue;
+      String? imageUrl;
+      final images = m['images'];
+      if (images is List && images.isNotEmpty) {
+        final img = images.first;
+        if (img is Map) imageUrl = (img['url'] as String?)?.trim();
+      }
+      int? trackCount;
+      final tracks = m['tracks'];
+      if (tracks is Map) {
+        trackCount = (tracks['total'] as num?)?.toInt();
+      }
+      out.add(
+        SpotifyPlaylistSummary(
+          id: id,
+          name: name,
+          uri: uri,
+          imageUrl: imageUrl,
+          trackCount: trackCount,
+        ),
+      );
+    }
+    return out;
   }
 
   void _throwIfPlaybackError(http.Response resp) {

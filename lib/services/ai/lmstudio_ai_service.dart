@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'ai_http_cancel.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
 import 'openai_compatible_sse.dart';
@@ -23,6 +24,17 @@ class LmStudioAiService implements AiService {
   // del runtime cargado; de momento cae a la emulación JSON.
   @override
   bool get supportsNativeToolCalling => false;
+
+  @override
+  bool get supportsImageGeneration => false;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) {
+    throw AiImageGenerationUnsupportedException(providerName);
+  }
 
   Map<String, dynamic> _buildPayload(AiCompletionRequest request) {
     final textAttachments = request.attachments
@@ -84,7 +96,11 @@ class LmStudioAiService implements AiService {
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = baseUrl.resolve('/v1/chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -115,7 +131,10 @@ class LmStudioAiService implements AiService {
         model: request.model == 'auto' ? defaultModel : request.model,
         usage: usage,
       );
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }
@@ -127,7 +146,11 @@ class LmStudioAiService implements AiService {
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = baseUrl.resolve('/v1/chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -141,7 +164,10 @@ class LmStudioAiService implements AiService {
       }
 
       yield* parseOpenAiCompatibleSseStream(response);
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }

@@ -9,19 +9,28 @@ import 'package:folio/services/folio_cloud/folio_spring_callable_routes.dart';
 
 void main() {
   group('FolioBackendConfig (default via FolioLocalSecrets)', () {
+    tearDown(FolioBackendConfig.debugResetHostFallback);
+
     test('useSpring follows FolioLocalSecrets when defines are empty', () {
       // En este checkout: secrets apuntan a Railway Spring.
       expect(FolioBackendConfig.useSpring, isTrue);
       expect(FolioBackendConfig.modeLabel, 'spring');
       expect(
         FolioBackendConfig.baseUrl,
-        'https://backendfolio.minealexgames.com',
+        'https://api-beta.folio.com.es',
       );
     });
 
     test('folioHttpsCallableUsesHttp is platform-gated without Spring', () {
       // Con Spring activo el cliente fuerza HTTP en todas las plataformas.
       expect(FolioBackendConfig.useSpring, isTrue);
+    });
+
+    test('canonical beta has Minealex fallback', () {
+      expect(
+        FolioBackendConfig.fallbackBaseUrlFor(FolioBackendConfig.baseUrl),
+        'https://backendfoliobeta.minealexgames.com',
+      );
     });
   });
 

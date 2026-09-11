@@ -10,6 +10,19 @@ abstract final class SpotifyAuthConfig {
     'user-modify-playback-state',
     'user-read-currently-playing',
     'playlist-read-private',
+    'playlist-read-collaborative',
+    'user-library-read',
+    'user-read-recently-played',
+    'streaming',
+    'user-read-email',
+    'user-read-private',
+  ];
+
+  /// Scopes necesarios para la biblioteca in-app (recently played, liked, etc.).
+  static const List<String> libraryScopes = [
+    'user-library-read',
+    'user-read-recently-played',
+    'playlist-read-collaborative',
   ];
 
   /// Puerto loopback fijo (distinto al de Jira `45747`).

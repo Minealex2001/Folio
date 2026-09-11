@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../models/meeting_note_bookmark.dart';
 import '../../../services/meeting_note_session_controller.dart';
 import '../../../session/vault_session.dart';
 
@@ -43,6 +45,24 @@ class MeetingNoteActiveBar extends StatelessWidget {
                 : isSetup
                     ? l10n.meetingNotePreparing
                     : l10n.meetingNoteRecordingTime(mm, ss);
+
+        // Fase 8: lectura compacta de talk ratio, solo cuando hay datos
+        // suficientes — un conteo/ratio puro, nada de puntuación ni
+        // inferencia de comportamiento.
+        String? talkRatioLine;
+        if (!isCloud && !isSetup && !isStopping) {
+          final snapshot = controller.metricsSnapshot;
+          final ratios = snapshot.talkRatioBySpeaker;
+          if (ratios.isNotEmpty) {
+            final top = ratios.entries.reduce(
+              (a, b) => a.value >= b.value ? a : b,
+            );
+            talkRatioLine = l10n.meetingNoteTalkRatioCompact(
+              top.key,
+              (top.value * 100).round(),
+            );
+          }
+        }
 
         final bg = scheme.surfaceContainerHighest.withValues(alpha: 0.92);
         final fg = scheme.onSurface;
@@ -90,9 +110,50 @@ class MeetingNoteActiveBar extends StatelessWidget {
                           color: fg.withValues(alpha: 0.7),
                         ),
                       ),
+                      if (talkRatioLine != null)
+                        Text(
+                          talkRatioLine,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: fg.withValues(alpha: 0.55),
+                          ),
+                        ),
                     ],
                   ),
                 ),
+                if (!isCloud && !isSetup && !isStopping)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l10n.meetingNoteAddBookmark,
+                    icon: Icon(
+                      Icons.bookmark_add_outlined,
+                      size: 20,
+                      color: fg,
+                    ),
+                    onPressed: () {
+                      final pageId = controller.pageId;
+                      final blockId = controller.blockId;
+                      if (pageId == null || blockId == null) return;
+                      session.addBlockMeetingNoteBookmark(
+                        pageId,
+                        blockId,
+                        MeetingNoteBookmark(
+                          id: const Uuid().v4(),
+                          timestampMs: elapsed.inMilliseconds,
+                          type: MeetingNoteBookmarkType.important,
+                          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.meetingNoteBookmarkAdded),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
                 if (!onMeetingPage)
                   IconButton(
                     visualDensity: VisualDensity.compact,

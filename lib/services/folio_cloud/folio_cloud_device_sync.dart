@@ -30,6 +30,7 @@ import 'device_sync_key_cache.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_cloud_device_sync_incremental.dart';
 import 'folio_cloud_entitlements.dart';
+import 'folio_cloud_exception.dart';
 import 'folio_cloud_identity.dart';
 import 'folio_cloud_pack_crypto.dart';
 import 'folio_cloud_vault_push_listener.dart';
@@ -611,6 +612,24 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         return;
       }
 
+      final onDiskPageCount = await _countPageDirsOnDisk(vaultId);
+      if (shouldSkipSuspiciouslyPartialDeviceSyncPush(
+        payloadPageCount: pack.payload.pages.length,
+        onDiskPageCount: onDiskPageCount,
+      )) {
+        AppLogger.warn(
+          'push skipped: in-memory payload looks partial vs disk',
+          tag: 'cloud_sync',
+          context: {
+            'vaultId': vaultId,
+            'payloadPages': pack.payload.pages.length,
+            'onDiskPages': onDiskPageCount,
+          },
+        );
+        _dirty = true;
+        return;
+      }
+
       if (fp == _lastPushedFingerprint && !force) {
         return;
       }
@@ -668,10 +687,15 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         vaultMode: _session.vaultUsesEncryption ? 'encrypted' : 'plain',
         packKeyKind: packKeyKind,
         dekAccountWrapB64: wrapB64 ?? '',
+        expectedBaseRev: _lastRemoteRev > 0 ? _lastRemoteRev : null,
+        confirmPageCountRegression:
+            _confirmedPageCountRegressionVaultIds.contains(vaultId),
         onProgress: (done, total, fraction) {
           _setTransferProgress(fraction, done, total);
         },
       );
+      _confirmedPageCountRegressionVaultIds.remove(vaultId);
+      _pendingPageCountRegressionVaultIds.remove(vaultId);
 
       _lastPushedFingerprint = fp;
       _lastAppliedFingerprint = fp;
@@ -730,6 +754,51 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _setStatus('idle');
       notifyListeners();
       if (!folioFirestoreSupported) _burstPoll();
+    } on FolioCloudException catch (e, st) {
+      if (e.code == 'sync-conflict') {
+        // El backend ya tiene un rev más nuevo que el que creíamos: refrescar
+        // meta (dispara pull+merge vía _onRemoteMeta si aplica) y reintentar
+        // el push en vez de asumir que perdimos la carrera.
+        AppLogger.warn(
+          'push rejected: stale rev, refreshing before retry',
+          tag: 'cloud_sync',
+          context: {'vaultId': vaultId},
+        );
+        _dirty = true;
+        _setStatus('idle');
+        unawaited(() async {
+          await _refreshRemoteMetaOnce();
+          await _pushIfNeeded(force: true);
+        }());
+      } else if (e.code == 'sync-page-count-regression') {
+        // El backend detectó que este push bajaría drásticamente el conteo
+        // de páginas respecto al último aceptado: no reintentar solo (sería
+        // un bucle silencioso) — el usuario debe confirmar que es un borrado
+        // real, igual que con `resolveTrashConflictKeepRemote`.
+        AppLogger.warn(
+          'push rejected: page count regression needs confirmation',
+          tag: 'cloud_sync',
+          context: {'vaultId': vaultId},
+        );
+        if (!_pendingPageCountRegressionVaultIds.contains(vaultId)) {
+          _pendingPageCountRegressionVaultIds.add(vaultId);
+        }
+        _lastError = '$e';
+        _setStatus('error');
+        notifyListeners();
+      } else {
+        AppLogger.error(
+          'cloud device sync push failed',
+          tag: 'cloud_sync',
+          error: e,
+          stackTrace: st,
+        );
+        _dirty = true;
+        _lastError = '$e';
+        _setTransferProgress(null, 0, 0);
+        _setStatus('error');
+        _notifyErrorOnce('push', e);
+      }
     } catch (e, st) {
       AppLogger.error(
         'cloud device sync push failed',
@@ -825,6 +894,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       final knownManifest = _pageManifestStore.forVault(knownManifestVaultId);
       var pulledVaultBlobId = '';
       var pulledPageBlobIds = <String, String>{};
+      int? pulledManifestPageCount;
 
       late final Uint8List plain;
       if (syncFormatVersion >= 2 && manifestStoragePath.isNotEmpty) {
@@ -844,6 +914,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
             _cachedRemoteBlobIds = rebuilt.blobIds;
             pulledVaultBlobId = rebuilt.vaultBlobId;
             pulledPageBlobIds = rebuilt.pageBlobIds;
+            pulledManifestPageCount = rebuilt.manifestPageCount;
             return rebuilt.packBytes;
           },
         );
@@ -874,6 +945,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       final applied = await _session.applySyncSnapshotBytes(
         plain,
         'cloud:${_settings.syncDeviceId}',
+        pulledManifestPageCount,
       );
       if (!applied.ok) {
         throw StateError('applySyncSnapshotBytes failed');
@@ -1019,6 +1091,21 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         context: {'vaultId': vaultId, 'error': '$e'},
       );
       return null;
+    }
+  }
+
+  /// Recuento de páginas en el árbol en disco (`repo/pages`) de una libreta,
+  /// independiente de lo que haya materializado la sesión en memoria — sirve
+  /// para detectar que el payload que se va a subir está sospechosamente por
+  /// debajo de lo que ya hay en disco (ver [shouldSkipSuspiciouslyPartialDeviceSyncPush]).
+  Future<int> _countPageDirsOnDisk(String vaultId) async {
+    try {
+      final vaultDir = await VaultPaths.vaultDirectoryForId(vaultId);
+      final treeDir = Directory(p.join(vaultDir.path, 'repo'));
+      if (!treeDir.existsSync()) return 0;
+      return VaultLocalStorage.countPageDirs(treeDir);
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -1428,6 +1515,37 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ids de libretas cuyo push fue rechazado por el backend
+  /// (`sync-page-count-regression`): el conteo de páginas bajó drásticamente
+  /// respecto al último aceptado y el usuario debe confirmar que es un
+  /// borrado real antes de reintentar.
+  final List<String> _pendingPageCountRegressionVaultIds = [];
+  List<String> get pendingPageCountRegressionVaultIds =>
+      List.unmodifiable(_pendingPageCountRegressionVaultIds);
+
+  /// Vaults marcados para reintentar el próximo push con
+  /// `confirmPageCountRegression: true` — se limpia tras el intento
+  /// (con éxito o no) para no confirmar de más en pushes futuros distintos.
+  final Set<String> _confirmedPageCountRegressionVaultIds = {};
+
+  /// El usuario confirmó que la caída de páginas es un borrado real: se
+  /// reintenta el push de esa libreta con la confirmación explícita.
+  Future<void> resolvePageCountRegressionConfirm(String vaultId) async {
+    _pendingPageCountRegressionVaultIds.remove(vaultId);
+    _confirmedPageCountRegressionVaultIds.add(vaultId);
+    if (vaultId == (VaultPaths.activeVaultId ?? '') && _session.isUnlocked) {
+      _dirty = true;
+      await _pushIfNeeded(force: true);
+    }
+  }
+
+  /// El usuario decidió NO confirmar el borrado por ahora — el push queda
+  /// pendiente y se volverá a rechazar (y a preguntar) en el próximo intento.
+  void dismissPageCountRegression(String vaultId) {
+    _pendingPageCountRegressionVaultIds.remove(vaultId);
+    notifyListeners();
+  }
+
   final DeviceSyncPendingTrashStore _pendingTrash =
       DeviceSyncPendingTrashStore();
 
@@ -1661,6 +1779,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         final knownManifest = _pageManifestStore.forVault(vaultId);
         var pulledVaultBlobId = '';
         var pulledPageBlobIds = <String, String>{};
+        int? pulledManifestPageCount;
         late final Uint8List plain;
         if (isV2) {
           plain = await _decryptWirePack(
@@ -1675,6 +1794,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
               );
               pulledVaultBlobId = rebuilt.vaultBlobId;
               pulledPageBlobIds = rebuilt.pageBlobIds;
+              pulledManifestPageCount = rebuilt.manifestPageCount;
               return rebuilt.packBytes;
             },
           );
@@ -1707,6 +1827,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           packKey: packKey,
           remotePackBytes: plain,
           baseline: await _loadPersistedBaseline(vaultId),
+          remoteExpectedPageCount: pulledManifestPageCount,
         );
         if (!applied.ok) {
           throw StateError('headless apply failed: vaultId=$vaultId');

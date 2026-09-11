@@ -13,6 +13,8 @@ import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/app_logger.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/cloud_account/library_context_binder.dart';
+import '../../../services/cloud_account/organization_context_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_status_controller.dart';
 import '../../../app/widgets/folio_interactions.dart';
 import '../recent_page_visits.dart';
@@ -23,9 +25,11 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import 'sidebar/sidebar_footer.dart';
 import 'sidebar/sidebar_page_tree.dart';
+import 'sidebar/sidebar_pillar_rail.dart';
 import 'sidebar/sidebar_recents.dart';
 import 'sidebar/sidebar_vault_toolbar.dart';
 import '../collab/vault_share_sheet.dart';
+import '../spotify/spotify_right_now_playing.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -34,10 +38,12 @@ class Sidebar extends StatefulWidget {
     required this.appSettings,
     required this.cloudAccountController,
     this.cloudStatusController,
+    this.organizationContext,
     this.onSearch,
     this.onForceSync,
     this.onOpenSettings,
     this.onOpenCloudStatus,
+    this.onOpenOrganizationSettings,
     this.onLock,
     this.onQuickAddTask,
     this.onOpenVaultTaskHub,
@@ -47,10 +53,12 @@ class Sidebar extends StatefulWidget {
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
   final FolioCloudStatusController? cloudStatusController;
+  final OrganizationContextController? organizationContext;
   final VoidCallback? onSearch;
   final VoidCallback? onForceSync;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenCloudStatus;
+  final VoidCallback? onOpenOrganizationSettings;
   final VoidCallback? onLock;
   final VoidCallback? onQuickAddTask;
   final VoidCallback? onOpenVaultTaskHub;
@@ -64,6 +72,7 @@ class _SidebarState extends State<Sidebar> {
 
   List<VaultEntry> _vaults = [];
   var _vaultsLoading = true;
+  var _adoptableVaultCount = 0;
   Set<String> _lastVaultIds = const <String>{};
   final Set<String> _collapsedPageIds = <String>{};
   // Performance: track what's visible in the sidebar to skip unnecessary rebuilds
@@ -81,16 +90,47 @@ class _SidebarState extends State<Sidebar> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
+    widget.cloudAccountController.addListener(_onAccountOrOrgChanged);
+    widget.organizationContext?.addListener(_onAccountOrOrgChanged);
     unawaited(_loadCollapsedState());
     unawaited(_loadRecentState());
-    _reloadVaults();
+    unawaited(_applyLibraryContextAndReload());
   }
 
   @override
   void dispose() {
     session.removeListener(_onSession);
+    widget.cloudAccountController.removeListener(_onAccountOrOrgChanged);
+    widget.organizationContext?.removeListener(_onAccountOrOrgChanged);
     _pagesScrollController.dispose();
     super.dispose();
+  }
+
+  void _onAccountOrOrgChanged() {
+    unawaited(_applyLibraryContextAndReload());
+  }
+
+  Future<void> _applyLibraryContextAndReload() async {
+    await LibraryContextBinder.apply(
+      account: widget.cloudAccountController,
+      organizationContext: widget.organizationContext,
+      session: session,
+    );
+    if (mounted) await _reloadVaults();
+  }
+
+  @override
+  void didUpdateWidget(covariant Sidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cloudAccountController != widget.cloudAccountController) {
+      oldWidget.cloudAccountController.removeListener(_onAccountOrOrgChanged);
+      widget.cloudAccountController.addListener(_onAccountOrOrgChanged);
+    }
+    if (oldWidget.organizationContext != widget.organizationContext) {
+      oldWidget.organizationContext?.removeListener(_onAccountOrOrgChanged);
+      widget.organizationContext?.addListener(_onAccountOrOrgChanged);
+      unawaited(_applyLibraryContextAndReload());
+    }
   }
 
   void _onSession() {
@@ -117,6 +157,17 @@ class _SidebarState extends State<Sidebar> {
     }
     final selectedId = session.selectedPageId;
     if (selectedId != null && selectedId != _lastSelectedPageId) {
+      // Fase 2 del roadmap de producto — antes de perder la referencia a la
+      // página que se abandona, guarda en qué bloque estaba enfocado el
+      // usuario (si alguno), para que "continuar donde lo dejaste" pueda
+      // saltar directo a esa posición la próxima vez.
+      final leavingPageId = _lastSelectedPageId;
+      if (leavingPageId != null) {
+        final lastBlockId = session.lastFocusedBlockForPage(leavingPageId);
+        if (lastBlockId != null) {
+          _updateRecentLastBlock(leavingPageId, lastBlockId);
+        }
+      }
       _lastSelectedPageId = selectedId;
       _registerRecentPage(selectedId);
     }
@@ -212,6 +263,21 @@ class _SidebarState extends State<Sidebar> {
     );
   }
 
+  void _updateRecentLastBlock(String pageId, String blockId) {
+    final next = RecentPageVisitsStore.withUpdatedLastBlock(
+      _recentVisits,
+      pageId,
+      blockId,
+    );
+    if (identical(next, _recentVisits)) return;
+    setState(() {
+      _recentVisits
+        ..clear()
+        ..addAll(next);
+    });
+    unawaited(_persistRecentState());
+  }
+
   void _registerRecentPage(String pageId) {
     if (!session.activePages.any((p) => p.id == pageId)) return;
     setState(() {
@@ -229,6 +295,10 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _reloadVaults() async {
     final list = await session.listVaultEntries();
+    final uid = widget.cloudAccountController.uid ?? '';
+    final adoptable = uid.isEmpty
+        ? <VaultEntry>[]
+        : VaultRegistry.instance.adoptablePersonalVaultsFor(uid);
     final validPageIds = session.activePages.map((p) => p.id).toSet();
     var changedCollapsedState = false;
     _collapsedPageIds.removeWhere((id) {
@@ -253,7 +323,43 @@ class _SidebarState extends State<Sidebar> {
         _vaults = list;
         _vaultsLoading = false;
         _lastVaultIds = {for (final e in list) e.id};
+        _adoptableVaultCount = adoptable.length;
       });
+    }
+  }
+
+  Future<void> _adoptLocalVaults() async {
+    final uid = widget.cloudAccountController.uid?.trim() ?? '';
+    if (uid.isEmpty || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.sidebarAdoptLocalVaultsConfirmTitle),
+      content: Text(l10n.sidebarAdoptLocalVaultsConfirmBody),
+      confirmLabel: l10n.sidebarAdoptLocalVaults,
+    );
+    if (confirmed != true || !mounted) return;
+
+    // Las libretas personales solo son visibles en contexto personal.
+    final orgCtx = widget.organizationContext;
+    final personalId = orgCtx?.personalOrganization?.id;
+    if (orgCtx != null &&
+        personalId != null &&
+        orgCtx.activeOrganization?.isPersonal != true) {
+      await orgCtx.setActiveOrganizationId(personalId);
+    }
+
+    final count =
+        await VaultRegistry.instance.adoptPersonalVaultsToAccount(uid);
+    AppLogger.info(
+      'adopted local vaults to account',
+      tag: 'org',
+      context: {'uid': uid, 'count': count},
+    );
+    await _applyLibraryContextAndReload();
+    if (!mounted) return;
+    if (count > 0) {
+      showFolioSnack(context, l10n.sidebarAdoptLocalVaultsDone(count));
     }
   }
 
@@ -715,11 +821,13 @@ class _SidebarState extends State<Sidebar> {
       );
     }
 
-    final feedback = Material(
-      color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Opacity(opacity: 0.92, child: buildTile(interactive: false)),
+    final feedback = ExcludeSemantics(
+      child: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Opacity(opacity: 0.92, child: buildTile(interactive: false)),
+        ),
       ),
     );
 
@@ -728,9 +836,11 @@ class _SidebarState extends State<Sidebar> {
         data: page.id,
         feedback: feedback,
         dragAnchorStrategy: pointerDragAnchorStrategy,
-        childWhenDragging: Opacity(
-          opacity: 0.35,
-          child: buildTile(interactive: false),
+        childWhenDragging: ExcludeSemantics(
+          child: Opacity(
+            opacity: 0.35,
+            child: buildTile(interactive: false),
+          ),
         ),
         child: buildDragChild(),
       );
@@ -739,9 +849,11 @@ class _SidebarState extends State<Sidebar> {
     return LongPressDraggable<String>(
       data: page.id,
       feedback: feedback,
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: buildTile(interactive: false),
+      childWhenDragging: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0.35,
+          child: buildTile(interactive: false),
+        ),
       ),
       child: buildDragChild(),
     );
@@ -787,11 +899,22 @@ class _SidebarState extends State<Sidebar> {
         // When the sidebar is animating to/from zero width, the available
         // width can be tiny (a few pixels). Rendering the full Column in
         // that state causes a RenderFlex overflow because Wrap stacks all
-        // chips vertically. Return an empty box to avoid the assertion.
+        // chips vertically. Keep a clipped placeholder instead of unmounting
+        // the whole tree mid-animation (that churn triggers Windows AXTree
+        // "Nodes left pending" errors).
         if (constraints.maxWidth < FolioSidebar.collapseThreshold) {
-          return const SizedBox.shrink();
+          // Evita overflow del Column a anchos mínimos; ExcludeSemantics reduce
+          // el ruido al desmontar el árbol durante la animación de colapso.
+          return const ExcludeSemantics(child: SizedBox.shrink());
         }
-        return Column(
+        final showFullPlayerOverlay =
+            widget.appSettings.workspaceSidebarSpotifyFullPlayer &&
+            widget.appSettings.workspaceSidebarSpotifyExpanded;
+        return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SidebarVaultToolbar(
@@ -805,6 +928,17 @@ class _SidebarState extends State<Sidebar> {
               onShareVault: () => unawaited(
                 showVaultShareSheet(context: context, session: session),
               ),
+              adoptableVaultCount: _adoptableVaultCount,
+              onAdoptLocalVaults: _adoptableVaultCount > 0
+                  ? () => unawaited(_adoptLocalVaults())
+                  : null,
+            ),
+            SidebarPillarRail(
+              onWrite: () => session.addPage(parentId: null),
+              onThink: widget.onSearch,
+              onOrganize: widget.onOpenVaultTaskHub,
+              onConnect: widget.onOpenCloudStatus,
+              onCustomize: widget.onOpenSettings,
             ),
             if (showDeskTools)
               Padding(
@@ -1124,7 +1258,8 @@ class _SidebarState extends State<Sidebar> {
                                           : null);
                                   final beforeId = beforeRow?.page.id;
 
-                                  return DragTarget<String>(
+                                  return ExcludeSemantics(
+                                    child: DragTarget<String>(
                                     onWillAcceptWithDetails: (details) {
                                       final draggedId = details.data;
                                       if (beforeId != null &&
@@ -1177,6 +1312,7 @@ class _SidebarState extends State<Sidebar> {
                                         ),
                                       );
                                     },
+                                  ),
                                   );
                                 },
                               ),
@@ -1190,10 +1326,33 @@ class _SidebarState extends State<Sidebar> {
               session: session,
               appSettings: widget.appSettings,
               trashCount: trashCount,
+              cloudAccountController: widget.cloudAccountController,
               cloudStatusController: widget.cloudStatusController,
+              organizationContext: widget.organizationContext,
               onOpenSettings: widget.onOpenSettings,
               onOpenCloudStatus: widget.onOpenCloudStatus,
+              onOpenOrganizationSettings: widget.onOpenOrganizationSettings,
               onSpotifyExpandedChanged: () => setState(() {}),
+            ),
+          ],
+            ),
+            Positioned.fill(
+              child: SpotifyFullPlayerReveal(
+                visible: showFullPlayerOverlay,
+                child: Material(
+                  elevation: 6,
+                  child: SpotifyRightNowPlaying(
+                    asOverlay: true,
+                    onClose: () {
+                      unawaited(
+                        widget.appSettings
+                            .setWorkspaceSidebarSpotifyExpanded(false),
+                      );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
         );

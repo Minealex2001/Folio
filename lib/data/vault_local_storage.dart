@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'vault_paths.dart';
 import 'vault_payload.dart';
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../git/vault_payload_converters.dart';
 import '../git/vault_snapshot_manager.dart';
 import '../models/folio_page.dart';
@@ -81,6 +82,27 @@ class VaultLocalStorage {
     return n;
   }
 
+  /// Ids de página presentes en el árbol `repo/pages/` en disco (una carpeta
+  /// con `meta.json`). Usado por el guardado incremental para verificar que el
+  /// conjunto de páginas en disco coincide con el de la sesión antes de
+  /// escribir solo unas pocas — si difiere (página creada/borrada/importada
+  /// por cualquier ruta), se cae al guardado completo.
+  static Set<String> listPageIdsOnDisk(Directory treeDir) {
+    final pagesDir = Directory(p.join(treeDir.path, 'pages'));
+    final out = <String>{};
+    if (!pagesDir.existsSync()) return out;
+    for (final prefix in pagesDir.listSync()) {
+      if (prefix is! Directory) continue;
+      for (final pageDir in prefix.listSync()) {
+        if (pageDir is! Directory) continue;
+        if (File(p.join(pageDir.path, 'meta.json')).existsSync()) {
+          out.add(p.basename(pageDir.path));
+        }
+      }
+    }
+    return out;
+  }
+
   /// Descompone un VaultPayload al árbol de archivos en <vault>/repo/.
   /// Usa staging `repo.tmp` y swap atómico para no dejar el árbol a medias.
   static Future<void> decomposeAndStore(VaultPayload payload) async {
@@ -88,23 +110,51 @@ class VaultLocalStorage {
     await decomposeAndStoreAt(vaultDir, payload);
   }
 
+  /// Umbral bajo el cual un payload entrante se considera "sospechosamente
+  /// parcial" frente al árbol ya en disco, en vez de un borrado real: por
+  /// debajo del 40% de las páginas existentes, con un mínimo de 4 páginas
+  /// existentes (evita falsos positivos en libretas pequeñas). Réplica local
+  /// del mismo criterio que `VaultSyncMergeEngine.looksSuspiciouslyPartial`
+  /// — no se importa ese servicio aquí a propósito, para no crear una
+  /// dependencia data -> services por un simple chequeo de conteos.
+  static bool looksLikePartialOverwrite({
+    required int existingPages,
+    required int incomingPages,
+  }) {
+    if (existingPages < 4) return false;
+    if (incomingPages == 0) return false; // cubierto por el guard de vaciado total
+    return incomingPages <= (existingPages * 0.4).ceil();
+  }
+
   /// Igual que [decomposeAndStore] pero para un directorio de libreta concreto
   /// (p. ej. sync headless sin cambiar la libreta activa).
   ///
   /// Por defecto rechaza sustituir un árbol con páginas por un payload vacío
   /// (evita wipe por sync/persist corrupto). [allowEmptyOverwrite] solo para
-  /// wipe explícito del usuario.
+  /// wipe explícito del usuario. [guardAgainstPartialOverwrite] añade además
+  /// el rechazo de un payload que no está vacío pero sí muy por debajo de lo
+  /// que ya hay en disco (manifiesto de sync parcial) — solo lo activan los
+  /// llamadores que escriben contenido remoto, no el guardado local del
+  /// usuario (que puede borrar páginas legítimamente en bloque).
   static Future<void> decomposeAndStoreAt(
     Directory vaultDir,
     VaultPayload payload, {
     bool allowEmptyOverwrite = false,
+    bool guardAgainstPartialOverwrite = false,
   }) {
+    final swLockWait = FolioPerfTrace.begin();
     return runExclusive(vaultDir.path, () async {
+      final lockWaitUs = FolioPerfTrace.us(swLockWait);
+      final swWork = FolioPerfTrace.begin();
+      final perf = FolioPerfTrace.enabled ? DecomposePerf() : null;
+      if (perf != null) FolioPerfTrace.decompose = perf;
+      try {
       final treeDir = Directory(p.join(vaultDir.path, 'repo'));
       final existingPages = treeDir.existsSync() ? countPageDirs(treeDir) : 0;
+      final incomingPages = payload.pages.length;
       if (!allowEmptyOverwrite &&
           existingPages > 0 &&
-          payload.pages.isEmpty) {
+          incomingPages == 0) {
         AppLogger.error(
           'Blocked empty overwrite of vault tree',
           tag: 'vault',
@@ -116,6 +166,26 @@ class VaultLocalStorage {
         );
         throw VaultEmptyOverwriteException(
           'Refusing to replace repo/ with $existingPages pages by empty payload',
+        );
+      }
+      if (guardAgainstPartialOverwrite &&
+          looksLikePartialOverwrite(
+            existingPages: existingPages,
+            incomingPages: incomingPages,
+          )) {
+        AppLogger.error(
+          'Blocked partial overwrite of vault tree',
+          tag: 'vault',
+          context: {
+            'vaultDir': vaultDir.path,
+            'existingPages': existingPages,
+            'incomingPages': incomingPages,
+          },
+        );
+        throw VaultEmptyOverwriteException(
+          'Refusing to replace repo/ ($existingPages pages) with a '
+          'suspiciously small payload ($incomingPages pages) — looks like a '
+          'partial sync manifest, not a real delete',
         );
       }
 
@@ -137,6 +207,24 @@ class VaultLocalStorage {
       await tmpDir.rename(treeDir.path);
       if (oldDir.existsSync()) {
         await oldDir.delete(recursive: true);
+      }
+      } finally {
+        if (perf != null) {
+          perf.pageCount = payload.pages.length;
+          FolioPerfTrace.decompose = null;
+          final workUs = FolioPerfTrace.us(swWork);
+          FolioPerfTrace.log('decomposeAndStore', {
+            'pages': perf.pageCount,
+            'files': perf.fileCount,
+            'lockWait_ms': FolioPerfTrace.ms(lockWaitUs),
+            'work_ms': FolioPerfTrace.ms(workUs),
+            'serialize_ms': FolioPerfTrace.ms(perf.serializeUs),
+            'writeAtomic_ms': FolioPerfTrace.ms(perf.writeUs),
+            'other_ms': FolioPerfTrace.ms(
+              workUs - perf.serializeUs - perf.writeUs,
+            ),
+          });
+        }
       }
     });
   }

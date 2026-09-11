@@ -40,6 +40,34 @@ class CloudAccountController extends ChangeNotifier {
 
   bool get isSignedIn => _spring.isSignedIn;
 
+  /// Cuentas Folio Cloud guardadas en este dispositivo.
+  List<FolioCloudAccountSlot> get accounts => _spring.accounts;
+
+  String? get activeUid => _spring.activeUid;
+
+  /// Cambia la cuenta activa sin cerrar las demás.
+  Future<void> switchAccount(String uid) async {
+    AppLogger.info(
+      'switchAccount',
+      tag: 'auth',
+      context: {'uid': uid, 'from': _spring.uid},
+    );
+    await _spring.switchAccount(uid);
+  }
+
+  /// Elimina una cuenta del dispositivo (si era la activa, pasa a otra).
+  Future<void> removeAccount(String uid) async {
+    AppLogger.info('removeAccount', tag: 'auth', context: {'uid': uid});
+    await _spring.removeAccount(uid);
+  }
+
+  /// Añade otra cuenta (login); no expulsa las ya guardadas.
+  Future<void> addAccountWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) =>
+      signInWithEmailAndPassword(email: email, password: password);
+
   /// Cuenta con enlace email/contraseña.
   bool get canReauthenticateWithPassword => isSignedIn;
 
@@ -180,6 +208,16 @@ class CloudAccountController extends ChangeNotifier {
       context: {'uid': _spring.uid},
     );
     await _spring.logout();
+  }
+
+  /// Cierra todas las cuentas Folio Cloud del dispositivo.
+  Future<void> signOutAll() async {
+    AppLogger.info(
+      'signOutAll (spring)',
+      tag: 'auth',
+      context: {'count': _spring.accounts.length},
+    );
+    await _spring.clear();
   }
 
   Future<void> reloadCurrentUser() async {

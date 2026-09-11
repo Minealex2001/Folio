@@ -174,8 +174,13 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
     final uri = Uri.tryParse(url);
     if (uri != null && uri.hasAuthority) {
       final host = uri.host.toLowerCase();
-      if (host == 'minealexgames.com' ||
+      if (host == 'folio.com.es' ||
+          host == 'www.folio.com.es' ||
+          host == 'beta.folio.com.es' ||
+          host == 'minealexgames.com' ||
           host == 'www.minealexgames.com' ||
+          host == 'folio.minealexgames.com' ||
+          host == 'foliobeta.minealexgames.com' ||
           host == 'folio.app' ||
           host == 'www.folio.app' ||
           host == 'localhost') {

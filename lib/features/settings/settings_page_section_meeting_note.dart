@@ -1,10 +1,32 @@
 part of 'settings_page.dart';
 
 extension _SettingsPageMeetingNoteSection on _SettingsPageState {
+  /// Modelo Whisper efectivo para la UI, sin bloquear: usa el snapshot ya
+  /// resuelto (o el fallback seguro). Misma lógica que
+  /// `AppSettings.resolvedMeetingNoteWhisperModelId()` pero sin `loadCached()`
+  /// síncrono en `build()`.
+  String _resolveWhisperModelId(TranscriptionHardwareSnapshot hw) {
+    final chosen = _app.meetingNoteAutoWhisperModel
+        ? hw.recommendedWhisperModelId
+        : (_app.meetingNoteModelId.trim().isEmpty
+              ? 'base'
+              : _app.meetingNoteModelId);
+    return WhisperService.instance.modelById(chosen)?.id ?? 'base';
+  }
+
   Widget _buildMeetingNoteSettingsBlock({
     required AppLocalizations l10n,
     required ColorScheme scheme,
   }) {
+    // Snapshot no bloqueante: el ya resuelto por `_loadHardwareProfile`, o la
+    // cache válida, o un fallback seguro para el primer pintado. NUNCA lanza
+    // PowerShell síncrono desde `build()`. Cuando `_loadHardwareProfile`
+    // resuelve, `_SettingsPageState` repinta y esta sección re-evalúa con el
+    // valor real.
+    final hwSnapshot = _hardwareSnapshot ??
+        TranscriptionHardwareProfile.cachedSnapshotOrNull ??
+        TranscriptionHardwareProfile.safeFallback();
+    final resolvedWhisperModelId = _resolveWhisperModelId(hwSnapshot);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -40,8 +62,7 @@ extension _SettingsPageMeetingNoteSection on _SettingsPageState {
             const SizedBox(height: 12),
             Builder(
               builder: (ctx) {
-                final hw =
-                    TranscriptionHardwareProfile.loadCached();
+                final hw = hwSnapshot;
                 return Column(
                   crossAxisAlignment:
                       CrossAxisAlignment
@@ -207,15 +228,11 @@ extension _SettingsPageMeetingNoteSection on _SettingsPageState {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               key: ValueKey<String>(
-                'meeting-model-${_app.meetingNoteAutoWhisperModel}-${_app.resolvedMeetingNoteWhisperModelId()}',
+                'meeting-model-${_app.meetingNoteAutoWhisperModel}-$resolvedWhisperModelId',
               ),
-              initialValue: (() {
-                final id = _app
-                    .resolvedMeetingNoteWhisperModelId();
-                return _meetingModelExists(id)
-                    ? id
-                    : 'base';
-              })(),
+              initialValue: _meetingModelExists(resolvedWhisperModelId)
+                  ? resolvedWhisperModelId
+                  : 'base',
               decoration: InputDecoration(
                 labelText: l10n
                     .meetingNoteSettingsModel,

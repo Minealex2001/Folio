@@ -538,7 +538,12 @@ extension _SettingsPageAiSection on _SettingsPageState {
           SwitchListTile(
             secondary: const Icon(FolioIcons.quillOutlined),
             title: Text(l10n.aiEnableToggleTitle),
-            subtitle: Text(_app.aiEnabled ? l10n.active : l10n.inactive),
+            subtitle: Text(
+              _app.aiEnabled
+                  ? '${l10n.active}. ${l10n.aiEnableToggleSubtitle}'
+                  : '${l10n.inactive}. ${l10n.aiEnableToggleSubtitle}',
+            ),
+            isThreeLine: true,
             value: _app.aiEnabled,
             onChanged: _detectingAiProvider
                 ? null
@@ -570,6 +575,14 @@ extension _SettingsPageAiSection on _SettingsPageState {
                     await _saveAiFields();
                     await _app.setAiEnabled(v);
                   },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.menu_book_outlined),
+            title: Text(l10n.aiComplianceDocsTitle),
+            subtitle: Text(l10n.aiComplianceDocsSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _showAiComplianceDocs,
           ),
           if (_detectingAiProvider)
             const Padding(
@@ -634,8 +647,46 @@ extension _SettingsPageAiSection on _SettingsPageState {
                   }
                 : null,
           ),
+          // Fase A3 del plan Quill/MCP — sugerencias proactivas (v1: solo
+          // tras transcribir una reunión).
+          SwitchListTile(
+            secondary: const Icon(Icons.tips_and_updates_outlined),
+            title: Text(l10n.settingsProactiveSuggestionsTitle),
+            subtitle: Text(l10n.settingsProactiveSuggestionsSubtitle),
+            value: _app.proactiveSuggestionsEnabled,
+            onChanged: (v) async {
+              await _app.setProactiveSuggestionsEnabled(v);
+              if (mounted) _rebuild(() {});
+            },
+          ),
           const Divider(height: 1),
           _buildQuillInstructionsBlock(l10n, scheme),
+          const Divider(height: 1),
+          // Fase A4 del plan Quill/MCP — pantalla de gestión de los hechos
+          // que Quill incluye automáticamente como contexto en cada envío.
+          ListTile(
+            leading: const Icon(Icons.bookmark_added_outlined),
+            title: Text(l10n.vaultMemoryFactsTitle),
+            subtitle: Text(l10n.settingsVaultMemoryFactsSubtitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => VaultMemoryFactsPage(appSettings: _app),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          // Fase A5 del plan Quill/MCP — atajos nombrados hacia Plan-mode.
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_motion_outlined),
+            title: Text(l10n.quillWorkflowsTitle),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => QuillWorkflowsPage(appSettings: _app),
+              ),
+            ),
+          ),
 
           // ── Avanzado ──
           Theme(
