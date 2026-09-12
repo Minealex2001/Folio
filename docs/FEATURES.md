@@ -2892,6 +2892,7 @@ Cutover **sin big-bang**: el cliente Flutter puede apuntar a Firebase (default) 
 Prioridad: `--dart-define` > `FolioLocalSecrets.folioBackendMode` /
 `folioBackendBaseUrl` (en `lib/config/folio_local_secrets.dart`).
 
+**Railway (prod):** `https://api.folio.com.es` — modo Spring activo en
 <<<<<<< HEAD
 **Railway (prod):** `https://api.folio.com.es` â€” modo Spring activo en
 =======
@@ -3004,6 +3005,7 @@ Auth Spring: `POST /api/v1/auth/login` + `/refresh`; access JWT + refresh opaco,
 
 ## Backend Spring Boot �?" Fase 30 (decomisión Firebase)
 
+**Estado actual: Fase 30 ejecutada (2026-07-29).** Cliente y repo apuntan solo a Spring/Railway (`https://api.folio.com.es`). Se eliminaron deps Firebase, `functions/`, rules, `firebase_options*`, vendor fork Windows. ETL one-shot en `backend/tools/firebase-import/`. Telemetría Firestore staff deshabilitada (UI stub). Ops pendiente: apuntar Stripe webhook a Railway y apagar proyectos GCP cuando el tráfico legacy sea cero.
 **Estado actual: Fase 30 ejecutada (2026-07-29).** Cliente y repo apuntan solo a Spring/Railway (`https://api.folio.com.es`). Se eliminaron deps Firebase, `functions/`, rules, `firebase_options*`, vendor fork Windows. ETL one-shot en `backend/tools/firebase-import/`. Telemetría Firestore staff deshabilitada (UI stub). Ops pendiente: apuntar Stripe webhook a Railway y apagar proyectos GCP cuando el tráfico legacy sea cero.
 
 **Compilación cliente (post-cutover):** se cerraron los `error` de `flutter analyze lib` dejados a medias tras quitar Firebase �?" storage vía `folio_storage_transport` (backup / cloud-pack / settings sync), entitlements `canUseRealtimeCollab`, identity/auth exceptions, collab firmas, proxy Spotify/Slack/Teams e integration commands por callable Spring. Meta: **0** `error -` en `flutter analyze lib` (warnings/info permitidos).

@@ -367,6 +367,11 @@ class FolioSpringAuthSession extends ChangeNotifier {
     await _postJson(uri, {'token': token.trim()});
   }
 
+  /// Confirma correo de estudiante (ruta web `/verify-student-email`).
+  ///
+  /// La web de producción puede apuntar a un API sin `confirm-student` público
+  /// mientras el flujo de email ya corre en beta: si el primario responde 401/404,
+  /// reintenta contra el API beta.
   Future<void> confirmStudentEmailToken(String token) async {
     final trimmed = token.trim();
     final primary = Uri.parse(

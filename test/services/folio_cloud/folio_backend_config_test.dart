@@ -17,7 +17,7 @@ void main() {
       expect(FolioBackendConfig.modeLabel, 'spring');
       expect(
         FolioBackendConfig.baseUrl,
-        'https://api-beta.folio.com.es',
+        'https://api.folio.com.es',
       );
     });
 
