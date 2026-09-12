@@ -6084,6 +6084,44 @@
   "meetingNotePrepareMeeting": "Preparar reunião",
   "meetingNoteRegeneratePrep": "Regenerar preparação",
   "meetingNotePrepFailed": "Não foi possível gerar a preparação.",
+  "meetingNoteType": "Tipo de reunião",
+  "meetingNoteTypeGeneral": "Geral",
+  "meetingNoteTypeOneOnOne": "1:1 (Feedback/Metas)",
+  "meetingNoteTypeStandup": "Status / Standup diário",
+  "meetingNoteTypeKickoff": "Planejamento / Kickoff",
+  "meetingNoteTypeClientSync": "Sincronização com cliente / vendas",
+  "meetingNoteEditPrep": "Editar preparação",
+  "meetingNoteInsertPrepInPage": "Inserir na página",
+  "meetingNotePrepInserted": "As notas de preparação foram inseridas na página.",
+  "meetingNoteChecklistDialogTitle": "Checklist da reunião",
+  "meetingNoteChecklistDialogSubtitle": "Selecione os itens que deseja inserir como tarefas na página:",
+  "meetingNoteChecklistAddCustom": "Adicionar tarefa personalizada…",
+  "meetingNoteChecklistConfirm": "Criar {count} tarefa(s)",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Refinar interlocutores com IA",
+  "meetingNoteReconcilingSpeakers": "Refinando interlocutores…",
+  "meetingNoteReconcileSpeakersSuccess": "Interlocutores e turnos refinados com sucesso.",
+  "meetingNoteRenameSpeaker": "Renomear interlocutor",
+  "meetingNoteRenameSpeakerDialogTitle": "Renomear \"{speaker}\"",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "Novo nome do interlocutor",
+  "meetingNoteMergeSpeaker": "Mesclar interlocutor",
+  "meetingNoteMergeSpeakerWith": "Mesclar com:",
+  "meetingNoteActiveChecklistTitle": "Checklist da reunião ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Gerar checklist",
   "meetingNoteChecklistGenerated": "{count} item(ns) de checklist adicionados",
   "meetingNoteTalkRatioCompact": "{speaker} {percent}%",

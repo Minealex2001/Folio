@@ -848,7 +848,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   Future<void> _startIntegrationsBridge() async {
-    if (defaultTargetPlatform == TargetPlatform.android) return;
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) return;
     try {
       await _integrationsBridge.start();
     } catch (e) {

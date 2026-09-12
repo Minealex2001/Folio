@@ -6129,6 +6129,44 @@
   "meetingNotePrepareMeeting": "Prepara la reunió",
   "meetingNoteRegeneratePrep": "Regenera la preparació",
   "meetingNotePrepFailed": "No s'ha pogut generar la preparació.",
+  "meetingNoteType": "Tipus de reunió",
+  "meetingNoteTypeGeneral": "General",
+  "meetingNoteTypeOneOnOne": "1:1 (Feedback/Objectius)",
+  "meetingNoteTypeStandup": "Estat / Standup diari",
+  "meetingNoteTypeKickoff": "Planificació / Inici",
+  "meetingNoteTypeClientSync": "Sincronització amb client / vendes",
+  "meetingNoteEditPrep": "Edita la preparació",
+  "meetingNoteInsertPrepInPage": "Insereix a la pàgina",
+  "meetingNotePrepInserted": "Les notes de preparació s'han inserit a la pàgina.",
+  "meetingNoteChecklistDialogTitle": "Checklist de la reunió",
+  "meetingNoteChecklistDialogSubtitle": "Selecciona els elements que vols inserir com a tasques a la pàgina:",
+  "meetingNoteChecklistAddCustom": "Afegeix una tasca personalitzada…",
+  "meetingNoteChecklistConfirm": "Crea {count} tasca(ques)",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Refina els parlants amb IA",
+  "meetingNoteReconcilingSpeakers": "Refinant els parlants…",
+  "meetingNoteReconcileSpeakersSuccess": "Els parlants i els torns s'han refinat correctament.",
+  "meetingNoteRenameSpeaker": "Canvia el nom del parlant",
+  "meetingNoteRenameSpeakerDialogTitle": "Canvia el nom de \"{speaker}\"",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "Nou nom del parlant",
+  "meetingNoteMergeSpeaker": "Fusiona el parlant",
+  "meetingNoteMergeSpeakerWith": "Fusiona amb:",
+  "meetingNoteActiveChecklistTitle": "Checklist de la reunió ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Genera la checklist",
   "meetingNoteChecklistGenerated": "{count} element(s) de checklist afegits",
   "meetingNoteTalkRatioCompact": "{speaker} {percent}%",

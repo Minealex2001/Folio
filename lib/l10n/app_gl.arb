@@ -6089,6 +6089,44 @@
   "meetingNotePrepareMeeting": "Preparar reunión",
   "meetingNoteRegeneratePrep": "Rexenerar preparación",
   "meetingNotePrepFailed": "Non se puido xerar a preparación.",
+  "meetingNoteType": "Tipo de reunión",
+  "meetingNoteTypeGeneral": "Xeral",
+  "meetingNoteTypeOneOnOne": "1:1 (Feedback/Obxectivos)",
+  "meetingNoteTypeStandup": "Estado / Standup diario",
+  "meetingNoteTypeKickoff": "Planificación / Inicio",
+  "meetingNoteTypeClientSync": "Sincronización con cliente / vendas",
+  "meetingNoteEditPrep": "Editar preparación",
+  "meetingNoteInsertPrepInPage": "Inserir na páxina",
+  "meetingNotePrepInserted": "As notas de preparación insertáronse na páxina.",
+  "meetingNoteChecklistDialogTitle": "Checklist da reunión",
+  "meetingNoteChecklistDialogSubtitle": "Selecciona os elementos que queres inserir como tarefas na páxina:",
+  "meetingNoteChecklistAddCustom": "Engadir tarefa personalizada…",
+  "meetingNoteChecklistConfirm": "Crear {count} tarefa(s)",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Refinar interlocutores con IA",
+  "meetingNoteReconcilingSpeakers": "Refinando interlocutores…",
+  "meetingNoteReconcileSpeakersSuccess": "Interlocutores e quendas refinados correctamente.",
+  "meetingNoteRenameSpeaker": "Renomear interlocutor",
+  "meetingNoteRenameSpeakerDialogTitle": "Renomear \"{speaker}\"",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "Novo nome do interlocutor",
+  "meetingNoteMergeSpeaker": "Combinar interlocutor",
+  "meetingNoteMergeSpeakerWith": "Combinar con:",
+  "meetingNoteActiveChecklistTitle": "Checklist da reunión ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Xerar checklist",
   "meetingNoteChecklistGenerated": "{count} elemento(s) de checklist engadidos",
   "meetingNoteTalkRatioCompact": "{speaker} {percent}%",

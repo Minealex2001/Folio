@@ -6084,6 +6084,44 @@
   "meetingNotePrepareMeeting": "Prestatu bilera",
   "meetingNoteRegeneratePrep": "Birsortu prestaketa",
   "meetingNotePrepFailed": "Ezin izan da prestaketa sortu.",
+  "meetingNoteType": "Bilera mota",
+  "meetingNoteTypeGeneral": "Orokorra",
+  "meetingNoteTypeOneOnOne": "1:1 (Feedbacka/Helburuak)",
+  "meetingNoteTypeStandup": "Egoera / Eguneroko standup-a",
+  "meetingNoteTypeKickoff": "Planifikazioa / Hasiera",
+  "meetingNoteTypeClientSync": "Bezero / Salmenta sinkronizazioa",
+  "meetingNoteEditPrep": "Editatu prestaketa",
+  "meetingNoteInsertPrepInPage": "Txertatu orrian",
+  "meetingNotePrepInserted": "Prestaketa-oharrak orrian txertatu dira.",
+  "meetingNoteChecklistDialogTitle": "Bileraren checklist-a",
+  "meetingNoteChecklistDialogSubtitle": "Hautatu orrian zereginen gisa txertatu nahi dituzun elementuak:",
+  "meetingNoteChecklistAddCustom": "Gehitu zeregin pertsonalizatua…",
+  "meetingNoteChecklistConfirm": "Sortu {count} zeregin",
+  "@meetingNoteChecklistConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "meetingNoteReconcileSpeakers": "Findu hizlariak IArekin",
+  "meetingNoteReconcilingSpeakers": "Hizlariak fintzen…",
+  "meetingNoteReconcileSpeakersSuccess": "Hizlariak eta txandak ondo findu dira.",
+  "meetingNoteRenameSpeaker": "Aldatu hizlariaren izena",
+  "meetingNoteRenameSpeakerDialogTitle": "Aldatu \"{speaker}\" izena",
+  "@meetingNoteRenameSpeakerDialogTitle": {
+    "placeholders": {
+      "speaker": {}
+    }
+  },
+  "meetingNoteNewSpeakerName": "Hizlariaren izen berria",
+  "meetingNoteMergeSpeaker": "Batu hizlaria",
+  "meetingNoteMergeSpeakerWith": "Batu honekin:",
+  "meetingNoteActiveChecklistTitle": "Bileraren checklist-a ({completed}/{total})",
+  "@meetingNoteActiveChecklistTitle": {
+    "placeholders": {
+      "completed": {},
+      "total": {}
+    }
+  },
   "meetingNoteGenerateChecklist": "Sortu checklist-a",
   "meetingNoteChecklistGenerated": "{count} checklist elementu gehitu dira",
   "meetingNoteTalkRatioCompact": "{speaker} {percent}%",
