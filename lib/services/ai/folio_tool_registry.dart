@@ -101,15 +101,12 @@ class FolioToolRegistry {
     _listTasksDef,
     _updateTaskDef,
     _generateImageDef,
-<<<<<<< HEAD
-=======
     // --- Evolución de meeting_note (Fase 4: bookmarks, Fase 5: contexto) ---
     _meetingCreateBookmarkDef,
     _meetingGetContextDef,
     _meetingGeneratePrepDef,
     _meetingGenerateChecklistDef,
     _meetingGenerateSummaryDef,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   ];
 
   /// Subconjunto curado de tools permitidas para el auto-trigger MCP opt-in
@@ -266,8 +263,6 @@ class FolioToolRegistry {
           return _updateTask(call);
         case 'generate_image':
           return _generateImage(call);
-<<<<<<< HEAD
-=======
         case 'meeting_create_bookmark':
           return _meetingCreateBookmark(call);
         case 'meeting_get_context':
@@ -278,7 +273,6 @@ class FolioToolRegistry {
           return _meetingGenerateChecklist(call);
         case 'meeting_generate_summary':
           return await _meetingGenerateSummary(call);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         default:
           return AiToolResult.error(call.id, 'Tool desconocido: ${call.name}');
       }
@@ -1439,12 +1433,9 @@ class FolioToolRegistry {
             'pidió explícitamente; por defecto false.',
       ),
     ],
-<<<<<<< HEAD
-=======
     category: AiToolCategory.media,
     complexity: AiToolComplexity.advanced,
     estimatedDuration: Duration(seconds: 8),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   );
 
   Future<AiToolResult> _generateImage(AiToolCall call) async {
@@ -1469,8 +1460,6 @@ class FolioToolRegistry {
     }
   }
 
-<<<<<<< HEAD
-=======
   // ---------------------------------------------------------------------
   // Evolución de meeting_note (Fase 4): bookmarks
   // ---------------------------------------------------------------------
@@ -1846,7 +1835,6 @@ class FolioToolRegistry {
     );
   }
 
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   // ---------------------------------------------------------------------
   // Encoding utils (evita tirar de dart:convert solo para mapas pequeños ya
   // controlados; sigue el mismo estilo que el resto del bridge)

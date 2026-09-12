@@ -10,13 +10,9 @@ import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/meeting_note_bookmark.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
-<<<<<<< HEAD
-import '../../../services/meeting_note_posthoc_transcription_manager.dart';
-=======
 import '../../../services/meeting_note_metrics_service.dart';
 import '../../../services/meeting_note_posthoc_transcription_manager.dart';
 import '../../../services/meeting_note_preparation_service.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../../../services/meeting_note_session_controller.dart';
 import '../../../services/system_audio_service.dart';
 import '../../../services/transcription_hardware_profile.dart';
@@ -25,14 +21,10 @@ import '../../../session/vault_session.dart';
 import '../../../models/folio_task_data.dart';
 import '../../../services/meeting_note_reconciliation_service.dart';
 import 'folio_special_block_widgets.dart';
-<<<<<<< HEAD
-import 'meeting_note_posthoc_dialog.dart';
-=======
 import 'meeting_note_checklist_dialog.dart';
 import 'meeting_note_live_assist_panel.dart';
 import 'meeting_note_posthoc_dialog.dart';
 import '../../../core/perf/folio_perf_trace.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
 class MeetingNoteBlockWidget extends StatefulWidget {
   const MeetingNoteBlockWidget({

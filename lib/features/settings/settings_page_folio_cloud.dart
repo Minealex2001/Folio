@@ -619,8 +619,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
-<<<<<<< HEAD
-=======
         if (snap.subscriptionStatus?.toLowerCase() == 'promo') ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -649,7 +647,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         if (snap.hasScheduledSubscriptionEnd) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -2178,10 +2175,7 @@ enum _SettingsSectionId {
   sync,
   integrations,
   about,
-<<<<<<< HEAD
   admin,
-=======
   organization,
   personalization,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

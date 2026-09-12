@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_skeletons.dart';
-<<<<<<< HEAD
-=======
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/admin/admin_entitlements_api.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../../services/admin/admin_storage_api.dart';
 import '../../services/admin/admin_users_api.dart';
 
@@ -41,11 +38,8 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
   bool get _isModeratorOrAbove =>
       const {'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'}.contains(widget.currentRole);
   bool get _isSuperAdmin => widget.currentRole == 'SUPER_ADMIN';
-<<<<<<< HEAD
-=======
   bool get _canBillingGrant =>
       widget.currentRole == 'BILLING_ADMIN' || widget.currentRole == 'SUPER_ADMIN';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
   @override
   void initState() {
@@ -83,25 +77,16 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final email = _detail?['email']?.toString() ?? widget.uid;
     return Scaffold(
       appBar: AppBar(
         title: Text(email),
         bottom: TabBar(
           controller: _tabController,
-<<<<<<< HEAD
-          tabs: const [
-            Tab(text: 'Resumen'),
-            Tab(text: 'Almacenamiento'),
-=======
           tabs: [
             Tab(text: l10n.adminTabOverview),
             Tab(text: l10n.adminTabStorage),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
           ],
         ),
       ),
@@ -117,19 +102,13 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
                     _OverviewTab(
                       detail: _detail!,
                       canAssignRole: _isSuperAdmin,
-<<<<<<< HEAD
-=======
                       canGrantCloud: _canBillingGrant,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                       onRoleChanged: (role) async {
                         final updated = await _usersApi.setUserRole(widget.uid, role);
                         if (!mounted) return;
                         setState(() => _detail = updated);
                       },
-<<<<<<< HEAD
-=======
                       onReload: _load,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                     ),
                     _StorageTab(
                       uid: widget.uid,
@@ -142,13 +121,6 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage>
   }
 }
 
-<<<<<<< HEAD
-class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({
-    required this.detail,
-    required this.canAssignRole,
-    required this.onRoleChanged,
-=======
 class _OverviewTab extends StatefulWidget {
   const _OverviewTab({
     required this.detail,
@@ -156,25 +128,17 @@ class _OverviewTab extends StatefulWidget {
     required this.canGrantCloud,
     required this.onRoleChanged,
     required this.onReload,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   });
 
   final Map<String, dynamic> detail;
   final bool canAssignRole;
-<<<<<<< HEAD
-  final Future<void> Function(String role) onRoleChanged;
-=======
   final bool canGrantCloud;
   final Future<void> Function(String role) onRoleChanged;
   final Future<void> Function() onReload;
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
   static const _roles = ['NONE', 'SUPPORT', 'MODERATOR', 'BILLING_ADMIN', 'SUPER_ADMIN'];
 
   @override
-<<<<<<< HEAD
-  Widget build(BuildContext context) {
-=======
   State<_OverviewTab> createState() => _OverviewTabState();
 }
 
@@ -245,7 +209,6 @@ class _OverviewTabState extends State<_OverviewTab> {
     final cloud = (detail['folioCloud'] as Map?) ?? const {};
     final ink = (detail['ink'] as Map?) ?? const {};
     final orgs = (detail['organizations'] as List?) ?? const [];
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final rows = <(String, String)>[
       ('uid', detail['uid']?.toString() ?? ''),
       ('email', detail['email']?.toString() ?? ''),
@@ -277,9 +240,6 @@ class _OverviewTabState extends State<_OverviewTab> {
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-<<<<<<< HEAD
-        Text('Rol de administrador', style: Theme.of(context).textTheme.titleMedium),
-=======
         Text(l10n.adminSectionFolioCloudQa, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
@@ -341,28 +301,11 @@ class _OverviewTabState extends State<_OverviewTab> {
         const Divider(),
         const SizedBox(height: 8),
         Text(l10n.adminSectionAdminRole, style: Theme.of(context).textTheme.titleMedium),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-<<<<<<< HEAD
-            for (final role in _roles)
-              ChoiceChip(
-                label: Text(role),
-                selected: (detail['adminRole']?.toString() ?? 'NONE') == role,
-                onSelected: !canAssignRole ? null : (_) => onRoleChanged(role),
-              ),
-          ],
-        ),
-        if (!canAssignRole)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text(
-              'Solo SUPER_ADMIN puede asignar roles.',
-              style: TextStyle(fontStyle: FontStyle.italic),
-=======
             for (final role in _OverviewTab._roles)
               ChoiceChip(
                 label: Text(role),
@@ -377,7 +320,6 @@ class _OverviewTabState extends State<_OverviewTab> {
             child: Text(
               l10n.adminOnlySuperAdminCanAssignRoles,
               style: const TextStyle(fontStyle: FontStyle.italic),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             ),
           ),
       ],
@@ -456,34 +398,19 @@ class _StorageTabState extends State<_StorageTab> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-<<<<<<< HEAD
-      _snack('Error: $e');
-=======
       _snack(AppLocalizations.of(context).adminErrorWithDetails('$e'));
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     } finally {
       if (mounted) setState(() => _busyVaultIds.remove(vaultId));
     }
   }
 
   Future<void> _purge(String vaultId) async {
-<<<<<<< HEAD
-    final ok = await FolioDialog.confirm(
-      context,
-      title: const Text('Purgar libreta definitivamente'),
-      content: Text(
-        'Esto borra permanentemente "$vaultId" del cloud sync de este usuario '
-        '(storage + metadatos). No se puede deshacer.',
-      ),
-      confirmLabel: 'Purgar',
-=======
     final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
       title: Text(l10n.adminPurgeVaultTitle),
       content: Text(l10n.adminPurgeVaultBody(vaultId)),
       confirmLabel: l10n.adminActionPurge,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       destructive: true,
     );
     if (ok != true) return;
@@ -491,20 +418,12 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Future<void> _deleteBackup(String vaultId) async {
-<<<<<<< HEAD
-    final ok = await FolioDialog.confirm(
-      context,
-      title: const Text('Borrar copia de seguridad'),
-      content: Text('Esto borra la copia de seguridad en la nube de "$vaultId". No se puede deshacer.'),
-      confirmLabel: 'Borrar',
-=======
     final l10n = AppLocalizations.of(context);
     final ok = await FolioDialog.confirm(
       context,
       title: Text(l10n.adminDeleteBackupTitle),
       content: Text(l10n.adminDeleteBackupBody(vaultId)),
       confirmLabel: l10n.adminActionDelete,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       destructive: true,
     );
     if (ok != true) return;
@@ -512,27 +431,14 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Future<void> _resetAll() async {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final vaultsCount = _summary?['deviceSyncVaultCount'] ?? 0;
     final backupsCount = _summary?['backupVaultCount'] ?? 0;
     final ok = await FolioDialog.confirm(
       context,
-<<<<<<< HEAD
-      title: const Text('Restablecer sincronización en la nube'),
-      content: Text(
-        'Esto purga las $vaultsCount libretas de cloud sync y las $backupsCount copias de '
-        'seguridad de este usuario, revoca sus vault shares y pone su uso a 0. '
-        'Es la opción nuclear para una cuenta rota — no se puede deshacer.',
-      ),
-      confirmLabel: 'Restablecer',
-=======
       title: Text(l10n.adminResetCloudSyncTitle),
       content: Text(l10n.adminResetCloudSyncBody(vaultsCount, backupsCount)),
       confirmLabel: l10n.adminActionReset,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       destructive: true,
     );
     if (ok != true) return;
@@ -541,20 +447,12 @@ class _StorageTabState extends State<_StorageTab> {
       final result = await _api.resetCloudSync(widget.uid);
       if (!mounted) return;
       _snack(
-<<<<<<< HEAD
-        'Reset OK: ${result['vaultsPurged']} libretas, ${result['backupVaultsDeleted']} backups.',
-=======
         l10n.adminResetCloudSyncSuccess(result['vaultsPurged'], result['backupVaultsDeleted']),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       );
       await _load();
     } catch (e) {
       if (!mounted) return;
-<<<<<<< HEAD
-      _snack('Error: $e');
-=======
       _snack(l10n.adminErrorWithDetails('$e'));
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     } finally {
       if (mounted) setState(() => _resetBusy = false);
     }
@@ -562,10 +460,7 @@ class _StorageTabState extends State<_StorageTab> {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final scheme = Theme.of(context).colorScheme;
     if (_loading) return const Center(child: FolioLoadingIndicator());
     if (_error != null) {
@@ -583,20 +478,6 @@ class _StorageTabState extends State<_StorageTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-<<<<<<< HEAD
-                  Text('Uso de almacenamiento', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_formatBytes((summary['usedBytes'] as num?)?.toInt() ?? 0)} '
-                    'de ${_formatBytes((summary['quotaBytes'] as num?)?.toInt() ?? 0)}',
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${summary['deviceSyncVaultCount'] ?? 0} libretas '
-                    '(${summary['deviceSyncTrashedCount'] ?? 0} en papelera) · '
-                    '${summary['backupVaultCount'] ?? 0} backups '
-                    '(${summary['backupBlobCount'] ?? 0} blobs)',
-=======
                   Text(l10n.adminStorageUsageTitle, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
@@ -613,7 +494,6 @@ class _StorageTabState extends State<_StorageTab> {
                       summary['backupVaultCount'] ?? 0,
                       summary['backupBlobCount'] ?? 0,
                     ),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -621,23 +501,6 @@ class _StorageTabState extends State<_StorageTab> {
             ),
           ),
           const SizedBox(height: 16),
-<<<<<<< HEAD
-          Text('Libretas (cloud sync)', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (_syncVaults.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin libretas sincronizadas.'),
-            ),
-          for (final v in _syncVaults) _buildSyncVaultTile(v, scheme),
-          const SizedBox(height: 24),
-          Text('Copias de seguridad', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (_backupVaults.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin copias de seguridad.'),
-=======
           Text(l10n.adminSyncVaultsTitle, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_syncVaults.isEmpty)
@@ -653,7 +516,6 @@ class _StorageTabState extends State<_StorageTab> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(l10n.adminNoBackups),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             ),
           for (final v in _backupVaults) _buildBackupVaultTile(v, scheme),
           const SizedBox(height: 32),
@@ -666,11 +528,7 @@ class _StorageTabState extends State<_StorageTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-<<<<<<< HEAD
-                      'Zona de peligro',
-=======
                       l10n.adminDangerZoneTitle,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -678,12 +536,7 @@ class _StorageTabState extends State<_StorageTab> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-<<<<<<< HEAD
-                      'Restablecer la sincronización en la nube de este usuario: purga todas '
-                      'las libretas y copias de seguridad, y pone su uso a 0.',
-=======
                       l10n.adminDangerZoneBody,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                       style: TextStyle(color: scheme.onErrorContainer),
                     ),
                     const SizedBox(height: 12),
@@ -695,11 +548,7 @@ class _StorageTabState extends State<_StorageTab> {
                       onPressed: _resetBusy ? null : _resetAll,
                       child: _resetBusy
                           ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
-<<<<<<< HEAD
-                          : const Text('Restablecer sincronización en la nube'),
-=======
                           : Text(l10n.adminResetCloudSyncTitle),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                     ),
                   ],
                 ),
@@ -712,10 +561,7 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Widget _buildSyncVaultTile(Map<String, dynamic> v, ColorScheme scheme) {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final vaultId = v['vaultId']?.toString() ?? '';
     final trashed = v['trashed'] == true;
     final busy = _busyVaultIds.contains(vaultId);
@@ -728,11 +574,7 @@ class _StorageTabState extends State<_StorageTab> {
         ),
         title: Text(displayName.isNotEmpty ? displayName : vaultId),
         subtitle: Text(
-<<<<<<< HEAD
-          '$vaultId${trashed ? ' · en papelera' : ''}${v['updatedAt'] != null ? ' · ${v['updatedAt']}' : ''}',
-=======
           '$vaultId${trashed ? ' · ${l10n.adminTrashedLabel}' : ''}${v['updatedAt'] != null ? ' · ${v['updatedAt']}' : ''}',
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
         trailing: busy
             ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
@@ -743,11 +585,7 @@ class _StorageTabState extends State<_StorageTab> {
                     children: [
                       if (!trashed)
                         IconButton(
-<<<<<<< HEAD
-                          tooltip: 'Mover a papelera',
-=======
                           tooltip: l10n.adminMoveToTrashTooltip,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                           icon: const Icon(Icons.delete_outline_rounded),
                           onPressed: () => _withVaultBusy(
                             vaultId,
@@ -756,11 +594,7 @@ class _StorageTabState extends State<_StorageTab> {
                         )
                       else
                         IconButton(
-<<<<<<< HEAD
-                          tooltip: 'Restaurar',
-=======
                           tooltip: l10n.adminRestoreTooltip,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                           icon: const Icon(Icons.restore_rounded),
                           onPressed: () => _withVaultBusy(
                             vaultId,
@@ -768,11 +602,7 @@ class _StorageTabState extends State<_StorageTab> {
                           ),
                         ),
                       IconButton(
-<<<<<<< HEAD
-                        tooltip: 'Purgar definitivamente',
-=======
                         tooltip: l10n.adminPurgeForeverTooltip,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                         icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
                         onPressed: () => _purge(vaultId),
                       ),
@@ -783,10 +613,7 @@ class _StorageTabState extends State<_StorageTab> {
   }
 
   Widget _buildBackupVaultTile(Map<String, dynamic> v, ColorScheme scheme) {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final vaultId = v['vaultId']?.toString() ?? '';
     final busy = _busyVaultIds.contains('backup:$vaultId');
     final sizeBytes = (v['latestSizeBytes'] as num?)?.toInt() ?? 0;
@@ -800,11 +627,7 @@ class _StorageTabState extends State<_StorageTab> {
             : !widget.canMutate
                 ? null
                 : IconButton(
-<<<<<<< HEAD
-                    tooltip: 'Borrar copia de seguridad',
-=======
                     tooltip: l10n.adminDeleteBackupTitle,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                     icon: Icon(Icons.delete_forever_rounded, color: scheme.error),
                     onPressed: () => _deleteBackup(vaultId),
                   ),

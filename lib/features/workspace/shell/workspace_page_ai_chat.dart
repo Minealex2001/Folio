@@ -124,11 +124,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
             toolErrors: outcome.toolErrors,
             generatedImagePath: outcome.generatedImagePath,
             generatedImagePrompt: outcome.generatedImagePrompt,
-<<<<<<< HEAD
-=======
             aiTurnId: outcome.aiTurnId,
             aiTurnChangeCount: outcome.aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
           ),
         );
       } catch (e) {
@@ -196,10 +193,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
-<<<<<<< HEAD
-=======
           aiTurnId: outcome.aiTurnId,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
       );
     } catch (e) {
@@ -314,10 +308,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           toolErrors: outcome.toolErrors,
           generatedImagePath: outcome.generatedImagePath,
           generatedImagePrompt: outcome.generatedImagePrompt,
-<<<<<<< HEAD
-=======
           aiTurnId: outcome.aiTurnId,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
       );
     } catch (e) {

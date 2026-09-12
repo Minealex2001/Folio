@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 
-<<<<<<< HEAD
-import '../../../app/widgets/folio_skeletons.dart';
-import '../../../services/admin/admin_billing_api.dart';
-=======
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/admin/admin_billing_api.dart';
 import '../../../services/admin/admin_entitlements_api.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../widgets/admin_paginated_list.dart';
 
 class AdminBillingSection extends StatefulWidget {
@@ -21,17 +16,11 @@ class AdminBillingSection extends StatefulWidget {
 
 class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTickerProviderStateMixin {
   final _api = const AdminBillingApi();
-<<<<<<< HEAD
-  final _uidController = TextEditingController();
-  late final TabController _tabController = TabController(length: 2, vsync: this);
-  bool _loading = false;
-=======
   final _entitlementsApi = const AdminEntitlementsApi();
   final _uidController = TextEditingController();
   late final TabController _tabController = TabController(length: 2, vsync: this);
   bool _loading = false;
   bool _grantBusy = false;
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   String? _error;
   Map<String, dynamic>? _billing;
 
@@ -65,10 +54,6 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
     }
   }
 
-<<<<<<< HEAD
-  @override
-  Widget build(BuildContext context) {
-=======
   Future<void> _grantCloud() async {
     final l10n = AppLocalizations.of(context);
     final uid = _uidController.text.trim();
@@ -127,16 +112,11 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     return Column(
       children: [
         TabBar(
           controller: _tabController,
-<<<<<<< HEAD
-          tabs: const [Tab(text: 'Por usuario'), Tab(text: 'Eventos de webhook')],
-=======
           tabs: [Tab(text: l10n.adminTabByUser), Tab(text: l10n.adminTabWebhookEvents)],
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
         ),
         Expanded(
           child: TabBarView(
@@ -150,10 +130,7 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
 
   Widget _buildUserLookup() {
     final scheme = Theme.of(context).colorScheme;
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -164,20 +141,12 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
               Expanded(
                 child: TextField(
                   controller: _uidController,
-<<<<<<< HEAD
-                  decoration: const InputDecoration(labelText: 'uid del usuario', border: OutlineInputBorder(), isDense: true),
-=======
                   decoration: InputDecoration(labelText: l10n.adminUidInputLabel, border: const OutlineInputBorder(), isDense: true),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                   onSubmitted: (_) => _lookup(),
                 ),
               ),
               const SizedBox(width: 12),
-<<<<<<< HEAD
-              FilledButton.tonal(onPressed: _loading ? null : _lookup, child: const Text('Buscar')),
-=======
               FilledButton.tonal(onPressed: _loading ? null : _lookup, child: Text(l10n.search)),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             ],
           ),
           const SizedBox(height: 16),
@@ -190,10 +159,7 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   }
 
   Widget _buildBillingCard(Map<String, dynamic> billing) {
-<<<<<<< HEAD
-=======
     final l10n = AppLocalizations.of(context);
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     final cloud = (billing['folioCloud'] as Map?) ?? const {};
     final stripe = (billing['stripe'] as Map?) ?? const {};
     final ms = (billing['microsoftStore'] as Map?) ?? const {};
@@ -209,8 +175,6 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
             Text('Folio Cloud', style: Theme.of(context).textTheme.titleSmall),
             Text('active: ${cloud['active']} · status: ${cloud['subscriptionStatus'] ?? '—'}'),
             Text('priceId: ${cloud['subscriptionPriceId'] ?? '—'} · family: ${cloud['family']} · student: ${cloud['student']} · adminOverride: ${cloud['adminOverride']}'),
-<<<<<<< HEAD
-=======
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -226,7 +190,6 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
                 ),
               ],
             ),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
             const Divider(height: 24),
             Text('Stripe', style: Theme.of(context).textTheme.titleSmall),
             Text('subscriptionId: ${stripe['subscriptionId'] ?? '—'} · priceId: ${stripe['priceId'] ?? '—'}'),
@@ -242,19 +205,12 @@ class _AdminBillingSectionState extends State<AdminBillingSection> with SingleTi
   }
 
   Widget _buildWebhookEvents() {
-<<<<<<< HEAD
-    return AdminPaginatedList(
-      searchable: false,
-      pageSize: 50,
-      emptyLabel: 'Sin eventos procesados.',
-=======
     final l10n = AppLocalizations.of(context);
     return AdminPaginatedList(
       searchable: false,
       searchHint: l10n.search,
       pageSize: 50,
       emptyLabel: l10n.adminNoWebhookEvents,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       fetch: (page, limit, query) => _api.webhookEvents(page: page, limit: limit),
       itemBuilder: (context, item) => ListTile(
         leading: const Icon(Icons.receipt_long_outlined),

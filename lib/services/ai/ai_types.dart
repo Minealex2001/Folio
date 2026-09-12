@@ -1,9 +1,6 @@
 import 'dart:typed_data';
 
-<<<<<<< HEAD
-=======
 import 'ai_cancel_token.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import 'ai_tool.dart';
 
 export 'ai_cancel_token.dart';
@@ -22,11 +19,8 @@ class AiChatMessage {
     this.toolErrors,
     this.generatedImagePath,
     this.generatedImagePrompt,
-<<<<<<< HEAD
-=======
     this.aiTurnId,
     this.aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   });
 
   factory AiChatMessage.now({
@@ -40,11 +34,8 @@ class AiChatMessage {
     List<String>? toolErrors,
     String? generatedImagePath,
     String? generatedImagePrompt,
-<<<<<<< HEAD
-=======
     String? aiTurnId,
     int? aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   }) {
     return AiChatMessage(
       role: role,
@@ -58,11 +49,8 @@ class AiChatMessage {
       toolErrors: toolErrors,
       generatedImagePath: generatedImagePath,
       generatedImagePrompt: generatedImagePrompt,
-<<<<<<< HEAD
-=======
       aiTurnId: aiTurnId,
       aiTurnChangeCount: aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 
@@ -100,8 +88,6 @@ class AiChatMessage {
   /// en la tarjeta de imagen. Nulo si [generatedImagePath] es nulo.
   final String? generatedImagePrompt;
 
-<<<<<<< HEAD
-=======
   /// Fase B3 del plan Quill/MCP — id del grupo de undo de este turno
   /// (`VaultSession.undoAiTurn`), si lo hubo. Deliberadamente NO se
   /// persiste (`toJson`/`fromJson` lo omiten): alcance de sesión, no
@@ -115,7 +101,6 @@ class AiChatMessage {
   /// Igual que [aiTurnId], no se persiste: es informativo de sesión.
   final int? aiTurnChangeCount;
 
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   AiChatMessage copyWith({
     String? role,
     String? content,
@@ -136,11 +121,8 @@ class AiChatMessage {
     bool clearGeneratedImagePath = false,
     String? generatedImagePrompt,
     bool clearGeneratedImagePrompt = false,
-<<<<<<< HEAD
-=======
     String? aiTurnId,
     int? aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   }) {
     return AiChatMessage(
       role: role ?? this.role,
@@ -160,11 +142,8 @@ class AiChatMessage {
       generatedImagePrompt: clearGeneratedImagePrompt
           ? null
           : (generatedImagePrompt ?? this.generatedImagePrompt),
-<<<<<<< HEAD
-=======
       aiTurnId: aiTurnId ?? this.aiTurnId,
       aiTurnChangeCount: aiTurnChangeCount ?? this.aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 
@@ -305,11 +284,8 @@ class AgentChatOutcome {
     this.toolErrors,
     this.generatedImagePath,
     this.generatedImagePrompt,
-<<<<<<< HEAD
-=======
     this.aiTurnId,
     this.aiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   });
 
   final String reply;

@@ -677,8 +677,6 @@ void main() {
       expect(result.isError, isTrue);
     });
   });
-<<<<<<< HEAD
-=======
 
   group('FolioToolRegistry — Fase B1 (metadata + preview)', () {
     test('cada tool tiene category y complexity no nulos', () {
@@ -785,5 +783,4 @@ void main() {
 AiToolDefinition registryDefinitionForTest(String name) {
   final registry = FolioToolRegistry(VaultSession());
   return registry.definitionByName(name)!;
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

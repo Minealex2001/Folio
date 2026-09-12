@@ -33,6 +33,14 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   final _query = TextEditingController();
   final _focus = FocusNode();
   List<VaultSearchResult> _results = const [];
+
+  /// `searchGlobal` recorre TODOS los bloques de la libreta (sin índice
+  /// invertido); en libretas grandes eso es un coste real por cada tecla si
+  /// se llama sin más. El debounce solo afecta al tecleo (`onChanged`) — los
+  /// cambios de ámbito/orden, que son un tap puntual, se refrescan al
+  /// instante como antes.
+  Timer? _searchDebounce;
+  static const _searchDebounceDelay = Duration(milliseconds: 150);
   _GlobalSearchScope _scope = _GlobalSearchScope.all;
   _GlobalSearchOrder _order = _GlobalSearchOrder.relevance;
   var _selectedIndex = 0;
@@ -63,9 +71,15 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _query.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _scheduleRefresh() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDebounceDelay, _refresh);
   }
 
   void _refresh() {
@@ -309,7 +323,7 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      onChanged: (_) => _refresh(),
+                      onChanged: (_) => _scheduleRefresh(),
                       onSubmitted: (_) {
                         if (_results.isNotEmpty) {
                           unawaited(_pick(_results[_selectedIndex]));

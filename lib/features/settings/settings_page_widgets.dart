@@ -38,15 +38,12 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.info_outline_rounded;
       case _SettingsSectionId.integrations:
         return Icons.extension_outlined;
-<<<<<<< HEAD
       case _SettingsSectionId.admin:
         return Icons.admin_panel_settings_outlined;
-=======
       case _SettingsSectionId.organization:
         return Icons.groups_outlined;
       case _SettingsSectionId.personalization:
         return Icons.dashboard_customize_outlined;
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     }
   }
 

@@ -602,14 +602,8 @@ Future<DeviceSyncPullResult> pullDeviceSyncIncremental({
     throw StateError('Unsupported device-sync manifest format: $format');
   }
 
-<<<<<<< HEAD
-  // v2: un único blob con todo el payload. v3: un blob "resto de libreta" +
-  // un blob por página. Ambos casos se resuelven a un conjunto de blobs de
-  // contenido antes de descargar, para reutilizar el mismo downloader.
-=======
   // v2: un único blob con todo el payload. v3/v4: un blob "resto de libreta" +
   // un blob por página. v4: adjuntos pueden ir troceados + envelope gzip.
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   final manifestPageCountRaw = map['pageCount'];
   final manifestPageCount =
       manifestPageCountRaw is num ? manifestPageCountRaw.toInt() : null;

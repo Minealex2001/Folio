@@ -685,15 +685,12 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         return l10n.about;
       case _SettingsSectionId.integrations:
         return l10n.integrations;
-<<<<<<< HEAD
       case _SettingsSectionId.admin:
         return l10n.settingsAdminSectionTitle;
-=======
       case _SettingsSectionId.organization:
         return l10n.settingsSectionOrganization;
       case _SettingsSectionId.personalization:
         return l10n.settingsPersonalizationBeta;
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     }
   }
 

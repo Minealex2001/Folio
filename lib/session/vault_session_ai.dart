@@ -1079,11 +1079,8 @@ For images/blocks: use the + button or / command in a paragraph.
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
       generatedImagePath: generatedImagePath,
       generatedImagePrompt: generatedImagePrompt,
-<<<<<<< HEAD
-=======
       aiTurnId: resolvedAiTurnId,
       aiTurnChangeCount: resolvedAiTurnChangeCount,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     );
   }
 

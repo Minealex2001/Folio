@@ -117,11 +117,8 @@ part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
 part 'workspace_page_ai_slash.dart';
 part 'workspace_page_ai_plan.dart';
-<<<<<<< HEAD
-=======
 part 'workspace_page_ai_workflows.dart';
 part 'workspace_page_ai_meeting_suggestions.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 part 'workspace_page_ai_generated_image.dart';
 
 class WorkspacePage extends StatefulWidget {
@@ -921,15 +918,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 return Semantics(
                                   label: l10n.aiTypingSemantics,
                                   liveRegion: true,
-<<<<<<< HEAD
-                                  child: _aiToolActivityLabel != null
-                                      ? AiToolActivityIndicator(
-                                          label: _aiToolActivityLabel!,
-=======
                                   child: _aiToolTrace.isNotEmpty
                                       ? ToolInspectorPanel(
                                           steps: _aiToolTrace,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                                           colorScheme: scheme,
                                         )
                                       : FolioAiChatReplySkeleton(
@@ -2778,12 +2769,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
               },
               forcePrimary: true,
             ),
-<<<<<<< HEAD
-          if (widget.folioCloudEntitlements.snapshot.folioStaff)
-            _WorkspaceActionEntry(
-              id: 'admin_console',
-              label: 'Consola de administración',
-=======
           if (!compact)
             _WorkspaceActionEntry(
               id: 'toggle_dashboard_edit',
@@ -2812,7 +2797,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
             _WorkspaceActionEntry(
               id: 'admin_console',
               label: l10n.adminConsoleTitle,
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
               icon: Icons.admin_panel_settings_outlined,
               onPressed: _openAdminConsole,
               forceOverflow: true,

@@ -153,12 +153,9 @@ part 'settings_page_section_about.dart';
 part 'settings_page_section_privacy.dart';
 part 'settings_page_privacy_center.dart';
 part 'settings_page_section_meeting_note.dart';
-<<<<<<< HEAD
 part 'settings_page_section_admin.dart';
-=======
 part 'settings_page_section_organization.dart';
 part 'settings_page_section_personalization.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -1092,7 +1089,6 @@ class _SettingsPageState extends State<SettingsPage> {
           l10n.settingsOpenThirdPartyLicenses,
         ],
       ),
-<<<<<<< HEAD
       if (_folio.snapshot.folioStaff)
         _SettingsSectionNavItem(
           id: _SettingsSectionId.admin,
@@ -1102,7 +1098,6 @@ class _SettingsPageState extends State<SettingsPage> {
             l10n.settingsAdminUserTitle,
           ],
         ),
-=======
       if (_organizationContext != null)
         _SettingsSectionNavItem(
           id: _SettingsSectionId.organization,
@@ -1112,7 +1107,6 @@ class _SettingsPageState extends State<SettingsPage> {
         id: _SettingsSectionId.personalization,
         label: l10n.settingsPersonalizationBeta,
       ),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
     ];
     // Cambio 1: `AnimatedBuilder(animation: _app)` ya NO envuelve
     // PopScope/Scaffold/AppBar/rail — solo el contenido (`body`). Un cambio
@@ -5009,24 +5003,19 @@ class _SettingsPageState extends State<SettingsPage> {
                             activeSection: activeSection,
                           ),
 
-<<<<<<< HEAD
                           if (_folio.snapshot.folioStaff)
                             _buildAdminSection(
                               l10n: l10n,
-=======
-                          if (_organizationContext != null)
-                            _buildOrganizationSection(
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                               scheme: scheme,
                               activeSection: activeSection,
                             ),
 
-<<<<<<< HEAD
-                          Visibility(
-                              visible: activeSection == _SettingsSectionId.integrations,
-                              maintainState: false,
-                              child: KeyedSubtree(
-=======
+                          if (_organizationContext != null)
+                            _buildOrganizationSection(
+                              scheme: scheme,
+                              activeSection: activeSection,
+                            ),
+
                           _buildPersonalizationSection(
                             scheme: scheme,
                             activeSection: activeSection,
@@ -5034,7 +5023,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           if (activeSection == _SettingsSectionId.integrations)
                             KeyedSubtree(
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
                                 key: const ValueKey(_SettingsSectionId.integrations),
                                 child: Column(
                                   crossAxisAlignment:

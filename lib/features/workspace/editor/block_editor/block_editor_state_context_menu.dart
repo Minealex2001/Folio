@@ -357,12 +357,8 @@ mixin _BlockContextMenu on State<BlockEditor> {
         if (!mounted) return;
         await st._openMeetingNoteAiDialog(menuContext, page, b);
       });
-<<<<<<< HEAD
-    } else if (v == 'meeting_transcribe') {
-=======
     } else if (v == 'meeting_transcribe' ||
         v == 'meeting_regenerate_transcript') {
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final file = await st._resolveBlockUrlFileCached(b.url);
@@ -805,8 +801,6 @@ mixin _BlockContextMenu on State<BlockEditor> {
             icon: Icons.subtitles_rounded,
             label: AppLocalizations.of(ctx).meetingNoteTranscribeNow,
           ),
-<<<<<<< HEAD
-=======
         if ((b.url ?? '').trim().isNotEmpty && b.text.trim().isNotEmpty)
           item(
             ctx,
@@ -823,7 +817,6 @@ mixin _BlockContextMenu on State<BlockEditor> {
           icon: Icons.view_agenda_outlined,
           label: l10n.blockEditorUngroupColumns,
         ),
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
       ],
       if (b.type == 'table' && data != null) ...[
         const PopupMenuDivider(),

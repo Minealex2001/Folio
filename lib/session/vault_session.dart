@@ -82,10 +82,7 @@ import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
-<<<<<<< HEAD
-=======
 import '../services/folio_cloud/folio_cloud_organizations.dart';
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 import '../services/meeting_note_posthoc_transcription_manager.dart';
 import '../services/meeting_note_session_controller.dart';
 import '../services/quick_unlock_storage.dart';
@@ -946,6 +943,11 @@ class VaultSession extends ChangeNotifier {
     _restorePageFromSnapshot(page, target);
     _contentEpoch++;
     notifyListeners();
+    // NO usar `contentOnlyPageId` aquí: `test/session/vault_session_incremental_persist_test.dart`
+    // (Fase 3 / 0.8.5) documenta y comprueba explícitamente que undo fuerza
+    // guardado COMPLETO como red de seguridad deliberada — revertido tras
+    // intentar el camino incremental y romper ese test. Ver "3 · editar →
+    // undo → guardar → ruta completa + disco == sesión".
     scheduleSave(trackRevisionForPageId: id);
   }
 
@@ -1035,6 +1037,7 @@ class VaultSession extends ChangeNotifier {
     _restorePageFromSnapshot(page, target);
     _contentEpoch++;
     notifyListeners();
+    // Ver comentario en `undoPageEdits`: guardado completo deliberado.
     scheduleSave(trackRevisionForPageId: id);
   }
 
