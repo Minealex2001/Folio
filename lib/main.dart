@@ -152,20 +152,6 @@ Future<void> main(List<String> args) async {
         },
       );
 
-      final cloudAccountController = CloudAccountController();
-      try {
-        await cloudAccountController.ensureSpringSessionRestored();
-      } catch (e, st) {
-        AppLogger.error(
-          'Spring session restore failed',
-          tag: 'backend',
-          error: e,
-          stackTrace: st,
-        );
-      }
-      final folioCloudEntitlements = FolioCloudEntitlementsController();
-      folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
-
       // A diferencia de las fases de arriba (env/.env, SystemTheme),
       // esta carga no estaba protegida: si algo aquí lanzaba, runApp() nunca se
       // ejecutaba y el proceso quedaba sin ventana visible en vez de degradar
@@ -191,6 +177,28 @@ Future<void> main(List<String> args) async {
         try {
           await appSettings.load();
         } catch (_) {}
+      }
+
+      // Kill switch de Folio Cloud (Ajustes > Cuenta > Zona de peligro): si
+      // está activo, ni se restaura sesión ni se hace ninguna llamada de red
+      // relacionada con la cuenta — ver CloudAccountController.disabled.
+      CloudAccountController.disabled = appSettings.folioCloudDisabled;
+      final cloudAccountController = CloudAccountController();
+      if (!CloudAccountController.disabled) {
+        try {
+          await cloudAccountController.ensureSpringSessionRestored();
+        } catch (e, st) {
+          AppLogger.error(
+            'Spring session restore failed',
+            tag: 'backend',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+      final folioCloudEntitlements = FolioCloudEntitlementsController();
+      if (!CloudAccountController.disabled) {
+        folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
       }
 
       // Sistema de personalización de UI (Fase 1): igual que AppSettings

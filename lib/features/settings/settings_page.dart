@@ -1314,6 +1314,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ],
                                     ),
                                     const Divider(height: 1),
+                                    _FolioCloudKillSwitchBanner(
+                                      scheme: scheme,
+                                      appSettings: _app,
+                                      cloud: _cloud,
+                                      onDisabled: () => setState(() {}),
+                                    ),
+                                    if (!_app.folioCloudDisabled) ...[
                                     ListenableBuilder(
                                       listenable: Listenable.merge([
                                         _cloud,
@@ -2370,6 +2377,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         l10n: l10n,
                                         showSectionTitle: false,
                                       ),
+                                    ],
                                     ],
                                   ],
                                 ),

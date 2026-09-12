@@ -1570,6 +1570,12 @@
   "cloudAuthErrorTooManyRequests": "Saiakera gehiegi. Saiatu berriro geroago.",
   "cloudAuthErrorOperationNotAllowed": "Saioa hasteko modu hau ez dago gaituta.",
   "cloudAuthErrorGeneric": "Ezin izan da saioa hasi. Saiatu berriro.",
+  "cloudAuthErrorCloudDisabled": "Folio Cloud desgaituta dago gailu honetan. Berrinstalatu app-a berriro aktibatzeko.",
+  "folioCloudKillSwitchTitle": "Desgaitu Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Kontua, sinkronizazioa eta hodeiko babeskopiak erabat itzaltzen ditu. Soilik app-a berrinstalatuz atzera bota daiteke.",
+  "folioCloudDisableDialogTitle": "Desgaitu Folio Cloud",
+  "folioCloudDisableDialogBody": "Saioa itxiko da eta ezin izango duzu berriro saioa hasi, gailuak sinkronizatu edo hodeiko babeskopiarik egin instalazio honetatik.\n\nEkintza hau iraunkorra da: app-a berrinstalatzea da Folio Cloud berriro aktibatzeko modu bakarra.",
+  "folioCloudDisableDialogConfirm": "Betiko desgaitu",
   "cloudAuthHaveResetToken": "Postako kodea badut jada",
   "cloudAuthDialogTitleResetWithToken": "Pasahitz berria",
   "cloudAuthResetTokenLabel": "Postako kodea",
@@ -3542,11 +3548,7 @@
       "error": {}
     }
   },
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Pribatutasuna, diagnostikoak, build-aren bertsioa, argitalpen-oharrak eta eguneratze-kanala.",
-=======
   "settingsAboutHeroDescription": "Pribatutasuna, diagnostikoak, build-aren bertsioa, argitalpen-oharrak, hirugarrenen lizentziak eta eguneratze-kanala.",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsOpenReleaseNotes": "Ikusi bertsio-oharrak",
   "settingsOpenThirdPartyLicenses": "Kode irekiko softwarea eta hirugarrenen lizentziak",
   "thirdPartyLicensesTitle": "Kode irekiko softwarea eta hirugarrenen lizentziak",
@@ -5233,9 +5235,6 @@
   "spotifyNowPlayingShuffle": "Ausazkoa",
   "spotifyNowPlayingRepeat": "Errepikatu",
   "spotifyNowPlayingContext": "Hemetik erreproduzitzen:",
-<<<<<<< HEAD
-  "spotifyNowPlayingCloseOverlay": "Itxi erreproduzitzailea"
-=======
   "spotifyNowPlayingCloseOverlay": "Itxi erreproduzitzailea",
   "settingsSectionOrganization": "Taldeak",
   "settingsOrganizationHeroSubtitle": "Equipos",
@@ -6270,5 +6269,4 @@
   "resetPasswordMismatch": "Pasahitzak ez datoz bat.",
   "integrationsBridgeStartFailed": "Ezin izan da integrazio-bridgea hasi: {error}",
   "integrationActivateFailed": "Ezin izan da integrazioa gaitu: {error}"
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

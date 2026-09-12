@@ -484,6 +484,10 @@ class HeadlessDeviceSyncVault {
         remote: pack.payload,
         baseline: baseline,
         remoteExpectedPageCount: remoteExpectedPageCount,
+        // Fase A (H4): ya se calcularon arriba — evita repetir el jsonEncode
+        // de la libreta entera dentro de merge().
+        localFingerprint: localFp,
+        remoteFingerprint: remoteFp,
       );
       await savePayload(
         vaultId: vaultId,

@@ -1570,6 +1570,12 @@
   "cloudAuthErrorTooManyRequests": "Massa intents. Torna-ho a provar més tard.",
   "cloudAuthErrorOperationNotAllowed": "Aquest mètode d'inici de sessió no està habilitat.",
   "cloudAuthErrorGeneric": "Error en iniciar la sessió. Torna-ho a provar.",
+  "cloudAuthErrorCloudDisabled": "Folio Cloud està desactivat en aquest dispositiu. Reinstal·la l'app per tornar-lo a activar.",
+  "folioCloudKillSwitchTitle": "Desactiva Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Apaga el compte, la sincronització i les còpies al núvol completament. Només es pot revertir reinstal·lant l'app.",
+  "folioCloudDisableDialogTitle": "Desactiva Folio Cloud",
+  "folioCloudDisableDialogBody": "Es tancarà la teva sessió i no podràs tornar a iniciar sessió, sincronitzar dispositius ni fer còpies al núvol des d'aquesta instal·lació.\n\nAquesta acció és permanent: només podràs reactivar Folio Cloud reinstal·lant l'app.",
+  "folioCloudDisableDialogConfirm": "Desactiva per sempre",
   "cloudAuthHaveResetToken": "Ja tinc el codi del correu",
   "cloudAuthDialogTitleResetWithToken": "Contrasenya nova",
   "cloudAuthResetTokenLabel": "Codi del correu",
@@ -3542,11 +3548,7 @@
       "error": {}
     }
   },
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Privacitat, diagnòstics, versió del build, notes de la versió i canal d'actualització.",
-=======
   "settingsAboutHeroDescription": "Privacitat, diagnòstics, versió del build, notes de la versió, llicències de tercers i canal d'actualització.",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsOpenReleaseNotes": "Veure notes de la versió",
   "settingsOpenThirdPartyLicenses": "Programari de codi obert i llicències de tercers",
   "thirdPartyLicensesTitle": "Programari de codi obert i llicències de tercers",
@@ -5278,9 +5280,6 @@
   "aiGeneratedImageInsertedSnackbar": "Imatge inserida amb èxit",
   "aiGeneratedImageLoadError": "Error en carregar la imatge generada",
   "aiImageGenerationUnsupportedProvider": "El proveïdor d'IA actual no admet la generació d'imatges",
-<<<<<<< HEAD
-  "aiGenerateImagePromptRequired": "Heu d'introduir una descripció"
-=======
   "aiGenerateImagePromptRequired": "Heu d'introduir una descripció",
   "settingsSectionOrganization": "Equips",
   "settingsOrganizationHeroSubtitle": "Equipos",
@@ -6315,5 +6314,4 @@
   "resetPasswordMismatch": "Les contrasenyes no coincideixen.",
   "integrationsBridgeStartFailed": "No s'ha pogut iniciar el bridge d'integracions: {error}",
   "integrationActivateFailed": "No s'ha pogut activar la integració: {error}"
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

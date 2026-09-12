@@ -479,4 +479,80 @@ void main() {
       expect(result.payload.pageTombstones.containsKey('a'), isTrue);
     });
   });
+
+  group('Fase A (H4) — fingerprints precalculados dan el mismo resultado', () {
+    test('fast-forward: con y sin fingerprints precalculados coincide', () {
+      final base = payload([page(id: 'a', title: 'A v1')]);
+      final local = payload([page(id: 'a', title: 'A v1')]); // == base
+      final remote = payload([page(id: 'a', title: 'A v2')]); // cambió
+
+      final withoutPrecomputed = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: base,
+      );
+      final withPrecomputed = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: base,
+        localFingerprint: VaultSyncMergeEngine.payloadFingerprint(local),
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(remote),
+        baselineFingerprint: VaultSyncMergeEngine.payloadFingerprint(base),
+      );
+
+      expect(withPrecomputed.changed, withoutPrecomputed.changed);
+      expect(withPrecomputed.payload.pages.first.title,
+          withoutPrecomputed.payload.pages.first.title);
+      expect(withPrecomputed.payload.pages.first.title, 'A v2');
+    });
+
+    test('diff de 3 vías: con y sin fingerprints precalculados coincide', () {
+      final base = payload([page(id: 'a', title: 'base')]);
+      final local = payload([page(id: 'a', title: 'local edit')]);
+      final remote = payload([
+        page(id: 'a', title: 'base'),
+        page(id: 'b', title: 'nueva remota'),
+      ]);
+
+      final withoutPrecomputed = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: base,
+      );
+      final withPrecomputed = engine.merge(
+        local: local,
+        remote: remote,
+        baseline: base,
+        localFingerprint: VaultSyncMergeEngine.payloadFingerprint(local),
+        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(remote),
+        baselineFingerprint: VaultSyncMergeEngine.payloadFingerprint(base),
+      );
+
+      expect(
+        withPrecomputed.payload.pages.map((p) => p.id).toSet(),
+        withoutPrecomputed.payload.pages.map((p) => p.id).toSet(),
+      );
+      expect(withPrecomputed.payload.pages.map((p) => p.id).toSet(),
+          {'a', 'b'});
+    });
+
+    test('sin baseline (null): baselineFingerprint se ignora, mismo resultado',
+        () {
+      final local = payload([page(id: 'a', title: 'A')]);
+      final remote = payload([page(id: 'b', title: 'B')]);
+
+      final withoutPrecomputed = engine.merge(local: local, remote: remote);
+      final withBogusBaselineFingerprint = engine.merge(
+        local: local,
+        remote: remote,
+        // baseline es null -> este valor debe ignorarse por completo.
+        baselineFingerprint: 'esto-no-deberia-usarse',
+      );
+
+      expect(
+        withBogusBaselineFingerprint.payload.pages.map((p) => p.id).toSet(),
+        withoutPrecomputed.payload.pages.map((p) => p.id).toSet(),
+      );
+    });
+  });
 }

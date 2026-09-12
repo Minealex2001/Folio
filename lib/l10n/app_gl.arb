@@ -1413,44 +1413,6 @@
   },
   "importNotionWarningsTitle": "Avisos da importación",
   "importNotionWarningsBody": "A importación completouse con algúns avisos:",
-<<<<<<< HEAD
-  "ok": "Aceptar",
-  "notionExportGuideTitle": "Como [cite: 59] exportar dende Notion",
-  "notionExportGuideBody": "En Notion, vai a Axustes -> Exportar todo o contido, escolle HTML ou Markdown e descarga o ZIP. [cite: 60] Despois usa esta opción en Folio.",
-  "appBetaBannerMessage": "Estás a usar unha versión beta. Podes atopar erros; [cite: 61] fai copias de seguridade a miúdo.",
-  "appBetaBannerDismiss": "Entendido",
-  "integrations": "Integracións",
-  "integrationsAppsApprovedHint": "As aplicacións aprobadas poden usar a ponte de integración local.",
-  "integrationsAppsApprovedTitle": "Apps externas aprobadas",
-  "integrationsAppsApprovedNone": "Aínda non aprobaches ningunha aplicación externa.",
-  "integrationsAppsApprovedRevoke": "Revogar acceso",
-  "integrationsApprovedAppDetails": "{appId} · App {appVersion} · Integración {integrationVersion}",
-  "@integrationsApprovedAppDetails": {
-    "placeholders": {
-      "appId": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalTitle": "Aprobar integración externa",
-  "integrationApprovalUpdateTitle": "Aprovar actualización de integración",
-  "integrationApprovalBody": "\"{appName}\" quere conectarse a Folio usando a versión de app {appVersion} e a de integración {integrationVersion}.",
-  "@integrationApprovalBody": {
-    "placeholders": {
-      "appName": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalUpdateBody": "\"{appName}\" xa fora [cite: 62] aprobado anteriormente. Agora quere conectarse cunha nova versión de integración {integrationVersion}, polo que Folio precisa a túa aprobación de novo.",
-  "@integrationApprovalUpdateBody": {
-    "placeholders": {
-      "appName": {},
-      "previousVersion": {},
-      "integrationVersion": {}
-    }
-  },
-=======
   "notionApiImportTitle": "Conectar con Notion",
   "notionApiImportSubtitle": "Importa páxinas e bases de datos directamente, sen exportar nada",
   "notionApiConnectTitle": "Conectar con Notion",
@@ -1529,7 +1491,6 @@
       "integrationVersion": {}
     }
   },
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "integrationApprovalUnknownVersion": "descoñecida",
   "integrationApprovalAppId": "ID da App",
   "integrationApprovalAppVersion": "Versión da App",
@@ -1781,6 +1742,12 @@
   "cloudAuthErrorTooManyRequests": "Demasiados intentos. Téntao máis tarde.",
   "cloudAuthErrorOperationNotAllowed": "Este método de acceso non está habilitado en Firebase.",
   "cloudAuthErrorGeneric": "Erro ao entrar. [cite: 80] Téntao de novo.",
+  "cloudAuthErrorCloudDisabled": "Folio Cloud está desactivado neste dispositivo. Reinstala a app para activalo de novo.",
+  "folioCloudKillSwitchTitle": "Desactivar Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Apaga a conta, a sincronización e as copias na nube por completo. Só se pode reverter reinstalando a app.",
+  "folioCloudDisableDialogTitle": "Desactivar Folio Cloud",
+  "folioCloudDisableDialogBody": "Pecharase a túa sesión e non poderás volver iniciar sesión, sincronizar dispositivos nin facer copias na nube desde esta instalación.\n\nEsta acción é permanente: só poderás reactivar Folio Cloud reinstalando a app.",
+  "folioCloudDisableDialogConfirm": "Desactivar para sempre",
   "cloudAuthHaveResetToken": "Xa teño o código do correo",
   "cloudAuthDialogTitleResetWithToken": "Nova contrasinal",
   "cloudAuthResetTokenLabel": "Código do correo",
@@ -2529,8 +2496,6 @@
   },
   "blockEditorDuplicate": "Duplicar",
   "blockEditorClearSelectionTooltip": "Limpar selección",
-<<<<<<< HEAD
-=======
   "blockEditorGroupAction": "Agrupar",
   "blockEditorUngroupColumns": "Desagrupar columnas",
   "blockEditorUngroupSection": "Desagrupar sección",
@@ -2564,7 +2529,6 @@
   "smartTemplateFlowGenerate": "Xerar",
   "smartTemplateFlowCancel": "Cancelar",
   "smartTemplateFlowSkipHint": "Déixao en branco para omitir",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "blockEditorMenuRewriteWithAi": "Reescribir con Quill…",
   "blockEditorMenuMoveUp": "Mover arriba",
   "blockEditorMenuMoveDown": "Mover abaixo",
@@ -3756,10 +3720,6 @@
       "error": {}
     }
   },
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Privacidade, diagnósticos, versión do build, notas de publicación e canle de actualización.",
-  "settingsOpenReleaseNotes": "Ver notas de versión",
-=======
   "settingsAboutHeroDescription": "Privacidade, diagnósticos, versión do build, notas de publicación, licenzas de terceiros e canle de actualización.",
   "settingsOpenReleaseNotes": "Ver notas de versión",
   "settingsOpenThirdPartyLicenses": "Software de código aberto e licenzas de terceiros",
@@ -3784,7 +3744,6 @@
   "thirdPartyLicensesLicenseCopied": "Texto da licenza copiado",
   "thirdPartyLicensesSearchHint": "Buscar licenzas…",
   "thirdPartyLicensesClearSearch": "Limpar busca",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsUpdateChannelLabel": "Canle",
   "settingsUpdateChannelRelease": "Release",
   "settingsUpdateChannelBeta": "Beta",
@@ -5448,9 +5407,6 @@
   "spotifyNowPlayingShuffle": "Aleatorio",
   "spotifyNowPlayingRepeat": "Repetir",
   "spotifyNowPlayingContext": "Reproduciendo desde",
-<<<<<<< HEAD
-  "spotifyNowPlayingCloseOverlay": "Cerrar reprodutor"
-=======
   "spotifyNowPlayingCloseOverlay": "Cerrar reprodutor",
   "settingsSectionOrganization": "Equipos",
   "settingsOrganizationHeroSubtitle": "Equipos",
@@ -6318,5 +6274,4 @@
   "resetPasswordMismatch": "Os contrasinais non coinciden.",
   "integrationsBridgeStartFailed": "Non se puido iniciar o bridge de integracións: {error}",
   "integrationActivateFailed": "Non se puido activar a integración: {error}"
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

@@ -1394,44 +1394,6 @@
   },
   "importNotionWarningsTitle": "Import warnings",
   "importNotionWarningsBody": "The import completed with some warnings:",
-<<<<<<< HEAD
-  "ok": "OK",
-  "notionExportGuideTitle": "How to export from Notion",
-  "notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio.",
-  "appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your notebook regularly.",
-  "appBetaBannerDismiss": "Got it",
-  "integrations": "Integrations",
-  "integrationsAppsApprovedHint": "Approved external apps can use the local integration bridge.",
-  "integrationsAppsApprovedTitle": "Approved external apps",
-  "integrationsAppsApprovedNone": "You have not approved any external apps yet.",
-  "integrationsAppsApprovedRevoke": "Revoke access",
-  "integrationsApprovedAppDetails": "{appId} · App {appVersion} · Integration {integrationVersion}",
-  "@integrationsApprovedAppDetails": {
-    "placeholders": {
-      "appId": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalTitle": "Approve external integration",
-  "integrationApprovalUpdateTitle": "Approve updated integration",
-  "integrationApprovalBody": "\"{appName}\" wants to connect to Folio using app version {appVersion} and integration version {integrationVersion}.",
-  "@integrationApprovalBody": {
-    "placeholders": {
-      "appName": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalUpdateBody": "\"{appName}\" was previously approved with integration version {previousVersion}. It now wants to connect with integration version {integrationVersion}, so Folio needs your approval again.",
-  "@integrationApprovalUpdateBody": {
-    "placeholders": {
-      "appName": {},
-      "previousVersion": {},
-      "integrationVersion": {}
-    }
-  },
-=======
   "notionApiImportTitle": "Connect with Notion",
   "notionApiImportSubtitle": "Import pages and databases directly, no export needed",
   "notionApiConnectTitle": "Connect with Notion",
@@ -1510,7 +1472,6 @@
       "integrationVersion": {}
     }
   },
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "integrationApprovalUnknownVersion": "unknown",
   "integrationApprovalAppId": "App ID",
   "integrationApprovalAppVersion": "App version",
@@ -1762,6 +1723,12 @@
   "cloudAuthErrorTooManyRequests": "Too many attempts. Try again later.",
   "cloudAuthErrorOperationNotAllowed": "This sign-in method is not enabled in Firebase.",
   "cloudAuthErrorGeneric": "Sign-in failed. Try again.",
+  "cloudAuthErrorCloudDisabled": "Folio Cloud is disabled on this device. Reinstall the app to turn it back on.",
+  "folioCloudKillSwitchTitle": "Disable Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Turns off account, sync, and cloud backups completely. Can only be reverted by reinstalling the app.",
+  "folioCloudDisableDialogTitle": "Disable Folio Cloud",
+  "folioCloudDisableDialogBody": "You will be signed out and won't be able to sign in, sync devices, or make cloud backups from this install again.\n\nThis is permanent: reinstalling the app is the only way to turn Folio Cloud back on.",
+  "folioCloudDisableDialogConfirm": "Disable forever",
   "cloudAuthHaveResetToken": "I already have the email code",
   "cloudAuthDialogTitleResetWithToken": "Set new password",
   "cloudAuthResetTokenLabel": "Code from email",
@@ -1879,8 +1846,6 @@
   "folioCloudDeviceSyncStatusError": "Sync error — retrying…",
   "folioCloudDeviceSyncStatusPending": "Waiting for first sync…",
   "folioCloudDeviceSyncStatusSynced": "Synced {time}",
-<<<<<<< HEAD
-=======
   "folioHealthTitle": "Folio Health",
   "folioHealthAllGood": "Everything looks good.",
   "folioHealthNeedsAttention": "Something needs your attention.",
@@ -1974,7 +1939,6 @@
   "teamHomeMembersEmpty": "No members yet.",
   "teamHomeActivityTitle": "Team activity",
   "teamHomeActivityEmpty": "No activity yet.",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "@folioCloudDeviceSyncStatusSynced": {
     "placeholders": {
       "time": {}
@@ -2606,8 +2570,6 @@
   },
   "blockEditorDuplicate": "Duplicate",
   "blockEditorClearSelectionTooltip": "Clear selection",
-<<<<<<< HEAD
-=======
   "blockEditorGroupAction": "Group",
   "blockEditorUngroupColumns": "Ungroup columns",
   "blockEditorUngroupSection": "Ungroup section",
@@ -2662,7 +2624,6 @@
   "smartTemplateFlowGenerate": "Generate",
   "smartTemplateFlowCancel": "Cancel",
   "smartTemplateFlowSkipHint": "Leave blank to skip",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "blockEditorMenuRewriteWithAi": "Rewrite with Quill…",
   "blockEditorMenuMoveUp": "Move up",
   "blockEditorMenuMoveDown": "Move down",
@@ -2759,8 +2720,6 @@
   "settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (experimental)",
   "settingsAiQuillCopilotExperimentalSubtitle": "Shows inline Quill suggestions as you type; press Tab to accept. Requires a configured Quill provider.",
   "aiChatApplyInsertEnd": "Insert blocks at end",
-<<<<<<< HEAD
-=======
   "aiChatApplyInsertTextEnd": "Insert at end",
   "aiChatSaveFactTemporary": "Save temporarily",
   "aiChatSaveFactPermanent": "Save permanently",
@@ -2809,7 +2768,6 @@
   "quillWorkflowsHistoryTitle": "Version history",
   "quillWorkflowsHistoryEmpty": "No earlier versions.",
   "quillWorkflowsRestoreVersion": "Restore this version",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "aiChatApplyReplacePage": "Replace page blocks",
   "aiChatApplyOperations": "Apply edit operations",
   "aiChatApplySnapshotSuccess": "Changes applied to the open page.",
@@ -3967,10 +3925,6 @@
   "settingsAdminTemplateByIdTitle": "Template by ID",
   "settingsAdminTemplateIdHint": "Template UUID",
   "settingsAdminActionError": "Admin action failed",
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Privacy, diagnostics, build version, release notes, and your update channel.",
-  "settingsOpenReleaseNotes": "Open release notes",
-=======
   "settingsAboutHeroDescription": "Privacy, diagnostics, build version, release notes, third-party licenses, and your update channel.",
   "settingsOpenReleaseNotes": "Open release notes",
   "settingsOpenThirdPartyLicenses": "Open source & third-party licenses",
@@ -3995,7 +3949,6 @@
   "thirdPartyLicensesLicenseCopied": "License text copied",
   "thirdPartyLicensesSearchHint": "Search licenses…",
   "thirdPartyLicensesClearSearch": "Clear search",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsUpdateChannelLabel": "Channel",
   "settingsUpdateChannelRelease": "Release",
   "settingsUpdateChannelBeta": "Beta",
@@ -5627,9 +5580,6 @@
   "aiGeneratedImageInsertedSnackbar": "Image inserted into the page",
   "aiGeneratedImageLoadError": "Could not load the image",
   "aiImageGenerationUnsupportedProvider": "This provider does not support image generation; use Quill Cloud or configure a BYOK/local OpenAI-compatible provider.",
-<<<<<<< HEAD
-  "aiGenerateImagePromptRequired": "Write a description before generating."
-=======
   "aiGenerateImagePromptRequired": "Write a description before generating.",
   "settingsSectionOrganization": "Teams",
   "settingsOrganizationHeroSubtitle": "Teams",
@@ -6518,5 +6468,4 @@
   "resetPasswordMismatch": "Passwords do not match.",
   "integrationsBridgeStartFailed": "Couldn't start the integrations bridge: {error}",
   "integrationActivateFailed": "Couldn't activate the integration: {error}"
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

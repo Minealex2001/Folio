@@ -221,6 +221,105 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
   }
 }
 
+/// Interruptor irreversible: apaga Folio Cloud por completo en este
+/// dispositivo (ver [AppSettings.folioCloudDisabled] /
+/// [CloudAccountController.disabled]). Visible tanto para invitados como
+/// para cuentas ya vinculadas, fuera de las pestañas de cuenta/plan/status.
+class _FolioCloudKillSwitchBanner extends StatelessWidget {
+  const _FolioCloudKillSwitchBanner({
+    required this.scheme,
+    required this.appSettings,
+    required this.cloud,
+    required this.onDisabled,
+  });
+
+  final ColorScheme scheme;
+  final AppSettings appSettings;
+  final CloudAccountController cloud;
+  final VoidCallback onDisabled;
+
+  Future<void> _confirmAndDisable(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: const Text('Desactivar Folio Cloud'),
+        content: const Text(
+          'Se cerrará tu sesión y no podrás volver a iniciar sesión, '
+          'sincronizar dispositivos ni hacer copias en la nube desde esta '
+          'instalación.\n\n'
+          'Esta acción es permanente: solo podrás reactivar Folio Cloud '
+          'reinstalando la app.',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Desactivar para siempre'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    CloudAccountController.disabled = true;
+    try {
+      await cloud.signOutAll();
+    } catch (_) {}
+    await appSettings.setFolioCloudDisabled(true);
+    onDisabled();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (appSettings.folioCloudDisabled) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Material(
+          color: scheme.errorContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.cloud_off_rounded, color: scheme.onErrorContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Folio Cloud está desactivado en este dispositivo. '
+                    'Reinstala la app para volver a activarlo.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onErrorContainer,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return ListTile(
+      leading: Icon(Icons.power_settings_new_rounded, color: scheme.error),
+      title: const Text('Desactivar Folio Cloud'),
+      subtitle: const Text(
+        'Apaga cuenta, sync y copias en la nube por completo. '
+        'Solo se revierte reinstalando la app.',
+      ),
+      onTap: () => _confirmAndDisable(context),
+    );
+  }
+}
+
 /// Folio Cloud plan, ink, and billing UI inside Settings (signed-in only).
 class _FolioCloudSubscriptionPanel extends StatelessWidget {
   const _FolioCloudSubscriptionPanel({

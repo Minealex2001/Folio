@@ -8064,85 +8064,81 @@ class VaultSession extends ChangeNotifier {
 
       final localPayload = _buildVaultPayloadForPersist();
       final remotePayload = pack.payload;
-      final localFp = VaultSyncMergeEngine.payloadFingerprint(localPayload);
-      final remoteFp = VaultSyncMergeEngine.payloadFingerprint(remotePayload);
-      if (localFp == remoteFp) {
-        if (_syncBaselineFingerprint.isEmpty) {
-          _syncBaselineFingerprint = localFp;
-          _syncBaselinePayload = VaultPayload.decodeUtf8(
-            localPayload.encodeUtf8(),
+
+      // Fase B (H4): fingerprint de local/remoto + los guards anti-wipe +
+      // el merge de 3 vías (si hace falta) corren en un isolate aparte.
+      // `computeSyncMergeOutcome` es una función pura sobre los payloads —
+      // sin VaultSession, sin disco, sin red — así que el resultado es
+      // idéntico a antes, solo que ya no bloquea el isolate de UI. Mismo
+      // orden de decisiones que el código anterior.
+      final outcome = await compute(computeSyncMergeOutcome, <String, Object?>{
+        'local': localPayload,
+        'remote': remotePayload,
+        'baseline': _syncBaselinePayload,
+        'baselineFingerprint': _syncBaselineFingerprint,
+        'remoteExpectedPageCount': remoteExpectedPageCount,
+      });
+
+      switch (outcome.kind) {
+        case SyncMergeOutcomeKind.unchanged:
+          if (_syncBaselineFingerprint.isEmpty) {
+            _syncBaselineFingerprint = outcome.localFingerprint;
+            _syncBaselinePayload = VaultPayload.decodeUtf8(
+              localPayload.encodeUtf8(),
+            );
+          }
+          await _applySyncedDisplayName(remotePayload.displayName);
+          return (ok: true, changed: false);
+
+        case SyncMergeOutcomeKind.emptyRemoteGuard:
+          // No dejar que un remoto vacío borre contenido local vía merge
+          // (mismo riesgo de wipe por sync que el camino headless, pero por
+          // la ruta de sesión desbloqueada / P2P). Mismo guard que
+          // HeadlessDeviceSyncVault.applyRemotePack.
+          AppLogger.warn(
+            'applySyncSnapshotBytes skipped: refuse empty remote over local pages',
+            tag: 'sync',
+            context: {'localPages': outcome.localPageCount},
           );
-        }
-        await _applySyncedDisplayName(remotePayload.displayName);
-        return (ok: true, changed: false);
+          return (ok: true, changed: false);
+
+        case SyncMergeOutcomeKind.partialGuard:
+          // Mismo riesgo que el guard de arriba pero para un remoto PARCIAL
+          // (no vacío del todo).
+          AppLogger.warn(
+            'applySyncSnapshotBytes skipped: remote looks like a partial manifest',
+            tag: 'sync',
+            context: {
+              'localPages': outcome.localPageCount,
+              'remotePages': outcome.remotePageCount,
+              'remoteExpectedPageCount': remoteExpectedPageCount,
+            },
+          );
+          return (ok: true, changed: false);
+
+        case SyncMergeOutcomeKind.merged:
+          final result = outcome.result!;
+          for (final conflict in result.blockConflicts) {
+            _registerBlockSyncConflict(
+              fromPeerId: fromPeerId,
+              conflict: conflict,
+              remoteFingerprint: outcome.remoteFingerprint,
+              remoteSnapshotBytes: rawBytes,
+              remotePageCount: remotePayload.pages.length,
+            );
+          }
+
+          if (!result.changed && result.blockConflicts.isEmpty) {
+            return (ok: true, changed: false);
+          }
+
+          await _applyResolvedSyncPayload(
+            result.payload,
+            remoteFingerprint: outcome.resultFingerprint!,
+            setAsBaseline: true,
+          );
+          return (ok: true, changed: true);
       }
-
-      // No dejar que un remoto vacío borre contenido local vía merge (mismo
-      // riesgo de wipe por sync que el camino headless, pero por la ruta de
-      // sesión desbloqueada / P2P): el merge de 3 vías infiere "borrado" de
-      // toda página ausente en remoto respecto al baseline, así que un
-      // remoto espuriamente vacío vaciaría _pages antes de persistir. Mismo
-      // guard que HeadlessDeviceSyncVault.applyRemotePack.
-      if (localPayload.pages.isNotEmpty && remotePayload.pages.isEmpty) {
-        AppLogger.warn(
-          'applySyncSnapshotBytes skipped: refuse empty remote over local pages',
-          tag: 'sync',
-          context: {'localPages': localPayload.pages.length},
-        );
-        return (ok: true, changed: false);
-      }
-
-      // Mismo riesgo que el guard de arriba pero para un remoto PARCIAL (no
-      // vacío del todo): si el baseline en memoria aún no se sembró (p. ej.
-      // recién desbloqueada), `merge()` vería un baseline vacío y su propio
-      // guard de páginas parciales no dispararía. Comparar contra lo local
-      // aquí cubre ese hueco sin esperar a que el baseline exista.
-      if (VaultSyncMergeEngine.looksSuspiciouslyPartial(
-        basePageCount: localPayload.pages.length,
-        remotePageCount: remotePayload.pages.length,
-        remoteExpectedPageCount: remoteExpectedPageCount,
-      )) {
-        AppLogger.warn(
-          'applySyncSnapshotBytes skipped: remote looks like a partial manifest',
-          tag: 'sync',
-          context: {
-            'localPages': localPayload.pages.length,
-            'remotePages': remotePayload.pages.length,
-            'remoteExpectedPageCount': remoteExpectedPageCount,
-          },
-        );
-        return (ok: true, changed: false);
-      }
-
-      final result = _syncMerge.merge(
-        local: localPayload,
-        remote: remotePayload,
-        baseline: _syncBaselinePayload,
-        remoteExpectedPageCount: remoteExpectedPageCount,
-      );
-
-      for (final conflict in result.blockConflicts) {
-        _registerBlockSyncConflict(
-          fromPeerId: fromPeerId,
-          conflict: conflict,
-          remoteFingerprint: remoteFp,
-          remoteSnapshotBytes: rawBytes,
-          remotePageCount: remotePayload.pages.length,
-        );
-      }
-
-      if (!result.changed && result.blockConflicts.isEmpty) {
-        return (ok: true, changed: false);
-      }
-
-      await _applyResolvedSyncPayload(
-        result.payload,
-        remoteFingerprint: VaultSyncMergeEngine.payloadFingerprint(
-          result.payload,
-        ),
-        setAsBaseline: true,
-      );
-      return (ok: true, changed: true);
     } catch (e, st) {
       AppLogger.error(
         'applySyncSnapshotBytes failed',
@@ -8219,6 +8215,7 @@ class VaultSession extends ChangeNotifier {
         local: localPayload,
         remote: pack.payload,
         baseline: _syncBaselinePayload,
+        baselineFingerprint: _syncBaselineFingerprint,
       );
       await _applyResolvedSyncPayload(
         result.payload,

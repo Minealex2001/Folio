@@ -573,6 +573,9 @@ class AppSettings extends ChangeNotifier {
   static const _syncDeviceNameKey = 'folio_device_sync_device_name';
   static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
   static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
+  /// Kill switch: una vez activado, no hay UI para revertirlo — solo
+  /// reinstalar la app (que limpia SharedPreferences) lo desactiva.
+  static const _folioCloudDisabledKey = 'folio_cloud_disabled';
   static const _cloudDeviceSyncEnabledKey = 'folio_cloud_device_sync_enabled';
   static const _cloudAppProfileSyncEnabledKey =
       'folio_cloud_app_profile_sync_enabled';
@@ -835,6 +838,7 @@ class AppSettings extends ChangeNotifier {
   String _syncDeviceName = '';
   int _syncPendingConflicts = 0;
   int _syncLastSuccessMs = 0;
+  bool _folioCloudDisabled = false;
   bool _cloudDeviceSyncEnabled = true;
   bool _cloudAppProfileSyncEnabled = true;
   String _cloudAppProfileAckUid = '';
@@ -1045,6 +1049,7 @@ class AppSettings extends ChangeNotifier {
       _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
   int get syncPendingConflicts => _syncPendingConflicts;
   int get syncLastSuccessMs => _syncLastSuccessMs;
+  bool get folioCloudDisabled => _folioCloudDisabled;
   bool get cloudDeviceSyncEnabled => _cloudDeviceSyncEnabled;
   bool get cloudAppProfileSyncEnabled => _cloudAppProfileSyncEnabled;
 
@@ -1460,6 +1465,7 @@ class AppSettings extends ChangeNotifier {
       999,
     );
     _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
+    _folioCloudDisabled = p.getBool(_folioCloudDisabledKey) ?? false;
     _cloudDeviceSyncEnabled = p.getBool(_cloudDeviceSyncEnabledKey) ?? true;
     _cloudAppProfileSyncEnabled =
         p.getBool(_cloudAppProfileSyncEnabledKey) ?? true;
@@ -2728,6 +2734,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_syncEnabledKey, value);
+  }
+
+  /// Apaga Folio Cloud por completo (sin sesión, sin sync, sin llamadas de
+  /// red). No expone forma de volver a `false` desde la UI — el guard vive
+  /// en [CloudAccountController.disabled], que también lee este valor al
+  /// arrancar; reinstalar la app es la única vía para reactivarlo.
+  Future<void> setFolioCloudDisabled(bool value) async {
+    if (_folioCloudDisabled == value) return;
+    _folioCloudDisabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_folioCloudDisabledKey, value);
   }
 
   Future<void> setCloudDeviceSyncEnabled(bool value) async {

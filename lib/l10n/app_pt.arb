@@ -1737,6 +1737,12 @@
   "cloudAuthErrorTooManyRequests": "Muitas tentativas. Tente novamente mais tarde.",
   "cloudAuthErrorOperationNotAllowed": "Este método de login não está ativado no Firebase.",
   "cloudAuthErrorGeneric": "Falha no login. Tente novamente.",
+  "cloudAuthErrorCloudDisabled": "O Folio Cloud está desativado neste dispositivo. Reinstale o app para ativá-lo novamente.",
+  "folioCloudKillSwitchTitle": "Desativar o Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Desliga conta, sincronização e backups na nuvem por completo. Só é reversível reinstalando o app.",
+  "folioCloudDisableDialogTitle": "Desativar o Folio Cloud",
+  "folioCloudDisableDialogBody": "A tua sessão será encerrada e não poderás voltar a iniciar sessão, sincronizar dispositivos ou fazer backups na nuvem a partir desta instalação.\n\nEsta ação é permanente: reinstalar o app é a única forma de reativar o Folio Cloud.",
+  "folioCloudDisableDialogConfirm": "Desativar para sempre",
   "cloudAuthHaveResetToken": "Já tenho o código do e-mail",
   "cloudAuthDialogTitleResetWithToken": "Nova senha",
   "cloudAuthResetTokenLabel": "Código do e-mail",
@@ -3709,11 +3715,7 @@
       "error": {}
     }
   },
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Privacidade, diagnósticos, versão do build, notas de lançamento e canal de atualização.",
-=======
   "settingsAboutHeroDescription": "Privacidade, diagnósticos, versão do build, notas de lançamento, licenças de terceiros e canal de atualização.",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsOpenReleaseNotes": "Ver notas de versão",
   "settingsOpenThirdPartyLicenses": "Software de código aberto e licenças de terceiros",
   "thirdPartyLicensesTitle": "Software de código aberto e licenças de terceiros",
@@ -5400,9 +5402,6 @@
   "spotifyNowPlayingShuffle": "Aleatório",
   "spotifyNowPlayingRepeat": "Repetir",
   "spotifyNowPlayingContext": "A reproduzir de",
-<<<<<<< HEAD
-  "spotifyNowPlayingCloseOverlay": "Fechar leitor"
-=======
   "spotifyNowPlayingCloseOverlay": "Fechar leitor",
   "settingsSectionOrganization": "Equipas",
   "settingsOrganizationHeroSubtitle": "Equipos",
@@ -6270,5 +6269,4 @@
   "resetPasswordMismatch": "As senhas não coincidem.",
   "integrationsBridgeStartFailed": "Não foi possível iniciar o bridge de integrações: {error}",
   "integrationActivateFailed": "Não foi possível ativar a integração: {error}"
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

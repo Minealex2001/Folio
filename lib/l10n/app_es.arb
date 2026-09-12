@@ -833,10 +833,7 @@
   "aiChatEmptyFocusComposer": "Escribe un mensaje",
   "aiInputHint": "Escribe tu mensaje. Quill actuará como agente.",
   "aiInputHintCopilot": "Escribe tu mensaje...",
-<<<<<<< HEAD
-=======
   "aiStopGenerating": "Detener",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "aiContextComposerHint": "Sin contexto añadido",
   "aiContextComposerHelper": "Usa @ para añadir contexto",
   "aiContextCurrentPageChip": "Folio actual: {title}",
@@ -849,13 +846,10 @@
   "aiContextAddFile": "Adjuntar archivo",
   "aiContextAddPage": "Adjuntar folio",
   "aiContextEditorSelection": "Incluir selección del editor (próximo envío)",
-<<<<<<< HEAD
-=======
   "aiContextAutoSelectionOn": "Adjuntar selección automáticamente",
   "aiContextAutoSelectionOff": "Dejar de adjuntar selección automáticamente",
   "aiContextAutoSelectionSubtitle": "Adjunta la selección del editor en cada envío de este hilo, no solo el próximo",
   "aiContextAutoSelectionChip": "Selección automática",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "aiContextLastMeetingOnPage": "Incluir última reunión de el folio (próximo envío)",
   "aiAttachMenuTitle": "Añadir a la nota",
   "aiAttachMenuSubtitle": "Contexto, archivos o notas de reunión para esta pregunta",
@@ -955,8 +949,6 @@
   "mcpReadAccessAllow": "Permitir y recordar",
   "mcpReadAccessAllowOnce": "Permitir solo esta vez",
   "mcpReadAccessDeny": "Denegar",
-<<<<<<< HEAD
-=======
   "mcpConfirmIrreversibleTitle": "Acción irreversible solicitada",
   "mcpConfirmIrreversibleBody": "El cliente «{clientName}» quiere ejecutar «{toolName}». Esta acción no se puede deshacer.",
   "@mcpConfirmIrreversibleBody": {
@@ -971,7 +963,6 @@
   },
   "mcpConfirmIrreversibleCancel": "Cancelar",
   "mcpConfirmIrreversibleConfirm": "Sí, ejecutar",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "mcpApprovalTitle": "¿Permitir que «{clientName}» gestione tu libreta?",
   "@mcpApprovalTitle": {
     "placeholders": {
@@ -1062,10 +1053,7 @@
   "aiAlwaysShowThought": "Mostrar siempre pensamiento de Quill",
   "aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje.",
   "aiBetaBadge": "BETA",
-<<<<<<< HEAD
-=======
   "integrationAlphaBadge": "ALPHA",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "aiManageQuillInstructionsTooltip": "Gestionar instrucciones de Quill",
   "ai": "Quill",
   "aiEnableToggleTitle": "Activar Quill",
@@ -1403,44 +1391,6 @@
   },
   "importNotionWarningsTitle": "Avisos de importación",
   "importNotionWarningsBody": "La importación finalizó con los siguientes avisos:",
-<<<<<<< HEAD
-  "ok": "Aceptar",
-  "notionExportGuideTitle": "Como exportar desde Notion",
-  "notionExportGuideBody": "En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio.",
-  "appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad de la libreta con frecuencia.",
-  "appBetaBannerDismiss": "Entendido",
-  "integrations": "Integraciones",
-  "integrationsAppsApprovedHint": "Las apps externas aprobadas pueden usar el puente de integracion local.",
-  "integrationsAppsApprovedTitle": "Apps externas aprobadas",
-  "integrationsAppsApprovedNone": "Todavia no has aprobado ninguna app externa.",
-  "integrationsAppsApprovedRevoke": "Revocar acceso",
-  "integrationsApprovedAppDetails": "{appId} · App {appVersion} · Integracion {integrationVersion}",
-  "@integrationsApprovedAppDetails": {
-    "placeholders": {
-      "appId": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalTitle": "Aprobar integracion externa",
-  "integrationApprovalUpdateTitle": "Aprobar actualizacion de integracion",
-  "integrationApprovalBody": "\"{appName}\" quiere conectarse a Folio usando la version {appVersion} de la app y la version {integrationVersion} de la integracion.",
-  "@integrationApprovalBody": {
-    "placeholders": {
-      "appName": {},
-      "appVersion": {},
-      "integrationVersion": {}
-    }
-  },
-  "integrationApprovalUpdateBody": "\"{appName}\" ya habia sido aprobada con la version {previousVersion} de la integracion. Ahora quiere conectarse con la version {integrationVersion} de la integracion, asi que Folio necesita tu aprobacion otra vez.",
-  "@integrationApprovalUpdateBody": {
-    "placeholders": {
-      "appName": {},
-      "previousVersion": {},
-      "integrationVersion": {}
-    }
-  },
-=======
   "notionApiImportTitle": "Conectar con Notion",
   "notionApiImportSubtitle": "Importa páginas y bases de datos directamente, sin exportar nada",
   "notionApiConnectTitle": "Conectar con Notion",
@@ -1519,7 +1469,6 @@
       "integrationVersion": {}
     }
   },
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "integrationApprovalUnknownVersion": "desconocida",
   "integrationApprovalAppId": "ID de la app",
   "integrationApprovalAppVersion": "Version de la app",
@@ -1771,6 +1720,12 @@
   "cloudAuthErrorTooManyRequests": "Demasiados intentos. Prueba más tarde.",
   "cloudAuthErrorOperationNotAllowed": "Este método de inicio de sesión no está habilitado en Firebase.",
   "cloudAuthErrorGeneric": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+  "cloudAuthErrorCloudDisabled": "Folio Cloud está desactivado en este dispositivo. Reinstala la app para volver a activarlo.",
+  "folioCloudKillSwitchTitle": "Desactivar Folio Cloud",
+  "folioCloudKillSwitchSubtitle": "Apaga cuenta, sincronización y copias en la nube por completo. Solo se revierte reinstalando la app.",
+  "folioCloudDisableDialogTitle": "Desactivar Folio Cloud",
+  "folioCloudDisableDialogBody": "Se cerrará tu sesión y no podrás volver a iniciar sesión, sincronizar dispositivos ni hacer copias en la nube desde esta instalación.\n\nEsta acción es permanente: solo podrás reactivar Folio Cloud reinstalando la app.",
+  "folioCloudDisableDialogConfirm": "Desactivar para siempre",
   "cloudAuthHaveResetToken": "Ya tengo el código del correo",
   "cloudAuthDialogTitleResetWithToken": "Nueva contraseña",
   "cloudAuthResetTokenLabel": "Código del correo",
@@ -1888,8 +1843,6 @@
   "folioCloudDeviceSyncStatusError": "Error de sincronización — reintentando…",
   "folioCloudDeviceSyncStatusPending": "Esperando la primera sincronización…",
   "folioCloudDeviceSyncStatusSynced": "Sincronizado {time}",
-<<<<<<< HEAD
-=======
   "folioHealthTitle": "Salud de Folio",
   "folioHealthAllGood": "Todo en orden.",
   "folioHealthNeedsAttention": "Hay algo que necesita tu atención.",
@@ -1983,7 +1936,6 @@
   "teamHomeMembersEmpty": "Todavía no hay miembros.",
   "teamHomeActivityTitle": "Actividad del equipo",
   "teamHomeActivityEmpty": "Sin actividad todavía.",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "@folioCloudDeviceSyncStatusSynced": {
     "placeholders": {
       "time": {}
@@ -2615,8 +2567,6 @@
   },
   "blockEditorDuplicate": "Duplicar",
   "blockEditorClearSelectionTooltip": "Limpiar selección",
-<<<<<<< HEAD
-=======
   "blockEditorGroupAction": "Agrupar",
   "blockEditorUngroupColumns": "Desagrupar columnas",
   "blockEditorUngroupSection": "Desagrupar sección",
@@ -2671,7 +2621,6 @@
   "smartTemplateFlowGenerate": "Generar",
   "smartTemplateFlowCancel": "Cancelar",
   "smartTemplateFlowSkipHint": "Déjalo en blanco para omitir",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "blockEditorMenuRewriteWithAi": "Reescribir con Quill…",
   "blockEditorMenuMoveUp": "Mover arriba",
   "blockEditorMenuMoveDown": "Mover abajo",
@@ -2768,8 +2717,6 @@
   "settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)",
   "settingsAiQuillCopilotExperimentalSubtitle": "Muestra sugerencias de Quill en línea mientras escribes; pulsa Tab para aceptarlas. Requiere un proveedor de Quill configurado.",
   "aiChatApplyInsertEnd": "Insertar bloques al final",
-<<<<<<< HEAD
-=======
   "aiChatApplyInsertTextEnd": "Insertar al final",
   "aiChatSaveFactTemporary": "Guardar temporalmente",
   "aiChatSaveFactPermanent": "Guardar permanentemente",
@@ -2825,7 +2772,6 @@
   "quillWorkflowsHistoryTitle": "Historial de versiones",
   "quillWorkflowsHistoryEmpty": "Sin versiones anteriores.",
   "quillWorkflowsRestoreVersion": "Restaurar esta versión",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "aiChatApplyReplacePage": "Reemplazar folio",
   "aiChatApplyOperations": "Aplicar operaciones",
   "aiChatApplySnapshotSuccess": "Cambios aplicados en el folio abierto.",
@@ -3983,10 +3929,6 @@
   "settingsAdminTemplateByIdTitle": "Plantilla por ID",
   "settingsAdminTemplateIdHint": "UUID de la plantilla",
   "settingsAdminActionError": "Error de administracion",
-<<<<<<< HEAD
-  "settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación y canal de actualización.",
-  "settingsOpenReleaseNotes": "Ver notas de versión",
-=======
   "settingsAboutHeroDescription": "Privacidad, diagnósticos, versión del build, notas de publicación, licencias de terceros y canal de actualización.",
   "settingsOpenReleaseNotes": "Ver notas de versión",
   "settingsOpenThirdPartyLicenses": "Software de código abierto y licencias de terceros",
@@ -4011,7 +3953,6 @@
   "thirdPartyLicensesLicenseCopied": "Texto de la licencia copiado",
   "thirdPartyLicensesSearchHint": "Buscar licencias…",
   "thirdPartyLicensesClearSearch": "Borrar búsqueda",
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
   "settingsUpdateChannelLabel": "Canal",
   "settingsUpdateChannelRelease": "Release",
   "settingsUpdateChannelBeta": "Beta",
@@ -4814,838 +4755,6 @@
       "name": {
         "type": "String"
       }
-<<<<<<< HEAD
-    }
-  },
-  "youtrackIntegrationTitle": "Integración de YouTrack",
-  "youtrackConnectionsTab": "Conexiones",
-  "youtrackSourcesTab": "Fuentes (Queries)",
-  "youtrackConfigure": "Configurar",
-  "youtrackNoConnections": "No hay conexiones configuradas.",
-  "youtrackNoSources": "No hay fuentes configuradas.",
-  "youtrackAddConnection": "Añadir conexión YouTrack",
-  "youtrackAddSource": "Añadir fuente YouTrack",
-  "youtrackNewConnectionTitle": "Nueva conexión YouTrack",
-  "youtrackConnectionName": "Nombre de la conexión",
-  "youtrackBaseUrlLabel": "YouTrack Base URL",
-  "youtrackPermanentToken": "Token permanente",
-  "youtrackConnectAndSave": "Conectar y Guardar",
-  "youtrackRequired": "Obligatorio",
-  "youtrackUrlMustStartWithHttp": "La URL debe empezar con http:// o https://",
-  "youtrackMapColumns": "Mapear columnas",
-  "youtrackSourceName": "Nombre de la fuente",
-  "youtrackConnectionLabel": "Conexión",
-  "youtrackSourceType": "Tipo de fuente",
-  "youtrackFullProject": "Proyecto completo",
-  "youtrackCustomQuery": "Búsqueda personalizada (Query)",
-  "youtrackSelectProject": "Seleccionar Proyecto",
-  "youtrackNoProjectsFound": "No se encontraron proyectos.",
-  "youtrackSearchQueryLabel": "YouTrack Search Query",
-  "youtrackConfigureMappings": "Configurar mappings y opciones",
-  "youtrackImportOptions": "Opciones de importación",
-  "youtrackComments": "Comentarios",
-  "youtrackAttachments": "Adjuntos",
-  "youtrackColumnMapping": "Mapeo Kanban → YouTrack (por columna)",
-  "youtrackStateHint": "Estado en YouTrack",
-  "youtrackColumnTodo": "Por hacer",
-  "youtrackColumnInProgress": "En curso",
-  "youtrackColumnDone": "Hecho",
-  "trelloIntegrationTitle": "Integración de Trello",
-  "trelloConnectionsTab": "Conexiones",
-  "trelloSourcesTab": "Tableros",
-  "trelloConfigure": "Configurar",
-  "trelloNoConnections": "No hay conexiones configuradas.",
-  "trelloNoBoards": "No hay tableros configurados.",
-  "trelloAddConnection": "Añadir conexión Trello",
-  "trelloAddBoard": "Añadir tablero Trello",
-  "trelloNewConnectionTitle": "Nueva conexión Trello",
-  "trelloConnectionName": "Nombre de la conexión",
-  "trelloApiKeyLabel": "API Key",
-  "trelloTokenLabel": "Token",
-  "trelloGetApiKey": "Obtener API Key",
-  "trelloGetToken": "Obtener token",
-  "trelloAuthHelp": "Pulsa el icono para autorizar Folio en Trello y copia el token que te muestra Trello para pegarlo aquí.",
-  "trelloConnectAndSave": "Conectar y Guardar",
-  "trelloRequired": "Obligatorio",
-  "trelloMapColumnsAndPriorities": "Mapear columnas y prioridades",
-  "trelloSourceName": "Nombre de la fuente",
-  "trelloConnectionLabel": "Conexión",
-  "trelloSelectBoard": "Seleccionar tablero",
-  "trelloNoBoardsFound": "No se encontraron tableros.",
-  "trelloConfigureMappings": "Configurar mappings y opciones",
-  "trelloImportOptions": "Opciones de importación",
-  "trelloComments": "Comentarios",
-  "trelloAttachments": "Adjuntos",
-  "trelloChecklists": "Checklists",
-  "trelloColumnMapping": "Mapeo Kanban → Listas de Trello",
-  "trelloListHint": "Lista de Trello",
-  "trelloPriorityMapping": "Mapeo de prioridad → Label de Trello",
-  "trelloLabelHint": "Label de Trello",
-  "trelloNone": "Ninguno",
-  "trelloPriorityLow": "Baja",
-  "trelloPriorityMedium": "Media",
-  "trelloPriorityHigh": "Alta",
-  "trelloColumnTodo": "Por hacer",
-  "trelloColumnInProgress": "En curso",
-  "trelloColumnDone": "Hecho",
-  "trelloDetailsTitle": "Trello",
-  "trelloRefresh": "Actualizar",
-  "trelloConflictMessage": "Conflicto: hubo cambios en Trello y en Folio.",
-  "trelloConflictLoadHint": "Pulsa Actualizar para cargar el estado remoto y ver las diferencias.",
-  "trelloKeepRemote": "Mantener Trello",
-  "trelloForceFolio": "Forzar Folio",
-  "trelloCommentsTitle": "Comentarios Trello",
-  "trelloNoComments": "Sin comentarios o no cargados.",
-  "trelloAddCommentHint": "Añadir comentario...",
-  "trelloDeleteRemoteConfirm": "Esta acción borrará la tarea en Folio y archivará la card en Trello. ¿Continuar?",
-  "trelloConnectionMissing": "No se encontró la conexión Trello para esta tarea. Re-conecta Trello en Ajustes → Integraciones.",
-  "trelloConnectionMissingDelete": "No se encontró la conexión Trello para archivar la card.",
-  "trelloBannerLabel": "Trello · {label}",
-  "slackIntegrationTitle": "Integración con Slack",
-  "slackConnectionsTab": "Conexiones",
-  "slackNotificationsTab": "Notificaciones",
-  "slackConfigure": "Configurar",
-  "slackNoConnections": "Todavía no hay conexiones configuradas.",
-  "slackAddConnection": "Añadir conexión de Slack",
-  "slackNewConnectionTitle": "Nueva conexión de Slack",
-  "slackConnectionName": "Nombre de la conexión",
-  "slackWebhookUrlLabel": "URL de webhook entrante",
-  "slackGetWebhookUrl": "Obtener URL de webhook",
-  "slackAuthHelp": "Toca el icono para ver cómo crear un Webhook entrante de Slack y pega aquí la URL.",
-  "slackConnectAndSave": "Conectar y guardar",
-  "slackRequired": "Obligatorio",
-  "slackNotifyOnStatusChange": "Cambios de estado de tareas",
-  "slackNotifyOnNewTask": "Tareas nuevas",
-  "slackNotifyOnComment": "Comentarios nuevos",
-  "teamsIntegrationTitle": "Integración con Microsoft Teams",
-  "teamsConnectionsTab": "Conexiones",
-  "teamsNotificationsTab": "Notificaciones",
-  "teamsConfigure": "Configurar",
-  "teamsNoConnections": "Todavía no hay conexiones configuradas.",
-  "teamsAddConnection": "Añadir conexión de Teams",
-  "teamsNewConnectionTitle": "Nueva conexión de Teams",
-  "teamsConnectionName": "Nombre de la conexión",
-  "teamsWebhookUrlLabel": "URL de webhook entrante",
-  "teamsGetWebhookUrl": "Obtener URL de webhook",
-  "teamsAuthHelp": "Toca el icono para ver cómo crear un webhook de Workflow de Teams y pega aquí la URL.",
-  "teamsConnectAndSave": "Conectar y guardar",
-  "teamsRequired": "Obligatorio",
-  "teamsNotifyOnStatusChange": "Cambios de estado de tareas",
-  "teamsNotifyOnNewTask": "Tareas nuevas",
-  "teamsNotifyOnComment": "Comentarios nuevos",
-  "slackCardSubtitle": "Publica notificaciones de tareas en un canal de Slack.",
-  "teamsCardSubtitle": "Publica notificaciones de tareas en un canal de Microsoft Teams.",
-  "slackConnectionCount": "{count, plural, =1{1 conexión} other{{count} conexiones}}",
-  "@slackConnectionCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "teamsConnectionCount": "{count, plural, =1{1 conexión} other{{count} conexiones}}",
-  "@teamsConnectionCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "slackConnectionNameHint": "p. ej. #general",
-  "teamsConnectionNameHint": "p. ej. General",
-  "integrationWebhookConnectionFailed": "Error de conexión: {error}",
-  "@integrationWebhookConnectionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "integrationWebhookVerifyConnected": "✅ Folio ya está conectado a este canal.",
-  "integrationNotifyTaskMoved": "📋 \"{title}\" movida a *{status}*",
-  "@integrationNotifyTaskMoved": {
-    "placeholders": {
-      "title": {
-        "type": "String"
-      },
-      "status": {
-        "type": "String"
-      }
-    }
-  },
-  "integrationNotifyNewTask": "🆕 Tarea nueva: \"{title}\"",
-  "@integrationNotifyNewTask": {
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
-  "integrationNotifyNewComment": "💬 Comentario nuevo en \"{page}\": {snippet}",
-  "@integrationNotifyNewComment": {
-    "placeholders": {
-      "page": {
-        "type": "String"
-      },
-      "snippet": {
-        "type": "String"
-      }
-    }
-  },
-  "slackCommandsTab": "Comandos",
-  "teamsCommandsTab": "Comandos",
-  "spotifyIntegrationTitle": "Integración con Spotify",
-  "spotifyConnectionsTab": "Conexiones",
-  "spotifyPlaybackTab": "Reproducción",
-  "spotifyZenTab": "Modo zen",
-  "spotifyConfigure": "Configurar",
-  "spotifyCardSubtitle": "Conecta tu cuenta, controla la reproducción y usa playlists de enfoque en modo zen.",
-  "spotifyConnectionCount": "{count, plural, =1{1 cuenta} other{{count} cuentas}}",
-  "@spotifyConnectionCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "spotifyNoConnections": "Aún no hay ninguna cuenta de Spotify conectada.",
-  "spotifyConnectAccount": "Conectar Spotify",
-  "spotifyDisconnect": "Desconectar",
-  "spotifyConnecting": "Conectando…",
-  "spotifyConnectedAs": "Conectado como {name}",
-  "@spotifyConnectedAs": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "spotifyAuthHelp": "Autoriza Folio en el navegador. El control de reproducción requiere Spotify Premium y un dispositivo activo.",
-  "spotifyConnectionFailed": "No se pudo conectar con Spotify: {error}",
-  "@spotifyConnectionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "spotifyNowPlaying": "Reproduciendo ahora",
-  "spotifyNothingPlaying": "No hay nada en reproducción.",
-  "spotifyReadyIdle": "Listo para reproducir",
-  "spotifyPremiumRequired": "Se necesita Spotify Premium para controlar la reproducción desde Folio.",
-  "spotifyNoActiveDevice": "Abre Spotify en un dispositivo para controlar la reproducción.",
-  "spotifyFocusPlaylist": "Playlist de enfoque",
-  "spotifyFocusPlaylistHint": "Playlist que se iniciará al entrar en modo zen.",
-  "spotifyNoPlaylistSelected": "Ninguna playlist seleccionada",
-  "spotifySelectPlaylist": "Seleccionar playlist",
-  "spotifySearchPlaylists": "Buscar playlists…",
-  "spotifyNoPlaylistsFound": "No se encontraron playlists",
-  "spotifyChangePlaylist": "Cambiar playlist",
-  "spotifyClearPlaylist": "Quitar selección",
-  "spotifySelectedPlaylist": "Seleccionada para modo zen",
-  "spotifyPlaylistTrackCount": "{count, plural, =1{1 canción} other{{count} canciones}}",
-  "@spotifyPlaylistTrackCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "spotifyPreviewPlaylist": "Vista previa",
-  "spotifyZenAutoPlay": "Reproducir playlist de enfoque en modo zen",
-  "spotifyZenPauseOnExit": "Pausar al salir del modo zen",
-  "spotifyOpenInSpotify": "Abrir en Spotify",
-  "spotifyBrandName": "Spotify",
-  "spotifyExpandPlayer": "Expandir reproductor",
-  "spotifyCollapsePlayer": "Contraer reproductor",
-  "spotifyPlay": "Reproducir",
-  "spotifyPause": "Pausar",
-  "spotifySkipNext": "Siguiente",
-  "spotifySkipPrevious": "Anterior",
-  "spotifyUseAsDevice": "Usar Folio como dispositivo de Spotify",
-  "spotifyUseAsDeviceHint": "Folio aparecerá en tu lista de dispositivos Spotify y podrá reproducir audio directamente (requiere Premium).",
-  "spotifyLocalDeviceUnsupported": "No disponible en esta plataforma.",
-  "spotifyLocalDeviceConnecting": "Conectando Folio como dispositivo…",
-  "spotifyLocalDeviceReady": "Folio está listo como dispositivo Spotify.",
-  "spotifyLocalDeviceError": "Error del dispositivo local: {message}",
-  "@spotifyLocalDeviceError": {
-    "placeholders": {
-      "message": {
-        "type": "String"
-      }
-    }
-  },
-  "spotifyReconnectRequired": "Reconecta tu cuenta para activar el dispositivo local.",
-  "spotifyReconnectButton": "Reconectar",
-  "spotifyDevicesTitle": "Dispositivos",
-  "spotifyActivateDevice": "Activar",
-  "spotifyThisDeviceActive": "Activo",
-  "spotifySearchTracks": "Buscar canciones",
-  "spotifySearchTracksHint": "Busca una canción y tócala para reproducirla.",
-  "spotifySearchPlaceholder": "Buscar canciones…",
-  "spotifyNoTracksFound": "No se encontraron canciones",
-  "spotifyPlayTrackFailed": "No se pudo reproducir: {error}",
-  "@spotifyPlayTrackFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "spotifyLibraryTitle": "Biblioteca Spotify",
-  "spotifyLibraryOpenTooltip": "Abrir biblioteca Spotify",
-  "spotifyLibraryHome": "Inicio",
-  "spotifyLibrarySearchTab": "Buscar",
-  "spotifyLibraryYourLibrary": "Tu biblioteca",
-  "spotifyLibraryRecentlyPlayed": "Escuchado recientemente",
-  "spotifyLibraryYourPlaylists": "Tus playlists",
-  "spotifyLibraryLikedSongs": "Canciones que te gustan",
-  "spotifyLibraryTracks": "Canciones",
-  "spotifyLibraryAlbums": "Álbumes",
-  "spotifyLibraryArtists": "Artistas",
-  "spotifyLibraryPlaylists": "Playlists",
-  "spotifyLibraryPlayAll": "Reproducir",
-  "spotifyLibraryEmpty": "No hay contenido para mostrar.",
-  "spotifyLibraryNoResults": "Sin resultados",
-  "spotifyLibrarySearchPlaceholder": "¿Qué quieres escuchar?",
-  "spotifyLibraryReconnectRequired": "Reconecta tu cuenta de Spotify para ver la biblioteca completa.",
-  "spotifyCloseLibrary": "Cerrar",
-  "spotifyLibraryFilterAll": "Todo",
-  "spotifyLibraryFilterMusic": "Música",
-  "spotifyLibraryFilterPodcasts": "Pódcasts",
-  "spotifyLibraryMadeFor": "Hecho para {name}",
-  "@spotifyLibraryMadeFor": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "spotifyLibraryDiveBack": "Sumérgete de nuevo en tu música",
-  "spotifyLibraryShowAll": "Mostrar todos",
-  "spotifyLibraryGoodEvening": "Buenas",
-  "spotifyLibraryPodcastsEmpty": "Los pódcasts llegarán pronto.",
-  "spotifyLibraryTypeAlbum": "Álbum",
-  "spotifyLibraryTypePlaylist": "Lista",
-  "spotifyLibraryTypeArtist": "Artista",
-  "spotifyLibraryTitleColumn": "Título",
-  "spotifyLibraryAlbumColumn": "Álbum",
-  "spotifyLibraryPlayingOnFolio": "Reproduciendo en Folio",
-  "spotifyLibrarySearchPrompt": "¿Qué quieres reproducir?",
-  "spotifyLibraryDurationTotal": "{minutes} min",
-  "@spotifyLibraryDurationTotal": {
-    "placeholders": {
-      "minutes": {
-        "type": "int"
-      }
-    }
-  },
-  "spotifyLibraryDurationHours": "{hours} h {minutes} min",
-  "@spotifyLibraryDurationHours": {
-    "placeholders": {
-      "hours": {
-        "type": "int"
-      },
-      "minutes": {
-        "type": "int"
-      }
-    }
-  },
-  "spotifyNowPlayingQueue": "Cola",
-  "spotifyNowPlayingLyrics": "Letra",
-  "spotifyNowPlayingDevices": "Dispositivos",
-  "spotifyNowPlayingNoQueue": "No hay nada en la cola.",
-  "spotifyNowPlayingNoLyrics": "Sin letra disponible.",
-  "spotifyNowPlayingExpandLyrics": "Expandir letra",
-  "spotifyNowPlayingCollapseLyrics": "Contraer letra",
-  "spotifyNowPlayingShuffle": "Aleatorio",
-  "spotifyNowPlayingRepeat": "Repetir",
-  "spotifyNowPlayingContext": "Reproduciendo",
-  "spotifyNowPlayingCloseOverlay": "Cerrar reproductor",
-  "systemMediaReadyIdle": "Listo (media del sistema)",
-  "systemMediaNothingPlaying": "No hay nada en reproducción.",
-  "systemMediaOpenSource": "Abrir origen",
-  "systemMediaInsertTrack": "Insertar pista en el folio",
-  "systemMediaIntegrationTitle": "Media del sistema",
-  "systemMediaCardSubtitle": "Controla lo que suena en el PC o el móvil (YT Music, Edge, VLC…) sin OAuth.",
-  "systemMediaConfigure": "Configurar",
-  "systemMediaStatusEnabled": "Activada",
-  "systemMediaStatusDisabled": "Desactivada",
-  "systemMediaUnsupportedPlatform": "No disponible aquí",
-  "systemMediaUnsupportedPlatformDetail": "La media del sistema no está disponible en esta plataforma (Web e iOS no pueden leer la reproducción de otras apps).",
-  "systemMediaHelp": "Lee el Now Playing del sistema operativo y usa la misma barra que Spotify. Ideal para apps sin API propia, como YouTube Music.",
-  "systemMediaEnable": "Activar media del sistema",
-  "systemMediaEnableHint": "Muestra y controla la pista activa del SO en la barra del sidebar.",
-  "systemMediaPermissionNeeded": "En Android hace falta el permiso de acceso a notificaciones para leer la media de otras apps.",
-  "systemMediaOpenPermissionSettings": "Abrir ajustes de permiso",
-  "systemMediaZenPauseOnExit": "Pausar media del sistema al salir del modo zen",
-  "systemMediaZenPauseOnExitHint": "No afecta a Spotify; solo pausa la sesión del sistema si está activa.",
-  "systemMediaBlockEmptyHint": "Inserta la pista actual desde la barra now playing o el menú de bloques.",
-  "blockTypeSystemMedia": "Pista (media del sistema)",
-  "spotifyBlockEmptyHint": "Pega un enlace de Spotify o define la URL desde el menú del bloque",
-  "spotifyPasteUrlOption": "Reproductor Spotify",
-  "spotifyPasteUrlOptionSubtitle": "Insertar canción, álbum o playlist",
-  "blockTypeSpotify": "Spotify",
-  "integrationCommandsHelp": "Vincula tu identidad de Slack o Teams con Folio. Comandos: /folio create task \"Título\", /folio list tasks, /folio complete task \"Título\". Se aplican la próxima vez que abras Folio.",
-  "integrationCommandsNeedConnection": "Añade una conexión primero para usar comandos entrantes.",
-  "integrationGenerateLinkCode": "Generar código de enlace",
-  "integrationLinkCodeReady": "Código de enlace (válido 15 minutos)",
-  "integrationLinkCodeInstructionSlack": "En Slack ejecuta: /folio link {code}",
-  "@integrationLinkCodeInstructionSlack": {
-    "placeholders": {
-      "code": {
-        "type": "String"
-      }
-    }
-  },
-  "integrationLinkCodeInstructionTeams": "En Teams menciona el bot del Outgoing Webhook: @Folio /folio link {code}",
-  "@integrationLinkCodeInstructionTeams": {
-    "placeholders": {
-      "code": {
-        "type": "String"
-      }
-    }
-  },
-  "integrationSelectConnection": "Conexión",
-  "integrationTeamsOutgoingTokenLabel": "Token de seguridad del Outgoing Webhook",
-  "integrationTeamsOutgoingTokenHelp": "Necesario para comandos entrantes en Teams. Pega el token que aparece al crear el Outgoing Webhook y apúntalo a la URL de abajo.",
-  "integrationTeamsOutgoingTokenRequired": "Introduce primero el token de seguridad del Outgoing Webhook para esta conexión.",
-  "integrationTeamsCommandEndpoint": "URL del Outgoing Webhook (Teams)",
-  "integrationCommandNeedsSignIn": "Inicia sesión en Folio Cloud para vincular comandos de Slack o Teams.",
-  "integrationCommandNeedsVault": "Desbloquea una libreta antes de generar un código de enlace.",
-  "integrationLinkCodeCopied": "Código de enlace copiado",
-  "githubIntegrationTitle": "Integración de GitHub",
-  "githubConnectionsTab": "Conexiones",
-  "githubSourcesTab": "Repositorios",
-  "githubConfigure": "Configurar",
-  "githubNoConnections": "No hay conexiones configuradas.",
-  "githubNoRepos": "No hay repositorios configurados.",
-  "githubAddConnection": "Añadir conexión GitHub",
-  "githubAddRepo": "Añadir repositorio GitHub",
-  "githubNewConnectionTitle": "Nueva conexión GitHub",
-  "githubConnectionName": "Nombre de la conexión",
-  "githubTokenLabel": "Token de acceso personal",
-  "githubGetToken": "Obtener token",
-  "githubAuthHelp": "Pulsa el icono para crear un token en GitHub (scope: repo), luego cópialo y pégalo aquí.",
-  "githubConnectAndSave": "Conectar y Guardar",
-  "githubRequired": "Obligatorio",
-  "githubMapColumnsAndPriorities": "Mapear columnas y prioridades",
-  "githubSourceName": "Nombre de la fuente",
-  "githubConnectionLabel": "Conexión",
-  "githubSelectRepo": "Seleccionar repositorio",
-  "githubNoReposFound": "No se encontraron repositorios.",
-  "githubConfigureMappings": "Configurar mappings y opciones",
-  "githubImportOptions": "Opciones de importación",
-  "githubComments": "Comentarios",
-  "githubAssignees": "Responsables",
-  "githubIncludePullRequests": "Incluir Pull Requests",
-  "githubColumnMapping": "Mapeo Kanban → Estado/Label de GitHub",
-  "githubStateHint": "Estado",
-  "githubLabelHint": "Label de GitHub",
-  "githubPriorityMapping": "Mapeo de prioridad → Label de GitHub",
-  "githubNone": "Ninguno",
-  "githubPriorityLow": "Baja",
-  "githubPriorityMedium": "Media",
-  "githubPriorityHigh": "Alta",
-  "githubColumnTodo": "Por hacer",
-  "githubColumnInProgress": "En curso",
-  "githubColumnDone": "Hecho",
-  "githubStateOpen": "Abierto",
-  "githubStateClosed": "Cerrado",
-  "githubBannerLabel": "GitHub · {label}",
-  "@githubBannerLabel": {
-    "placeholders": {
-      "label": {
-        "type": "String"
-      }
-    }
-  },
-  "githubDetailsTitle": "GitHub",
-  "githubRefresh": "Actualizar",
-  "githubConflictMessage": "Conflicto: hubo cambios en GitHub y en Folio.",
-  "githubConflictLoadHint": "Pulsa Actualizar para cargar el estado remoto y ver las diferencias.",
-  "githubKeepRemote": "Mantener GitHub",
-  "githubForceFolio": "Forzar Folio",
-  "githubCommentsTitle": "Comentarios GitHub",
-  "githubNoComments": "Sin comentarios o no cargados.",
-  "githubAddCommentHint": "Añadir comentario...",
-  "githubDeleteRemoteConfirm": "Esta acción borrará la tarea en Folio y cerrará el issue en GitHub. ¿Continuar?",
-  "githubConnectionMissing": "No se encontró la conexión GitHub para esta tarea. Re-conecta GitHub en Ajustes → Integraciones.",
-  "githubConnectionMissingDelete": "No se encontró la conexión GitHub para cerrar el issue.",
-  "gitlabIntegrationTitle": "Integración de GitLab",
-  "gitlabConnectionsTab": "Conexiones",
-  "gitlabSourcesTab": "Proyectos",
-  "gitlabConfigure": "Configurar",
-  "gitlabNoConnections": "No hay conexiones configuradas.",
-  "gitlabNoProjects": "No hay proyectos configurados.",
-  "gitlabAddConnection": "Añadir conexión GitLab",
-  "gitlabAddProject": "Añadir proyecto GitLab",
-  "gitlabNewConnectionTitle": "Nueva conexión GitLab",
-  "gitlabConnectionName": "Nombre de la conexión",
-  "gitlabBaseUrlLabel": "URL base",
-  "gitlabTokenLabel": "Token de acceso personal",
-  "gitlabGetToken": "Obtener token",
-  "gitlabAuthHelp": "Pulsa el icono para crear un token en GitLab (scope: api), luego cópialo y pégalo aquí.",
-  "gitlabConnectAndSave": "Conectar y Guardar",
-  "gitlabRequired": "Obligatorio",
-  "gitlabMapColumnsAndPriorities": "Mapear columnas y prioridades",
-  "gitlabSourceName": "Nombre de la fuente",
-  "gitlabConnectionLabel": "Conexión",
-  "gitlabSelectProject": "Seleccionar proyecto",
-  "gitlabNoProjectsFound": "No se encontraron proyectos.",
-  "gitlabConfigureMappings": "Configurar mappings y opciones",
-  "gitlabImportOptions": "Opciones de importación",
-  "gitlabComments": "Comentarios",
-  "gitlabAssignees": "Responsables",
-  "gitlabIncludeMergeRequests": "Incluir Merge Requests",
-  "gitlabColumnMapping": "Mapeo Kanban → Estado/Label de GitLab",
-  "gitlabStateHint": "Estado",
-  "gitlabLabelHint": "Label de GitLab",
-  "gitlabPriorityMapping": "Mapeo de prioridad → Label de GitLab",
-  "gitlabNone": "Ninguno",
-  "gitlabPriorityLow": "Baja",
-  "gitlabPriorityMedium": "Media",
-  "gitlabPriorityHigh": "Alta",
-  "gitlabColumnTodo": "Por hacer",
-  "gitlabColumnInProgress": "En curso",
-  "gitlabColumnDone": "Hecho",
-  "gitlabStateOpen": "Abierto",
-  "gitlabStateClosed": "Cerrado",
-  "gitlabBannerLabel": "GitLab · {label}",
-  "@gitlabBannerLabel": {
-    "placeholders": {
-      "label": {
-        "type": "String"
-      }
-    }
-  },
-  "gitlabDetailsTitle": "GitLab",
-  "gitlabRefresh": "Actualizar",
-  "gitlabConflictMessage": "Conflicto: hubo cambios en GitLab y en Folio.",
-  "gitlabConflictLoadHint": "Pulsa Actualizar para cargar el estado remoto y ver las diferencias.",
-  "gitlabKeepRemote": "Mantener GitLab",
-  "gitlabForceFolio": "Forzar Folio",
-  "gitlabCommentsTitle": "Comentarios GitLab",
-  "gitlabNoComments": "Sin comentarios o no cargados.",
-  "gitlabAddCommentHint": "Añadir comentario...",
-  "gitlabDeleteRemoteConfirm": "Esta acción borrará la tarea en Folio y cerrará el issue/MR en GitLab. ¿Continuar?",
-  "gitlabConnectionMissing": "No se encontró la conexión GitLab para esta tarea. Re-conecta GitLab en Ajustes → Integraciones.",
-  "gitlabConnectionMissingDelete": "No se encontró la conexión GitLab para cerrar el issue/MR.",
-  "@trelloBannerLabel": {
-    "placeholders": {
-      "label": {
-        "type": "String"
-      }
-    }
-  },
-  "kanbanIntegrationExclusive": "Este tablero ya está vinculado a {provider}. Quita esa fuente para asociar otra.",
-  "@kanbanIntegrationExclusive": {
-    "placeholders": {
-      "provider": {
-        "type": "String"
-      }
-    }
-  },
-  "kanbanTrelloSyncingPush": "Trello: sincronizando (push)…",
-  "kanbanTrelloPushOkPull": "Trello: push OK · ahora pull…",
-  "kanbanTrelloSyncResult": "Trello: push {pushed} (omitidos {skipped}) · pull {pulled} · +{created} · ~{updated}",
-  "@kanbanTrelloSyncResult": {
-    "placeholders": {
-      "pushed": {
-        "type": "int"
-      },
-      "skipped": {
-        "type": "int"
-      },
-      "pulled": {
-        "type": "int"
-      },
-      "created": {
-        "type": "int"
-      },
-      "updated": {
-        "type": "int"
-      }
-    }
-  },
-  "kanbanTrelloSyncTooltip": "Sincronizar Trello (push + pull)",
-  "kanbanTrelloError": "Error Trello: {error}",
-  "@kanbanTrelloError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "discordIntegrationTitle": "Integración con Discord",
-  "discordCardSubtitle": "Envía notificaciones de tareas a un canal de Discord vía webhook.",
-  "discordConfigure": "Configurar",
-  "discordConnectionCount": "{count, plural, =0{Sin conexiones} one{1 conexión} other{{count} conexiones}}",
-  "@discordConnectionCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "discordConnectionsTab": "Conexiones",
-  "discordNotificationsTab": "Notificaciones",
-  "discordNoConnections": "Aún no hay conexiones de Discord.",
-  "discordAddConnection": "Añadir conexión",
-  "discordConnectionLabel": "Etiqueta",
-  "discordWebhookUrl": "URL del webhook",
-  "discordRequired": "Obligatorio",
-  "discordInvalidWebhook": "Introduce una URL https de webhook válida",
-  "discordTestMessage": "Folio se ha conectado a este canal de Discord.",
-  "discordNotificationsForChannel": "Eventos de notificación",
-  "discordNotifyStatus": "Cambios de estado de tarea",
-  "discordNotifyNewTask": "Tareas nuevas",
-  "discordNotifyComment": "Comentarios nuevos",
-  "taskHubExportIcs": "Exportar calendario (.ics)",
-  "taskHubIcsExportDone": "Calendario exportado.",
-  "taskHubIcsExportWebUnsupported": "La exportación ICS está disponible en escritorio.",
-  "slackConnectWithOAuth": "Conectar con OAuth de Slack",
-  "teamsConnectWithOAuth": "Conectar con OAuth de Microsoft",
-  "folioCloudPlanStudentSubtitle": "1000 gotas/mes · 15 GB de espacio de copias",
-  "folioCloudPlanFamilyOwnerSubtitle": "500 gotas/mes · 5 GB de espacio de copias · Admin",
-  "folioCloudInkPackBadgePopular": "POPULAR",
-  "folioCloudInkPackBadgeBestValue": "MEJOR VALOR",
-  "folioCloudBuyInkTile": "Comprar packs de tinta",
-  "folioCloudBuyInkSheetTitle": "Packs de tinta",
-  "folioCloudExpandStorageTile": "Ampliar almacenamiento de copias",
-  "folioCloudExpandStorageSheetTitle": "Packs de almacenamiento",
-  "folioCloudSubsectionDanger": "Zona peligrosa",
-  "folioCloudSubsectionFamily": "Familia",
-  "folioCloudLinkWebPortalTile": "Vincular portal web de Folio",
-  "accountExportMyData": "Descargar mis datos",
-  "accountExportMyDataHelp": "Exporta los metadatos de tu cuenta Folio Cloud (no las libretas locales).",
-  "accountExportSaving": "Preparando exportación…",
-  "accountExportSaved": "Datos de cuenta guardados.",
-  "accountExportFailed": "No se pudieron exportar los datos: {error}",
-  "@accountExportFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeleteRequest": "Eliminar cuenta Folio Cloud",
-  "accountDeleteRequestHelp": "Programa el borrado permanente de tu cuenta en la nube en 30 días. Las libretas locales de este dispositivo no se borran.",
-  "accountDeleteDialogTitle": "¿Eliminar la cuenta Folio Cloud?",
-  "accountDeleteDialogBody": "Tu cuenta Folio Cloud y los datos en la nube (copias, publicación, colaboración, facturación) se borrarán de forma permanente el {date}. Hasta entonces puedes cancelar.\n\nLas libretas locales de este dispositivo no se tocan.\n\nEl acceso de pago sigue hasta esa fecha; después se cancelan las suscripciones de Stripe automáticamente. Si compraste en Microsoft Store, cancélala allí.",
-  "@accountDeleteDialogBody": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeleteConfirm": "Programar borrado",
-  "accountDeletePendingBanner": "Esta cuenta Folio Cloud está programada para borrarse el {date}.",
-  "@accountDeletePendingBanner": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeleteCancel": "Cancelar borrado",
-  "accountDeleteCancelOk": "Borrado de cuenta cancelado.",
-  "accountDeleteRequestedOk": "Borrado de cuenta programado para el {date}.",
-  "@accountDeleteRequestedOk": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeleteFailed": "No se pudo programar el borrado: {error}",
-  "@accountDeleteFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeleteCancelFailed": "No se pudo cancelar el borrado: {error}",
-  "@accountDeleteCancelFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "accountDeletionBlocksCheckout": "El pago está bloqueado mientras el borrado de cuenta está pendiente. Cancélalo primero.",
-  "cloudAccountDisplayNameLabel": "Nombre visible",
-  "cloudAccountDisplayNameEmpty": "Sin nombre visible",
-  "cloudAccountEditDisplayName": "Editar nombre visible",
-  "cloudAccountDisplayNameDialogTitle": "Nombre visible",
-  "cloudAccountDisplayNameHint": "Así te ven en familia y en el perfil de la nube",
-  "cloudAccountDisplayNameSaved": "Nombre visible actualizado.",
-  "cloudAccountDisplayNameFailed": "No se pudo actualizar el nombre: {error}",
-  "@cloudAccountDisplayNameFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "cloudAccountDisplayNameRequired": "Introduce un nombre visible",
-  "folioCloudStatusSubsectionTitle": "Estado del servicio",
-  "folioCloudSettingsTabAccount": "Cuenta",
-  "folioCloudSettingsTabPlan": "Plan y sync",
-  "folioCloudSettingsTabStatus": "Estado",
-  "folioCloudSettingsSummaryGuest": "No conectado",
-  "folioCloudSettingsSummarySignIn": "Iniciar sesión",
-  "folioCloudSettingsStatusChipIncident": "Incidencia",
-  "folioCloudStatusHistoryCollapsed": "Historial reciente",
-  "folioCloudStatusOpenWebMore": "Ver más en la web",
-  "folioCloudStatusRefresh": "Actualizar estado",
-  "folioCloudStatusLoadError": "No se pudo cargar el estado",
-  "folioCloudStatusLoadErrorHint": "Comprueba la conexión e inténtalo de nuevo.",
-  "folioCloudStatusEmpty": "Sin datos de estado",
-  "folioCloudStatusEmptyHint": "Pulsa actualizar para consultar Folio Cloud.",
-  "folioCloudStatusCheckedAt": "Comprobado: {when}",
-  "@folioCloudStatusCheckedAt": {
-    "placeholders": {
-      "when": {
-        "type": "String"
-      }
-    }
-  },
-  "folioCloudStatusAggregateOk": "Todo operativo",
-  "folioCloudStatusAggregateDegraded": "Servicio degradado",
-  "folioCloudStatusAggregatePartial": "Caída parcial",
-  "folioCloudStatusAggregateDown": "Servicio no disponible",
-  "folioCloudStatusServiceApi": "Folio Cloud API",
-  "folioCloudStatusServiceDatabase": "Base de datos",
-  "folioCloudStatusServiceBucket": "Almacenamiento",
-  "folioCloudStatusServiceQuill": "Quill Cloud",
-  "folioCloudStatusServiceStripe": "Stripe",
-  "folioCloudStatusServiceResend": "Resend (email)",
-  "folioCloudStatusServiceJira": "Jira",
-  "folioCloudStatusServiceSlack": "Slack",
-  "folioCloudStatusServiceTeams": "Microsoft Teams",
-  "folioCloudStatusServiceSpotify": "Spotify",
-  "folioCloudStatusServiceMicrosoftStore": "Microsoft Store",
-  "folioCloudStatusServiceCommunityTemplates": "Tienda de plantillas",
-  "folioCloudStatusServiceCollab": "Colaboración en tiempo real",
-  "folioCloudStatusServiceVaultShare": "Páginas compartidas",
-  "folioCloudStatusServiceDeviceSync": "Sincronización de dispositivos",
-  "folioCloudStatusServiceIntegrations": "Integraciones",
-  "folioCloudStatusServiceOk": "Operativo",
-  "folioCloudStatusServiceDegraded": "Degradado",
-  "folioCloudStatusServicePartial": "Caída parcial",
-  "folioCloudStatusServiceDown": "Caído",
-  "folioCloudStatusServiceUnconfigured": "No configurado",
-  "folioCloudStatusLatencyMs": "{ms} ms",
-  "@folioCloudStatusLatencyMs": {
-    "placeholders": {
-      "ms": {
-        "type": "int"
-      }
-    }
-  },
-  "folioCloudStatusIncidentsTitle": "Incidencias y mantenimientos",
-  "folioCloudStatusHistoryTitle": "Historial reciente",
-  "folioCloudStatusHistoryLine": "{uptime}% uptime · {ok}/{total} checks",
-  "@folioCloudStatusHistoryLine": {
-    "placeholders": {
-      "uptime": {
-        "type": "String"
-      },
-      "ok": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "folioCloudStatusOpenWeb": "Abrir estado en la web",
-  "folioCloudStatusTypeIncident": "Incidencia",
-  "folioCloudStatusTypeMaintenance": "Mantenimiento",
-  "folioCloudStatusAffectedServices": "Afecta a: {services}",
-  "@folioCloudStatusAffectedServices": {
-    "placeholders": {
-      "services": {
-        "type": "String"
-      }
-    }
-  },
-  "folioCloudStatusIncidentInvestigating": "Investigando",
-  "folioCloudStatusIncidentIdentified": "Identificado",
-  "folioCloudStatusIncidentMonitoring": "Supervisando",
-  "folioCloudStatusIncidentResolved": "Resuelto",
-  "folioCloudStatusIncidentScheduled": "Programado",
-  "folioCloudStatusIncidentInProgress": "En curso",
-  "folioCloudStatusImpactMajorOutage": "Caída mayor",
-  "folioCloudStatusImpactPartialOutage": "Caída parcial",
-  "folioCloudStatusImpactDegraded": "Degradado",
-  "folioCloudStatusBannerDown": "Folio Cloud no está disponible",
-  "folioCloudStatusBannerPartial": "Folio Cloud tiene una caída parcial",
-  "folioCloudStatusBannerDegraded": "Folio Cloud funciona con limitaciones",
-  "folioCloudStatusBannerIncidentHint": "{type} en curso. Algunas funciones pueden fallar.",
-  "@folioCloudStatusBannerIncidentHint": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
-  "folioCloudStatusBannerGenericHint": "Algunas funciones de la nube pueden fallar temporalmente.",
-  "folioCloudStatusBannerDetails": "Ver detalle",
-  "folioCloudStatusBannerMoreInfo": "Más info",
-  "folioCloudStatusBannerDismiss": "Cerrar",
-  "databaseCalendarLabel": "Calendario",
-  "databaseGalleryLabel": "Galería",
-  "databaseTimelineLabel": "Línea de tiempo",
-  "databaseViewLabel": "Vista",
-  "databaseCopySuffix": "copia",
-  "databaseNewView": "Nueva vista",
-  "databaseRenameView": "Renombrar vista",
-  "databaseVisibleProperties": "Propiedades visibles",
-  "databaseNewRow": "Nueva fila",
-  "databaseApplyFilter": "Aplicar filtro",
-  "databaseEditableLabel": "Editable",
-  "databaseLockedLabel": "Bloqueada",
-  "databaseViewOptions": "Opciones de vista",
-  "databaseDuplicateView": "Duplicar vista",
-  "databaseDeleteView": "Eliminar vista",
-  "databaseNewButtonLabel": "Nuevo",
-  "databaseConfigureLabel": "Configurar",
-  "databaseDeleteRow": "Eliminar fila",
-  "databaseQueryBuilder": "Constructor de consulta",
-  "databaseFilterLabel": "Filtro",
-  "databaseClearFilters": "Quitar filtros",
-  "databaseLogicLabel": "Lógica:",
-  "databaseValueLabel": "Valor",
-  "databaseRemoveFilter": "Quitar filtro",
-  "databaseRemoveSort": "Quitar sort",
-  "databaseRowActions": "Acciones de fila",
-  "databaseDuplicateRow": "Duplicar fila",
-  "databaseNoValue": "Sin valor",
-  "databaseGenerateWithAi": "Generar con IA",
-  "databaseNoDate": "Sin fecha",
-  "databaseFormulaLabel": "Fórmula",
-  "databaseNoStatus": "Sin estado",
-  "databaseConfigureStartDateProperty": "Configura una propiedad de fecha de inicio en los ajustes de vista.",
-  "databaseNoRowsWithDates": "No hay filas con fechas.",
-  "databaseQuickFilterMainColumn": "Filtro rápido (columna principal)",
-  "aiGenerateImageAction": "Generar imagen",
-  "aiGenerateImageSheetTitle": "Generar imagen con Quill",
-  "aiGenerateImagePromptLabel": "Describe la imagen",
-  "aiGenerateImagePromptHint": "p. ej. un faro al atardecer, estilo acuarela",
-  "aiGenerateImageUseContextLabel": "Usar contexto de la página actual",
-  "aiGenerateImageGenerateButton": "Generar",
-  "aiGenerateImageGenerating": "Generando imagen…",
-  "aiGeneratedImageLabel": "Generado por IA",
-  "aiGeneratedImageInsertButton": "Insertar en la página",
-  "aiGeneratedImageInsertedSnackbar": "Imagen insertada en la página",
-  "aiGeneratedImageLoadError": "No se pudo cargar la imagen",
-  "aiImageGenerationUnsupportedProvider": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI.",
-  "aiGenerateImagePromptRequired": "Escribe una descripción antes de generar."
-=======
     }
   },
   "youtrackIntegrationTitle": "Integración de YouTrack",
@@ -7973,5 +7082,4 @@
       }
     }
   }
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623
 }

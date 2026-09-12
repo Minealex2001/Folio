@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-{}
-=======
 {
   "ca": [
     "meetingNoteType",
@@ -102,4 +99,3 @@
     "meetingNoteActiveChecklistTitle"
   ]
 }
->>>>>>> 6a0aa5e40f4e97ec3a7dc4005e3d074cd104d623

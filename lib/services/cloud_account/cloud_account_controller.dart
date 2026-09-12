@@ -11,6 +11,13 @@ import 'folio_spring_auth_session.dart';
 class CloudAccountController extends ChangeNotifier {
   static const Duration _authNetworkTimeout = Duration(seconds: 15);
 
+  /// Kill switch (ver [AppSettings.folioCloudDisabled]): una vez `true`,
+  /// bloquea todo intento de crear o restaurar una sesión Folio Cloud, sin
+  /// importar desde qué pantalla se dispare. Se fija una vez en el
+  /// bootstrap de `main.dart`; no hay camino de vuelta a `false` en tiempo
+  /// de ejecución — solo reinstalar la app.
+  static bool disabled = false;
+
   CloudAccountController({FolioSpringAuthSession? springSession})
       : _spring = springSession ?? FolioSpringAuthSession.instance {
     _spring.addListener(_onSpringChanged);
@@ -22,6 +29,7 @@ class CloudAccountController extends ChangeNotifier {
 
   /// Sesión Spring lista (tras [FolioSpringAuthSession.restore] en main).
   Future<void> ensureSpringSessionRestored() async {
+    if (disabled) return;
     await _spring.restore();
   }
 
@@ -47,6 +55,7 @@ class CloudAccountController extends ChangeNotifier {
 
   /// Cambia la cuenta activa sin cerrar las demás.
   Future<void> switchAccount(String uid) async {
+    if (disabled) throw FolioAuthException(code: 'cloud-disabled');
     AppLogger.info(
       'switchAccount',
       tag: 'auth',
@@ -89,6 +98,7 @@ class CloudAccountController extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    if (disabled) throw FolioAuthException(code: 'cloud-disabled');
     AppLogger.info(
       'signIn start (spring)',
       tag: 'auth',
@@ -127,6 +137,7 @@ class CloudAccountController extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    if (disabled) throw FolioAuthException(code: 'cloud-disabled');
     AppLogger.info(
       'createUser start (spring)',
       tag: 'auth',
