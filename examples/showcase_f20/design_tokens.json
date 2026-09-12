@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "showcase_f20",
+  "radius": {
+    "xs": 4.0,
+    "sm": 8.0,
+    "md": 14.0,
+    "lg": 18.0,
+    "xl": 24.0,
+    "xxl": 32.0,
+    "pill": 999.0
+  },
+  "space": {
+    "xxs": 4.0,
+    "xs": 8.0,
+    "sm": 12.0,
+    "md": 16.0,
+    "lg": 24.0,
+    "xl": 40.0
+  },
+  "color": {
+    "accent": 4278252543,
+    "secondary": 4294902015,
+    "tertiary": 4291624704,
+    "danger": 4294919236,
+    "success": 4278241363,
+    "warning": 4294945536,
+    "info": 4280923894,
+    "sidebar": 4278519056,
+    "surface": 4278848024,
+    "selection": 1711338495,
+    "hover": 872349951
+  },
+  "opacity": {
+    "glassLight": 0.88,
+    "glassHeavy": 0.62,
+    "overlay": 0.96,
+    "border": 0.45
+  },
+  "motionMs": {
+    "fast": 100,
+    "medium": 180,
+    "slow": 280
+  },
+  "size": {
+    "iconMd": 22.0,
+    "iconLg": 28.0,
+    "cursor": 24.0
+  }
+}

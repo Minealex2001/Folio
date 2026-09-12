@@ -26,4 +26,4 @@ This is a product decision, not implied by this doc. If pursued, the natural pat
 
 ## Questions
 
-See Folio's [Privacy Policy](https://folio.app/privacy) or support for privacy questions.
+See Folio's [Privacy Policy](https://minealexgames.com/en/privacy-policy) or support for privacy questions.

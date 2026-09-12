@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cross_file/cross_file.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -486,6 +487,7 @@ class _DrivePageState extends State<DrivePage> {
   }
 
   void _openWithSystem(String path) {
+    if (kIsWeb) return;
     // Open with the OS default application.
     final uri = Uri.file(path);
     // url_launcher equivalent without dependency — use Process.
@@ -630,7 +632,10 @@ class _DrivePageState extends State<DrivePage> {
   }
 
   Future<void> _pasteFromClipboard() async {
-    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    if (kIsWeb ||
+        (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) {
+      return;
+    }
     final clipboard = SystemClipboard.instance;
     if (clipboard == null) return;
     final reader = await clipboard.read();
@@ -667,8 +672,8 @@ class _DrivePageState extends State<DrivePage> {
     if (page == null) return const SizedBox.shrink();
     // Warn if multiple drive blocks.
     final driveBlockCount = page.blocks.where((b) => b.type == 'drive').length;
-    final isDesktop =
-        Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

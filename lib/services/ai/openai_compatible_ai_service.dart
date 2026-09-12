@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'ai_http_cancel.dart';
 import 'ai_service.dart';
 import 'ai_types.dart';
+import 'openai_compatible_sse.dart';
 
 class OpenAiCompatibleAiService implements AiService {
   OpenAiCompatibleAiService({
@@ -24,6 +26,67 @@ class OpenAiCompatibleAiService implements AiService {
 
   @override
   String get providerName => provider;
+
+  /// Modelo de imagen por defecto para OpenAI (BYOK o cualquier endpoint
+  /// OpenAI-compatible apuntado a un servidor local tipo LocalAI/ComfyUI-shim).
+  /// Confirmado por el usuario: mismo modelo que usa Quill Cloud en el backend.
+  static const _defaultOpenAiImageModel = 'gpt-image-2-2026-04-21';
+
+  @override
+  bool get supportsImageGeneration => true;
+
+  /// Genera una imagen vía `POST {baseUrl}/images/generations`. **Riesgo
+  /// conocido**: este mismo servicio atiende tanto `openAi` como `gemini`
+  /// (BYOK) — el shim "OpenAI-compatible" de Gemini podría no exponer este
+  /// endpoint con el mismo shape. Si falla en la práctica, ramificar por
+  /// `provider` aquí mismo sin cambiar la interfaz pública.
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    final client = HttpClient();
+    try {
+      final endpoint = _buildEndpoint('images/generations');
+      final httpReq = await client.postUrl(endpoint).timeout(timeout);
+      httpReq.headers.contentType = ContentType.json;
+      _setAuthHeaders(httpReq);
+
+      final combinedPrompt = (pageContextText == null || pageContextText.trim().isEmpty)
+          ? prompt.trim()
+          : '${prompt.trim()}\n\n---\n${pageContextText.trim()}';
+      final model = provider == 'openAi' ? _defaultOpenAiImageModel : defaultModel;
+      // `response_format` no es válido para modelos de imagen recientes
+      // (p. ej. gpt-image-*) — siempre devuelven b64_json por defecto y
+      // rechazan el parámetro con 400 "Unknown parameter: 'response_format'".
+      final payload = <String, dynamic>{
+        'model': model,
+        'prompt': combinedPrompt,
+      };
+      httpReq.write(jsonEncode(payload));
+
+      final response = await httpReq.close().timeout(timeout);
+      final body = await utf8.decodeStream(response).timeout(timeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('Error al generar la imagen (${response.statusCode}): $body');
+      }
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final data = json['data'] as List<dynamic>? ?? const [];
+      if (data.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      final first = data.first as Map<String, dynamic>;
+      final b64 = first['b64_json'] as String? ?? '';
+      if (b64.isEmpty) {
+        throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
+      }
+      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: 'image/png');
+    } finally {
+      client.close(force: true);
+    }
+  }
 
   Uri _buildEndpoint(String path) {
     var base = baseUrl.toString();
@@ -140,24 +203,14 @@ class OpenAiCompatibleAiService implements AiService {
     }).toList();
   }
 
-  AiTokenUsage? _parseUsageMap(Map<String, dynamic> u) {
-    int? asInt(dynamic v) {
-      if (v is int) return v;
-      if (v is num) return v.round();
-      return null;
-    }
-
-    return AiTokenUsage(
-      promptTokens: asInt(u['prompt_tokens']),
-      completionTokens: asInt(u['completion_tokens']),
-      totalTokens: asInt(u['total_tokens']),
-    );
-  }
-
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = _buildEndpoint('chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -186,7 +239,9 @@ class OpenAiCompatibleAiService implements AiService {
       }
 
       final usageRaw = json['usage'];
-      final usage = usageRaw is Map ? _parseUsageMap(Map<String, dynamic>.from(usageRaw)) : null;
+      final usage = usageRaw is Map
+          ? parseOpenAiCompatibleUsageMap(Map<String, dynamic>.from(usageRaw))
+          : null;
 
       return AiCompletionResult(
         text: content,
@@ -195,18 +250,25 @@ class OpenAiCompatibleAiService implements AiService {
         usage: usage,
         toolCalls: toolCalls,
       );
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
   }
 
   /// Streaming real vía SSE (`data: {...}\n\n`, terminado en `data: [DONE]`).
-  /// Los deltas de tool-calls llegan troceados por índice (`delta.tool_calls[].index`)
-  /// — se acumulan por índice y se reensamblan al recibir `[DONE]`.
+  /// El parseo del wire format vive en `openai_compatible_sse.dart`,
+  /// compartido con `LmStudioAiService` (mismo formato OpenAI-compatible).
   @override
   Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
     final client = HttpClient();
+    final detachCancel = attachHttpClientCancel(request.cancelToken, client);
     try {
+      if (request.cancelToken?.isCancelled == true) {
+        throw const AiRequestCancelledException();
+      }
       final endpoint = _buildEndpoint('chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
@@ -223,81 +285,13 @@ class OpenAiCompatibleAiService implements AiService {
         throw StateError('Error del servicio de IA (${response.statusCode}): $body');
       }
 
-      final toolCallIdByIndex = <int, String>{};
-      final toolCallNameByIndex = <int, String>{};
-      final toolCallArgsByIndex = <int, StringBuffer>{};
-      AiTokenUsage? finalUsage;
-
-      final lines = response.transform(utf8.decoder).transform(const LineSplitter());
-      await for (final line in lines) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty || !trimmed.startsWith('data:')) continue;
-        final data = trimmed.substring(5).trim();
-        if (data == '[DONE]') {
-          final toolCalls = toolCallArgsByIndex.isEmpty && toolCallNameByIndex.isEmpty
-              ? null
-              : [
-                  for (final index in {...toolCallIdByIndex.keys, ...toolCallNameByIndex.keys})
-                    AiToolCall(
-                      id: toolCallIdByIndex[index] ?? 'stream_$index',
-                      name: toolCallNameByIndex[index] ?? '',
-                      arguments: _tryDecodeArgs(toolCallArgsByIndex[index]?.toString()),
-                    ),
-                ];
-          yield AiCompletionChunk(isFinal: true, usage: finalUsage, toolCalls: toolCalls);
-          break;
-        }
-
-        Map<String, dynamic> event;
-        try {
-          event = jsonDecode(data) as Map<String, dynamic>;
-        } catch (_) {
-          continue;
-        }
-
-        final usageRaw = event['usage'];
-        if (usageRaw is Map) finalUsage = _parseUsageMap(Map<String, dynamic>.from(usageRaw));
-
-        final choices = event['choices'] as List<dynamic>? ?? const [];
-        if (choices.isEmpty) continue;
-        final delta = (choices.first as Map<String, dynamic>)['delta'] as Map<String, dynamic>? ?? const {};
-
-        final textDelta = delta['content'] as String? ?? '';
-        if (textDelta.isNotEmpty) yield AiCompletionChunk(textDelta: textDelta);
-
-        final rawToolCallDeltas = delta['tool_calls'];
-        if (rawToolCallDeltas is List) {
-          for (final rawDelta in rawToolCallDeltas) {
-            if (rawDelta is! Map) continue;
-            final index = (rawDelta['index'] as num?)?.toInt() ?? 0;
-            final id = rawDelta['id'] as String?;
-            if (id != null && id.isNotEmpty) toolCallIdByIndex[index] = id;
-            final fn = rawDelta['function'] as Map?;
-            if (fn != null) {
-              final name = fn['name'] as String?;
-              if (name != null && name.isNotEmpty) toolCallNameByIndex[index] = name;
-              final argsChunk = fn['arguments'] as String?;
-              if (argsChunk != null) {
-                (toolCallArgsByIndex[index] ??= StringBuffer()).write(argsChunk);
-              }
-            }
-          }
-        }
-      }
+      yield* parseOpenAiCompatibleSseStream(response);
+    } catch (e) {
+      rethrowUnlessCancelled(request.cancelToken, e);
     } finally {
+      detachCancel();
       client.close(force: true);
     }
-  }
-
-  Map<String, dynamic> _tryDecodeArgs(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {
-      // Argumentos incompletos/no-JSON tras reensamblar los deltas.
-    }
-    return const {};
   }
 
   /// Codifica un mensaje del historial, incluyendo tool-calls del asistente

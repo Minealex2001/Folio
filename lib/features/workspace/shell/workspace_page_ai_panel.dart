@@ -125,9 +125,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
-                child: _aiToolActivityLabel != null
-                    ? AiToolActivityIndicator(
-                        label: _aiToolActivityLabel!,
+                child: _aiToolTrace.isNotEmpty
+                    ? ToolInspectorPanel(
+                        steps: _aiToolTrace,
                         colorScheme: scheme,
                       )
                     : FolioAiChatReplySkeleton(colorScheme: scheme),
@@ -146,6 +146,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     required bool showInkInChat,
     required bool isCloudProvider,
     required FolioInkSnapshot inkSnap,
+    required bool inkUnlimited,
     required bool inkLooksLow,
     required bool inkLooksEmpty,
     required String Function() providerLabel,
@@ -171,6 +172,12 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(FolioIcons.quillOutlined),
+                  title: Text(l10n.aiAssistantSubtitle),
+                  subtitle: Text(l10n.aiGeneratedLabel),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     isCloudProvider
                         ? Icons.cloud_outlined
@@ -189,12 +196,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           ? scheme.error
                           : scheme.onSurfaceVariant,
                     ),
-                    title: Text(l10n.aiChatInkRemaining(inkSnap.totalInk)),
+                    title: Text(
+                      inkUnlimited
+                          ? '∞'
+                          : l10n.aiChatInkRemaining(inkSnap.totalInk),
+                    ),
                     subtitle: Text(
-                      l10n.aiChatInkBreakdownTooltip(
-                        inkSnap.monthlyBalance,
-                        inkSnap.purchasedBalance,
-                      ),
+                      inkUnlimited
+                          ? l10n.workspaceHomeCloudStaffShort
+                          : l10n.aiChatInkBreakdownTooltip(
+                              inkSnap.monthlyBalance,
+                              inkSnap.purchasedBalance,
+                            ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -372,14 +385,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         isCloudProvider &&
         widget.appSettings.isAiRuntimeEnabled &&
         widget.folioCloudEntitlements.snapshot.canUseCloudAi;
-    final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
+    final cloudSnap = widget.folioCloudEntitlements.snapshot;
+    final inkSnap = cloudSnap.ink;
+    final inkUnlimited = cloudSnap.folioStaff;
     const lowInkThreshold = 20;
     final estInkCost = _inkCostForOperationKind(_aiInkEstimateOperationKind);
     final inkLooksLow =
         showInkInChat &&
+        !inkUnlimited &&
         inkSnap.totalInk > 0 &&
         inkSnap.totalInk <= lowInkThreshold;
-    final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
+    final inkLooksEmpty =
+        showInkInChat && !inkUnlimited && inkSnap.totalInk <= 0;
     final showSplitToggle =
         layoutMode == QuillChatLayoutMode.dockNarrow ||
         layoutMode == QuillChatLayoutMode.dockWide ||
@@ -464,7 +481,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           ),
                         ),
                         Text(
-                          _aiPanelContextSubtitle(l10n),
+                          l10n.aiAssistantSubtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
@@ -490,6 +507,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         showInkInChat: showInkInChat,
                         isCloudProvider: isCloudProvider,
                         inkSnap: inkSnap,
+                        inkUnlimited: inkUnlimited,
                         inkLooksLow: inkLooksLow,
                         inkLooksEmpty: inkLooksEmpty,
                         providerLabel: providerLabel,
@@ -744,14 +762,21 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         },
                       );
                     }
-                    final typingExtra = _aiChatBusy ? 1 : 0;
+                    // Si ya hay placeholder assistant en streaming, no duplicar
+                    // la fila "typing" (skeleton) — eso mostraba dos burbujas.
+                    final liveStreamAtEnd = msgs.isNotEmpty &&
+                        _aiStreamingMessageKeys.contains(
+                          '${_activeChat.id}#${msgs.length - 1}',
+                        );
+                    final typingExtra =
+                        (_aiChatBusy && !liveStreamAtEnd) ? 1 : 0;
                     return ListView.builder(
                       controller:
                           chatListScrollController ?? _aiChatScrollController,
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                       itemCount: msgs.length + typingExtra,
                       itemBuilder: (context, i) {
-                        if (_aiChatBusy && i == msgs.length) {
+                        if (_aiChatBusy && !liveStreamAtEnd && i == msgs.length) {
                           return _buildAiTypingRow(theme, scheme, l10n);
                         }
                         return _buildAiMessageRow(
@@ -813,13 +838,17 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                 ],
                                 if (showInkInChat) ...[
                                   Tooltip(
-                                    message: l10n.aiChatInkBreakdownTooltip(
-                                      inkSnap.monthlyBalance,
-                                      inkSnap.purchasedBalance,
-                                    ),
+                                    message: inkUnlimited
+                                        ? l10n.workspaceHomeCloudStaffShort
+                                        : l10n.aiChatInkBreakdownTooltip(
+                                            inkSnap.monthlyBalance,
+                                            inkSnap.purchasedBalance,
+                                          ),
                                     child: _QuillComposerMetaChip(
                                       icon: Icons.water_drop_outlined,
-                                      label: '${inkSnap.totalInk}',
+                                      label: inkUnlimited
+                                          ? '∞'
+                                          : '${inkSnap.totalInk}',
                                       scheme: scheme,
                                       emphasize: inkLooksLow || inkLooksEmpty,
                                     ),
@@ -870,7 +899,11 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                     const SizedBox(width: 6),
                                 itemBuilder: (context, i) {
                                   final item = contextItems[i];
-                                  return InputChip(
+                                  final isPageContext =
+                                      item.kind ==
+                                          _AiContextItemKind.currentPage ||
+                                      item.kind == _AiContextItemKind.page;
+                                  final chip = InputChip(
                                     visualDensity: VisualDensity.compact,
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
@@ -890,6 +923,11 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                         item.kind == _AiContextItemKind.addFile
                                         ? null
                                         : () => _removeAiContextItem(item),
+                                  );
+                                  if (!isPageContext) return chip;
+                                  return Tooltip(
+                                    message: l10n.aiContextMentionHint,
+                                    child: chip,
                                   );
                                 },
                               ),
@@ -912,6 +950,15 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             color: scheme.onSurfaceVariant,
                           ),
                           IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openGenerateImageSheet,
+                            icon: const Icon(Icons.image_outlined),
+                            tooltip: l10n.aiGenerateImageAction,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          IconButton(
                             onPressed: _aiChatBusy ? null : _togglePlanMode,
                             icon: Icon(
                               _planModeEnabled
@@ -928,6 +975,18 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                     backgroundColor: scheme.primaryContainer,
                                   )
                                 : null,
+                          ),
+                          // Fase A5 del plan Quill/MCP — atajos nombrados
+                          // hacia Plan-mode ("Workflows"), no un ejecutor
+                          // nuevo. Primary Surface de disparo: este botón.
+                          IconButton(
+                            onPressed: (_aiChatBusy || !aiReady)
+                                ? null
+                                : _openQuillWorkflowsPicker,
+                            icon: const Icon(Icons.auto_awesome_motion_outlined),
+                            tooltip: l10n.quillWorkflowsPickerTooltip,
+                            visualDensity: VisualDensity.compact,
+                            color: scheme.onSurfaceVariant,
                           ),
                           if (_transcribingVoice)
                             const Padding(
@@ -993,23 +1052,26 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          FilledButton(
-                            onPressed:
-                                (_aiChatBusy || !aiReady) ? null : _sendAiChat,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              shape: const CircleBorder(),
-                              padding: EdgeInsets.zero,
+                          Tooltip(
+                            message: _aiChatBusy ? l10n.aiStopGenerating : '',
+                            child: FilledButton(
+                              onPressed: !aiReady
+                                  ? null
+                                  : _aiChatBusy
+                                      ? _stopAiChat
+                                      : _sendAiChat,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                shape: const CircleBorder(),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: Icon(
+                                _aiChatBusy
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward_rounded,
+                                size: 18,
+                              ),
                             ),
-                            child: _aiChatBusy
-                                ? FolioLoadingIndicator(
-                                    size: FolioLoadingSize.small,
-                                    color: scheme.onPrimary,
-                                  )
-                                : const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 18,
-                                  ),
                           ),
                         ],
                       ),
@@ -1105,6 +1167,158 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     }
   }
 
+  /// Entrada dedicada de "Generar imagen": prompt + toggle explícito de
+  /// contexto de página (default OFF), separado del chat de tool-calling
+  /// general — no depende de que el modelo decida invocar la tool.
+  Future<void> _openGenerateImageSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final ai = _s.aiService;
+    if (ai == null) return;
+    final promptController = TextEditingController(
+      text: _chatInputController.text.trim(),
+    );
+    var useContext = false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final theme = Theme.of(sheetContext);
+            final scheme = theme.colorScheme;
+            final isCloudProvider =
+                widget.appSettings.aiProvider == AiProvider.quillCloud;
+            final inkCost = isCloudProvider
+                ? _inkCostForOperationKind('generate_image')
+                : null;
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.aiGenerateImageSheetTitle,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: promptController,
+                    autofocus: true,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: l10n.aiGenerateImagePromptLabel,
+                      hintText: l10n.aiGenerateImagePromptHint,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.aiGenerateImageUseContextLabel),
+                    value: useContext,
+                    onChanged: (v) => setSheetState(() => useContext = v),
+                  ),
+                  if (inkCost != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '~$inkCost 💧',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  FilledButton(
+                    onPressed: () {
+                      if (promptController.text.trim().isEmpty) {
+                        _snack(l10n.aiGenerateImagePromptRequired, error: true);
+                        return;
+                      }
+                      // Quitar el foco antes de cerrar la hoja: si el
+                      // TextField sigue enfocado mientras se anima la salida
+                      // y luego se dispone `promptController` (fuera de la
+                      // hoja, ver más abajo), el cursor/overlay de selección
+                      // puede seguir usando el controller ya liberado y
+                      // corromper el frame ("TextEditingController was used
+                      // after being disposed" — mismo patrón que
+                      // sidebar.dart._renameActiveVault).
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.of(sheetContext).pop(true);
+                    },
+                    child: Text(l10n.aiGenerateImageGenerateButton),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Cubre también el cierre por gesto/toque fuera (sin pasar por el botón
+    // "Generar" de arriba, que ya hace unfocus antes de su propio pop).
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (confirmed != true || !mounted) {
+      promptController.dispose();
+      return;
+    }
+    final prompt = promptController.text.trim();
+    promptController.dispose();
+    await _submitGenerateImage(
+      prompt: prompt,
+      useCurrentPageContext: useContext,
+    );
+  }
+
+  Future<void> _submitGenerateImage({
+    required String prompt,
+    required bool useCurrentPageContext,
+  }) async {
+    final l10n = AppLocalizations.of(context);
+    final ai = _s.aiService;
+    if (ai == null) return;
+    if (!ai.supportsImageGeneration) {
+      _snack(l10n.aiImageGenerationUnsupportedProvider, error: true);
+      return;
+    }
+    final targetChatId = _activeChat.id;
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    _setStateSafe(() => _aiChatBusy = true);
+    _s.appendMessageToAiChatById(
+      targetChatId,
+      AiChatMessage.now(role: 'assistant', content: ''),
+    );
+    final placeholderIndex = _activeChat.messages.length - 1;
+    try {
+      final message = await _s.generateImageForChatDirect(
+        ai: ai,
+        prompt: prompt,
+        useCurrentPageContext: useCurrentPageContext,
+        scopePageId: _s.selectedPageId,
+        isEs: isEs,
+      );
+      if (!mounted) return;
+      _s.updateMessageInAiChatById(targetChatId, placeholderIndex, message);
+    } catch (e) {
+      _s.removeMessageInAiChatById(targetChatId, placeholderIndex);
+      if (!mounted) return;
+      _handleAiChatError(e);
+    } finally {
+      if (mounted) {
+        _setStateSafe(() => _aiChatBusy = false);
+      }
+    }
+  }
 }
 
 class _QuillComposerMetaChip extends StatelessWidget {

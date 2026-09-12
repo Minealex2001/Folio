@@ -11,6 +11,36 @@ enum FolioPasteUrlMode {
   bookmark,
   vaultMention,
   spotify,
+  githubImport,
+  pdfSummarize,
+}
+
+/// Fase D2 del rediseño UX del editor — detección de intención al pegar.
+/// `-`→lista y `[]`→checklist ya existían (ver auditoría B1); esto añade
+/// GitHub/PDF a la hoja de opciones ya existente (`showPasteUrlOptionsSheet`),
+/// mismo sheet, opciones nuevas, sin UI nueva.
+///
+/// Alcance de v1, documentado explícitamente para no fingir más de lo que
+/// hay: no existe en el repo ningún pipeline de descarga+parseo de PDF ni
+/// una integración de importación real de GitHub (solo un cliente API de
+/// GitHub para otro flujo, `services/github/github_api_client.dart`, sin
+/// relación con pegar enlaces). "Importar"/"Guardar PDF" en v1 insertan una
+/// tarjeta de marcador (mismo tipo de bloque y mecanismo de fetch de título
+/// que la opción "Marcador" ya existente) — la detección de tipo es real y
+/// útil por sí sola (el usuario ve una opción con nombre específico en vez
+/// de un "Marcador" genérico), pero no se afirma una IA-resume-el-PDF que
+/// requeriría un pipeline de contenido que no existe todavía.
+bool isGithubUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return false;
+  final host = uri.host.toLowerCase();
+  return host == 'github.com' || host == 'www.github.com';
+}
+
+bool isPdfUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return false;
+  return uri.path.toLowerCase().endsWith('.pdf');
 }
 
 Widget _pasteOptionTile({
@@ -80,6 +110,8 @@ Future<FolioPasteUrlMode?> showPasteUrlOptionsSheet(
   final l10n = AppLocalizations.of(context);
   final scheme = Theme.of(context).colorScheme;
   final isSpotify = folioSpotifyRefFromUrl(pastedUrl) != null;
+  final isGithub = pastedUrl != null && isGithubUrl(pastedUrl);
+  final isPdf = pastedUrl != null && isPdfUrl(pastedUrl);
   return showModalBottomSheet<FolioPasteUrlMode>(
     context: context,
     showDragHandle: true,
@@ -111,6 +143,24 @@ Future<FolioPasteUrlMode?> showPasteUrlOptionsSheet(
                   title: l10n.spotifyPasteUrlOption,
                   subtitle: l10n.spotifyPasteUrlOptionSubtitle,
                   onTap: () => Navigator.pop(ctx, FolioPasteUrlMode.spotify),
+                ),
+              if (isGithub)
+                _pasteOptionTile(
+                  context: ctx,
+                  icon: Icons.code_rounded,
+                  title: l10n.pasteAsGithubImport,
+                  subtitle: l10n.pasteAsGithubImportSubtitle,
+                  onTap: () =>
+                      Navigator.pop(ctx, FolioPasteUrlMode.githubImport),
+                ),
+              if (isPdf)
+                _pasteOptionTile(
+                  context: ctx,
+                  icon: Icons.picture_as_pdf_rounded,
+                  title: l10n.pasteAsPdfSummarize,
+                  subtitle: l10n.pasteAsPdfSummarizeSubtitle,
+                  onTap: () =>
+                      Navigator.pop(ctx, FolioPasteUrlMode.pdfSummarize),
                 ),
               _pasteOptionTile(
                 context: ctx,

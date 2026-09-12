@@ -97,7 +97,15 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
   final mdSheet = folioMarkdownStyleSheet(context, currentStyle, scheme);
 
-  final field = isWysiwygBlock
+  // En modo solo-lectura con vista markdown (`allowsSlash`), `blockContent`
+  // más abajo usa directamente `readOnlyMarkdown` y descarta `field` por
+  // completo — construirlo igualmente significaría montar un QuillEditor u
+  // otro campo editable entero solo para tirarlo. Evitamos ese trabajo.
+  final needsEditableField = !(readOnlyMode && allowsSlash);
+
+  final field = !needsEditableField
+      ? const SizedBox.shrink()
+      : isWysiwygBlock
       ? () {
           final c =
               quillCtrl ??
@@ -124,7 +132,10 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           // Importante: mantener el QuillEditor SIEMPRE montado (misma
           // estructura), para evitar unmount mientras Quill tiene callbacks de
           // foco/IME pendientes (crash en Windows).
-          final hasMarkdownBlocks = _hasMarkdownBlockStructures(ctrl.text);
+          final hasMarkdownBlocks = st._hasMarkdownBlockStructuresCached(
+            block.id,
+            ctrl.text,
+          );
           final isTransitioning = st._transitioningBlockIds.contains(block.id);
           final showPreviewOverlay =
               !readOnlyMode && !focus.hasFocus && allowsSlash && !isTransitioning;
@@ -285,16 +296,22 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     );
   } else if (block.type == 'callout') {
     final calloutTone = calloutToneForIcon(block.icon);
+    final calloutPreset = st._calloutPreset;
     textContainer = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color:
-            customBackground ?? calloutBackgroundForTone(scheme, calloutTone),
+            customBackground ??
+            calloutBackgroundForTone(
+              scheme,
+              calloutTone,
+              preset: calloutPreset,
+            ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: customBackground != null
               ? customBackgroundBorder
-              : calloutBorderForTone(scheme, calloutTone),
+              : calloutBorderForTone(scheme, calloutTone, preset: calloutPreset),
         ),
       ),
       child: Row(
@@ -307,7 +324,11 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: calloutChipForTone(scheme, calloutTone),
+                    color: calloutChipForTone(
+                      scheme,
+                      calloutTone,
+                      preset: calloutPreset,
+                    ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Padding(
@@ -522,6 +543,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   return BlockRowChrome(
     depth: block.depth,
     compactReadOnlyMobile: compactReadOnlyMobile,
+    verticalPadding: st._blockVerticalSpacing,
     crossAxisAlignment: isTopAlignedSlashBlock
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.center,
@@ -571,23 +593,24 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   );
 }
 
+final RegExp _mdHeadingRegExp = RegExp(r'^#{1,6}\s+');
+final RegExp _mdBulletRegExp = RegExp(r'^(\s*)[-*+]\s+');
+final RegExp _mdNumberedRegExp = RegExp(r'^(\s*)\d+\.\s+');
+final RegExp _mdBlockquoteRegExp = RegExp(r'^>\s+');
+final RegExp _mdChecklistRegExp = RegExp(r'^(\s*)[-*+]\s+\[[ xX]\]\s+');
+final RegExp _mdHrRegExp = RegExp(r'^([-*_])\1{2,}\s*$');
+
 bool _hasMarkdownBlockStructures(String text) {
   final lines = text.split('\n');
-  final headingRegExp = RegExp(r'^#{1,6}\s+');
-  final bulletRegExp = RegExp(r'^(\s*)[-*+]\s+');
-  final numberedRegExp = RegExp(r'^(\s*)\d+\.\s+');
-  final blockquoteRegExp = RegExp(r'^>\s+');
-  final checklistRegExp = RegExp(r'^(\s*)[-*+]\s+\[[ xX]\]\s+');
-  final hrRegExp = RegExp(r'^([-*_])\1{2,}\s*$');
 
   for (var line in lines) {
     line = line.trimLeft();
-    if (headingRegExp.hasMatch(line) ||
-        blockquoteRegExp.hasMatch(line) ||
-        checklistRegExp.hasMatch(line) ||
-        bulletRegExp.hasMatch(line) ||
-        numberedRegExp.hasMatch(line) ||
-        hrRegExp.hasMatch(line) ||
+    if (_mdHeadingRegExp.hasMatch(line) ||
+        _mdBlockquoteRegExp.hasMatch(line) ||
+        _mdChecklistRegExp.hasMatch(line) ||
+        _mdBulletRegExp.hasMatch(line) ||
+        _mdNumberedRegExp.hasMatch(line) ||
+        _mdHrRegExp.hasMatch(line) ||
         line.startsWith('```') ||
         line.contains('|')) {
       return true;

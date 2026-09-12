@@ -150,6 +150,12 @@ class FolioMcpServer {
 
   /// Arranca en loopback con [port] fijo (por defecto [defaultPort]).
   /// Si se pasa [authToken], se reutiliza (token persistido); si no, se genera.
+  ///
+  /// Uso standalone (tests, o antes de la unificación con el bridge de
+  /// Integraciones): bindea su propio [HttpServer]. En producción, en
+  /// cambio, [prepareToken] es lo que se usa -- el bridge de Integraciones
+  /// (puerto 45831) enruta `/mcp` a [handleRequest] directamente, sin que
+  /// este servidor bindee su propio puerto.
   Future<int> start({int port = defaultPort, String? authToken}) async {
     final existing = _server;
     if (existing != null) return existing.port;
@@ -160,13 +166,20 @@ class FolioMcpServer {
       );
     }
 
+    prepareToken(authToken: authToken);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+    _server = server;
+    server.listen(handleRequest, onError: (_) {});
+    return server.port;
+  }
+
+  /// Genera/fija el token de autenticación sin bindear un [HttpServer]
+  /// propio -- para cuando otro servidor (el bridge de Integraciones) va a
+  /// enrutar peticiones `/mcp` a [handleRequest] por su cuenta.
+  void prepareToken({String? authToken}) {
     _authToken = (authToken != null && authToken.trim().isNotEmpty)
         ? authToken.trim()
         : _generateToken();
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-    _server = server;
-    server.listen(_handleRequest, onError: (_) {});
-    return server.port;
   }
 
   Future<void> stop() async {
@@ -182,7 +195,11 @@ class FolioMcpServer {
     return base64Url.encode(bytes);
   }
 
-  Future<void> _handleRequest(HttpRequest request) async {
+  /// Maneja una petición HTTP completa (CORS/OPTIONS, método, auth Bearer,
+  /// parseo JSON-RPC, dispatch, respuesta) -- público para que el bridge de
+  /// Integraciones pueda enrutarle peticiones `/mcp` sin que este servidor
+  /// posea su propio [HttpServer].
+  Future<void> handleRequest(HttpRequest request) async {
     final response = request.response;
     try {
       if (!_isOriginAllowed(request.headers.value('origin'))) {

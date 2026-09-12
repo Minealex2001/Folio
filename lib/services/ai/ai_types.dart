@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
+import 'ai_cancel_token.dart';
 import 'ai_tool.dart';
 
+export 'ai_cancel_token.dart';
 export 'ai_tool.dart';
 
 class AiChatMessage {
@@ -13,6 +17,10 @@ class AiChatMessage {
     this.toolCalls,
     this.toolCallId,
     this.toolErrors,
+    this.generatedImagePath,
+    this.generatedImagePrompt,
+    this.aiTurnId,
+    this.aiTurnChangeCount,
   });
 
   factory AiChatMessage.now({
@@ -24,6 +32,10 @@ class AiChatMessage {
     List<AiToolCall>? toolCalls,
     String? toolCallId,
     List<String>? toolErrors,
+    String? generatedImagePath,
+    String? generatedImagePrompt,
+    String? aiTurnId,
+    int? aiTurnChangeCount,
   }) {
     return AiChatMessage(
       role: role,
@@ -35,6 +47,10 @@ class AiChatMessage {
       toolCalls: toolCalls,
       toolCallId: toolCallId,
       toolErrors: toolErrors,
+      generatedImagePath: generatedImagePath,
+      generatedImagePrompt: generatedImagePrompt,
+      aiTurnId: aiTurnId,
+      aiTurnChangeCount: aiTurnChangeCount,
     );
   }
 
@@ -63,6 +79,28 @@ class AiChatMessage {
   /// como chips distintos de la respuesta en texto. Nulo si no hubo errores.
   final List<String>? toolErrors;
 
+  /// Ruta relativa (attachments/<uuid>.png) de una imagen generada por Quill
+  /// para este mensaje. No nulo solo en mensajes de asistente que muestran una
+  /// tarjeta de imagen generada en vez de (o ademas de) la burbuja markdown.
+  final String? generatedImagePath;
+
+  /// Prompt usado para generar [generatedImagePath], mostrado como subtitulo
+  /// en la tarjeta de imagen. Nulo si [generatedImagePath] es nulo.
+  final String? generatedImagePrompt;
+
+  /// Fase B3 del plan Quill/MCP — id del grupo de undo de este turno
+  /// (`VaultSession.undoAiTurn`), si lo hubo. Deliberadamente NO se
+  /// persiste (`toJson`/`fromJson` lo omiten): alcance de sesión, no
+  /// sobrevive a un reinicio de la app — mantiene la implementación simple;
+  /// extenderlo a persistir entre reinicios queda fuera de este plan.
+  final String? aiTurnId;
+
+  /// Fase 0 del roadmap de producto — número de cambios de contenido
+  /// (snapshots de undo) que empujó este turno, para mostrar "Quill hizo N
+  /// cambios" junto al botón de deshacer en vez de un "Deshacer" genérico.
+  /// Igual que [aiTurnId], no se persiste: es informativo de sesión.
+  final int? aiTurnChangeCount;
+
   AiChatMessage copyWith({
     String? role,
     String? content,
@@ -79,6 +117,12 @@ class AiChatMessage {
     bool clearToolCallId = false,
     List<String>? toolErrors,
     bool clearToolErrors = false,
+    String? generatedImagePath,
+    bool clearGeneratedImagePath = false,
+    String? generatedImagePrompt,
+    bool clearGeneratedImagePrompt = false,
+    String? aiTurnId,
+    int? aiTurnChangeCount,
   }) {
     return AiChatMessage(
       role: role ?? this.role,
@@ -92,6 +136,14 @@ class AiChatMessage {
       toolCalls: clearToolCalls ? null : (toolCalls ?? this.toolCalls),
       toolCallId: clearToolCallId ? null : (toolCallId ?? this.toolCallId),
       toolErrors: clearToolErrors ? null : (toolErrors ?? this.toolErrors),
+      generatedImagePath: clearGeneratedImagePath
+          ? null
+          : (generatedImagePath ?? this.generatedImagePath),
+      generatedImagePrompt: clearGeneratedImagePrompt
+          ? null
+          : (generatedImagePrompt ?? this.generatedImagePrompt),
+      aiTurnId: aiTurnId ?? this.aiTurnId,
+      aiTurnChangeCount: aiTurnChangeCount ?? this.aiTurnChangeCount,
     );
   }
 
@@ -108,6 +160,9 @@ class AiChatMessage {
           .toList(),
     if (toolCallId != null) 'toolCallId': toolCallId,
     if (toolErrors != null) 'toolErrors': toolErrors,
+    if (generatedImagePath != null) 'generatedImagePath': generatedImagePath,
+    if (generatedImagePrompt != null)
+      'generatedImagePrompt': generatedImagePrompt,
   };
 
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
@@ -158,6 +213,8 @@ class AiChatMessage {
       toolCalls: toolCalls,
       toolCallId: json['toolCallId'] as String?,
       toolErrors: toolErrors,
+      generatedImagePath: json['generatedImagePath'] as String?,
+      generatedImagePrompt: json['generatedImagePrompt'] as String?,
     );
   }
 }
@@ -198,6 +255,24 @@ class AiServiceUnreachableException implements Exception {
       'AiServiceUnreachableException${cause != null ? ': $cause' : ''}';
 }
 
+/// El proveedor activo no soporta generación de imágenes (p. ej. Ollama, LM Studio).
+class AiImageGenerationUnsupportedException implements Exception {
+  AiImageGenerationUnsupportedException(this.providerName);
+
+  final String providerName;
+
+  @override
+  String toString() => 'AiImageGenerationUnsupportedException($providerName)';
+}
+
+/// Bytes crudos de una imagen generada por [AiService.generateImage].
+class AiImageGenerationResult {
+  const AiImageGenerationResult({required this.bytes, required this.mimeType});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
 /// Resultado del chat con agente para la UI (texto mostrado + métricas del último `complete`).
 class AgentChatOutcome {
   const AgentChatOutcome({
@@ -207,10 +282,25 @@ class AgentChatOutcome {
     this.agentPlan,
     this.toolCalls,
     this.toolErrors,
+    this.generatedImagePath,
+    this.generatedImagePrompt,
+    this.aiTurnId,
+    this.aiTurnChangeCount,
   });
 
   final String reply;
   final AiTokenUsage? usage;
+
+  /// Fase B3 del plan Quill/MCP — id del grupo de undo (`VaultSession.undoAiTurn`)
+  /// para este turno, si tuvo al menos un cambio de contenido reversible y
+  /// ninguna tool no-reversible. `null` = no hay nada que ofrecer deshacer
+  /// para este turno (ni contenido cambiado, ni grupo válido).
+  final String? aiTurnId;
+
+  /// Fase 0 del roadmap de producto — número de snapshots de undo de
+  /// contenido que empujó este turno (ver `VaultSession.aiTurnChangeCount`).
+  /// Nulo si [aiTurnId] es nulo.
+  final int? aiTurnChangeCount;
 
   /// Solo en modo `chat` con `blocks` u `operations` no auto-aplicadas.
   final Map<String, dynamic>? agentApplySnapshot;
@@ -225,6 +315,15 @@ class AgentChatOutcome {
   /// Mensajes de error de tool-calls fallidas en este turno, para que la UI
   /// los muestre como chip distinto de `reply` en vez de mezclados en el texto.
   final List<String>? toolErrors;
+
+  /// Ruta relativa de una imagen generada por la tool `generate_image` durante
+  /// este turno (ver `_agentChatWithAiToolLoop` en vault_session_ai.dart, que
+  /// escanea los pasos del tool loop para poblar este campo). Nulo si no se
+  /// generó ninguna imagen en este turno.
+  final String? generatedImagePath;
+
+  /// Prompt usado para generar [generatedImagePath]. Nulo si ese campo es nulo.
+  final String? generatedImagePrompt;
 }
 
 /// Acción manual sobre un [AgentChatOutcome.agentApplySnapshot] guardado en el mensaje.
@@ -251,6 +350,8 @@ class AiCompletionRequest {
     this.cloudInkOperation,
     this.tools = const [],
     this.toolChoice,
+    /// Si se cancela, los proveedores deben abortar HTTP/SSE en curso.
+    this.cancelToken,
   });
 
   final String prompt;
@@ -283,6 +384,9 @@ class AiCompletionRequest {
 
   /// Valores alineados con `INK_COST_BY_OPERATION` en Cloud Functions.
   final String? cloudInkOperation;
+
+  /// Cancelación cooperativa del turno (Stop en Quill). Ver [AiCancelToken].
+  final AiCancelToken? cancelToken;
 }
 
 class AiCompletionResult {
@@ -335,6 +439,7 @@ class AiChatThreadData {
     this.attachmentPaths = const [],
     this.includePageContext = true,
     this.contextPageIds = const [],
+    this.autoIncludeSelection = false,
   });
 
   final String id;
@@ -350,6 +455,14 @@ class AiChatThreadData {
   /// Páginas cuyo texto entra en el contexto. Vacío = al enviar se usa la página abierta.
   final List<String> contextPageIds;
 
+  /// Fase A1 del plan Quill/MCP — si es `true`, la selección actual del
+  /// editor se adjunta automáticamente en cada envío de este hilo, en vez de
+  /// requerir "@" → "Selección del editor" cada vez (`_aiAttachNextEditorSelection`,
+  /// que sigue existiendo como el modo "una sola vez" para hilos que no
+  /// activan este toggle). Explícito y visible (aparece en la fila de chips
+  /// de contexto), nunca inferencia silenciosa.
+  final bool autoIncludeSelection;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -357,6 +470,7 @@ class AiChatThreadData {
     if (attachmentPaths.isNotEmpty) 'attachmentPaths': attachmentPaths,
     'includePageContext': includePageContext,
     'contextPageIds': contextPageIds,
+    if (autoIncludeSelection) 'autoIncludeSelection': true,
   };
 
   factory AiChatThreadData.fromJson(Map<String, dynamic> json) {
@@ -373,6 +487,7 @@ class AiChatThreadData {
       attachmentPaths: rawAtt.map((e) => '$e').toList(),
       includePageContext: json['includePageContext'] as bool? ?? true,
       contextPageIds: rawCtx.map((e) => '$e').toList(),
+      autoIncludeSelection: json['autoIncludeSelection'] as bool? ?? false,
     );
   }
 }

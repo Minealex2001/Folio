@@ -79,6 +79,40 @@ void main() {
       },
     );
 
+    test(
+      'run2doc-desktop client is accepted like any other approved app '
+      '(Run2Doc talks to the Integrations bridge, not a separate service)',
+      () async {
+        final client = HttpClient();
+        final req = await client.post(
+          InternetAddress.loopbackIPv4.host,
+          port,
+          '/session/start',
+        );
+        req.headers.set(
+          IntegrationsBridgeController.headerAppId,
+          'run2doc-desktop',
+        );
+        req.headers.set(
+          IntegrationsBridgeController.headerAppName,
+          'Run2Doc',
+        );
+        req.headers.set(IntegrationsBridgeController.headerAppVersion, '1.0.0');
+        req.headers.set(
+          IntegrationsBridgeController.headerIntegrationVersion,
+          IntegrationsBridgeController.supportedIntegrationVersion,
+        );
+
+        final resp = await req.close();
+        final body = await utf8.decoder.bind(resp).join();
+        client.close(force: true);
+
+        expect(resp.statusCode, HttpStatus.ok);
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['ok'], true);
+      },
+    );
+
     test('non-approved app is still blocked', () async {
       await bridge.dispose();
       bridge = IntegrationsBridgeController(

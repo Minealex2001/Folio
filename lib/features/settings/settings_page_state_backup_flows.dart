@@ -228,6 +228,115 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     }
   }
 
+  Future<void> _openNotionApiImportFlow() async {
+    final l10n = AppLocalizations.of(context);
+    if (_s.state != VaultFlowState.unlocked) return;
+
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => VaultIdentityVerifyDialog(
+        session: _s,
+        quickEnabled: _quickEnabled,
+        passkeyRegistered: _passkeyRegistered,
+        title: Text(l10n.notionApiConnectTitle),
+        body: Text(l10n.notionApiConnectBody),
+        passwordButtonLabel: l10n.verifyAndContinue,
+      ),
+    );
+    if (verified != true || !mounted) return;
+
+    final cancelToken = NotionAuthCancelToken();
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => FolioDialog(
+          title: Text(l10n.notionApiConnectTitle),
+          content: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: FolioLoadingIndicator(centered: true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                cancelToken.cancel();
+                Navigator.pop(ctx);
+              },
+              child: Text(l10n.cancel),
+            ),
+          ],
+        ),
+      ),
+    );
+    NotionOAuthSession session;
+    try {
+      session = await NotionAuthService().connect(label: 'Folio', cancelToken: cancelToken);
+    } on NotionAuthCancelledException {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      return;
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (mounted) _snack(l10n.notionApiConnectError('$e'));
+      return;
+    }
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (!mounted) return;
+
+    final client = NotionApiClient(accessToken: session.accessToken);
+    final selected = await Navigator.of(context).push<List<NotionSearchResultItem>>(
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          appBar: AppBar(title: Text(l10n.notionPagePickerTitle)),
+          body: SafeArea(
+            child: NotionPagePicker(
+              client: client,
+              onCancel: () => Navigator.of(ctx).pop(),
+              onConfirm: (items) => Navigator.of(ctx).pop(items),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    final mode = await showDialog<_NotionImportMode>(
+      context: context,
+      builder: (ctx) => const _NotionImportModeDialog(),
+    );
+    if (mode == null || !mounted) return;
+
+    try {
+      if (mode == _NotionImportMode.currentVault) {
+        await _s.importNotionApiIntoCurrentVault(selected, client);
+        if (!mounted) return;
+        _snack(l10n.notionApiImportSuccessCurrent);
+      } else {
+        final newPassword = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const _NewVaultPasswordDialog(),
+        );
+        if (newPassword == null || newPassword.isEmpty || !mounted) return;
+        await _s.importNotionApiAsNewVault(
+          selected,
+          client,
+          masterPassword: newPassword,
+          displayName: l10n.importNotionDefaultVaultName,
+        );
+        if (!mounted) return;
+        _snack(l10n.notionApiImportSuccessNew);
+      }
+    } catch (e) {
+      if (mounted) _snack(l10n.notionApiImportError('$e'));
+    }
+    if (!mounted) return;
+    final warnings = _s.lastImportWarnings;
+    if (warnings.isNotEmpty) {
+      await _showImportWarningsDialog(warnings);
+    }
+  }
+
   Future<void> _showImportWarningsDialog(
     List<NotionImportWarning> warnings,
   ) async {
@@ -278,6 +387,10 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         ],
       ),
     );
+  }
+
+  Future<void> _openVaultTrash() async {
+    await showVaultTrashSheet(context: context, session: _s);
   }
 
   Future<void> _openWipeFlow() async {
@@ -541,14 +654,29 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     }
   }
 
+  Future<void> _openUpgradeToHardenedEncryptionFlow() async {
+    if (_s.state != VaultFlowState.unlocked) return;
+    final upgraded = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _UpgradeToHardenedEncryptionDialog(session: _s),
+    );
+    if (upgraded == true && mounted) {
+      _snack(AppLocalizations.of(context).upgradeToHardenedEncryptionSnack);
+      unawaited(_refreshSecurityFlags());
+    }
+  }
+
   String _getSectionTitle(AppLocalizations l10n, _SettingsSectionId sectionId) {
     switch (sectionId) {
       case _SettingsSectionId.cloud:
         return l10n.cloudAccountSectionTitle;
       case _SettingsSectionId.vault:
         return l10n.settingsSectionVault;
-      case _SettingsSectionId.uiWorkspace:
-        return l10n.settingsSectionUiWorkspace;
+      case _SettingsSectionId.appearance:
+        return l10n.settingsSectionAppearance;
+      case _SettingsSectionId.desktop:
+        return l10n.settingsSectionDesktop;
       case _SettingsSectionId.ai:
         return l10n.ai;
       case _SettingsSectionId.sync:
@@ -557,20 +685,24 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         return l10n.about;
       case _SettingsSectionId.integrations:
         return l10n.integrations;
+      case _SettingsSectionId.admin:
+        return l10n.settingsAdminSectionTitle;
+      case _SettingsSectionId.organization:
+        return l10n.settingsSectionOrganization;
+      case _SettingsSectionId.personalization:
+        return l10n.settingsPersonalizationBeta;
     }
   }
 
   Future<void> _showEditQuillPromptDialog(QuillSystemPrompt? item, {bool readOnly = false}) async {
-    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController(text: item?.name ?? '');
     final promptCtrl = TextEditingController(text: item?.prompt ?? '');
     final isNew = item == null;
 
     final titleText = isNew
-        ? (isEs ? 'Crear instrucciones' : 'Create Instructions')
-        : (readOnly
-            ? (isEs ? 'Ver instrucciones' : 'View Instructions')
-            : (isEs ? 'Editar instrucciones' : 'Edit Instructions'));
+        ? l10n.quillPromptCreate
+        : (readOnly ? l10n.quillPromptView : l10n.quillPromptEdit);
 
     await showDialog<void>(
       context: context,
@@ -586,8 +718,8 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 TextField(
                   controller: nameCtrl,
                   decoration: InputDecoration(
-                    labelText: isEs ? 'Nombre' : 'Name',
-                    hintText: isEs ? 'Ej. Escritor de Poesía' : 'E.g. Poetry Writer',
+                    labelText: l10n.nameLabel,
+                    hintText: l10n.quillPromptNameHint,
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -599,10 +731,8 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 minLines: 3,
                 readOnly: readOnly,
                 decoration: InputDecoration(
-                  labelText: isEs ? 'Instrucciones del sistema' : 'System Instructions',
-                  hintText: isEs
-                      ? 'Ej. Eres un experto tutor de inglés...'
-                      : 'E.g. You are an expert English tutor...',
+                  labelText: l10n.quillPromptSystemInstructions,
+                  hintText: l10n.quillPromptSystemHint,
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -612,7 +742,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(readOnly ? (isEs ? 'Atrás' : 'Back') : (isEs ? 'Cancelar' : 'Cancel')),
+            child: Text(readOnly ? l10n.quillPromptBack : l10n.cancel),
           ),
           if (!readOnly)
             FilledButton(
@@ -635,7 +765,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) _rebuild(() {});
               },
-              child: Text(isEs ? 'Guardar' : 'Save'),
+              child: Text(l10n.save),
             ),
         ],
       ),
@@ -652,7 +782,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
 
     final List<_SearchItem> items = [
       _SearchItem(
-        category: _SettingsSectionId.uiWorkspace,
+        category: _SettingsSectionId.appearance,
         title: l10n.settingsSearchThemeTitle,
         description: l10n.settingsSearchThemeDesc,
         keywords: isEs
@@ -712,7 +842,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         ),
       ),
       _SearchItem(
-        category: _SettingsSectionId.uiWorkspace,
+        category: _SettingsSectionId.appearance,
         title: l10n.settingsSearchLangTitle,
         description: l10n.settingsSearchLangDesc,
         keywords: isEs
@@ -786,10 +916,10 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
                         await _refreshSecurityFlags();
                         _snack(l10n.quickUnlockEnabledSnack);
                       } catch (e) {
-                        _snack(isEs ? 'Error al habilitar' : 'Enable failed');
+                        _snack(l10n.quillEnableFailed);
                       }
                     },
-                    child: Text(isEs ? 'Configurar' : 'Configure'),
+                    child: Text(l10n.jiraConfigure),
                   ),
           ],
         ),

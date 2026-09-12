@@ -74,6 +74,11 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'billing/microsoft-store/validate',
   ),
+  'claimNotionImportBonus': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'billing/notion-import-bonus',
+    omitBody: true,
+  ),
 
   // Family
   'inviteFamilyMember': FolioSpringApiRoute(
@@ -108,9 +113,22 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
     method: 'POST',
     pathBuilder: (_) => 'ai/complete',
   ),
+  'folioCloudGenerateImage': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'ai/generate-image',
+  ),
   'folioCloudTranscribeChunk': FolioSpringApiRoute(
     method: 'POST',
     pathBuilder: (_) => 'ai/transcribe',
+  ),
+  'folioCloudTranscribeStart': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'ai/transcribe-async',
+  ),
+  'folioCloudTranscribeStatus': FolioSpringApiRoute(
+    method: 'GET',
+    pathBuilder: (p) => 'ai/transcribe-async/${_req(p, 'jobId')}',
+    omitBody: true,
   ),
 
   // Vault backups
@@ -190,6 +208,18 @@ final Map<String, FolioSpringApiRoute> kFolioSpringCallableRoutes =
   'folioEnsurePlainVaultSyncSecret': FolioSpringApiRoute(
     method: 'POST',
     pathBuilder: (_) => 'vault/device-sync/plain-secret/ensure',
+  ),
+  'folioTrashDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/trash',
+  ),
+  'folioRestoreDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/restore',
+  ),
+  'folioPurgeDeviceSyncVault': FolioSpringApiRoute(
+    method: 'POST',
+    pathBuilder: (_) => 'vault/device-sync/purge',
   ),
 
   // Profiles

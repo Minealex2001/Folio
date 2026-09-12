@@ -33,9 +33,25 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   final _query = TextEditingController();
   final _focus = FocusNode();
   List<VaultSearchResult> _results = const [];
+
+  /// `searchGlobal` recorre TODOS los bloques de la libreta (sin índice
+  /// invertido); en libretas grandes eso es un coste real por cada tecla si
+  /// se llama sin más. El debounce solo afecta al tecleo (`onChanged`) — los
+  /// cambios de ámbito/orden, que son un tap puntual, se refrescan al
+  /// instante como antes.
+  Timer? _searchDebounce;
+  static const _searchDebounceDelay = Duration(milliseconds: 150);
   _GlobalSearchScope _scope = _GlobalSearchScope.all;
   _GlobalSearchOrder _order = _GlobalSearchOrder.relevance;
   var _selectedIndex = 0;
+
+  /// Fase 1 del roadmap de producto (Knowledge Search) — conecta
+  /// `VaultSession.backlinkPagesFor` (ya existía, usado en el grafo y el
+  /// panel de backlinks de una página, pero nunca en la búsqueda global) a
+  /// los resultados por título, para mostrar "🔗 N menciones" tal como
+  /// pedía la idea #9 del roadmap. Solo se calcula para matches de título
+  /// (lista corta), no para cada resultado de contenido.
+  final Map<String, int> _backlinkCounts = {};
 
   @override
   void initState() {
@@ -55,9 +71,15 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _query.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _scheduleRefresh() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDebounceDelay, _refresh);
   }
 
   void _refresh() {
@@ -70,14 +92,23 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
         tasksOnly ||
         _scope == _GlobalSearchScope.all ||
         _scope == _GlobalSearchScope.content;
+    final results = widget.session.searchGlobal(
+      _query.text,
+      includeTitleMatches: includeTitle,
+      includeContentMatches: includeContent,
+      sortByRecency: _order == _GlobalSearchOrder.recency,
+      tasksOnly: tasksOnly,
+    );
+    _backlinkCounts.clear();
+    for (final r in results) {
+      if (r.matchKind != VaultSearchMatchKind.title) continue;
+      if (_backlinkCounts.containsKey(r.pageId)) continue;
+      _backlinkCounts[r.pageId] = widget.session
+          .backlinkPagesFor(r.pageId)
+          .length;
+    }
     setState(() {
-      _results = widget.session.searchGlobal(
-        _query.text,
-        includeTitleMatches: includeTitle,
-        includeContentMatches: includeContent,
-        sortByRecency: _order == _GlobalSearchOrder.recency,
-        tasksOnly: tasksOnly,
-      );
+      _results = results;
       _selectedIndex = 0;
     });
   }
@@ -292,7 +323,7 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      onChanged: (_) => _refresh(),
+                      onChanged: (_) => _scheduleRefresh(),
                       onSubmitted: (_) {
                         if (_results.isNotEmpty) {
                           unawaited(_pick(_results[_selectedIndex]));
@@ -451,6 +482,10 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                                 final iconColor = r.matchKind == VaultSearchMatchKind.title
                                     ? scheme.primary
                                     : scheme.secondary;
+                                final backlinkCount =
+                                    r.matchKind == VaultSearchMatchKind.title
+                                    ? (_backlinkCounts[r.pageId] ?? 0)
+                                    : 0;
                                 return Material(
                                   color: Colors.transparent,
                                   child: ListTile(
@@ -512,6 +547,31 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    trailing: backlinkCount > 0
+                                        ? Tooltip(
+                                            message: l10n.searchBacklinkCount(
+                                              backlinkCount,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.link_rounded,
+                                                  size: 14,
+                                                  color: scheme.onSurfaceVariant,
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  '$backlinkCount',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: scheme.onSurfaceVariant,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : null,
                                     onTap: () => unawaited(_pick(r)),
                                   ),
                                 );

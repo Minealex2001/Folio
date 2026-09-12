@@ -221,6 +221,99 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
   }
 }
 
+/// Interruptor irreversible: apaga Folio Cloud por completo en este
+/// dispositivo (ver [AppSettings.folioCloudDisabled] /
+/// [CloudAccountController.disabled]). Visible tanto para invitados como
+/// para cuentas ya vinculadas, fuera de las pestañas de cuenta/plan/status.
+class _FolioCloudKillSwitchBanner extends StatelessWidget {
+  const _FolioCloudKillSwitchBanner({
+    required this.scheme,
+    required this.l10n,
+    required this.appSettings,
+    required this.cloud,
+    required this.onDisabled,
+  });
+
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+  final AppSettings appSettings;
+  final CloudAccountController cloud;
+  final VoidCallback onDisabled;
+
+  Future<void> _confirmAndDisable(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.folioCloudDisableDialogTitle),
+        content: Text(
+          l10n.folioCloudDisableDialogBody,
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.folioCloudDisableDialogConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    CloudAccountController.disabled = true;
+    try {
+      await cloud.signOutAll();
+    } catch (_) {}
+    await appSettings.setFolioCloudDisabled(true);
+    onDisabled();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (appSettings.folioCloudDisabled) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Material(
+          color: scheme.errorContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.cloud_off_rounded, color: scheme.onErrorContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l10n.cloudAuthErrorCloudDisabled,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onErrorContainer,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return ListTile(
+      leading: Icon(Icons.power_settings_new_rounded, color: scheme.error),
+      title: Text(l10n.folioCloudKillSwitchTitle),
+      subtitle: Text(l10n.folioCloudKillSwitchSubtitle),
+      onTap: () => _confirmAndDisable(context),
+    );
+  }
+}
+
 /// Folio Cloud plan, ink, and billing UI inside Settings (signed-in only).
 class _FolioCloudSubscriptionPanel extends StatelessWidget {
   const _FolioCloudSubscriptionPanel({
@@ -619,6 +712,58 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         ],
+        if (snap.subscriptionStatus?.toLowerCase() == 'promo') ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: scheme.primaryContainer.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.celebration_outlined, size: 18, color: scheme.onPrimaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.folioCloudBonusActiveBanner,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (snap.hasScheduledSubscriptionEnd) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: scheme.tertiaryContainer.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  l10n.folioCloudSubscriptionCancelScheduledBanner(
+                    MaterialLocalizations.of(context).formatFullDate(
+                      snap.accessUntil!,
+                    ),
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
         _SettingsSubsectionTitle(
           title: l10n.folioCloudSubsectionPlan,
           scheme: scheme,
@@ -755,7 +900,14 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           color: scheme.primary,
                           size: 18,
                         ),
-                        label: Text(l10n.cloudAccountEmailVerified),
+                        label: Text(
+                          snap.studentVerifiedUntil != null
+                              ? l10n.folioCloudStudentVerifiedUntil(
+                                  MaterialLocalizations.of(context)
+                                      .formatShortDate(snap.studentVerifiedUntil!),
+                                )
+                              : l10n.cloudAccountEmailVerified,
+                        ),
                       )
                     else
                       OutlinedButton(
@@ -766,6 +918,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (snap.studentVerificationExpiringSoon) ...[
+                  const SizedBox(height: 8),
+                  Material(
+                    color: scheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: scheme.onErrorContainer,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.folioCloudStudentVerifyExpiringBanner(
+                                snap.studentVerificationDaysRemaining ?? 0,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _showStudentVerificationDialog(context),
+                            child: Text(l10n.folioCloudStudentReverifyButton),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: busy ? null : onRefreshBilling,
@@ -773,6 +963,44 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   label: Text(l10n.folioCloudRefreshFromStripe),
                 ),
               ] else ...[
+                if (snap.studentVerificationExpiringSoon) ...[
+                  Material(
+                    color: scheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: scheme.onErrorContainer,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.folioCloudStudentVerifyExpiringBanner(
+                                snap.studentVerificationDaysRemaining ?? 0,
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onErrorContainer,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _showStudentVerificationDialog(context),
+                            child: Text(l10n.folioCloudStudentReverifyButton),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton.icon(
                   onPressed: busy
                       ? null
@@ -840,24 +1068,29 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     scheme: scheme,
                     icon: Icons.calendar_month_outlined,
                     label: l10n.folioCloudInkMonthly,
-                    valueText:
-                        l10n.folioCloudInkCount(snap.ink.monthlyBalance),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(snap.ink.monthlyBalance),
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(
                     scheme: scheme,
                     icon: Icons.shopping_bag_outlined,
                     label: l10n.folioCloudInkPurchased,
-                    valueText: l10n.folioCloudInkCount(
-                      snap.ink.purchasedBalance,
-                    ),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(
+                            snap.ink.purchasedBalance,
+                          ),
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(
                     scheme: scheme,
                     icon: Icons.water_drop_outlined,
                     label: l10n.folioCloudInkTotal,
-                    valueText: l10n.folioCloudInkCount(snap.ink.totalInk),
+                    valueText: snap.folioStaff
+                        ? '∞'
+                        : l10n.folioCloudInkCount(snap.ink.totalInk),
                     minWidth: cardMin,
                   ),
                 ],
@@ -865,7 +1098,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             },
           ),
         ),
-        if (snap.ink.purchasedBalance > 0)
+        if (!snap.folioStaff && snap.ink.purchasedBalance > 0)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
             child: Text(
@@ -931,20 +1164,21 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   ),
                 Builder(
                   builder: (context) {
+                    final unlimited = snap.folioStaff;
                     final quota = snap.backupQuotaBytes;
                     final usedBytes = snap.backupUsedBytes;
                     final remainingBytes = quota > 0
                         ? (quota - usedBytes).clamp(0, quota)
                         : 0;
-                    final determinate = quota > 0;
-                    final usedLabel = determinate
-                        ? fmtStorageBytes(usedBytes)
-                        : '…';
+                    final determinate = !unlimited && quota > 0;
+                    final usedLabel = fmtStorageBytes(usedBytes);
                     final quotaLabel =
-                        determinate ? fmtStorageBytes(quota) : '…';
-                    final remainingLabel = determinate
-                        ? fmtStorageBytes(remainingBytes)
-                        : '…';
+                        unlimited ? '∞' : (determinate ? fmtStorageBytes(quota) : '…');
+                    final remainingLabel = unlimited
+                        ? '∞'
+                        : (determinate
+                            ? fmtStorageBytes(remainingBytes)
+                            : '…');
                     final pct = determinate
                         ? ((usedBytes / quota) * 100).round().clamp(0, 100)
                         : null;
@@ -961,7 +1195,15 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (pct != null)
+                            if (unlimited)
+                              Text(
+                                '∞',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: scheme.primary,
+                                ),
+                              )
+                            else if (pct != null)
                               Text(
                                 l10n.folioCloudBackupStorageBarPercent(pct),
                                 style: theme.textTheme.titleSmall?.copyWith(
@@ -975,9 +1217,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
-                            value: determinate
-                                ? (usedBytes / quota).clamp(0.0, 1.0)
-                                : null,
+                            value: unlimited
+                                ? 0
+                                : (determinate
+                                    ? (usedBytes / quota).clamp(0.0, 1.0)
+                                    : null),
                             minHeight: 10,
                             backgroundColor: scheme.surfaceContainerHighest,
                             valueColor: AlwaysStoppedAnimation<Color>(
@@ -989,7 +1233,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          determinate
+                          determinate || unlimited
                               ? l10n.folioCloudBackupStorageBarDetail(
                                   usedLabel,
                                   quotaLabel,
@@ -2018,9 +2262,13 @@ class _SettingsSectionNavItem {
 enum _SettingsSectionId {
   cloud,
   vault,
-  uiWorkspace,
+  appearance,
+  desktop,
   ai,
   sync,
   integrations,
   about,
+  admin,
+  organization,
+  personalization,
 }

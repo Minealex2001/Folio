@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../config/folio_web_urls.dart';
 import '../../../crypto/vault_share_crypto.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_identity.dart';
 import '../../../services/folio_cloud/folio_cloud_vault_share.dart';
@@ -214,6 +215,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final entry = widget.session.vaultId == null
         ? null
@@ -232,7 +234,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Compartir libreta',
+              l10n.shareNotebookTooltip,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: FolioSpace.xs),
@@ -256,11 +258,10 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
             else ...[
               if (!isShared) ...[
                 const SizedBox(height: FolioSpace.lg),
-                Text('Enlace público', style: Theme.of(context).textTheme.titleMedium),
+                Text(l10n.vaultSharePublicLink, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: FolioSpace.xs),
                 Text(
-                  'Cualquiera con el enlace puede ver la libreta en el navegador. '
-                  'El contenido del enlace se guarda en claro en Folio Cloud y se actualiza al sincronizar.',
+                  l10n.vaultSharePublicLinkBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -284,20 +285,20 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                                 if (url.isEmpty) return;
                                 await Clipboard.setData(ClipboardData(text: url));
                               },
-                        child: const Text('Copiar enlace'),
+                        child: Text(l10n.vaultShareCopyLink),
                       ),
                       OutlinedButton(
                         onPressed: _busy ? null : _publishNow,
-                        child: const Text('Actualizar ahora'),
+                        child: Text(l10n.vaultShareRefreshNow),
                       ),
                       TextButton(
                         onPressed: _busy ? null : _revokePublic,
-                        child: Text('Revocar', style: TextStyle(color: scheme.error)),
+                        child: Text(l10n.revoke, style: TextStyle(color: scheme.error)),
                       ),
                     ],
                   ),
                   Text(
-                    'Enlace activo · rev ${_public?.rev ?? 0}',
+                    l10n.vaultShareActiveRev('${_public?.rev ?? 0}'),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -305,13 +306,13 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                 ] else
                   FilledButton(
                     onPressed: _busy ? null : _enablePublic,
-                    child: const Text('Activar enlace público'),
+                    child: Text(l10n.vaultShareEnablePublicLink),
                   ),
                 const SizedBox(height: FolioSpace.xl),
-                Text('Invitar a editar', style: Theme.of(context).textTheme.titleMedium),
+                Text(l10n.vaultShareInviteToEdit, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: FolioSpace.xs),
                 Text(
-                  'La persona verá la libreta en su lista (como compartida) y podrá editar, pero no eliminar.',
+                  l10n.vaultShareInviteBody,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -320,26 +321,26 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                 TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo Folio Cloud',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.vaultShareCloudEmail,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: FolioSpace.sm),
                 FilledButton.tonal(
                   onPressed: _busy ? null : _invite,
-                  child: const Text('Invitar'),
+                  child: Text(l10n.vaultShareInvite),
                 ),
                 if (_lastInviteCode != null) ...[
                   const SizedBox(height: FolioSpace.sm),
                   Text(
-                    'Código (también en el correo): $_lastInviteCode',
+                    l10n.vaultShareInviteCodeAlsoEmail(_lastInviteCode!),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
                 if (_members.isNotEmpty) ...[
                   const SizedBox(height: FolioSpace.md),
-                  Text('Miembros', style: Theme.of(context).textTheme.titleSmall),
+                  Text(l10n.vaultShareMembers, style: Theme.of(context).textTheme.titleSmall),
                   ..._members.map((m) {
                     final email = '${m['inviteEmail'] ?? ''}';
                     final status = '${m['status'] ?? ''}';
@@ -351,7 +352,7 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                       trailing: status == 'revoked'
                           ? null
                           : IconButton(
-                              tooltip: 'Quitar',
+                              tooltip: l10n.remove,
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
@@ -368,27 +369,27 @@ class _VaultShareSheetState extends State<VaultShareSheet> {
                 ],
               ],
               const SizedBox(height: FolioSpace.xl),
-              Text('Aceptar invitación', style: Theme.of(context).textTheme.titleMedium),
+              Text(l10n.vaultShareAcceptInvite, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: FolioSpace.sm),
               TextField(
                 controller: _acceptIdCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Id de invitación',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.vaultShareInviteId,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: FolioSpace.sm),
               TextField(
                 controller: _acceptCodeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Código',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.vaultShareInviteCode,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: FolioSpace.sm),
               OutlinedButton(
                 onPressed: _busy ? null : _acceptInvite,
-                child: const Text('Aceptar'),
+                child: Text(l10n.vaultShareAccept),
               ),
               if (isShared) ...[
                 const SizedBox(height: FolioSpace.xl),

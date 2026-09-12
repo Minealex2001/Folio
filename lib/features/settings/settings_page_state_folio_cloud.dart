@@ -37,7 +37,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
           ),
         );
         if (mounted) {
-          await _folio.refreshFolioCloudBillingFromServers();
+          await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
         }
       } else {
         final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -466,7 +466,7 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
       );
       if (success == true && mounted) {
         _snack(l10n.folioCloudCheckoutSuccess);
-        await _folio.refreshFolioCloudBillingFromServers();
+        await _folio.refreshFolioCloudBillingFromServers(retryUntilActive: true);
       }
     } else {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -611,6 +611,37 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
     }
   }
 
+  /// Quita solo la cuenta activa del dispositivo (las demás siguen).
+  Future<void> _removeActiveCloudAccountFromDevice() async {
+    final l10n = AppLocalizations.of(context);
+    final uid = _cloud.activeUid;
+    if (uid == null) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.cloudAccountSwitcherRemoveTitle),
+        content: Text(l10n.cloudAccountSwitcherRemoveBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.cloudAccountSwitcherRemove),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    try {
+      await _cloud.removeAccount(uid);
+      if (mounted) _snack(l10n.settingsSessionEndedSnack);
+    } catch (e) {
+      if (mounted) _snack('$e');
+    }
+  }
+
   Future<void> _editCloudDisplayName() async {
     if (!_cloud.isSignedIn) return;
     final l10n = AppLocalizations.of(context);
@@ -716,18 +747,22 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
 
   Future<void> _verifyStudentStatus(String email) async {
     if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
     _rebuild(() => _folioCloudActionBusy = true);
     try {
       final res = await callFolioHttpsCallable('verifyStudentStatus', {'email': email});
-      final verified = (res as Map?)?.cast<String, dynamic>()['verified'] == true;
-      if (verified) {
-        _snack('¡Verificación completada con éxito!');
+      final map = (res as Map?)?.cast<String, dynamic>() ?? const {};
+      final pending = map['pending'] == true;
+      final verified = map['verified'] == true;
+      if (pending) {
+        _snack(l10n.folioCloudStudentVerifyEmailSent);
         await _folio.refreshFolioCloudBillingFromServers();
-        if (mounted) {
-          await _openFolioCheckout(FolioCheckoutKind.folioStudentMonthly);
-        }
+      } else if (verified) {
+        // Compat: should not happen with link-based flow.
+        _snack(l10n.folioCloudStudentVerifySuccess);
+        await _folio.refreshFolioCloudBillingFromServers();
       } else {
-        _snack('El correo ingresado no es válido para estudiantes.');
+        _snack(l10n.folioCloudStudentVerifyFail);
       }
     } catch (e) {
       if (mounted) _snack('$e');

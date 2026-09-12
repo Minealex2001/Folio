@@ -89,7 +89,26 @@ mixin _BlockRowBuild on State<BlockEditor> {
     );
 
     final special = _buildSpecialBlockRowOrNull(scope);
-    if (special != null) return special;
-    return _buildEditableMarkdownBlockRow(scope);
+    final row = special ?? _buildEditableMarkdownBlockRow(scope);
+    if (block.aiGenerated != true) return row;
+    final l10n = AppLocalizations.of(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        row,
+        Positioned(
+          right: compactReadOnlyMobile ? 0 : 2,
+          top: 2,
+          child: Tooltip(
+            message: l10n.aiGeneratedLabel,
+            child: Icon(
+              FolioIcons.quill,
+              size: 12,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

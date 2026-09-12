@@ -17,12 +17,19 @@ class WorkspaceTopAppBar extends StatelessWidget
     required this.compact,
     required this.actions,
     required this.onOpenDrawer,
+    this.titleWidget,
   });
 
   final String title;
   final bool compact;
   final List<Widget> actions;
   final VoidCallback onOpenDrawer;
+
+  /// Reemplaza el `Text(title)` por defecto — usado para montar
+  /// `WorkspaceTabStrip` en el propio hueco de título de la AppBar (Fase
+  /// 29) en vez de una tira aparte debajo, para que las pestañas vivan en
+  /// la misma barra que las `actions` del editor, como en un navegador.
+  final Widget? titleWidget;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
@@ -32,10 +39,13 @@ class WorkspaceTopAppBar extends StatelessWidget
     return AppBar(
       centerTitle: compact,
       toolbarHeight: compact ? 60 : 64,
-      title: Semantics(
-        header: true,
-        child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
+      titleSpacing: titleWidget != null ? 0 : null,
+      title:
+          titleWidget ??
+          Semantics(
+            header: true,
+            child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
       leading: compact
           ? IconButton(
               tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,

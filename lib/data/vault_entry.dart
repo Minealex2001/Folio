@@ -1,6 +1,23 @@
 /// Ownership / sharing metadata for a vault in the local registry.
 enum VaultOwnership { owned, shared }
 
+/// Entrada mostrada en la papelera de libretas. [hasLocalCopy] es false para
+/// libretas borradas en otro dispositivo que este nunca llegó a materializar
+/// ("fantasma"): solo se conocen por lo que devuelve la nube.
+class VaultTrashEntry {
+  const VaultTrashEntry({
+    required this.vaultId,
+    required this.displayName,
+    required this.trashedAt,
+    required this.hasLocalCopy,
+  });
+
+  final String vaultId;
+  final String displayName;
+  final DateTime trashedAt;
+  final bool hasLocalCopy;
+}
+
 /// Entrada del registro de libretas (metadatos en prefs, datos en disco por [id]).
 class VaultEntry {
   const VaultEntry({
@@ -11,6 +28,10 @@ class VaultEntry {
     this.ownerUid,
     this.role,
     this.ownerDisplayName,
+    this.trashedAt,
+    this.accountUid,
+    this.organizationId,
+    this.workspaceId,
   });
 
   final String id;
@@ -28,26 +49,51 @@ class VaultEntry {
 
   final String? ownerDisplayName;
 
+  /// Cuándo se movió a la papelera. `null` si está activa.
+  final DateTime? trashedAt;
+
+  /// Cuenta Folio Cloud a la que pertenece esta libreta local (multi-cuenta).
+  final String? accountUid;
+
+  /// Si no es null, la libreta pertenece a un equipo (OrganizationWorkspace).
+  final String? organizationId;
+
+  /// Id del workspace de organización cuando [organizationId] está definido.
+  final String? workspaceId;
+
   bool get isShared => ownership == VaultOwnership.shared;
+
+  bool get isTeamWorkspace =>
+      organizationId != null && organizationId!.isNotEmpty;
 
   bool get canDelete => !isShared;
 
+  bool get isTrashed => trashedAt != null;
+
   Map<String, Object?> toJson() => {
-    'id': id,
-    'displayName': displayName,
-    'createdAtMs': createdAtMs,
-    if (ownership != VaultOwnership.owned) 'ownership': ownership.name,
-    if (ownerUid != null && ownerUid!.isNotEmpty) 'ownerUid': ownerUid,
-    if (role != null && role!.isNotEmpty) 'role': role,
-    if (ownerDisplayName != null && ownerDisplayName!.isNotEmpty)
-      'ownerDisplayName': ownerDisplayName,
-  };
+        'id': id,
+        'displayName': displayName,
+        'createdAtMs': createdAtMs,
+        if (ownership != VaultOwnership.owned) 'ownership': ownership.name,
+        if (ownerUid != null && ownerUid!.isNotEmpty) 'ownerUid': ownerUid,
+        if (role != null && role!.isNotEmpty) 'role': role,
+        if (ownerDisplayName != null && ownerDisplayName!.isNotEmpty)
+          'ownerDisplayName': ownerDisplayName,
+        if (trashedAt != null) 'trashedAtMs': trashedAt!.millisecondsSinceEpoch,
+        if (accountUid != null && accountUid!.isNotEmpty)
+          'accountUid': accountUid,
+        if (organizationId != null && organizationId!.isNotEmpty)
+          'organizationId': organizationId,
+        if (workspaceId != null && workspaceId!.isNotEmpty)
+          'workspaceId': workspaceId,
+      };
 
   factory VaultEntry.fromJson(Map<String, Object?> j) {
     final ownershipRaw = '${j['ownership'] ?? 'owned'}';
     final ownership = ownershipRaw == 'shared'
         ? VaultOwnership.shared
         : VaultOwnership.owned;
+    final trashedAtMs = j['trashedAtMs'] as num?;
     return VaultEntry(
       id: j['id']! as String,
       displayName: j['displayName']! as String,
@@ -56,6 +102,12 @@ class VaultEntry {
       ownerUid: j['ownerUid'] as String?,
       role: j['role'] as String?,
       ownerDisplayName: j['ownerDisplayName'] as String?,
+      trashedAt: trashedAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(trashedAtMs.toInt()),
+      accountUid: j['accountUid'] as String?,
+      organizationId: j['organizationId'] as String?,
+      workspaceId: j['workspaceId'] as String?,
     );
   }
 
@@ -65,6 +117,12 @@ class VaultEntry {
     String? ownerUid,
     String? role,
     String? ownerDisplayName,
+    DateTime? trashedAt,
+    bool clearTrashedAt = false,
+    String? accountUid,
+    String? organizationId,
+    String? workspaceId,
+    bool clearOrganization = false,
   }) {
     return VaultEntry(
       id: id,
@@ -74,6 +132,12 @@ class VaultEntry {
       ownerUid: ownerUid ?? this.ownerUid,
       role: role ?? this.role,
       ownerDisplayName: ownerDisplayName ?? this.ownerDisplayName,
+      trashedAt: clearTrashedAt ? null : (trashedAt ?? this.trashedAt),
+      accountUid: accountUid ?? this.accountUid,
+      organizationId:
+          clearOrganization ? null : (organizationId ?? this.organizationId),
+      workspaceId:
+          clearOrganization ? null : (workspaceId ?? this.workspaceId),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
@@ -20,10 +21,11 @@ import 'folio_cloud_identity.dart';
 /// `FolioCloudDeviceSyncController` sigue activo como respaldo ante huecos de
 /// reconexión (app suspendida, red inestable), con cadencia reducida.
 class FolioCloudVaultPushListener {
-  FolioCloudVaultPushListener({required void Function() onVaultEvent})
-    : _onVaultEvent = onVaultEvent;
+  FolioCloudVaultPushListener({
+    required void Function(Map<String, dynamic> payload) onVaultEvent,
+  }) : _onVaultEvent = onVaultEvent;
 
-  final void Function() _onVaultEvent;
+  final void Function(Map<String, dynamic> payload) _onVaultEvent;
   StompClient? _client;
   bool _active = false;
 
@@ -51,7 +53,17 @@ class FolioCloudVaultPushListener {
             destination: '/user/queue/vault-events',
             callback: (frame) {
               if (!_active) return;
-              _onVaultEvent();
+              final body = frame.body;
+              Map<String, dynamic> payload = const {};
+              if (body != null && body.isNotEmpty) {
+                try {
+                  final decoded = jsonDecode(body);
+                  if (decoded is Map) {
+                    payload = Map<String, dynamic>.from(decoded);
+                  }
+                } catch (_) {}
+              }
+              _onVaultEvent(payload);
             },
           );
         },

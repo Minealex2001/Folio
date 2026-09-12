@@ -114,7 +114,7 @@ class FolioCloudStatusController extends ChangeNotifier {
           : '${incident.title}|${incident.type}|${incident.createdAt?.toIso8601String() ?? ''}';
       return 'incident|$id|${incident.impact}|${incident.status}';
     }
-    final services = snap.unhealthyServiceIds
+    final services = snap.criticalUnhealthyServiceIds
         .map((id) {
           final reason = snap.services[id]?.statusReason ?? '';
           return '$id:${snap.displayStatusFor(id)}:$reason';

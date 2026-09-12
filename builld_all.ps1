@@ -34,6 +34,7 @@ param(
     [string] $ReleaseNotes = '',
     [string] $ReleaseNotesFile = '',
     [string] $FolioWebBaseUrl = '',
+    [string] $FolioBackendBaseUrl = '',
     [ValidateSet('global', 'android', 'windows', 'linux', 'macos')]
     [string] $PlatformScope = 'global',
     [switch] $Yes
@@ -83,6 +84,34 @@ function Get-FolioWebBaseUrlArg {
             $base = 'https://folio.minealexgames.com'
             Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
             return "--dart-define=FOLIO_WEB_BASE_URL=$base"
+        }
+        default {
+            return $null
+        }
+    }
+}
+
+# Backend Spring (API). Mismo canal que Get-FolioWebBaseUrlArg: beta para
+# prerelease, produccion para release estable. Sin -AsPreRelease/-AsRelease
+# (build local suelto, sin publicar) deja el default compilado en
+# folio_local_secrets.dart (= beta).
+function Get-FolioBackendBaseUrlArg {
+    if (-not [string]::IsNullOrWhiteSpace($FolioBackendBaseUrl)) {
+        $base = $FolioBackendBaseUrl.Trim().TrimEnd('/')
+        Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (override -FolioBackendBaseUrl)" -ForegroundColor Gray
+        return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
+    }
+    switch ($script:FolioWebChannel) {
+        'beta' {
+            # Solo beta usa api-beta.folio.com.es (bypass filtros que categorizan minealexgames).
+            $base = 'https://api-beta.folio.com.es'
+            Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal Beta / prerelease)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
+        }
+        'production' {
+            $base = 'https://backendfolio.minealexgames.com'
+            Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
+            return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
         }
         default {
             return $null
@@ -393,7 +422,8 @@ function Build-WindowsGitHub {
     Write-Host "`n[win] Compilando Windows (Release, canal GitHub)..." -ForegroundColor Cyan
     $winGhArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
         (Get-FolioDistributionArg $DistributionWindowsGitHub),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @winGhArgs
     Assert-LastExitCode 'flutter build windows (GitHub)'
@@ -411,7 +441,8 @@ function Build-WindowsStore {
     $winMsArgs = Merge-FlutterDartDefines @('build', 'windows', '--release') @(
         (Get-FolioDistributionArg $DistributionWindowsMicrosoftStore),
         (Get-MicrosoftStoreDartDefinesFromEnv -EnvFilePath $msEnv),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @winMsArgs
     Assert-LastExitCode 'flutter build windows (Microsoft Store)'
@@ -429,7 +460,8 @@ function Build-Android {
     Write-Host "`n[android] Compilando Android (APK Release)..." -ForegroundColor Cyan
     $apkArgs = Merge-FlutterDartDefines @('build', 'apk', '--release') @(
         (Get-FolioDistributionArg $DistributionAndroid),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @apkArgs
     Assert-LastExitCode 'flutter build apk'
@@ -439,7 +471,8 @@ function Build-Android {
     Write-Host "`n[android] Compilando Android (AAB Release)..." -ForegroundColor Cyan
     $aabArgs = Merge-FlutterDartDefines @('build', 'appbundle', '--release') @(
         (Get-FolioDistributionArg $DistributionAndroid),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @aabArgs
     Assert-LastExitCode 'flutter build appbundle'
@@ -451,7 +484,8 @@ function Build-LinuxNative {
     Write-Host "`n[linux] Compilando Linux nativo (Release)..." -ForegroundColor Cyan
     $linuxArgs = Merge-FlutterDartDefines @('build', 'linux', '--release') @(
         (Get-FolioDistributionArg $DistributionLinux),
-        (Get-FolioWebBaseUrlArg)
+        (Get-FolioWebBaseUrlArg),
+        (Get-FolioBackendBaseUrlArg)
     )
     & flutter @linuxArgs
     Assert-LastExitCode 'flutter build linux'
@@ -473,6 +507,11 @@ function Build-LinuxViaWsl {
     if (-not [string]::IsNullOrWhiteSpace($webArg)) {
         $webDefine = [string]$webArg
     }
+    $backendDefine = ''
+    $backendArg = Get-FolioBackendBaseUrlArg
+    if (-not [string]::IsNullOrWhiteSpace($backendArg)) {
+        $backendDefine = [string]$backendArg
+    }
     $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
     $zipName = "Folio-Linux-GitHub-${verSafe}.zip"
     $shPathWin = Join-Path $env:TEMP 'folio_build_linux_wsl.sh'
@@ -489,7 +528,7 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 127
 fi
 flutter pub get
-flutter build linux --release $distDefine $webDefine
+flutter build linux --release $distDefine $webDefine $backendDefine
 mkdir -p '$wslOut'
 rm -f '$wslOut/$zipName'
 (cd build/linux/x64/release && zip -r '$wslOut/$zipName' bundle)
@@ -551,7 +590,8 @@ function Build-MacOS {
         Write-Host "`n[macos] Compilando macOS (Release)..." -ForegroundColor Cyan
         $macArgs = Merge-FlutterDartDefines @('build', 'macos', '--release') @(
             (Get-FolioDistributionArg $DistributionMacOS),
-            (Get-FolioWebBaseUrlArg)
+            (Get-FolioWebBaseUrlArg),
+            (Get-FolioBackendBaseUrlArg)
         )
         & flutter @macArgs
         Assert-LastExitCode 'flutter build macos'
@@ -568,17 +608,20 @@ function Build-MacOS {
 
 # ---------------------------------------------------------------------------
 # Instalador Windows (Inno Setup) -> Folio-Setup-<semver>.exe
+# Fuente unica: installer/folio_setup.iss.template via tool/windows/build_installer.ps1
 # ---------------------------------------------------------------------------
 
 function Find-Iscc {
-    # 1) En el PATH.
     $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
 
-    # 2) Rutas de instalacion comunes (incluye instalacion por-usuario de winget).
+    # Prefer Inno Setup 7, then 6/5. Compile with ISCC.exe (CLI), not ISIDE.exe (IDE).
     $candidates = @(
-        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:ProgramFiles 'Inno Setup 7\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 7\ISCC.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 7\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
         (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 5\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 5\ISCC.exe')
@@ -587,8 +630,10 @@ function Find-Iscc {
         if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
     }
 
-    # 3) Registro de desinstalacion de Inno Setup (InstallLocation).
     $regRoots = @(
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 7_is1',
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
         'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1'
@@ -611,87 +656,38 @@ function Build-WindowsInstaller {
     )
     Build-WindowsGitHub
 
-    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
-    $iscc = Find-Iscc
-    if (-not $iscc) {
+    if (-not (Find-Iscc)) {
         throw "No se encontro ISCC.exe (Inno Setup). Instalalo con 'winget install JRSoftware.InnoSetup' o 'choco install innosetup'."
     }
 
-    $mainExe = Get-ChildItem -LiteralPath $release -Filter '*.exe' -File |
-        Where-Object { $_.Name -notmatch '^(vcruntime|msvcp|api-ms).*' } |
-        Sort-Object Length -Descending |
-        Select-Object -First 1
-    if (-not $mainExe) {
-        throw "No se encontro el ejecutable principal en $release."
+    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
+    $builder = Join-Path $RepoRoot 'tool\windows\build_installer.ps1'
+    if (-not (Test-Path -LiteralPath $builder)) {
+        throw "No se encontro $builder"
     }
 
     $semver = Get-PubspecSemver
     $outputBase = "Folio-Setup-$semver"
-    $sourceGlob = Join-Path $release '*'
-    $icon = Join-Path $RepoRoot 'assets\icons\folio.ico'
-    $iconLine = if (Test-Path -LiteralPath $icon) { "SetupIconFile=$icon" } else { '' }
-
-    $iss = @"
-#define MyAppName "Folio"
-#define MyAppVersion "$semver"
-#define MyAppPublisher "Minealex Games"
-#define MyAppURL "https://minealexgames.com/"
-#define MyAppExeName "$($mainExe.Name)"
-
-[Setup]
-AppId={{46CD296E-B5B7-433A-9063-C17444F19FBE}
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}
-AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\{#MyAppName}
-DefaultGroupName={#MyAppName}
-UninstallDisplayIcon={app}\{#MyAppExeName}
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
-DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
-CloseApplications=yes
-OutputDir=$OutputDir
-OutputBaseFilename=$outputBase
-$iconLine
-Compression=lzma
-SolidCompression=yes
-WizardStyle=modern
-
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-
-[Files]
-Source: "$sourceGlob"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-[Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-"@
-
-    $issPath = Join-Path $env:TEMP 'folio_installer.iss'
-    Set-Content -LiteralPath $issPath -Value $iss -Encoding utf8
-
-    Write-Host "`n[installer] Generando instalador con Inno Setup..." -ForegroundColor Cyan
-    & $iscc $issPath
-    Assert-LastExitCode 'ISCC (Inno Setup)'
-
-    $installerPath = Join-Path $OutputDir "$outputBase.exe"
-    if (-not (Test-Path -LiteralPath $installerPath)) {
-        throw "No se genero el instalador esperado: $installerPath"
+    $installerPath = & $builder `
+        -RepoRoot $RepoRoot `
+        -SourceDir $release `
+        -OutputDir $OutputDir `
+        -AppVersion $semver `
+        -OutputBase $outputBase
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        throw "build_installer.ps1 failed with exit code $LASTEXITCODE"
     }
-    Write-Host "[ok] Instalador: $installerPath" -ForegroundColor Green
+    # Script writes path to output stream; take last non-empty line.
+    if ($installerPath -is [array]) {
+        $installerPath = ($installerPath | Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+    }
+    $installerPath = "$installerPath".Trim()
+    if (-not $installerPath -or -not (Test-Path -LiteralPath $installerPath)) {
+        $fallback = Join-Path $OutputDir "$outputBase.exe"
+        if (Test-Path -LiteralPath $fallback) { return $fallback }
+        throw "No se genero el instalador esperado: $outputBase.exe"
+    }
+    return $installerPath
 }
 
 # ---------------------------------------------------------------------------
@@ -723,6 +719,22 @@ function Resolve-ReleaseTarget {
 
 function Assert-GhReady {
     $gh = Get-Command gh -ErrorAction SilentlyContinue
+    if (-not $gh) {
+        $candidates = @(
+            (Join-Path $env:ProgramFiles 'GitHub CLI\gh.exe'),
+            (Join-Path ${env:ProgramFiles(x86)} 'GitHub CLI\gh.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\GitHub CLI\gh.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\gh.exe')
+        )
+        foreach ($candidate in $candidates) {
+            if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+                $dir = Split-Path -Parent $candidate
+                $env:PATH = "$dir;$env:PATH"
+                $gh = Get-Command gh -ErrorAction SilentlyContinue
+                if ($gh) { break }
+            }
+        }
+    }
     if (-not $gh) {
         throw "No se encontro GitHub CLI (gh). Instalalo con 'winget install GitHub.cli'."
     }
@@ -934,6 +946,11 @@ function Invoke-PublishFlow {
     } else {
         'https://folio.minealexgames.com'
     }
+    $backendUrl = if ($AsPreRelease) {
+        'https://api-beta.folio.com.es'
+    } else {
+        'https://backendfolio.minealexgames.com'
+    }
 
     # Ajustar skips segun alcance de plataforma.
     $prevSkipAndroid = $SkipAndroid
@@ -984,6 +1001,7 @@ function Invoke-PublishFlow {
         Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
         Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
         Write-Host "  Enlaces web     : $webLinks (compartir / reset / verify)" -ForegroundColor Gray
+        Write-Host "  Backend API     : $backendUrl" -ForegroundColor Gray
         Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 
         if (-not (Confirm-Action "Compilar y publicar $tag (alcance=$scope) ?")) {

@@ -1156,6 +1156,103 @@ class _ChangeMasterPasswordDialogState
   }
 }
 
+class _UpgradeToHardenedEncryptionDialog extends StatefulWidget {
+  const _UpgradeToHardenedEncryptionDialog({required this.session});
+
+  final VaultSession session;
+
+  @override
+  State<_UpgradeToHardenedEncryptionDialog> createState() =>
+      _UpgradeToHardenedEncryptionDialogState();
+}
+
+class _UpgradeToHardenedEncryptionDialogState
+    extends State<_UpgradeToHardenedEncryptionDialog> {
+  final _current = TextEditingController();
+  var _busy = false;
+  var _obscureCurrent = true;
+  String? _error;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final currentPassword = _current.text;
+    if (currentPassword.isEmpty) {
+      setState(() => _error = AppLocalizations.of(context).fillAllFieldsError);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.upgradeToHardenedEncryption(currentPassword);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = '$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return FolioDialog(
+      title: Text(l10n.upgradeToHardenedEncryptionTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.vaultKdfProfileHint),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _current,
+              obscureText: _obscureCurrent,
+              enabled: !_busy,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: l10n.currentPasswordLabel,
+                suffixIcon: IconButton(
+                  onPressed: _busy
+                      ? null
+                      : () =>
+                            setState(() => _obscureCurrent = !_obscureCurrent),
+                  icon: Icon(
+                    _obscureCurrent ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(onPressed: _busy ? null : _submit, child: Text(l10n.save)),
+      ],
+    );
+  }
+}
+
 enum _AiWizardAction { close, retry }
 
 class _AiSetupWizardDialog extends StatefulWidget {

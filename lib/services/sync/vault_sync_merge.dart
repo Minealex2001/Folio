@@ -13,6 +13,7 @@ import '../../models/gitlab_integration_state.dart';
 import '../../models/slack_integration_state.dart';
 import '../../models/teams_integration_state.dart';
 import '../../models/spotify_integration_state.dart';
+import '../../models/ytmusic_integration_state.dart';
 import '../../models/discord_integration_state.dart';
 import '../../models/system_media_integration_state.dart';
 
@@ -84,6 +85,7 @@ class VaultSyncMergeEngine {
       'slack': payload.slack.toJson(),
       'teams': payload.teams.toJson(),
       'spotify': payload.spotify.toJson(),
+      'ytMusic': payload.ytMusic.toJson(),
       'discord': payload.discord.toJson(),
       'systemMedia': payload.systemMedia.toJson(),
     });
@@ -137,17 +139,84 @@ class VaultSyncMergeEngine {
   FolioBlock cloneBlock(FolioBlock block) =>
       FolioBlock.fromJson(Map<String, dynamic>.from(block.toJson()));
 
+  /// Umbral bajo el cual un `remote.pages.length` respecto a `base.pages.length`
+  /// se considera "sospechosamente parcial" en vez de un borrado real: por
+  /// debajo del 40% del baseline. Solo aplica con al menos 4 páginas en el
+  /// baseline, para no disparar falsos positivos en libretas pequeñas donde
+  /// un borrado legítimo de una o dos páginas ya cruza ese porcentaje.
+  static const double _partialRemoteThreshold = 0.4;
+  static const int _partialRemoteMinBasePages = 4;
+
+  /// Expuesto (no privado) porque los guards de más arriba en la pila
+  /// (`vault_session.dart`, `headless_device_sync_vault.dart`) necesitan el
+  /// mismo criterio para decidir si negarse a aplicar un remoto ANTES de
+  /// invocar `merge()` — por ejemplo cuando el baseline en memoria aún no se
+  /// sembró y `merge()` vería `basePageCount == 0` (no dispararía el guard
+  /// interno de fast-forward/tombstones por sí solo).
+  ///
+  /// OJO: el bug real que motivó esto es que el DISPOSITIVO QUE HACE PUSH
+  /// tenía en memoria un payload ya truncado (p. ej. libreta a medio cargar)
+  /// — el manifiesto que ese dispositivo escribe declara fielmente ese mismo
+  /// recuento truncado, así que `remoteExpectedPageCount` (lo declarado por
+  /// el propio manifiesto) coincide trivialmente con `remotePageCount` (lo
+  /// descargado) en el caso que nos importa. Por eso la comparación contra
+  /// `basePageCount` es la señal PRINCIPAL y se evalúa siempre, coincida o
+  /// no el recuento declarado — `remoteExpectedPageCount` solo añade una
+  /// señal INDEPENDIENTE y más fuerte para el caso de truncado en tránsito
+  /// (manifiesto declara N, se descargan menos de N páginas), nunca sirve
+  /// para descartar la sospecha cuando sí coincide.
+  static bool looksSuspiciouslyPartial({
+    required int basePageCount,
+    required int remotePageCount,
+    int? remoteExpectedPageCount,
+  }) {
+    final manifestMismatch = remoteExpectedPageCount != null &&
+        remoteExpectedPageCount != remotePageCount;
+    if (manifestMismatch) return true;
+
+    if (basePageCount < _partialRemoteMinBasePages) return false;
+    if (remotePageCount == 0) return false; // ya cubierto por el guard de remoto vacío
+    return remotePageCount <= (basePageCount * _partialRemoteThreshold).ceil();
+  }
+
   /// Merge a 3 vías. Si [baseline] es null, se trata como snapshot vacío.
+  ///
+  /// Si `remote.pages` cae muy por debajo de `baseline.pages` (ver
+  /// [looksSuspiciouslyPartial]), no se adopta como fuente de verdad — ni por
+  /// fast-forward ni marcando tombstones por las páginas ausentes — hasta que
+  /// una capa superior confirme que es un borrado real (no un manifiesto
+  /// parcial). [remoteExpectedPageCount] (recuento declarado por el propio
+  /// manifiesto remoto, si se conoce) añade una señal adicional: si no
+  /// coincide con `remote.pages.length`, es indicio de truncado en tránsito y
+  /// se marca como sospechoso incluso si la caída no cruzase el umbral.
+  ///
+  /// [localFingerprint]/[remoteFingerprint]/[baselineFingerprint] (Fase A,
+  /// H4): si el llamador ya calculó estos fingerprints (p. ej. para decidir
+  /// si hacía falta llamar a `merge()`), puede pasarlos para que no se
+  /// recalculen aquí — `payloadFingerprint` hace un `jsonEncode` de la
+  /// libreta entera, así que repetirlo 2-3 veces por ciclo de sync es trabajo
+  /// duplicado puro. `baselineFingerprint` solo se usa si [baseline] no es
+  /// null. Omitir estos parámetros mantiene el comportamiento exacto de antes.
   VaultSyncMergeResult merge({
     required VaultPayload local,
     required VaultPayload remote,
     VaultPayload? baseline,
+    int? remoteExpectedPageCount,
+    String? localFingerprint,
+    String? remoteFingerprint,
+    String? baselineFingerprint,
   }) {
     final base =
         baseline ?? VaultPayload(pages: const [], pageTombstones: const {});
 
-    final localFp = payloadFingerprint(local);
-    final remoteFp = payloadFingerprint(remote);
+    final remoteLooksPartial = looksSuspiciouslyPartial(
+      basePageCount: base.pages.length,
+      remotePageCount: remote.pages.length,
+      remoteExpectedPageCount: remoteExpectedPageCount,
+    );
+
+    final localFp = localFingerprint ?? payloadFingerprint(local);
+    final remoteFp = remoteFingerprint ?? payloadFingerprint(remote);
     if (localFp == remoteFp) {
       return VaultSyncMergeResult(
         payload: _copyPayload(local),
@@ -162,7 +231,15 @@ class VaultSyncMergeEngine {
     // cual, igual que un `git merge --ff-only`. Evita el diffing completo en
     // el caso más habitual (nadie tocó esta libreta en este dispositivo
     // desde la última sync).
-    if (localFp == payloadFingerprint(base)) {
+    //
+    // Salvo que el remoto parezca un manifiesto parcial: adoptarlo tal cual
+    // colapsaría la libreta local a esas pocas páginas sin pasar por ningún
+    // diff. En ese caso se cae al camino de abajo, que sí sabe no tombstonear
+    // páginas ausentes solo por culpa de un remoto incompleto.
+    final baseFp = baseline == null
+        ? payloadFingerprint(base) // payload vacío por defecto: trivial
+        : (baselineFingerprint ?? payloadFingerprint(base));
+    if (localFp == baseFp && !remoteLooksPartial) {
       return VaultSyncMergeResult(
         payload: _copyPayload(remote),
         blockConflicts: const [],
@@ -191,7 +268,17 @@ class VaultSyncMergeEngine {
 
     final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final id in basePages.keys) {
-      if (!localPages.containsKey(id) || !remotePages.containsKey(id)) {
+      final missingLocal = !localPages.containsKey(id);
+      final missingRemote = !remotePages.containsKey(id);
+      if (!missingLocal && missingRemote && remoteLooksPartial) {
+        // El remoto parece un manifiesto parcial: una página presente en
+        // local pero ausente del remoto es más probable un artefacto de
+        // subida incompleta que un borrado real. No tombstonear — se
+        // conserva la página local; el próximo push completo repara el
+        // remoto en vez de que este pull la borre en silencio.
+        continue;
+      }
+      if (missingLocal || missingRemote) {
         tombstones.putIfAbsent(id, () => nowMs);
       }
     }
@@ -371,6 +458,13 @@ class VaultSyncMergeEngine {
         connections: _mergeById(
           local: local.spotify.connections,
           remote: remote.spotify.connections,
+          idOf: (c) => c.id,
+        ),
+      ),
+      ytMusic: YtMusicIntegrationState(
+        connections: _mergeById(
+          local: local.ytMusic.connections,
+          remote: remote.ytMusic.connections,
           idOf: (c) => c.id,
         ),
       ),
@@ -738,4 +832,117 @@ class VaultSyncMergeEngine {
       zenPauseOnExit: remote.zenPauseOnExit,
     );
   }
+}
+
+// --- Fase B (H4): decisión de sync completa en un isolate aparte ---
+//
+// `payloadFingerprint`/`merge` son funciones puras sobre `VaultPayload` (y
+// modelos anidados: `FolioPage`, `FolioBlock`, estados de integración...) —
+// sin cierres, sin `BuildContext`, sin manejadores nativos — así que viajan
+// tal cual entre isolates (el runtime de Dart copia el grafo de objetos).
+// No hace falta serializarlos a JSON/bytes para cruzar el límite: eso
+// costaría casi lo mismo que el propio fingerprint que se quiere evitar en
+// el isolate de UI.
+
+enum SyncMergeOutcomeKind { unchanged, emptyRemoteGuard, partialGuard, merged }
+
+/// Resultado de [computeSyncMergeOutcome]. Sustituye únicamente EL SITIO
+/// donde se ejecuta la decisión de sync — mismos guards, mismo orden, mismo
+/// resultado que antes de la Fase B.
+class SyncMergeOutcome {
+  const SyncMergeOutcome({
+    required this.kind,
+    required this.localFingerprint,
+    required this.remoteFingerprint,
+    this.result,
+    this.resultFingerprint,
+    this.localPageCount = 0,
+    this.remotePageCount = 0,
+  });
+
+  final SyncMergeOutcomeKind kind;
+  final String localFingerprint;
+  final String remoteFingerprint;
+
+  /// Solo si [kind] es [SyncMergeOutcomeKind.merged].
+  final VaultSyncMergeResult? result;
+
+  /// Fingerprint de `result.payload`, ya calculado en el worker para que el
+  /// isolate llamante no tenga que repetirlo.
+  final String? resultFingerprint;
+
+  final int localPageCount;
+  final int remotePageCount;
+}
+
+/// Entrypoint de `compute()`: hace TODO lo que `VaultSession.applySyncSnapshotBytes`
+/// decidía antes en el isolate de UI — fingerprint de local/remoto, los
+/// mismos guards anti-wipe (remoto vacío / manifiesto parcial) y el merge de
+/// 3 vías si hace falta — fuera del isolate llamante. Solo recibe/devuelve
+/// datos puros; no toca `VaultSession`, disco ni red. Misma lógica y mismo
+/// orden de decisiones que antes: el único cambio es DÓNDE se ejecuta.
+///
+/// `args`: `local`/`remote` (`VaultPayload`, requeridos), `baseline`
+/// (`VaultPayload?`), `baselineFingerprint` (`String?`, solo se usa si
+/// `baseline` no es null), `remoteExpectedPageCount` (`int?`).
+SyncMergeOutcome computeSyncMergeOutcome(Map<String, Object?> args) {
+  final local = args['local'] as VaultPayload;
+  final remote = args['remote'] as VaultPayload;
+  final baseline = args['baseline'] as VaultPayload?;
+  final baselineFingerprint = args['baselineFingerprint'] as String?;
+  final remoteExpectedPageCount = args['remoteExpectedPageCount'] as int?;
+  const engine = VaultSyncMergeEngine();
+
+  final localFp = VaultSyncMergeEngine.payloadFingerprint(local);
+  final remoteFp = VaultSyncMergeEngine.payloadFingerprint(remote);
+  if (localFp == remoteFp) {
+    return SyncMergeOutcome(
+      kind: SyncMergeOutcomeKind.unchanged,
+      localFingerprint: localFp,
+      remoteFingerprint: remoteFp,
+    );
+  }
+
+  // Mismos guards anti-wipe que antes, en el mismo orden.
+  if (local.pages.isNotEmpty && remote.pages.isEmpty) {
+    return SyncMergeOutcome(
+      kind: SyncMergeOutcomeKind.emptyRemoteGuard,
+      localFingerprint: localFp,
+      remoteFingerprint: remoteFp,
+      localPageCount: local.pages.length,
+      remotePageCount: remote.pages.length,
+    );
+  }
+
+  if (VaultSyncMergeEngine.looksSuspiciouslyPartial(
+    basePageCount: local.pages.length,
+    remotePageCount: remote.pages.length,
+    remoteExpectedPageCount: remoteExpectedPageCount,
+  )) {
+    return SyncMergeOutcome(
+      kind: SyncMergeOutcomeKind.partialGuard,
+      localFingerprint: localFp,
+      remoteFingerprint: remoteFp,
+      localPageCount: local.pages.length,
+      remotePageCount: remote.pages.length,
+    );
+  }
+
+  final result = engine.merge(
+    local: local,
+    remote: remote,
+    baseline: baseline,
+    remoteExpectedPageCount: remoteExpectedPageCount,
+    localFingerprint: localFp,
+    remoteFingerprint: remoteFp,
+    baselineFingerprint: baselineFingerprint,
+  );
+
+  return SyncMergeOutcome(
+    kind: SyncMergeOutcomeKind.merged,
+    localFingerprint: localFp,
+    remoteFingerprint: remoteFp,
+    result: result,
+    resultFingerprint: VaultSyncMergeEngine.payloadFingerprint(result.payload),
+  );
 }

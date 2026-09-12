@@ -41,4 +41,31 @@ void main() {
     expect(again.ownerUid, 'u1');
     expect(again.canDelete, isFalse);
   });
+
+  test('round-trip json preserves trashedAt', () {
+    final trashedAt = DateTime.fromMillisecondsSinceEpoch(123456789);
+    final e = VaultEntry(
+      id: 'd',
+      displayName: 'D',
+      createdAtMs: 1,
+      trashedAt: trashedAt,
+    );
+    expect(e.isTrashed, isTrue);
+
+    final again = VaultEntry.fromJson(e.toJson());
+    expect(again.isTrashed, isTrue);
+    expect(again.trashedAt, trashedAt);
+  });
+
+  test('copyWith clearTrashedAt removes trashedAt', () {
+    final e = VaultEntry(
+      id: 'e',
+      displayName: 'E',
+      createdAtMs: 1,
+      trashedAt: DateTime.now(),
+    );
+    final restored = e.copyWith(clearTrashedAt: true);
+    expect(restored.isTrashed, isFalse);
+    expect(restored.trashedAt, isNull);
+  });
 }

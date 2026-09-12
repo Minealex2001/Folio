@@ -175,6 +175,15 @@ class ToolEmulatingAiService implements AiService {
 
   @override
   Future<List<String>> listModels() => _inner.listModels();
+
+  @override
+  bool get supportsImageGeneration => _inner.supportsImageGeneration;
+
+  @override
+  Future<AiImageGenerationResult> generateImage({
+    required String prompt,
+    String? pageContextText,
+  }) => _inner.generateImage(prompt: prompt, pageContextText: pageContextText);
 }
 
 /// Devuelve `ai` tal cual si ya soporta `tools` nativo, o lo envuelve en

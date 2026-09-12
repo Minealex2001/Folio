@@ -1,12 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 class AndroidMulticastLock {
   static const MethodChannel _channel = MethodChannel('com.minealexgames.folio/network');
 
   static Future<void> acquire() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod<void>('acquireMulticastLock');
     } catch (_) {
@@ -15,7 +16,7 @@ class AndroidMulticastLock {
   }
 
   static Future<void> release() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod<void>('releaseMulticastLock');
     } catch (_) {

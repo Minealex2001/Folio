@@ -19,7 +19,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../config/models/panel_region_ids.dart';
+import '../../../layout_engine/layout_engine_controller.dart';
 import '../../../services/app_logger.dart';
+import '../../../theme_engine/theme_config_controller.dart';
+import '../../../visual_editor/visual_editor.dart';
+import '../../../visual_packs/active_pack_controller.dart';
+import '../../../widget_catalog/dnd/dashboard_grid_controller.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
@@ -29,6 +35,11 @@ import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../desktop/desktop_window_fullscreen.dart';
 import '../../../models/folio_page.dart';
+import '../../../models/vault_memory_fact.dart';
+import '../../../models/quill_workflow.dart';
+import '../../../services/meeting_note_session_controller.dart';
+import '../editor/smart_templates/smart_template_definitions.dart';
+import '../editor/smart_templates/smart_template_flow_overlay.dart';
 import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
@@ -37,10 +48,12 @@ import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
+import '../ai/intent_actions.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/ai/on_device_ai_bridge.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/cloud_account/organization_context_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/media/media_playback_router.dart';
 import '../../../services/spotify/spotify_playback_controller.dart';
@@ -63,14 +76,20 @@ import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../widgets/spotify_now_playing_bar.dart';
 import '../../../session/vault_session.dart';
+import '../../../session/workspace_state_controller.dart';
+import 'workspace_tab_strip.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
+import '../../admin/admin_console_page.dart' show AdminConsolePage;
 import '../../settings/settings_page.dart' show SettingsPage;
 import 'ai_chat_reply_skeleton.dart';
 import 'ai_tool_activity_indicator.dart';
+import 'tool_inspector_panel.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
+import '../editor/command_palette/palette_command.dart';
 import '../editor/block_editor_support_widgets.dart';
 import '../graph/graph_view_screen.dart';
+import '../history/meeting_notes_history_screen.dart';
 import '../history/page_history_sheet.dart';
 import '../history/mermaid_markdown_builder.dart';
 import 'sidebar.dart';
@@ -80,6 +99,7 @@ import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
+import 'workspace_shell_v2.dart';
 import '../tasks/task_details_panel.dart';
 import '../tasks/vault_task_hub_page.dart';
 import '../templates/template_gallery_page.dart';
@@ -99,30 +119,52 @@ part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
 part 'workspace_page_ai_slash.dart';
 part 'workspace_page_ai_plan.dart';
+part 'workspace_page_ai_workflows.dart';
+part 'workspace_page_ai_meeting_suggestions.dart';
+part 'workspace_page_ai_generated_image.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
     super.key,
     required this.session,
     required this.appSettings,
+    required this.layoutEngineController,
+    required this.dashboardGridController,
+    required this.themeConfigController,
+    required this.activePackController,
+    required this.workspaceStateController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
     this.cloudStatusController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.organizationContext,
     required this.onOpenSearch,
     required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final LayoutEngineController layoutEngineController;
+  final DashboardGridController dashboardGridController;
+  final ThemeConfigController themeConfigController;
+  final ActivePackController activePackController;
+
+  /// Pestañas de páginas abiertas (Fase 28/29) — ver `_onSessionChangedForTabs`/
+  /// `_onTabsChangedForSession` en el State, que lo mantienen sincronizado
+  /// con `session.selectedPageId` sin tener que tocar cada sitio de
+  /// navegación (sidebar, búsqueda, backlinks, wikilinks...).
+  final WorkspaceStateController workspaceStateController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
   final FolioCloudStatusController? cloudStatusController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+
+  /// Fase 13 del roadmap de Organizations — hilvanado hasta `SettingsPage`.
+  final OrganizationContextController? organizationContext;
   final void Function([String? initialQuery]) onOpenSearch;
   final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
@@ -138,6 +180,10 @@ enum _AiContextItemKind {
   meetingNote,
   editorSelection,
   lastMeetingOnPage,
+  // Fase A1 del plan Quill/MCP — toggle persistente (no "una sola vez" como
+  // `editorSelection`) de auto-adjuntar la selección del editor en cada
+  // envío de este hilo.
+  autoSelectionToggle,
 }
 
 enum _AiContextMenuView { root, pages }
@@ -168,6 +214,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final FocusNode _chatInputFocusNode = FocusNode();
   final LayerLink _aiComposerLayerLink = LayerLink();
   OverlayEntry? _aiContextMenuOverlay;
+  // Fase A5 del plan Quill/MCP — mini-flujo de variables al lanzar un
+  // Workflow con `{{variable}}`.
+  OverlayEntry? _quillWorkflowOverlayEntry;
+  // Fase A3 del plan Quill/MCP — sugerencia proactiva tras transcripción de
+  // reunión completada.
+  MeetingNoteSessionState? _lastObservedMeetingSessionState;
+  final Set<String> _shownMeetingSuggestionKeys = {};
   String _aiContextQuery = '';
   bool _aiContextMenuPinned = false;
   final TextEditingController _aiContextMenuSearchController =
@@ -178,7 +231,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final Map<String, String> _aiMeetingTranscripts = {};
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
+  /// Token del turno Quill en curso; Stop llama a [AiCancelToken.cancel].
+  AiCancelToken? _aiChatCancelToken;
   String? _aiToolActivityLabel;
+  // Fase A6 del plan Quill/MCP — traza acumulada de pasos del turno de IA en
+  // curso (se limpia al empezar un turno nuevo, no se consume por paso como
+  // `_aiToolActivityLabel`).
+  final List<ToolInspectorStep> _aiToolTrace = [];
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
   /// Modo Plan por hilo de chat (efímero; no se persiste). Default apagado.
@@ -207,6 +266,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _kanbanClassicEditPageId;
   String? _lastSessionPageIdForKanban;
 
+  /// Sincroniza `session.selectedPageId` <-> `workspaceStateController`
+  /// (pestañas) en las dos direcciones sin rebotar entre sí — ver
+  /// `_onSession` (dirección sesión -> pestañas) y `_onTabsChanged`
+  /// (dirección pestañas -> sesión, para cuando se cierra la pestaña activa).
+  String? _syncedTabPageId;
+  String? _syncedTabVaultId;
+
+  /// `true` mientras `_onSession` vacía las pestañas por un cambio de
+  /// libreta — evita que `_onTabsChanged` interprete ese `activeTabId ==
+  /// null` como "el usuario cerró la última pestaña" y navegue a home
+  /// justo cuando la libreta nueva ya está seleccionando su propia página.
+  bool _clearingTabsForVaultSwitch = false;
+
   /// Al abrir el editor clásico en una página con Drive, se guarda su id aquí.
   String? _driveClassicEditPageId;
 
@@ -220,6 +292,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
   final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
+
+  /// Mensajes cuyo contenido se está actualizando en vivo por streaming real
+  /// (ver `_sendAiChat`). Mientras la key esté aquí, la burbuja renderiza
+  /// texto plano del contenido actual (aunque esté a medias) en vez de
+  /// Markdown, para no romper el layout con un fence de código o una tabla
+  /// a medio escribir; al asentarse el turno se retira la key y se
+  /// re-renderiza como Markdown completo.
+  final Set<String> _aiStreamingMessageKeys = <String>{};
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
@@ -260,6 +340,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   late final CollabSessionController _collab;
+
+  /// Editor visual (Fase 6) — estado puramente de UI (no persiste, no toca
+  /// ConfigStore), por eso vive local a este widget en vez de threaded
+  /// desde main.dart como layoutEngineController/dashboardGridController.
+  final VisualEditorController _visualEditor = VisualEditorController();
+
+  /// Modo dashboard editable (Fase 4/5) — swap de `WorkspaceHomeView` por el
+  /// `DashboardGridRegion` real con drag & drop entre columnas. Estado
+  /// puramente de UI, igual que `_visualEditor`: no persiste por sí mismo,
+  /// las mutaciones que produce sí (a través de `dashboardGridController`).
+  bool _dashboardEditMode = false;
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -604,6 +695,53 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  /// Fase A2 del plan Quill/MCP — contraparte de `_tryApplyAgentChatSnapshot`
+  /// para respuestas de IA puramente de texto (sin `agentApplySnapshot`):
+  /// inserta la respuesta como un párrafo nuevo al final de la página
+  /// activa, en vez de obligar a copiar/pegar a mano.
+  void _insertPlainTextReplyAsBlock(String text) {
+    final pageId = _s.selectedPageId;
+    final trimmed = text.trim();
+    final l10n = AppLocalizations.of(context);
+    if (pageId == null || pageId.isEmpty || trimmed.isEmpty) {
+      _snack(l10n.aiChatApplySnapshotFailure, error: true);
+      return;
+    }
+    _s.appendBlock(
+      pageId: pageId,
+      block: FolioBlock(
+        id: '${pageId}_${const Uuid().v4()}',
+        type: 'paragraph',
+        text: trimmed,
+      ),
+    );
+    _snack(l10n.aiChatApplySnapshotSuccess);
+  }
+
+  /// Fase A4 del plan Quill/MCP — el usuario decide explícitamente guardar
+  /// una respuesta de Quill como hecho recordado (temporal o permanente);
+  /// nunca se escribe memoria sin esta acción manual.
+  void _saveReplyAsMemoryFact(String text, MemoryFactScope scope) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    unawaited(
+      widget.appSettings.addVaultMemoryFact(
+        VaultMemoryFact(
+          id: const Uuid().v4(),
+          text: trimmed,
+          createdAt: DateTime.now(),
+          scope: scope,
+        ),
+      ),
+    );
+    final l10n = AppLocalizations.of(context);
+    _snack(
+      scope == MemoryFactScope.temporary
+          ? l10n.aiChatSaveFactTemporarySuccess
+          : l10n.aiChatSaveFactPermanentSuccess,
+    );
+  }
+
   Widget _buildAiMessageRow(
     BuildContext context,
     AiChatMessage message,
@@ -783,9 +921,48 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 messageIndex,
                               );
                             }
+                            // Imagen generada = artefacto propio (mismo patrón que el plan).
+                            if (!isUser && message.generatedImagePath != null) {
+                              return _buildGeneratedImageCard(
+                                message,
+                                messageIndex,
+                              );
+                            }
                             final target = bodyContent.isEmpty
                                 ? message.content
                                 : bodyContent;
+                            final isStreamingLive =
+                                !isUser &&
+                                _aiStreamingMessageKeys.contains(msgKey);
+                            if (isStreamingLive) {
+                              final liveText = _normalizeHtmlForChat(target);
+                              if (liveText.trim().isEmpty) {
+                                return Semantics(
+                                  label: l10n.aiTypingSemantics,
+                                  liveRegion: true,
+                                  child: _aiToolTrace.isNotEmpty
+                                      ? ToolInspectorPanel(
+                                          steps: _aiToolTrace,
+                                          colorScheme: scheme,
+                                        )
+                                      : FolioAiChatReplySkeleton(
+                                          colorScheme: scheme,
+                                        ),
+                                );
+                              }
+                              final liveStyle = Theme.of(
+                                ctx,
+                              ).textTheme.bodyMedium?.copyWith(
+                                color: textColor,
+                                height: 1.35,
+                              );
+                              return SelectableText(
+                                liveText,
+                                style:
+                                    liveStyle ??
+                                    TextStyle(color: textColor, height: 1.35),
+                              );
+                            }
                             final shouldAnimate =
                                 !isUser &&
                                 _aiTypewriterActiveMessageKeys.contains(msgKey);
@@ -819,7 +996,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           ...message.toolErrors!.map(
                             (err) => AiToolErrorChip(message: err, colorScheme: scheme),
                           ),
-                        if (!isUser && message.agentPlan == null) ...[
+                        if (!isUser &&
+                            message.agentPlan == null &&
+                            message.generatedImagePath == null &&
+                            !_aiStreamingMessageKeys.contains(msgKey)) ...[
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -893,6 +1073,32 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 ],
                               ),
                               const SizedBox(width: 4),
+                              if (messageIndex == _activeChat.messages.length - 1 &&
+                                  messageIndex > 0 &&
+                                  _activeChat.messages[messageIndex - 1].role ==
+                                      'user') ...[
+                                IconButton(
+                                  iconSize: 18,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  style: ButtonStyle(
+                                    iconColor: WidgetStateProperty.resolveWith(
+                                      (_) => textColor.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  tooltip: l10n.aiRegenerate,
+                                  onPressed: _aiChatBusy
+                                      ? null
+                                      : () => unawaited(
+                                          _regenerateAiMessage(messageIndex),
+                                        ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               IconButton(
                                 iconSize: 18,
                                 padding: EdgeInsets.zero,
@@ -948,61 +1154,129 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ],
                           ),
-                          if (message.agentApplySnapshot != null)
+                          // Fase A2 del plan Quill/MCP — la fila de botones
+                          // pasa a construirse como una lista de
+                          // `IntentAction` renderizada por el componente
+                          // genérico `IntentActionBar` (reutilizable desde
+                          // fuera del chat, ver `intent_actions.dart`) en vez
+                          // de un `Wrap` de botones hardcodeado aquí. Mismo
+                          // Primary Surface de ejecución que antes
+                          // (`_tryApplyAgentChatSnapshot` /
+                          // `applyAgentChatSnapshotToPage`) — esta fase solo
+                          // cambia la presentación, no la aplicación.
+                          if (message.agentApplySnapshot != null ||
+                              bodyContent.trim().isNotEmpty)
                             Builder(
                               builder: (ctx) {
-                                final snap = message.agentApplySnapshot!;
-                                final bl = snap['blocks'];
-                                final op = snap['operations'];
+                                final snap = message.agentApplySnapshot;
+                                final bl = snap?['blocks'];
+                                final op = snap?['operations'];
                                 final hasBlocks = bl is List && bl.isNotEmpty;
                                 final hasOps = op is List && op.isNotEmpty;
-                                if (!hasBlocks && !hasOps) {
+                                final actions = <IntentAction>[
+                                  if (hasBlocks) ...[
+                                    IntentAction(
+                                      id: 'insert_end',
+                                      label: l10n.aiChatApplyInsertEnd,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.insertBlocksAtEnd,
+                                          ),
+                                    ),
+                                    IntentAction(
+                                      id: 'replace_page',
+                                      label: l10n.aiChatApplyReplacePage,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.replaceAllBlocks,
+                                          ),
+                                    ),
+                                  ],
+                                  if (hasOps)
+                                    IntentAction(
+                                      id: 'apply_ops',
+                                      label: l10n.aiChatApplyOperations,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _tryApplyAgentChatSnapshot(
+                                            message,
+                                            AiAgentApplyKind.applyEditOperations,
+                                          ),
+                                    ),
+                                  // Gap real cerrado por esta fase: antes, un
+                                  // intent puramente de texto (resumir,
+                                  // explicar, mejorar, continuar) no tenía
+                                  // NINGÚN botón — el usuario tenía que
+                                  // copiar/pegar a mano. Si no hay
+                                  // bloques/operaciones pero sí texto útil,
+                                  // se ofrece insertarlo como párrafo nuevo.
+                                  if (!hasBlocks &&
+                                      !hasOps &&
+                                      bodyContent.trim().isNotEmpty)
+                                    IntentAction(
+                                      id: 'insert_text',
+                                      label: l10n.aiChatApplyInsertTextEnd,
+                                      primary: true,
+                                      onPressed: () =>
+                                          _insertPlainTextReplyAsBlock(
+                                            bodyContent,
+                                          ),
+                                    ),
+                                  // Fase A4 del plan Quill/MCP — "Guardar
+                                  // como hecho" reutiliza IntentActionBar
+                                  // (Fase A2): el usuario decide
+                                  // explícitamente qué se recuerda, la IA
+                                  // nunca escribe memoria por su cuenta.
+                                  if (bodyContent.trim().isNotEmpty) ...[
+                                    IntentAction(
+                                      id: 'save_fact_temp',
+                                      label: l10n.aiChatSaveFactTemporary,
+                                      icon: Icons.bookmark_border_rounded,
+                                      onPressed: () => _saveReplyAsMemoryFact(
+                                        bodyContent,
+                                        MemoryFactScope.temporary,
+                                      ),
+                                    ),
+                                    IntentAction(
+                                      id: 'save_fact_permanent',
+                                      label: l10n.aiChatSaveFactPermanent,
+                                      icon: Icons.bookmark_added_rounded,
+                                      onPressed: () => _saveReplyAsMemoryFact(
+                                        bodyContent,
+                                        MemoryFactScope.permanent,
+                                      ),
+                                    ),
+                                  ],
+                                  // Fase B3 del plan Quill/MCP — "Deshacer
+                                  // este turno" reutiliza IntentActionBar,
+                                  // igual que el resto de acciones de este
+                                  // mensaje. Solo se ofrece cuando el turno
+                                  // tuvo cambios de contenido reversibles y
+                                  // ninguna tool estructural/destructiva
+                                  // (ver `VaultSession.undoAiTurn`).
+                                  if (message.aiTurnId != null)
+                                    IntentAction(
+                                      id: 'undo_ai_turn',
+                                      label:
+                                          (message.aiTurnChangeCount ?? 0) > 0
+                                          ? l10n.aiChatUndoTurnWithCount(
+                                              message.aiTurnChangeCount!,
+                                            )
+                                          : l10n.aiChatUndoTurn,
+                                      icon: Icons.undo_rounded,
+                                      onPressed: () =>
+                                          _s.undoAiTurn(message.aiTurnId!),
+                                    ),
+                                ];
+                                if (actions.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 10),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      if (hasBlocks)
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .insertBlocksAtEnd,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyInsertEnd,
-                                          ),
-                                        ),
-                                      if (hasBlocks)
-                                        OutlinedButton(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .replaceAllBlocks,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyReplacePage,
-                                          ),
-                                        ),
-                                      if (hasOps)
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _tryApplyAgentChatSnapshot(
-                                                message,
-                                                AiAgentApplyKind
-                                                    .applyEditOperations,
-                                              ),
-                                          child: Text(
-                                            l10n.aiChatApplyOperations,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                  child: IntentActionBar(actions: actions),
                                 );
                               },
                             ),
@@ -1056,6 +1330,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
       );
     }
+    if (_activeChat.autoIncludeSelection) {
+      items.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.autoSelectionToggle,
+          id: '__auto_selection_toggle__',
+          label: l10n.aiContextAutoSelectionChip,
+        ),
+      );
+    }
     for (final path in _aiAttachmentPaths) {
       final isMeeting = _aiMeetingPayloads.containsKey(path);
       final label = isMeeting
@@ -1090,7 +1373,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _attachmentsBoundChatId = _s.activeAiChat.id;
     _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     _s.addListener(_onSession);
+    widget.workspaceStateController.addListener(_onTabsChanged);
+    // Evita que el primer `_onSession` (vaultId/pageId aún no vistos) borre
+    // las pestañas restauradas del disco interpretándolo como un cambio de
+    // libreta — ver `_onSession`/`_onTabsChanged`.
+    _syncedTabVaultId = _s.activeVaultId;
+    _syncedTabPageId = widget.workspaceStateController.config.activeTabId ??
+        _s.selectedPageId;
     widget.appSettings.addListener(_onAppSettings);
+    widget.layoutEngineController.addListener(_onLayoutEngineChanged);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
     if (_supportsOsFullscreen) {
       DesktopWindowFullscreen.instance.addListener(_onOsFullscreenChanged);
@@ -1098,6 +1389,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    // Fase A3 del plan Quill/MCP — sugerencia proactiva (v1 acotado a un
+    // único disparador: transcripción de reunión completada). Escucha
+    // puramente externa al `MeetingNoteSessionController` ya existente, sin
+    // tocar ningún archivo del subsistema de audio/transcripción.
+    MeetingNoteSessionController.instance.addListener(_onMeetingSessionStateChanged);
     unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
     _lastSessionPageIdForKanban = _s.selectedPageId;
@@ -1114,6 +1410,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   @override
   void dispose() {
+    MeetingNoteSessionController.instance.removeListener(_onMeetingSessionStateChanged);
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
     _hideAiContextMenu();
     _draftSaveTimer?.cancel();
@@ -1125,9 +1422,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
     }
     widget.appSettings.removeListener(_onAppSettings);
+    widget.workspaceStateController.removeListener(_onTabsChanged);
+    widget.layoutEngineController.removeListener(_onLayoutEngineChanged);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
     _collab.dispose();
+    _visualEditor.dispose();
     _s.removeListener(_onSession);
     _chatInputController.removeListener(_updateAiContextMenu);
     _chatInputFocusNode.removeListener(_updateAiContextMenu);
@@ -1184,6 +1484,30 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
   }
 
+  /// Dirección pestañas -> sesión: `WorkspaceTabStrip` solo llama a
+  /// `activateTab`/`closeTab` sobre el controller (ver `workspace_tab_strip.dart`),
+  /// no navega el editor por sí solo — al cerrar la pestaña activa el
+  /// controller elige otra (`WorkspaceStateController.closeTab`), y este
+  /// listener es quien mueve `session.selectedPageId` ahí. El guard
+  /// compartido `_syncedTabPageId` evita rebotar de vuelta hacia `_onSession`.
+  void _onTabsChanged() {
+    if (!mounted) return;
+    final activeTabId = widget.workspaceStateController.config.activeTabId;
+    if (activeTabId != null) {
+      if (activeTabId != _syncedTabPageId) {
+        _syncedTabPageId = activeTabId;
+        _s.selectPage(activeTabId);
+      }
+      return;
+    }
+    // Sin pestañas abiertas: si fue porque el usuario cerró la última
+    // (no un cambio de libreta, ver `_clearingTabsForVaultSwitch`), el
+    // editor vuelve a home en vez de quedarse mostrando la página cerrada.
+    if (_clearingTabsForVaultSwitch || _syncedTabPageId == null) return;
+    _syncedTabPageId = null;
+    _s.clearSelectedPage();
+  }
+
   void _onSession() {
     if (!mounted) return;
     final currentPageId = _s.selectedPageId;
@@ -1192,6 +1516,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _kanbanClassicEditPageId = null;
       _driveClassicEditPageId = null;
       _canvasClassicEditPageId = null;
+    }
+    final currentVaultId = _s.activeVaultId;
+    if (currentVaultId != _syncedTabVaultId) {
+      _syncedTabVaultId = currentVaultId;
+      _clearingTabsForVaultSwitch = true;
+      widget.workspaceStateController.clearTabs();
+      _clearingTabsForVaultSwitch = false;
+      _syncedTabPageId = null;
+    }
+    if (currentPageId != _syncedTabPageId) {
+      _syncedTabPageId = currentPageId;
+      if (currentPageId != null) {
+        widget.workspaceStateController.openTab(currentPageId);
+      }
     }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
@@ -1240,13 +1578,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final aiMessageFeedbackFp = chat.messages
         .map((m) => m.feedback ?? '-')
         .join('|');
+    // El streaming en vivo actualiza el ÚLTIMO mensaje in-place (mismo
+    // conteo de mensajes), así que el fingerprint necesita una señal que
+    // cambie con cada fragmento nuevo para que el bucle no se quede
+    // "congelado" mostrando solo el placeholder vacío hasta el final.
+    final lastAiMessage = chat.messages.isEmpty ? null : chat.messages.last;
+    final aiStreamingFp = lastAiMessage == null
+        ? ''
+        : '${lastAiMessage.role}:${lastAiMessage.content.length}';
     final fp =
         '${_s.selectedPageId}|${_s.contentEpoch}'
         '|${_s.canUndoSelectedPage}|${_s.canRedoSelectedPage}'
         '|${_s.hasPendingDiskSave}|${_s.isPersistingToDisk}'
         '|${_s.aiEnabled}|${chat.id}|${chat.messages.length}'
         '|${_s.selectedPage?.collabRoomId ?? ""}'
-        '|$aiMessageFeedbackFp';
+        '|$aiMessageFeedbackFp|$aiStreamingFp';
     if (fp != _lastWorkspaceFingerprint) {
       _lastWorkspaceFingerprint = fp;
       // Actualizar caché kanban solo cuando realmente reconstruimos.
@@ -1284,6 +1630,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
   }
 
+  /// Motor de layout (Fase 2/7): `effectiveSidebarW` lee del
+  /// `LayoutEngineController` — sin este listener, un cambio hecho fuera de
+  /// este widget (ej. el botón "Restablecer layout" en Settings) no se
+  /// vería reflejado hasta el próximo rebuild por otra causa.
+  void _onLayoutEngineChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   bool _matchesActivator(SingleActivator activator, KeyEvent event) {
     if (event.logicalKey != activator.trigger) return false;
     final keyboard = HardwareKeyboard.instance;
@@ -1300,7 +1655,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         activator: a.inAppShortcut(FolioInAppShortcut.search),
         action: () {
           if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
-            widget.onOpenSearch();
+            _openCommandPaletteOrSearch();
           }
         },
       ),
@@ -1527,6 +1882,65 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  /// Editor visual (Fase 6): inspector de propiedades flotante. Reutiliza
+  /// `PropertyInspectorPanel` (probado de forma aislada montado dentro de
+  /// un `PanelHost` real) — aquí simplemente se le da tamaño y chrome de
+  /// tarjeta acorde al slot `overlay` de `WorkspaceBodyShell`.
+  Widget _buildVisualEditorInspectorOverlay(ColorScheme scheme) {
+    return Material(
+      elevation: FolioElevation.menu,
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(FolioRadius.xl),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 300,
+        height: 380,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(context).visualEditorBetaLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: AppLocalizations.of(context).close,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => setState(() {
+                      _visualEditor.editModeActive = false;
+                      _dashboardEditMode = false;
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: PropertyInspectorPanel(
+                controller: _visualEditor,
+                // Fase 9: fusiona dashboardGridController también — sin esto,
+                // seleccionar una instancia de widget y arrastrar su
+                // esquina de resize no refrescaba los campos de tamaño del
+                // inspector hasta la siguiente selección.
+                repaintOn: Listenable.merge([
+                  widget.layoutEngineController,
+                  widget.dashboardGridController,
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuillWorkspaceTourCard(
     ThemeData theme,
     ColorScheme scheme,
@@ -1695,15 +2109,29 @@ class _WorkspacePageState extends State<WorkspacePage> {
         builder: (ctx) => SettingsPage(
           session: _s,
           appSettings: widget.appSettings,
+          layoutEngineController: widget.layoutEngineController,
+          themeConfigController: widget.themeConfigController,
+          dashboardGridController: widget.dashboardGridController,
+          activePackController: widget.activePackController,
           deviceSyncController: widget.deviceSyncController,
           cloudSettingsSyncController: widget.cloudSettingsSyncController,
           cloudDeviceSyncController: widget.cloudDeviceSyncController,
           cloudStatusController: widget.cloudStatusController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
+          organizationContext: widget.organizationContext,
           initialSection: initialSection,
           initialCloudTab: initialCloudTab,
         ),
+      ),
+    );
+  }
+
+  void _openAdminConsole() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'admin_console'),
+        builder: (ctx) => const AdminConsolePage(),
       ),
     );
   }
@@ -1716,6 +2144,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           onOpenPage: _s.selectPage,
+        ),
+      ),
+    );
+  }
+
+  // Fase 18 de la evolución de meeting_note: entrada real a la pantalla de
+  // historial, no solo infraestructura probada sin acceso desde la app.
+  void _openMeetingNotesHistory() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'meeting_notes_history'),
+        builder: (_) => MeetingNotesHistoryScreen(
+          session: _s,
+          onOpenPage: (pageId) {
+            _s.selectPage(pageId);
+            Navigator.of(context).pop();
+          },
         ),
       ),
     );
@@ -1796,6 +2241,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return l10n.cloudAuthErrorTooManyRequests;
       case 'operation-not-allowed':
         return l10n.cloudAuthErrorOperationNotAllowed;
+      case 'cloud-disabled':
+        return l10n.cloudAuthErrorCloudDisabled;
       default:
         return l10n.cloudAuthErrorGeneric;
     }
@@ -1841,6 +2288,72 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
+  /// Fase C3 del rediseño UX del editor — decisión ya tomada con el
+  /// usuario: Ctrl+K pasa a abrir el Command Palette; la búsqueda de
+  /// páginas (antes en Ctrl+K en exclusiva) se convierte en un comando más
+  /// dentro del propio Palette, no desaparece. Ctrl+F sigue funcionando
+  /// como atajo directo de búsqueda sin pasar por el Palette (ya existía
+  /// como fallback antes de esta fase — `altSearch` más abajo — así que
+  /// "dar a la búsqueda un atajo dedicado" ya estaba resuelto).
+  ///
+  /// Si no hay una página abierta (o su `BlockEditor` aún no ha montado —
+  /// ej. viendo el dashboard), no hay dónde anclar el Palette; se cae al
+  /// comportamiento antiguo (abrir búsqueda directamente) en vez de no
+  /// hacer nada.
+  void _openCommandPaletteOrSearch() {
+    final page = _s.selectedPage;
+    final editorState = page == null
+        ? null
+        : _blockEditorKeyForPage(page.id).currentState;
+    if (editorState != null) {
+      editorState.toggleCommandPaletteOverlay();
+    } else {
+      widget.onOpenSearch();
+    }
+  }
+
+  /// Fase C3 del rediseño UX del editor — comandos de nivel-workspace del
+  /// Command Palette. Acotado deliberadamente a acciones ya reachable con
+  /// una sola llamada desde esta clase (búsqueda, crear página, ajustes) —
+  /// "cambiar tema"/"cambiar layout"/"páginas recientes" quedan fuera de
+  /// v1 (necesitarían abrir sub-selectores propios, no una sola acción) y
+  /// se dejan como ampliación futura de este mismo proveedor, no como una
+  /// segunda lista paralela.
+  List<PaletteCommand> _workspacePaletteCommands() {
+    return [
+      PaletteCommand(
+        id: 'cmd_workspace_search',
+        label: AppLocalizations.of(context).cmdSearchNotebook,
+        icon: Icons.search_rounded,
+        category: PaletteCommandCategory.navigation,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.search),
+        ),
+        execute: widget.onOpenSearch,
+      ),
+      PaletteCommand(
+        id: 'cmd_workspace_new_page',
+        label: AppLocalizations.of(context).widgetCreatePage,
+        icon: Icons.note_add_outlined,
+        category: PaletteCommandCategory.create,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.newPage),
+        ),
+        execute: () => _s.addPage(parentId: null),
+      ),
+      PaletteCommand(
+        id: 'cmd_workspace_settings',
+        label: AppLocalizations.of(context).cmdOpenSettings,
+        icon: Icons.settings_outlined,
+        category: PaletteCommandCategory.settings,
+        shortcutLabel: describeActivator(
+          widget.appSettings.inAppShortcut(FolioInAppShortcut.settings),
+        ),
+        execute: _openSettings,
+      ),
+    ];
+  }
+
   void _selectAdjacentPage(int delta) {
     final pages = _s.pages;
     if (pages.isEmpty) return;
@@ -1884,7 +2397,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     while (current != null && !visited.contains(current.id)) {
       visited.add(current.id);
       chain.add(
-        current.title.trim().isEmpty ? 'Untitled' : current.title.trim(),
+        current.title.trim().isEmpty
+            ? AppLocalizations.of(context).untitled
+            : current.title.trim(),
       );
       final parentId = current.parentId;
       current = parentId == null ? null : byId[parentId];
@@ -1977,7 +2492,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
     } catch (e) {
       if (mounted) {
-        _snack('No se pudo forzar la sincronización: $e', error: true);
+        _snack(AppLocalizations.of(context).forceSyncFailed('$e'), error: true);
       }
     }
   }
@@ -2174,13 +2689,24 @@ class _WorkspacePageState extends State<WorkspacePage> {
         !compact && page != null && cloudSignedIn && hasCollabRoom;
     final useMobileCollabFab =
         compact && page != null && cloudSignedIn && hasCollabRoom;
+    // Motor de layout (Fase 2/7): la fuente de verdad renderizada es el
+    // LayoutEngineController, no AppSettings directamente — el hook
+    // AppSettings.onWorkspaceSidebarWidthChanged (main.dart) ya mantiene
+    // ambos sincronizados en cada resize, así que este valor siempre
+    // coincide con `widget.appSettings.workspaceSidebarWidth`, con el
+    // fallback solo por si el panel aún no existe (arranque en frío).
+    final sidebarBaseWidth =
+        widget.layoutEngineController
+            .panelFor(PanelRegionIds.sidebarLeft)
+            ?.width ??
+        widget.appSettings.workspaceSidebarWidth;
     final effectiveSidebarW = _zenMode
         ? 0.0
         : compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
-              ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
-              : widget.appSettings.workspaceSidebarWidth);
+              ? (_sidebarPeek ? sidebarBaseWidth : 0.0)
+              : sidebarBaseWidth);
     final hasAnyKanbanPage = _hasAnyKanbanPage;
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
@@ -2195,22 +2721,45 @@ class _WorkspacePageState extends State<WorkspacePage> {
           appSettings: widget.appSettings,
           cloudAccountController: widget.cloudAccountController,
           cloudStatusController: widget.cloudStatusController,
-          onSearch: () => widget.onOpenSearch(),
+          organizationContext: widget.organizationContext,
+          // Fase H1 (UX Review) — el buscador visible del sidebar era el
+          // único punto de entrada real y descubrible al Command Palette
+          // (Ctrl+K no es descubrible por sí solo — el propio usuario lo
+          // señaló como fricción real), pero antes de este fix abría la
+          // búsqueda antigua directamente, sin pasar por el Palette:
+          // mismo icono "buscar", dos resultados distintos según el gesto
+          // usado (click vs. Ctrl+K). Ahora ambos convergen en el mismo
+          // método (`_openCommandPaletteOrSearch`, ya usado por C3),
+          // preservando "Buscar en la libreta" como comando nested.
+          onSearch: _openCommandPaletteOrSearch,
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onOpenCloudStatus: () =>
               _openSettings(initialSection: 'cloud', initialCloudTab: 'status'),
+          onOpenOrganizationSettings: () => _openSettings(initialSection: 'organization'),
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
           onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,
         ),
       ),
     );
+    // Editor visual (Fase 6): el sidebar es el primer elemento realmente
+    // seleccionable/editable en el shell en vivo — SelectableTapWrapper es
+    // un passthrough puro cuando el modo está apagado (ver su doc), así que
+    // esto no cambia nada del comportamiento normal.
+    final selectableSidePanel = SelectableTapWrapper(
+      controller: _visualEditor,
+      selectable: PanelSelectable(
+        widget.layoutEngineController,
+        PanelRegionIds.sidebarLeft,
+      ),
+      child: sidePanel,
+    );
     final a = widget.appSettings;
     final shortcutBindings = <ShortcutActivator, VoidCallback>{
       a.inAppShortcut(FolioInAppShortcut.search): () {
         if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
-          widget.onOpenSearch();
+          _openCommandPaletteOrSearch();
         }
       },
       a.inAppShortcut(FolioInAppShortcut.newPage): () {
@@ -2290,6 +2839,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
               },
               forcePrimary: true,
             ),
+          if (!compact)
+            _WorkspaceActionEntry(
+              id: 'toggle_dashboard_edit',
+              label: _dashboardEditMode
+                  ? l10n.cmdExitHomeEdit
+                  : l10n.cmdEditHomeBeta,
+              icon: _dashboardEditMode
+                  ? Icons.dashboard_customize_rounded
+                  : Icons.dashboard_customize_outlined,
+              onPressed: () {
+                // Bug real reportado: con el editor visual como botón
+                // aparte, solo dejaba seleccionar el sidebar mientras no
+                // estuvieras también en modo edición de inicio — parecía no
+                // servir para nada. Un único toggle activa ambos a la vez:
+                // arrastrar/redimensionar/añadir/eliminar widgets Y
+                // seleccionarlos para editar color/opacidad/radio desde el
+                // inspector, además del sidebar.
+                setState(() {
+                  _dashboardEditMode = !_dashboardEditMode;
+                  _visualEditor.editModeActive = _dashboardEditMode;
+                });
+              },
+              forcePrimary: true,
+            ),
+          if (widget.folioCloudEntitlements.snapshot.folioStaff)
+            _WorkspaceActionEntry(
+              id: 'admin_console',
+              label: l10n.adminConsoleTitle,
+              icon: Icons.admin_panel_settings_outlined,
+              onPressed: _openAdminConsole,
+              forceOverflow: true,
+            ),
           if (!compact && page != null)
             _WorkspaceActionEntry(
               id: 'toggle_backlinks',
@@ -2368,6 +2949,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
             label: l10n.graphViewTitle,
             icon: Icons.bubble_chart_rounded,
             onPressed: _openGraphView,
+            forcePrimary: false,
+          ),
+          _WorkspaceActionEntry(
+            id: 'meeting_notes_history',
+            label: l10n.meetingNotesHistoryTitle,
+            icon: Icons.meeting_room_outlined,
+            onPressed: _openMeetingNotesHistory,
             forcePrimary: false,
           ),
           if (page != null)
@@ -2609,6 +3197,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     readOnlyMode: editorReadOnlyMode,
                     folioCloudEntitlements: widget.folioCloudEntitlements,
                     onAiSlashCommand: _handleFolioAiSlash,
+                    editorLayoutTokens:
+                        widget.layoutEngineController.config.editor,
+                    extraPaletteCommandsProvider: _workspacePaletteCommands,
                   ),
           );
 
@@ -2759,6 +3350,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
           : null,
       session: _s,
       appSettings: widget.appSettings,
+      dashboardGridController: widget.dashboardGridController,
+      dashboardEditModeActive: _dashboardEditMode,
+      visualEditor: _visualEditor,
       onSelectPage: _s.selectPage,
       onOpenTaskInPage: (pageId, blockId) {
         _s.selectPage(pageId);
@@ -2801,7 +3395,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
         children: [
           Expanded(child: editorWithPanels),
           PageOutlinePanel(
-            blocks: page.blocks,
+            page: page,
+            session: _s,
             scheme: scheme,
             blockEditorKey: activeBlockEditorKey!,
           ),
@@ -2970,6 +3565,62 @@ class _WorkspacePageState extends State<WorkspacePage> {
             mode: aiDockMode,
           );
 
+    // El sidebar debe ocupar toda la altura de la ventana (sin compartir
+    // banda con una AppBar de ancho completo): en modo no-compacto, la
+    // AppBar deja de vivir en el Scaffold y pasa a ser solo la cabecera de
+    // la columna del editor (dentro de `WorkspaceBodyShellV2`), donde el
+    // sidebar es un hermano de Row a su lado, no un hijo de esa columna. En
+    // compacto (Drawer) no cambia nada: ya ocupa toda la altura.
+    // Título de cada pestaña: se calcula una sola vez por build (no dentro
+    // de `pageTitleFor`, que si no reharía este trabajo por cada pestaña en
+    // cada rebuild) y solo si hay pestañas abiertas — evita recorrer
+    // `activePages` en el caso por defecto (sin pestañas).
+    final openTabIds = widget.workspaceStateController.config.openTabs.isEmpty
+        ? const <String>{}
+        : widget.workspaceStateController.config.openTabs
+            .map((t) => t.pageId)
+            .toSet();
+    final tabTitleById = openTabIds.isEmpty
+        ? const <String, String>{}
+        : {
+            for (final p in _s.activePages)
+              if (openTabIds.contains(p.id)) p.id: p.title,
+          };
+    final Widget shellEditorBodyWithTopBar = (compact || _zenMode)
+        ? shellEditorBody
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              WorkspaceTopAppBar(
+                title: '',
+                compact: compact,
+                actions: appBarActions,
+                onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+                titleWidget: WorkspaceTabStrip(
+                  controller: widget.workspaceStateController,
+                  pageTitleFor: (id) {
+                    final title = tabTitleById[id]?.trim() ?? '';
+                    return title.isNotEmpty ? title : l10n.untitledFallback;
+                  },
+                  // `WorkspaceTabStrip.onTap` ya llama a `activateTab`, que
+                  // via `_onTabsChanged` (ver más arriba) dispara
+                  // `_s.selectPage` — este callback es la llamada directa
+                  // que el propio widget hace además (así funciona en
+                  // aislamiento, ver su test). Sin este guard, cada click en
+                  // una pestaña ejecuta `selectPage` (rebuild completo del
+                  // editor) DOS veces seguidas: `selectPage` no tiene guard
+                  // propio de "ya es la página actual" (recorre páginas,
+                  // notifica y persiste igual). Con el guard, la segunda
+                  // llamada es un no-op.
+                  onSelectPage: (id) {
+                    if (id != _s.selectedPageId) _s.selectPage(id);
+                  },
+                ),
+              ),
+              Expanded(child: shellEditorBody),
+            ],
+          );
+
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2980,26 +3631,31 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 width: androidPhoneLayout
                     ? width * 0.92
                     : width.clamp(260, 340),
-                child: SafeArea(child: sidePanel),
+                child: SafeArea(child: selectableSidePanel),
               )
             : null,
-        appBar: _zenMode
+        appBar: (_zenMode || !compact)
             ? null
             : WorkspaceTopAppBar(
                 title: androidPhoneLayout
                     ? ((page?.title.trim().isNotEmpty ?? false)
                           ? page!.title.trim()
-                          : l10n.appTitle)
-                    : l10n.appTitle,
+                          : '')
+                    : '',
                 compact: compact,
                 actions: appBarActions,
                 onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-        body: WorkspaceBodyShell(
+        // Fase 24: WorkspaceBodyShellV2 reemplaza a WorkspaceBodyShell — API
+        // idéntica (drop-in), verificada con tests de paridad delta-a-delta
+        // (`workspace_shell_v2_parity_test.dart`); internamente comparte
+        // `PanelResizeHandle` con el motor de layout en vez de reimplementar
+        // el gesto de resize tres veces.
+        body: WorkspaceBodyShellV2(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
-          sidePanel: sidePanel,
-          editorContent: shellEditorBody,
+          sidePanel: selectableSidePanel,
+          editorContent: shellEditorBodyWithTopBar,
           showSidebarResizeHandle:
               !compact &&
               !_zenMode &&
@@ -3109,7 +3765,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   });
                 }
               : null,
-          overlay: _showQuillWorkspaceTour
+          // Editor visual (Fase 6): reutiliza el slot `overlay` ya soportado
+          // por WorkspaceBodyShell (mismo mecanismo que el tour de Quill) en
+          // vez de envolver el Scaffold en un Stack propio — más seguro de
+          // insertar sin tener que ubicar a mano el cierre del árbol de
+          // WorkspaceBodyShell(...) en este build() tan grande. Si el modo
+          // edición está activo, tiene prioridad sobre el tour (acción
+          // deliberada del usuario).
+          overlay: _visualEditor.editModeActive
+              ? _buildVisualEditorInspectorOverlay(scheme)
+              : _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
         ),

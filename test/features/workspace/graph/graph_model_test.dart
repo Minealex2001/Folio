@@ -129,5 +129,31 @@ void main() {
       expect(folderNode.isFolder, isTrue);
       expect(childNode.isFolder, isFalse);
     });
+
+    test('páginas heredan colorGroupId de la carpeta más cercana', () {
+      final root = page(id: 'root', title: 'Raíz', isFolder: true);
+      final nested = page(
+        id: 'nested',
+        title: 'Anidada',
+        isFolder: true,
+        parentId: 'root',
+      );
+      final inNested = page(id: 'page', title: 'Página', parentId: 'nested');
+      final orphan = page(id: 'orphan', title: 'Huérfana');
+
+      final graph = buildVaultGraph(
+        pages: [root, nested, inNested, orphan],
+        backlinkPagesFor: (_) => const [],
+        includeOrphans: true,
+      );
+
+      String? groupOf(String id) =>
+          graph.nodes.firstWhere((n) => n.id == id).colorGroupId;
+
+      expect(groupOf('root'), 'root');
+      expect(groupOf('nested'), 'nested');
+      expect(groupOf('page'), 'nested');
+      expect(groupOf('orphan'), isNull);
+    });
   });
 }

@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../core/errors/vault_corruption_exception.dart';
+import '../core/perf/folio_perf_trace.dart';
 import '../data/vault_payload.dart';
 import '../models/folio_page.dart';
 import '../models/folio_page_import_info.dart';
@@ -24,6 +25,7 @@ import '../models/gitlab_integration_state.dart';
 import '../models/slack_integration_state.dart';
 import '../models/teams_integration_state.dart';
 import '../models/spotify_integration_state.dart';
+import '../models/ytmusic_integration_state.dart';
 import '../models/discord_integration_state.dart';
 import '../models/system_media_integration_state.dart';
 import '../services/ai/ai_types.dart';
@@ -52,6 +54,8 @@ Directory _pageDirIn(Directory repoDir, String pageId) {
 }
 
 Future<void> _writeAtomic(String path, String content) async {
+  final perf = FolioPerfTrace.enabled ? FolioPerfTrace.decompose : null;
+  final sw = perf == null ? null : (Stopwatch()..start());
   final file = File(path);
   final dir = file.parent;
   if (!dir.existsSync()) {
@@ -63,6 +67,10 @@ Future<void> _writeAtomic(String path, String content) async {
     await file.delete();
   }
   await tmp.rename(path);
+  if (perf != null && sw != null) {
+    perf.writeUs += sw.elapsedMicroseconds;
+    perf.fileCount++;
+  }
 }
 
 /// Descompone VaultPayload al árbol de archivos.
@@ -120,14 +128,20 @@ class VaultPayloadToTree {
           'properties': page.properties.map((prop) => prop.toJson()).toList(),
         if (page.tags.isNotEmpty) 'tags': page.tags,
       };
-      await _writeAtomic(
-        p.join(pageDir.path, 'meta.json'),
-        canonicalJson(meta),
-      );
-
+      final serPerf = FolioPerfTrace.enabled ? FolioPerfTrace.decompose : null;
+      final swSer = serPerf == null ? null : (Stopwatch()..start());
+      final metaJson = canonicalJson(meta);
       final blocksFile = File(p.join(pageDir.path, 'blocks.jsonl'));
       final blocksLines =
           page.blocks.map((b) => canonicalJson(b.toJson())).toList();
+      if (serPerf != null && swSer != null) {
+        serPerf.serializeUs += swSer.elapsedMicroseconds;
+      }
+      await _writeAtomic(
+        p.join(pageDir.path, 'meta.json'),
+        metaJson,
+      );
+
       if (blocksLines.isNotEmpty) {
         await _writeAtomic(
           blocksFile.path,
@@ -239,6 +253,9 @@ class VaultPayloadToTree {
     }
     if (payload.spotify.connections.isNotEmpty) {
       await writeInteg('spotify', payload.spotify.toJson());
+    }
+    if (payload.ytMusic.connections.isNotEmpty) {
+      await writeInteg('ytMusic', payload.ytMusic.toJson());
     }
     if (payload.discord.connections.isNotEmpty) {
       await writeInteg('discord', payload.discord.toJson());
@@ -418,6 +435,7 @@ class TreeToVaultPayload {
       slack: integrations['slack'] ?? SlackIntegrationState.empty,
       teams: integrations['teams'] ?? TeamsIntegrationState.empty,
       spotify: integrations['spotify'] ?? SpotifyIntegrationState.empty,
+      ytMusic: integrations['ytMusic'] ?? YtMusicIntegrationState.empty,
       discord: integrations['discord'] ?? DiscordIntegrationState.empty,
       systemMedia:
           integrations['systemMedia'] ?? SystemMediaIntegrationState.empty,
@@ -593,6 +611,8 @@ class TreeToVaultPayload {
         ints['teams'] = TeamsIntegrationState.fromJson(json);
       } else if (name == 'spotify') {
         ints['spotify'] = SpotifyIntegrationState.fromJson(json);
+      } else if (name == 'ytMusic') {
+        ints['ytMusic'] = YtMusicIntegrationState.fromJson(json);
       } else if (name == 'discord') {
         ints['discord'] = DiscordIntegrationState.fromJson(json);
       } else if (name == 'systemMedia') {

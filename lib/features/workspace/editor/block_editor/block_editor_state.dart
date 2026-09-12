@@ -19,9 +19,168 @@ String? folioParseMarkdownCodeFenceShortcut(String text) {
   };
 }
 
-class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
+/// Vista posicional perezosa sobre `_ids` (paralela a `page.blocks`): el
+/// valor real de cada posición se resuelve por id, bajo demanda, a través
+/// de `_resolve` — no se construye nada hasta que alguien accede a esa
+/// posición. Permite que ~190 puntos del editor sigan escribiendo
+/// `_controllers[idx]` / `_focusNodes[idx]` exactamente como antes (mismo
+/// `.length`, mismo `[]`, mismo `.first`) sin enterarse de que, por debajo,
+/// el TextEditingController/FocusNode de un bloque nunca visitado (páginas
+/// de miles de bloques) aún no existe.
+class _LazyBlockObjects<T> {
+  const _LazyBlockObjects(this._ids, this._resolve);
+  final List<String> _ids;
+  final T Function(String blockId) _resolve;
+
+  int get length => _ids.length;
+  bool get isEmpty => _ids.isEmpty;
+  bool get isNotEmpty => _ids.isNotEmpty;
+  T operator [](int index) => _resolve(_ids[index]);
+  T get first => _resolve(_ids.first);
+}
+
+/// Controller/FocusNode reales de un bloque, más los listeners que hay que
+/// desenganchar explícitamente antes de `dispose()`. Se construyen juntos
+/// (mismo closure, mismas referencias mutuas que antes) la primera vez que
+/// el bloque hace falta de verdad — nunca por adelantado para toda la
+/// página.
+class _BlockEditingObjects {
+  _BlockEditingObjects({
+    required this.controller,
+    required this.focusNode,
+    required this.textListener,
+    required this.focusDecorListener,
+  });
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback textListener;
+  final VoidCallback focusDecorListener;
+}
+
+/// Ver `BlockEditorState._buildSectionRenderItemsFor` (Fase E0C).
+class _SectionRenderItem {
+  const _SectionRenderItem.header(this.section) : blockIndex = -1;
+  const _SectionRenderItem.block(this.blockIndex) : section = null;
+
+  final Section? section;
+
+  /// -1 para ítems de cabecera.
+  final int blockIndex;
+
+  bool get isHeader => section != null;
+}
+
+class BlockEditorState extends State<BlockEditor>
+    with
+        _BlockRowBuild,
+        _BlockEditorDebugApi,
+        _CollabMediaUpload,
+        _BlockMediaPicking,
+        _BlockContextMenu,
+        _MultiSelectDragDrop,
+        _FormatToolbarOverlay,
+        _AiPaletteProvider,
+        _CommandPaletteOverlayHost,
+        _AiSelectionPopoverHost,
+        _SmartTemplateFlowHost {
   static const _uuid = Uuid();
-  final List<TextEditingController> _controllers = [];
+
+  /// Fase E0C del rediseño UX del editor — ítem de render de la lista del
+  /// editor: o bien la cabecera de una sección real, o bien un bloque (por
+  /// su índice en `page.blocks`). Si `page.sections` es `null`/vacío (el
+  /// caso de hoy para cada página existente), `_buildSectionRenderItems`
+  /// devuelve exactamente un `block(i)` por cada `page.blocks[i]` en orden —
+  /// mismo árbol de render que antes de esta fase, byte a byte (ver el test
+  /// dorado en `block_editor_sections_render_test.dart`).
+  static List<_SectionRenderItem> _buildSectionRenderItemsFor(FolioPage page) {
+    final sections = page.sections;
+    if (sections == null || sections.isEmpty) {
+      return [
+        for (var i = 0; i < page.blocks.length; i++) _SectionRenderItem.block(i),
+      ];
+    }
+    final headerAtBlockId = <String, Section>{};
+    for (final section in sections) {
+      final covered = blocksInRange(page, section.range);
+      if (covered.isEmpty) continue; // rango huérfano — defensivo, E0B ya lo evita
+      headerAtBlockId[covered.first.id] = section;
+    }
+    final items = <_SectionRenderItem>[];
+    var i = 0;
+    while (i < page.blocks.length) {
+      final block = page.blocks[i];
+      final header = headerAtBlockId[block.id];
+      if (header != null) {
+        items.add(_SectionRenderItem.header(header));
+        if (header.metadata.collapsed) {
+          final covered = blocksInRange(page, header.range);
+          i += covered.length;
+          continue;
+        }
+      }
+      items.add(_SectionRenderItem.block(i));
+      i++;
+    }
+    return items;
+  }
+
+  /// Tokens estructurales del editor (Fase A1 del rediseño UX) — `null` en
+  /// `widget.editorLayoutTokens` (el caso de hoy salvo que
+  /// `workspace_page.dart` inyecte `LayoutConfig.editor`) resuelve a los
+  /// defaults de `EditorLayoutTokens`, que reproducen exactamente los
+  /// literales hardcodeados de siempre. Cero regresión visual sin cambiar
+  /// nada más.
+  EditorLayoutTokens get _layoutTokens =>
+      widget.editorLayoutTokens ?? const EditorLayoutTokens();
+
+  /// Resuelve un `TokenRef<double>?` a un literal. Deliberadamente NO
+  /// resuelve referencias de `DesignTokens`/`DesignVariables` (eso
+  /// requeriría enhebrar `DesignTokensResolver` hasta el editor, fuera de
+  /// alcance de esta fase de "conectar lo ya construido") — una referencia
+  /// (`@algo`) cae al fallback, exactamente igual que si el campo fuera
+  /// `null`, así que nunca es una regresión, solo una referencia sin
+  /// resolver todavía.
+  double _resolveLayoutDouble(TokenRef<double>? ref, double fallback) {
+    if (ref == null || ref.isReference) return fallback;
+    return ref.literalValue ?? fallback;
+  }
+
+  /// Espaciado vertical entre bloques — reemplaza el `2.0` hardcodeado que
+  /// tanto `BlockRowChrome` como `_specialRowChrome` usaban como default.
+  double get _blockVerticalSpacing =>
+      _resolveLayoutDouble(_layoutTokens.blockSpacing, 2.0);
+
+  /// Preset de estilo de callout resuelto desde `LayoutConfig.editor.calloutStyle`.
+  CalloutStylePreset get _calloutPreset =>
+      calloutStylePresetFor(_layoutTokens.calloutStyle);
+
+  /// Único almacén real de controllers/FocusNodes de bloque, indexado por
+  /// id (no por posición): un reorder no mueve nada aquí. Poblado de forma
+  /// perezosa por `_ensureEditingObjects`; vaciado por completo en cada
+  /// `_disposeControllers()`, exactamente como antes se vaciaban las listas
+  /// posicionales — no se intenta preservar nada entre resyncs distintos al
+  /// reuso que ya hacía `_quillByBlockId` (ver `_ensureQuillController`).
+  final Map<String, _BlockEditingObjects> _editingObjectsByBlockId = {};
+
+  /// Id del bloque con foco ahora mismo (o `null`). Se mantiene al día
+  /// desde `focusDecorListener` de cada bloque; reemplaza los escaneos
+  /// `for (... ; i < _focusNodes.length ...) if (_focusNodes[i].hasFocus)`
+  /// que antes recorrían la página entera — con `_focusNodes` perezoso, ese
+  /// patrón forzaría construir el FocusNode de cada bloque hasta encontrar
+  /// el enfocado, anulando el ahorro en páginas grandes.
+  String? _focusedBlockId;
+
+  _LazyBlockObjects<TextEditingController> get _controllers =>
+      _LazyBlockObjects<TextEditingController>(
+        _controllerBlockIds,
+        (id) => _ensureEditingObjects(id).controller,
+      );
+  _LazyBlockObjects<FocusNode> get _focusNodes =>
+      _LazyBlockObjects<FocusNode>(
+        _controllerBlockIds,
+        (id) => _ensureEditingObjects(id).focusNode,
+      );
+
   final Map<String, quill.QuillController> _quillByBlockId = {};
   /// Marca (por identidad, sin retener referencias fuertes) qué
   /// `QuillController`s ya fueron destruidos por el callback diferido de
@@ -50,9 +209,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
   final Map<String, ScrollController> _quillMainScrollByBlockId = {};
-  final List<FocusNode> _focusNodes = [];
-  final List<VoidCallback> _textListeners = [];
-  final List<VoidCallback> _focusDecorListeners = [];
   String? _boundPageId;
   var _ignoreShortcuts = false;
   T _runWithShortcutsIgnored<T>(T Function() action) {
@@ -80,6 +236,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   String? _pendingFocusBlockId;
   final Set<String> _selectedBlockIds = <String>{};
   final Set<String> _transitioningBlockIds = <String>{};
+
+  /// Cache de `_hasMarkdownBlockStructures` por bloque: evita reevaluar 6
+  /// regex en cada build de fila cuando el texto no cambió desde la última
+  /// vez (p. ej. rebuilds disparados por scroll u otros bloques, no por una
+  /// edición de este bloque en particular).
+  final Map<String, (String, bool)> _hasMarkdownStructuresByBlockId = {};
+
+  bool _hasMarkdownBlockStructuresCached(String blockId, String text) {
+    final cached = _hasMarkdownStructuresByBlockId[blockId];
+    if (cached != null && cached.$1 == text) return cached.$2;
+    final result = _hasMarkdownBlockStructures(text);
+    _hasMarkdownStructuresByBlockId[blockId] = (text, result);
+    return result;
+  }
+
   String? _selectionAnchorBlockId;
   bool _dragSelectionActive = false;
   String? _dragSelectionOriginBlockId;
@@ -129,394 +300,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   /// Bloque cuyo [TextEditingController] tiene una selección no-colapsada
   /// (texto seleccionado). Se actualiza desde el textListener de cada bloque.
   String? _selectionActiveBlockId;
-
-  void _onToolbarPointerDown(String blockId) {
-    _toolbarInteractionToken++;
-    _toolbarInteractionBlockId = blockId;
-    if (!mounted) return;
-    setState(() {});
-    _scheduleFormatToolbarOverlayUpdate();
-  }
-
-  void _onToolbarPointerUpOrCancel(String blockId) {
-    if (_toolbarInteractionBlockId != blockId) return;
-    final token = _toolbarInteractionToken;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      // Si hubo otra interacción más reciente, no limpiar aún.
-      if (token != _toolbarInteractionToken) return;
-      if (_toolbarInteractionBlockId != blockId) return;
-      _toolbarInteractionBlockId = null;
-      setState(() {});
-      _scheduleFormatToolbarOverlayUpdate();
-    });
-  }
-
-  GlobalKey _formatToolbarHostKeyFor(String blockId) =>
-      _formatToolbarHostKeys.putIfAbsent(blockId, GlobalKey.new);
-
-  void _removeFormatToolbarOverlay() {
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = null;
-  }
-
-  void _scheduleFormatToolbarOverlayUpdate() {
-    if (_formatToolbarOverlayPostFrameScheduled) return;
-    _formatToolbarOverlayPostFrameScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _formatToolbarOverlayPostFrameScheduled = false;
-      if (!mounted) return;
-      _updateFormatToolbarOverlay();
-    });
-  }
-
-  quill.QuillRawEditorState? _findQuillRawEditorState(BuildContext context) {
-    quill.QuillRawEditorState? found;
-    void walk(Element e) {
-      if (found != null) return;
-      if (e is StatefulElement && e.state is quill.QuillRawEditorState) {
-        found = e.state as quill.QuillRawEditorState;
-        return;
-      }
-      e.visitChildren(walk);
-    }
-
-    walk(context as Element);
-    return found;
-  }
-
-  EditableTextState? _findEditableTextState(BuildContext context) {
-    EditableTextState? found;
-    void walk(Element e) {
-      if (found != null) return;
-      if (e is StatefulElement && e.state is EditableTextState) {
-        found = e.state as EditableTextState;
-        return;
-      }
-      e.visitChildren(walk);
-    }
-
-    walk(context as Element);
-    return found;
-  }
-
-  Offset? _formatToolbarAnchorGlobal({
-    required String blockId,
-    required BuildContext hostContext,
-    required FolioBlock block,
-  }) {
-    final qc = _quillByBlockId[blockId];
-    if (qc != null && _stylableBlockTypes.contains(block.type)) {
-      final raw = _findQuillRawEditorState(hostContext);
-      if (raw == null) return null;
-      return raw.contextMenuAnchors.primaryAnchor;
-    }
-    final ed = _findEditableTextState(hostContext);
-    if (ed == null) return null;
-    return ed.contextMenuAnchors.primaryAnchor;
-  }
-
-  void _updateFormatToolbarOverlay() {
-    if (!mounted) return;
-    if (widget.readOnlyMode) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-    final page = _s.selectedPage;
-    if (page == null) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    final bid = _toolbarInteractionBlockId ?? _selectionActiveBlockId;
-    if (bid == null) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    FolioBlock? block;
-    for (final b in page.blocks) {
-      if (b.id == bid) {
-        block = b;
-        break;
-      }
-    }
-    if (block == null) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    if (!blockEditorTypeUsesSlashMenu(block.type)) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    if (_slashBlockId == bid || _mentionBlockId == bid) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    final hostKey = _formatToolbarHostKeys[bid];
-    final hostCtx = hostKey?.currentContext;
-    if (hostCtx == null) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    final anchor = _formatToolbarAnchorGlobal(
-      blockId: bid,
-      hostContext: hostCtx,
-      block: block,
-    );
-    if (anchor == null) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-
-    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
-    if (overlayState == null) {
-      return;
-    }
-
-    final scheme = Theme.of(context).colorScheme;
-    final media = MediaQuery.sizeOf(context);
-    const toolbarMaxW = 560.0;
-    const toolbarH = 56.0;
-    const gap = 6.0;
-    final width = math.min(toolbarMaxW, media.width - 16);
-    var left = anchor.dx - width / 2;
-    left = left.clamp(8.0, math.max(8.0, media.width - width - 8.0));
-    var top = anchor.dy - toolbarH - gap;
-    top = top.clamp(8.0, math.max(8.0, media.height - toolbarH - 8.0));
-
-    final idx = _controllerBlockIds.indexOf(bid);
-    if (idx < 0 || idx >= _controllers.length || idx >= _focusNodes.length) {
-      _removeFormatToolbarOverlay();
-      return;
-    }
-    final ctrl = _controllers[idx];
-    final focus = _focusNodes[idx];
-    final FolioBlock forToolbar = block;
-    final quillCtrl = _stylableBlockTypes.contains(forToolbar.type)
-        ? _ensureQuillController(pageId: page.id, block: forToolbar)
-        : null;
-
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = OverlayEntry(
-      builder: (overlayCtx) {
-        return Stack(
-          children: [
-            Positioned(
-              left: left,
-              top: top,
-              width: width,
-              height: toolbarH,
-              child: Material(
-                elevation: 6,
-                color: Colors.transparent,
-                shadowColor: scheme.shadow.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(12),
-                clipBehavior: Clip.antiAlias,
-                child: quillCtrl != null
-                    ? FolioQuillFormatToolbar(
-                        controller: quillCtrl,
-                        colorScheme: scheme,
-                        focusNode: focus,
-                        onInteractionStart: () => _onToolbarPointerDown(bid),
-                        onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
-                        onAskQuill: widget.readOnlyMode ||
-                                widget.onAiSlashCommand == null
-                            ? null
-                            : () => unawaited(
-                                _dispatchAiSlashFromToolbar(
-                                  intent: AiSlashIntent.explain,
-                                  pageId: page.id,
-                                  blockId: forToolbar.id,
-                                ),
-                              ),
-                      )
-                    : FolioFormatToolbar(
-                        controller: ctrl,
-                        colorScheme: scheme,
-                        textFocusNode: focus,
-                        onInteractionStart: () => _onToolbarPointerDown(bid),
-                        onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
-                        onAskQuill: widget.readOnlyMode ||
-                                widget.onAiSlashCommand == null
-                            ? null
-                            : () => unawaited(
-                                _dispatchAiSlashFromToolbar(
-                                  intent: AiSlashIntent.explain,
-                                  pageId: page.id,
-                                  blockId: forToolbar.id,
-                                ),
-                              ),
-                        onOpenBlockAppearance: _blockSupportsAppearance(forToolbar)
-                            ? () => unawaited(
-                                _editBlockAppearance(
-                                  page,
-                                  forToolbar,
-                                  focusNode: focus,
-                                ),
-                              )
-                            : null,
-                        onMentionPage: (ctx) => _toolbarMentionPage(ctx, ctrl),
-                        onInsertUserMention: () => _insertAtSelection(ctrl, '@usuario '),
-                        onInsertDateMention: () => _insertAtSelection(
-                          ctrl,
-                          '@${DateFormat.yMMMd(Localizations.localeOf(overlayCtx).toLanguageTag()).format(DateTime.now())} ',
-                        ),
-                        onInsertInlineMath: () =>
-                            _insertAtSelection(ctrl, r'\( x \)'),
-                      ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    overlayState.insert(_formatToolbarOverlayEntry!);
-  }
-
-  void _removeQuillCopilotOverlay() {
-    _quillCopilotOverlayEntry?.remove();
-    _quillCopilotOverlayEntry = null;
-  }
-
-  void _scheduleQuillCopilotOverlayUpdate() {
-    if (_quillCopilotOverlayPostFrameScheduled) return;
-    _quillCopilotOverlayPostFrameScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _quillCopilotOverlayPostFrameScheduled = false;
-      if (!mounted) return;
-      _updateQuillCopilotOverlay();
-    });
-  }
-
-  void _updateQuillCopilotOverlay() {
-    if (!mounted || widget.readOnlyMode) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-    final bid = _quillCopilotSuggestionBlockId;
-    final suggestion = _quillCopilotSuggestionText;
-    if (bid == null || suggestion == null || suggestion.isEmpty) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    final page = _s.selectedPage;
-    if (page == null) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-    FolioBlock? block;
-    for (final b in page.blocks) {
-      if (b.id == bid) {
-        block = b;
-        break;
-      }
-    }
-    if (block == null || !_stylableBlockTypes.contains(block.type)) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    if (_slashBlockId == bid || _mentionBlockId == bid) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    final idx = _controllerBlockIds.indexOf(bid);
-    if (idx < 0 || idx >= _focusNodes.length) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-    if (!_focusNodes[idx].hasFocus) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    final qc = _quillByBlockId[bid];
-    if (qc == null) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    final hostKey = _formatToolbarHostKeys[bid];
-    final hostCtx = hostKey?.currentContext;
-    if (hostCtx == null) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-    final raw = _findQuillRawEditorState(hostCtx);
-    if (raw == null) {
-      _removeQuillCopilotOverlay();
-      return;
-    }
-
-    final renderEditor = raw.renderEditor;
-    final localRect = renderEditor.getLocalRectForCaret(qc.selection.extent);
-    final globalPoint = renderEditor.localToGlobal(localRect.topRight);
-
-    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
-    if (overlayState == null) return;
-
-    final scheme = Theme.of(context).colorScheme;
-    final baseStyle = _styleFor(block.type, Theme.of(context).textTheme);
-    final media = MediaQuery.sizeOf(context);
-    final maxW = math.max(40.0, media.width - globalPoint.dx - 8.0);
-
-    _quillCopilotOverlayEntry?.remove();
-    _quillCopilotOverlayEntry = OverlayEntry(
-      builder: (overlayCtx) {
-        return Stack(
-          children: [
-            Positioned(
-              left: globalPoint.dx,
-              top: globalPoint.dy,
-              width: maxW,
-              child: IgnorePointer(
-                child: Text(
-                  suggestion,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: baseStyle.copyWith(
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    overlayState.insert(_quillCopilotOverlayEntry!);
-  }
-
-  KeyEventResult? _handleQuillCopilotTabKey(String blockId, KeyEvent event) {
-    if (event.logicalKey != LogicalKeyboardKey.tab) return null;
-    if (event is! KeyDownEvent) return null;
-    if (_quillCopilotSuggestionBlockId != blockId) return null;
-    final suggestion = _quillCopilotSuggestionText;
-    if (suggestion == null || suggestion.isEmpty) return null;
-    final qc = _quillByBlockId[blockId];
-    if (qc == null) return null;
-
-    final offset = qc.selection.baseOffset;
-    _quillCopilotSuggestionBlockId = null;
-    _quillCopilotSuggestionText = null;
-    _removeQuillCopilotOverlay();
-
-    qc.replaceText(offset, 0, suggestion, null);
-    qc.updateSelection(
-      TextSelection.collapsed(offset: offset + suggestion.length),
-      quill.ChangeSource.local,
-    );
-    _quillFlushNowByBlockId[blockId]?.call();
-    _scheduleQuillCopilotProbe(blockId);
-    return KeyEventResult.handled;
-  }
 
   quill.QuillController _ensureQuillController({
     required String pageId,
@@ -591,7 +374,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
     void flushNow() {
       if (!mounted) return;
+      final swTotal = FolioPerfTrace.begin();
+      final swMd = FolioPerfTrace.begin();
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final mdUs = FolioPerfTrace.us(swMd);
       final caret = qc.selection.baseOffset;
       final idx = _controllerBlockIds.indexOf(block.id);
       if (!_ignoreShortcuts &&
@@ -606,8 +392,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           )) {
         return;
       }
+      final swDelta = FolioPerfTrace.begin();
       final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      final deltaUs = FolioPerfTrace.us(swDelta);
       _quillLastMdByBlockId[block.id] = md;
+      final swUpdate = FolioPerfTrace.begin();
       _runWithShortcutsIgnored(() {
         _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
         if (idx >= 0 && idx < _controllers.length) {
@@ -618,6 +407,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           );
         }
       });
+      if (FolioPerfTrace.enabled) {
+        FolioPerfTrace.log('editor.quillFlush', {
+          'mdChars': md.length,
+          'deltaChars': deltaStr.length,
+          'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swTotal)),
+          'docToMarkdown_ms': FolioPerfTrace.ms(mdUs),
+          'deltaJsonEncode_ms': FolioPerfTrace.ms(deltaUs),
+          'updateBlockTextFull_ms': FolioPerfTrace.ms(FolioPerfTrace.us(swUpdate)),
+        });
+      }
     }
 
     _quillFlushNowByBlockId[block.id] = flushNow;
@@ -731,6 +530,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
+    _hasMarkdownStructuresByBlockId.remove(blockId);
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -763,18 +563,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _pendingFocusIndex != null || _pendingFocusBlockId != null;
     String? focusId;
     int? focusOff;
-    for (
-      var i = 0;
-      i < _focusNodes.length && i < _controllerBlockIds.length;
-      i++
-    ) {
-      if (_focusNodes[i].hasFocus) {
-        final id = _controllerBlockIds[i];
-        focusId = id;
-        _flushPendingQuill(id);
-        focusOff = _liveCaretPlainOffset(id);
-        break;
-      }
+    final currentFocusedId = _focusedBlockId;
+    if (currentFocusedId != null &&
+        _controllerBlockIds.contains(currentFocusedId)) {
+      focusId = currentFocusedId;
+      _flushPendingQuill(currentFocusedId);
+      focusOff = _liveCaretPlainOffset(currentFocusedId);
     }
     if (focusId == null &&
         _stylableBlockTypes.contains(last.type) &&
@@ -1132,10 +926,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     });
   }
 
+  /// Fase 0 del roadmap de producto — texto plano combinado de varios
+  /// bloques seleccionados, en el orden en que aparecen en la página.
+  /// Usado para que las acciones de IA operen sobre una selección
+  /// multi-bloque en vez de estar limitadas a un solo bloque enfocado.
+  String _combinedPlainTextForBlocks(List<String> blockIds) {
+    final page = _s.selectedPage;
+    if (page == null) return '';
+    final idSet = blockIds.toSet();
+    return page.blocks
+        .where((b) => idSet.contains(b.id))
+        .map((b) => _livePlainTextForBlock(b.id))
+        .where((t) => t.trim().isNotEmpty)
+        .join('\n\n');
+  }
+
   Future<void> _dispatchAiSlashFromToolbar({
     required AiSlashIntent intent,
     required String pageId,
     required String blockId,
+    String? selectionOverride,
   }) async {
     if (widget.readOnlyMode) return;
     final cb = widget.onAiSlashCommand;
@@ -1148,8 +958,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }
       return;
     }
-    final sel = _plainAiSelectionForBlock(blockId);
-    final plain = _livePlainTextForBlock(blockId);
+    final sel = selectionOverride ?? _plainAiSelectionForBlock(blockId);
+    final plain = selectionOverride ?? _livePlainTextForBlock(blockId);
     try {
       await cb(
         FolioAiSlashParams(
@@ -1171,9 +981,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   String? plainSelectionTextForAi() {
-    for (var i = 0; i < _focusNodes.length && i < _controllerBlockIds.length; i++) {
-      if (!_focusNodes[i].hasFocus) continue;
-      final s = _plainAiSelectionForBlock(_controllerBlockIds[i]);
+    final fid = _focusedBlockId;
+    if (fid != null) {
+      final s = _plainAiSelectionForBlock(fid);
       if (s != null) return s;
     }
     final pg = _s.selectedPage;
@@ -1321,6 +1131,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (mounted) setState(() {});
       return;
     }
+
+    if (actionKey.startsWith('cmd_smart_')) {
+      final template = smartTemplateForCmdKey(actionKey);
+      if (template == null) return;
+      showSmartTemplateFlow(template: template, pageId: pageId, blockId: blockId);
+      return;
+    }
   }
 
   void _dismissInlineMention() {
@@ -1394,17 +1211,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   List<BlockTypeDef> _catalogFilteredForSlash(String q) {
     final l10n = AppLocalizations.of(context);
-    final inline = _inlineSlashActionCatalog(l10n);
+    final inline = resolveInlineSlashActionCatalog(l10n);
+    // Fase G2: las smart templates (/meeting, /sprint, /roadmap) se
+    // consolidan en el mismo catálogo — mismo filtro/ranking, no una
+    // tercera lista paralela.
+    final smartTemplates = resolveSmartTemplateCatalog(l10n);
     final filtered = List<BlockTypeDef>.from(_catalogFiltered(q, l10n));
     final normalized = q.trim().toLowerCase();
-    filtered.addAll(
-      inline.where((a) {
-        if (normalized.isEmpty) return true;
-        return a.key.contains(normalized) ||
-            a.label.toLowerCase().contains(normalized) ||
-            a.hint.toLowerCase().contains(normalized);
-      }),
-    );
+    bool matches(BlockTypeDef a) {
+      if (normalized.isEmpty) return true;
+      return a.key.contains(normalized) ||
+          a.label.toLowerCase().contains(normalized) ||
+          a.hint.toLowerCase().contains(normalized);
+    }
+
+    filtered.addAll(inline.where(matches));
+    filtered.addAll(smartTemplates.where(matches));
 
     if (filtered.length < 2) return filtered;
     final catalogIndex = {
@@ -1412,6 +1234,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         blockTypeTemplates[i].key: i,
       for (var i = 0; i < inline.length; i++)
         inline[i].key: blockTypeTemplates.length + i,
+      for (var i = 0; i < smartTemplates.length; i++)
+        smartTemplates[i].key: blockTypeTemplates.length + inline.length + i,
     };
     filtered.sort((a, b) {
       final aScore = _slashRecentByType[a.key] ?? 0;
@@ -1611,6 +1435,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (mounted) setState(() {});
         break;
       case FolioPasteUrlMode.bookmark:
+      case FolioPasteUrlMode.githubImport:
+      case FolioPasteUrlMode.pdfSummarize:
+        // Fase D2: GitHub/PDF reutilizan el mismo bloque bookmark + el mismo
+        // fetch de título que la opción "Marcador" genérica — la detección
+        // de tipo (mostrar una opción con nombre específico en el sheet) es
+        // real; el contenido insertado es, deliberadamente, el mismo
+        // mecanismo probado, no un pipeline nuevo sin construir. Ver nota
+        // de alcance en `paste_url_sheet.dart`.
         _ignoreShortcuts = true;
         _s.changeBlockType(page.id, blockId, 'bookmark');
         _s.updateBlockUrl(page.id, blockId, url);
@@ -2998,13 +2830,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  String _t(String es, String en) {
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    return isEs ? es : en;
-  }
-
   List<CodeLanguageOption> _codeLanguageOptionsForBlock(FolioBlock block) {
     final l10n = AppLocalizations.of(context);
     final out = List<CodeLanguageOption>.from(
@@ -3457,361 +3282,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  bool _isBlockSelected(String blockId) => _selectedBlockIds.contains(blockId);
-
-  bool get _isAdditiveSelectionPressed {
-    return HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed;
-  }
-
-  void _selectOnlyBlock(String blockId) {
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..add(blockId);
-      _selectionAnchorBlockId = blockId;
-    });
-  }
-
-  void _toggleBlockSelection(String blockId) {
-    setState(() {
-      if (_selectedBlockIds.contains(blockId)) {
-        _selectedBlockIds.remove(blockId);
-        if (_selectionAnchorBlockId == blockId) {
-          _selectionAnchorBlockId = _selectedBlockIds.isEmpty
-              ? null
-              : _selectedBlockIds.first;
-        }
-      } else {
-        _selectedBlockIds.add(blockId);
-        _selectionAnchorBlockId = blockId;
-      }
-    });
-  }
-
-  void _selectBlockRange(FolioPage page, String blockId) {
-    final anchorId = _selectionAnchorBlockId;
-    if (anchorId == null) {
-      _selectOnlyBlock(blockId);
-      return;
-    }
-    final anchorIndex = page.blocks.indexWhere((b) => b.id == anchorId);
-    final targetIndex = page.blocks.indexWhere((b) => b.id == blockId);
-    if (anchorIndex < 0 || targetIndex < 0) {
-      _selectOnlyBlock(blockId);
-      return;
-    }
-    final start = math.min(anchorIndex, targetIndex);
-    final end = math.max(anchorIndex, targetIndex);
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..addAll(page.blocks.sublist(start, end + 1).map((b) => b.id));
-    });
-  }
-
-  void _handleBlockSelection(
-    FolioPage page,
-    String blockId, {
-    FocusNode? focusNode,
-    bool requestFocus = true,
-  }) {
-    if (HardwareKeyboard.instance.isShiftPressed) {
-      _selectBlockRange(page, blockId);
-    } else if (_isAdditiveSelectionPressed) {
-      _toggleBlockSelection(blockId);
-    } else if (!_isBlockSelected(blockId) || _selectedBlockIds.length > 1) {
-      _selectOnlyBlock(blockId);
-    }
-    if (requestFocus && focusNode != null) {
-      _transitioningBlockIds.add(blockId);
-      setState(() {});
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        focusNode.requestFocus();
-        _transitioningBlockIds.remove(blockId);
-        setState(() {});
-      });
-    }
-  }
-
-  Set<String> _rangeBlockIds(
-    FolioPage page,
-    String startBlockId,
-    String endBlockId,
-  ) {
-    final startIndex = page.blocks.indexWhere((b) => b.id == startBlockId);
-    final endIndex = page.blocks.indexWhere((b) => b.id == endBlockId);
-    if (startIndex < 0 || endIndex < 0) return <String>{endBlockId};
-    final rangeStart = math.min(startIndex, endIndex);
-    final rangeEnd = math.max(startIndex, endIndex);
-    return page.blocks
-        .sublist(rangeStart, rangeEnd + 1)
-        .map((block) => block.id)
-        .toSet();
-  }
-
-  void _beginDragSelection(
-    FolioPage page,
-    String blockId, {
-    FocusNode? focusNode,
-  }) {
-    _dragSelectionActive = true;
-    _dragSelectionOriginBlockId = blockId;
-    _dragSelectionBaseIds = _isAdditiveSelectionPressed
-        ? (Set<String>.from(_selectedBlockIds)..remove(blockId))
-        : <String>{};
-    _handleBlockSelection(page, blockId, focusNode: focusNode);
-  }
-
-  void _updateDragSelection(FolioPage page, String blockId) {
-    if (!_dragSelectionActive) return;
-    final originBlockId = _dragSelectionOriginBlockId;
-    if (originBlockId == null) return;
-    final nextIds = _rangeBlockIds(page, originBlockId, blockId);
-    final combinedIds = <String>{..._dragSelectionBaseIds, ...nextIds};
-    if (setEquals(combinedIds, _selectedBlockIds)) return;
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..addAll(combinedIds);
-      _selectionAnchorBlockId = originBlockId;
-    });
-  }
-
-  void _endDragSelection() {
-    _dragSelectionActive = false;
-    _dragSelectionOriginBlockId = null;
-    _dragSelectionBaseIds.clear();
-  }
-
-  List<String> _selectedIdsForAction(FolioPage page, String triggerBlockId) {
-    if (_selectedBlockIds.contains(triggerBlockId) &&
-        _selectedBlockIds.length > 1) {
-      return page.blocks
-          .where((block) => _selectedBlockIds.contains(block.id))
-          .map((block) => block.id)
-          .toList();
-    }
-    return [triggerBlockId];
-  }
-
-  void _deleteSelectedBlocks(FolioPage page, List<String> blockIds) {
-    if (blockIds.isEmpty || page.blocks.length <= 1) return;
-    final existingIds = page.blocks
-        .where((b) => blockIds.contains(b.id))
-        .map((b) => b.id)
-        .toList();
-    if (existingIds.isEmpty) return;
-    // Nunca dejes la página sin bloques: limita el borrado a N-1.
-    final maxDeletable = page.blocks.length - 1;
-    final idsToDelete = existingIds.take(maxDeletable).toList();
-    if (idsToDelete.isEmpty) return;
-    final idsToDeleteSet = idsToDelete.toSet();
-    final survivors = page.blocks
-        .where((b) => !idsToDeleteSet.contains(b.id))
-        .toList();
-    final firstSelectedIndex = page.blocks.indexWhere(
-      (b) => idsToDeleteSet.contains(b.id),
-    );
-    final fallbackIndex = math.max(0, firstSelectedIndex - 1);
-    final targetIndex = math.min(fallbackIndex, survivors.length - 1);
-    final targetBlock = survivors[targetIndex];
-    _pendingFocusBlockId = targetBlock.id;
-    _pendingCursorOffset = targetBlock.text.length;
-    _s.removeBlocksIfMultiple(page.id, idsToDelete);
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..add(targetBlock.id);
-      _selectionAnchorBlockId = targetBlock.id;
-    });
-  }
-
-  void _duplicateSelectedBlocks(FolioPage page, List<String> blockIds) {
-    if (blockIds.isEmpty) return;
-    final blocks = page.blocks.where((b) => blockIds.contains(b.id)).toList();
-    if (blocks.isEmpty) return;
-    final clones = _s.cloneBlocksWithNewIds(page.id, blocks);
-    if (clones.isEmpty) return;
-    _s.insertBlocksAfterMany(
-      pageId: page.id,
-      afterBlockId: blocks.last.id,
-      blocks: clones,
-    );
-    _pendingFocusBlockId = clones.first.id;
-    _pendingCursorOffset = clones.first.text.length;
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..addAll(clones.map((b) => b.id));
-      _selectionAnchorBlockId = clones.first.id;
-    });
-  }
-
-  void _clearBlockSelection() {
-    if (_selectedBlockIds.isEmpty) return;
-    setState(() {
-      _selectedBlockIds.clear();
-      _selectionAnchorBlockId = null;
-    });
-  }
-
-  void _moveBlock(String pageId, String blockId, int delta) {
-    final idx =
-        _s.selectedPage?.blocks.indexWhere((b) => b.id == blockId) ?? -1;
-    if (idx < 0) return;
-    _pendingFocusIndex = idx + delta;
-    _pendingCursorOffset = _controllers[idx].selection.baseOffset.clamp(
-      0,
-      _controllers[idx].text.length,
-    );
-    _s.moveBlock(pageId, blockId, delta);
-  }
-
-  void _duplicateBlock(FolioPage page, FolioBlock block, int index) {
-    final clones = _s.cloneBlocksWithNewIds(page.id, [block]);
-    if (clones.isEmpty) return;
-    _pendingFocusIndex = index + 1;
-    _pendingCursorOffset = clones.first.text.length;
-    _s.insertBlockAfter(
-      pageId: page.id,
-      afterBlockId: block.id,
-      block: clones.first,
-    );
-  }
-
-  void _onBlocksReordered(FolioPage page, int oldIndex, int newIndex) {
-    String? focusId;
-    for (var i = 0; i < _focusNodes.length; i++) {
-      if (_focusNodes[i].hasFocus) {
-        focusId = page.blocks[i].id;
-        break;
-      }
-    }
-    _pendingFocusBlockId = focusId;
-    _s.reorderBlockAt(page.id, oldIndex, newIndex);
-  }
-
-  void _mutateTable(
-    String pageId,
-    String blockId,
-    int index,
-    void Function(FolioTableData d) op,
-  ) {
-    final page = _s.selectedPage;
-    if (page == null) return;
-    final bi = page.blocks.indexWhere((b) => b.id == blockId);
-    if (bi < 0) return;
-    final raw = page.blocks[bi].text;
-    final d = FolioTableData.tryParse(raw) ?? FolioTableData.empty();
-    op(d);
-    d.normalize();
-    final enc = d.encode();
-    _onTableEncoded(pageId, blockId, index, enc);
-    setState(() {});
-  }
-
-  void _mutateDatabase(
-    String pageId,
-    String blockId,
-    int index,
-    void Function(FolioDatabaseData d) op,
-  ) {
-    final page = _s.selectedPage;
-    if (page == null) return;
-    final bi = page.blocks.indexWhere((b) => b.id == blockId);
-    if (bi < 0) return;
-    final raw = page.blocks[bi].text;
-    final d = FolioDatabaseData.tryParse(raw) ?? FolioDatabaseData.empty();
-    op(d);
-    final enc = d.encode();
-    _onTableEncoded(pageId, blockId, index, enc);
-    setState(() {});
-  }
-
-  static const _menuSlotWidth = 40.0;
-  static const _menuSlotWidthPhone = 28.0;
+  /// Fase B3 del rediseño UX del editor: el slot ⋮ y el asa de arrastre
+  /// usaban un hit target de 32/28/22px — por debajo del mínimo recomendado
+  /// y de lo que el brief señala explícitamente como insuficiente ("no
+  /// obligar al usuario a acertar un icono de 16 px"). Se reutiliza
+  /// `minTapTarget` del motor de accesibilidad ya construido (Fase 22 del
+  /// plan anterior, `theme_engine/accessibility_resolver.dart`) en vez de
+  /// duplicar un literal — el icono visible sigue siendo pequeño (20-22px),
+  /// solo crece el área invisible alrededor que de verdad se puede pulsar.
+  static final _menuSlotWidth = minTapTarget(false);
+  static final _menuSlotWidthPhone = minTapTarget(false);
   /// Altura reservada del slot ⋮ para que al revelar acciones no crezca la fila.
-  static const _menuSlotHeight = 32.0;
-  static const _dragGutterWidth = 22.0;
-  static const _dragGutterHeight = 32.0;
+  static final _menuSlotHeight = minTapTarget(false);
+  static final _dragGutterWidth = minTapTarget(false);
+  static final _dragGutterHeight = minTapTarget(false);
 
   /// Ancho fijo para viñeta / checkbox / hueco: alinea el texto con Notion.
   static const _markerColumnWidth = 30.0;
   static const _markerColumnWidthPhone = 22.0;
   static const _markerEmptyColumnWidthPhone = 6.0;
 
-  int _orderedListNumber(List<FolioBlock> blocks, int index) {
-    if (index < 0 || index >= blocks.length) return 1;
-    if (blocks[index].type != 'numbered') return 1;
-    final d = blocks[index].depth;
-    var n = 1;
-    for (var j = index - 1; j >= 0; j--) {
-      final b = blocks[j];
-      if (b.depth < d) break;
-      if (b.depth == d) {
-        if (b.type == 'numbered') {
-          n++;
-        } else {
-          break;
-        }
-      }
-    }
-    return n;
-  }
-
-  Widget _blockMenuSlot({
-    required bool showActions,
-    required PopupMenuButton<String> menu,
-  }) {
-    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
-      MediaQuery.sizeOf(context).width,
-    );
-    final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
-    if (compactReadOnlyMobile) {
-      return const SizedBox.shrink();
-    }
-    return SizedBox(
-      width: androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth,
-      height: _menuSlotHeight,
-      child: IgnorePointer(
-        ignoring: !showActions,
-        child: AnimatedOpacity(
-          opacity: showActions ? 1 : 0,
-          duration: FolioMotion.short2,
-          child: Align(alignment: Alignment.centerLeft, child: menu),
-        ),
-      ),
-    );
-  }
-
-  /// Fila estilo Notion: asa de arrastre, marcador (viñeta / checkbox / hueco), texto.
-  Widget _buildBlockRow({
-    required BuildContext context,
-    required ColorScheme scheme,
-    required FolioPage page,
-    required FolioBlock block,
-    required int index,
-    required TextEditingController ctrl,
-    required FocusNode focus,
-    required TextStyle style,
-    required bool showActions,
-    required bool showInlineEditControls,
-  }) {
-    return _buildBlockRowDelegated(
-      context: context,
-      scheme: scheme,
-      page: page,
-      block: block,
-      index: index,
-      ctrl: ctrl,
-      focus: focus,
-      style: style,
-      showActions: showActions,
-      showInlineEditControls: showInlineEditControls,
-    );
-  }
 
   @override
   void initState() {
@@ -3854,29 +3344,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       sc.dispose();
     }
     _quillMainScrollByBlockId.clear();
-    final n = _controllers.length;
+    // Solo iteramos las entradas YA CONSTRUIDAS: acceder a `_controllers[i]`
+    // / `_focusNodes[i]` para un bloque nunca visitado lo construiría solo
+    // para destruirlo al instante, anulando el ahorro de la carga
+    // perezosa en páginas de miles de bloques.
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
-    for (var i = 0; i < n; i++) {
-      if (i < _textListeners.length) {
-        _controllers[i].removeListener(_textListeners[i]);
-      }
-      if (i < _focusDecorListeners.length) {
-        _focusNodes[i].removeListener(_focusDecorListeners[i]);
-      }
+    for (final obj in _editingObjectsByBlockId.values) {
+      obj.controller.removeListener(obj.textListener);
+      obj.focusNode.removeListener(obj.focusDecorListener);
       // Evitar dispose mientras el FocusNode aún puede notificar cambios
       // (especialmente en Windows/Quill con callbacks de foco/IME pendientes).
-      final fn = _focusNodes[i];
+      final fn = obj.focusNode;
       if (fn.hasFocus) {
         fn.unfocus();
       }
-      controllersToDispose.add(_controllers[i]);
+      controllersToDispose.add(obj.controller);
       focusToDispose.add(fn);
     }
-    _controllers.clear();
-    _focusNodes.clear();
-    _textListeners.clear();
-    _focusDecorListeners.clear();
+    _editingObjectsByBlockId.clear();
+    _focusedBlockId = null;
     _controllerBlockIds.clear();
     _slashBlockId = null;
     _slashPageId = null;
@@ -3993,13 +3480,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   bool _controllersMismatchPage(FolioPage page) {
     if (page.id != _boundPageId) return true;
-    if (page.blocks.length != _controllers.length) return true;
     if (page.blocks.length != _controllerBlockIds.length) return true;
     for (var i = 0; i < page.blocks.length; i++) {
       if (page.blocks[i].id != _controllerBlockIds[i]) return true;
-      final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
-      final hasCode = _controllers[i] is CodeController;
-      if (wantCode != hasCode) return true;
+      // El chequeo de tipo (código vs. no-código) solo aplica a bloques que
+      // YA tienen un controller construido: uno todavía no visitado no
+      // puede estar "equivocado" (se construirá con el tipo correcto la
+      // primera vez que haga falta).
+      final built = _editingObjectsByBlockId[page.blocks[i].id];
+      if (built != null) {
+        final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
+        final hasCode = built.controller is CodeController;
+        if (wantCode != hasCode) return true;
+      }
     }
     return false;
   }
@@ -4008,8 +3501,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   /// Evita dispose de [CodeField]/FocusNode (flutter_code_editor deja overlays/listeners rotos).
   bool _canReorderControllersOnly(FolioPage page) {
     if (page.id != _boundPageId) return false;
-    if (page.blocks.length != _controllers.length ||
-        page.blocks.length != _controllerBlockIds.length) {
+    if (page.blocks.length != _controllerBlockIds.length) {
       return false;
     }
     if (page.blocks.isEmpty) return true;
@@ -4022,49 +3514,41 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     for (final b in page.blocks) {
-      final j = _controllerBlockIds.indexOf(b.id);
-      if (j < 0) return false;
+      final built = _editingObjectsByBlockId[b.id];
+      if (built == null) continue;
       final wantCode = _usesCodeControllerForBlockType(b.type);
-      final hasCode = _controllers[j] is CodeController;
+      final hasCode = built.controller is CodeController;
       if (wantCode != hasCode) return false;
     }
     return true;
   }
 
   void _reorderControllersLikePage(FolioPage page) {
-    final newControllers = <TextEditingController>[];
-    final newFocusNodes = <FocusNode>[];
-    final newTextListeners = <VoidCallback>[];
-    final newFocusDecorListeners = <VoidCallback>[];
-    final newIds = <String>[];
-
-    for (final b in page.blocks) {
-      final j = _controllerBlockIds.indexOf(b.id);
-      newControllers.add(_controllers[j]);
-      newFocusNodes.add(_focusNodes[j]);
-      newTextListeners.add(_textListeners[j]);
-      newFocusDecorListeners.add(_focusDecorListeners[j]);
-      newIds.add(b.id);
-    }
-
-    _controllers
-      ..clear()
-      ..addAll(newControllers);
-    _focusNodes
-      ..clear()
-      ..addAll(newFocusNodes);
-    _textListeners
-      ..clear()
-      ..addAll(newTextListeners);
-    _focusDecorListeners
-      ..clear()
-      ..addAll(newFocusDecorListeners);
+    // El almacén real (`_editingObjectsByBlockId`) está indexado por id, no
+    // por posición, así que un reorder no mueve ningún
+    // TextEditingController/FocusNode — basta con resincronizar el orden
+    // de `_controllerBlockIds` para que `_controllers[i]`/`_focusNodes[i]`
+    // sigan resolviendo al bloque correcto en su nueva posición.
     _controllerBlockIds
       ..clear()
-      ..addAll(newIds);
+      ..addAll(page.blocks.map((b) => b.id));
   }
 
   void _onSession() {
+    if (!FolioPerfTrace.enabled) {
+      _onSessionImpl();
+      return;
+    }
+    final sw = FolioPerfTrace.begin();
+    final blocks = _s.selectedPage?.blocks.length ?? 0;
+    _onSessionImpl();
+    FolioPerfTrace.log('editor._onSession', {
+      'blocks': blocks,
+      'total_ms': FolioPerfTrace.ms(FolioPerfTrace.us(sw)),
+    });
+  }
+
+  void _onSessionImpl() {
     if (!mounted) return;
     final page = _s.selectedPage;
     if (page == null) {
@@ -4210,6 +3694,251 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _s.requestScrollToBlock(blockId);
   }
 
+  /// Construye (una única vez, bajo demanda) el TextEditingController y el
+  /// FocusNode reales de un bloque, con todos sus listeners. Sustituye el
+  /// antiguo bucle eager de `_syncControllers()` que hacía esto para los
+  /// 8000 bloques de golpe en cada resync — ahora solo se paga este costo
+  /// por el bloque que realmente hace falta (fila visible, foco pendiente,
+  /// operación explícita del usuario sobre ese bloque).
+  ///
+  /// La resincronización del documento Quill contra el modelo (undo/redo,
+  /// cambios remotos) YA NO ocurre aquí: como este método solo se invoca
+  /// para bloques que se están construyendo o que alguien necesita de
+  /// verdad, forzar aquí `_ensureQuillController` para reconciliar
+  /// reintroduciría el mismo parseo eager de markdown para toda la página.
+  /// Esa reconciliación la sigue hacien `_reconcileStylableQuillDocumentsWithModel`,
+  /// que ya solo opera sobre controllers Quill EXISTENTES (`_quillByBlockId`),
+  /// nunca crea uno nuevo.
+  _BlockEditingObjects _ensureEditingObjects(String blockId) {
+    final existing = _editingObjectsByBlockId[blockId];
+    if (existing != null) return existing;
+
+    final page = _s.selectedPage;
+    FolioBlock? found;
+    if (page != null) {
+      for (final x in page.blocks) {
+        if (x.id == blockId) {
+          found = x;
+          break;
+        }
+      }
+    }
+    // Por invariante, `blockId` proviene de `_controllerBlockIds`, que
+    // `_syncControllers()` / `_reorderControllersLikePage()` mantienen 1:1
+    // con `page.blocks`. Este fallback solo protege una llamada fuera de
+    // ese invariante; no debería ejercitarse en uso normal.
+    final b = found ?? FolioBlock(id: blockId, type: 'paragraph', text: '');
+    final bid = blockId;
+    final pid = page?.id ?? _boundPageId ?? '';
+
+    final TextEditingController c = _usesCodeControllerForBlockType(b.type)
+        ? CodeController(
+            text: b.text,
+            language: modeForLanguageId(
+              (b.type == 'mermaid' || b.type == 'equation')
+                  ? 'plaintext'
+                  : b.codeLanguage,
+            ),
+          )
+        : CopilotTextEditingController(text: b.text);
+
+    void textListener() {
+      if (!mounted) return;
+      if (c is CopilotTextEditingController && c.suggestion.isNotEmpty) {
+        c.suggestion = '';
+      }
+      final p = _s.selectedPage;
+      if (p == null || p.id != pid) return;
+      final idx = p.blocks.indexWhere((x) => x.id == bid);
+      if (idx < 0) return;
+      if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
+          c.text.isNotEmpty) {
+        _tailTapTransientTouchedByBlockId[bid] = true;
+        if (_pendingTailTransientBlockId == bid) {
+          _pendingTailTransientBlockId = null;
+        }
+      }
+      const skipTextSync = {
+        'toggle',
+        'column_list',
+        'template_button',
+        'toc',
+        'breadcrumb',
+        'child_page',
+      };
+      if (skipTextSync.contains(p.blocks[idx].type)) return;
+      _syncBlockTextFromController(pid, bid, c.text, idx);
+      _scheduleQuillCopilotProbe(bid);
+
+      // Rastrear si este bloque tiene selección de texto activa. Para
+      // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
+      // no en este `TextEditingController` (un espejo interno que
+      // `flushNow()` resincroniza con selección colapsada tras cada
+      // debounce); ese `listener()` de Quill ya mantiene
+      // `_selectionActiveBlockId` para esos bloques. Si este listener
+      // también escribiera ahí, un flush puramente programático (p. ej.
+      // disparado por `_ensureTrailingSentinel` al insertar el bloque
+      // centinela) borraría por error una selección de formato que sigue
+      // viva en el Quill controller, ocultando la barra de formato
+      // flotante sin que el usuario haya deseleccionado nada.
+      if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
+        final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
+        final wasActive = _selectionActiveBlockId == bid;
+        if (hasSelection && !wasActive) {
+          _selectionActiveBlockId = bid;
+          setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
+        } else if (!hasSelection && wasActive) {
+          _selectionActiveBlockId = null;
+          setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
+        } else if (hasSelection && wasActive) {
+          _scheduleFormatToolbarOverlayUpdate();
+        }
+      }
+    }
+
+    c.addListener(textListener);
+
+    final fn = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        final p = _s.selectedPage;
+        if (p?.id != pid) return KeyEventResult.ignored;
+        final idx = p!.blocks.indexWhere((x) => x.id == bid);
+        if (idx < 0) return KeyEventResult.ignored;
+        return _handleBlockKey(p, bid, idx, c, event);
+      },
+    );
+
+    void focusDecorListener() {
+      if (!mounted) return;
+      // Foco centralizado (ver `_focusedBlockId`): se actualiza aquí, antes
+      // de cualquier otra cosa, para que el resto de este listener (y
+      // cualquier otro consumidor) pueda consultarlo sin escanear todos los
+      // FocusNode de la página.
+      if (fn.hasFocus) {
+        _focusedBlockId = bid;
+        // Fase 2 del roadmap de producto — "continuar donde lo dejaste"
+        // (ver `VaultSession.noteLastFocusedBlock`). Barato: un write a un
+        // Map por evento de foco, no por cada tecla.
+        _s.noteLastFocusedBlock(pid, bid);
+      } else if (_focusedBlockId == bid) {
+        _focusedBlockId = null;
+      }
+      if (!fn.hasFocus) {
+        // Limpiar selección activa al perder foco (si era este bloque).
+        if (_selectionActiveBlockId == bid) {
+          _selectionActiveBlockId = null;
+          _scheduleFormatToolbarOverlayUpdate();
+        }
+        // Ocultar la sugerencia de Quill Copilot al perder foco (si era
+        // este bloque el que la tenía pendiente).
+        if (_quillCopilotSuggestionBlockId == bid) {
+          _quillCopilotSuggestionBlockId = null;
+          _quillCopilotSuggestionText = null;
+          _scheduleQuillCopilotOverlayUpdate();
+        }
+        // Flush inmediato de WYSIWYG al perder foco.
+        if (_stylableBlockTypes.contains(b.type)) {
+          final qc = _quillByBlockId[bid];
+          if (qc != null) {
+            _quillDebounceByBlockId[bid]?.cancel();
+            final md = FolioMarkdownQuillCodec.documentToMarkdown(
+              qc.document,
+            );
+            final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+            _quillLastMdByBlockId[bid] = md;
+            _runWithShortcutsIgnored(() {
+              _s.updateBlockTextFull(pid, bid, md, deltaStr);
+              final idx = _controllerBlockIds.indexOf(bid);
+              if (idx >= 0 && idx < _controllers.length) {
+                final caret = qc.selection.baseOffset.clamp(0, md.length);
+                _controllers[idx].value = TextEditingValue(
+                  text: md,
+                  selection: TextSelection.collapsed(offset: caret),
+                );
+              }
+            });
+          }
+        }
+        final touched = _tailTapTransientTouchedByBlockId[bid];
+        if (touched != null) {
+          if (!touched && c.text.trim().isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              final pNow = _s.selectedPage;
+              if (pNow == null || pNow.id != pid) return;
+              final stillExists = pNow.blocks.any((x) => x.id == bid);
+              if (!stillExists) {
+                _tailTapTransientTouchedByBlockId.remove(bid);
+                return;
+              }
+              final blockIndex = _controllerBlockIds.indexOf(bid);
+              if (blockIndex >= 0 &&
+                  blockIndex < _focusNodes.length &&
+                  _focusNodes[blockIndex].hasFocus) {
+                return;
+              }
+              _tailTapTransientTouchedByBlockId.remove(bid);
+              if (_pendingTailTransientBlockId == bid) {
+                _pendingTailTransientBlockId = null;
+              }
+              _s.removeBlockIfMultiple(pid, bid);
+            });
+          } else {
+            _tailTapTransientTouchedByBlockId.remove(bid);
+            if (_pendingTailTransientBlockId == bid) {
+              _pendingTailTransientBlockId = null;
+            }
+          }
+        }
+      }
+      final pM = _s.selectedPage;
+      if (pM != null) {
+        final mi = pM.blocks.indexWhere((x) => x.id == bid);
+        if (mi >= 0 &&
+            pM.blocks[mi].type == 'mermaid' &&
+            !fn.hasFocus &&
+            pM.blocks[mi].text.trim().isNotEmpty) {
+          _mermaidEditingSourceIds.remove(bid);
+        }
+      }
+      // Antes: escaneaba TODOS los FocusNode de la página buscando "algún
+      // otro bloque enfocado". Con `_focusedBlockId` centralizado, ese
+      // mismo hecho ya está disponible en O(1) sin forzar la construcción
+      // perezosa de FocusNodes de bloques nunca visitados.
+      final slashBid = _slashBlockId;
+      if (slashBid != null &&
+          _controllerBlockIds.contains(slashBid) &&
+          slashBid != _focusedBlockId &&
+          _focusedBlockId != null) {
+        _dismissInlineSlash(clearTypedCommand: true);
+        return;
+      }
+      final mentionBid = _mentionBlockId;
+      if (mentionBid != null &&
+          _controllerBlockIds.contains(mentionBid) &&
+          mentionBid != _focusedBlockId &&
+          _focusedBlockId != null) {
+        _dismissInlineMention();
+        return;
+      }
+      setState(() {});
+    }
+
+    fn.addListener(focusDecorListener);
+
+    final built = _BlockEditingObjects(
+      controller: c,
+      focusNode: fn,
+      textListener: textListener,
+      focusDecorListener: focusDecorListener,
+    );
+    _editingObjectsByBlockId[blockId] = built;
+    return built;
+  }
+
   void _syncControllers() {
     final page = _s.selectedPage;
     final pendingIdx = _pendingFocusIndex;
@@ -4244,248 +3973,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       (id, _) => !page.blocks.any((b) => b.id == id),
     );
 
-    for (final b in page.blocks) {
-      final bid = b.id;
-      final pid = page.id;
-      if (_stylableBlockTypes.contains(b.type)) {
-        // Asegurar controlador WYSIWYG y sincronizar desde el modelo si cambió
-        // (p. ej. undo/redo o cambios remotos).
-        final qc = _ensureQuillController(pageId: pid, block: b);
-        final last = _quillLastMdByBlockId[bid];
-        if (last != null && last != b.text) {
-          if (_quillMarkdownNormalize(last) ==
-              _quillMarkdownNormalize(b.text)) {
-            _quillLastMdByBlockId[bid] = b.text;
-          } else {
-            final oldPlain = qc.document.toPlainText();
-            final oldSel = qc.selection;
-            qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
-            _quillLastMdByBlockId[bid] = b.text;
-            final newPlain = qc.document.toPlainText();
-            if (newPlain == oldPlain && oldSel.isValid) {
-              qc.updateSelection(oldSel, quill.ChangeSource.remote);
-            } else if (oldSel.isValid) {
-              final o = oldSel.baseOffset.clamp(0, oldPlain.length);
-              final at = o.clamp(0, newPlain.length);
-              qc.updateSelection(
-                TextSelection.collapsed(offset: at),
-                quill.ChangeSource.remote,
-              );
-            }
-            // Cancelar el debounce DESPUÉS de `updateSelection`: tanto la
-            // asignación de `qc.document` como `updateSelection` notifican al
-            // listener del controller, que re-arma el debounce de
-            // persistencia en cada notificación. Si cancelamos antes de
-            // `updateSelection`, el temporizador que esta última rearma
-            // sobrevive y, cuando expira (p. ej. durante `pumpAndSettle`),
-            // vuelve a escribir en el modelo un markdown derivado del propio
-            // documento recién resincronizado — pisando cualquier mutación
-            // "real" del modelo (como un split de bloque) que haya ocurrido
-            // justo después de este resync remoto. Cancelar al final evita
-            // ese eco espurio hacia la sesión.
-            _quillDebounceByBlockId[bid]?.cancel();
-          }
-        }
-      }
-      final TextEditingController c = _usesCodeControllerForBlockType(b.type)
-          ? CodeController(
-              text: b.text,
-              language: modeForLanguageId(
-                (b.type == 'mermaid' || b.type == 'equation')
-                    ? 'plaintext'
-                    : b.codeLanguage,
-              ),
-            )
-          : CopilotTextEditingController(text: b.text);
-
-      void textListener() {
-        if (!mounted) return;
-        if (c is CopilotTextEditingController && c.suggestion.isNotEmpty) {
-          c.suggestion = '';
-        }
-        final p = _s.selectedPage;
-        if (p == null || p.id != pid) return;
-        final idx = p.blocks.indexWhere((x) => x.id == bid);
-        if (idx < 0) return;
-        if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
-            c.text.isNotEmpty) {
-          _tailTapTransientTouchedByBlockId[bid] = true;
-          if (_pendingTailTransientBlockId == bid) {
-            _pendingTailTransientBlockId = null;
-          }
-        }
-        const skipTextSync = {
-          'toggle',
-          'column_list',
-          'template_button',
-          'toc',
-          'breadcrumb',
-          'child_page',
-        };
-        if (skipTextSync.contains(p.blocks[idx].type)) return;
-        _syncBlockTextFromController(pid, bid, c.text, idx);
-        _scheduleQuillCopilotProbe(bid);
-
-        // Rastrear si este bloque tiene selección de texto activa. Para
-        // bloques WYSIWYG (Quill) la selección real vive en `qc.selection`,
-        // no en este `TextEditingController` (un espejo interno que
-        // `flushNow()` resincroniza con selección colapsada tras cada
-        // debounce); ese `listener()` de Quill ya mantiene
-        // `_selectionActiveBlockId` para esos bloques. Si este listener
-        // también escribiera ahí, un flush puramente programático (p. ej.
-        // disparado por `_ensureTrailingSentinel` al insertar el bloque
-        // centinela) borraría por error una selección de formato que sigue
-        // viva en el Quill controller, ocultando la barra de formato
-        // flotante sin que el usuario haya deseleccionado nada.
-        if (!_stylableBlockTypes.contains(p.blocks[idx].type)) {
-          final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
-          final wasActive = _selectionActiveBlockId == bid;
-          if (hasSelection && !wasActive) {
-            _selectionActiveBlockId = bid;
-            setState(() {});
-            _scheduleFormatToolbarOverlayUpdate();
-          } else if (!hasSelection && wasActive) {
-            _selectionActiveBlockId = null;
-            setState(() {});
-            _scheduleFormatToolbarOverlayUpdate();
-          } else if (hasSelection && wasActive) {
-            _scheduleFormatToolbarOverlayUpdate();
-          }
-        }
-      }
-
-      c.addListener(textListener);
-      _textListeners.add(textListener);
-
-      final fn = FocusNode(
-        onKeyEvent: (node, event) {
-          if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
-          final p = _s.selectedPage;
-          if (p?.id != pid) return KeyEventResult.ignored;
-          final idx = p!.blocks.indexWhere((x) => x.id == bid);
-          if (idx < 0) return KeyEventResult.ignored;
-          return _handleBlockKey(p, bid, idx, c, event);
-        },
-      );
-
-      void focusDecorListener() {
-        if (!mounted) return;
-        if (!fn.hasFocus) {
-          // Limpiar selección activa al perder foco (si era este bloque).
-          if (_selectionActiveBlockId == bid) {
-            _selectionActiveBlockId = null;
-            _scheduleFormatToolbarOverlayUpdate();
-          }
-          // Ocultar la sugerencia de Quill Copilot al perder foco (si era
-          // este bloque el que la tenía pendiente).
-          if (_quillCopilotSuggestionBlockId == bid) {
-            _quillCopilotSuggestionBlockId = null;
-            _quillCopilotSuggestionText = null;
-            _scheduleQuillCopilotOverlayUpdate();
-          }
-          // Flush inmediato de WYSIWYG al perder foco.
-          if (_stylableBlockTypes.contains(b.type)) {
-            final qc = _quillByBlockId[bid];
-            if (qc != null) {
-              _quillDebounceByBlockId[bid]?.cancel();
-              final md = FolioMarkdownQuillCodec.documentToMarkdown(
-                qc.document,
-              );
-              final deltaStr = jsonEncode(qc.document.toDelta().toJson());
-              _quillLastMdByBlockId[bid] = md;
-              _runWithShortcutsIgnored(() {
-                _s.updateBlockTextFull(pid, bid, md, deltaStr);
-                final idx = _controllerBlockIds.indexOf(bid);
-                if (idx >= 0 && idx < _controllers.length) {
-                  final caret = qc.selection.baseOffset.clamp(0, md.length);
-                  _controllers[idx].value = TextEditingValue(
-                    text: md,
-                    selection: TextSelection.collapsed(offset: caret),
-                  );
-                }
-              });
-            }
-          }
-          final touched = _tailTapTransientTouchedByBlockId[bid];
-          if (touched != null) {
-            if (!touched && c.text.trim().isEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                final pNow = _s.selectedPage;
-                if (pNow == null || pNow.id != pid) return;
-                final stillExists = pNow.blocks.any((x) => x.id == bid);
-                if (!stillExists) {
-                  _tailTapTransientTouchedByBlockId.remove(bid);
-                  return;
-                }
-                final blockIndex = _controllerBlockIds.indexOf(bid);
-                if (blockIndex >= 0 &&
-                    blockIndex < _focusNodes.length &&
-                    _focusNodes[blockIndex].hasFocus) {
-                  return;
-                }
-                _tailTapTransientTouchedByBlockId.remove(bid);
-                if (_pendingTailTransientBlockId == bid) {
-                  _pendingTailTransientBlockId = null;
-                }
-                _s.removeBlockIfMultiple(pid, bid);
-              });
-            } else {
-              _tailTapTransientTouchedByBlockId.remove(bid);
-              if (_pendingTailTransientBlockId == bid) {
-                _pendingTailTransientBlockId = null;
-              }
-            }
-          }
-        }
-        final pM = _s.selectedPage;
-        if (pM != null) {
-          final mi = pM.blocks.indexWhere((x) => x.id == bid);
-          if (mi >= 0 &&
-              pM.blocks[mi].type == 'mermaid' &&
-              !fn.hasFocus &&
-              pM.blocks[mi].text.trim().isNotEmpty) {
-            _mermaidEditingSourceIds.remove(bid);
-          }
-        }
-        final slashBid = _slashBlockId;
-        if (slashBid != null) {
-          final slashIdx = _controllerBlockIds.indexWhere((x) => x == slashBid);
-          if (slashIdx >= 0 && !_focusNodes[slashIdx].hasFocus) {
-            final otherBlockFocused = _focusNodes.asMap().entries.any(
-              (e) => e.key != slashIdx && e.value.hasFocus,
-            );
-            if (otherBlockFocused) {
-              _dismissInlineSlash(clearTypedCommand: true);
-              return;
-            }
-          }
-        }
-        final mentionBid = _mentionBlockId;
-        if (mentionBid != null) {
-          final mentionIdx = _controllerBlockIds.indexWhere(
-            (x) => x == mentionBid,
-          );
-          if (mentionIdx >= 0 && !_focusNodes[mentionIdx].hasFocus) {
-            final otherBlockFocused = _focusNodes.asMap().entries.any(
-              (e) => e.key != mentionIdx && e.value.hasFocus,
-            );
-            if (otherBlockFocused) {
-              _dismissInlineMention();
-              return;
-            }
-          }
-        }
-        setState(() {});
-      }
-
-      fn.addListener(focusDecorListener);
-      _focusDecorListeners.add(focusDecorListener);
-
-      _controllers.add(c);
-      _focusNodes.add(fn);
-      _controllerBlockIds.add(bid);
-    }
+    // Solo se resincroniza el índice id<->posición (barato, son strings).
+    // El TextEditingController/FocusNode/documento Quill de cada bloque se
+    // construye perezosamente vía `_ensureEditingObjects`/`_ensureQuillController`
+    // la primera vez que ese bloque concreto hace falta (fila visible en el
+    // `ListView.builder`, foco pendiente, operación explícita del usuario).
+    _controllerBlockIds.addAll(page.blocks.map((b) => b.id));
 
     var focusIdx = pendingIdx;
     var focusOff = pendingOff;
@@ -4601,155 +4094,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
     }
     return true;
-  }
-
-  /// Solo pruebas: fuerza selección y actualiza la barra en Overlay (Quill/markdown).
-  @visibleForTesting
-  void debugShowFormatToolbarOverlayForTest() {
-    if (!mounted || widget.readOnlyMode || _controllerBlockIds.isEmpty) return;
-    final bid = _controllerBlockIds.first;
-    final qc = _quillByBlockId[bid];
-    if (qc != null) {
-      final plain = qc.document.toPlainText();
-      if (plain.isEmpty) return;
-      final end = math.min(4, plain.length);
-      qc.updateSelection(
-        TextSelection(baseOffset: 0, extentOffset: end),
-        quill.ChangeSource.local,
-      );
-    } else {
-      final c = _controllers.first;
-      if (c.text.isEmpty) return;
-      final end = math.min(4, c.text.length);
-      _runWithShortcutsIgnored(() {
-        c.selection = TextSelection(baseOffset: 0, extentOffset: end);
-      });
-    }
-    _selectionActiveBlockId = bid;
-    setState(() {});
-    _updateFormatToolbarOverlay();
-  }
-
-  /// Solo pruebas: offset del caret en texto plano del bloque Quill activo.
-  @visibleForTesting
-  int? debugLiveQuillCaretOffsetForBlock(String blockId) {
-    final page = _s.selectedPage;
-    if (page == null) return null;
-    FolioBlock? block;
-    for (final b in page.blocks) {
-      if (b.id == blockId) {
-        block = b;
-        break;
-      }
-    }
-    if (block == null || !_stylableBlockTypes.contains(block.type)) return null;
-    if (!_quillByBlockId.containsKey(blockId)) {
-      _ensureQuillController(pageId: page.id, block: block);
-    }
-    return _liveCaretPlainOffset(blockId);
-  }
-
-  /// Solo pruebas: escribe texto en un bloque Quill y vacía el debounce.
-  @visibleForTesting
-  void debugSimulateQuillTypingForTest(String blockId, String text) {
-    final page = _s.selectedPage;
-    if (page == null || text.isEmpty) return;
-    FolioBlock? block;
-    for (final b in page.blocks) {
-      if (b.id == blockId) {
-        block = b;
-        break;
-      }
-    }
-    if (block == null || !_stylableBlockTypes.contains(block.type)) return;
-    final qc = _ensureQuillController(pageId: page.id, block: block);
-    var plain = qc.document.toPlainText();
-    if (plain.endsWith('\n')) {
-      plain = plain.substring(0, plain.length - 1);
-    }
-    final offset = qc.selection.isValid
-        ? qc.selection.baseOffset.clamp(0, plain.length)
-        : plain.length;
-    qc.replaceText(offset, 0, text, null);
-    final after = qc.document.toPlainText();
-    var end = after.length;
-    if (after.endsWith('\n') && end > 0) {
-      end -= 1;
-    }
-    qc.updateSelection(
-      TextSelection.collapsed(offset: end),
-      quill.ChangeSource.local,
-    );
-    _quillFlushNowByBlockId[blockId]?.call();
-  }
-
-  /// Solo pruebas: prepara centinela sin ejecutar el post-frame de foco.
-  @visibleForTesting
-  int? debugPrepareTrailingSentinelCaretTest(String blockId) {
-    final page = _s.selectedPage;
-    if (page == null) return null;
-    FolioBlock? block;
-    for (final b in page.blocks) {
-      if (b.id == blockId) {
-        block = b;
-        break;
-      }
-    }
-    if (block == null || !_stylableBlockTypes.contains(block.type)) return null;
-    final qc = _ensureQuillController(pageId: page.id, block: block);
-    final idx = page.blocks.indexWhere((b) => b.id == blockId);
-    if (idx >= 0 && idx < _focusNodes.length) {
-      _focusNodes[idx].requestFocus();
-    }
-    qc.replaceText(0, 0, 'hola', null);
-    qc.updateSelection(
-      const TextSelection.collapsed(offset: 4),
-      quill.ChangeSource.local,
-    );
-    _quillFlushNowByBlockId[blockId]?.call();
-    if (!_ensureTrailingSentinel(page)) {
-      final pageAfter = _s.selectedPage;
-      if (pageAfter != null && _controllersMismatchPage(pageAfter)) {
-        if (_canReorderControllersOnly(pageAfter)) {
-          _reorderControllersLikePage(pageAfter);
-        } else {
-          _syncControllers();
-        }
-      }
-    }
-    return _pendingCursorOffset;
-  }
-
-  @visibleForTesting
-  int? debugQuillRawCaretForTest(String blockId) {
-    final qc = _quillByBlockId[blockId];
-    if (qc == null || !qc.selection.isValid) return null;
-    return qc.selection.baseOffset;
-  }
-
-  /// Solo pruebas: misma inserción que Enter / Ctrl+Enter en el bloque enfocado.
-  @visibleForTesting
-  bool debugInvokeTryInsertNewBlockForTest({required bool force}) {
-    final page = _s.selectedPage;
-    if (page == null) return false;
-    for (var i = 0; i < _focusNodes.length; i++) {
-      if (i >= _controllerBlockIds.length || i >= _controllers.length) {
-        continue;
-      }
-      if (_focusNodes[i].hasFocus) {
-        final blockId = _controllerBlockIds[i];
-        final idx = page.blocks.indexWhere((b) => b.id == blockId);
-        if (idx < 0) return false;
-        return _tryInsertNewBlockFromCurrentCaret(
-          page: page,
-          blockId: blockId,
-          index: idx,
-          ctrl: _controllers[i],
-          force: force,
-        );
-      }
-    }
-    return false;
   }
 
   KeyEventResult _handleBlockKey(
@@ -5037,514 +4381,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return KeyEventResult.ignored;
   }
 
-  bool _isValidCollabRoomId(String? raw) {
-    final rid = raw?.trim();
-    if (rid == null || rid.isEmpty) return false;
-    if (RegExp(r'^[-—]+$').hasMatch(rid)) return false;
-    return true;
-  }
-
-  bool _isCollabMediaUri(String raw) => raw.startsWith('collab-media://');
-
-  ({String roomId, String mediaId})? _parseCollabMediaUri(String raw) {
-    final u = Uri.tryParse(raw);
-    if (u == null || u.scheme != 'collab-media') return null;
-    final roomId = u.host.trim();
-    final mediaId = u.pathSegments.isNotEmpty
-        ? u.pathSegments.first.trim()
-        : '';
-    if (!_isValidCollabRoomId(roomId) || mediaId.isEmpty) return null;
-    return (roomId: roomId, mediaId: mediaId);
-  }
-
-  Future<SecretKey?> _roomKeyForCollabRoom({
-    required String roomId,
-    required String joinCode,
-  }) async {
-    final cached = _collabRoomKeyCache[roomId];
-    if (cached != null) return cached;
-
-    final inFlight = _collabRoomKeyInFlight[roomId];
-    if (inFlight != null) return inFlight;
-
-    final future = (() async {
-      final room = await CollabSpringApi().getRoom(roomId);
-      final e2eV = (room['e2eV'] as num?)?.toInt() ?? 0;
-      if (e2eV != 1) return null;
-      final wrapped = (room['wrappedRoomKey'] as String?)?.trim();
-      if (wrapped == null || wrapped.isEmpty) return null;
-      final key = await CollabE2eCrypto.unwrapRoomKeyB64(
-        wrappedB64: wrapped,
-        joinCodeNormalized: CollabE2eCrypto.normalizeJoinCode(joinCode),
-        roomId: roomId,
-      );
-      _collabRoomKeyCache[roomId] = key;
-      return key;
-    })();
-
-    _collabRoomKeyInFlight[roomId] = future;
-    try {
-      return await future;
-    } finally {
-      _collabRoomKeyInFlight.remove(roomId);
-    }
-  }
-
-  bool _shouldEmitCollabUploadUi({
-    required String blockId,
-    required double? progress,
-    required Duration? eta,
-  }) {
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final lastMs = _collabUploadLastUiMsByBlockId[blockId];
-    final nextProgress = progress ?? -1;
-    final lastProgress = _collabUploadLastProgressByBlockId[blockId] ?? -2;
-    final nextEtaSec = eta?.inSeconds ?? -1;
-    final lastEtaSec = _collabUploadLastEtaSecByBlockId[blockId] ?? -2;
-
-    final progressChangedEnough =
-        progress == null ||
-        lastProgress < 0 ||
-        (nextProgress - lastProgress).abs() >= 0.02 ||
-        nextProgress >= 1.0;
-    final etaChanged = nextEtaSec != lastEtaSec;
-    final enoughTimeElapsed = lastMs == null || (nowMs - lastMs) >= 180;
-
-    if (!(progressChangedEnough || etaChanged || enoughTimeElapsed)) {
-      return false;
-    }
-
-    _collabUploadLastUiMsByBlockId[blockId] = nowMs;
-    _collabUploadLastProgressByBlockId[blockId] = nextProgress;
-    _collabUploadLastEtaSecByBlockId[blockId] = nextEtaSec;
-    return true;
-  }
-
-  void _enqueueCollabMediaUpload({
-    required String pageId,
-    required String blockId,
-    required File localFile,
-    required String mediaKind,
-    required void Function(String uri) onCommittedUri,
-  }) {
-    unawaited(
-      _uploadCollabMediaForBlock(
-        pageId: pageId,
-        blockId: blockId,
-        file: localFile,
-        mediaKind: mediaKind,
-        onCommittedUri: onCommittedUri,
-      ),
-    );
-  }
-
-  Future<void> _uploadCollabMediaForBlock({
-    required String pageId,
-    required String blockId,
-    required File file,
-    required String mediaKind,
-    required void Function(String uri) onCommittedUri,
-  }) async {
-    final page = _s.pages.firstWhereOrNull((p) => p.id == pageId);
-    final roomId = page?.collabRoomId?.trim();
-    final joinCode = page?.collabJoinCode?.trim();
-    if (!_isValidCollabRoomId(roomId) || joinCode == null || joinCode.isEmpty) {
-      return;
-    }
-    final fileSize = file.lengthSync();
-
-    final token = _bumpCollabUploadToken(blockId);
-    if (mounted) {
-      setState(() {
-        _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
-          encrypting: true,
-        );
-      });
-    }
-
-    try {
-      final prep = await callFolioHttpsCallable('prepareCollabMediaUpload', {
-        'roomId': roomId,
-        'blockId': blockId,
-        'mediaKind': mediaKind,
-        'sizeBytes': fileSize,
-      });
-      if (prep is! Map) return;
-      final mediaId = '${prep['mediaId'] ?? ''}'.trim();
-      final storagePath = '${prep['storagePath'] ?? ''}'.trim();
-      if (mediaId.isEmpty || storagePath.isEmpty) return;
-
-      final roomKey = await _roomKeyForCollabRoom(
-        roomId: roomId!,
-        joinCode: joinCode,
-      );
-      if (roomKey == null) return;
-
-      final plain = await file.readAsBytes();
-      final cipher = await CollabE2eCrypto.encryptBinaryBytes(
-        bytes: Uint8List.fromList(plain),
-        roomKey: roomKey,
-      );
-      final ref = storagePath;
-      if (mounted) {
-        setState(() {
-          _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
-            encrypting: false,
-            progress: null,
-            eta: null,
-          );
-        });
-      }
-      await folioStoragePutData(ref, cipher);
-
-      await callFolioHttpsCallable('commitCollabMediaUpload', {
-        'roomId': roomId,
-        'mediaId': mediaId,
-        'blockId': blockId,
-        'storagePath': storagePath,
-        'mediaKind': mediaKind,
-        'mimeType': '',
-        'fileName': p.basename(file.path),
-        'sizeBytes': fileSize,
-      });
-      if (!_isActiveCollabUploadToken(blockId, token)) return;
-      final uri = 'collab-media://$roomId/$mediaId';
-      onCommittedUri(uri);
-      if (mounted) {
-        setState(() {
-          _collabUploadByBlockId.remove(blockId);
-        });
-      }
-      _collabUploadLastUiMsByBlockId.remove(blockId);
-      _collabUploadLastProgressByBlockId.remove(blockId);
-      _collabUploadLastEtaSecByBlockId.remove(blockId);
-    } catch (e) {
-      if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
-      setState(() {
-        _collabUploadByBlockId[blockId] = _CollabUploadProgress(
-          encrypting: false,
-          progress: null,
-          eta: null,
-          error: '$e',
-        );
-      });
-      _collabUploadLastUiMsByBlockId.remove(blockId);
-      _collabUploadLastProgressByBlockId.remove(blockId);
-      _collabUploadLastEtaSecByBlockId.remove(blockId);
-    }
-  }
-
-  Future<File?> _resolveCollabMediaFile(String rawUrl) async {
-    // Media collab indexada en Firestore no está portada a Spring aún.
-    return null;
-  }
-
-  Future<Directory> _collabMediaCacheDir() async {
-    final vault = await VaultPaths.vaultDirectory();
-    final cacheDir = Directory(
-      p.join(vault.path, VaultPaths.attachmentsDirName, '.collab_cache'),
-    );
-    if (!await cacheDir.exists()) {
-      await cacheDir.create(recursive: true);
-    }
-    return cacheDir;
-  }
-
-  Future<File?> _findCachedCollabMediaFile(String mediaId) async {
-    final knownPath = _collabMediaCachePathByMediaId[mediaId];
-    if (knownPath != null) {
-      final known = File(knownPath);
-      if (await known.exists() && await known.length() > 0) {
-        return known;
-      }
-      _collabMediaCachePathByMediaId.remove(mediaId);
-    }
-
-    final cacheDir = await _collabMediaCacheDir();
-    final defaultBin = File(p.join(cacheDir.path, '$mediaId.bin'));
-    if (await defaultBin.exists() && await defaultBin.length() > 0) {
-      _collabMediaCachePathByMediaId[mediaId] = defaultBin.path;
-      return defaultBin;
-    }
-
-    await for (final e in cacheDir.list(followLinks: false)) {
-      if (e is! File) continue;
-      if (p.basenameWithoutExtension(e.path) != mediaId) continue;
-      if (await e.length() <= 0) continue;
-      _collabMediaCachePathByMediaId[mediaId] = e.path;
-      return e;
-    }
-    return null;
-  }
-
-  int _bumpCollabUploadToken(String blockId) {
-    final next = (_collabUploadTokenByBlockId[blockId] ?? 0) + 1;
-    _collabUploadTokenByBlockId[blockId] = next;
-    return next;
-  }
-
-  bool _isActiveCollabUploadToken(String blockId, int token) {
-    return _collabUploadTokenByBlockId[blockId] == token;
-  }
-
-  String _formatEta(Duration? eta) {
-    if (eta == null) return '--:--';
-    final secs = eta.inSeconds.clamp(0, 359999);
-    final mm = (secs ~/ 60).toString().padLeft(2, '0');
-    final ss = (secs % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
-  }
-
-  Widget _buildCollabUploadProgressBadge(
-    String blockId,
-    ThemeData theme,
-    ColorScheme scheme,
-  ) {
-    final u = _collabUploadByBlockId[blockId];
-    if (u == null) return const SizedBox.shrink();
-    if (u.error != null) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          _t(
-            'Error al subir a sala: ${u.error}',
-            'Room upload failed: ${u.error}',
-          ),
-          style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-        ),
-      );
-    }
-    final progress = u.progress;
-    final pct = progress == null
-        ? _t('Preparando cifrado…', 'Preparing encryption...')
-        : _t(
-            'Subiendo ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
-            'Uploading ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
-          );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(FolioRadius.xs),
-            child: LinearProgressIndicator(value: progress),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            pct,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// En escritorio `image_picker` suele lanzar [MissingPluginException]; ahí usamos diálogo nativo.
-  bool get _pickImageViaFileDialog {
-    if (FolioAdaptive.isAndroidDesktopLikeWidth(
-      MediaQuery.sizeOf(context).width,
-    )) {
-      return true;
-    }
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.windows ||
-      TargetPlatform.linux ||
-      TargetPlatform.macOS => true,
-      _ => false,
-    };
-  }
-
-  Future<void> _pickImageForBlock(
-    String pageId,
-    String blockId,
-    int index,
-  ) async {
-    File? file;
-    String? webRel;
-    if (_pickImageViaFileDialog || kIsWeb) {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: kIsWeb,
-      );
-      if (kIsWeb) {
-        final bytes = result?.files.single.bytes;
-        if (bytes != null) {
-          final ext = p.extension(result!.files.single.name);
-          webRel = await VaultPaths.importAttachmentBytes(bytes, ext);
-        }
-      } else {
-        final path = result?.files.single.path;
-        if (path != null) {
-          file = File(path);
-        }
-      }
-    } else {
-      final picker = ImagePicker();
-      final x = await picker.pickImage(source: ImageSource.gallery);
-      if (x != null) {
-        file = File(x.path);
-      }
-    }
-    if (!mounted || (file == null && webRel == null)) return;
-    if (file != null && !kIsWeb && !file.existsSync()) return;
-    final rel = webRel ?? await VaultPaths.importAttachmentFile(file!);
-    if (!mounted) return;
-    _ignoreShortcuts = true;
-    _s.updateBlockText(pageId, blockId, rel);
-    if (index < _controllers.length) {
-      _controllers[index].value = TextEditingValue(
-        text: rel,
-        selection: TextSelection.collapsed(offset: rel.length),
-      );
-    }
-    _ignoreShortcuts = false;
-    setState(() {});
-    if (file != null) {
-      _enqueueCollabMediaUpload(
-        pageId: pageId,
-        blockId: blockId,
-        localFile: file,
-        mediaKind: 'image',
-        onCommittedUri: (uri) {
-          _ignoreShortcuts = true;
-          _s.updateBlockText(pageId, blockId, uri);
-          if (index < _controllers.length) {
-            _controllers[index].value = TextEditingValue(
-              text: uri,
-              selection: TextSelection.collapsed(offset: uri.length),
-            );
-          }
-          _ignoreShortcuts = false;
-        },
-      );
-    }
-  }
-
-  Future<void> _clearImageBlock(
-    String pageId,
-    String blockId,
-    int index,
-  ) async {
-    _ignoreShortcuts = true;
-    _s.updateBlockText(pageId, blockId, '');
-    if (index < _controllers.length) {
-      _controllers[index].clear();
-    }
-    _ignoreShortcuts = false;
-    setState(() {});
-  }
-
-  Future<void> _pickFileForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles(withData: kIsWeb);
-    if (result == null) return;
-    if (kIsWeb) {
-      final bytes = result.files.single.bytes;
-      if (bytes != null) {
-        final ext = p.extension(result.files.single.name);
-        final rel = await VaultPaths.importAttachmentBytes(
-          bytes,
-          ext,
-          preferredName: result.files.single.name,
-        );
-        _s.updateBlockUrl(pageId, blockId, rel);
-        setState(() {});
-      }
-    } else if (result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final rel = await VaultPaths.importAttachmentFile(
-        file,
-        preserveExtension: true,
-        preserveFileName: true,
-      );
-      _s.updateBlockUrl(pageId, blockId, rel);
-      setState(() {});
-      _enqueueCollabMediaUpload(
-        pageId: pageId,
-        blockId: blockId,
-        localFile: file,
-        mediaKind: 'file',
-        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
-      );
-    }
-  }
-
-  Future<void> _pickVideoForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.video,
-      withData: kIsWeb,
-    );
-    if (result == null) return;
-    if (kIsWeb) {
-      final bytes = result.files.single.bytes;
-      if (bytes != null) {
-        final ext = p.extension(result.files.single.name);
-        final rel = await VaultPaths.importAttachmentBytes(
-          bytes,
-          ext,
-          preferredName: result.files.single.name,
-        );
-        _s.updateBlockUrl(pageId, blockId, rel);
-        setState(() {});
-      }
-    } else if (result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final rel = await VaultPaths.importAttachmentFile(
-        file,
-        preserveExtension: true,
-        preserveFileName: true,
-      );
-      _s.updateBlockUrl(pageId, blockId, rel);
-      setState(() {});
-      _enqueueCollabMediaUpload(
-        pageId: pageId,
-        blockId: blockId,
-        localFile: file,
-        mediaKind: 'video',
-        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
-      );
-    }
-  }
-
-  Future<void> _pickAudioForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.audio,
-      withData: kIsWeb,
-    );
-    if (result == null) return;
-    if (kIsWeb) {
-      final bytes = result.files.single.bytes;
-      if (bytes != null) {
-        final ext = p.extension(result.files.single.name);
-        final rel = await VaultPaths.importAttachmentBytes(
-          bytes,
-          ext,
-          preferredName: result.files.single.name,
-        );
-        _s.updateBlockUrl(pageId, blockId, rel);
-        setState(() {});
-      }
-    } else if (result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final rel = await VaultPaths.importAttachmentFile(
-        file,
-        preserveExtension: true,
-        preserveFileName: true,
-      );
-      _s.updateBlockUrl(pageId, blockId, rel);
-      setState(() {});
-      _enqueueCollabMediaUpload(
-        pageId: pageId,
-        blockId: blockId,
-        localFile: file,
-        mediaKind: 'audio',
-        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
-      );
-    }
-  }
 
   void _clearBlockUrl(String pageId, String blockId) {
     _s.updateBlockUrl(pageId, blockId, null);
@@ -5637,10 +4473,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       style: IconButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.all(4),
-        minimumSize: Size(
-          androidPhoneLayout ? 28 : _menuSlotHeight,
-          androidPhoneLayout ? 28 : _menuSlotHeight,
-        ),
+        minimumSize: Size.square(_menuSlotHeight),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
@@ -5658,857 +4491,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  void _onBlockMenuChosen(
-    String v,
-    BuildContext menuContext,
-    FolioPage page,
-    FolioBlock b,
-    int index,
-  ) {
-    if (v == 'del') {
-      if (page.blocks.length > 1) {
-        if (b.type == 'meeting_note') {
-          final idx = page.blocks.indexWhere((it) => it.id == b.id);
-          if (idx > 0) {
-            _pendingFocusIndex = idx - 1;
-            _pendingCursorOffset = page.blocks[idx - 1].text.length;
-          } else if (page.blocks.length > 1) {
-            _pendingFocusIndex = 0;
-            _pendingCursorOffset = 0;
-          }
-          _s.removeBlockIfMultiple(page.id, b.id);
-        } else {
-          _deleteSelectedBlocks(page, _selectedIdsForAction(page, b.id));
-        }
-      } else {
-        // Si es el ultimo bloque, lo dejamos como parrafo vacio
-        // para no romper la regla de pagina no vacia.
-        _s.changeBlockType(page.id, b.id, 'paragraph');
-        _s.updateBlockText(page.id, b.id, '');
-        _s.updateBlockUrl(page.id, b.id, null);
-        final j = _controllerBlockIds.indexOf(b.id);
-        if (j >= 0 && j < _controllers.length) {
-          _ignoreShortcuts = true;
-          _controllers[j].clear();
-          _ignoreShortcuts = false;
-        }
-        _pendingFocusBlockId = b.id;
-        _pendingCursorOffset = 0;
-        if (mounted) setState(() {});
-      }
-    } else if (v == 'ai_rewrite') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final c = TextEditingController();
-        final rewriteL10n = AppLocalizations.of(menuContext);
-        final go = await showDialog<bool>(
-          context: menuContext,
-          builder: (ctx) => FolioDialog(
-            title: Text(rewriteL10n.aiRewriteDialogTitle),
-            content: TextField(
-              controller: c,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: rewriteL10n.aiInstructionHint,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(rewriteL10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(rewriteL10n.aiApply),
-              ),
-            ],
-          ),
-        );
-        final instruction = c.text.trim();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          c.dispose();
-        });
-        if (go != true || instruction.isEmpty) return;
-        try {
-          final preview = await _s.previewRewriteBlockWithAi(
-            pageId: page.id,
-            blockId: b.id,
-            instruction: instruction,
-          );
-          if (!mounted) return;
-
-          final theme = Theme.of(context);
-          final scheme = theme.colorScheme;
-          final baseStyle = theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurface,
-            height: 1.35,
-          );
-          if (!menuContext.mounted) return;
-          final previewL10n = AppLocalizations.of(menuContext);
-          final accept = await showDialog<bool>(
-            context: menuContext,
-            builder: (ctx) {
-              return FolioDialog(
-                title: Text(previewL10n.aiPreviewTitle),
-                content: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: SingleChildScrollView(
-                    child: FolioAiTypewriterMessage(
-                      fullText: preview.text,
-                      style:
-                          baseStyle ??
-                          TextStyle(color: scheme.onSurface, height: 1.35),
-                      selectable: true,
-                    ),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text(previewL10n.cancel),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: Text(previewL10n.aiApply),
-                  ),
-                ],
-              );
-            },
-          );
-          if (accept != true || !mounted) return;
-
-          await _applyTypewriterToBlock(
-            pageId: page.id,
-            blockId: b.id,
-            fullText: preview.text,
-          );
-        } catch (e) {
-          if (!mounted) return;
-          final l10n = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.aiGenericErrorWithReason('$e'))),
-          );
-        }
-      });
-    } else if (v == 'pick_type') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final choice = await _openBlockTypePicker(menuContext);
-        if (!mounted || choice == null) return;
-        final blockId = b.id;
-        var preservedOff = 0;
-        final i0 = page.blocks.indexWhere((x) => x.id == blockId);
-        if (i0 >= 0 && i0 < _controllers.length) {
-          if (_stylableBlockTypes.contains(b.type)) {
-            final qc = _quillByBlockId[blockId];
-            if (qc != null && qc.selection.isValid) {
-              preservedOff = qc.selection.baseOffset.clamp(
-                0,
-                qc.document.toPlainText().length,
-              );
-            }
-          } else {
-            final c = _controllers[i0];
-            if (c.selection.isValid) {
-              preservedOff = c.selection.baseOffset.clamp(0, c.text.length);
-            }
-          }
-        }
-        _pendingFocusBlockId = blockId;
-        _pendingCursorOffset = preservedOff;
-        _s.changeBlockType(page.id, blockId, choice);
-        final p2 = _s.selectedPage;
-        if (p2 != null && mounted) {
-          final j = p2.blocks.indexWhere((x) => x.id == blockId);
-          if (j >= 0 && j < _controllers.length) {
-            final nb = p2.blocks[j];
-            final len = nb.text.length;
-            final off = preservedOff.clamp(0, len);
-            _ignoreShortcuts = true;
-            _controllers[j].value = TextEditingValue(
-              text: nb.text,
-              selection: TextSelection.collapsed(offset: off),
-            );
-            _ignoreShortcuts = false;
-          }
-        }
-        if (mounted) setState(() {});
-      });
-    } else if (v == 'appearance') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_editBlockAppearance(page, b));
-      });
-    } else if (v == 'up' && index > 0) {
-      _moveBlock(page.id, b.id, -1);
-    } else if (v == 'down' && index < page.blocks.length - 1) {
-      _moveBlock(page.id, b.id, 1);
-    } else if (v == 'dup') {
-      final selectedIds = _selectedIdsForAction(page, b.id);
-      if (selectedIds.length > 1) {
-        _duplicateSelectedBlocks(page, selectedIds);
-      } else {
-        _duplicateBlock(page, b, index);
-      }
-    } else if (v == 'open_external') {
-      final target = b.type == 'image'
-          ? b.text
-          : (const {
-                  'file',
-                  'video',
-                  'audio',
-                  'bookmark',
-                  'embed',
-                }.contains(b.type)
-                ? b.url
-                : null);
-      unawaited(_openBlockUrlExternal(target));
-    } else if (v == 'copy_link') {
-      final target = b.type == 'image'
-          ? b.text.trim()
-          : (const {
-                  'file',
-                  'video',
-                  'audio',
-                  'bookmark',
-                  'embed',
-                }.contains(b.type)
-                ? (b.url ?? '').trim()
-                : '');
-      if (target.isNotEmpty) {
-        unawaited(Clipboard.setData(ClipboardData(text: target)));
-      }
-    } else if (v == 'size_smaller') {
-      _nudgeImageWidth(page, b, -0.1);
-    } else if (v == 'size_larger') {
-      _nudgeImageWidth(page, b, 0.1);
-    } else if (v == 'size_50') {
-      _s.setBlockImageWidth(page.id, b.id, 0.5);
-    } else if (v == 'size_75') {
-      _s.setBlockImageWidth(page.id, b.id, 0.75);
-    } else if (v == 'size_100') {
-      _s.setBlockImageWidth(page.id, b.id, 1.0);
-    } else if (v == 'img_pick') {
-      unawaited(_pickImageForBlock(page.id, b.id, index));
-    } else if (v == 'img_clear') {
-      unawaited(_clearImageBlock(page.id, b.id, index));
-    } else if (v == 'child_create') {
-      _s.createChildPageLinkedToBlock(pageId: page.id, blockId: b.id);
-      setState(() {});
-    } else if (v == 'child_link') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final picked = await _pickPageForChildBlock(
-          menuContext,
-          excludeId: page.id,
-        );
-        if (picked == null || !mounted) return;
-        _s.updateBlockText(page.id, b.id, picked);
-        setState(() {});
-      });
-    } else if (v == 'child_open') {
-      final cid = b.text.trim();
-      if (cid.isNotEmpty) {
-        _s.selectPage(cid);
-      }
-    } else if (v == 'file_pick') {
-      unawaited(_pickFileForBlock(page.id, b.id));
-    } else if (v == 'file_clear') {
-      _clearBlockUrl(page.id, b.id);
-    } else if (v == 'video_pick') {
-      unawaited(_pickVideoForBlock(page.id, b.id));
-    } else if (v == 'video_clear') {
-      _clearBlockUrl(page.id, b.id);
-    } else if (v == 'audio_pick') {
-      unawaited(_pickAudioForBlock(page.id, b.id));
-    } else if (v == 'audio_clear') {
-      _clearBlockUrl(page.id, b.id);
-    } else if (v == 'template_edit_label') {
-      unawaited(_editTemplateButtonLabel(page.id, b));
-    } else if (v == 'bookmark_set_url') {
-      unawaited(_editBookmarkUrlDialog(page.id, b.id, index));
-    } else if (v == 'bookmark_clear') {
-      _clearBlockUrl(page.id, b.id);
-      _s.updateBlockText(page.id, b.id, '');
-      final j = _controllerBlockIds.indexOf(b.id);
-      if (j >= 0 && j < _controllers.length) {
-        _ignoreShortcuts = true;
-        _controllers[j].clear();
-        _ignoreShortcuts = false;
-      }
-      if (mounted) setState(() {});
-    } else if (v == 'embed_set_url') {
-      unawaited(_editEmbedUrlDialog(page.id, b.id, index));
-    } else if (v == 'embed_clear') {
-      _clearBlockUrl(page.id, b.id);
-      _s.updateBlockText(page.id, b.id, '');
-      final j = _controllerBlockIds.indexOf(b.id);
-      if (j >= 0 && j < _controllers.length) {
-        _ignoreShortcuts = true;
-        _controllers[j].clear();
-        _ignoreShortcuts = false;
-      }
-      if (mounted) setState(() {});
-    } else if (v == 'spotify_set_url') {
-      unawaited(_editSpotifyUrlDialog(page.id, b.id, index));
-    } else if (v == 'spotify_clear') {
-      _clearBlockUrl(page.id, b.id);
-      _s.updateBlockText(page.id, b.id, '');
-      if (mounted) setState(() {});
-    } else if (v == 'table_row_add') {
-      _mutateTable(page.id, b.id, index, (d) => d.addRow());
-    } else if (v == 'table_row_rem') {
-      _mutateTable(page.id, b.id, index, (d) => d.removeLastRow());
-    } else if (v == 'table_col_add') {
-      _mutateTable(page.id, b.id, index, (d) => d.addCol());
-    } else if (v == 'table_col_rem') {
-      _mutateTable(page.id, b.id, index, (d) => d.removeLastCol());
-    } else if (v == 'db_row_add') {
-      _mutateDatabase(page.id, b.id, index, (d) {
-        d.rows.add(
-          FolioDbRow(id: '${page.id}_r_${BlockEditorState._uuid.v4()}'),
-        );
-      });
-    } else if (v == 'db_col_add') {
-      _mutateDatabase(page.id, b.id, index, (d) {
-        d.properties.add(
-          FolioDbProperty(
-            id: 'p_${BlockEditorState._uuid.v4()}',
-            name: 'Propiedad ${d.properties.length + 1}',
-            type: FolioDbPropertyType.text,
-          ),
-        );
-      });
-    } else if (v == 'code_lang') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final id = await _openCodeLanguageSheet(menuContext, b);
-        if (!mounted || id == null) return;
-        _onCodeLanguagePicked(page.id, b.id, index, id);
-      });
-    } else if (v == 'mermaid_edit') {
-      setState(() => _mermaidEditingSourceIds.add(b.id));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final p2 = _s.selectedPage;
-        if (p2 == null) return;
-        final j = p2.blocks.indexWhere((x) => x.id == b.id);
-        if (j < 0 || j >= _focusNodes.length) return;
-        _focusNodes[j].requestFocus();
-      });
-    } else if (v == 'mermaid_hide') {
-      setState(() => _mermaidEditingSourceIds.remove(b.id));
-    } else if (v == 'meeting_copy_transcript') {
-      final text = b.text.trim();
-      if (text.isNotEmpty) {
-        unawaited(Clipboard.setData(ClipboardData(text: text)));
-      }
-    } else if (v == 'meeting_send_to_ai') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        await _openMeetingNoteAiDialog(menuContext, page, b);
-      });
-    } else if (v == 'callout_pick_icon') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final emoji = await _pickEmoji(menuContext);
-        if (!mounted || emoji == null) return;
-        _s.updateBlockIcon(page.id, b.id, emoji);
-      });
-    } else if (v == 'callout_tone_info') {
-      _s.updateBlockIcon(page.id, b.id, '💡');
-    } else if (v == 'callout_tone_success') {
-      _s.updateBlockIcon(page.id, b.id, '✅');
-    } else if (v == 'callout_tone_warning') {
-      _s.updateBlockIcon(page.id, b.id, '⚠️');
-    } else if (v == 'callout_tone_error') {
-      _s.updateBlockIcon(page.id, b.id, '🚨');
-    } else if (v == 'callout_tone_note') {
-      _s.updateBlockIcon(page.id, b.id, 'ℹ️');
-    } else if (v == 'sync_create') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final groupId = _s.createSyncGroup(page.id, b.id);
-        unawaited(Clipboard.setData(ClipboardData(text: groupId)));
-        if (!mounted) return;
-        final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.syncedBlockCreated)));
-      });
-    } else if (v == 'sync_unsync') {
-      _s.unsyncBlock(page.id, b.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).syncedBlockUnsynced),
-        ),
-      );
-    } else if (v == 'sync_insert') {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final l10n = AppLocalizations.of(context);
-        final groupId = await showDialog<String>(
-          context: context,
-          builder: (ctx) => _SyncedBlockInsertDialog(l10n: l10n),
-        );
-        if (!mounted || groupId == null || groupId.isEmpty) return;
-        final ok = _s.insertSyncedBlock(page.id, b.id, groupId);
-        if (!mounted) return;
-        if (!ok) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).syncedBlockIdInvalid),
-            ),
-          );
-        }
-      });
-    }
-  }
-
-  List<PopupMenuEntry<String>> _buildBlockMenuItems(
-    BuildContext ctx, {
-    required FolioPage page,
-    required FolioBlock b,
-    required int index,
-  }) {
-    PopupMenuItem<String> item(
-      BuildContext c, {
-      required String value,
-      required IconData icon,
-      required String label,
-      Color? iconColor,
-    }) {
-      final scheme = Theme.of(c).colorScheme;
-      return PopupMenuItem<String>(
-        value: value,
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: iconColor ?? scheme.onSurfaceVariant),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label)),
-          ],
-        ),
-      );
-    }
-
-    final data = b.type == 'table' ? FolioTableData.tryParse(b.text) : null;
-    final db = b.type == 'database' ? FolioDatabaseData.tryParse(b.text) : null;
-    final rows = data?.rowCount ?? 0;
-    final cols = data?.cols ?? 0;
-    final linkTarget = b.type == 'image'
-        ? b.text.trim()
-        : (const {
-                'file',
-                'video',
-                'audio',
-                'bookmark',
-                'embed',
-              }.contains(b.type)
-              ? (b.url ?? '').trim()
-              : '');
-    final hasExternalTarget = linkTarget.isNotEmpty;
-    final mediaSizeTypes = {
-      'image',
-      'file',
-      'video',
-      'bookmark',
-      'embed',
-      'audio',
-    };
-    final isChildLinked =
-        b.type == 'child_page' &&
-        b.text.trim().isNotEmpty &&
-        _s.pages.any((p) => p.id == b.text.trim());
-    final l10n = AppLocalizations.of(ctx);
-    return [
-      if (_s.aiEnabled)
-        item(
-          ctx,
-          value: 'ai_rewrite',
-          icon: Icons.auto_fix_high_rounded,
-          label: l10n.blockEditorMenuRewriteWithAi,
-        ),
-      if (index > 0)
-        item(
-          ctx,
-          value: 'up',
-          icon: Icons.keyboard_arrow_up_rounded,
-          label: l10n.blockEditorMenuMoveUp,
-        ),
-      if (index < page.blocks.length - 1)
-        item(
-          ctx,
-          value: 'down',
-          icon: Icons.keyboard_arrow_down_rounded,
-          label: l10n.blockEditorMenuMoveDown,
-        ),
-      item(
-        ctx,
-        value: 'dup',
-        icon: Icons.copy_all_rounded,
-        label: l10n.blockEditorMenuDuplicateBlock,
-      ),
-      if (_blockSupportsAppearance(b))
-        item(
-          ctx,
-          value: 'appearance',
-          icon: Icons.palette_outlined,
-          label: l10n.blockEditorMenuAppearance,
-        ),
-      if (b.type == 'callout') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'callout_pick_icon',
-          icon: Icons.emoji_emotions_outlined,
-          label: l10n.blockEditorMenuCalloutIcon,
-        ),
-        item(
-          ctx,
-          value: 'callout_tone_info',
-          icon: Icons.lightbulb_outline_rounded,
-          label: l10n.blockEditorCalloutMenuType(l10n.calloutTypeInfo),
-        ),
-        item(
-          ctx,
-          value: 'callout_tone_success',
-          icon: Icons.task_alt_rounded,
-          label: l10n.blockEditorCalloutMenuType(l10n.calloutTypeSuccess),
-        ),
-        item(
-          ctx,
-          value: 'callout_tone_warning',
-          icon: Icons.warning_amber_rounded,
-          label: l10n.blockEditorCalloutMenuType(l10n.calloutTypeWarning),
-        ),
-        item(
-          ctx,
-          value: 'callout_tone_error',
-          icon: Icons.report_problem_outlined,
-          label: l10n.blockEditorCalloutMenuType(l10n.calloutTypeError),
-        ),
-        item(
-          ctx,
-          value: 'callout_tone_note',
-          icon: Icons.info_outline_rounded,
-          label: l10n.blockEditorCalloutMenuType(l10n.calloutTypeNote),
-        ),
-      ],
-      if (hasExternalTarget)
-        item(
-          ctx,
-          value: 'open_external',
-          icon: Icons.open_in_new_rounded,
-          label: AppLocalizations.of(ctx).openExternal,
-        ),
-      if (hasExternalTarget)
-        item(
-          ctx,
-          value: 'copy_link',
-          icon: Icons.link_rounded,
-          label: l10n.blockEditorCopyLink,
-        ),
-      if (mediaSizeTypes.contains(b.type)) ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'size_smaller',
-          icon: Icons.remove_rounded,
-          label: AppLocalizations.of(ctx).blockSizeSmaller,
-        ),
-        item(
-          ctx,
-          value: 'size_larger',
-          icon: Icons.add_rounded,
-          label: AppLocalizations.of(ctx).blockSizeLarger,
-        ),
-        item(
-          ctx,
-          value: 'size_50',
-          icon: Icons.photo_size_select_small_rounded,
-          label: AppLocalizations.of(ctx).blockSizeHalf,
-        ),
-        item(
-          ctx,
-          value: 'size_75',
-          icon: Icons.photo_size_select_large_rounded,
-          label: AppLocalizations.of(ctx).blockSizeThreeQuarter,
-        ),
-        item(
-          ctx,
-          value: 'size_100',
-          icon: Icons.fit_screen_rounded,
-          label: AppLocalizations.of(ctx).blockSizeFull,
-        ),
-      ],
-      if (b.type == 'child_page') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'child_create',
-          icon: Icons.note_add_rounded,
-          label: l10n.blockEditorMenuCreateSubpage,
-        ),
-        item(
-          ctx,
-          value: 'child_link',
-          icon: Icons.link_rounded,
-          label: l10n.blockEditorMenuLinkPage,
-        ),
-        if (isChildLinked)
-          item(
-            ctx,
-            value: 'child_open',
-            icon: Icons.open_in_new_rounded,
-            label: l10n.blockEditorMenuOpenSubpage,
-          ),
-      ],
-      if (b.type == 'image') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'img_pick',
-          icon: Icons.image_rounded,
-          label: l10n.blockEditorMenuPickImage,
-        ),
-        if (b.text.isNotEmpty)
-          item(
-            ctx,
-            value: 'img_clear',
-            icon: Icons.delete_outline_rounded,
-            label: l10n.blockEditorMenuRemoveImage,
-          ),
-      ],
-      if (b.type == 'code') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'code_lang',
-          icon: Icons.translate_rounded,
-          label: l10n.blockEditorMenuCodeLanguage,
-        ),
-      ],
-      if (b.type == 'mermaid') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'mermaid_edit',
-          icon: Icons.edit_note_rounded,
-          label: l10n.blockEditorMenuEditDiagram,
-        ),
-        if (_mermaidEditingSourceIds.contains(b.id))
-          item(
-            ctx,
-            value: 'mermaid_hide',
-            icon: Icons.visibility_rounded,
-            label: l10n.blockEditorMenuBackToPreview,
-          ),
-      ],
-      if (b.type == 'file') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'file_pick',
-          icon: Icons.attach_file_rounded,
-          label: l10n.blockEditorMenuChangeFile,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'file_clear',
-            icon: Icons.delete_outline_rounded,
-            label: l10n.blockEditorMenuRemoveFile,
-          ),
-      ],
-      if (b.type == 'video') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'video_pick',
-          icon: Icons.video_settings_rounded,
-          label: l10n.blockEditorMenuChangeVideo,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'video_clear',
-            icon: Icons.delete_outline_rounded,
-            label: l10n.blockEditorMenuRemoveVideo,
-          ),
-      ],
-      if (b.type == 'audio') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'audio_pick',
-          icon: Icons.audio_file_rounded,
-          label: l10n.blockEditorMenuChangeAudio,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'audio_clear',
-            icon: Icons.delete_outline_rounded,
-            label: l10n.blockEditorMenuRemoveAudio,
-          ),
-      ],
-      if (b.type == 'template_button') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'template_edit_label',
-          icon: Icons.title_rounded,
-          label: l10n.blockEditorMenuEditLabel,
-        ),
-      ],
-      if (b.type == 'bookmark') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'bookmark_set_url',
-          icon: Icons.link_rounded,
-          label: AppLocalizations.of(ctx).bookmarkSetUrl,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'bookmark_clear',
-            icon: Icons.delete_outline_rounded,
-            label: AppLocalizations.of(ctx).bookmarkRemove,
-          ),
-      ],
-      if (b.type == 'embed') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'embed_set_url',
-          icon: Icons.language_rounded,
-          label: AppLocalizations.of(ctx).embedSetUrl,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'embed_clear',
-            icon: Icons.delete_outline_rounded,
-            label: AppLocalizations.of(ctx).embedRemove,
-          ),
-      ],
-      if (b.type == 'spotify') ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'spotify_set_url',
-          icon: Icons.music_note_rounded,
-          label: AppLocalizations.of(ctx).embedSetUrl,
-        ),
-        if ((b.url ?? '').trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'spotify_clear',
-            icon: Icons.delete_outline_rounded,
-            label: AppLocalizations.of(ctx).embedRemove,
-          ),
-      ],
-      if (b.type == 'meeting_note') ...[
-        const PopupMenuDivider(),
-        if (b.text.trim().isNotEmpty)
-          item(
-            ctx,
-            value: 'meeting_copy_transcript',
-            icon: Icons.copy_rounded,
-            label: AppLocalizations.of(ctx).meetingNoteCopyTranscript,
-          ),
-        if (_s.aiEnabled)
-          item(
-            ctx,
-            value: 'meeting_send_to_ai',
-            icon: Icons.auto_fix_high_rounded,
-            label: AppLocalizations.of(ctx).meetingNoteSendToAi,
-          ),
-      ],
-      if (b.type == 'table' && data != null) ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'table_row_add',
-          icon: Icons.table_rows_rounded,
-          label: l10n.blockEditorMenuAddRow,
-        ),
-        if (rows > 1)
-          item(
-            ctx,
-            value: 'table_row_rem',
-            icon: Icons.table_rows_outlined,
-            label: l10n.blockEditorMenuRemoveLastRow,
-          ),
-        item(
-          ctx,
-          value: 'table_col_add',
-          icon: Icons.view_column_rounded,
-          label: l10n.blockEditorMenuAddColumn,
-        ),
-        if (cols > 1)
-          item(
-            ctx,
-            value: 'table_col_rem',
-            icon: Icons.view_column_outlined,
-            label: l10n.blockEditorMenuRemoveLastColumn,
-          ),
-      ],
-      if (b.type == 'database' && db != null) ...[
-        const PopupMenuDivider(),
-        item(
-          ctx,
-          value: 'db_row_add',
-          icon: Icons.playlist_add_rounded,
-          label: l10n.blockEditorMenuAddRow,
-        ),
-        item(
-          ctx,
-          value: 'db_col_add',
-          icon: Icons.add_chart_rounded,
-          label: l10n.blockEditorMenuAddProperty,
-        ),
-      ],
-      const PopupMenuDivider(),
-      if (b.syncGroupId == null)
-        item(
-          ctx,
-          value: 'sync_create',
-          icon: Icons.sync_rounded,
-          label: l10n.syncedBlockCreate,
-        ),
-      if (b.syncGroupId != null)
-        item(
-          ctx,
-          value: 'sync_unsync',
-          icon: Icons.sync_disabled_rounded,
-          label: l10n.syncedBlockUnsync,
-        ),
-      item(
-        ctx,
-        value: 'sync_insert',
-        icon: Icons.add_link_rounded,
-        label: l10n.syncedBlockInsert,
-      ),
-      const PopupMenuDivider(),
-      item(
-        ctx,
-        value: 'pick_type',
-        icon: Icons.auto_awesome_motion_rounded,
-        iconColor: Theme.of(ctx).colorScheme.primary,
-        label: l10n.blockEditorMenuChangeBlockType,
-      ),
-      const PopupMenuDivider(),
-      item(
-        ctx,
-        value: 'del',
-        icon: Icons.delete_forever_rounded,
-        iconColor: Theme.of(ctx).colorScheme.error,
-        label: l10n.blockEditorMenuDeleteBlock,
-      ),
-    ];
-  }
 
   Future<void> _showBlockContextMenuAtGlobal(
     Offset globalPosition,
@@ -6787,19 +4769,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!readOnlyMode)
-            Padding(
+            _EditorShortcutsHint(
+              text: androidPhoneLayout
+                  ? l10n.blockEditorShortcutsHintMobile(enterHint)
+                  : l10n.blockEditorShortcutsHintDesktop(enterHint),
+              style: mono,
+              hasFocusedBlock: _focusedBlockId != null,
               padding: EdgeInsets.fromLTRB(
                 androidPhoneLayout ? 14 : 12,
                 0,
                 androidPhoneLayout ? 14 : 12,
                 androidPhoneLayout ? 8 : 10,
-              ),
-              child: Text(
-                androidPhoneLayout
-                    ? l10n.blockEditorShortcutsHintMobile(enterHint)
-                    : l10n.blockEditorShortcutsHintDesktop(enterHint),
-                textAlign: TextAlign.center,
-                style: mono,
               ),
             ),
           if (!readOnlyMode && selectedCount > 1)
@@ -6840,6 +4820,91 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       label: Text(l10n.blockEditorDuplicate),
                     ),
+                    // Fase 0 del roadmap de producto — cierra el hueco que
+                    // dejó deliberadamente abierto la Fase E1/E2/E3 (ver
+                    // comentario debajo): "IA sobre selección" ya tiene su
+                    // propio disparador (el popover Raycast de la Fase D1),
+                    // solo faltaba engancharlo aquí para selección
+                    // multi-bloque.
+                    if (!widget.readOnlyMode && widget.onAiSlashCommand != null)
+                      TextButton.icon(
+                        onPressed: () => showAiSelectionPopover(
+                          blockId: _selectedBlockIds.first,
+                          blockIds: _selectedBlockIds.toList(),
+                        ),
+                        icon: const Icon(FolioIcons.quillOutlined, size: 18),
+                        label: Text(l10n.blockEditorAskQuillTooltip),
+                      ),
+                    // Fase E1/E2/E3 del rediseño UX: "Agrupar" es la Primary
+                    // Surface de convertir-a-columnas y agrupar-en-sección —
+                    // ambas acciones solo existen aquí, no se duplican en
+                    // ningún otro menú. "Mover" (multi-bloque) sigue fuera de
+                    // esta fase: no tiene semántica clara para selecciones no
+                    // contiguas sin un selector de página propio. ("IA sobre
+                    // selección" ya está resuelta arriba, Fase 0 del roadmap.)
+                    PopupMenuButton<VoidCallback>(
+                      enabled: _isContiguousSelection(page, _selectedBlockIds),
+                      tooltip: l10n.blockEditorGroupAction,
+                      onSelected: (action) => action(),
+                      itemBuilder: (menuContext) => [
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _convertSelectionToColumns(page, 2),
+                          enabled: _selectedBlockIds.length >= 2,
+                          child: Text(l10n.blockEditorGroupAsColumns2),
+                        ),
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _convertSelectionToColumns(page, 3),
+                          enabled: _selectedBlockIds.length >= 3,
+                          child: Text(l10n.blockEditorGroupAsColumns3),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem<VoidCallback>(
+                          value: () => _groupSelectionIntoSection(
+                            page,
+                            title: l10n.blockEditorNewSectionDefaultTitle,
+                          ),
+                          child: Text(l10n.blockEditorGroupAsSection),
+                        ),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.dashboard_customize_outlined,
+                              size: 18,
+                              color: _isContiguousSelection(
+                                page,
+                                _selectedBlockIds,
+                              )
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              l10n.blockEditorGroupAction,
+                              style: TextStyle(
+                                color: _isContiguousSelection(
+                                  page,
+                                  _selectedBlockIds,
+                                )
+                                    ? scheme.primary
+                                    : scheme.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     TextButton.icon(
                       onPressed: page.blocks.length > 1
                           ? () => _deleteSelectedBlocks(
@@ -6878,60 +4943,153 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                       focusedErrorBorder: InputBorder.none,
                     ),
                   ),
-                  child: ReorderableListView.builder(
-                    scrollController: _blockListScrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
-                      0,
-                      androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
-                      androidPhoneLayout ? 112 : 24,
-                    ),
-                    buildDefaultDragHandles: false,
-                    itemCount: page.blocks.length,
-                    onReorder: (oldIndex, newIndex) =>
-                        _onBlocksReordered(page, oldIndex, newIndex),
-                    itemBuilder: (context, index) {
-                      final b = page.blocks[index];
-                      final ctrl = _controllers[index];
-                      final focus = _focusNodes[index];
-                      final isLast = index == page.blocks.length - 1;
-                      final hideTrailingSentinel =
-                          page.blocks.length > 1 &&
-                          isLast &&
-                          _isTrailingSentinel(b) &&
-                          ctrl.text.trim().isEmpty &&
-                          !focus.hasFocus;
-                      if (hideTrailingSentinel) {
-                        return KeyedSubtree(
-                          key: ValueKey('block_row_${b.id}'),
-                          child: const SizedBox.shrink(),
-                        );
-                      }
-                      final style = _styleFor(b.type, theme.textTheme);
-                      final selected = _isBlockSelected(b.id);
-                      final showActionsBaseline =
-                          selected ||
-                          focus.hasFocus ||
-                          _menuOpenBlockId == b.id ||
-                          (!androidPhoneLayout && _selectedBlockIds.length > 1);
-                      return KeyedSubtree(
-                        key: ValueKey('block_row_${b.id}'),
-                        child: RepaintBoundary(
-                          child: _BlockListRow(
-                            editor: this,
-                            readOnlyMode: readOnlyMode,
-                            androidPhoneLayout: androidPhoneLayout,
-                            scheme: scheme,
-                            page: page,
-                            block: b,
-                            index: index,
-                            ctrl: ctrl,
-                            focus: focus,
-                            style: style,
-                            selected: selected,
-                            showActionsBaseline: showActionsBaseline,
-                          ),
+                  child: Builder(
+                    builder: (context) {
+                      // Fase E0C: si `page.sections` es null/vacío (el caso
+                      // de hoy para cada página existente), `renderItems` es
+                      // exactamente un `block(i)` por cada `page.blocks[i]`
+                      // en orden — la rama de abajo se comporta byte a byte
+                      // igual que antes de esta fase (ver test dorado en
+                      // `block_editor_sections_render_test.dart`).
+                      final renderItems = _buildSectionRenderItemsFor(page);
+                      return ReorderableListView.builder(
+                        scrollController: _blockListScrollController,
+                        padding: EdgeInsets.fromLTRB(
+                          androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
+                          0,
+                          androidPhoneLayout ? (readOnlyMode ? 6 : 12) : 10,
+                          androidPhoneLayout ? 112 : 24,
                         ),
+                        buildDefaultDragHandles: false,
+                        // Fase F2 del rediseño UX del editor: feedback
+                        // táctil-visual de "lift" al empezar a arrastrar un
+                        // bloque — extiende (no sustituye) el elevation
+                        // sutil que `ReorderableListView` ya aplica por
+                        // defecto durante el drag, con un ligero
+                        // escalado (1.0 -> 1.02) y una curva `easeOutBack`
+                        // que da una sensación de "asentarse" al terminar de
+                        // levantarlo. Puramente visual (curvas de
+                        // animación), no haptics de hardware.
+                        proxyDecorator: (child, index, animation) {
+                          return AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) {
+                              final t = Curves.easeOutBack.transform(
+                                animation.value,
+                              );
+                              final scale = 1.0 + (0.02 * t).clamp(0.0, 0.02);
+                              return Transform.scale(
+                                scale: scale,
+                                child: Material(
+                                  elevation: 6 * animation.value,
+                                  shadowColor: scheme.shadow.withValues(
+                                    alpha: 0.35,
+                                  ),
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: child,
+                          );
+                        },
+                        itemCount: renderItems.length,
+                        onReorder: (oldIndex, newIndex) {
+                          if (oldIndex < 0 || oldIndex >= renderItems.length) {
+                            return;
+                          }
+                          final oldItem = renderItems[oldIndex];
+                          // v1: no reordenar cabeceras de sección, ni soltar
+                          // un bloque justo sobre una cabecera — mecánica de
+                          // drag&drop entre secciones queda para la Fase E4
+                          // (panel de outline), no alcanzable hoy por
+                          // ninguna UI real (crear una sección real requiere
+                          // la Fase E1/E3, aún no construidas).
+                          if (oldItem.isHeader) return;
+                          // `newIndex` sigue la misma convención "posición
+                          // antes de quitar oldIndex" que `oldIndex` — se
+                          // traduce a índice de bloque y se delega en
+                          // `_onBlocksReordered`/`reorderBlockAt`, que ya
+                          // hacen su propio ajuste `newIndex > oldIndex`
+                          // internamente. Sin secciones (caso de hoy),
+                          // `renderItems[i].blockIndex == i` siempre, así
+                          // que esto se reduce exactamente a la llamada
+                          // original `_onBlocksReordered(page, oldIndex,
+                          // newIndex)` — cero cambio de comportamiento.
+                          final int targetBlockIndex;
+                          if (newIndex >= renderItems.length) {
+                            targetBlockIndex = page.blocks.length;
+                          } else {
+                            final targetItem = renderItems[newIndex];
+                            if (targetItem.isHeader) return;
+                            targetBlockIndex = targetItem.blockIndex;
+                          }
+                          _onBlocksReordered(
+                            page,
+                            oldItem.blockIndex,
+                            targetBlockIndex,
+                          );
+                        },
+                        itemBuilder: (context, renderIndex) {
+                          final item = renderItems[renderIndex];
+                          if (item.isHeader) {
+                            return KeyedSubtree(
+                              key: ValueKey('section_header_${item.section!.id}'),
+                              child: _sectionHeaderRow(
+                                st: this,
+                                section: item.section!,
+                                scheme: scheme,
+                                textTheme: theme.textTheme,
+                                l10n: l10n,
+                              ),
+                            );
+                          }
+                          final index = item.blockIndex;
+                          final b = page.blocks[index];
+                          final ctrl = _controllers[index];
+                          final focus = _focusNodes[index];
+                          final isLast = index == page.blocks.length - 1;
+                          final hideTrailingSentinel =
+                              page.blocks.length > 1 &&
+                              isLast &&
+                              _isTrailingSentinel(b) &&
+                              ctrl.text.trim().isEmpty &&
+                              !focus.hasFocus;
+                          if (hideTrailingSentinel) {
+                            return KeyedSubtree(
+                              key: ValueKey('block_row_${b.id}'),
+                              child: const SizedBox.shrink(),
+                            );
+                          }
+                          final style = _styleFor(b.type, theme.textTheme);
+                          final selected = _isBlockSelected(b.id);
+                          final showActionsBaseline =
+                              selected ||
+                              focus.hasFocus ||
+                              _menuOpenBlockId == b.id ||
+                              (!androidPhoneLayout &&
+                                  _selectedBlockIds.length > 1);
+                          return KeyedSubtree(
+                            key: ValueKey('block_row_${b.id}'),
+                            child: RepaintBoundary(
+                              child: _BlockListRow(
+                                editor: this,
+                                readOnlyMode: readOnlyMode,
+                                androidPhoneLayout: androidPhoneLayout,
+                                scheme: scheme,
+                                page: page,
+                                block: b,
+                                index: index,
+                                ctrl: ctrl,
+                                focus: focus,
+                                style: style,
+                                selected: selected,
+                                showActionsBaseline: showActionsBaseline,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

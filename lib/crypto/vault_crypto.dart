@@ -23,11 +23,22 @@ class VaultCrypto {
   );
 
   /// Parámetros Argon2id "v1" (perfil moderado de OWASP) — usados para todo
-  /// blob nuevo desde que se introdujo el versionado del formato.
+  /// blob creado entre la introducción del versionado y la introducción de
+  /// `_argon2V2`. Ya no se usan para envolver nada nuevo, pero siguen
+  /// leyéndose vía `unwrapDek`.
   static final Argon2id _argon2V1 = Argon2id(
     parallelism: 1,
     memory: 47104,
     iterations: 3,
+    hashLength: 32,
+  );
+
+  /// Parámetros Argon2id "v2" — perfil endurecido, usado para todo blob
+  /// nuevo desde este cambio (migración transparente de vaults antiguos).
+  static final Argon2id _argon2V2 = Argon2id(
+    parallelism: 1,
+    memory: 65536,
+    iterations: 4,
     hashLength: 32,
   );
 
@@ -39,15 +50,46 @@ class VaultCrypto {
 
   /// Byte de versión que antepone `wrapDek` a todo blob nuevo. Los blobs
   /// creados antes de este cambio no llevan este byte (formato "legacy").
-  static const int _currentWrapVersion = 1;
+  static const int _currentWrapVersion = 2;
+
+  /// Versión de formato de envoltorio que usa todo blob nuevo cuando no se
+  /// pide explícitamente otra. Expuesta para que `VaultRepository` pueda
+  /// decidir si un `vault.keys` existente necesita re-envolverse, sin
+  /// duplicar la constante.
+  static int get currentWrapVersion => _currentWrapVersion;
+
+  /// Perfil Argon2id "Balanceado": rápido, el histórico antes de introducir
+  /// el perfil reforzado.
+  static const int profileBalanced = 1;
+
+  /// Perfil Argon2id "Reforzado": más lento de derivar, más resistente a
+  /// fuerza bruta.
+  static const int profileHardened = 2;
 
   static Argon2id _argon2ForVersion(int version) {
     switch (version) {
+      case 2:
+        return _argon2V2;
       case 1:
         return _argon2V1;
       default:
         return _argon2Legacy;
     }
+  }
+
+  /// Longitud fija de un blob "legacy" (sin byte de versión): el DEK
+  /// envuelto siempre mide [dekLength] bytes, así que el ciphertext AES-GCM
+  /// mide lo mismo y el tamaño total es constante.
+  static const int _legacyWrapLength = saltLength + nonceLength + dekLength + 16;
+
+  /// Determina la versión de formato de [wrapped] mirando solo su longitud
+  /// (y, si aplica, el byte de versión) — sin derivar ninguna clave ni
+  /// necesitar la contraseña. Útil para decidir si hace falta migrar un
+  /// `vault.keys` existente.
+  static int wrapVersion(List<int> wrapped) {
+    if (wrapped.length == _legacyWrapLength) return 0;
+    if (wrapped.length == _legacyWrapLength + 1) return wrapped[0];
+    throw VaultCryptoException('Datos de clave corruptos');
   }
 
   static Uint8List randomBytes(int n) {
@@ -70,25 +112,26 @@ class VaultCrypto {
   }
 
   /// Returns [version(1)][salt (16)][nonce (12)][ciphertext+mac] wrapping [dek].
-  /// Todo blob nuevo lleva el byte de versión y usa los parámetros Argon2id
-  /// más altos (`_argon2V1`); los blobs "legacy" (sin ese byte, de antes de
-  /// este cambio) se siguen leyendo correctamente vía `unwrapDek`, pero
-  /// nunca se vuelven a escribir con los parámetros antiguos.
+  /// Todo blob nuevo lleva el byte de versión. Por defecto usa el perfil
+  /// Argon2id más duro (`_currentWrapVersion`); pasar [version] explícito
+  /// (p. ej. `profileBalanced`) para que el llamador elija el perfil (p. ej.
+  /// el usuario elige "Balanceado" al crear la libreta). Los blobs "legacy"
+  /// (sin byte de versión, de antes de este cambio) se siguen leyendo
+  /// correctamente vía `unwrapDek`, pero nunca se vuelven a escribir con los
+  /// parámetros antiguos.
   static Future<Uint8List> wrapDek({
     required List<int> dek,
     required String password,
     List<int>? salt,
+    int? version,
   }) async {
+    final v = version ?? _currentWrapVersion;
     final s = salt != null ? Uint8List.fromList(salt) : randomBytes(saltLength);
-    final kek = await deriveKekFromPassword(
-      password: password,
-      salt: s,
-      version: _currentWrapVersion,
-    );
+    final kek = await deriveKekFromPassword(password: password, salt: s, version: v);
     final nonce = randomBytes(nonceLength);
     final box = await _aes.encrypt(dek, secretKey: kek, nonce: nonce);
     final out = BytesBuilder(copy: false);
-    out.addByte(_currentWrapVersion);
+    out.addByte(v);
     out.add(s);
     out.add(box.nonce);
     out.add(box.cipherText);
@@ -120,7 +163,11 @@ class VaultCrypto {
       throw VaultCryptoException('Datos de clave corruptos');
     }
     final version = wrapped[0];
-    if (version != _currentWrapVersion) {
+    // Acepta cualquier versión conocida hasta la actual (1 = perfil antiguo
+    // moderado, 2 = perfil endurecido), no solo la más reciente — de lo
+    // contrario un blob v1 caería al parser legacy y trataría su byte de
+    // versión como el primer byte de la sal, corrompiéndola.
+    if (version < 1 || version > _currentWrapVersion) {
       throw VaultCryptoException('Versión de clave desconocida');
     }
     final body = wrapped.sublist(headerLength);

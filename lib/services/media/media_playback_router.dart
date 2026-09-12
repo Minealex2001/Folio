@@ -1,33 +1,53 @@
 import 'package:flutter/foundation.dart';
 
+import '../../models/active_music_provider.dart';
 import '../../session/vault_session.dart';
 import 'now_playing_snapshot.dart';
 import 'now_playing_source.dart';
 import 'spotify_now_playing_source.dart';
 import 'system_media_controller.dart';
+import 'ytmusic_now_playing_source.dart';
 
-/// Elige la fuente activa (Spotify vs media del sistema) para la barra única.
+/// Elige la fuente activa (proveedor de música + media del sistema).
 class MediaPlaybackRouter extends ChangeNotifier {
   MediaPlaybackRouter._();
   static final MediaPlaybackRouter instance = MediaPlaybackRouter._();
 
   final SpotifyNowPlayingSource spotify = SpotifyNowPlayingSource();
+  final YtMusicNowPlayingSource youtubeMusic = YtMusicNowPlayingSource();
   final SystemMediaController system = SystemMediaController.instance;
 
   VaultSession? _session;
   int _listeners = 0;
   NowPlayingSource? _active;
+  ActiveMusicProvider _musicProvider = ActiveMusicProvider.none;
 
   NowPlayingSource? get activeSource => _active;
+  ActiveMusicProvider get musicProvider => _musicProvider;
 
   NowPlayingSnapshot get snapshot =>
       _active?.snapshot ?? NowPlayingSnapshot.emptySpotify;
 
-  /// Mostrar la barra si hay Spotify conectado o media del sistema habilitada.
   bool get shouldShowBar {
-    if (spotify.isAvailable) return true;
+    if (_spotifyLive || _ytLive) return true;
     if (system.isAvailable) return true;
     return false;
+  }
+
+  bool get _spotifyLive =>
+      _musicProvider == ActiveMusicProvider.spotify && spotify.isAvailable;
+
+  bool get _ytLive =>
+      _musicProvider == ActiveMusicProvider.youtubeMusic &&
+      youtubeMusic.isAvailable;
+
+  void setMusicProvider(ActiveMusicProvider provider) {
+    if (_musicProvider == provider) {
+      _recompute();
+      return;
+    }
+    _musicProvider = provider;
+    _recompute();
   }
 
   void attachSession(VaultSession session) {
@@ -35,12 +55,14 @@ class MediaPlaybackRouter extends ChangeNotifier {
     _session = session;
     system.attachSession(session);
     spotify.addListener(_recompute);
+    youtubeMusic.addListener(_recompute);
     system.addListener(_recompute);
     _recompute();
   }
 
   void detachSession() {
     spotify.removeListener(_recompute);
+    youtubeMusic.removeListener(_recompute);
     system.removeListener(_recompute);
     system.detachSession();
     _session = null;
@@ -52,6 +74,7 @@ class MediaPlaybackRouter extends ChangeNotifier {
     _listeners++;
     if (_listeners == 1) {
       spotify.addListenerRef();
+      youtubeMusic.addListenerRef();
       system.addListenerRef();
     }
   }
@@ -60,37 +83,32 @@ class MediaPlaybackRouter extends ChangeNotifier {
     if (_listeners > 0) _listeners--;
     if (_listeners == 0) {
       spotify.removeListenerRef();
+      youtubeMusic.removeListenerRef();
       system.removeListenerRef();
     }
   }
 
   void _recompute() {
     final next = _pickActive();
-    final changed = !identical(next, _active);
     _active = next;
-    if (changed || true) {
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
   NowPlayingSource? _pickActive() {
-    final spotifyOn = spotify.isAvailable;
     final systemOn = system.isAvailable;
     final systemActive = system.hasActiveContent;
 
-    // 1) Spotify con contenido activo → Spotify.
-    if (spotifyOn && spotify.hasActiveContent) return spotify;
+    if (_spotifyLive && spotify.hasActiveContent) return spotify;
+    if (_ytLive && youtubeMusic.hasActiveContent) return youtubeMusic;
 
-    // 2) Sistema con sesión no-Spotify → sistema.
     if (systemOn && systemActive) return system;
 
-    // 3) Spotify conectado (idle) y sin sesión de sistema útil → Spotify idle.
-    if (spotifyOn && !systemActive) return spotify;
+    if (_spotifyLive && !systemActive) return spotify;
+    if (_ytLive && !systemActive) return youtubeMusic;
 
-    // 4) Solo sistema.
     if (systemOn) return system;
-
-    if (spotifyOn) return spotify;
+    if (_spotifyLive) return spotify;
+    if (_ytLive) return youtubeMusic;
     return null;
   }
 
@@ -122,7 +140,6 @@ class MediaPlaybackRouter extends ChangeNotifier {
     await _active?.pause();
   }
 
-  /// Pausa media del sistema si está habilitado el zen pause (sin tocar Spotify).
   Future<void> pauseSystemIfZenExit() async {
     final st = system.state;
     if (st.enabled && st.zenPauseOnExit) {

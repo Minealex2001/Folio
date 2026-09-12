@@ -17,7 +17,7 @@ class MeetingWorkerHost {
 
   final Socket socket;
 
-  StreamSubscription<File>? _chunkSub;
+  StreamSubscription<AudioChunkEvent>? _chunkSub;
   StreamSubscription<List<int>>? _socketSub;
   Timer? _elapsedTimer;
   Future<void> _chunkChain = Future<void>.value();
@@ -144,6 +144,7 @@ class MeetingWorkerHost {
         micDeviceId: micDeviceId.isEmpty ? null : micDeviceId,
         systemOutputDeviceId:
             systemDeviceId.isEmpty ? null : systemDeviceId,
+        trackChannelMeta: true,
       );
     } catch (_) {
       ok = false;
@@ -171,9 +172,9 @@ class MeetingWorkerHost {
     }
 
     _chunkChain = Future<void>.value();
-    _chunkSub = AudioMixerService.instance.chunkStream.listen((chunkFile) {
+    _chunkSub = AudioMixerService.instance.chunkStream.listen((event) {
       _chunkChain = _chunkChain
-          .then((_) => _onChunk(chunkFile))
+          .then((_) => _onChunk(event))
           .catchError((_) {});
     });
 
@@ -192,7 +193,8 @@ class MeetingWorkerHost {
     });
   }
 
-  Future<void> _onChunk(File chunkFile) async {
+  Future<void> _onChunk(AudioChunkEvent event) async {
+    final chunkFile = event.file;
     if (!_runLocalWhisper && !_saveCloudChunks) {
       unawaited(chunkFile.delete().catchError((_) => File('')));
       return;
@@ -223,6 +225,7 @@ class MeetingWorkerHost {
         transcript: text,
         language: _language ?? 'auto',
         sessionId: sid ?? 'meeting-worker',
+        channelWindows: event.channelWindows,
       );
       if (diarized != null && diarized.trim().isNotEmpty) {
         finalText = diarized.trim();
@@ -257,10 +260,21 @@ class MeetingWorkerHost {
     await _chunkSub?.cancel();
     _chunkSub = null;
 
-    // Esperar a que terminen los chunks en vuelo.
-    try {
-      await _chunkChain.timeout(const Duration(minutes: 5));
-    } catch (_) {}
+    final fast = msg['fast'] == true;
+    if (!fast) {
+      // Esperar a que terminen los chunks en vuelo, acotado: si Whisper va
+      // atrasado (modelo grande, hardware lento, muchos chunks en cola),
+      // antes esto podía tardar hasta 5 minutos en responder al comando
+      // `stop` — el usuario veía "Detener" sin ningún efecto durante ese
+      // rato. Con este límite se pierde como mucho la transcripción del
+      // último tramo en cola, pero el botón siempre responde en segundos.
+      try {
+        await _chunkChain.timeout(const Duration(seconds: 20));
+      } catch (_) {}
+    }
+    // En modo fast (guardado acotado antes de bloquear/cerrar la app) no
+    // esperamos la transcripción del último chunk en vuelo — solo el WAV ya
+    // capturado, para no bloquear al llamador más de unos segundos.
 
     final sid = _diarizationSessionId;
     if (sid != null) {
@@ -297,6 +311,7 @@ class MeetingWorkerHost {
       'type': MeetingWorkerEvent.stopped,
       'wavPath': wavFile?.path ?? '',
       'transcript': _transcript,
+      'channelMeta': AudioMixerService.instance.channelMeta,
     });
     _emit({
       'type': MeetingWorkerEvent.state,

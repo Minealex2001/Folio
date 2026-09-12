@@ -56,6 +56,39 @@ class CollabStompTransport {
     _onConnected = onConnected;
     _active = true;
 
+    try {
+      await _connectOnce(roomId: roomId);
+    } catch (e) {
+      if (!_active) rethrow;
+      final primaryHttp = FolioBackendConfig.apiBaseUrl;
+      final fallbackHttp = FolioBackendConfig.fallbackBaseUrlFor(primaryHttp);
+      if (fallbackHttp == null || FolioBackendConfig.isUsingHostFallback) {
+        rethrow;
+      }
+      FolioBackendConfig.activateHostFallback(fallbackHttp);
+      AppLogger.warn(
+        'collab ws unreachable; retrying on Minealex fallback',
+        tag: 'collab',
+        context: {
+          'from': primaryHttp,
+          'to': fallbackHttp,
+          'error': '$e',
+        },
+      );
+      await disconnect();
+      if (!_active) rethrow;
+      _roomId = roomId;
+      _onRoomUpdate = onRoomUpdate;
+      _onPresence = onPresence;
+      _onChat = onChat;
+      _onError = onError;
+      _onConnected = onConnected;
+      _active = true;
+      await _connectOnce(roomId: roomId);
+    }
+  }
+
+  Future<void> _connectOnce({required String roomId}) async {
     final token = await folioCloudBearerToken();
     if (token == null || token.isEmpty) {
       throw StateError('not_signed_in');

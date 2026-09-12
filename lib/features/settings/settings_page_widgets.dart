@@ -26,8 +26,10 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.cloud_outlined;
       case _SettingsSectionId.vault:
         return Icons.lock_outline_rounded;
-      case _SettingsSectionId.uiWorkspace:
+      case _SettingsSectionId.appearance:
         return Icons.palette_outlined;
+      case _SettingsSectionId.desktop:
+        return Icons.desktop_windows_rounded;
       case _SettingsSectionId.ai:
         return FolioIcons.quillOutlined;
       case _SettingsSectionId.sync:
@@ -36,6 +38,12 @@ class _SettingsSectionRail extends StatelessWidget {
         return Icons.info_outline_rounded;
       case _SettingsSectionId.integrations:
         return Icons.extension_outlined;
+      case _SettingsSectionId.admin:
+        return Icons.admin_panel_settings_outlined;
+      case _SettingsSectionId.organization:
+        return Icons.groups_outlined;
+      case _SettingsSectionId.personalization:
+        return Icons.dashboard_customize_outlined;
     }
   }
 
@@ -223,40 +231,64 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         icon = Icons.cloud_outlined;
         gradientColors = const [Color(0xFF42A5F5), Color(0xFF1E88E5)];
         subtitle = widget.cloud.isSignedIn
-            ? (widget.cloud.email ?? 'Sesión iniciada')
-            : 'Configura tu cuenta';
+            ? (widget.cloud.email ?? widget.l10n.settingsHeroCloudSignedIn)
+            : widget.l10n.settingsHeroCloudSignedOut;
         break;
       case _SettingsSectionId.vault:
         icon = Icons.lock_outline_rounded;
         gradientColors = const [Color(0xFFAB47BC), Color(0xFF7B1FA2)];
-        subtitle = 'Copia de seguridad, seguridad y datos';
+        subtitle = widget.l10n.settingsHeroVaultSubtitle;
         break;
-      case _SettingsSectionId.uiWorkspace:
+      case _SettingsSectionId.appearance:
         icon = Icons.palette_outlined;
         gradientColors = const [Color(0xFFFF7043), Color(0xFFE64A19)];
-        subtitle = 'Temas, atajos de teclado y más';
+        subtitle = widget.l10n.settingsSectionAppearanceHeroDescription;
+        break;
+      case _SettingsSectionId.desktop:
+        icon = Icons.desktop_windows_rounded;
+        gradientColors = const [Color(0xFF5C6BC0), Color(0xFF3949AB)];
+        subtitle = widget.l10n.settingsSectionDesktopHeroDescription;
         break;
       case _SettingsSectionId.ai:
         icon = FolioIcons.quillOutlined;
         gradientColors = const [Color(0xFF26A69A), Color(0xFF00796B)];
         subtitle = widget.app.aiEnabled
-            ? 'Proveedor: ${_providerLabel(widget.app.aiProvider, widget.l10n)}'
-            : 'Deshabilitado';
+            ? widget.l10n.settingsHeroAiProvider(
+                _providerLabel(widget.app.aiProvider, widget.l10n),
+              )
+            : widget.l10n.settingsHeroAiDisabled;
         break;
       case _SettingsSectionId.sync:
         icon = Icons.sync_rounded;
         gradientColors = const [Color(0xFFEC407A), Color(0xFFC2185B)];
-        subtitle = 'Sincronizar tus dispositivos';
+        subtitle = widget.l10n.settingsHeroSyncSubtitle;
         break;
       case _SettingsSectionId.about:
         icon = Icons.info_outline_rounded;
         gradientColors = const [Color(0xFF00F3FF), Color(0xFFFF00FF)];
-        subtitle = 'Versión ${widget.installedVersionLabel}';
+        subtitle = widget.l10n.settingsHeroAboutVersion(
+          widget.installedVersionLabel,
+        );
         break;
       case _SettingsSectionId.integrations:
         icon = Icons.extension_outlined;
         gradientColors = const [Color(0xFF26C6DA), Color(0xFF0097A7)];
-        subtitle = 'Conexiones con Jira, YouTrack y más';
+        subtitle = widget.l10n.settingsHeroIntegrationsSubtitle;
+        break;
+      case _SettingsSectionId.organization:
+        icon = Icons.groups_outlined;
+        gradientColors = const [Color(0xFF66BB6A), Color(0xFF2E7D32)];
+        subtitle = widget.l10n.settingsOrganizationHeroSubtitle;
+        break;
+      case _SettingsSectionId.personalization:
+        icon = Icons.dashboard_customize_outlined;
+        gradientColors = const [Color(0xFF8D6E63), Color(0xFF5D4037)];
+        subtitle = widget.l10n.settingsHeroPersonalizationSubtitle;
+        break;
+      case _SettingsSectionId.admin:
+        icon = Icons.admin_panel_settings_outlined;
+        gradientColors = const [Color(0xFF78909C), Color(0xFF455A64)];
+        subtitle = widget.l10n.settingsAdminHeroDescription;
         break;
     }
 
@@ -370,5 +402,157 @@ class _SearchItem {
     required this.keywords,
     required this.builder,
   });
+}
+
+/// Tema (system/light/dark/OLED) + acento — compartido entre Apariencia y
+/// Personalización. Solo una sección es visible a la vez, así el control
+/// aparece en ambas rutas sin duplicarse en pantalla.
+class _ThemeAndAccentControls extends StatelessWidget {
+  const _ThemeAndAccentControls({required this.appSettings});
+
+  final AppSettings appSettings;
+
+  static const _accentPresets = <int>[
+    0xFF00F3FF,
+    0xFF1565C0,
+    0xFF0277BD,
+    0xFF6A1B9A,
+    0xFFAD1457,
+    0xFF2E7D32,
+    0xFF558B2F,
+    0xFFBF360C,
+    0xFF00695C,
+    0xFF283593,
+    0xFF4E342E,
+    0xFF37474F,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: appSettings,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SegmentedButton<FolioThemeMode>(
+                segments: [
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.system,
+                    label: Text(l10n.systemTheme),
+                    icon: const Icon(Icons.brightness_auto, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.light,
+                    label: Text(l10n.lightTheme),
+                    icon: const Icon(Icons.light_mode_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.dark,
+                    label: Text(l10n.darkTheme),
+                    icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioThemeMode>(
+                    value: FolioThemeMode.oled,
+                    label: Text(l10n.oledTheme),
+                    icon: const Icon(Icons.contrast, size: 18),
+                  ),
+                ],
+                selected: {appSettings.themeMode},
+                onSelectionChanged: (s) {
+                  appSettings.setThemeMode(s.first);
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                l10n.settingsAccentColorTitle,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SegmentedButton<FolioAccentColorMode>(
+                segments: [
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.followSystem,
+                    label: Text(FolioAdaptive.currentPlatformName()),
+                    icon: const Icon(Icons.palette_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.folioDefault,
+                    label: Text(l10n.settingsAccentFolioDefault),
+                    icon: const Icon(Icons.brush_outlined, size: 18),
+                  ),
+                  ButtonSegment<FolioAccentColorMode>(
+                    value: FolioAccentColorMode.custom,
+                    label: Text(l10n.settingsAccentCustom),
+                    icon: const Icon(Icons.color_lens_outlined, size: 18),
+                  ),
+                ],
+                selected: {appSettings.accentColorMode},
+                onSelectionChanged: (s) {
+                  appSettings.setAccentColorMode(s.first);
+                },
+              ),
+            ),
+            if (appSettings.accentColorMode == FolioAccentColorMode.custom) ...[
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Icon(
+                  Icons.color_lens,
+                  color: Color(appSettings.customAccentArgb),
+                ),
+                title: Text(l10n.settingsAccentPickColor),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final picked = await showDialog<int>(
+                    context: context,
+                    builder: (ctx) {
+                      return FolioDialog(
+                        title: Text(l10n.settingsAccentPickColor),
+                        content: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final a in _accentPresets)
+                              Material(
+                                color: Color(a),
+                                elevation: 2,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => Navigator.pop(ctx, a),
+                                  child: const SizedBox(width: 44, height: 44),
+                                ),
+                              ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(l10n.cancel),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    await appSettings.setCustomAccentArgb(picked);
+                  }
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
 }
 

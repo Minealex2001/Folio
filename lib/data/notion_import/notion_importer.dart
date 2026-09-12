@@ -7,7 +7,7 @@ import '../../core/errors/folio_exception.dart';
 import '../../models/block.dart';
 import '../../models/folio_database_data.dart';
 
-enum NotionExportFormat { markdown, html }
+enum NotionExportFormat { markdown, html, notionApi }
 
 class NotionImportWarning {
   const NotionImportWarning(this.message);
@@ -49,11 +49,19 @@ class NotionParsedDatabase {
     required this.sourcePath,
     required this.title,
     required this.data,
+    this.parentSourcePath,
   });
 
   final String sourcePath;
   final String title;
   final FolioDatabaseData data;
+
+  /// `sourcePath` de la [NotionParsedPage] bajo la que anidar esta base de
+  /// datos (solo relevante para la importación directa de la API de Notion,
+  /// donde una `child_database` puede vivir dentro de una página). `null`
+  /// (el caso del importador ZIP, siempre top-level) mantiene el
+  /// comportamiento anterior sin cambios.
+  final String? parentSourcePath;
 }
 
 class NotionImportException extends FolioException {

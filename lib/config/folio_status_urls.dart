@@ -33,4 +33,11 @@ class FolioStatusUrls {
     final lang = knownStatusPageLangs.contains(raw) ? raw : 'es';
     return Uri.parse('https://minealexgames.com/$lang/folio/status');
   }
+
+  /// Política de privacidad — canónica: `https://minealexgames.com/es/privacy-policy`.
+  static Uri privacyPolicyUri({String? languageCode}) {
+    final raw = (languageCode ?? 'es').trim().toLowerCase();
+    final lang = knownStatusPageLangs.contains(raw) ? raw : 'es';
+    return Uri.parse('https://minealexgames.com/$lang/privacy-policy');
+  }
 }

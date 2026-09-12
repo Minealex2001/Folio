@@ -6,11 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
+import 'config/config_bootstrap.dart';
+import 'config/config_store.dart';
 import 'config/folio_local_secrets.dart';
+import 'config/models/dashboard_config.dart';
+import 'config/models/layout_config.dart';
+import 'config/models/panel_region_ids.dart';
+import 'config/models/workspace_config.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
 import 'config/folio_web_urls.dart';
+import 'layout_engine/layout_engine_controller.dart';
+import 'theme_engine/theme_config_controller.dart';
+import 'visual_packs/active_pack_controller.dart';
+import 'widget_catalog/builtin/builtin_widget_plugins.dart';
+import 'widget_catalog/dnd/dashboard_grid_controller.dart';
 import 'features/web_public/folio_web_public_app.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
@@ -24,6 +35,7 @@ import 'meeting_worker/meeting_worker_main.dart';
 import 'meeting_worker/meeting_worker_protocol.dart';
 import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
+import 'session/workspace_state_controller.dart';
 
 Future<void> main(List<String> args) async {
   if (MeetingWorkerProtocol.isWorkerArgs(args)) {
@@ -142,20 +154,6 @@ Future<void> main(List<String> args) async {
         },
       );
 
-      final cloudAccountController = CloudAccountController();
-      try {
-        await cloudAccountController.ensureSpringSessionRestored();
-      } catch (e, st) {
-        AppLogger.error(
-          'Spring session restore failed',
-          tag: 'backend',
-          error: e,
-          stackTrace: st,
-        );
-      }
-      final folioCloudEntitlements = FolioCloudEntitlementsController();
-      folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
-
       // A diferencia de las fases de arriba (env/.env, SystemTheme),
       // esta carga no estaba protegida: si algo aquí lanzaba, runApp() nunca se
       // ejecutaba y el proceso quedaba sin ventana visible en vez de degradar
@@ -183,6 +181,183 @@ Future<void> main(List<String> args) async {
         } catch (_) {}
       }
 
+      // Kill switch de Folio Cloud (Ajustes > Cuenta > Zona de peligro): si
+      // está activo, ni se restaura sesión ni se hace ninguna llamada de red
+      // relacionada con la cuenta — ver CloudAccountController.disabled.
+      CloudAccountController.disabled = appSettings.folioCloudDisabled;
+      final cloudAccountController = CloudAccountController();
+      if (!CloudAccountController.disabled) {
+        try {
+          await cloudAccountController.ensureSpringSessionRestored();
+        } catch (e, st) {
+          AppLogger.error(
+            'Spring session restore failed',
+            tag: 'backend',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+      final folioCloudEntitlements = FolioCloudEntitlementsController();
+      if (!CloudAccountController.disabled) {
+        folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
+      }
+
+      // Sistema de personalización de UI (Fase 1): igual que AppSettings
+      // arriba, un fallo aquí no debe bloquear runApp() — degrada a un
+      // ConfigStore vacío (sin migración) en vez de tumbar el arranque.
+      ConfigStore configStore;
+      try {
+        configStore = await ConfigStore.open();
+        await ConfigBootstrap.migrateLegacyAppSettings(appSettings, configStore);
+      } catch (e, st) {
+        AppLogger.error(
+          'Config store bootstrap/migration failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        configStore = await ConfigStore.open();
+      }
+
+      // Motor de layout (Fase 2): carga el LayoutConfig "activo" (poblado
+      // por la migración de arriba) y conecta el hook de AppSettings para
+      // que futuros resizes del sidebar también queden reflejados aquí.
+      // El resto del shell (workspace_page.dart) todavía no LEE de este
+      // controller — solo se mantiene sincronizado hacia adelante.
+      LayoutEngineController layoutEngineController;
+      try {
+        layoutEngineController = await LayoutEngineController.load(
+          configStore,
+          id: ConfigBootstrap.activeLayoutId,
+        );
+        appSettings.onWorkspaceSidebarWidthChanged = (width) {
+          layoutEngineController.setSize(
+            PanelRegionIds.sidebarLeft,
+            width: width,
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Layout engine controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        layoutEngineController = LayoutEngineController(
+          configStore,
+          initialConfig: LayoutConfig.defaultConfig(
+            id: ConfigBootstrap.activeLayoutId,
+          ),
+        );
+      }
+
+      // Motor de tema (Fase 3 + editor de temas): carga el ThemeConfig
+      // "activo" y conecta el hook — el picker de acento/modo existente en
+      // Settings sigue viviendo en AppSettings, esto solo mantiene
+      // accentMode/light/dark del ThemeConfig sincronizados con él. Los
+      // campos nuevos (radio/espaciado/opacidad/movimiento) los edita
+      // directo el editor de temas, sin pasar por AppSettings.
+      ThemeConfigController themeConfigController;
+      try {
+        themeConfigController = await ThemeConfigController.load(
+          configStore,
+          id: ConfigBootstrap.activeThemeId,
+        );
+        appSettings.onThemeAccentChanged = () {
+          themeConfigController.replaceConfig(
+            ConfigBootstrap.themeConfigFromAppSettings(
+              appSettings,
+              preserving: themeConfigController.config,
+            ),
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Theme config controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        themeConfigController = ThemeConfigController(
+          configStore,
+          initialConfig: ConfigBootstrap.themeConfigFromAppSettings(appSettings),
+        );
+      }
+
+      // Catálogo de widgets de dashboard (Fase 4/5): carga el
+      // DashboardConfig "activo" y conecta el hook — cualquier cambio a
+      // orden/visibilidad/layout de columnas del dashboard de inicio (12
+      // setters en AppSettings) re-deriva el DashboardConfig completo y lo
+      // aplica al controller en vivo (no solo lo persiste), para que
+      // workspace_home_view.dart -- que ya lee el orden de secciones desde
+      // este controller -- vea el cambio de inmediato.
+      DashboardGridController dashboardGridController;
+      try {
+        dashboardGridController = await DashboardGridController.load(
+          configStore,
+          id: ConfigBootstrap.activeDashboardId,
+          name: 'Inicio',
+        );
+        appSettings.onWorkspaceHomeDashboardChanged = () {
+          dashboardGridController.replaceConfig(
+            ConfigBootstrap.dashboardConfigFromAppSettings(appSettings),
+          );
+        };
+      } catch (e, st) {
+        AppLogger.error(
+          'Dashboard grid controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        dashboardGridController = DashboardGridController(
+          configStore,
+          initialConfig: DashboardConfig(
+            id: ConfigBootstrap.activeDashboardId,
+            name: 'Inicio',
+          ),
+        );
+      }
+
+      // Packs visuales (Fase 8): solo el id del pack activo, puramente
+      // informativo — el contenido de un pack se aplica directo a los tres
+      // controllers de arriba (ver VisualPackInstaller), no se re-lee aquí.
+      ActivePackController activePackController;
+      try {
+        activePackController = await ActivePackController.load(configStore);
+      } catch (e, st) {
+        AppLogger.error(
+          'Active pack controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        activePackController = ActivePackController(configStore);
+      }
+
+      // Estado de workspace (Fase 28/29): pestañas de páginas abiertas y
+      // demás estado efímero-persistido del workspace (foco, zoom, panel
+      // de IA). Mismo patrón try/catch de fallback que los controllers de
+      // arriba.
+      WorkspaceStateController workspaceStateController;
+      try {
+        workspaceStateController = await WorkspaceStateController.load(
+          configStore,
+        );
+      } catch (e, st) {
+        AppLogger.error(
+          'Workspace state controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        workspaceStateController = WorkspaceStateController(
+          configStore,
+          initialConfig: const WorkspaceConfig(),
+        );
+      }
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);
@@ -205,11 +380,19 @@ Future<void> main(List<String> args) async {
           context: {'error': '$e', 'stack': '$st'},
         );
       }
+      registerBuiltinWidgetPlugins();
+
       runApp(
         FolioApp(
           session: session,
           appSettings: appSettings,
           cloudAccountController: cloudAccountController,
+          configStore: configStore,
+          layoutEngineController: layoutEngineController,
+          dashboardGridController: dashboardGridController,
+          themeConfigController: themeConfigController,
+          activePackController: activePackController,
+          workspaceStateController: workspaceStateController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

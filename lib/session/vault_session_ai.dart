@@ -3,6 +3,38 @@ part of 'vault_session.dart';
 extension VaultSessionAi on VaultSession {
   // -------------------------------------------------------------------------
 
+  /// Techo de tokens de salida para turnos conversacionales/de decisión
+  /// normales (chat, planes, correcciones JSON sin generación de bloques).
+  /// Antes no se fijaba `maxTokens` en ningún sitio, así que proveedores
+  /// locales (Ollama/LM Studio) podían truncar con su propio default.
+  static const int _kAiMaxTokensChat = 4096;
+
+  /// Techo más generoso para turnos que generan contenido sustancial de
+  /// bloques (create_page, generación/reescritura de contenido, bucle de
+  /// tool-calling): estos necesitan margen para 12-20+ bloques con texto real.
+  static const int _kAiMaxTokensContent = 8192;
+
+  /// Combina la identidad general de Quill con un `systemPromptOverride`
+  /// enrutado automáticamente (ver `_classifyBestPromptId` en
+  /// `workspace_page_ai_chat.dart`). Los presets de tarea acotada (traducir,
+  /// resumir, código) se AÑADEN sobre la identidad general en vez de
+  /// reemplazarla, para que una instrucción de "sé conciso" del preset no
+  /// anule silenciosamente el "sé completo por defecto" de Quill. Un preset
+  /// general o creado por el usuario (incluida una persona propia de "sé
+  /// breve") sigue reemplazando la identidad por completo, tal y como se
+  /// comportaba antes.
+  String _combineAgentIdentity({
+    required String defaultIdentity,
+    required String systemPromptOverride,
+    required bool systemPromptOverrideIsNarrowTask,
+    required bool isEs,
+  }) {
+    if (systemPromptOverride.isEmpty) return defaultIdentity;
+    if (!systemPromptOverrideIsNarrowTask) return systemPromptOverride;
+    final label = isEs ? 'Modo específico:' : 'Task-specific mode:';
+    return '$defaultIdentity\n\n$label\n$systemPromptOverride';
+  }
+
   AiCompletionRequest _buildAgentCompletionRequest({
     required String userPrompt,
     required List<AiChatMessage> conversationMessages,
@@ -15,13 +47,18 @@ extension VaultSessionAi on VaultSession {
     required String cloudInkOperation,
     String extraContextSections = '',
     String systemPromptOverride = '',
+    bool systemPromptOverrideIsNarrowTask = false,
   }) {
     final isFirstTurn = conversationMessages.isEmpty;
-    final agentIdentity = systemPromptOverride.isNotEmpty
-        ? systemPromptOverride
-        : (isEs
-            ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app; en modo nota sé clara, útil y natural.'
-            : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app; in note mode be clear, helpful, and natural.');
+    final defaultIdentity = isEs
+        ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app; en modo nota sé clara, útil y natural.'
+        : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app; in note mode be clear, helpful, and natural.';
+    final agentIdentity = _combineAgentIdentity(
+      defaultIdentity: defaultIdentity,
+      systemPromptOverride: systemPromptOverride,
+      systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
+      isEs: isEs,
+    );
 
     final schema = _agentResponseSchema;
 
@@ -97,7 +134,7 @@ extension VaultSessionAi on VaultSession {
         '- ${isEs ? 'Si el usuario pide crear un folio/nota nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
       )
       ..writeln(
-        '- ${isEs ? 'create_page: "blocks" DEBE traer contenido sustancial (mínimo ~8–15 bloques con texto real): intro, h2/h3, párrafos, listas. Si pide diagramas, incluye bloques type=mermaid (y/o table). NUNCA dejes blocks vacío ni digas al usuario que añada el contenido él.' : 'create_page: "blocks" MUST include substantial content (at least ~8–15 blocks with real text): intro, h2/h3, paragraphs, lists. If they ask for diagrams, include type=mermaid blocks (and/or table). NEVER leave blocks empty or tell the user to fill the page themselves.'}',
+        '- ${isEs ? 'create_page: "blocks" DEBE traer contenido sustancial y variado (mínimo 12–20 bloques con texto real): intro, 3+ secciones con h2/h3, párrafos, listas, y al menos un elemento no-párrafo (tabla, callout o mermaid). No basta con muchos párrafos cortos sueltos: cubre el tema con profundidad real. Si pide diagramas, incluye bloques type=mermaid (y/o table). NUNCA dejes blocks vacío ni digas al usuario que añada el contenido él.' : 'create_page: "blocks" MUST include substantial, varied content (at least 12–20 blocks with real text): intro, 3+ sections with h2/h3, paragraphs, lists, and at least one non-paragraph element (table, callout, or mermaid). Many short bare paragraphs are not enough: cover the topic in real depth. If they ask for diagrams, include type=mermaid blocks (and/or table). NEVER leave blocks empty or tell the user to fill the page themselves.'}',
       )
       ..writeln(
         '- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de el folio abierto, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}',
@@ -148,6 +185,7 @@ extension VaultSessionAi on VaultSession {
       attachments: attachments,
       temperature: 0.1,
       responseSchema: schema,
+      maxTokens: _kAiMaxTokensContent,
     );
   }
 
@@ -207,6 +245,7 @@ extension VaultSessionAi on VaultSession {
         model: 'auto',
         attachments: attachments,
         cloudInkOperation: 'rewrite_block',
+        maxTokens: _kAiMaxTokensChat,
       ),
     );
     final text = result.text.trim();
@@ -260,6 +299,7 @@ extension VaultSessionAi on VaultSession {
         prompt: prompt,
         model: 'auto',
         cloudInkOperation: 'summarize_selection',
+        maxTokens: _kAiMaxTokensChat,
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -295,6 +335,7 @@ extension VaultSessionAi on VaultSession {
         prompt: prompt,
         model: 'auto',
         cloudInkOperation: 'extract_tasks',
+        maxTokens: _kAiMaxTokensChat,
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -326,6 +367,7 @@ extension VaultSessionAi on VaultSession {
         model: 'auto',
         attachments: attachments,
         cloudInkOperation: 'summarize_page',
+        maxTokens: _kAiMaxTokensChat,
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -394,6 +436,7 @@ extension VaultSessionAi on VaultSession {
         attachments: attachments,
         cloudInkOperation: 'translate_bilingual',
         temperature: 0.1,
+        maxTokens: _kAiMaxTokensContent,
       ),
     );
     final translations = _parseBilingualTranslationResponse(
@@ -440,6 +483,7 @@ extension VaultSessionAi on VaultSession {
         model: 'auto',
         attachments: attachments,
         cloudInkOperation: 'generate_insert',
+        maxTokens: _kAiMaxTokensContent,
       ),
     );
     final parsed = _parseAiHybridOutput(result.text, defaultTitle: page.title);
@@ -455,7 +499,7 @@ extension VaultSessionAi on VaultSession {
 
   static const _generateStandalonePagePromptPrefix =
       '${VaultSession._quillIdentityLeadEs}'
-      'Genera un folio completo de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
+      'Genera un folio completo de notas. Por defecto sé detallado y exhaustivo (mínimo 12-20 bloques, con variedad estructural: intro, 3+ secciones con h2/h3, párrafos elaborados, listas, y al menos un elemento no-párrafo como tabla o callout) y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
       'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
       'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n';
 
@@ -484,6 +528,7 @@ extension VaultSessionAi on VaultSession {
           model: 'auto',
           attachments: attachments,
           cloudInkOperation: 'generate_page',
+          maxTokens: _kAiMaxTokensContent,
         ),
       );
       return _parseAiHybridOutput(result.text, defaultTitle: 'Nuevo Folio');
@@ -497,7 +542,7 @@ extension VaultSessionAi on VaultSession {
       final retryPrompt =
           '$prompt\n\n'
           'IMPORTANTE: en tu respuesta anterior "blocks" vino vacío. Esta vez '
-          'DEBES incluir al menos 8 bloques de contenido real y detallado sobre '
+          'DEBES incluir al menos 12 bloques de contenido real y detallado sobre '
           'el tema pedido, no solo un título.';
       draft = await generateOnce(retryPrompt);
     }
@@ -585,6 +630,63 @@ extension VaultSessionAi on VaultSession {
       }
     }
     return buf.toString();
+  }
+
+  // ---------------------------------------------------------------------
+  // Generación de imágenes (Quill)
+  // ---------------------------------------------------------------------
+
+  /// Genera bytes de imagen con [ai] y los importa al vault como adjunto,
+  /// devolviendo la ruta relativa (attachments/<uuid>.png) — el mismo formato
+  /// que produce el picker de imagen local del editor. Lanza
+  /// [AiImageGenerationUnsupportedException] si [ai] no soporta la capacidad.
+  Future<String> _generateImageAndImport({
+    required AiService ai,
+    required String prompt,
+    String? pageContextText,
+  }) async {
+    if (!ai.supportsImageGeneration) {
+      throw AiImageGenerationUnsupportedException(ai.providerName);
+    }
+    final result = await ai.generateImage(
+      prompt: prompt,
+      pageContextText: pageContextText,
+    );
+    final ext = result.mimeType.contains('png') ? '.png' : '.jpg';
+    return VaultPaths.importAttachmentBytes(result.bytes, ext);
+  }
+
+  /// Camino dedicado para la entrada de UI explícita ("Generar imagen"), sin
+  /// pasar por `runToolLoop` — el usuario ya decidió generar, no hace falta
+  /// que el modelo decida invocar la tool. Devuelve un [AiChatMessage] listo
+  /// para anexar al hilo activo vía [appendMessageToAiChatById].
+  Future<AiChatMessage> generateImageForChatDirect({
+    required AiService ai,
+    required String prompt,
+    bool useCurrentPageContext = false,
+    String? scopePageId,
+    bool isEs = true,
+  }) async {
+    final trimmedPrompt = prompt.trim();
+    final contextText =
+        (useCurrentPageContext && scopePageId != null && scopePageId.isNotEmpty)
+        ? _buildAiChatPagesTextContext(
+            [scopePageId],
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
+        : null;
+    final relPath = await _generateImageAndImport(
+      ai: ai,
+      prompt: trimmedPrompt,
+      pageContextText: contextText,
+    );
+    return AiChatMessage.now(
+      role: 'assistant',
+      content: '',
+      generatedImagePath: relPath,
+      generatedImagePrompt: trimmedPrompt,
+    );
   }
 
   String _plainChatContextFromPageIds(List<String> pageIds) {
@@ -728,6 +830,7 @@ For images/blocks: use the + button or / command in a paragraph.
         messages: messages,
         attachments: attachments,
         cloudInkOperation: 'chat_turn',
+        maxTokens: _kAiMaxTokensChat,
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -754,11 +857,17 @@ For images/blocks: use the + button or / command in a paragraph.
     required String languageCode,
     String? cloudInkOperation,
     String systemPromptOverride = '',
+    bool systemPromptOverrideIsNarrowTask = false,
     String extraContextSections = '',
     void Function(AiToolLoopEvent event)? onToolEvent,
     int maxSteps = _kToolLoopMaxSteps,
     Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
         onConfirmIrreversibleTool,
+    /// Streaming real: texto acumulado del turno en curso, reenviado por
+    /// `runToolLoop` en cada fragmento nuevo (ver doc de `onReplyTextDelta`
+    /// en `ai_tool_loop.dart`). `null` = comportamiento bloqueante de siempre.
+    void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     final isEs = languageCode.toLowerCase().startsWith('es');
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -776,13 +885,20 @@ For images/blocks: use the + button or / command in a paragraph.
               ? 'El usuario desactivó el contexto de folios: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
 
-    final agentIdentity = systemPromptOverride.isNotEmpty
-        ? systemPromptOverride
-        : (isEs
-              ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
-              : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.');
+    final agentIdentity = _combineAgentIdentity(
+      defaultIdentity: isEs
+          ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
+          : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.',
+      systemPromptOverride: systemPromptOverride,
+      systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
+      isEs: isEs,
+    );
 
     final wantsCreatePage = _looksLikeCreatePageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
+    final wantsGenerateImage = _looksLikeGenerateImageIntent(
       prompt,
       languageCode: languageCode,
     );
@@ -799,13 +915,32 @@ For images/blocks: use the + button or / command in a paragraph.
         ..writeln(
           isEs
               ? 'El usuario pide crear un folio nuevo. Debes llamar a la tool create_page '
-                    'con "title" y "blocks" rellenos de contenido sustancial en la misma llamada '
-                    '(mínimo ~8–15 bloques: intro, h2/h3, párrafos, listas; mermaid/table si pide diagramas). '
+                    'con "title" y "blocks" rellenos de contenido sustancial y variado en la misma llamada '
+                    '(mínimo 12–20 bloques: intro, 3+ secciones con h2/h3, párrafos, listas, y al menos un '
+                    'elemento no-párrafo como tabla, callout o mermaid; no basta con párrafos cortos sueltos). '
                     'No crees solo el título. No digas al usuario que añada el contenido él.'
-              : 'The user wants a new page. You must call create_page with "title" and substantial '
-                    '"blocks" in the same call (at least ~8–15 blocks: intro, h2/h3, paragraphs, lists; '
-                    'mermaid/table if they ask for diagrams). Do not create a title-only page. '
-                    'Do not tell the user to fill the page themselves.',
+              : 'The user wants a new page. You must call create_page with "title" and substantial, varied '
+                    '"blocks" in the same call (at least 12–20 blocks: intro, 3+ sections with h2/h3, '
+                    'paragraphs, lists, and at least one non-paragraph element such as a table, callout, or '
+                    'mermaid diagram; many short bare paragraphs are not enough). Do not create a title-only '
+                    'page. Do not tell the user to fill the page themselves.',
+        );
+    }
+    if (wantsGenerateImage) {
+      systemPrompt
+        ..writeln()
+        ..writeln(
+          isEs
+              ? 'El usuario pide una imagen generada. Debes llamar a la tool generate_image '
+                    'con un "prompt" descriptivo y detallado (traduce/expande la petición del usuario a una '
+                    'buena descripción visual en inglés o español). No respondas solo en texto ni digas que no '
+                    'puedes: si el proveedor no soporta la generación, la tool devolverá un error que debes '
+                    'explicar; en ese caso responde con el error real, no con una respuesta vacía.'
+              : 'The user wants a generated image. You must call generate_image with a detailed, descriptive '
+                    '"prompt" (expand the user\'s request into a good visual description). Do not answer with '
+                    'plain text only, and do not say you cannot help: if the provider does not support image '
+                    'generation, the tool will return an error you must explain — reply with that actual error, '
+                    'never with an empty response.',
         );
     }
     systemPrompt
@@ -823,6 +958,25 @@ For images/blocks: use the + button or / command in a paragraph.
       this,
       scopePageId: scopePageId,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+      onGenerateImage: (imagePrompt, useContext) async {
+        final contextText = useContext && scopePageId != null && scopePageId.isNotEmpty
+            ? _buildAiChatPagesTextContext(
+                [scopePageId],
+                isEs: isEs,
+                activePageId: scopePageId,
+              )
+            : null;
+        final relPath = await _generateImageAndImport(
+          ai: ai,
+          prompt: imagePrompt,
+          pageContextText: contextText,
+        );
+        return jsonEncode({
+          'status': 'generated',
+          'path': relPath,
+          'prompt': imagePrompt,
+        });
+      },
     );
     final toolAi = withToolCallingSupport(ai, isEs: isEs);
 
@@ -837,8 +991,15 @@ For images/blocks: use the + button or / command in a paragraph.
           : cloudInkOperation!.trim(),
       tools: registry.definitions,
       toolChoice: 'auto',
+      maxTokens: wantsCreatePage ? _kAiMaxTokensContent : _kAiMaxTokensChat,
+      cancelToken: cancelToken,
     );
 
+    // Fase B3 del plan Quill/MCP — agrupa en un único "turno" todos los
+    // puntos de undo de contenido que este bucle de tool-calling produzca,
+    // para poder ofrecer "Deshacer" sobre el turno completo en vez de uno
+    // por uno. Ver `beginAiTurnUndoGroup`/`undoAiTurn` en `vault_session.dart`.
+    final aiTurnId = beginAiTurnUndoGroup();
     final outcome = await runToolLoop(
       ai: toolAi,
       baseRequest: baseRequest,
@@ -846,7 +1007,32 @@ For images/blocks: use the + button or / command in a paragraph.
       executeTool: registry.execute,
       onEvent: onToolEvent,
       maxSteps: maxSteps,
+      onReplyTextDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
+    endAiTurnUndoGroup(aiTurnId);
+    // Si el turno usó alguna tool no reversible (estructural o destructiva —
+    // ver `AiToolDefinition.isReversible`, Fase B1), no se ofrece "deshacer"
+    // para nada de este turno: sería engañoso deshacer solo la parte de
+    // contenido y dejar la parte estructural intacta sin avisar.
+    final turnUsedNonReversibleTool = outcome.steps.any((step) {
+      final def = registry.definitionByName(step.call.name);
+      return def != null && !def.isReversible;
+    });
+    final resolvedAiTurnId =
+        !turnUsedNonReversibleTool && aiTurnHasUndoableChanges(aiTurnId)
+        ? aiTurnId
+        : null;
+    // Se calcula antes de descartar/consumir el grupo: `aiTurnChangeCount`
+    // lee `_aiTurnPreUndoLengths`, que `discardAiTurnUndoGroup` borra.
+    final resolvedAiTurnChangeCount = resolvedAiTurnId != null
+        ? aiTurnChangeCount(resolvedAiTurnId)
+        : null;
+    // Fase 4 del roadmap de producto — registra el evento de actividad
+    // ANTES de descartar el grupo (discard borra `_aiTurnPreUndoLengths`,
+    // la misma fuente que lee `recordAiTurnActivity`).
+    if (resolvedAiTurnId != null) recordAiTurnActivity(resolvedAiTurnId);
+    if (resolvedAiTurnId == null) discardAiTurnUndoGroup(aiTurnId);
 
     await _maybeEnrichThinCreatePageFromToolLoop(
       outcome: outcome,
@@ -858,12 +1044,43 @@ For images/blocks: use the + button or / command in a paragraph.
     if (reply.isEmpty && outcome.hasToolCalls) {
       reply = _summarizeToolLoopOutcome(outcome, isEs: isEs);
     }
+    if (reply.isEmpty) {
+      // El modelo no llamó ninguna tool y devolvió texto vacío (raro, pero
+      // observado: el proveedor responde sin contenido ni tool_calls). Antes
+      // esto dejaba una burbuja de Quill en blanco sin explicación — nunca
+      // se debe dejar una respuesta vacía sin más.
+      reply = isEs
+          ? 'No obtuve una respuesta del modelo. Prueba a reformular el mensaje o inténtalo de nuevo.'
+          : 'I did not get a response from the model. Try rephrasing your message or try again.';
+    }
+
+    String? generatedImagePath;
+    String? generatedImagePrompt;
+    for (final step in outcome.steps) {
+      if (step.call.name == 'generate_image' && !step.result.isError) {
+        try {
+          final decoded = jsonDecode(step.result.content);
+          if (decoded is Map) {
+            generatedImagePath = decoded['path'] as String?;
+            generatedImagePrompt = decoded['prompt'] as String?;
+          }
+        } catch (_) {
+          // Resultado inesperado (no debería pasar: el propio callback lo
+          // codifica); se ignora en vez de romper el turno.
+        }
+        break;
+      }
+    }
 
     return AgentChatOutcome(
       reply: reply,
       usage: outcome.usage,
       toolCalls: outcome.steps.map((s) => s.call).toList(),
       toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
+      generatedImagePath: generatedImagePath,
+      generatedImagePrompt: generatedImagePrompt,
+      aiTurnId: resolvedAiTurnId,
+      aiTurnChangeCount: resolvedAiTurnChangeCount,
     );
   }
 
@@ -880,6 +1097,8 @@ For images/blocks: use the + button or / command in a paragraph.
     String? cloudInkOperation,
     String extraContextSections = '',
     String systemPromptOverride = '',
+    bool systemPromptOverrideIsNarrowTask = false,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -888,6 +1107,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -913,11 +1135,14 @@ For images/blocks: use the + button or / command in a paragraph.
               ? 'El usuario desactivó el contexto de folios: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
 
-    final agentIdentity = systemPromptOverride.isNotEmpty
-        ? systemPromptOverride
-        : (isEs
-              ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
-              : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.');
+    final agentIdentity = _combineAgentIdentity(
+      defaultIdentity: isEs
+          ? 'Eres Quill, la asistente integrada en Folio (folios locales, árbol de folios, editor por bloques, búsqueda, libreta con cifrado opcional, panel de notas a la derecha). Ayudas con el contenido de los folios y con cómo usar la app.'
+          : 'You are Quill, Folio\'s built-in assistant (local pages, page tree, block editor, search, optional encrypted notebook, notes panel on the side). You help with page content and how to use the app.',
+      systemPromptOverride: systemPromptOverride,
+      systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
+      isEs: isEs,
+    );
 
     // Solo definiciones para orientar el plan; no se llama a registry.execute.
     final registry = FolioToolRegistry(this, scopePageId: scopePageId);
@@ -957,8 +1182,13 @@ For images/blocks: use the + button or / command in a paragraph.
             : cloudInkOperation!.trim(),
         tools: registry.definitions,
         toolChoice: 'none',
+        maxTokens: _kAiMaxTokensChat,
+        cancelToken: cancelToken,
       ),
     );
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final rawReply = result.text.trim().isEmpty
         ? (isEs
@@ -980,6 +1210,7 @@ For images/blocks: use the + button or / command in a paragraph.
         'languageCode': languageCode,
         'cloudInkOperation': cloudInkOperation,
         'systemPromptOverride': systemPromptOverride,
+        'systemPromptOverrideIsNarrowTask': systemPromptOverrideIsNarrowTask,
       },
     );
   }
@@ -992,6 +1223,8 @@ For images/blocks: use the + button or / command in a paragraph.
     void Function(AiToolLoopEvent event)? onToolEvent,
     Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
         onConfirmIrreversibleTool,
+    void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -1000,6 +1233,9 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
 
     final originalPrompt =
         (planContext['originalPrompt'] as String?)?.trim() ?? '';
@@ -1019,6 +1255,8 @@ For images/blocks: use the + button or / command in a paragraph.
     final cloudInkOperation = planContext['cloudInkOperation'] as String?;
     final systemPromptOverride =
         (planContext['systemPromptOverride'] as String?) ?? '';
+    final systemPromptOverrideIsNarrowTask =
+        planContext['systemPromptOverrideIsNarrowTask'] as bool? ?? false;
 
     final approvePrompt = isEs
         ? '''
@@ -1077,10 +1315,13 @@ Execute that plan with tools NOW, in order, this turn.
       languageCode: languageCode,
       cloudInkOperation: cloudInkOperation,
       systemPromptOverride: systemPromptOverride,
+      systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
       extraContextSections: _folioPlanExecutionPlaybook(isEs: isEs),
       onToolEvent: onToolEvent,
       maxSteps: _kPlanExecutionMaxSteps,
       onConfirmIrreversibleTool: onConfirmIrreversibleTool,
+      onReplyDelta: onReplyDelta,
+      cancelToken: cancelToken,
     );
   }
 
@@ -1312,7 +1553,7 @@ Plan mode (proposal only, do not execute):
       final useful = page.blocks
           .where((b) => b.type == 'divider' || b.text.trim().isNotEmpty)
           .length;
-      if (useful >= 4) continue;
+      if (useful >= 8) continue;
       try {
         await generateContentWithAi(
           pageId: pageId,
@@ -1386,6 +1627,7 @@ Plan mode (proposal only, do not execute):
     String? cloudInkOperation,
     String extraContextSections = '',
     String systemPromptOverride = '',
+    bool systemPromptOverrideIsNarrowTask = false,
     /// Si es `true`, usa el bucle de tool-calling (`_agentChatWithAiToolLoop`),
     /// alineado con el MCP local. Default del llamador suele venir de
     /// `AppSettings.quillToolCallingEnabled` (activado por defecto).
@@ -1393,14 +1635,25 @@ Plan mode (proposal only, do not execute):
     /// Solo con [useToolCalling]: notifica cada inicio/resultado de tool-call
     /// para que la UI muestre feedback en vivo (`ai_tool_activity_indicator.dart`).
     void Function(AiToolLoopEvent event)? onToolEvent,
+    /// Solo con [useToolCalling]: streaming real del texto de respuesta (ver
+    /// `onReplyDelta` en `_agentChatWithAiToolLoop`). `null` = sin streaming
+    /// (comportamiento bloqueante de siempre).
+    void Function(String textSoFar)? onReplyDelta,
+    AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para usar Quill.');
     }
-    final ai = _aiService;
-    if (ai == null) throw StateError('IA no configurada.');
+    final baseAi = _aiService;
+    if (baseAi == null) throw StateError('IA no configurada.');
     await pingAi();
+    if (cancelToken?.isCancelled == true) {
+      throw const AiRequestCancelledException();
+    }
+    final ai = cancelToken != null
+        ? AiServiceWithCancelToken(baseAi, cancelToken)
+        : baseAi;
 
     final appDocsContext = await _maybeBuildAppDocsContext(
       prompt,
@@ -1422,8 +1675,11 @@ Plan mode (proposal only, do not execute):
         languageCode: languageCode,
         cloudInkOperation: cloudInkOperation,
         systemPromptOverride: systemPromptOverride,
+        systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
         extraContextSections: combinedExtraContextSections,
         onToolEvent: onToolEvent,
+        onReplyDelta: onReplyDelta,
+        cancelToken: cancelToken,
       );
     }
 
@@ -1591,6 +1847,7 @@ Plan mode (proposal only, do not execute):
           attachments: attachments,
           extraContextSections: combinedExtraContextSections,
           systemPromptOverride: systemPromptOverride,
+          systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
         ),
       );
       lastUsage = result.usage ?? lastUsage;
@@ -1629,6 +1886,7 @@ Plan mode (proposal only, do not execute):
               attachments: attachments,
               temperature: 0.1,
               responseSchema: _agentResponseSchema,
+              maxTokens: _kAiMaxTokensChat,
             ),
           );
           lastUsage = correction.usage ?? lastUsage;
@@ -1679,6 +1937,7 @@ Plan mode (proposal only, do not execute):
             messages: messages,
             attachments: attachments,
             temperature: 0.1,
+            maxTokens: _kAiMaxTokensChat,
             responseSchema: _agentResponseSchema,
           ),
         );
@@ -1937,7 +2196,7 @@ Plan mode (proposal only, do not execute):
                   : 'You are Quill. Return ONLY valid JSON per schema.',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
-                  '${isEs ? 'Respondiste en modo nota, pero el usuario quiere crear un nuevo folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in note mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                  '${isEs ? 'Respondiste en modo nota, pero el usuario quiere crear un nuevo folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 12-20 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in note mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 12-20 blocks), unless the original message asked for something short.'}\n'
                   '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
@@ -1946,6 +2205,7 @@ Plan mode (proposal only, do not execute):
               attachments: attachments,
               temperature: 0.1,
               responseSchema: _agentResponseSchema,
+              maxTokens: _kAiMaxTokensContent,
             ),
           );
           lastUsage = createCorrection.usage ?? lastUsage;
@@ -2080,6 +2340,7 @@ Plan mode (proposal only, do not execute):
               attachments: attachments,
               temperature: 0.1,
               responseSchema: _agentResponseSchema,
+              maxTokens: _kAiMaxTokensChat,
             ),
           );
           lastUsage = recovery.usage ?? lastUsage;
@@ -2160,7 +2421,7 @@ Plan mode (proposal only, do not execute):
             cloudInkOperation: 'agent_followup',
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
-                '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear un folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear un folio. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 12-20 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 12-20 blocks), unless the original message asked for something short.'}\n'
                 '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
@@ -2169,6 +2430,7 @@ Plan mode (proposal only, do not execute):
             attachments: attachments,
             temperature: 0.1,
             responseSchema: _agentResponseSchema,
+            maxTokens: _kAiMaxTokensContent,
           ),
         );
         lastUsage = createFallback.usage ?? lastUsage;
@@ -2662,6 +2924,23 @@ Plan mode (proposal only, do not execute):
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
+  }
+
+  /// True si el usuario pide explícitamente una imagen generada (no un folio,
+  /// no una imagen elegida del disco). Dispara el nudge de sistema que le
+  /// pide al modelo llamar a `generate_image` en vez de responder solo en
+  /// texto — sin esto, algunos modelos devuelven una respuesta vacía en vez
+  /// de invocar la tool para peticiones de imagen ambiguas.
+  bool _looksLikeGenerateImageIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.generateImage,
+      languageCode: languageCode,
+    );
+    return hints.any((h) => _containsIntentPhrase(p, h));
   }
 
   /// True si algún token es verbo de creación (`crea`, `crearme`, `generame`…).
@@ -3196,6 +3475,7 @@ Plan mode (proposal only, do not execute):
         model: 'auto',
         messages: messages,
         attachments: attachments,
+        maxTokens: _kAiMaxTokensContent,
       ),
     );
     final decoded = _decodeJsonObjectLenient(result.text);
@@ -3592,6 +3872,7 @@ Plan mode (proposal only, do not execute):
           url: hasUrl ? url : null,
           imageWidth: s.imageWidth,
           expanded: s.expanded,
+          aiGenerated: true,
         ),
       );
     }
@@ -3601,6 +3882,7 @@ Plan mode (proposal only, do not execute):
           id: '${pageId}_${VaultSession._uuid.v4()}',
           type: 'paragraph',
           text: '',
+          aiGenerated: true,
         ),
       );
     }

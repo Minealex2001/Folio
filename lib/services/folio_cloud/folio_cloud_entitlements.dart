@@ -154,6 +154,7 @@ class FolioCloudSnapshot {
     required this.publishWeb,
     required this.realtimeCollab,
     this.folioStaff = false,
+    this.communityTemplateUploadBanned = false,
     this.plan,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
@@ -162,14 +163,21 @@ class FolioCloudSnapshot {
     this.isFamily = false,
     this.isStudent = false,
     this.isStudentVerified = false,
+    this.studentVerifiedUntil,
+    this.studentEmail,
     this.familyOwnerUid,
     this.familySeats = 0,
     this.accountDeletionScheduledFor,
+    this.cancelAtPeriodEnd = false,
+    this.accessUntil,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
 
   /// Staff/admin (Firestore `users/{uid}.folioStaff`): nube ilimitada sin plan.
   final bool folioStaff;
+
+  /// Moderación: no puede publicar plantillas comunitarias.
+  final bool communityTemplateUploadBanned;
 
   final bool active;
   final String? subscriptionStatus;
@@ -185,13 +193,38 @@ class FolioCloudSnapshot {
   final bool isFamily;
   final bool isStudent;
   final bool isStudentVerified;
+  /// End of the 4-year student verification window (UTC/local from server ISO).
+  final DateTime? studentVerifiedUntil;
+  final String? studentEmail;
   final String? familyOwnerUid;
   final int familySeats;
+
+  /// Days left until [studentVerifiedUntil]; null if not verified / no date.
+  int? get studentVerificationDaysRemaining {
+    final until = studentVerifiedUntil;
+    if (!isStudentVerified || until == null) return null;
+    final days = until.difference(DateTime.now()).inDays;
+    return days < 0 ? 0 : days;
+  }
+
+  bool get studentVerificationExpiringSoon {
+    final days = studentVerificationDaysRemaining;
+    return days != null && days <= 30;
+  }
 
   /// Si no es null, la cuenta tiene borrado programado (gracia de 30 días).
   final DateTime? accountDeletionScheduledFor;
 
   bool get hasPendingAccountDeletion => accountDeletionScheduledFor != null;
+
+  /// Suscripción Stripe marcada para no renovar; acceso hasta [accessUntil].
+  final bool cancelAtPeriodEnd;
+
+  /// Fin del periodo de facturación / acceso pago tras cancelar (UTC).
+  final DateTime? accessUntil;
+
+  bool get hasScheduledSubscriptionEnd =>
+      cancelAtPeriodEnd && accessUntil != null && accessUntil!.isAfter(DateTime.now());
 
   /// Cuota de copias en la nube (bytes); `folioBackup.quotaBytes` en Firestore.
   final int backupQuotaBytes;
@@ -252,6 +285,7 @@ class FolioCloudSnapshot {
     publishWeb: false,
     realtimeCollab: false,
     folioStaff: false,
+    communityTemplateUploadBanned: false,
     backupQuotaBytes: 0,
     backupUsedBytes: 0,
     backupPurchasedBytes: 0,
@@ -259,6 +293,8 @@ class FolioCloudSnapshot {
     isFamily: false,
     isStudent: false,
     isStudentVerified: false,
+    studentVerifiedUntil: null,
+    studentEmail: null,
     familyOwnerUid: null,
     familySeats: 0,
     accountDeletionScheduledFor: null,
@@ -313,6 +349,8 @@ class FolioCloudSnapshot {
         publishWeb: false,
         realtimeCollab: false,
         folioStaff: _folioBool(data['folioStaff']),
+        communityTemplateUploadBanned:
+            _folioBool(data['communityTemplateUploadBanned']),
         backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
         backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
         backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -321,9 +359,13 @@ class FolioCloudSnapshot {
         isFamily: false,
         isStudent: false,
         isStudentVerified: false,
+        studentVerifiedUntil: null,
+        studentEmail: null,
         familyOwnerUid: null,
         familySeats: 0,
         accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
+        cancelAtPeriodEnd: false,
+        accessUntil: null,
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -358,6 +400,12 @@ class FolioCloudSnapshot {
     } else if (sVal != null) {
       seatsVal = int.tryParse(sVal.toString()) ?? 0;
     }
+    final cancelAtPeriodEnd = _folioBool(
+          m['cancelAtPeriodEnd'] ?? features['cancelAtPeriodEnd'],
+        );
+    final accessUntil = _parseInstant(
+          m['accessUntil'] ?? features['accessUntil'],
+        );
     return FolioCloudSnapshot(
       active: active,
       subscriptionStatus: m['subscriptionStatus']?.toString(),
@@ -367,6 +415,8 @@ class FolioCloudSnapshot {
       publishWeb: f('publishWeb'),
       realtimeCollab: f('realtimeCollab'),
       folioStaff: _folioBool(data['folioStaff']),
+      communityTemplateUploadBanned:
+          _folioBool(data['communityTemplateUploadBanned']),
       backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
       backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
       backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -375,11 +425,22 @@ class FolioCloudSnapshot {
       isFamily: _folioBool(m['isFamily']),
       isStudent: _folioBool(m['isStudent']),
       isStudentVerified: _folioBool(m['studentVerified']),
+      studentVerifiedUntil: _parseInstant(m['studentVerifiedUntil']),
+      studentEmail: m['studentEmail']?.toString(),
       familyOwnerUid: m['familyOwnerUid']?.toString(),
       familySeats: seatsVal,
       accountDeletionScheduledFor: _accountDeletionScheduledFor(data),
+      cancelAtPeriodEnd: cancelAtPeriodEnd,
+      accessUntil: accessUntil,
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
+  }
+
+  static DateTime? _parseInstant(Object? v) {
+    if (v == null) return null;
+    if (v is DateTime) return v.toLocal();
+    if (v is String) return DateTime.tryParse(v)?.toLocal();
+    return null;
   }
 }
 
@@ -530,6 +591,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         publishWeb: prev.publishWeb,
         realtimeCollab: prev.realtimeCollab,
         folioStaff: prev.folioStaff,
+        communityTemplateUploadBanned: prev.communityTemplateUploadBanned,
         backupQuotaBytes: quota,
         backupUsedBytes: used,
         backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -537,9 +599,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         isFamily: prev.isFamily,
         isStudent: prev.isStudent,
         isStudentVerified: prev.isStudentVerified,
+        studentVerifiedUntil: prev.studentVerifiedUntil,
+        studentEmail: prev.studentEmail,
         familyOwnerUid: prev.familyOwnerUid,
         familySeats: prev.familySeats,
         accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
+        cancelAtPeriodEnd: prev.cancelAtPeriodEnd,
+        accessUntil: prev.accessUntil,
         ink: prev.ink,
       );
       notifyListeners();
@@ -574,6 +640,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       publishWeb: prev.publishWeb,
       realtimeCollab: prev.realtimeCollab,
       folioStaff: prev.folioStaff,
+      communityTemplateUploadBanned: prev.communityTemplateUploadBanned,
       backupQuotaBytes: prev.backupQuotaBytes,
       backupUsedBytes: prev.backupUsedBytes,
       backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -581,11 +648,15 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       isFamily: prev.isFamily,
       isStudent: prev.isStudent,
       isStudentVerified: prev.isStudentVerified,
+      studentVerifiedUntil: prev.studentVerifiedUntil,
+      studentEmail: prev.studentEmail,
       familyOwnerUid: prev.familyOwnerUid,
       familySeats: prev.familySeats,
-      accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
-      ink: ink,
-    );
+        accountDeletionScheduledFor: prev.accountDeletionScheduledFor,
+        cancelAtPeriodEnd: prev.cancelAtPeriodEnd,
+        accessUntil: prev.accessUntil,
+        ink: ink,
+      );
     notifyListeners();
   }
 
@@ -602,7 +673,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _pendingStripeSyncOnResume = false;
       _lastStripeSync = null;
       try {
-        await syncFolioCloudSubscriptionFromStripe();
+        await refreshFolioCloudBillingFromServers(retryUntilActive: true);
       } catch (e, st) {
         AppLogger.error(
           'post-checkout Stripe sync failed',
@@ -611,9 +682,6 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
           stackTrace: st,
         );
       }
-      await refreshUserDocFromServer(
-        leadingDelay: const Duration(milliseconds: 400),
-      );
     }
     if (_pendingMicrosoftStoreSyncOnResume &&
         FolioMicrosoftStoreChannel.isRuntimeSupported &&
@@ -795,70 +863,97 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   /// Una sola acción: revalida Stripe y, en Windows, Microsoft Store; actualiza el snapshot si al menos un canal responde.
-  Future<void> refreshFolioCloudBillingFromServers() async {
+  ///
+  /// Con [retryUntilActive], reintenta con backoff tras checkout (el webhook a veces llega
+  /// unos segundos después; con Customer pre-creado el sync suele bastar al primer intento).
+  Future<void> refreshFolioCloudBillingFromServers({
+    bool retryUntilActive = false,
+  }) async {
     if (!isAvailable) return;
     final uid = folioCloudCurrentUid();
     if (uid == null) return;
     _lastStripeSync = null;
 
-    String? stripeErr;
-    try {
-      await syncFolioCloudSubscriptionFromStripe();
-    } catch (e, st) {
-      stripeErr = '$e';
-      AppLogger.error(
-        'refreshFolioCloudBillingFromServers Stripe failed',
-        tag: 'entitlements',
-        error: e,
-        stackTrace: st,
-      );
-    }
-
-    String? msErr;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
-        FolioDistribution.showMicrosoftStoreIntegration) {
+    Future<void> once() async {
+      String? stripeErr;
       try {
-        await syncFolioMicrosoftStoreEntitlementsFromDevice();
+        await syncFolioCloudSubscriptionFromStripe();
       } catch (e, st) {
-        msErr = '$e';
+        stripeErr = '$e';
         AppLogger.error(
-          'refreshFolioCloudBillingFromServers MS failed',
+          'refreshFolioCloudBillingFromServers Stripe failed',
           tag: 'entitlements',
           error: e,
           stackTrace: st,
         );
       }
-    }
 
-    final data = await _fetchUserDocFromServerWithRetries(uid);
-    if (data != null && folioCloudCurrentUid() == uid) {
-      try {
-        final parsed = FolioCloudSnapshot.fromUserDoc(data);
-        snapshot = parsed;
-        _serverFetchTruth = parsed;
-        notifyListeners();
-      } catch (e, st) {
-        AppLogger.error(
-          'refreshFolioCloudBillingFromServers parse failed',
-          tag: 'entitlements',
-          error: e,
-          stackTrace: st,
-        );
+      String? msErr;
+      if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
+          FolioDistribution.showMicrosoftStoreIntegration) {
+        try {
+          await syncFolioMicrosoftStoreEntitlementsFromDevice();
+        } catch (e, st) {
+          msErr = '$e';
+          AppLogger.error(
+            'refreshFolioCloudBillingFromServers MS failed',
+            tag: 'entitlements',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+
+      final data = await _fetchUserDocFromServerWithRetries(uid);
+      if (data != null && folioCloudCurrentUid() == uid) {
+        try {
+          final parsed = FolioCloudSnapshot.fromUserDoc(data);
+          snapshot = parsed;
+          _serverFetchTruth = parsed;
+          notifyListeners();
+        } catch (e, st) {
+          AppLogger.error(
+            'refreshFolioCloudBillingFromServers parse failed',
+            tag: 'entitlements',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+
+      final win = FolioMicrosoftStoreChannel.isRuntimeSupported &&
+          FolioDistribution.showMicrosoftStoreIntegration;
+      final stripeOk = stripeErr == null;
+      final msOk = !win || msErr == null;
+      if (!win) {
+        if (!stripeOk) throw Exception(stripeErr);
+        return;
+      }
+      if (!stripeOk && !msOk) {
+        throw Exception('$stripeErr\n$msErr');
       }
     }
 
-    final win = FolioMicrosoftStoreChannel.isRuntimeSupported &&
-        FolioDistribution.showMicrosoftStoreIntegration;
-    final stripeOk = stripeErr == null;
-    final msOk = !win || msErr == null;
-    if (!win) {
-      if (!stripeOk) {
-        throw Exception(stripeErr);
-      }
+    await once();
+    if (!retryUntilActive || snapshot.active || folioCloudCurrentUid() != uid) {
       return;
     }
-    if (!stripeOk && !msOk) {
-      throw Exception('$stripeErr\n$msErr');
+    const delays = <Duration>[
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 3),
+      Duration(seconds: 5),
+    ];
+    for (final delay in delays) {
+      await Future<void>.delayed(delay);
+      if (folioCloudCurrentUid() != uid) return;
+      _lastStripeSync = null;
+      try {
+        await once();
+      } catch (_) {
+        // Keep retrying until active or delays exhausted.
+      }
+      if (snapshot.active) return;
     }
   }
 

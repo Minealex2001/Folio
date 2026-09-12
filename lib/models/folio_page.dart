@@ -1,6 +1,7 @@
 import 'block.dart';
 import 'folio_database_data.dart';
 import 'folio_page_import_info.dart';
+import 'folio_section.dart';
 import 'folio_table_data.dart';
 import 'page_property.dart';
 
@@ -18,6 +19,7 @@ class FolioPage {
     List<FolioBlock>? blocks,
     List<FolioPageProperty>? properties,
     List<String>? tags,
+    this.sections,
   }) : blocks = (blocks != null && blocks.isNotEmpty)
            ? blocks
            : [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
@@ -50,6 +52,14 @@ class FolioPage {
   /// User-defined tags for filtering and organisation.
   List<String> tags;
 
+  /// Fase E0A del rediseño UX del editor — capa estructural opcional que
+  /// agrupa rangos de `blocks` en secciones con metadata propia. `null` o
+  /// vacío (el caso de hoy para cada página existente) significa "sin
+  /// secciones reales" — el editor sintetiza una única sección raíz virtual
+  /// en memoria, nunca persistida; el comportamiento visual/funcional es
+  /// idéntico al de antes de esta fase. Ver `lib/models/folio_section.dart`.
+  List<Section>? sections;
+
   bool get isTrashed => trashedAt != null;
 
   Map<String, dynamic> toJson() => {
@@ -68,6 +78,8 @@ class FolioPage {
     if (properties.isNotEmpty)
       'properties': properties.map((p) => p.toJson()).toList(),
     if (tags.isNotEmpty) 'tags': tags,
+    if (sections != null && sections!.isNotEmpty)
+      'sections': sections!.map((s) => s.toJson()).toList(),
   };
 
   factory FolioPage.fromJson(Map<String, dynamic> j) {
@@ -130,6 +142,9 @@ class FolioPage {
               .toList() ??
           [],
       tags: (j['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? [],
+      sections: (j['sections'] as List<dynamic>?)
+          ?.map((e) => Section.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
     );
   }
 

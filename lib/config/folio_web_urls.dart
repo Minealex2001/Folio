@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// - producción: [productionBaseUrl] (`folio.minealexgames.com`)
 /// - beta: [betaBaseUrl] (`foliobeta.minealexgames.com`)
 ///
+/// Hosts futuros en `folio.com.es` se reconocen ya (migración gradual; de
+/// momento solo el API beta usa `api-beta.folio.com.es`).
+///
 /// En Flutter web, si la página corre en beta o prod, los links usan ese origen.
 /// Override opcional: `--dart-define=FOLIO_WEB_BASE_URL=https://foliobeta.minealexgames.com`
 /// (p. ej. builds de escritorio que deben copiar enlaces beta).
@@ -17,29 +20,39 @@ class FolioWebUrls {
   static const String betaBaseUrl = 'https://foliobeta.minealexgames.com';
   static const String betaHost = 'foliobeta.minealexgames.com';
 
+  /// Dominio de producto en migración (reconocido; aún no canónico en release).
+  static const String nextProductionHost = 'folio.com.es';
+  static const String nextBetaHost = 'beta.folio.com.es';
+
   static const String _webBaseUrlDefine = String.fromEnvironment(
     'FOLIO_WEB_BASE_URL',
     defaultValue: '',
   );
 
-  /// `true` si [host] es la app oficial (prod o beta), con o sin subdominio.
+  /// `true` si [host] es la app oficial (prod o beta, canónico o next).
   static bool isOfficialFolioWebHost(String? host) {
     final h = (host ?? '').trim().toLowerCase();
     if (h.isEmpty) return false;
-    return h == productionHost ||
-        h == betaHost ||
-        h.endsWith('.$productionHost') ||
-        h.endsWith('.$betaHost');
+    return isProductionWebHost(h) || isBetaWebHost(h);
   }
 
   static bool isBetaWebHost(String? host) {
     final h = (host ?? '').trim().toLowerCase();
-    return h == betaHost || h.endsWith('.$betaHost');
+    return h == betaHost ||
+        h.endsWith('.$betaHost') ||
+        h == nextBetaHost ||
+        h.endsWith('.$nextBetaHost');
   }
 
   static bool isProductionWebHost(String? host) {
     final h = (host ?? '').trim().toLowerCase();
-    return h == productionHost || h.endsWith('.$productionHost');
+    // `beta.folio.com.es` también termina en `.folio.com.es`.
+    if (isBetaWebHost(h)) return false;
+    return h == productionHost ||
+        h.endsWith('.$productionHost') ||
+        h == nextProductionHost ||
+        h == 'www.$nextProductionHost' ||
+        h.endsWith('.$nextProductionHost');
   }
 
   /// Base sin barra final (prod / beta / define / localhost).
@@ -104,7 +117,7 @@ class FolioWebUrls {
       }
     }
 
-    // …/s/{token} en folio o foliobeta → reescribe al origen actual
+    // …/s/{token} en folio o beta → reescribe al origen actual
     if (segs.length >= 2 && segs[0] == 's' && segs[1].isNotEmpty) {
       return vaultPublicShareUrl(Uri.decodeComponent(segs[1]));
     }
@@ -136,7 +149,7 @@ class FolioWebUrls {
 }
 
 /// Rutas públicas de Flutter web (sin vault lock / onboarding).
-/// Válidas en `folio.minealexgames.com` y `foliobeta.minealexgames.com`.
+/// Válidas en hosts canónicos Minealex y futuros `*.folio.com.es`.
 sealed class FolioWebPublicRoute {
   const FolioWebPublicRoute();
 

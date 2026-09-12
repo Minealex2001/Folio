@@ -601,4 +601,186 @@ void main() {
       expect(result.content, isNot(contains('palabra clave única mcp')));
     });
   });
+
+  group('generate_image', () {
+    test('está presente en las definiciones', () {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+      expect(
+        registry.definitions.map((d) => d.name),
+        contains('generate_image'),
+      );
+    });
+
+    test('devuelve error cuando onGenerateImage es null', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+
+      final result = await registry.execute(
+        _call('generate_image', {'prompt': 'un faro al atardecer'}),
+      );
+
+      expect(result.isError, isTrue);
+    });
+
+    test('devuelve error si falta el prompt', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(
+        session,
+        onGenerateImage: (prompt, useContext) async => '{"status":"generated"}',
+      );
+
+      final result = await registry.execute(_call('generate_image', {}));
+
+      expect(result.isError, isTrue);
+    });
+
+    test('invoca onGenerateImage con el prompt y el flag de contexto', () async {
+      String? capturedPrompt;
+      bool? capturedUseContext;
+      final session = VaultSession();
+      final registry = FolioToolRegistry(
+        session,
+        onGenerateImage: (prompt, useContext) async {
+          capturedPrompt = prompt;
+          capturedUseContext = useContext;
+          return '{"status":"generated","path":"attachments/x.png"}';
+        },
+      );
+
+      final result = await registry.execute(
+        _call('generate_image', {
+          'prompt': 'un faro al atardecer',
+          'useCurrentPageContext': true,
+        }),
+      );
+
+      expect(result.isError, isFalse);
+      expect(capturedPrompt, 'un faro al atardecer');
+      expect(capturedUseContext, isTrue);
+      expect(result.content, contains('attachments/x.png'));
+    });
+
+    test('convierte una excepción del callback en un resultado de error', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(
+        session,
+        onGenerateImage: (prompt, useContext) async {
+          throw StateError('proveedor no disponible');
+        },
+      );
+
+      final result = await registry.execute(
+        _call('generate_image', {'prompt': 'algo'}),
+      );
+
+      expect(result.isError, isTrue);
+    });
+  });
+
+  group('FolioToolRegistry — Fase B1 (metadata + preview)', () {
+    test('cada tool tiene category y complexity no nulos', () {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+      for (final def in registry.definitions) {
+        expect(def.category, isNotNull, reason: def.name);
+        expect(def.complexity, isNotNull, reason: def.name);
+      }
+    });
+
+    test(
+      'exactamente las tools destructivas conocidas tienen requiresConfirmation '
+      'y supportsPreview',
+      () {
+        final session = VaultSession();
+        final registry = FolioToolRegistry(session);
+        const expectedConfirmable = {'permanently_delete_page', 'empty_trash'};
+        const expectedPreviewable = {
+          'trash_page',
+          'permanently_delete_page',
+          'empty_trash',
+          'delete_folder_flatten_children',
+        };
+        for (final def in registry.definitions) {
+          expect(
+            def.requiresConfirmation,
+            expectedConfirmable.contains(def.name),
+            reason: def.name,
+          );
+          expect(
+            def.supportsPreview,
+            expectedPreviewable.contains(def.name),
+            reason: def.name,
+          );
+        }
+      },
+    );
+
+    test('toJsonSchema() no incluye ningún campo de metadata nuevo', () {
+      final schema = registryDefinitionForTest('permanently_delete_page').toJsonSchema();
+      final schemaKeys = schema.toString();
+      expect(schemaKeys, isNot(contains('category')));
+      expect(schemaKeys, isNot(contains('isReversible')));
+      expect(schemaKeys, isNot(contains('requiresConfirmation')));
+      expect(schemaKeys, isNot(contains('supportsPreview')));
+    });
+
+    test('preview(trash_page) resume la página y su subárbol sin mutar el vault', () {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      final parentId = session.pages.last.id;
+      session.addPage(parentId: parentId);
+      final registry = FolioToolRegistry(session);
+
+      final preview = registry.preview(_call('trash_page', {'pageId': parentId}));
+
+      expect(preview, isNotNull);
+      expect(preview!.summary, contains('1 página'));
+      expect(session.pages.every((p) => !p.isTrashed), isTrue);
+    });
+
+    test('preview(permanently_delete_page) describe la página a borrar', () {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final pageId = session.pages.last.id;
+      session.movePageToTrash(pageId);
+      final registry = FolioToolRegistry(session);
+
+      final preview = registry.preview(
+        _call('permanently_delete_page', {'pageId': pageId}),
+      );
+
+      expect(preview, isNotNull);
+      expect(preview!.summary, contains('permanentemente'));
+      expect(session.pages.any((p) => p.id == pageId), isTrue);
+    });
+
+    test('preview(empty_trash) cuenta las páginas en papelera sin vaciarla', () {
+      final session = VaultSession();
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final pageId = session.pages.last.id;
+      session.movePageToTrash(pageId);
+      final registry = FolioToolRegistry(session);
+
+      final preview = registry.preview(_call('empty_trash', {}));
+
+      expect(preview, isNotNull);
+      expect(preview!.affectedItems.length, 1);
+      expect(session.pages.any((p) => p.id == pageId), isTrue);
+    });
+
+    test('preview() de una tool sin supportsPreview devuelve null', () {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+      final preview = registry.preview(_call('rename_page', {'pageId': 'x', 'title': 'y'}));
+      expect(preview, isNull);
+    });
+  });
+}
+
+AiToolDefinition registryDefinitionForTest(String name) {
+  final registry = FolioToolRegistry(VaultSession());
+  return registry.definitionByName(name)!;
 }

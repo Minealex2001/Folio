@@ -345,21 +345,17 @@ class _SettingsOverviewBanner extends StatelessWidget {
     final theme = Theme.of(context);
     
     final isPremium = entitlements.snapshot.isPaidPlan;
-    final subLabel = isPremium 
-        ? (Localizations.localeOf(context).languageCode == 'es' ? 'Premium' : 'Premium') 
-        : (Localizations.localeOf(context).languageCode == 'es' ? 'Gratuito' : 'Free');
+    final subLabel = isPremium ? 'Premium' : l10n.planFree;
 
     final vaultLabel = session.vaultUsesEncryption
         ? l10n.encryptedVault
-        : (Localizations.localeOf(context).languageCode == 'es'
-              ? 'Sin cifrar'
-              : 'Unencrypted');
+        : l10n.vaultUnencrypted;
 
     final vaultVersionLabel = session.vaultFormatVersion == 0
-        ? (Localizations.localeOf(context).languageCode == 'es' ? 'v0 (Legacy)' : 'v0 (Legacy)')
-        : (Localizations.localeOf(context).languageCode == 'es' ? 'v1 (Tree)' : 'v1 (Tree)');
+        ? 'v0 (Legacy)'
+        : 'v1 (Tree)';
 
-    final statusLabel = Localizations.localeOf(context).languageCode == 'es' ? 'Al día' : 'Up to date';
+    final statusLabel = l10n.planUpToDate;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -409,9 +405,7 @@ class _SettingsOverviewBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      Localizations.localeOf(context).languageCode == 'es'
-                          ? 'Personaliza la app, gestiona seguridad, IA, copias e integraciones desde un único panel.'
-                          : 'Customize the app, security, AI, backups, and integrations from one place.',
+                      l10n.settingsOverviewSubtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.45,
@@ -429,26 +423,22 @@ class _SettingsOverviewBanner extends StatelessWidget {
             children: [
               _SettingsOverviewStat(
                 icon: Icons.star_rounded,
-                label: Localizations.localeOf(context).languageCode == 'es' ? 'Plan' : 'Plan',
+                label: l10n.settingsOverviewPlan,
                 value: subLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.shield_outlined,
-                label: Localizations.localeOf(context).languageCode == 'es'
-                    ? 'Libreta'
-                    : 'Vault',
+                label: l10n.settingsOverviewVault,
                 value: vaultLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.storage_rounded,
-                label: Localizations.localeOf(context).languageCode == 'es'
-                    ? 'Versión'
-                    : 'Format',
+                label: l10n.settingsOverviewFormat,
                 value: vaultVersionLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.check_circle_outline_rounded,
-                label: Localizations.localeOf(context).languageCode == 'es' ? 'Estado' : 'Status',
+                label: l10n.settingsOverviewStatus,
                 value: statusLabel,
               ),
             ],
@@ -488,24 +478,28 @@ class _SettingsOverviewStat extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: scheme.primary),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
           ),
         ],
       ),

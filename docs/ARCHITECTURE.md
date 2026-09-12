@@ -1,84 +1,60 @@
-# Architecture and conventions
+# Architecture and System Conventions
 
-This document describes Folio's current structure to help onboarding and keep
-technical decisions consistent.
+This document describes Folio's core application architecture, directory structure, and technical conventions.
 
-## Overview
+---
 
-The app is organized into layers with clear responsibilities:
+## 1. High-Level Layering
 
-- `lib/app`: app composition, theme, global settings
-- `lib/features`: UI and feature-specific logic
-- `lib/services`: cross-cutting integrations (for example, AI)
-- `lib/data`: data access and transformation
-- `lib/session`: main session state and vault lifecycle
-- `lib/models`: domain models
-- `lib/l10n`: translations and generated artifacts
+The codebase in `lib/` follows a clean, layered architecture:
 
-## Design principles
+- `lib/app`: Application composition, global settings, and theme tokens.
+- `lib/features`: UI components, block editor views, and feature-specific logic.
+- `lib/services`: Cross-cutting integrations (local AI, cloud APIs, sync, system tray).
+- `lib/data`: Data access, database providers, and format adapters.
+- `lib/session`: Vault lifecycle management, lock state, and session security.
+- `lib/models`: Domain models and immutability structures.
+- `lib/crypto`: Encryption utilities (AES-GCM, PBKDF2).
+- `lib/l10n`: Translations and generated localization artifacts.
 
-- Keep feature changes small and focused
-- Separate UI from business logic where possible
-- Prefer secure defaults (especially for network and AI)
-- Keep traceability: tests and docs alongside behavior changes
+---
 
-## AI in the application
+## 2. Core Design Principles
 
-AI capabilities are encapsulated in `lib/services/ai`.
+- **Local-First & Privacy Preserving**: Data remains local on device by default. Cloud features are strictly opt-in.
+- **Layer Separation**: Business logic and state management are decoupled from presentation widgets.
+- **Defense in Depth**: Secure defaults for local vault storage, HTTP integrations, and AI endpoints.
+- **Traceability**: Comprehensive unit/widget test suite colocated with implementation code.
 
-Key points:
+---
 
-- Supported providers in settings (`ollama`, `lmStudio`, `none`)
-- Local endpoints by default
-- Security and validation policies centralized in AI services
+## 3. Local AI System (`lib/services/ai`)
 
-## Settings persistence
+AI capabilities are encapsulated within `lib/services/ai`:
+- Support for local inference providers (`ollama`, `lmStudio`, `none`).
+- Endpoints default to local loopback addresses (`127.0.0.1`).
+- Optional cloud inference via Quill Cloud (see **[cloud/INTEGRATIONS_AND_PAYMENTS.md](cloud/INTEGRATIONS_AND_PAYMENTS.md)**).
 
-`lib/app/app_settings.dart` persists user preferences (`SharedPreferences`),
-including:
+---
 
-- theme/language
-- vault lock behavior
-- hotkeys and system tray
-- AI configuration
+## 4. Multi-Package Dependency Rationale
 
-## Multi-package pairs that look redundant but aren't
+The `pubspec.yaml` contains pairs of packages that may appear redundant at first glance. They serve non-overlapping jobs:
 
-A few `pubspec.yaml` entries look like duplicated functionality at a glance.
-They're intentional; keep both unless the reason below stops applying:
+- **`webview_flutter` + `webview_windows`**: `webview_flutter` lacks native Windows embedding. `webview_windows` is selected conditionally on Windows at runtime (`lib/features/workspace/editor/folio_embed_webview.dart`).
+- **`markdown` + `flutter_markdown_plus`**: `markdown` is the AST parser used for walking and transforming markdown structures (`lib/features/workspace/history/mermaid_markdown_builder.dart`). `flutter_markdown_plus` is the rendering widget for preview UI.
+- **`syncfusion_flutter_pdfviewer` + `syncfusion_flutter_pdf` + `pdf`**:
+  - `syncfusion_flutter_pdfviewer`: Interactive PDF viewer widget (`lib/features/workspace/editor/file_video_previews.dart`).
+  - `syncfusion_flutter_pdf`: Reads/annotates existing PDFs (`lib/features/workspace/shell/workspace_page.dart`).
+  - `pdf`: Pure Dart PDF generation library for page exports (`lib/services/folio_cloud/folio_page_pdf_export.dart`).
 
-- **`webview_flutter` + `webview_windows`**: `webview_flutter` has no native
-  Windows embedding, so `webview_windows` is used there instead. Selection is
-  platform-driven at runtime (see `_useWindows` in
-  `lib/features/workspace/editor/folio_embed_webview.dart`), not a leftover
-  from a migration.
-- **`markdown` + `flutter_markdown_plus`**: `markdown` is the AST parser,
-  used directly where Folio needs to walk/transform markdown itself (e.g.
-  `lib/features/workspace/history/mermaid_markdown_builder.dart`).
-  `flutter_markdown_plus` is the rendering widget for markdown *preview* UI.
-  Different jobs, not two competing renderers.
-- **`syncfusion_flutter_pdfviewer` + `syncfusion_flutter_pdf` + `pdf`**: three
-  non-overlapping PDF jobs, not a triplicated stack. `syncfusion_flutter_pdfviewer`
-  renders an interactive PDF viewer (`lib/features/workspace/editor/file_video_previews.dart`).
-  `syncfusion_flutter_pdf` reads/annotates existing PDFs — text extraction and
-  markup/popup annotations — inside `lib/features/workspace/shell/workspace_page.dart`
-  and its `part` files (`workspace_page_page_tools.dart`). `pdf` (pure Dart, no
-  Flutter widgets) *generates* new PDFs when exporting a Folio page
-  (`lib/services/folio_cloud/folio_page_pdf_export.dart`). None of the three can
-  substitute for another.
+---
 
-## Testing
+## 5. System Documentation Map
 
-The `test/` folder mirrors key functional domains (`data`, `models`,
-`services`, `session`).
-
-When adding new functionality:
-
-- prioritize unit tests for logic
-- include widget tests for relevant UI changes
-
-## Collaboration conventions
-
-- Document behavior changes in `README.md` or `docs/`.
-- Avoid unnecessary coupling between features.
-- If a technical decision has trade-offs, record it in the PR.
+For detailed subsystems, consult:
+- **[Development Guide](DEVELOPMENT.md)**: Environment setup, daily workflow, compilation flags.
+- **[Testing Strategy](TESTING.md)**: Testing layers, coverage policy, PR guidelines.
+- **[Cloud & Backend System](cloud/README.md)**: Firebase Functions & Spring Boot self-host architecture.
+- **[Local HTTP Integration](integrations/LOCAL_HTTP_API.md)**: Deep link & local API contract.
+- **[Platform Desktop Guides](platform/WINDOWS_DESKTOP.md)**: System tray and taskbar behaviors.

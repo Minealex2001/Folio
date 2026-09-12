@@ -16,6 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
+version: 0.8.7+24
 version: 0.7.10+17
 
 environment:
@@ -47,7 +48,7 @@ dependencies:
   shared_preferences: ^2.5.4
   google_fonts: ^8.0.2
   system_theme: ^3.1.2
-  dynamic_color: ^1.7.0
+  dynamic_color: ^1.9.0
   image_picker: ^1.1.2
   file_picker: ^11.0.2
   flutter_code_editor: ^0.3.5
@@ -58,7 +59,7 @@ dependencies:
   archive: ^4.0.9
   video_player: ^2.11.1
   url_launcher: ^6.3.2
-  app_links: ^6.4.0
+  app_links: ^7.2.1
   emoji_picker_flutter: ^4.4.0
   syncfusion_flutter_pdfviewer: ^33.1.49
   hotkey_manager: ^0.2.3
@@ -68,7 +69,7 @@ dependencies:
   syncfusion_flutter_pdf: ^33.1.49
   printing: ^5.14.3
   http: ^1.5.0
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^10.3.3
   webdav_client: ^1.2.2
   # 10.x requiere win32 ^6; file_picker 11 aún usa win32 ^5 (incompatible en pub).
   package_info_plus: ^9.0.0
@@ -79,12 +80,12 @@ dependencies:
   flutter_math_fork: ^0.7.4
   flutter_svg: ^2.2.0
   audioplayers: ^6.6.0
-  record: ^6.2.0
+  record: ^7.1.1
   intl: ^0.20.2
   flutter_quill: ^11.4.0
   cross_file: ^0.3.4+2
-  desktop_drop: ^0.4.4
-  super_clipboard: ^0.8.9
+  desktop_drop: ^0.8.4
+  super_clipboard: ^0.9.1
   local_notifier: ^0.1.6
   idb_shim: ^2.6.1
   dart_quill_delta: ^10.8.3
@@ -139,6 +140,7 @@ flutter:
     - appLogos/slack.png
     - appLogos/microsoftTeams.png
     - appLogos/spotify.png
+    - appLogos/ytMusic.png
     - docs/FEATURES.md
 
   # An image asset can refer to one or more resolution-specific "variants", see

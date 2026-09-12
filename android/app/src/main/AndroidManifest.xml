@@ -79,5 +79,9 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="spotify"/>
         </intent>
+        <!-- Custom Tabs (LaunchMode.inAppBrowserView / url_launcher). -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService"/>
+        </intent>
     </queries>
 </manifest>

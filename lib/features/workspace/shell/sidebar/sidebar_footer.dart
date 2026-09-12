@@ -9,6 +9,8 @@ import '../../../../app/ui_tokens.dart';
 import '../../../../app/widgets/folio_dialog.dart';
 import '../../../../app/widgets/folio_feedback.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../../services/cloud_account/organization_context_controller.dart';
 import '../../../../services/media/media_playback_router.dart';
 import '../../../../services/meeting_note_session_controller.dart';
 import '../../../../services/folio_cloud/folio_cloud_status_colors.dart';
@@ -19,6 +21,7 @@ import '../../../folio_cloud/folio_cloud_status_banner.dart';
 import '../../widgets/spotify_now_playing_bar.dart';
 import '../../widgets/meeting_note_active_bar.dart';
 import '../page_trash_sheet.dart';
+import 'sidebar_context_switcher.dart';
 
 class SidebarFooter extends StatelessWidget {
   const SidebarFooter({
@@ -26,18 +29,24 @@ class SidebarFooter extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.trashCount,
+    required this.cloudAccountController,
     this.cloudStatusController,
+    this.organizationContext,
     this.onOpenSettings,
     this.onOpenCloudStatus,
+    this.onOpenOrganizationSettings,
     required this.onSpotifyExpandedChanged,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final int trashCount;
+  final CloudAccountController cloudAccountController;
   final FolioCloudStatusController? cloudStatusController;
+  final OrganizationContextController? organizationContext;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenCloudStatus;
+  final VoidCallback? onOpenOrganizationSettings;
   final VoidCallback onSpotifyExpandedChanged;
 
   Future<void> _installWebApp(BuildContext context) async {
@@ -71,6 +80,12 @@ class SidebarFooter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Un solo chip: cuenta y/o equipo. Oculto si no hay nada que cambiar.
+        SidebarContextSwitcher(
+          account: cloudAccountController,
+          organizationContext: organizationContext,
+          onManageTeams: onOpenOrganizationSettings ?? onOpenSettings,
+        ),
         if (kIsWeb)
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -203,11 +218,18 @@ class SidebarFooter extends StatelessWidget {
           },
         ),
         ListenableBuilder(
-          listenable: MediaPlaybackRouter.instance,
+          listenable: Listenable.merge([
+            MediaPlaybackRouter.instance,
+            appSettings,
+          ]),
           builder: (context, _) {
             if (!MediaPlaybackRouter.instance.shouldShowBar) {
               return const SizedBox.shrink();
             }
+            final useFullPlayer =
+                appSettings.workspaceSidebarSpotifyFullPlayer;
+            final classicExpanded =
+                !useFullPlayer && appSettings.workspaceSidebarSpotifyExpanded;
             return Padding(
               padding: const EdgeInsets.fromLTRB(
                 FolioSpace.sm,
@@ -217,7 +239,7 @@ class SidebarFooter extends StatelessWidget {
               ),
               child: SpotifyNowPlayingBar(
                 session: session,
-                density: appSettings.workspaceSidebarSpotifyExpanded
+                density: classicExpanded
                     ? SpotifyBarDensity.expanded
                     : SpotifyBarDensity.mini,
                 onToggleExpanded: () {

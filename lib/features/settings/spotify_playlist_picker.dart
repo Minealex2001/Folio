@@ -166,12 +166,10 @@ class _SpotifyPlaylistPickerSheetState extends State<_SpotifyPlaylistPickerSheet
   }
 
   Future<void> _previewPlaylist(SpotifyPlaylistSummary playlist) async {
-    final client = _buildClient();
-    if (client == null) return;
     try {
-      await client.play(contextUri: playlist.uri);
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      await SpotifyPlaybackController.instance.refresh();
+      await SpotifyPlaybackController.instance.playContext(
+        contextUri: playlist.uri,
+      );
     } catch (_) {
       // Vista previa best-effort.
     }
