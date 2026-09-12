@@ -228,12 +228,14 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
 class _FolioCloudKillSwitchBanner extends StatelessWidget {
   const _FolioCloudKillSwitchBanner({
     required this.scheme,
+    required this.l10n,
     required this.appSettings,
     required this.cloud,
     required this.onDisabled,
   });
 
   final ColorScheme scheme;
+  final AppLocalizations l10n;
   final AppSettings appSettings;
   final CloudAccountController cloud;
   final VoidCallback onDisabled;
@@ -242,19 +244,15 @@ class _FolioCloudKillSwitchBanner extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: const Text('Desactivar Folio Cloud'),
-        content: const Text(
-          'Se cerrará tu sesión y no podrás volver a iniciar sesión, '
-          'sincronizar dispositivos ni hacer copias en la nube desde esta '
-          'instalación.\n\n'
-          'Esta acción es permanente: solo podrás reactivar Folio Cloud '
-          'reinstalando la app.',
-          style: TextStyle(height: 1.4),
+        title: Text(l10n.folioCloudDisableDialogTitle),
+        content: Text(
+          l10n.folioCloudDisableDialogBody,
+          style: const TextStyle(height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -262,7 +260,7 @@ class _FolioCloudKillSwitchBanner extends StatelessWidget {
               foregroundColor: Theme.of(ctx).colorScheme.onError,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Desactivar para siempre'),
+            child: Text(l10n.folioCloudDisableDialogConfirm),
           ),
         ],
       ),
@@ -293,8 +291,7 @@ class _FolioCloudKillSwitchBanner extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Folio Cloud está desactivado en este dispositivo. '
-                    'Reinstala la app para volver a activarlo.',
+                    l10n.cloudAuthErrorCloudDisabled,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onErrorContainer,
                           fontWeight: FontWeight.w600,
@@ -310,11 +307,8 @@ class _FolioCloudKillSwitchBanner extends StatelessWidget {
     }
     return ListTile(
       leading: Icon(Icons.power_settings_new_rounded, color: scheme.error),
-      title: const Text('Desactivar Folio Cloud'),
-      subtitle: const Text(
-        'Apaga cuenta, sync y copias en la nube por completo. '
-        'Solo se revierte reinstalando la app.',
-      ),
+      title: Text(l10n.folioCloudKillSwitchTitle),
+      subtitle: Text(l10n.folioCloudKillSwitchSubtitle),
       onTap: () => _confirmAndDisable(context),
     );
   }

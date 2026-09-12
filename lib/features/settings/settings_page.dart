@@ -1316,6 +1316,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     const Divider(height: 1),
                                     _FolioCloudKillSwitchBanner(
                                       scheme: scheme,
+                                      l10n: l10n,
                                       appSettings: _app,
                                       cloud: _cloud,
                                       onDisabled: () => setState(() {}),

@@ -702,8 +702,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
       case 'operation-not-allowed':
         return l10n.cloudAuthErrorOperationNotAllowed;
       case 'cloud-disabled':
-        return 'Folio Cloud está desactivado en este dispositivo. '
-            'Reinstala la app para volver a activarlo.';
+        return l10n.cloudAuthErrorCloudDisabled;
       default:
         return l10n.cloudAuthErrorGeneric;
     }
