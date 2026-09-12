@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/config/config_store.dart';
+import 'package:folio/l10n/generated/app_localizations.dart';
 import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
@@ -32,7 +33,12 @@ void main() {
     if (tempDir.existsSync()) await tempDir.delete(recursive: true);
   });
 
-  Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+  Widget wrap(Widget child) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('es'),
+    home: Scaffold(body: child),
+  );
 
   testWidgets('shows a placeholder when nothing is selected', (tester) async {
     final visualEditor = VisualEditorController();

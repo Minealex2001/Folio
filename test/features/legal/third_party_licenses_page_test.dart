@@ -150,6 +150,8 @@ void main() {
     expect(find.text('Open source & third-party licenses'), findsOneWidget);
     expect(find.textContaining('Installed'), findsWidgets);
 
+    await tester.ensureVisible(find.text('Open source & third-party licenses'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Open source & third-party licenses'));
     await tester.pumpAndSettle();
     expect(find.byType(ThirdPartyLicensesPage), findsOneWidget);

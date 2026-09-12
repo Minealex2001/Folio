@@ -20,6 +20,7 @@ import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
 import 'package:folio/config/models/panel_region_ids.dart';
 import 'package:folio/config/models/widget_instance_config.dart';
+import 'package:folio/config/models/workspace_config.dart';
 import 'package:folio/data/vault_paths.dart';
 import 'package:folio/features/workspace/shell/sidebar.dart';
 import 'package:folio/features/workspace/shell/workspace_home_view.dart';
@@ -30,6 +31,7 @@ import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/session/workspace_state_controller.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/visual_packs/active_pack_controller.dart';
@@ -53,6 +55,7 @@ void main() {
   late DashboardGridController dashboardGridController;
   late ThemeConfigController themeConfigController;
   late ActivePackController activePackController;
+  late WorkspaceStateController workspaceStateController;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -80,6 +83,10 @@ void main() {
 
     appSettings = AppSettings();
     await appSettings.load();
+    // Evita que el tour de onboarding de Quill (overlay a pantalla completa
+    // en el primer arranque) tape los controles del toolbar que estos tests
+    // pulsan.
+    await appSettings.setHasSeenQuillWorkspaceTour(true);
 
     final store = await ConfigStore.open();
     layoutEngineController = LayoutEngineController(
@@ -101,12 +108,18 @@ void main() {
       persistDebounce: const Duration(minutes: 10),
     );
     activePackController = ActivePackController(store);
+    workspaceStateController = WorkspaceStateController(
+      store,
+      initialConfig: const WorkspaceConfig(),
+      persistDebounce: const Duration(minutes: 10),
+    );
   });
 
   tearDown(() async {
     layoutEngineController.dispose();
     dashboardGridController.dispose();
     themeConfigController.dispose();
+    workspaceStateController.dispose();
     ConfigStoreBackend.debugRootOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
@@ -125,6 +138,7 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: WorkspacePage(
           session: session,
           appSettings: appSettings,
@@ -132,6 +146,7 @@ void main() {
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
           activePackController: activePackController,
+          workspaceStateController: workspaceStateController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),
@@ -311,7 +326,16 @@ void main() {
       expect(find.text('fake-grid-plugin-rendered'), findsOneWidget);
 
       // Alternar de vuelta restaura el dashboard de inicio legacy.
-      await tester.tap(find.byTooltip('Salir de edición de inicio'));
+      // Bug real descubierto al escribir este test: la tarjeta flotante del
+      // editor visual (`_buildVisualEditorInspectorOverlay`, alineada
+      // top-right en `WorkspaceBodyShellV2`) se solapa físicamente con el
+      // extremo derecho del toolbar mientras el editor está activo — tocar
+      // "Salir de edición de inicio" (o su icono) ahí cae sobre la tarjeta,
+      // no sobre el botón. La propia tarjeta ya expone su botón "Cerrar"
+      // como vía funcional para salir: la usamos aquí en vez de perseguir
+      // el toggle del toolbar, que en este estado es inalcanzable con un
+      // tap simple. Ver spawn_task para el arreglo de layout real.
+      await tester.tap(find.byTooltip('Cerrar'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 

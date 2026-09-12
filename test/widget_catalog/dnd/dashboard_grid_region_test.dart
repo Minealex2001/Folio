@@ -19,6 +19,7 @@ import 'package:folio/widget_catalog/widget_plugin_context.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/config/models/widget_appearance_config.dart';
 import 'package:folio/config/models/widget_capability_overrides.dart';
+import 'package:folio/l10n/generated/app_localizations.dart';
 
 class _LabelPlugin extends FolioWidgetPlugin {
   const _LabelPlugin(this.id);
@@ -90,6 +91,9 @@ void main() {
   });
 
   Widget wrap(Widget child) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('es'),
     home: Scaffold(body: SizedBox(height: 600, child: child)),
   );
 
@@ -444,6 +448,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('es'),
           home: Scaffold(
             body: SizedBox(
               width: 400,
@@ -462,6 +469,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('es'),
           home: Scaffold(
             body: SizedBox(
               width: 1200,

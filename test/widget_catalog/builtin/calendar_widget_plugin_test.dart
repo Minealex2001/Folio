@@ -10,6 +10,7 @@ import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/widget_instance_config.dart';
 import 'package:folio/config/models/widget_theme_tokens.dart';
 import 'package:folio/data/vault_paths.dart';
+import 'package:folio/l10n/generated/app_localizations.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/widget_catalog/builtin/calendar_widget_plugin.dart';
 import 'package:folio/widget_catalog/widget_plugin_context.dart';
@@ -46,6 +47,9 @@ void main() {
   Future<void> pump(WidgetTester tester, WidgetPluginContext ctx) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: Scaffold(
           body: Builder(
             builder: (context) => SizedBox(

@@ -159,13 +159,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      // El transcript se renderiza vía SelectableText.rich (coloreado por
-      // speaker); el texto plano sigue siendo localizable en el árbol.
+      // El transcript se renderiza por línea con un SelectableText por
+      // hablante (el nombre va aparte, coloreado, en su propio Text/badge).
       expect(find.textContaining('hola a todos'), findsOneWidget);
       final richTextFinder = find.byWidgetPredicate(
         (w) =>
             w is SelectableText &&
-            w.textSpan?.toPlainText().contains('hola a todos') == true,
+            (w.data?.contains('hola a todos') == true ||
+                w.textSpan?.toPlainText().contains('hola a todos') == true),
       );
       expect(richTextFinder, findsOneWidget);
     },

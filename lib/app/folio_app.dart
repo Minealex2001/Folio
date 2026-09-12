@@ -73,6 +73,7 @@ import '../features/onboarding/onboarding_flow.dart';
 import '../features/vault/recovery_screen.dart';
 import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
+import '../session/workspace_state_controller.dart';
 import 'app_settings.dart';
 import 'ui_tokens.dart';
 
@@ -88,6 +89,7 @@ class FolioApp extends StatefulWidget {
     required this.dashboardGridController,
     required this.themeConfigController,
     required this.activePackController,
+    required this.workspaceStateController,
     this.folioCloudEntitlements,
     this.organizationContext,
     this.initialLaunchArgs = const <String>[],
@@ -124,6 +126,10 @@ class FolioApp extends StatefulWidget {
   /// contenido de un pack se aplica directo a los tres controllers de
   /// arriba vía `VisualPackInstaller`.
   final ActivePackController activePackController;
+
+  /// Estado de workspace (Fase 28/29): pestañas de páginas abiertas y
+  /// demás estado efímero-persistido del workspace.
+  final WorkspaceStateController workspaceStateController;
 
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
@@ -419,6 +425,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.dashboardGridController.dispose();
     widget.themeConfigController.dispose();
     widget.activePackController.dispose();
+    widget.workspaceStateController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -1972,6 +1979,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         dashboardGridController: widget.dashboardGridController,
         themeConfigController: widget.themeConfigController,
         activePackController: widget.activePackController,
+        workspaceStateController: widget.workspaceStateController,
         deviceSyncController: _deviceSyncController,
         cloudSettingsSyncController: _cloudSettingsSyncController,
         cloudDeviceSyncController: _cloudDeviceSyncController,
@@ -3120,6 +3128,7 @@ class _HomeByState extends StatelessWidget {
     required this.dashboardGridController,
     required this.themeConfigController,
     required this.activePackController,
+    required this.workspaceStateController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -3137,6 +3146,7 @@ class _HomeByState extends StatelessWidget {
   final DashboardGridController dashboardGridController;
   final ThemeConfigController themeConfigController;
   final ActivePackController activePackController;
+  final WorkspaceStateController workspaceStateController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -3185,6 +3195,7 @@ class _HomeByState extends StatelessWidget {
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
           activePackController: activePackController,
+          workspaceStateController: workspaceStateController,
           deviceSyncController: deviceSyncController,
           cloudSettingsSyncController: cloudSettingsSyncController,
           cloudDeviceSyncController: cloudDeviceSyncController,

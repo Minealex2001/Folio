@@ -76,6 +76,8 @@ import '../../../data/vault_paths.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../widgets/spotify_now_playing_bar.dart';
 import '../../../session/vault_session.dart';
+import '../../../session/workspace_state_controller.dart';
+import 'workspace_tab_strip.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../admin/admin_console_page.dart' show AdminConsolePage;
 import '../../settings/settings_page.dart' show SettingsPage;
@@ -130,6 +132,7 @@ class WorkspacePage extends StatefulWidget {
     required this.dashboardGridController,
     required this.themeConfigController,
     required this.activePackController,
+    required this.workspaceStateController,
     required this.deviceSyncController,
     this.cloudSettingsSyncController,
     this.cloudDeviceSyncController,
@@ -147,6 +150,12 @@ class WorkspacePage extends StatefulWidget {
   final DashboardGridController dashboardGridController;
   final ThemeConfigController themeConfigController;
   final ActivePackController activePackController;
+
+  /// Pestañas de páginas abiertas (Fase 28/29) — ver `_onSessionChangedForTabs`/
+  /// `_onTabsChangedForSession` en el State, que lo mantienen sincronizado
+  /// con `session.selectedPageId` sin tener que tocar cada sitio de
+  /// navegación (sidebar, búsqueda, backlinks, wikilinks...).
+  final WorkspaceStateController workspaceStateController;
   final DeviceSyncController deviceSyncController;
   final FolioCloudSettingsSyncController? cloudSettingsSyncController;
   final FolioCloudDeviceSyncController? cloudDeviceSyncController;
@@ -256,6 +265,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
   /// Al abrir el editor clásico en una página con Kanban, se guarda su id aquí.
   String? _kanbanClassicEditPageId;
   String? _lastSessionPageIdForKanban;
+
+  /// Sincroniza `session.selectedPageId` <-> `workspaceStateController`
+  /// (pestañas) en las dos direcciones sin rebotar entre sí — ver
+  /// `_onSession` (dirección sesión -> pestañas) y `_onTabsChanged`
+  /// (dirección pestañas -> sesión, para cuando se cierra la pestaña activa).
+  String? _syncedTabPageId;
+  String? _syncedTabVaultId;
+
+  /// `true` mientras `_onSession` vacía las pestañas por un cambio de
+  /// libreta — evita que `_onTabsChanged` interprete ese `activeTabId ==
+  /// null` como "el usuario cerró la última pestaña" y navegue a home
+  /// justo cuando la libreta nueva ya está seleccionando su propia página.
+  bool _clearingTabsForVaultSwitch = false;
 
   /// Al abrir el editor clásico en una página con Drive, se guarda su id aquí.
   String? _driveClassicEditPageId;
@@ -1351,6 +1373,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _attachmentsBoundChatId = _s.activeAiChat.id;
     _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     _s.addListener(_onSession);
+    widget.workspaceStateController.addListener(_onTabsChanged);
+    // Evita que el primer `_onSession` (vaultId/pageId aún no vistos) borre
+    // las pestañas restauradas del disco interpretándolo como un cambio de
+    // libreta — ver `_onSession`/`_onTabsChanged`.
+    _syncedTabVaultId = _s.activeVaultId;
+    _syncedTabPageId = widget.workspaceStateController.config.activeTabId ??
+        _s.selectedPageId;
     widget.appSettings.addListener(_onAppSettings);
     widget.layoutEngineController.addListener(_onLayoutEngineChanged);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
@@ -1393,6 +1422,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
     }
     widget.appSettings.removeListener(_onAppSettings);
+    widget.workspaceStateController.removeListener(_onTabsChanged);
     widget.layoutEngineController.removeListener(_onLayoutEngineChanged);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _collab.removeListener(_onCollabController);
@@ -1454,6 +1484,30 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
   }
 
+  /// Dirección pestañas -> sesión: `WorkspaceTabStrip` solo llama a
+  /// `activateTab`/`closeTab` sobre el controller (ver `workspace_tab_strip.dart`),
+  /// no navega el editor por sí solo — al cerrar la pestaña activa el
+  /// controller elige otra (`WorkspaceStateController.closeTab`), y este
+  /// listener es quien mueve `session.selectedPageId` ahí. El guard
+  /// compartido `_syncedTabPageId` evita rebotar de vuelta hacia `_onSession`.
+  void _onTabsChanged() {
+    if (!mounted) return;
+    final activeTabId = widget.workspaceStateController.config.activeTabId;
+    if (activeTabId != null) {
+      if (activeTabId != _syncedTabPageId) {
+        _syncedTabPageId = activeTabId;
+        _s.selectPage(activeTabId);
+      }
+      return;
+    }
+    // Sin pestañas abiertas: si fue porque el usuario cerró la última
+    // (no un cambio de libreta, ver `_clearingTabsForVaultSwitch`), el
+    // editor vuelve a home en vez de quedarse mostrando la página cerrada.
+    if (_clearingTabsForVaultSwitch || _syncedTabPageId == null) return;
+    _syncedTabPageId = null;
+    _s.clearSelectedPage();
+  }
+
   void _onSession() {
     if (!mounted) return;
     final currentPageId = _s.selectedPageId;
@@ -1462,6 +1516,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _kanbanClassicEditPageId = null;
       _driveClassicEditPageId = null;
       _canvasClassicEditPageId = null;
+    }
+    final currentVaultId = _s.activeVaultId;
+    if (currentVaultId != _syncedTabVaultId) {
+      _syncedTabVaultId = currentVaultId;
+      _clearingTabsForVaultSwitch = true;
+      widget.workspaceStateController.clearTabs();
+      _clearingTabsForVaultSwitch = false;
+      _syncedTabPageId = null;
+    }
+    if (currentPageId != _syncedTabPageId) {
+      _syncedTabPageId = currentPageId;
+      if (currentPageId != null) {
+        widget.workspaceStateController.openTab(currentPageId);
+      }
     }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
@@ -3497,6 +3565,62 @@ class _WorkspacePageState extends State<WorkspacePage> {
             mode: aiDockMode,
           );
 
+    // El sidebar debe ocupar toda la altura de la ventana (sin compartir
+    // banda con una AppBar de ancho completo): en modo no-compacto, la
+    // AppBar deja de vivir en el Scaffold y pasa a ser solo la cabecera de
+    // la columna del editor (dentro de `WorkspaceBodyShellV2`), donde el
+    // sidebar es un hermano de Row a su lado, no un hijo de esa columna. En
+    // compacto (Drawer) no cambia nada: ya ocupa toda la altura.
+    // Título de cada pestaña: se calcula una sola vez por build (no dentro
+    // de `pageTitleFor`, que si no reharía este trabajo por cada pestaña en
+    // cada rebuild) y solo si hay pestañas abiertas — evita recorrer
+    // `activePages` en el caso por defecto (sin pestañas).
+    final openTabIds = widget.workspaceStateController.config.openTabs.isEmpty
+        ? const <String>{}
+        : widget.workspaceStateController.config.openTabs
+            .map((t) => t.pageId)
+            .toSet();
+    final tabTitleById = openTabIds.isEmpty
+        ? const <String, String>{}
+        : {
+            for (final p in _s.activePages)
+              if (openTabIds.contains(p.id)) p.id: p.title,
+          };
+    final Widget shellEditorBodyWithTopBar = (compact || _zenMode)
+        ? shellEditorBody
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              WorkspaceTopAppBar(
+                title: '',
+                compact: compact,
+                actions: appBarActions,
+                onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+                titleWidget: WorkspaceTabStrip(
+                  controller: widget.workspaceStateController,
+                  pageTitleFor: (id) {
+                    final title = tabTitleById[id]?.trim() ?? '';
+                    return title.isNotEmpty ? title : l10n.untitledFallback;
+                  },
+                  // `WorkspaceTabStrip.onTap` ya llama a `activateTab`, que
+                  // via `_onTabsChanged` (ver más arriba) dispara
+                  // `_s.selectPage` — este callback es la llamada directa
+                  // que el propio widget hace además (así funciona en
+                  // aislamiento, ver su test). Sin este guard, cada click en
+                  // una pestaña ejecuta `selectPage` (rebuild completo del
+                  // editor) DOS veces seguidas: `selectPage` no tiene guard
+                  // propio de "ya es la página actual" (recorre páginas,
+                  // notifica y persiste igual). Con el guard, la segunda
+                  // llamada es un no-op.
+                  onSelectPage: (id) {
+                    if (id != _s.selectedPageId) _s.selectPage(id);
+                  },
+                ),
+              ),
+              Expanded(child: shellEditorBody),
+            ],
+          );
+
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -3510,14 +3634,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 child: SafeArea(child: selectableSidePanel),
               )
             : null,
-        appBar: _zenMode
+        appBar: (_zenMode || !compact)
             ? null
             : WorkspaceTopAppBar(
                 title: androidPhoneLayout
                     ? ((page?.title.trim().isNotEmpty ?? false)
                           ? page!.title.trim()
-                          : l10n.appTitle)
-                    : l10n.appTitle,
+                          : '')
+                    : '',
                 compact: compact,
                 actions: appBarActions,
                 onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
@@ -3531,7 +3655,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: selectableSidePanel,
-          editorContent: shellEditorBody,
+          editorContent: shellEditorBodyWithTopBar,
           showSidebarResizeHandle:
               !compact &&
               !_zenMode &&

@@ -76,6 +76,7 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: SettingsPage(
           session: VaultSession(),
           appSettings: appSettings,

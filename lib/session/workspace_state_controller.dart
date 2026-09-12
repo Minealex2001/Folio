@@ -103,6 +103,15 @@ class WorkspaceStateController extends ChangeNotifier {
     _update(_config.copyWith(activeTabId: pageId));
   }
 
+  /// Vacía todas las pestañas — se llama al cambiar de libreta (vault) para
+  /// no dejar pestañas huérfanas apuntando a páginas de otra libreta.
+  void clearTabs() {
+    if (_config.openTabs.isEmpty && _config.activeTabId == null) return;
+    _update(
+      _config.copyWith(openTabs: const [], clearActiveTabId: true),
+    );
+  }
+
   void _schedulePersist() {
     _persistTimer?.cancel();
     _persistTimer = Timer(_persistDebounce, () {

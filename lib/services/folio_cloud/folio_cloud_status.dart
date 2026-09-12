@@ -42,6 +42,14 @@ class FolioCloudStatusSnapshot {
         .toList(growable: false);
   }
 
+  /// Igual que [unhealthyServiceIds] pero solo servicios críticos (login/backups).
+  /// Es lo que decide si se muestra el banner/punto del sidebar.
+  List<String> get criticalUnhealthyServiceIds {
+    return unhealthyServiceIds
+        .where(kFolioCloudStatusCriticalServiceIds.contains)
+        .toList(growable: false);
+  }
+
   /// Servicios a listar en el banner.
   /// Prioridad 1: afectados por la incidencia abierta.
   /// Prioridad 2: servicios unhealthy del status (sin incidencia).
@@ -66,10 +74,11 @@ class FolioCloudStatusSnapshot {
           })
           .toList(growable: false);
     }
-    return unhealthyServiceIds;
+    return criticalUnhealthyServiceIds;
   }
 
   /// Severidad visual agregada: `ok` | `degraded` | `partial` | `down`.
+  /// Solo considera servicios críticos, para ser consistente con el banner.
   String get uiSeverity {
     var worst = normalizeCloudStatus(status);
     if (worst != 'ok' &&
@@ -79,6 +88,7 @@ class FolioCloudStatusSnapshot {
       worst = 'down';
     }
     for (final id in folioCloudStatusVisibleServiceIds(this)) {
+      if (!kFolioCloudStatusCriticalServiceIds.contains(id)) continue;
       worst = worseStatus(worst, displayStatusFor(id));
     }
     final incident = primaryIncident;
@@ -99,10 +109,13 @@ class FolioCloudStatusSnapshot {
   }
 
   /// Banner: 1) incidencia abierta, 2) status unhealthy sin incidencia.
+  /// Solo servicios críticos (login/backups) disparan el banner; los no
+  /// críticos (Resend, Stripe, integraciones de terceros) solo se ven en el
+  /// panel de detalle de Settings.
   bool get shouldShowBanner {
     if (primaryIncident != null) return true;
     if (isUnhealthy) return true;
-    return unhealthyServiceIds.isNotEmpty;
+    return criticalUnhealthyServiceIds.isNotEmpty;
   }
 
   /// Estado a mostrar para [serviceId]: live check + overlay de incidencias.
@@ -479,6 +492,22 @@ const List<String> kFolioCloudStatusServiceOrder = [
   'device_sync',
   'integrations',
 ];
+
+/// Servicios críticos (afectan login o backups, o son features propias core
+/// de Folio). Solo estos disparan el banner/punto del sidebar; el resto
+/// (proveedores de terceros: stripe, resend, jira, slack, teams, spotify,
+/// microsoft_store) solo se muestra en el panel de detalle de Settings.
+const Set<String> kFolioCloudStatusCriticalServiceIds = {
+  'api',
+  'database',
+  'bucket',
+  'quill',
+  'device_sync',
+  'community_templates',
+  'collab',
+  'vault_share',
+  'integrations',
+};
 
 /// Servicios visibles en UI (omite `unconfigured`).
 List<String> folioCloudStatusVisibleServiceIds(

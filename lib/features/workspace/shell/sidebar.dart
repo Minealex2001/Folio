@@ -25,7 +25,6 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 import 'sidebar/sidebar_footer.dart';
 import 'sidebar/sidebar_page_tree.dart';
-import 'sidebar/sidebar_pillar_rail.dart';
 import 'sidebar/sidebar_recents.dart';
 import 'sidebar/sidebar_vault_toolbar.dart';
 import '../collab/vault_share_sheet.dart';
@@ -917,6 +916,7 @@ class _SidebarState extends State<Sidebar> {
             Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const SizedBox(height: FolioSpace.sm),
             SidebarVaultToolbar(
               vaults: _vaults,
               loading: _vaultsLoading,
@@ -932,13 +932,6 @@ class _SidebarState extends State<Sidebar> {
               onAdoptLocalVaults: _adoptableVaultCount > 0
                   ? () => unawaited(_adoptLocalVaults())
                   : null,
-            ),
-            SidebarPillarRail(
-              onWrite: () => session.addPage(parentId: null),
-              onThink: widget.onSearch,
-              onOrganize: widget.onOpenVaultTaskHub,
-              onConnect: widget.onOpenCloudStatus,
-              onCustomize: widget.onOpenSettings,
             ),
             if (showDeskTools)
               Padding(
@@ -1090,52 +1083,50 @@ class _SidebarState extends State<Sidebar> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      allCollapsed
-                          ? Icons.unfold_more_rounded
-                          : Icons.unfold_less_rounded,
-                      size: 20,
-                    ),
-                    tooltip: allCollapsed ? l10n.aiExpand : l10n.aiCollapse,
-                    onPressed: _toggleExpandCollapseAll,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.layers_outlined, size: 20),
-                    tooltip: l10n.templateFromGallery,
-                    onPressed: () => _openTemplateGallery(context),
-                  ),
-                  IconButton(
                     icon: const Icon(Icons.note_add_outlined, size: 20),
                     tooltip: l10n.createPage,
                     onPressed: () => session.addPage(parentId: null),
                   ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.create_new_folder_outlined,
-                      size: 20,
-                    ),
-                    tooltip: l10n.driveNewFolder,
-                    onPressed: () => session.addFolder(parentId: null),
-                  ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.settings_outlined, size: 20),
+                    icon: const Icon(Icons.more_horiz_rounded, size: 20),
                     tooltip: l10n.settings,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(FolioRadius.md),
                     ),
                     color: scheme.surfaceContainerHighest,
                     onSelected: (value) {
-                      if (value == 'show_recents') {
-                        final next =
-                            !widget.appSettings.workspaceSidebarShowRecentPages;
-                        widget.appSettings.setWorkspaceSidebarShowRecentPages(
-                          next,
-                        );
-                        setState(() {});
+                      switch (value) {
+                        case 'expand_collapse':
+                          _toggleExpandCollapseAll();
+                        case 'templates':
+                          _openTemplateGallery(context);
+                        case 'new_folder':
+                          session.addFolder(parentId: null);
+                        case 'show_recents':
+                          final next = !widget
+                              .appSettings.workspaceSidebarShowRecentPages;
+                          widget.appSettings.setWorkspaceSidebarShowRecentPages(
+                            next,
+                          );
+                          setState(() {});
                       }
                     },
                     itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'expand_collapse',
+                        child: Text(
+                          allCollapsed ? l10n.aiExpand : l10n.aiCollapse,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'templates',
+                        child: Text(l10n.templateFromGallery),
+                      ),
+                      PopupMenuItem(
+                        value: 'new_folder',
+                        child: Text(l10n.driveNewFolder),
+                      ),
+                      const PopupMenuDivider(),
                       CheckedPopupMenuItem(
                         value: 'show_recents',
                         checked:

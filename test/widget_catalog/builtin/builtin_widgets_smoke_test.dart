@@ -9,6 +9,7 @@ import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/widget_instance_config.dart';
 import 'package:folio/data/vault_paths.dart';
+import 'package:folio/l10n/generated/app_localizations.dart';
 import 'package:folio/session/vault_session.dart';
 import 'package:folio/widget_catalog/builtin/bookmarks_widget_plugin.dart';
 import 'package:folio/widget_catalog/builtin/builtin_widget_card.dart';
@@ -53,6 +54,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -87,6 +91,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: Scaffold(
           body: Builder(
             builder: (context) {

@@ -5,8 +5,10 @@ import '../../../session/workspace_state_controller.dart';
 /// Tira de pestañas horizontal (Fase 29, v1 acotado) — navegación/atajos
 /// sobre el modelo existente de un-solo-documento-activo (`VaultSession`),
 /// NO múltiples editores renderizados simultáneamente ni paneles divididos.
-/// Pensada para montarse en la banda `toolbarTop` de `WorkspaceBodyShellV2`
-/// (Fase 24) cuando `controller.config.openTabs` no esté vacío.
+/// Se monta como `titleWidget` de `WorkspaceTopAppBar` (`workspace_shell.dart`)
+/// cuando `controller.config.openTabs` no esté vacío — vive en la misma
+/// barra que las acciones del editor, como en un navegador, no en una tira
+/// aparte debajo.
 class WorkspaceTabStrip extends StatelessWidget {
   const WorkspaceTabStrip({
     super.key,
@@ -36,27 +38,43 @@ class WorkspaceTabStrip extends StatelessWidget {
         if (tabs.isEmpty) return const SizedBox.shrink();
 
         final scheme = Theme.of(context).colorScheme;
+        // Estilo pestaña-de-navegador: esquinas redondeadas solo arriba y el
+        // color de fondo de la pestaña activa es el mismo que el contenido
+        // debajo (`Scaffold.backgroundColor`, ver `workspace_page.dart`), así
+        // se lee como "conectada" al documento que muestra — más que un
+        // botón activo cualquiera, es la pestaña que ahora mismo es la página.
+        const tabRadius = BorderRadius.vertical(top: Radius.circular(10));
         return SizedBox(
-          height: 40,
-          child: ListView.builder(
+          height: 44,
+          child: ListView.separated(
+            padding: const EdgeInsets.only(left: 4),
             scrollDirection: Axis.horizontal,
             itemCount: tabs.length,
+            separatorBuilder: (context, _) => const SizedBox(width: 2),
             itemBuilder: (context, index) {
               final tab = tabs[index];
               final active = tab.pageId == controller.config.activeTabId;
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                padding: const EdgeInsets.only(top: 6, bottom: 2),
                 child: Material(
-                  color: active ? scheme.surfaceContainerHighest : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  color: active ? scheme.surfaceContainerLow : Colors.transparent,
+                  borderRadius: tabRadius,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: tabRadius,
                     onTap: () {
                       controller.activateTab(tab.pageId);
                       onSelectPage(tab.pageId);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Container(
+                      decoration: active
+                          ? BoxDecoration(
+                              borderRadius: tabRadius,
+                              border: Border(
+                                top: BorderSide(color: scheme.primary, width: 2),
+                              ),
+                            )
+                          : null,
+                      padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -70,12 +88,13 @@ class WorkspaceTabStrip extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: active ? scheme.onSurface : scheme.onSurfaceVariant,
                                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                               ),
                             ),
                           ),
                           if (!tab.pinned) ...[
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () => controller.closeTab(tab.pageId),

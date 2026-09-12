@@ -12,6 +12,7 @@ import 'config/folio_local_secrets.dart';
 import 'config/models/dashboard_config.dart';
 import 'config/models/layout_config.dart';
 import 'config/models/panel_region_ids.dart';
+import 'config/models/workspace_config.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'config/folio_backend_config.dart';
@@ -34,6 +35,7 @@ import 'meeting_worker/meeting_worker_main.dart';
 import 'meeting_worker/meeting_worker_protocol.dart';
 import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
+import 'session/workspace_state_controller.dart';
 
 Future<void> main(List<String> args) async {
   if (MeetingWorkerProtocol.isWorkerArgs(args)) {
@@ -334,6 +336,28 @@ Future<void> main(List<String> args) async {
         activePackController = ActivePackController(configStore);
       }
 
+      // Estado de workspace (Fase 28/29): pestañas de páginas abiertas y
+      // demás estado efímero-persistido del workspace (foco, zoom, panel
+      // de IA). Mismo patrón try/catch de fallback que los controllers de
+      // arriba.
+      WorkspaceStateController workspaceStateController;
+      try {
+        workspaceStateController = await WorkspaceStateController.load(
+          configStore,
+        );
+      } catch (e, st) {
+        AppLogger.error(
+          'Workspace state controller bootstrap failed; continuing without it',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        workspaceStateController = WorkspaceStateController(
+          configStore,
+          initialConfig: const WorkspaceConfig(),
+        );
+      }
+
       VaultSession session;
       try {
         session = VaultSession(titleLocale: appSettings.locale);
@@ -368,6 +392,7 @@ Future<void> main(List<String> args) async {
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
           activePackController: activePackController,
+          workspaceStateController: workspaceStateController,
           folioCloudEntitlements: folioCloudEntitlements,
           initialLaunchArgs: initialLaunchArgs,
         ),

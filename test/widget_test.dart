@@ -6,10 +6,12 @@ import 'package:folio/app/folio_app.dart';
 import 'package:folio/config/config_store.dart';
 import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
+import 'package:folio/config/models/workspace_config.dart';
 import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/session/workspace_state_controller.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/visual_packs/active_pack_controller.dart';
@@ -35,6 +37,10 @@ void main() {
       initialConfig: kFolioDefaultTheme,
     );
     final activePackController = ActivePackController(configStore);
+    final workspaceStateController = WorkspaceStateController(
+      configStore,
+      initialConfig: const WorkspaceConfig(),
+    );
     await tester.pumpWidget(
       FolioApp(
         session: session,
@@ -45,6 +51,7 @@ void main() {
         dashboardGridController: dashboardGridController,
         themeConfigController: themeConfigController,
         activePackController: activePackController,
+        workspaceStateController: workspaceStateController,
         folioCloudEntitlements: folioCloudEntitlements,
       ),
     );

@@ -16,6 +16,7 @@ import 'package:folio/config/config_store.dart';
 import 'package:folio/config/config_store_backend_io.dart';
 import 'package:folio/config/models/dashboard_config.dart';
 import 'package:folio/config/models/layout_config.dart';
+import 'package:folio/config/models/workspace_config.dart';
 import 'package:folio/data/vault_paths.dart';
 import 'package:folio/layout_engine/layout_engine_controller.dart';
 import 'package:folio/features/workspace/editor/block_editor.dart';
@@ -26,6 +27,7 @@ import 'package:folio/services/cloud_account/cloud_account_controller.dart';
 import 'package:folio/services/device_sync/device_sync_controller.dart';
 import 'package:folio/services/folio_cloud/folio_cloud_entitlements.dart';
 import 'package:folio/session/vault_session.dart';
+import 'package:folio/session/workspace_state_controller.dart';
 import 'package:folio/theme_engine/theme_config_controller.dart';
 import 'package:folio/theme_engine/theme_config_defaults.dart';
 import 'package:folio/visual_packs/active_pack_controller.dart';
@@ -45,6 +47,7 @@ void main() {
   late DashboardGridController dashboardGridController;
   late ThemeConfigController themeConfigController;
   late ActivePackController activePackController;
+  late WorkspaceStateController workspaceStateController;
   var searchOpened = false;
 
   setUp(() async {
@@ -93,6 +96,11 @@ void main() {
       persistDebounce: const Duration(minutes: 10),
     );
     activePackController = ActivePackController(store);
+    workspaceStateController = WorkspaceStateController(
+      store,
+      initialConfig: const WorkspaceConfig(),
+      persistDebounce: const Duration(minutes: 10),
+    );
     searchOpened = false;
   });
 
@@ -100,6 +108,7 @@ void main() {
     layoutEngineController.dispose();
     dashboardGridController.dispose();
     themeConfigController.dispose();
+    workspaceStateController.dispose();
     ConfigStoreBackend.debugRootOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
@@ -118,6 +127,7 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('es'),
         home: WorkspacePage(
           session: session,
           appSettings: appSettings,
@@ -125,6 +135,7 @@ void main() {
           dashboardGridController: dashboardGridController,
           themeConfigController: themeConfigController,
           activePackController: activePackController,
+          workspaceStateController: workspaceStateController,
           deviceSyncController: DeviceSyncController(appSettings: appSettings),
           cloudAccountController: CloudAccountController(),
           folioCloudEntitlements: FolioCloudEntitlementsController(),
