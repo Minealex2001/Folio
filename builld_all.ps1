@@ -76,12 +76,12 @@ function Get-FolioWebBaseUrlArg {
     }
     switch ($script:FolioWebChannel) {
         'beta' {
-            $base = 'https://foliobeta.minealexgames.com'
+            $base = 'https://foliobeta.com.es'
             Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal Beta / prerelease)" -ForegroundColor Gray
             return "--dart-define=FOLIO_WEB_BASE_URL=$base"
         }
         'production' {
-            $base = 'https://folio.minealexgames.com'
+            $base = 'https://folio.com.es'
             Write-Host "   -> FOLIO_WEB_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
             return "--dart-define=FOLIO_WEB_BASE_URL=$base"
         }
@@ -109,7 +109,7 @@ function Get-FolioBackendBaseUrlArg {
             return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
         }
         'production' {
-            $base = 'https://backendfolio.minealexgames.com'
+            $base = 'https://api.folio.com.es'
             Write-Host "   -> FOLIO_BACKEND_BASE_URL=$base (canal estable / release)" -ForegroundColor Gray
             return "--dart-define=FOLIO_BACKEND_BASE_URL=$base"
         }
