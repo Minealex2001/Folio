@@ -13,6 +13,7 @@ import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/vault_task_list_entry.dart';
 import '../../../session/vault_session.dart';
+import '../../../services/ai/ai_types.dart';
 import '../../../services/jira/jira_sync_service.dart';
 import '../../../services/youtrack/youtrack_sync_service.dart';
 import '../../../services/trello/trello_sync_service.dart';
@@ -46,12 +47,14 @@ class KanbanBoardPage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.onOpenClassicEditor,
+    this.onOpenQuillThread,
   });
 
   final String pageId;
   final VaultSession session;
   final AppSettings appSettings;
   final VoidCallback onOpenClassicEditor;
+  final OpenQuillThreadForBlock? onOpenQuillThread;
 
   @override
   State<KanbanBoardPage> createState() => _KanbanBoardPageState();
@@ -470,6 +473,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   );
                 });
               },
+              onOpenQuillThread: widget.onOpenQuillThread,
             ),
           ),
         ),
@@ -1395,6 +1399,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 onOpenTaskRef: (ref) => setState(() => _openTask = ref),
                 isFullScreen: _detailsFullScreen,
                 onToggleFullScreen: () => setState(() => _detailsFullScreen = !_detailsFullScreen),
+                onOpenQuillThread: widget.onOpenQuillThread,
               ),
             ),
           ),

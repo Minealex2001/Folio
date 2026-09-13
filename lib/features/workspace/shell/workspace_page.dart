@@ -48,6 +48,7 @@ import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
+import '../../../services/ai/quill_context_engine.dart';
 import '../ai/intent_actions.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
@@ -417,6 +418,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
       setState(() => _aiPanelCollapsed = collapsed);
     }
     unawaited(widget.appSettings.setAiChatPanelCollapsed(collapsed));
+  }
+
+  /// Fase 4 de Quill 2.0 — abre (o reanuda) el hilo de Quill ligado a un
+  /// bloque (tarea o nota de reunión) y expande el panel de IA si estaba
+  /// colapsado. Único punto de entrada usado por `TaskDetailsPanel`,
+  /// `KanbanBoardPage` y `BlockEditor` (nota de reunión).
+  void _openQuillThreadForBlock(
+    String pageId,
+    String blockId, {
+    String? titleHint,
+  }) {
+    _applyAiChatPanelCollapsed(false);
+    _s.openOrCreateAiChatForBlock(pageId, blockId, titleHint: titleHint);
   }
 
   int _inkCostForOperationKind(String kind) {
@@ -2513,6 +2527,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         pageId: pageId,
         afterBlockId: kanbanBlock?.id,
         selectPage: true,
+        onOpenQuillThread: _openQuillThreadForBlock,
       );
     }
 
@@ -3173,6 +3188,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     appSettings: widget.appSettings,
                     onOpenClassicEditor: () =>
                         setState(() => _kanbanClassicEditPageId = page.id),
+                    onOpenQuillThread: _openQuillThreadForBlock,
                   )
                 : showDrivePage
                 ? DrivePage(
@@ -3197,6 +3213,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     readOnlyMode: editorReadOnlyMode,
                     folioCloudEntitlements: widget.folioCloudEntitlements,
                     onAiSlashCommand: _handleFolioAiSlash,
+                    onOpenQuillThreadForBlock: _openQuillThreadForBlock,
                     editorLayoutTokens:
                         widget.layoutEngineController.config.editor,
                     extraPaletteCommandsProvider: _workspacePaletteCommands,

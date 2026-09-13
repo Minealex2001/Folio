@@ -1596,6 +1596,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   Future<bool> _confirmMcpIrreversibleTool(
     String toolName,
     Map<String, dynamic> arguments,
+    // Fase 3 de Quill 2.0 — el registro ahora calcula y pasa el preview,
+    // pero este callback ya lo calculaba por su cuenta (línea de abajo) para
+    // poder nombrar la app MCP conectada en el diálogo; se ignora el
+    // parámetro y se mantiene el cálculo propio, sin cambiar el diálogo.
+    AiToolPreview? _,
   ) async {
     final ctx = _navKey.currentContext ?? context;
     if (!ctx.mounted) return false;

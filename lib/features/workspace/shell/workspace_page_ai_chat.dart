@@ -426,47 +426,51 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       systemPromptOverrideIsNarrowTask: preset.isNarrowTask,
       useToolCalling: widget.appSettings.quillToolCallingEnabled,
       onToolEvent: _onAiToolEvent,
+      // Fase 3 de Quill 2.0 — antes solo el modo Plan pasaba este callback,
+      // así que tools destructivas (`permanently_delete_page`, `empty_trash`)
+      // se ejecutaban sin ninguna confirmación en el chat normal. Reutiliza
+      // el mismo diálogo que ya usa el modo Plan, sin UI nueva.
+      onConfirmIrreversibleTool: _confirmIrreversibleToolCall,
       onReplyDelta: onReplyDelta,
       cancelToken: cancelToken,
     );
   }
 
+  // Fase 1 de Quill 2.0 — delegado en `QuillContextEngine.assembleExtraContext`
+  // (única fuente de verdad para memoria/selección/última reunión). Este
+  // método sigue siendo dueño de: (a) resolver los snippets desde el editor
+  // (requiere `BuildContext`/estado de widget, el motor no puede tocarlo) y
+  // (b) los headers l10n, que el motor no conoce.
+  //
+  // Fase A4/A1 del plan Quill/MCP (comportamiento sin cambios): los hechos de
+  // memoria (nunca escritos por la IA sola, ver `vault_memory_fact.dart`) van
+  // en TODOS los envíos; selección/última reunión son de un solo uso salvo
+  // que `autoIncludeSelection` esté activo para el hilo.
   String _composeAiExtraContextForNextSend() {
     final l10n = AppLocalizations.of(context);
-    final b = StringBuffer();
-    // Fase A4 del plan Quill/MCP — hechos guardados por el usuario (nunca
-    // por la IA sola, ver `vault_memory_fact.dart`) se incluyen en TODOS los
-    // envíos, no solo el próximo — a diferencia de selección/última reunión,
-    // que sí son de un solo uso. Ambos scopes (temporal/permanente) se
-    // envían igual; la distinción es solo de gestión/limpieza.
-    final facts = widget.appSettings.vaultMemoryFacts;
-    if (facts.isNotEmpty) {
-      b.writeln(l10n.aiChatMemoryFactsHeader);
-      for (final fact in facts) {
-        b.writeln('- ${fact.text.trim()}');
-      }
-    }
-    // Fase A1 del plan Quill/MCP — `autoIncludeSelection` es el toggle
-    // persistente por hilo (no se consume tras un envío, a diferencia de
-    // `_aiAttachNextEditorSelection`, que sigue siendo el modo "una sola
-    // vez" para hilos que no lo activan).
+
+    String? selectionSnippet;
     if (_aiAttachNextEditorSelection || _activeChat.autoIncludeSelection) {
       _aiAttachNextEditorSelection = false;
-      final snippet = _readEditorSelectionPlainForAi();
-      if (snippet != null && snippet.trim().isNotEmpty) {
-        b.writeln(l10n.aiChatEditorSelectionHeader);
-        b.writeln(snippet.trim());
-      }
+      selectionSnippet = _readEditorSelectionPlainForAi();
     }
+
+    String? lastMeetingSnippet;
     if (_aiAttachNextLastMeeting) {
       _aiAttachNextLastMeeting = false;
-      final m = _readLastMeetingSnippetOnPage();
-      if (m != null && m.trim().isNotEmpty) {
-        b.writeln(l10n.aiChatLastMeetingHeader);
-        b.writeln(m.trim());
-      }
+      lastMeetingSnippet = _readLastMeetingSnippetOnPage();
     }
-    return b.toString().trim();
+
+    return const QuillContextEngine()
+        .assembleExtraContext(
+          memoryFacts: widget.appSettings.vaultMemoryFacts,
+          memoryFactsHeader: l10n.aiChatMemoryFactsHeader,
+          selectionSnippet: selectionSnippet,
+          selectionHeader: l10n.aiChatEditorSelectionHeader,
+          lastMeetingSnippet: lastMeetingSnippet,
+          lastMeetingHeader: l10n.aiChatLastMeetingHeader,
+        )
+        .combinedText;
   }
 
   String? _readEditorSelectionPlainForAi() {

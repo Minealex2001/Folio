@@ -30,6 +30,38 @@ enum McpReadAccessDecision {
 /// [VaultSession]/[QuillToolExecutor] — esta clase no reimplementa lógica de
 /// dominio, solo traduce `AiToolCall.arguments` a esas llamadas y su
 /// resultado a un [AiToolResult] serializable que el modelo pueda leer.
+///
+/// Fase 2 de Quill 2.0 — tabla de equivalencias entre las 12 acciones
+/// canónicas de dominio y el tool real que las cubre (auditado contra este
+/// archivo; no se renombró ningún tool existente porque son nombres estables,
+/// consumidos también por el servidor MCP local — ver `folio_mcp_server.dart`):
+///
+/// | Acción canónica | Tool real                                  |
+/// |------------------|---------------------------------------------|
+/// | search_pages      | `search_pages`                              |
+/// | search_blocks      | `search_pages` (indexa contenido de bloques vía `VaultSearchIndex`, sin límite) |
+/// | search_tasks      | `list_tasks` (filtros status/pageId/dueBefore/dueAfter/query) |
+/// | get_page          | `get_page_content`                          |
+/// | create_page       | `create_page`                               |
+/// | update_page       | `rename_page` + `set_page_emoji` + `add_page_tag`/`remove_page_tag` + `move_page`/`reorder_page` (sin cubrir `PageProperty` estructuradas — hueco documentado, diferido) |
+/// | create_block      | `edit_page_blocks` (`insert_after`/`insert_before`), `append_blocks_to_page`, `insert_blocks_at_position` |
+/// | update_block      | `edit_page_blocks` (`update_block_text`)    |
+/// | delete_block      | `edit_page_blocks` (`delete_block`)         |
+/// | create_task       | `insert_tasks` / `insert_todos`             |
+/// | update_task       | `update_task`                               |
+/// | move_block        | `edit_page_blocks` (`move_block`, ver más abajo) |
+///
+/// Fase 3 de Quill 2.0 — taxonomía de riesgo (conceptual, sin enum nuevo: se
+/// deriva de `category`/`isReversible`/`requiresConfirmation`, ya existentes):
+///
+/// | Nivel | Regla | Ejemplos |
+/// |---|---|---|
+/// | READ — consultar/buscar/leer | Ejecución directa, sin confirmación | `search_pages`, `get_page_content`, `list_tasks`, `list_children`, `meeting_get_context` |
+/// | MUTATION — crear/modificar/mover contenido | Ejecución directa + deshacer disponible tras el hecho (`beginAiTurnUndoGroup`/`undoAiTurn`, botón "Deshacer este turno" en la UI) | `create_page`, `edit_page_blocks`, `insert_tasks`, `move_page`, `rename_page`, `update_task`, ... |
+/// | DESTRUCTIVE — eliminar o acciones irreversibles | Confirmación previa obligatoria + preview cuando esté disponible, **fail-closed**: sin callback de confirmación, la ejecución se rechaza (nunca se aprueba por omisión) | `trash_page`*, `permanently_delete_page`, `empty_trash`, `delete_folder_flatten_children` |
+///
+/// \* `trash_page` es recuperable vía `restore_page`, por eso es la única
+/// `category: destructive` sin `requiresConfirmation: true`.
 class FolioToolRegistry {
   FolioToolRegistry(
     this._session, {
@@ -51,11 +83,17 @@ class FolioToolRegistry {
   final Future<McpReadAccessDecision> Function(String pageId, String pageTitle)?
       onRequestMcpReadAccess;
 
-  /// Si no es null, se pide confirmación antes de ejecutar tools irreversibles
-  /// (`permanently_delete_page`, `empty_trash`). Solo lo pasa el modo Plan al
-  /// ejecutar un plan aprobado; la ruta normal y MCP dejan null.
-  final Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
-      onConfirmIrreversibleTool;
+  /// Fase 3 de Quill 2.0 — puerta DESTRUCTIVE, fail-closed: toda tool con
+  /// `requiresConfirmation: true` debe pasar por este callback; si es `null`,
+  /// `execute()` rechaza la ejecución en vez de aprobarla por omisión (ver
+  /// el gate en `execute()`). `preview` ya viene calculado por el registro
+  /// (vía `this.preview(call)`) cuando la tool `supportsPreview`, para que
+  /// el callback no tenga que recalcularlo.
+  final Future<bool> Function(
+    String toolName,
+    Map<String, dynamic> arguments,
+    AiToolPreview? preview,
+  )? onConfirmIrreversibleTool;
 
   /// Si no es null, la tool `generate_image` está disponible: genera una
   /// imagen (con el `AiService` activo), la importa al vault, y devuelve un
@@ -195,17 +233,28 @@ class FolioToolRegistry {
       // a `onConfirmIrreversibleTool` cada una por su cuenta. Ahora
       // cualquier tool con `requiresConfirmation: true` en su definición
       // pasa por aquí — un único punto, no uno por tool.
+      //
+      // Fase 3 de Quill 2.0 — regla fail-closed: si la tool requiere
+      // confirmación pero no hay callback disponible, se rechaza la
+      // ejecución. Antes se aprobaba en silencio (ver el test que este
+      // cambio reescribe), lo que dejaba tools destructivas sin protección
+      // real ante cualquier llamador que no configurase el callback.
       final def = definitionByName(call.name);
       if (def != null && def.requiresConfirmation) {
         final confirm = onConfirmIrreversibleTool;
-        if (confirm != null) {
-          final ok = await confirm(call.name, call.arguments);
-          if (!ok) {
-            return AiToolResult.error(
-              call.id,
-              _l10n.mcpActionCancelledByUser(call.name),
-            );
-          }
+        if (confirm == null) {
+          return AiToolResult.error(
+            call.id,
+            _l10n.mcpActionCancelledByUser(call.name),
+          );
+        }
+        final preview = def.supportsPreview ? this.preview(call) : null;
+        final ok = await confirm(call.name, call.arguments, preview);
+        if (!ok) {
+          return AiToolResult.error(
+            call.id,
+            _l10n.mcpActionCancelledByUser(call.name),
+          );
         }
       }
       switch (call.name) {
@@ -487,10 +536,10 @@ class FolioToolRegistry {
     description:
         'Aplica una lista de operaciones puntuales sobre los bloques de una '
         'página existente: update_block_text, delete_block, insert_after, '
-        'insert_before. Úsala SOLO para cambios acotados y quirúrgicos (corregir '
-        'un dato, actualizar una sección concreta, arreglar un typo). Para '
-        'reescrituras o mejoras abiertas de la página completa, usa '
-        'replace_page_blocks en su lugar.',
+        'insert_before, move_block. Úsala SOLO para cambios acotados y '
+        'quirúrgicos (corregir un dato, actualizar una sección concreta, '
+        'arreglar un typo, reordenar un bloque). Para reescrituras o mejoras '
+        'abiertas de la página completa, usa replace_page_blocks en su lugar.',
     parameters: [
       AiToolParam(
         name: 'pageId',
@@ -505,7 +554,10 @@ class FolioToolRegistry {
         description:
             'Operaciones: [{kind, blockId, text?, type?, afterBlockId?, '
             'beforeBlockId?}]. kind es uno de update_block_text|delete_block|'
-            'insert_after|insert_before.',
+            'insert_after|insert_before|move_block. Para move_block, blockId '
+            'es el bloque a reposicionar dentro de la MISMA página y hay que '
+            'dar exactamente uno de afterBlockId/beforeBlockId como ancla '
+            '(no mueve bloques entre páginas).',
         required: true,
       ),
     ],
@@ -555,6 +607,27 @@ class FolioToolRegistry {
               _session.insertBlockBefore(pageId: pageId, beforeBlockId: anchorId, block: block);
             }
             applied++;
+          }
+        case 'move_block':
+          // Fase 2 de Quill 2.0 — reutiliza `VaultSession.reorderBlockAt`, el
+          // mismo método que usa el drag-and-drop manual del editor. Exige
+          // exactamente un ancla; `afterBlockId` coloca el bloque justo
+          // después del ancla, `beforeBlockId` justo antes.
+          final blockId = op['blockId'] as String?;
+          final afterBlockId = op['afterBlockId'] as String?;
+          final beforeBlockId = op['beforeBlockId'] as String?;
+          final hasSingleAnchor =
+              (afterBlockId != null) != (beforeBlockId != null);
+          if (blockId != null && hasSingleAnchor) {
+            final oldIndex = page.blocks.indexWhere((b) => b.id == blockId);
+            final anchorId = afterBlockId ?? beforeBlockId!;
+            final anchorIndex = page.blocks.indexWhere((b) => b.id == anchorId);
+            if (oldIndex >= 0 && anchorIndex >= 0) {
+              final newIndex =
+                  afterBlockId != null ? anchorIndex + 1 : anchorIndex;
+              _session.reorderBlockAt(pageId, oldIndex, newIndex);
+              applied++;
+            }
           }
       }
     }
@@ -1076,6 +1149,7 @@ class FolioToolRegistry {
     category: AiToolCategory.destructive,
     complexity: AiToolComplexity.moderate,
     isReversible: false,
+    requiresConfirmation: true,
     supportsPreview: true,
   );
 

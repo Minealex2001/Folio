@@ -3621,6 +3621,13 @@
       "title": {}
     }
   },
+  "aiToolConfirmGenericTitle": "Confirm action",
+  "aiToolConfirmGenericBody": "Quill wants to run “{toolName}”. This cannot be undone.",
+  "@aiToolConfirmGenericBody": {
+    "placeholders": {
+      "toolName": {}
+    }
+  },
   "sidebarTrashDaysLeft": "{days} days left",
   "@sidebarTrashDaysLeft": {
     "placeholders": {
@@ -4441,6 +4448,7 @@
   "kanbanDeleteTaskTitle": "Delete task",
   "kanbanDeleteTaskButton": "Delete",
   "taskDetailsTitle": "Task details",
+  "taskDetailsOpenQuillTooltip": "Open conversation with Quill",
   "taskDetailsDeleteTooltip": "Delete task",
   "taskDetailsEnterFullscreen": "Full screen",
   "taskDetailsExitFullscreen": "Restore size",

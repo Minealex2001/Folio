@@ -15,6 +15,7 @@ import '../../../models/folio_task_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/jira_integration_state.dart';
 import '../../../session/vault_session.dart';
+import '../../../services/ai/ai_types.dart';
 import '../../../services/jira/jira_api_client.dart';
 import '../../../services/jira/jira_sync_service.dart';
 import '../../../services/trello/trello_api_client.dart';
@@ -82,13 +83,19 @@ Future<void> showTaskDetails({
   required BuildContext context,
   required VaultSession session,
   required TaskRef taskRef,
+  OpenQuillThreadForBlock? onOpenQuillThread,
 }) async {
   final width = MediaQuery.sizeOf(context).width;
   final compact = width < FolioDesktop.compactBreakpoint;
 
   Future<void> openRef(TaskRef ref) async {
     if (!context.mounted) return;
-    await showTaskDetails(context: context, session: session, taskRef: ref);
+    await showTaskDetails(
+      context: context,
+      session: session,
+      taskRef: ref,
+      onOpenQuillThread: onOpenQuillThread,
+    );
   }
 
   if (compact) {
@@ -109,6 +116,7 @@ Future<void> showTaskDetails({
                 unawaited(openRef(ref));
               });
             },
+            onOpenQuillThread: onOpenQuillThread,
           ),
         ),
       ),
@@ -151,6 +159,7 @@ Future<void> showTaskDetails({
                   isFullScreen: fullScreen,
                   onToggleFullScreen: () =>
                       setDlgState(() => fullScreen = !fullScreen),
+                  onOpenQuillThread: onOpenQuillThread,
                 ),
               ),
             ),
@@ -169,6 +178,7 @@ Future<TaskRef?> createTaskDraftAndOpenDetails({
   String? columnId,
   String? afterBlockId,
   bool selectPage = false,
+  OpenQuillThreadForBlock? onOpenQuillThread,
 }) async {
   final ref = createTaskDraft(
     session: session,
@@ -181,7 +191,12 @@ Future<TaskRef?> createTaskDraftAndOpenDetails({
     session.selectPage(pageId);
   }
   if (!context.mounted) return ref;
-  await showTaskDetails(context: context, session: session, taskRef: ref);
+  await showTaskDetails(
+    context: context,
+    session: session,
+    taskRef: ref,
+    onOpenQuillThread: onOpenQuillThread,
+  );
   return ref;
 }
 
@@ -193,6 +208,7 @@ class TaskDetailsPanel extends StatelessWidget {
     required this.onOpenTaskRef,
     required this.isFullScreen,
     required this.onToggleFullScreen,
+    this.onOpenQuillThread,
   });
 
   final VaultSession session;
@@ -201,6 +217,7 @@ class TaskDetailsPanel extends StatelessWidget {
   final void Function(TaskRef ref) onOpenTaskRef;
   final bool isFullScreen;
   final VoidCallback onToggleFullScreen;
+  final OpenQuillThreadForBlock? onOpenQuillThread;
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +234,7 @@ class TaskDetailsPanel extends StatelessWidget {
         onOpenTaskRef: onOpenTaskRef,
         isFullScreen: isFullScreen,
         onToggleFullScreen: onToggleFullScreen,
+        onOpenQuillThread: onOpenQuillThread,
       ),
     );
   }
@@ -228,12 +246,14 @@ class TaskDetailsSheet extends StatelessWidget {
     required this.taskRef,
     required this.onClose,
     required this.onOpenTaskRef,
+    this.onOpenQuillThread,
   });
 
   final VaultSession session;
   final TaskRef taskRef;
   final VoidCallback onClose;
   final void Function(TaskRef ref) onOpenTaskRef;
+  final OpenQuillThreadForBlock? onOpenQuillThread;
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +272,7 @@ class TaskDetailsSheet extends StatelessWidget {
           onOpenTaskRef: onOpenTaskRef,
           isFullScreen: false,
           onToggleFullScreen: null,
+          onOpenQuillThread: onOpenQuillThread,
         ),
       ),
     );
@@ -266,10 +287,12 @@ class TaskDetailsContent extends StatefulWidget {
     required this.onOpenTaskRef,
     required this.isFullScreen,
     required this.onToggleFullScreen,
+    this.onOpenQuillThread,
   });
 
   final bool isFullScreen;
   final VoidCallback? onToggleFullScreen;
+  final OpenQuillThreadForBlock? onOpenQuillThread;
 
   final VaultSession session;
   final TaskRef taskRef;
@@ -2416,6 +2439,16 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                       ),
                     ),
                   ),
+                  if (widget.onOpenQuillThread != null)
+                    IconButton(
+                      tooltip: l10n.taskDetailsOpenQuillTooltip,
+                      onPressed: () => widget.onOpenQuillThread!(
+                        widget.taskRef.pageId,
+                        widget.taskRef.blockId,
+                        titleHint: data.title,
+                      ),
+                      icon: const Icon(FolioIcons.quillOutlined),
+                    ),
                   IconButton(
                     tooltip: l10n.taskDetailsDeleteTooltip,
                     onPressed: _deleteBusy ? null : _deleteTaskWithJiraIfLinked,

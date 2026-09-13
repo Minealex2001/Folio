@@ -645,6 +645,7 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
   Future<bool> _confirmIrreversibleToolCall(
     String toolName,
     Map<String, dynamic> arguments,
+    AiToolPreview? preview,
   ) async {
     if (!mounted) return false;
     final l10n = AppLocalizations.of(context);
@@ -711,6 +712,37 @@ extension _WorkspacePageAiPlanModule on _WorkspacePageState {
       return ok == true;
     }
 
-    return true;
+    // Fase 3 de Quill 2.0 — fallback genérico, fail-closed por diseño: antes
+    // esta rama hacía `return true` (aprobaba en silencio cualquier tool
+    // desconocida). Ahora cualquier tool futura marcada
+    // `requiresConfirmation: true` queda protegida por un diálogo real,
+    // aunque nadie recuerde añadir un caso específico aquí. Reutiliza
+    // `FolioToolRegistry.preview()` (ya calculado por el llamador) en vez de
+    // recalcular nada.
+    final body = preview != null
+        ? '${preview.summary}${preview.affectedItems.isEmpty ? '' : '\n\n${preview.affectedItems.map((i) => '• $i').join('\n')}'}'
+        : l10n.aiToolConfirmGenericBody(toolName);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.aiToolConfirmGenericTitle),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.aiToolConfirmGenericTitle),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 }

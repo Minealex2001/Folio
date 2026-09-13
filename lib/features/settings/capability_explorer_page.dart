@@ -42,6 +42,10 @@ class _CapabilityExplorerPageState extends State<CapabilityExplorerPage> {
   Future<bool> _confirmIrreversible(
     String toolName,
     Map<String, dynamic> arguments,
+    // Fase 3 de Quill 2.0 — el registro ahora pasa el preview ya calculado;
+    // esta pantalla ya lo calculaba por su cuenta (línea de abajo), se
+    // ignora el parámetro y se mantiene el cálculo propio sin cambios.
+    AiToolPreview? _,
   ) async {
     final preview = _registry.preview(
       AiToolCall(id: 'explorer_confirm', name: toolName, arguments: arguments),

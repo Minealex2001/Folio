@@ -3625,6 +3625,13 @@
       "title": {}
     }
   },
+  "aiToolConfirmGenericTitle": "Confirmar acción",
+  "aiToolConfirmGenericBody": "Quill quiere ejecutar «{toolName}». Esta acción no se puede deshacer.",
+  "@aiToolConfirmGenericBody": {
+    "placeholders": {
+      "toolName": {}
+    }
+  },
   "sidebarTrashDaysLeft": "Quedan {days} días",
   "@sidebarTrashDaysLeft": {
     "placeholders": {
@@ -4445,6 +4452,7 @@
   "kanbanDeleteTaskTitle": "Borrar tarea",
   "kanbanDeleteTaskButton": "Borrar",
   "taskDetailsTitle": "Detalle de la tarea",
+  "taskDetailsOpenQuillTooltip": "Abrir conversación con Quill",
   "taskDetailsDeleteTooltip": "Borrar tarea",
   "taskDetailsEnterFullscreen": "Pantalla completa",
   "taskDetailsExitFullscreen": "Restaurar tamaño",

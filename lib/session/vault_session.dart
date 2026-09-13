@@ -79,6 +79,7 @@ import '../services/ai/ai_types.dart';
 import '../services/ai/folio_docs_grounding_loader.dart';
 import '../services/ai/folio_tool_registry.dart';
 import '../services/ai/json_lenient_decoder.dart';
+import '../services/ai/quill_context_engine.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
@@ -3844,14 +3845,7 @@ class VaultSession extends ChangeNotifier {
     if (i < 0 || i >= _aiChatThreads.length) return;
     final cur = _aiChatThreads[i];
     if (_stringListEq.equals(cur.attachmentPaths, paths)) return;
-    _aiChatThreads[i] = AiChatThreadData(
-      id: cur.id,
-      title: cur.title,
-      messages: cur.messages,
-      attachmentPaths: List<String>.from(paths),
-      includePageContext: cur.includePageContext,
-      contextPageIds: cur.contextPageIds,
-    );
+    _aiChatThreads[i] = cur.copyWith(attachmentPaths: List<String>.from(paths));
     scheduleSave();
   }
 
@@ -3861,14 +3855,7 @@ class VaultSession extends ChangeNotifier {
     if (i < 0 || i >= _aiChatThreads.length) return;
     final cur = _aiChatThreads[i];
     if (cur.includePageContext == value) return;
-    _aiChatThreads[i] = AiChatThreadData(
-      id: cur.id,
-      title: cur.title,
-      messages: cur.messages,
-      attachmentPaths: cur.attachmentPaths,
-      includePageContext: value,
-      contextPageIds: cur.contextPageIds,
-    );
+    _aiChatThreads[i] = cur.copyWith(includePageContext: value);
     notifyListeners();
     scheduleSave();
   }
@@ -3880,14 +3867,7 @@ class VaultSession extends ChangeNotifier {
     final cur = _aiChatThreads[i];
     final next = List<String>.from(ids);
     if (_stringListEq.equals(cur.contextPageIds, next)) return;
-    _aiChatThreads[i] = AiChatThreadData(
-      id: cur.id,
-      title: cur.title,
-      messages: cur.messages,
-      attachmentPaths: cur.attachmentPaths,
-      includePageContext: cur.includePageContext,
-      contextPageIds: next,
-    );
+    _aiChatThreads[i] = cur.copyWith(contextPageIds: next);
     notifyListeners();
     scheduleSave();
   }
@@ -3901,15 +3881,7 @@ class VaultSession extends ChangeNotifier {
     if (i < 0 || i >= _aiChatThreads.length) return;
     final cur = _aiChatThreads[i];
     if (cur.autoIncludeSelection == value) return;
-    _aiChatThreads[i] = AiChatThreadData(
-      id: cur.id,
-      title: cur.title,
-      messages: cur.messages,
-      attachmentPaths: cur.attachmentPaths,
-      includePageContext: cur.includePageContext,
-      contextPageIds: cur.contextPageIds,
-      autoIncludeSelection: value,
-    );
+    _aiChatThreads[i] = cur.copyWith(autoIncludeSelection: value);
     notifyListeners();
     scheduleSave();
   }
@@ -3932,14 +3904,7 @@ class VaultSession extends ChangeNotifier {
     if (t.isEmpty) return;
     final cur = _aiChatThreads[index];
     if (cur.title == t) return;
-    _aiChatThreads[index] = AiChatThreadData(
-      id: cur.id,
-      title: t,
-      messages: cur.messages,
-      attachmentPaths: cur.attachmentPaths,
-      includePageContext: cur.includePageContext,
-      contextPageIds: cur.contextPageIds,
-    );
+    _aiChatThreads[index] = cur.copyWith(title: t);
     notifyListeners();
     scheduleSave();
   }
@@ -3997,14 +3962,7 @@ class VaultSession extends ChangeNotifier {
     final current = _aiChatThreads[_aiActiveChatIndex];
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..add(message);
-    _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
-      id: current.id,
-      title: current.title,
-      messages: nextMessages,
-      attachmentPaths: current.attachmentPaths,
-      includePageContext: current.includePageContext,
-      contextPageIds: current.contextPageIds,
-    );
+    _aiChatThreads[_aiActiveChatIndex] = current.copyWith(messages: nextMessages);
     notifyListeners();
     scheduleSave();
   }
@@ -4019,14 +3977,7 @@ class VaultSession extends ChangeNotifier {
     final current = _aiChatThreads[i];
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..add(message);
-    _aiChatThreads[i] = AiChatThreadData(
-      id: current.id,
-      title: current.title,
-      messages: nextMessages,
-      attachmentPaths: current.attachmentPaths,
-      includePageContext: current.includePageContext,
-      contextPageIds: current.contextPageIds,
-    );
+    _aiChatThreads[i] = current.copyWith(messages: nextMessages);
     notifyListeners();
     scheduleSave();
   }
@@ -4036,14 +3987,7 @@ class VaultSession extends ChangeNotifier {
     if (index < 0 || index >= current.messages.length) return;
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..[index] = message;
-    _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
-      id: current.id,
-      title: current.title,
-      messages: nextMessages,
-      attachmentPaths: current.attachmentPaths,
-      includePageContext: current.includePageContext,
-      contextPageIds: current.contextPageIds,
-    );
+    _aiChatThreads[_aiActiveChatIndex] = current.copyWith(messages: nextMessages);
     notifyListeners();
     scheduleSave();
   }
@@ -4059,14 +4003,7 @@ class VaultSession extends ChangeNotifier {
     if (index < 0 || index >= current.messages.length) return;
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..removeAt(index);
-    _aiChatThreads[i] = AiChatThreadData(
-      id: current.id,
-      title: current.title,
-      messages: nextMessages,
-      attachmentPaths: current.attachmentPaths,
-      includePageContext: current.includePageContext,
-      contextPageIds: current.contextPageIds,
-    );
+    _aiChatThreads[i] = current.copyWith(messages: nextMessages);
     notifyListeners();
     scheduleSave();
   }
@@ -4083,16 +4020,49 @@ class VaultSession extends ChangeNotifier {
     if (index < 0 || index >= current.messages.length) return;
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..[index] = message;
-    _aiChatThreads[i] = AiChatThreadData(
-      id: current.id,
-      title: current.title,
-      messages: nextMessages,
-      attachmentPaths: current.attachmentPaths,
-      includePageContext: current.includePageContext,
-      contextPageIds: current.contextPageIds,
-    );
+    _aiChatThreads[i] = current.copyWith(messages: nextMessages);
     notifyListeners();
     scheduleSave();
+  }
+
+  int _aiChatIndexByScope(String pageId, String blockId) {
+    return _aiChatThreads.indexWhere(
+      (t) => t.scopePageId == pageId && t.scopeBlockId == blockId,
+    );
+  }
+
+  /// Fase 4 de Quill 2.0 — reanuda el hilo ligado a `(pageId, blockId)` si ya
+  /// existe (mismo mecanismo que el picker manual: [selectAiChat]), o crea
+  /// uno nuevo con ese scope y lo activa. Idempotente: llamadas repetidas con
+  /// el mismo `(pageId, blockId)` siempre reanudan el mismo hilo.
+  int openOrCreateAiChatForBlock(
+    String pageId,
+    String blockId, {
+    String? titleHint,
+  }) {
+    final existing = _aiChatIndexByScope(pageId, blockId);
+    if (existing >= 0) {
+      selectAiChat(existing);
+      return existing;
+    }
+    final next = _aiChatThreads.length + 1;
+    final clampedHint = _clampAiChatTitle(titleHint ?? '');
+    _aiChatThreads.add(
+      AiChatThreadData(
+        id: 'chat_${DateTime.now().microsecondsSinceEpoch}',
+        title: clampedHint.isNotEmpty
+            ? clampedHint
+            : _titleL10n.aiChatTitleNumbered(next),
+        messages: const [],
+        contextPageIds: [pageId],
+        scopePageId: pageId,
+        scopeBlockId: blockId,
+      ),
+    );
+    _aiActiveChatIndex = _aiChatThreads.length - 1;
+    notifyListeners();
+    scheduleSave();
+    return _aiActiveChatIndex;
   }
 
   // ─── Page templates ──────────────────────────────────────────────────────────
@@ -5994,6 +5964,11 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    // Fase 3 de Quill 2.0 — faltaba esta llamada: `meetingNoteBookmarks` SÍ
+    // está en el snapshot de undo (`_snapshotOfPage`), pero sin esto la tool
+    // `meeting_create_bookmark` (marcada `isReversible: true`) no dejaba
+    // nada que "Deshacer este turno" pudiera revertir de verdad.
+    _rememberUndoBeforePageMutation(pageId);
     final current = List<MeetingNoteBookmark>.from(
       b.meetingNoteBookmarks ?? const <MeetingNoteBookmark>[],
     );
@@ -6012,6 +5987,10 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    // Fase 3 de Quill 2.0 — mismo fix que `addBlockMeetingNoteBookmark`:
+    // `meetingNotePrepNotes` está en el snapshot de undo pero faltaba esta
+    // llamada, así que `meeting_generate_prep` no era deshacible de verdad.
+    _rememberUndoBeforePageMutation(pageId);
     b.meetingNotePrepNotes = prepNotes;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -6054,6 +6033,10 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    // Fase 3 de Quill 2.0 — mismo fix que `addBlockMeetingNoteBookmark`:
+    // `meetingNoteSummary` está en el snapshot de undo pero faltaba esta
+    // llamada, así que `meeting_generate_summary` no era deshacible de verdad.
+    _rememberUndoBeforePageMutation(pageId);
     b.meetingNoteSummary = summary;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);

@@ -158,6 +158,30 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
                               ),
                             ),
                           ],
+                          // Fase 4 de Quill 2.0 — acción secundaria adicional:
+                          // en vez del popover de un solo uso de arriba, abre
+                          // (o reanuda) una conversación persistente ligada a
+                          // esta nota de reunión. No sustituye el botón de
+                          // arriba, solo añade una alternativa junto a él.
+                          if (!readOnlyMode &&
+                              st.widget.onOpenQuillThreadForBlock != null) ...[
+                            const SizedBox(width: 6),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () => st.widget.onOpenQuillThreadForBlock!(
+                                page.id,
+                                block.id,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  Icons.forum_outlined,
+                                  size: 14,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 6),

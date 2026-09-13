@@ -241,6 +241,7 @@ class BlockEditor extends StatefulWidget {
     this.readOnlyMode = false,
     this.folioCloudEntitlements,
     this.onAiSlashCommand,
+    this.onOpenQuillThreadForBlock,
     this.editorLayoutTokens,
     this.extraPaletteCommandsProvider,
   });
@@ -266,6 +267,11 @@ class BlockEditor extends StatefulWidget {
 
   /// Comandos slash `cmd_ai_*`: el editor envía intención + texto; el workspace ejecuta Quill.
   final Future<void> Function(FolioAiSlashParams params)? onAiSlashCommand;
+
+  /// Fase 4 de Quill 2.0 — abre/reanuda el hilo de Quill ligado a un bloque
+  /// (p. ej. una nota de reunión). Acción secundaria, independiente del
+  /// popover de un solo uso que ya dispara [onAiSlashCommand].
+  final OpenQuillThreadForBlock? onOpenQuillThreadForBlock;
 
   @override
   State<BlockEditor> createState() => BlockEditorState();

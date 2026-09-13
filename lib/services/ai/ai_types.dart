@@ -431,6 +431,17 @@ class AiCompletionChunk {
   bool get hasToolCalls => toolCalls != null && toolCalls!.isNotEmpty;
 }
 
+/// Fase 4 de Quill 2.0 — abre (o reanuda) el hilo de Quill ligado a un bloque
+/// concreto (tarea o nota de reunión) y expande el panel de IA. Threaded
+/// desde `_WorkspacePageState` hacia `TaskDetailsPanel`/`KanbanBoardPage`/
+/// `BlockEditor` con el mismo patrón que otros callbacks existentes
+/// (`onClose`, `onOpenTaskRef`, `onAiSlashCommand`).
+typedef OpenQuillThreadForBlock = void Function(
+  String pageId,
+  String blockId, {
+  String? titleHint,
+});
+
 class AiChatThreadData {
   const AiChatThreadData({
     required this.id,
@@ -440,6 +451,8 @@ class AiChatThreadData {
     this.includePageContext = true,
     this.contextPageIds = const [],
     this.autoIncludeSelection = false,
+    this.scopePageId,
+    this.scopeBlockId,
   });
 
   final String id;
@@ -463,6 +476,45 @@ class AiChatThreadData {
   /// de contexto), nunca inferencia silenciosa.
   final bool autoIncludeSelection;
 
+  /// Fase 4 de Quill 2.0 — identidad de la entidad (bloque `task` o nota de
+  /// reunión) a la que este hilo queda ligado, para poder reanudarlo desde
+  /// esa entidad en vez de buscarlo por título. `null` = hilo general (todo
+  /// hilo creado antes de esta fase, o vía "+" en el panel, sigue siéndolo).
+  /// Independiente de [contextPageIds]: esto es identidad del hilo, no qué
+  /// texto se manda como contexto al modelo.
+  final String? scopePageId;
+  final String? scopeBlockId;
+
+  static const Object _sentinel = Object();
+
+  AiChatThreadData copyWith({
+    String? id,
+    String? title,
+    List<AiChatMessage>? messages,
+    List<String>? attachmentPaths,
+    bool? includePageContext,
+    List<String>? contextPageIds,
+    bool? autoIncludeSelection,
+    Object? scopePageId = _sentinel,
+    Object? scopeBlockId = _sentinel,
+  }) {
+    return AiChatThreadData(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      messages: messages ?? this.messages,
+      attachmentPaths: attachmentPaths ?? this.attachmentPaths,
+      includePageContext: includePageContext ?? this.includePageContext,
+      contextPageIds: contextPageIds ?? this.contextPageIds,
+      autoIncludeSelection: autoIncludeSelection ?? this.autoIncludeSelection,
+      scopePageId: identical(scopePageId, _sentinel)
+          ? this.scopePageId
+          : scopePageId as String?,
+      scopeBlockId: identical(scopeBlockId, _sentinel)
+          ? this.scopeBlockId
+          : scopeBlockId as String?,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -471,6 +523,8 @@ class AiChatThreadData {
     'includePageContext': includePageContext,
     'contextPageIds': contextPageIds,
     if (autoIncludeSelection) 'autoIncludeSelection': true,
+    if ((scopePageId ?? '').isNotEmpty) 'scopePageId': scopePageId,
+    if ((scopeBlockId ?? '').isNotEmpty) 'scopeBlockId': scopeBlockId,
   };
 
   factory AiChatThreadData.fromJson(Map<String, dynamic> json) {
@@ -488,6 +542,12 @@ class AiChatThreadData {
       includePageContext: json['includePageContext'] as bool? ?? true,
       contextPageIds: rawCtx.map((e) => '$e').toList(),
       autoIncludeSelection: json['autoIncludeSelection'] as bool? ?? false,
+      scopePageId: (json['scopePageId'] as String?)?.trim().isNotEmpty == true
+          ? (json['scopePageId'] as String).trim()
+          : null,
+      scopeBlockId: (json['scopeBlockId'] as String?)?.trim().isNotEmpty == true
+          ? (json['scopeBlockId'] as String).trim()
+          : null,
     );
   }
 }

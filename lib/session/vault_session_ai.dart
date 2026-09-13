@@ -569,27 +569,22 @@ extension VaultSessionAi on VaultSession {
     return (pageId: id, blockCount: generatedBlockCount);
   }
 
+  // Fase 1 de Quill 2.0 — delegado en `QuillContextEngine` (única fuente de
+  // verdad para resolver/renderizar el contexto de páginas). Firmas
+  // preservadas sin cambios para no tocar los call sites existentes. Único
+  // cambio de comportamiento: ahora excluye páginas en papelera, ver
+  // `QuillContextEngine.resolveContextPageIds`.
   List<String> _resolveAiChatContextPageIds({
     required bool includePageContext,
     required List<String> contextPageIds,
     String? scopePageId,
   }) {
-    if (!includePageContext) return const [];
-    final seen = <String>{};
-    final out = <String>[];
-    void add(String id) {
-      if (_pageById(id) == null) return;
-      if (seen.add(id)) out.add(id);
-    }
-
-    if (contextPageIds.isNotEmpty) {
-      for (final id in contextPageIds) {
-        add(id);
-      }
-      return out;
-    }
-    if (scopePageId != null) add(scopePageId);
-    return out;
+    return const QuillContextEngine().resolveContextPageIds(
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      scopePageId: scopePageId,
+      pageById: _pageById,
+    );
   }
 
   String _buildAiChatPagesTextContext(
@@ -597,39 +592,14 @@ extension VaultSessionAi on VaultSession {
     required bool isEs,
     String? activePageId,
   }) {
-    if (pageIds.isEmpty) {
-      return isEs
-          ? '(No hay folios de texto en el contexto.)'
-          : '(No pages in the text context.)';
-    }
-    const maxPages = 3;
-    const maxCharsPerPage = 6000;
-    const maxTotalChars = 14000;
-    final buf = StringBuffer();
-    var refIndex = 0;
-    final limitedPageIds = pageIds.length <= maxPages
-        ? pageIds
-        : pageIds.sublist(0, maxPages);
-    for (var i = 0; i < limitedPageIds.length; i++) {
-      if (buf.length >= maxTotalChars) break;
-      final p = _pageById(limitedPageIds[i]);
-      if (p == null) continue;
-      if (buf.isNotEmpty) buf.writeln();
-      final isActive = activePageId != null && p.id == activePageId;
-      if (isActive) {
-        buf.writeln('[ACTIVE_PAGE] ${p.title}');
-      } else {
-        refIndex++;
-        buf.writeln('[REFERENCE_PAGE $refIndex] ${p.title}');
-      }
-      final content = p.plainTextContent;
-      if (content.length <= maxCharsPerPage) {
-        buf.writeln(content);
-      } else {
-        buf.writeln('${content.substring(0, maxCharsPerPage)}\n…');
-      }
-    }
-    return buf.toString();
+    return const QuillContextEngine()
+        .buildPagesTextContext(
+          pageIds,
+          isEs: isEs,
+          activePageId: activePageId,
+          pageById: _pageById,
+        )
+        .combinedText;
   }
 
   // ---------------------------------------------------------------------
@@ -861,7 +831,11 @@ For images/blocks: use the + button or / command in a paragraph.
     String extraContextSections = '',
     void Function(AiToolLoopEvent event)? onToolEvent,
     int maxSteps = _kToolLoopMaxSteps,
-    Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
+    Future<bool> Function(
+      String toolName,
+      Map<String, dynamic> arguments,
+      AiToolPreview? preview,
+    )?
         onConfirmIrreversibleTool,
     /// Streaming real: texto acumulado del turno en curso, reenviado por
     /// `runToolLoop` en cada fragmento nuevo (ver doc de `onReplyTextDelta`
@@ -1221,7 +1195,11 @@ For images/blocks: use the + button or / command in a paragraph.
     required List<AiChatMessage> messages,
     required Map<String, dynamic> planContext,
     void Function(AiToolLoopEvent event)? onToolEvent,
-    Future<bool> Function(String toolName, Map<String, dynamic> arguments)?
+    Future<bool> Function(
+      String toolName,
+      Map<String, dynamic> arguments,
+      AiToolPreview? preview,
+    )?
         onConfirmIrreversibleTool,
     void Function(String textSoFar)? onReplyDelta,
     AiCancelToken? cancelToken,
@@ -1639,6 +1617,16 @@ Plan mode (proposal only, do not execute):
     /// `onReplyDelta` en `_agentChatWithAiToolLoop`). `null` = sin streaming
     /// (comportamiento bloqueante de siempre).
     void Function(String textSoFar)? onReplyDelta,
+    /// Fase 3 de Quill 2.0 — antes solo `agentChatWithAiExecuteApprovedPlan`
+    /// (modo Plan) aceptaba este callback, así que en chat normal las tools
+    /// destructivas se ejecutaban sin ninguna confirmación. Ahora el chat
+    /// normal también puede pasarlo (ver `workspace_page_ai_chat.dart`).
+    Future<bool> Function(
+      String toolName,
+      Map<String, dynamic> arguments,
+      AiToolPreview? preview,
+    )?
+        onConfirmIrreversibleTool,
     AiCancelToken? cancelToken,
   }) async {
     if (_state != VaultFlowState.unlocked ||
@@ -1678,6 +1666,7 @@ Plan mode (proposal only, do not execute):
         systemPromptOverrideIsNarrowTask: systemPromptOverrideIsNarrowTask,
         extraContextSections: combinedExtraContextSections,
         onToolEvent: onToolEvent,
+        onConfirmIrreversibleTool: onConfirmIrreversibleTool,
         onReplyDelta: onReplyDelta,
         cancelToken: cancelToken,
       );

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/models/block.dart';
 import 'package:folio/services/ai/ai_tool.dart';
 import 'package:folio/services/ai/folio_tool_registry.dart';
 import 'package:folio/session/vault_session.dart';
@@ -116,6 +117,111 @@ void main() {
       );
       expect(deleteResult.isError, isFalse);
       expect(session.pages.firstWhere((p) => p.id == pageId).blocks, isEmpty);
+    });
+
+    group('edit_page_blocks — move_block (Fase 2)', () {
+      // Cada página parte de un bloque por defecto (ver `addPage`); se
+      // reemplaza por 3 bloques A/B/C con ids conocidos para poder verificar
+      // el orden final tras mover.
+      ({VaultSession session, String pageId}) setupAbc() {
+        final session = VaultSession();
+        session.addPage(parentId: null);
+        final pageId = session.selectedPage!.id;
+        session.mutatePageBlocks(pageId, (blocks) {
+          blocks
+            ..clear()
+            ..addAll([
+              FolioBlock(id: 'A', type: 'paragraph', text: 'a'),
+              FolioBlock(id: 'B', type: 'paragraph', text: 'b'),
+              FolioBlock(id: 'C', type: 'paragraph', text: 'c'),
+            ]);
+        });
+        return (session: session, pageId: pageId);
+      }
+
+      test('con afterBlockId reposiciona el bloque justo después del ancla', () async {
+        final ctx = setupAbc();
+        final registry = FolioToolRegistry(ctx.session);
+
+        final result = await registry.execute(
+          _call('edit_page_blocks', {
+            'pageId': ctx.pageId,
+            'operations': [
+              {'kind': 'move_block', 'blockId': 'A', 'afterBlockId': 'B'},
+            ],
+          }),
+        );
+
+        expect(result.isError, isFalse);
+        final ids = ctx.session.pages
+            .firstWhere((p) => p.id == ctx.pageId)
+            .blocks
+            .map((b) => b.id);
+        expect(ids, ['B', 'A', 'C']);
+      });
+
+      test('con beforeBlockId reposiciona el bloque justo antes del ancla', () async {
+        final ctx = setupAbc();
+        final registry = FolioToolRegistry(ctx.session);
+
+        final result = await registry.execute(
+          _call('edit_page_blocks', {
+            'pageId': ctx.pageId,
+            'operations': [
+              {'kind': 'move_block', 'blockId': 'C', 'beforeBlockId': 'B'},
+            ],
+          }),
+        );
+
+        expect(result.isError, isFalse);
+        final ids = ctx.session.pages
+            .firstWhere((p) => p.id == ctx.pageId)
+            .blocks
+            .map((b) => b.id);
+        expect(ids, ['A', 'C', 'B']);
+      });
+
+      test('sin ancla no aplica cambios y devuelve error', () async {
+        final ctx = setupAbc();
+        final registry = FolioToolRegistry(ctx.session);
+
+        final result = await registry.execute(
+          _call('edit_page_blocks', {
+            'pageId': ctx.pageId,
+            'operations': [
+              {'kind': 'move_block', 'blockId': 'A'},
+            ],
+          }),
+        );
+
+        expect(result.isError, isTrue);
+        final ids = ctx.session.pages
+            .firstWhere((p) => p.id == ctx.pageId)
+            .blocks
+            .map((b) => b.id);
+        expect(ids, ['A', 'B', 'C']);
+      });
+
+      test('con blockId inexistente no aplica cambios y devuelve error', () async {
+        final ctx = setupAbc();
+        final registry = FolioToolRegistry(ctx.session);
+
+        final result = await registry.execute(
+          _call('edit_page_blocks', {
+            'pageId': ctx.pageId,
+            'operations': [
+              {'kind': 'move_block', 'blockId': 'no-existe', 'afterBlockId': 'B'},
+            ],
+          }),
+        );
+
+        expect(result.isError, isTrue);
+        final ids = ctx.session.pages
+            .firstWhere((p) => p.id == ctx.pageId)
+            .blocks
+            .map((b) => b.id);
+        expect(ids, ['A', 'B', 'C']);
+      });
     });
 
     test('insert_todos e insert_tasks delegan en QuillToolExecutor', () async {
@@ -302,7 +408,12 @@ void main() {
       final folderId = session.addFolder(parentId: null);
       session.addPage(parentId: folderId);
       final childId = session.selectedPage!.id;
-      final registry = FolioToolRegistry(session);
+      // Fase 3 de Quill 2.0 — ahora requiresConfirmation: true (fail-closed),
+      // hace falta el callback para que la ejecución no se rechace.
+      final registry = FolioToolRegistry(
+        session,
+        onConfirmIrreversibleTool: (_, __, ___) async => true,
+      );
 
       final result = await registry.execute(
         _call('delete_folder_flatten_children', {'folderId': folderId}),
@@ -361,27 +472,32 @@ void main() {
       return (session: session, trashPageId: trashId);
     }
 
-    test('sin onConfirmIrreversibleTool borra de inmediato (regresión)', () async {
-      final setup = await _trashedVault();
-      final registry = FolioToolRegistry(setup.session);
+    test(
+      'Fase 3: sin onConfirmIrreversibleTool, fail-closed rechaza la '
+      'ejecución (antes se aprobaba en silencio)',
+      () async {
+        final setup = await _trashedVault();
+        final registry = FolioToolRegistry(setup.session);
 
-      final result = await registry.execute(
-        _call('permanently_delete_page', {'pageId': setup.trashPageId}),
-      );
+        final result = await registry.execute(
+          _call('permanently_delete_page', {'pageId': setup.trashPageId}),
+        );
 
-      expect(result.isError, isFalse);
-      expect(
-        setup.session.pages.any((p) => p.id == setup.trashPageId),
-        isFalse,
-      );
-    });
+        expect(result.isError, isTrue);
+        expect(
+          setup.session.pages.any((p) => p.id == setup.trashPageId),
+          isTrue,
+          reason: 'sin callback, la página NO debe borrarse',
+        );
+      },
+    );
 
     test('onConfirmIrreversibleTool false aborta permanently_delete_page', () async {
       final setup = await _trashedVault();
       var asked = false;
       final registry = FolioToolRegistry(
         setup.session,
-        onConfirmIrreversibleTool: (name, args) async {
+        onConfirmIrreversibleTool: (name, args, preview) async {
           asked = true;
           expect(name, 'permanently_delete_page');
           return false;
@@ -405,7 +521,7 @@ void main() {
       final setup = await _trashedVault();
       final registry = FolioToolRegistry(
         setup.session,
-        onConfirmIrreversibleTool: (_, __) async => true,
+        onConfirmIrreversibleTool: (_, __, ___) async => true,
       );
 
       final result = await registry.execute(
@@ -423,7 +539,7 @@ void main() {
       final setup = await _trashedVault();
       final registry = FolioToolRegistry(
         setup.session,
-        onConfirmIrreversibleTool: (name, _) async {
+        onConfirmIrreversibleTool: (name, _, __) async {
           expect(name, 'empty_trash');
           return false;
         },
@@ -442,7 +558,7 @@ void main() {
       final setup = await _trashedVault();
       final registry = FolioToolRegistry(
         setup.session,
-        onConfirmIrreversibleTool: (_, __) async => true,
+        onConfirmIrreversibleTool: (_, __, ___) async => true,
       );
 
       final result = await registry.execute(_call('empty_trash', {}));
@@ -453,6 +569,44 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'Fase 3: el gate pasa un preview no-nulo si la tool supportsPreview, '
+      'y null si no',
+      () async {
+        final setup = await _trashedVault();
+        AiToolPreview? capturedForDelete;
+        final registryWithPreview = FolioToolRegistry(
+          setup.session,
+          onConfirmIrreversibleTool: (name, args, preview) async {
+            capturedForDelete = preview;
+            return true;
+          },
+        );
+        await registryWithPreview.execute(
+          _call('permanently_delete_page', {'pageId': setup.trashPageId}),
+        );
+        expect(capturedForDelete, isNotNull);
+        expect(capturedForDelete!.summary, isNotEmpty);
+
+        // delete_folder_flatten_children también supportsPreview y ahora
+        // requiresConfirmation (Fase 3) — mismo comportamiento.
+        final session2 = VaultSession();
+        final folderId = session2.addFolder(title: 'Carpeta', parentId: null);
+        AiToolPreview? capturedForFolder;
+        final registry2 = FolioToolRegistry(
+          session2,
+          onConfirmIrreversibleTool: (name, args, preview) async {
+            capturedForFolder = preview;
+            return true;
+          },
+        );
+        await registry2.execute(
+          _call('delete_folder_flatten_children', {'folderId': folderId}),
+        );
+        expect(capturedForFolder, isNotNull);
+      },
+    );
   });
 
   group('FolioToolRegistry — get_page_content y allowlist MCP', () {
@@ -694,7 +848,14 @@ void main() {
       () {
         final session = VaultSession();
         final registry = FolioToolRegistry(session);
-        const expectedConfirmable = {'permanently_delete_page', 'empty_trash'};
+        const expectedConfirmable = {
+          'permanently_delete_page',
+          'empty_trash',
+          // Fase 3 de Quill 2.0 — era destructiva+irreversible+previewable
+          // pero le faltaba requiresConfirmation, inconsistente con las
+          // otras 2 tools de este mismo nivel.
+          'delete_folder_flatten_children',
+        };
         const expectedPreviewable = {
           'trash_page',
           'permanently_delete_page',

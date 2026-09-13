@@ -380,7 +380,9 @@ void main() {
   });
 
   test(
-    'tools/call empty_trash sin onConfirmIrreversibleTool no pide confirmación',
+    // Fase 3 de Quill 2.0 — antes se aprobaba en silencio sin callback; ahora
+    // es fail-closed: sin onConfirmIrreversibleTool, la ejecución se rechaza.
+    'tools/call empty_trash sin onConfirmIrreversibleTool se rechaza (fail-closed)',
     () async {
       await initializeAsClient();
       session.addPage(parentId: null);
@@ -400,8 +402,12 @@ void main() {
 
       expect(res['_statusCode'], 200);
       final result = res['result'] as Map<String, dynamic>;
-      expect(result['isError'], isNot(true));
-      expect(session.pages.any((p) => p.id == trashId), isFalse);
+      expect(result['isError'], isTrue);
+      expect(
+        session.pages.any((p) => p.id == trashId),
+        isTrue,
+        reason: 'sin callback, la papelera NO debe vaciarse',
+      );
     },
   );
 

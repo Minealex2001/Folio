@@ -300,7 +300,7 @@ void main() {
           'contextPageIds': <String>[],
           'languageCode': 'es',
         },
-        onConfirmIrreversibleTool: (name, _) async {
+        onConfirmIrreversibleTool: (name, _, __) async {
           confirmCalls++;
           expect(name, 'empty_trash');
           return false;
@@ -308,6 +308,83 @@ void main() {
       );
 
       expect(confirmCalls, 1);
+      expect(outcome.toolErrors, isNotNull);
+      expect(
+        session.pages.any((p) => p.id == trashId && p.isTrashed),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'Fase 3: agentChatWithAi(useToolCalling: true) en el camino normal '
+    '(no-Plan) también invoca onConfirmIrreversibleTool para una tool '
+    'destructiva, y bloquea la ejecución si devuelve false',
+    () async {
+      final ai = _ScriptedAiService([
+        const AiCompletionResult(
+          text: '',
+          toolCalls: [
+            AiToolCall(id: 'c1', name: 'empty_trash', arguments: {}),
+          ],
+        ),
+        const AiCompletionResult(text: 'No vacié la papelera.'),
+      ]);
+      final session = _readySession(ai);
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final trashId = session.pages.last.id;
+      session.movePageToTrash(trashId);
+      var confirmCalls = 0;
+
+      final outcome = await session.agentChatWithAi(
+        messages: const [],
+        prompt: 'Vacía la papelera',
+        useToolCalling: true,
+        onConfirmIrreversibleTool: (name, _, preview) async {
+          confirmCalls++;
+          expect(name, 'empty_trash');
+          expect(preview, isNotNull);
+          return false;
+        },
+      );
+
+      expect(confirmCalls, 1);
+      expect(outcome.toolErrors, isNotNull);
+      expect(
+        session.pages.any((p) => p.id == trashId && p.isTrashed),
+        isTrue,
+        reason: 'la papelera NO debe vaciarse tras cancelar la confirmación',
+      );
+    },
+  );
+
+  test(
+    'Fase 3: agentChatWithAi(useToolCalling: true) sin '
+    'onConfirmIrreversibleTool rechaza (fail-closed) una tool destructiva '
+    'en el camino normal, donde antes se ejecutaba sin protección',
+    () async {
+      final ai = _ScriptedAiService([
+        const AiCompletionResult(
+          text: '',
+          toolCalls: [
+            AiToolCall(id: 'c1', name: 'empty_trash', arguments: {}),
+          ],
+        ),
+        const AiCompletionResult(text: 'No pude vaciar la papelera.'),
+      ]);
+      final session = _readySession(ai);
+      session.addPage(parentId: null);
+      session.addPage(parentId: null);
+      final trashId = session.pages.last.id;
+      session.movePageToTrash(trashId);
+
+      final outcome = await session.agentChatWithAi(
+        messages: const [],
+        prompt: 'Vacía la papelera',
+        useToolCalling: true,
+      );
+
       expect(outcome.toolErrors, isNotNull);
       expect(
         session.pages.any((p) => p.id == trashId && p.isTrashed),
