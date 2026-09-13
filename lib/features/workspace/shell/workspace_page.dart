@@ -433,6 +433,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.openOrCreateAiChatForBlock(pageId, blockId, titleHint: titleHint);
   }
 
+  /// Fase 6 de Quill 2.0 — atajo de un toque: abre/reanuda el hilo de la
+  /// entidad (igual que [_openQuillThreadForBlock]) y a continuación abre el
+  /// picker de workflows ya existente, que enviará al hilo recién activado.
+  void _runQuillWorkflowForBlock(
+    String pageId,
+    String blockId, {
+    String? titleHint,
+  }) {
+    _openQuillThreadForBlock(pageId, blockId, titleHint: titleHint);
+    _openQuillWorkflowsPicker();
+  }
+
   int _inkCostForOperationKind(String kind) {
     final fallbackDefault = kFolioCloudInkCostFallback['default'] ?? 3;
     return _cloudInkCostByOperation[kind] ??
@@ -737,9 +749,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   /// nunca se escribe memoria sin esta acción manual.
   void _saveReplyAsMemoryFact(String text, MemoryFactScope scope) {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    final vaultId = _s.vaultId;
+    if (trimmed.isEmpty || vaultId == null || vaultId.isEmpty) return;
     unawaited(
       widget.appSettings.addVaultMemoryFact(
+        vaultId,
         VaultMemoryFact(
           id: const Uuid().v4(),
           text: trimmed,
@@ -2528,6 +2542,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         afterBlockId: kanbanBlock?.id,
         selectPage: true,
         onOpenQuillThread: _openQuillThreadForBlock,
+        onRunQuillWorkflow: _runQuillWorkflowForBlock,
       );
     }
 
@@ -3189,6 +3204,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     onOpenClassicEditor: () =>
                         setState(() => _kanbanClassicEditPageId = page.id),
                     onOpenQuillThread: _openQuillThreadForBlock,
+                    onRunQuillWorkflow: _runQuillWorkflowForBlock,
                   )
                 : showDrivePage
                 ? DrivePage(

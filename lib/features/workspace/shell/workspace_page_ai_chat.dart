@@ -387,7 +387,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final isCloudProvider =
         widget.appSettings.aiProvider == AiProvider.quillCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
-    final extra = _composeAiExtraContextForNextSend();
+    final extra = await _composeAiExtraContextForNextSend();
     final presets = widget.appSettings.quillSystemPrompts;
     final bestPromptId = await _classifyBestPromptId(t, presets);
     final preset = presets.firstWhere(
@@ -446,7 +446,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
   // memoria (nunca escritos por la IA sola, ver `vault_memory_fact.dart`) van
   // en TODOS los envíos; selección/última reunión son de un solo uso salvo
   // que `autoIncludeSelection` esté activo para el hilo.
-  String _composeAiExtraContextForNextSend() {
+  Future<String> _composeAiExtraContextForNextSend() async {
     final l10n = AppLocalizations.of(context);
 
     String? selectionSnippet;
@@ -461,9 +461,11 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       lastMeetingSnippet = _readLastMeetingSnippetOnPage();
     }
 
+    final memoryFacts = await widget.appSettings.getVaultMemoryFacts(_s.vaultId);
+
     return const QuillContextEngine()
         .assembleExtraContext(
-          memoryFacts: widget.appSettings.vaultMemoryFacts,
+          memoryFacts: memoryFacts,
           memoryFactsHeader: l10n.aiChatMemoryFactsHeader,
           selectionSnippet: selectionSnippet,
           selectionHeader: l10n.aiChatEditorSelectionHeader,

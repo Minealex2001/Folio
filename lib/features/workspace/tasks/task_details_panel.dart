@@ -84,6 +84,7 @@ Future<void> showTaskDetails({
   required VaultSession session,
   required TaskRef taskRef,
   OpenQuillThreadForBlock? onOpenQuillThread,
+  OpenQuillThreadForBlock? onRunQuillWorkflow,
 }) async {
   final width = MediaQuery.sizeOf(context).width;
   final compact = width < FolioDesktop.compactBreakpoint;
@@ -95,6 +96,7 @@ Future<void> showTaskDetails({
       session: session,
       taskRef: ref,
       onOpenQuillThread: onOpenQuillThread,
+      onRunQuillWorkflow: onRunQuillWorkflow,
     );
   }
 
@@ -117,6 +119,7 @@ Future<void> showTaskDetails({
               });
             },
             onOpenQuillThread: onOpenQuillThread,
+            onRunQuillWorkflow: onRunQuillWorkflow,
           ),
         ),
       ),
@@ -160,6 +163,7 @@ Future<void> showTaskDetails({
                   onToggleFullScreen: () =>
                       setDlgState(() => fullScreen = !fullScreen),
                   onOpenQuillThread: onOpenQuillThread,
+                  onRunQuillWorkflow: onRunQuillWorkflow,
                 ),
               ),
             ),
@@ -179,6 +183,7 @@ Future<TaskRef?> createTaskDraftAndOpenDetails({
   String? afterBlockId,
   bool selectPage = false,
   OpenQuillThreadForBlock? onOpenQuillThread,
+  OpenQuillThreadForBlock? onRunQuillWorkflow,
 }) async {
   final ref = createTaskDraft(
     session: session,
@@ -196,6 +201,7 @@ Future<TaskRef?> createTaskDraftAndOpenDetails({
     session: session,
     taskRef: ref,
     onOpenQuillThread: onOpenQuillThread,
+    onRunQuillWorkflow: onRunQuillWorkflow,
   );
   return ref;
 }
@@ -209,6 +215,7 @@ class TaskDetailsPanel extends StatelessWidget {
     required this.isFullScreen,
     required this.onToggleFullScreen,
     this.onOpenQuillThread,
+    this.onRunQuillWorkflow,
   });
 
   final VaultSession session;
@@ -218,6 +225,7 @@ class TaskDetailsPanel extends StatelessWidget {
   final bool isFullScreen;
   final VoidCallback onToggleFullScreen;
   final OpenQuillThreadForBlock? onOpenQuillThread;
+  final OpenQuillThreadForBlock? onRunQuillWorkflow;
 
   @override
   Widget build(BuildContext context) {
@@ -235,6 +243,7 @@ class TaskDetailsPanel extends StatelessWidget {
         isFullScreen: isFullScreen,
         onToggleFullScreen: onToggleFullScreen,
         onOpenQuillThread: onOpenQuillThread,
+        onRunQuillWorkflow: onRunQuillWorkflow,
       ),
     );
   }
@@ -247,6 +256,7 @@ class TaskDetailsSheet extends StatelessWidget {
     required this.onClose,
     required this.onOpenTaskRef,
     this.onOpenQuillThread,
+    this.onRunQuillWorkflow,
   });
 
   final VaultSession session;
@@ -254,6 +264,7 @@ class TaskDetailsSheet extends StatelessWidget {
   final VoidCallback onClose;
   final void Function(TaskRef ref) onOpenTaskRef;
   final OpenQuillThreadForBlock? onOpenQuillThread;
+  final OpenQuillThreadForBlock? onRunQuillWorkflow;
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +284,7 @@ class TaskDetailsSheet extends StatelessWidget {
           isFullScreen: false,
           onToggleFullScreen: null,
           onOpenQuillThread: onOpenQuillThread,
+          onRunQuillWorkflow: onRunQuillWorkflow,
         ),
       ),
     );
@@ -288,11 +300,13 @@ class TaskDetailsContent extends StatefulWidget {
     required this.isFullScreen,
     required this.onToggleFullScreen,
     this.onOpenQuillThread,
+    this.onRunQuillWorkflow,
   });
 
   final bool isFullScreen;
   final VoidCallback? onToggleFullScreen;
   final OpenQuillThreadForBlock? onOpenQuillThread;
+  final OpenQuillThreadForBlock? onRunQuillWorkflow;
 
   final VaultSession session;
   final TaskRef taskRef;
@@ -2448,6 +2462,16 @@ class TaskDetailsContentState extends State<TaskDetailsContent> {
                         titleHint: data.title,
                       ),
                       icon: const Icon(FolioIcons.quillOutlined),
+                    ),
+                  if (widget.onRunQuillWorkflow != null)
+                    IconButton(
+                      tooltip: l10n.taskDetailsRunQuillWorkflowTooltip,
+                      onPressed: () => widget.onRunQuillWorkflow!(
+                        widget.taskRef.pageId,
+                        widget.taskRef.blockId,
+                        titleHint: data.title,
+                      ),
+                      icon: const Icon(Icons.auto_awesome_motion_outlined),
                     ),
                   IconButton(
                     tooltip: l10n.taskDetailsDeleteTooltip,

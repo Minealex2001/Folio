@@ -1,25 +1,49 @@
 {
   "ca": [
+    "quillWorkflowsViewTitle",
     "aiToolConfirmGenericTitle",
     "aiToolConfirmGenericBody",
-    "taskDetailsOpenQuillTooltip"
+    "taskDetailsOpenQuillTooltip",
+    "taskDetailsRunQuillWorkflowTooltip",
+    "quillWorkflowPrepMeetingName",
+    "quillWorkflowWeeklyReviewName",
+    "quillWorkflowPendingTasksName",
+    "quillWorkflowAnalyzeProjectName"
   ],
 
   "eu": [
+    "quillWorkflowsViewTitle",
     "aiToolConfirmGenericTitle",
     "aiToolConfirmGenericBody",
-    "taskDetailsOpenQuillTooltip"
+    "taskDetailsOpenQuillTooltip",
+    "taskDetailsRunQuillWorkflowTooltip",
+    "quillWorkflowPrepMeetingName",
+    "quillWorkflowWeeklyReviewName",
+    "quillWorkflowPendingTasksName",
+    "quillWorkflowAnalyzeProjectName"
   ],
 
   "gl": [
+    "quillWorkflowsViewTitle",
     "aiToolConfirmGenericTitle",
     "aiToolConfirmGenericBody",
-    "taskDetailsOpenQuillTooltip"
+    "taskDetailsOpenQuillTooltip",
+    "taskDetailsRunQuillWorkflowTooltip",
+    "quillWorkflowPrepMeetingName",
+    "quillWorkflowWeeklyReviewName",
+    "quillWorkflowPendingTasksName",
+    "quillWorkflowAnalyzeProjectName"
   ],
 
   "pt": [
+    "quillWorkflowsViewTitle",
     "aiToolConfirmGenericTitle",
     "aiToolConfirmGenericBody",
-    "taskDetailsOpenQuillTooltip"
+    "taskDetailsOpenQuillTooltip",
+    "taskDetailsRunQuillWorkflowTooltip",
+    "quillWorkflowPrepMeetingName",
+    "quillWorkflowWeeklyReviewName",
+    "quillWorkflowPendingTasksName",
+    "quillWorkflowAnalyzeProjectName"
   ]
 }

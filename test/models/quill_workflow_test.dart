@@ -106,4 +106,45 @@ void main() {
       expect(restored.history.single.promptTemplate, 'A');
     });
   });
+
+  group('QuillWorkflow.isSystemDefault (Fase 6 de Quill 2.0)', () {
+    test('por defecto es false', () {
+      const workflow = QuillWorkflow(id: 'w1', name: 'X', currentVersion: 1, promptTemplate: 'A');
+      expect(workflow.isSystemDefault, isFalse);
+    });
+
+    test('sobrevive a toJson/fromJson', () {
+      const workflow = QuillWorkflow(
+        id: 'quill_wf_x',
+        name: 'X',
+        currentVersion: 1,
+        promptTemplate: 'A',
+        isSystemDefault: true,
+      );
+      final restored = QuillWorkflow.fromJson(workflow.toJson());
+      expect(restored.isSystemDefault, isTrue);
+    });
+
+    test('un JSON de una versión anterior (sin isSystemDefault) se deserializa como false', () {
+      final restored = QuillWorkflow.fromJson({
+        'id': 'w1',
+        'name': 'X',
+        'currentVersion': 1,
+        'promptTemplate': 'A',
+      });
+      expect(restored.isSystemDefault, isFalse);
+    });
+
+    test('sobrevive a edited()', () {
+      const workflow = QuillWorkflow(
+        id: 'quill_wf_x',
+        name: 'X',
+        currentVersion: 1,
+        promptTemplate: 'A',
+        isSystemDefault: true,
+      );
+      final edited = workflow.edited(newPromptTemplate: 'B');
+      expect(edited.isSystemDefault, isTrue);
+    });
+  });
 }

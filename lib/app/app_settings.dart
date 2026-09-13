@@ -485,7 +485,13 @@ class AppSettings extends ChangeNotifier {
   static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
   static const _activeQuillPromptIdKey = 'folio_active_quill_prompt_id';
   static const _quillSystemPromptsJsonKey = 'folio_quill_system_prompts_json';
-  static const _vaultMemoryFactsJsonKey = 'folio_vault_memory_facts_json';
+  /// Fase 5 de Quill 2.0 — clave legacy, previa al aislamiento por libreta:
+  /// una única lista global de hechos compartida por todos los vaults del
+  /// dispositivo. Se conserva solo para la migración best-effort en
+  /// `_readVaultMemoryFacts` — nunca se vuelve a escribir en ella.
+  static const _legacyVaultMemoryFactsJsonKey = 'folio_vault_memory_facts_json';
+  static String _vaultMemoryFactsJsonKey(String vaultId) =>
+      'folio_vault_memory_facts_json_${vaultId.trim()}';
   static const _quillWorkflowsJsonKey = 'folio_quill_workflows_json';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
@@ -769,7 +775,6 @@ class AppSettings extends ChangeNotifier {
   String _aiCustomSystemPrompt = '';
   String _activeQuillPromptId = 'quill_default';
   List<QuillSystemPrompt> _quillSystemPrompts = [];
-  List<VaultMemoryFact> _vaultMemoryFacts = [];
   List<QuillWorkflow> _quillWorkflows = [];
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
@@ -964,7 +969,6 @@ class AppSettings extends ChangeNotifier {
   String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
   String get activeQuillPromptId => _activeQuillPromptId;
   List<QuillSystemPrompt> get quillSystemPrompts => _quillSystemPrompts;
-  List<VaultMemoryFact> get vaultMemoryFacts => _vaultMemoryFacts;
   List<QuillWorkflow> get quillWorkflows => _quillWorkflows;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
@@ -1282,18 +1286,6 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
-    final memoryFactsJson = p.getString(_vaultMemoryFactsJsonKey);
-    if (memoryFactsJson != null) {
-      try {
-        final decoded = jsonDecode(memoryFactsJson) as List<dynamic>;
-        _vaultMemoryFacts = decoded
-            .map((item) => VaultMemoryFact.fromJson(item as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        _vaultMemoryFacts = [];
-      }
-    }
-
     final workflowsJson = p.getString(_quillWorkflowsJsonKey);
     if (workflowsJson != null) {
       try {
@@ -1351,6 +1343,51 @@ class AppSettings extends ChangeNotifier {
 
     _quillSystemPrompts.removeWhere((p) => p.isSystemDefault);
     _quillSystemPrompts.insertAll(0, defaultPrompts);
+
+    // Fase 6 de Quill 2.0 — mismo mecanismo exacto que `defaultPrompts` de
+    // arriba: presets de workflow incluidos de fábrica, reinsertados en cada
+    // `load()` (nunca se pierden, nunca se duplican con los del usuario).
+    final List<QuillWorkflow> defaultQuillWorkflows = [
+      QuillWorkflow(
+        id: 'quill_wf_prep_meeting',
+        name: l10n.quillWorkflowPrepMeetingName,
+        currentVersion: 1,
+        promptTemplate: isEs
+            ? 'Ayúdame a preparar la reunión sobre «{{tema}}»: revisa las páginas relacionadas de este proyecto, resume el contexto relevante y propón una agenda breve con los puntos clave a tratar.'
+            : 'Help me prepare for the meeting about "{{topic}}": review the related pages in this project, summarize the relevant context, and propose a short agenda with the key points to cover.',
+        isSystemDefault: true,
+      ),
+      QuillWorkflow(
+        id: 'quill_wf_weekly_review',
+        name: l10n.quillWorkflowWeeklyReviewName,
+        currentVersion: 1,
+        promptTemplate: isEs
+            ? 'Haz una revisión semanal: resume las tareas completadas, las que siguen pendientes y las páginas más relevantes que he tocado recientemente. Señala si algo importante parece bloqueado o atrasado.'
+            : 'Do a weekly review: summarize completed tasks, tasks still pending, and the most relevant pages I\'ve touched recently. Flag anything important that looks blocked or overdue.',
+        isSystemDefault: true,
+      ),
+      QuillWorkflow(
+        id: 'quill_wf_pending_tasks',
+        name: l10n.quillWorkflowPendingTasksName,
+        currentVersion: 1,
+        promptTemplate: isEs
+            ? 'Revisa las tareas pendientes de este proyecto: agrúpalas por prioridad o urgencia, señala las que llevan más tiempo sin moverse y sugiere cuáles convendría atacar primero.'
+            : 'Review the pending tasks in this project: group them by priority or urgency, flag the ones that haven\'t moved in a while, and suggest which ones to tackle first.',
+        isSystemDefault: true,
+      ),
+      QuillWorkflow(
+        id: 'quill_wf_analyze_project',
+        name: l10n.quillWorkflowAnalyzeProjectName,
+        currentVersion: 1,
+        promptTemplate: isEs
+            ? 'Analiza el contenido de esta página o proyecto: resume de qué trata, identifica huecos o inconsistencias, y dime qué crees que falta por completar o aclarar.'
+            : 'Analyze the content of this page or project: summarize what it\'s about, identify gaps or inconsistencies, and tell me what you think is missing or needs clarifying.',
+        isSystemDefault: true,
+      ),
+    ];
+
+    _quillWorkflows.removeWhere((w) => w.isSystemDefault);
+    _quillWorkflows.insertAll(0, defaultQuillWorkflows);
 
     _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
@@ -2120,30 +2157,92 @@ class AppSettings extends ChangeNotifier {
     await _saveQuillSystemPrompts();
   }
 
-  Future<void> _saveVaultMemoryFacts() async {
+  /// Fase 5 de Quill 2.0 — lee los hechos de memoria de [vaultId], aislados
+  /// por libreta (antes eran una única lista global compartida por todos los
+  /// vaults del dispositivo, una fuga real: los hechos de una libreta se
+  /// filtraban al contexto de Quill en todas las demás).
+  ///
+  /// Migración best-effort desde la clave legacy global: si no existe todavía
+  /// una clave por-libreta para [vaultId] pero la clave legacy tiene datos,
+  /// esos datos se adoptan como los hechos de **esta** libreta y la clave
+  /// legacy se borra de inmediato. El formato legacy nunca guardó `vaultId`,
+  /// así que no hay forma de saber a qué libreta pertenecía cada hecho — no
+  /// se intenta repartir ni inferir, se asignan todos en bloque a la primera
+  /// libreta que los consulte tras la actualización, y ahí termina la
+  /// migración: al borrarse la clave legacy de inmediato, ninguna libreta
+  /// posterior puede volver a reclamarlos ni reutilizarlos.
+  ///
+  /// Sin precondición de inicialización: usa `_prefs()` directamente (mismo
+  /// patrón que `getVaultBackupPrefs`/`getTaskInboxPageId`), nunca un campo
+  /// poblado por `load()`, así que es seguro llamarlo en cualquier momento,
+  /// incluso antes de que `load()` complete.
+  Future<List<VaultMemoryFact>> getVaultMemoryFacts(String? vaultId) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return const [];
+    return _readVaultMemoryFacts(await _prefs(), vid);
+  }
+
+  Future<List<VaultMemoryFact>> _readVaultMemoryFacts(
+    SharedPreferences p,
+    String vid,
+  ) async {
+    final ownJson = p.getString(_vaultMemoryFactsJsonKey(vid));
+    if (ownJson != null) {
+      return _decodeVaultMemoryFacts(ownJson);
+    }
+    final legacyJson = p.getString(_legacyVaultMemoryFactsJsonKey);
+    if (legacyJson == null) return [];
+    final migrated = _decodeVaultMemoryFacts(legacyJson);
+    await p.setString(_vaultMemoryFactsJsonKey(vid), legacyJson);
+    await p.remove(_legacyVaultMemoryFactsJsonKey);
+    notifyListeners();
+    return migrated;
+  }
+
+  List<VaultMemoryFact> _decodeVaultMemoryFacts(String json) {
+    try {
+      final decoded = jsonDecode(json) as List<dynamic>;
+      return decoded
+          .map((item) => VaultMemoryFact.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _saveVaultMemoryFacts(String vid, List<VaultMemoryFact> facts) async {
     final p = await _prefs();
-    final encoded = jsonEncode(_vaultMemoryFacts.map((e) => e.toJson()).toList());
-    await p.setString(_vaultMemoryFactsJsonKey, encoded);
+    final encoded = jsonEncode(facts.map((e) => e.toJson()).toList());
+    await p.setString(_vaultMemoryFactsJsonKey(vid), encoded);
   }
 
-  Future<void> addVaultMemoryFact(VaultMemoryFact fact) async {
-    _vaultMemoryFacts.add(fact);
+  Future<void> addVaultMemoryFact(String? vaultId, VaultMemoryFact fact) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final current = await _readVaultMemoryFacts(await _prefs(), vid);
+    current.add(fact);
+    await _saveVaultMemoryFacts(vid, current);
     notifyListeners();
-    await _saveVaultMemoryFacts();
   }
 
-  Future<void> deleteVaultMemoryFact(String id) async {
-    _vaultMemoryFacts.removeWhere((e) => e.id == id);
+  Future<void> deleteVaultMemoryFact(String? vaultId, String id) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final current = await _readVaultMemoryFacts(await _prefs(), vid);
+    current.removeWhere((e) => e.id == id);
+    await _saveVaultMemoryFacts(vid, current);
     notifyListeners();
-    await _saveVaultMemoryFacts();
   }
 
   /// Acción rápida de gestión de la pantalla de hechos (Fase A4) — borra
   /// solo los de `scope == temporary`, deja los permanentes intactos.
-  Future<void> clearTemporaryVaultMemoryFacts() async {
-    _vaultMemoryFacts.removeWhere((e) => e.scope == MemoryFactScope.temporary);
+  Future<void> clearTemporaryVaultMemoryFacts(String? vaultId) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final current = await _readVaultMemoryFacts(await _prefs(), vid);
+    current.removeWhere((e) => e.scope == MemoryFactScope.temporary);
+    await _saveVaultMemoryFacts(vid, current);
     notifyListeners();
-    await _saveVaultMemoryFacts();
   }
 
   Future<void> _saveQuillWorkflows() async {

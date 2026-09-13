@@ -42,12 +42,19 @@ class QuillWorkflow {
     required this.currentVersion,
     required this.promptTemplate,
     this.history = const [],
+    this.isSystemDefault = false,
   });
 
   final String id;
   final String name;
   final int currentVersion;
   final String promptTemplate;
+
+  /// Fase 6 de Quill 2.0 — preset incluido de fábrica (mismo concepto que
+  /// `QuillSystemPrompt.isSystemDefault`): se reinserta en cada `load()` de
+  /// `AppSettings`, así que la UI no debe permitir borrarlo ni editarlo
+  /// libremente (ver el guard en `quill_workflows_page.dart`).
+  final bool isSystemDefault;
 
   /// Versiones anteriores, más antigua primero — nunca se pierde una al
   /// editar (ver `QuillWorkflow.edited`).
@@ -91,6 +98,7 @@ class QuillWorkflow {
           savedAt: DateTime.now(),
         ),
       ],
+      isSystemDefault: isSystemDefault,
     );
   }
 
@@ -100,6 +108,7 @@ class QuillWorkflow {
         'currentVersion': currentVersion,
         'promptTemplate': promptTemplate,
         if (history.isNotEmpty) 'history': history.map((h) => h.toJson()).toList(),
+        if (isSystemDefault) 'isSystemDefault': true,
       };
 
   factory QuillWorkflow.fromJson(Map<String, dynamic> json) {
@@ -113,6 +122,7 @@ class QuillWorkflow {
           .whereType<Map>()
           .map((h) => QuillWorkflowVersion.fromJson(Map<String, dynamic>.from(h)))
           .toList(),
+      isSystemDefault: json['isSystemDefault'] as bool? ?? false,
     );
   }
 }

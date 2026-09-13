@@ -48,6 +48,7 @@ class KanbanBoardPage extends StatefulWidget {
     required this.appSettings,
     required this.onOpenClassicEditor,
     this.onOpenQuillThread,
+    this.onRunQuillWorkflow,
   });
 
   final String pageId;
@@ -55,6 +56,7 @@ class KanbanBoardPage extends StatefulWidget {
   final AppSettings appSettings;
   final VoidCallback onOpenClassicEditor;
   final OpenQuillThreadForBlock? onOpenQuillThread;
+  final OpenQuillThreadForBlock? onRunQuillWorkflow;
 
   @override
   State<KanbanBoardPage> createState() => _KanbanBoardPageState();
@@ -474,6 +476,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 });
               },
               onOpenQuillThread: widget.onOpenQuillThread,
+              onRunQuillWorkflow: widget.onRunQuillWorkflow,
             ),
           ),
         ),
@@ -1400,6 +1403,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 isFullScreen: _detailsFullScreen,
                 onToggleFullScreen: () => setState(() => _detailsFullScreen = !_detailsFullScreen),
                 onOpenQuillThread: widget.onOpenQuillThread,
+                onRunQuillWorkflow: widget.onRunQuillWorkflow,
               ),
             ),
           ),

@@ -671,7 +671,7 @@ extension _SettingsPageAiSection on _SettingsPageState {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => VaultMemoryFactsPage(appSettings: _app),
+                builder: (_) => VaultMemoryFactsPage(appSettings: _app, vaultId: _vaultId),
               ),
             ),
           ),

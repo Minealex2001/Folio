@@ -17,26 +17,37 @@ class QuillWorkflowsPage extends StatefulWidget {
 }
 
 class _QuillWorkflowsPageState extends State<QuillWorkflowsPage> {
-  Future<void> _showEditor({QuillWorkflow? existing}) async {
+  /// Fase 6 de Quill 2.0 — `readOnly` para presets `isSystemDefault` (mismo
+  /// guard que ya usa `_showEditQuillPromptDialog` para
+  /// `QuillSystemPrompt.isSystemDefault`): se reinsertan en cada `load()` de
+  /// `AppSettings`, así que editarlos/borrarlos no persistiría de verdad.
+  Future<void> _showEditor({QuillWorkflow? existing, bool readOnly = false}) async {
     final l10n = AppLocalizations.of(context);
     final nameController = TextEditingController(text: existing?.name ?? '');
     final promptController = TextEditingController(text: existing?.promptTemplate ?? '');
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(existing == null ? l10n.quillWorkflowsAddTitle : l10n.quillWorkflowsEditTitle),
+        title: Text(
+          existing == null
+              ? l10n.quillWorkflowsAddTitle
+              : (readOnly ? l10n.quillWorkflowsViewTitle : l10n.quillWorkflowsEditTitle),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: InputDecoration(hintText: l10n.quillWorkflowsNameHint),
-            ),
-            const SizedBox(height: 12),
+            if (!readOnly) ...[
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(hintText: l10n.quillWorkflowsNameHint),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               controller: promptController,
               maxLines: 5,
+              readOnly: readOnly,
               decoration: InputDecoration(hintText: l10n.quillWorkflowsPromptHint),
             ),
           ],
@@ -44,16 +55,17 @@ class _QuillWorkflowsPageState extends State<QuillWorkflowsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
+            child: Text(readOnly ? l10n.quillPromptBack : l10n.cancel),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.quillWorkflowsSave),
-          ),
+          if (!readOnly)
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.quillWorkflowsSave),
+            ),
         ],
       ),
     );
-    if (saved != true) return;
+    if (readOnly || saved != true) return;
     final name = nameController.text.trim();
     final prompt = promptController.text.trim();
     if (name.isEmpty || prompt.isEmpty) return;
@@ -156,7 +168,12 @@ class _QuillWorkflowsPageState extends State<QuillWorkflowsPage> {
                   children: [
                     for (final workflow in workflows)
                       ListTile(
-                        leading: const Icon(Icons.auto_awesome_motion_outlined),
+                        leading: Icon(
+                          workflow.isSystemDefault
+                              ? Icons.auto_awesome_motion
+                              : Icons.auto_awesome_motion_outlined,
+                          color: workflow.isSystemDefault ? scheme.primary : null,
+                        ),
                         title: Text(workflow.name),
                         subtitle: Text(
                           workflow.promptTemplate,
@@ -172,15 +189,19 @@ class _QuillWorkflowsPageState extends State<QuillWorkflowsPage> {
                               tooltip: l10n.quillWorkflowsHistoryTitle,
                               onPressed: () => _showHistory(workflow),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              tooltip: l10n.quillWorkflowsDelete,
-                              onPressed: () =>
-                                  widget.appSettings.deleteQuillWorkflow(workflow.id),
-                            ),
+                            if (!workflow.isSystemDefault)
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                tooltip: l10n.quillWorkflowsDelete,
+                                onPressed: () =>
+                                    widget.appSettings.deleteQuillWorkflow(workflow.id),
+                              ),
                           ],
                         ),
-                        onTap: () => _showEditor(existing: workflow),
+                        onTap: () => _showEditor(
+                          existing: workflow,
+                          readOnly: workflow.isSystemDefault,
+                        ),
                       ),
                   ],
                 ),
