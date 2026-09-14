@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/vault_memory_fact.dart';
 
@@ -102,6 +103,64 @@ class _VaultMemoryFactsPageState extends State<VaultMemoryFactsPage> {
     );
   }
 
+  /// Fase 8 de Quill 2.0 — antes, borrar un hecho (o vaciar todos los
+  /// temporales) era inmediato, sin confirmación ni undo, pese a que Quill
+  /// los usa activamente como contexto en cada mensaje. Mismo patrón de
+  /// diálogo destructivo que `vault_trash_sheet.dart` (`FolioDialog` +
+  /// botón en `scheme.error`).
+  Future<bool> _confirmDestructive({
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) async {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _deleteFact(VaultMemoryFact fact) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await _confirmDestructive(
+      title: l10n.vaultMemoryFactsDelete,
+      body: l10n.vaultMemoryFactsDeleteConfirm,
+      confirmLabel: l10n.vaultMemoryFactsDelete,
+    );
+    if (!confirmed) return;
+    await widget.appSettings.deleteVaultMemoryFact(widget.vaultId, fact.id);
+  }
+
+  Future<void> _clearTemporary() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await _confirmDestructive(
+      title: l10n.vaultMemoryFactsClearTemporary,
+      body: l10n.vaultMemoryFactsClearTemporaryConfirm,
+      confirmLabel: l10n.vaultMemoryFactsClearTemporary,
+    );
+    if (!confirmed) return;
+    await widget.appSettings.clearTemporaryVaultMemoryFacts(widget.vaultId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -130,8 +189,7 @@ class _VaultMemoryFactsPageState extends State<VaultMemoryFactsPage> {
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline_rounded),
           tooltip: l10n.vaultMemoryFactsDelete,
-          onPressed: () =>
-              widget.appSettings.deleteVaultMemoryFact(widget.vaultId, fact.id),
+          onPressed: () => _deleteFact(fact),
         ),
       );
     }
@@ -167,8 +225,7 @@ class _VaultMemoryFactsPageState extends State<VaultMemoryFactsPage> {
                       ),
                       if (temporary.isNotEmpty)
                         TextButton(
-                          onPressed: () => widget.appSettings
-                              .clearTemporaryVaultMemoryFacts(widget.vaultId),
+                          onPressed: _clearTemporary,
                           child: Text(l10n.vaultMemoryFactsClearTemporary),
                         ),
                     ],

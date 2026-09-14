@@ -78,8 +78,10 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
         _endAiChatCancelToken(cancelToken);
         _setStateSafe(() => _aiChatBusy = false);
         final l10n = AppLocalizations.of(context);
+        final isLocalProvider = widget.appSettings.aiProvider == AiProvider.ollama ||
+            widget.appSettings.aiProvider == AiProvider.lmStudio;
         final msg = e is AiServiceUnreachableException
-            ? l10n.aiServiceUnreachable
+            ? (isLocalProvider ? l10n.aiServiceUnreachable : l10n.aiServiceUnreachableRemote)
             : l10n.aiErrorWithDetails(e);
         _snack(msg, error: true);
       }

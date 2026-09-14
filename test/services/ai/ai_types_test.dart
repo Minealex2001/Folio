@@ -143,4 +143,14 @@ void main() {
       expect(decoded.title, 'Chat antiguo');
     });
   });
+
+  group('AiImageGenerationUnsupportedException (Fase 7.5 de Quill 2.0)', () {
+    test('toString() da un mensaje humano, no un volcado de nombre de clase', () {
+      final message = AiImageGenerationUnsupportedException('ollama').toString();
+
+      expect(message, isNot(contains('AiImageGenerationUnsupportedException(')));
+      expect(message, contains('ollama'));
+      expect(message.toLowerCase(), contains('not supported'));
+    });
+  });
 }

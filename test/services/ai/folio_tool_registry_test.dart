@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/models/block.dart';
 import 'package:folio/services/ai/ai_tool.dart';
@@ -937,6 +938,49 @@ void main() {
       final registry = FolioToolRegistry(session);
       final preview = registry.preview(_call('rename_page', {'pageId': 'x', 'title': 'y'}));
       expect(preview, isNull);
+    });
+  });
+
+  group('FolioToolRegistry — Fase 8 (mensajes de error vía l10n, no texto crudo)', () {
+    test('un pageId inexistente da un mensaje distinto en inglés que en español', () async {
+      final session = VaultSession();
+      final registry = FolioToolRegistry(session);
+
+      final esResult = await registry.execute(
+        _call('rename_page', {'pageId': 'inexistente', 'title': 'X'}),
+      );
+      session.titleLocale = const Locale('en');
+      final enResult = await registry.execute(
+        _call('rename_page', {'pageId': 'inexistente', 'title': 'X'}),
+      );
+
+      expect(esResult.isError, isTrue);
+      expect(enResult.isError, isTrue);
+      expect(esResult.content, contains('Página no encontrada'));
+      expect(enResult.content, contains('Page not found'));
+      expect(enResult.content, isNot(contains('Página')));
+    });
+
+    test('un tool desconocido da el mensaje localizado con el nombre de la tool', () async {
+      final session = VaultSession()..titleLocale = const Locale('en');
+      final registry = FolioToolRegistry(session);
+
+      final result = await registry.execute(_call('tool_que_no_existe', {}));
+
+      expect(result.isError, isTrue);
+      expect(result.content, 'Unknown tool: tool_que_no_existe');
+    });
+
+    test('generate_image sin provider da el mensaje localizado, no una excepción cruda', () async {
+      final session = VaultSession()..titleLocale = const Locale('en');
+      final registry = FolioToolRegistry(session);
+
+      final result = await registry.execute(
+        _call('generate_image', {'prompt': 'un gato'}),
+      );
+
+      expect(result.isError, isTrue);
+      expect(result.content, contains('does not support image generation'));
     });
   });
 }

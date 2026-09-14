@@ -180,6 +180,9 @@ class ToolEmulatingAiService implements AiService {
   bool get supportsImageGeneration => _inner.supportsImageGeneration;
 
   @override
+  bool get supportsVision => _inner.supportsVision;
+
+  @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
     String? pageContextText,

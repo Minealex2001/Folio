@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/folio_backend_config.dart';
@@ -306,8 +307,16 @@ class FolioCloudAiService implements AiService {
         request.temperature != null ||
         request.maxTokens != null ||
         request.tools.isNotEmpty;
+    final textAttachments = request.attachments
+        .where((a) => !a.mimeType.startsWith('image/'))
+        .toList();
+    final imageAttachments = request.attachments
+        .where((a) => a.mimeType.startsWith('image/'))
+        .toList();
+    final basePrompt =
+        hasStructured ? request.prompt.trim() : _mergePrompt(request);
     return <String, dynamic>{
-      'prompt': (hasStructured ? request.prompt.trim() : _mergePrompt(request)),
+      'prompt': _mergePromptWithTextAttachments(basePrompt, textAttachments),
       'operationKind': request.cloudInkOperation ?? 'default',
       if (request.systemPrompt != null && request.systemPrompt!.trim().isNotEmpty)
         'systemPrompt': request.systemPrompt!.trim(),
@@ -320,7 +329,37 @@ class FolioCloudAiService implements AiService {
         'tools': request.tools.map((t) => t.toJsonSchema()).toList(),
         'toolChoice': request.toolChoice ?? 'auto',
       },
+      // Fase 7 de Quill 2.0 — antes, request.attachments no se leía en ningún
+      // punto de este archivo: cualquier imagen adjunta se descartaba en
+      // silencio. Solo se mandan las imágenes; el texto ya va fusionado en
+      // el prompt de arriba, igual que en `openai_compatible_ai_service.dart`.
+      if (imageAttachments.isNotEmpty)
+        'attachments': imageAttachments
+            .map((a) => {'name': a.name, 'mimeType': a.mimeType, 'content': a.content})
+            .toList(),
     };
+  }
+
+  /// Fase 7 de Quill 2.0 — expone `_buildCompletePayload` para tests, ya que
+  /// la clase hace llamadas de red reales en `complete()`/`completeStream()`
+  /// y no acepta un cliente HTTP inyectable (mismo patrón `ForTesting` ya
+  /// usado en `vault_session_ai.dart`).
+  @visibleForTesting
+  Map<String, dynamic> buildCompletePayloadForTesting(
+    AiCompletionRequest request,
+  ) => _buildCompletePayload(request);
+
+  String _mergePromptWithTextAttachments(
+    String prompt,
+    List<AiFileAttachment> textAttachments,
+  ) {
+    if (textAttachments.isEmpty) return prompt;
+    final b = StringBuffer(prompt);
+    b.write('\n\nAdjuntos:\n');
+    for (final a in textAttachments) {
+      b.write('\n--- ${a.name} (${a.mimeType}) ---\n${a.content}\n');
+    }
+    return b.toString().trim();
   }
 
   /// El turno actual del usuario ya va dentro de [AiCompletionRequest.prompt] (p. ej.
@@ -569,6 +608,14 @@ class FolioCloudAiService implements AiService {
   @override
   bool get supportsImageGeneration => true;
 
+  /// A diferencia de los providers locales, el modelo real lo elige
+  /// FolioBackend server-side (`OPENAI_MODEL`, un modelo flagship asumido
+  /// multimodal) — no es texto libre del usuario, así que aquí `true` es una
+  /// afirmación controlable por Folio, no una suposición sobre un modelo
+  /// arbitrario (ver `kVisionCapableModelSubstrings` para el caso contrario).
+  @override
+  bool get supportsVision => true;
+
   @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
@@ -601,7 +648,13 @@ class FolioCloudAiService implements AiService {
           );
         }
       }
-      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: mimeType);
+      final Uint8List bytes;
+      try {
+        bytes = base64Decode(b64);
+      } on FormatException {
+        throw StateError('La imagen recibida está corrupta o incompleta.');
+      }
+      return AiImageGenerationResult(bytes: bytes, mimeType: mimeType);
     } on FolioCloudException catch (e) {
       throw FolioCloudAiException(
         _mapFolioCloudAiError(e),

@@ -261,8 +261,14 @@ class AiImageGenerationUnsupportedException implements Exception {
 
   final String providerName;
 
+  // Fase 7.5 de Quill 2.0 — antes devolvía el volcado de nombre de clase
+  // (`AiImageGenerationUnsupportedException(ollama)`), que un usuario ve tal
+  // cual en un snackbar o en el chip de error de una tool. El brief exige
+  // explícitamente un error claro y accionable cuando el proveedor/modelo
+  // activo no soporta generación de imágenes — esto nunca lo era.
   @override
-  String toString() => 'AiImageGenerationUnsupportedException($providerName)';
+  String toString() =>
+      'Image generation is not supported by the "$providerName" provider/model.';
 }
 
 /// Bytes crudos de una imagen generada por [AiService.generateImage].

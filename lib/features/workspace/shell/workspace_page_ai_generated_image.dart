@@ -67,11 +67,17 @@ extension _WorkspacePageAiGeneratedImageModule on _WorkspacePageState {
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _insertGeneratedImageIntoPage(relPath),
-                    icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-                    label: Text(l10n.aiGeneratedImageInsertButton),
-                  ),
+                  child: _insertedGeneratedImagePaths.contains(relPath)
+                      ? FilledButton.tonalIcon(
+                          onPressed: null,
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(l10n.aiGeneratedImageInsertedButton),
+                        )
+                      : FilledButton.tonalIcon(
+                          onPressed: () => _insertGeneratedImageIntoPage(relPath),
+                          icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                          label: Text(l10n.aiGeneratedImageInsertButton),
+                        ),
                 ),
               ],
             ),
@@ -147,9 +153,11 @@ extension _WorkspacePageAiGeneratedImageModule on _WorkspacePageState {
   }
 
   void _insertGeneratedImageIntoPage(String relPath) {
+    if (_insertedGeneratedImagePaths.contains(relPath)) return;
     final page = _s.selectedPage;
     if (page == null) return;
     final l10n = AppLocalizations.of(context);
+    _setStateSafe(() => _insertedGeneratedImagePaths.add(relPath));
     final block = FolioBlock(
       id: '${page.id}_${const Uuid().v4()}',
       type: 'image',

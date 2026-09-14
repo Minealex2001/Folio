@@ -51,6 +51,9 @@ class _CountingAiService implements AiService {
   bool get supportsImageGeneration => false;
 
   @override
+  bool get supportsVision => false;
+
+  @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
     String? pageContextText,

@@ -29,6 +29,9 @@ class LmStudioAiService implements AiService {
   bool get supportsImageGeneration => false;
 
   @override
+  bool get supportsVision => modelNameLooksVisionCapable(defaultModel);
+
+  @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
     String? pageContextText,

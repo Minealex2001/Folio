@@ -385,6 +385,10 @@ class MeetingNoteSessionController extends ChangeNotifier {
 
       session.updateBlockUrl(pageId, blockId, relative);
       session.updateBlockText(pageId, blockId, _transcript);
+      // Fase 7 de Quill 2.0 — provenance: la transcripción la genera Whisper,
+      // no el usuario (mismo campo/badge que ya usan los bloques que Quill
+      // materializa desde el chat).
+      session.markBlockAiGenerated(pageId, blockId);
       final channelMeta = stopped['channelMeta'];
       if (channelMeta is Map) {
         session.updateBlockMeetingNoteChannelMeta(
@@ -997,6 +1001,7 @@ class MeetingNoteSessionController extends ChangeNotifier {
     if (_cloudTranscriptAccum.isNotEmpty) {
       _transcript = _cloudTranscriptAccum;
       session.updateBlockText(pageId, blockId, _cloudTranscriptAccum);
+      session.markBlockAiGenerated(pageId, blockId);
     }
 
     _cloudEtaTicker?.cancel();

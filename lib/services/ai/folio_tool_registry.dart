@@ -323,10 +323,10 @@ class FolioToolRegistry {
         case 'meeting_generate_summary':
           return await _meetingGenerateSummary(call);
         default:
-          return AiToolResult.error(call.id, 'Tool desconocido: ${call.name}');
+          return AiToolResult.error(call.id, _l10n.mcpErrorUnknownTool(call.name));
       }
     } catch (e) {
-      return AiToolResult.error(call.id, 'Error ejecutando ${call.name}: $e');
+      return AiToolResult.error(call.id, _l10n.mcpErrorExecutionFailed(call.name, '$e'));
     }
   }
 
@@ -430,18 +430,13 @@ class FolioToolRegistry {
     final args = call.arguments;
     final title = (args['title'] as String?)?.trim();
     if (title == null || title.isEmpty) {
-      return AiToolResult.error(call.id, 'Falta "title" para crear la página.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMissingTitleCreatePage);
     }
     final parentId = (args['parentId'] as String?)?.trim();
     final id = _uuid.v4();
     final blocks = _blocksFromArgs(id, args);
     if (blocks.isEmpty) {
-      return AiToolResult.error(
-        call.id,
-        'Falta contenido: "blocks" no puede estar vacío. '
-        'Vuelve a llamar create_page con título y varios bloques con texto '
-        '(h2, párrafos, listas; mermaid si piden diagramas).',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorCreatePageEmptyBlocks);
     }
     _session.createPageWithId(
       id: id,
@@ -479,7 +474,7 @@ class FolioToolRegistry {
   AiToolResult _appendBlocksToPage(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
-    if (page == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (page == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final blocks = _blocksFromArgs(pageId, call.arguments);
     for (final b in blocks) {
       _session.appendBlock(pageId: pageId, block: b);
@@ -518,10 +513,10 @@ class FolioToolRegistry {
   AiToolResult _replacePageBlocks(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
-    if (page == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (page == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final blocks = _blocksFromArgs(pageId, call.arguments);
     if (blocks.isEmpty) {
-      return AiToolResult.error(call.id, 'No se especificaron bloques de reemplazo.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorNoReplacementBlocks);
     }
     _session.mutatePageBlocks(pageId, (list) {
       list
@@ -568,10 +563,10 @@ class FolioToolRegistry {
   AiToolResult _editPageBlocks(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
-    if (page == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (page == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final rawOps = call.arguments['operations'];
     if (rawOps is! List || rawOps.isEmpty) {
-      return AiToolResult.error(call.id, 'No se especificaron operaciones.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorNoOperations);
     }
     var applied = 0;
     for (final rawOp in rawOps) {
@@ -632,7 +627,7 @@ class FolioToolRegistry {
       }
     }
     if (applied == 0) {
-      return AiToolResult.error(call.id, 'Ninguna operación pudo aplicarse.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorNoOperationApplied);
     }
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","operationsApplied":$applied}');
   }
@@ -660,7 +655,7 @@ class FolioToolRegistry {
 
   AiToolResult _insertTodos(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final lines = (call.arguments['lines'] as List?)?.map((e) => '$e').toList() ?? const [];
     QuillToolExecutor.insertTodosFromLines(_session, pageId: pageId, lines: lines);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","insertedCount":${lines.length}}');
@@ -689,7 +684,7 @@ class FolioToolRegistry {
 
   AiToolResult _insertTasks(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final tasks = (call.arguments['tasks'] as List?)?.map((e) => '$e').toList() ?? const [];
     QuillToolExecutor.insertTasksFromEncodedLines(_session, pageId: pageId, payloads: tasks);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","insertedCount":${tasks.length}}');
@@ -721,7 +716,7 @@ class FolioToolRegistry {
 
   AiToolResult _translateBilingual(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final raw = call.arguments['translations'];
     final translations = <BilingualBlockTranslation>[];
     if (raw is List) {
@@ -763,14 +758,11 @@ class FolioToolRegistry {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     final allowed = await _ensureMcpReadAccess(page);
     if (!allowed) {
-      return AiToolResult.error(
-        call.id,
-        'Lectura denegada: la página no está en la allowlist MCP.',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorReadDeniedNotAllowlisted);
     }
     final blocksJson = page.blocks.map(_blockForMcpRead).map(_jsonMap).join(',');
     final propsJson = page.properties
@@ -872,11 +864,7 @@ class FolioToolRegistry {
     final parentId = (call.arguments['parentId'] as String?)?.trim();
     final title = (call.arguments['title'] as String?)?.trim() ?? '';
     if (title.isEmpty) {
-      return AiToolResult.error(
-        call.id,
-        'Falta "title" para create_folder. Elige un nombre concreto '
-        '(p. ej. "Física"); no uses títulos genéricos.',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorMissingTitleCreateFolder);
     }
     final createdId = _session.addFolder(
       parentId: (parentId == null || parentId.isEmpty) ? null : parentId,
@@ -903,9 +891,9 @@ class FolioToolRegistry {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final title = (call.arguments['title'] as String?)?.trim() ?? '';
     if (pageId.isEmpty || title.isEmpty) {
-      return AiToolResult.error(call.id, 'Faltan "pageId" o "title".');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMissingPageIdOrTitle);
     }
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     _session.renamePage(pageId, title);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","title":${_jsonStr(title)}}');
   }
@@ -935,14 +923,14 @@ class FolioToolRegistry {
   AiToolResult _movePage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     if (pageId.isEmpty || _pageById(pageId) == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     final newParentId = (call.arguments['newParentId'] as String?)?.trim();
     final newIndex = (call.arguments['newIndex'] as num?)?.toInt() ?? 0;
     if (newParentId != null &&
         newParentId.isNotEmpty &&
         _session.isUnderAncestor(ancestorId: pageId, nodeId: newParentId)) {
-      return AiToolResult.error(call.id, 'No se puede mover una página dentro de su propio descendiente.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMoveIntoDescendant);
     }
     _session.movePage(
       pageId: pageId,
@@ -966,7 +954,7 @@ class FolioToolRegistry {
   AiToolResult _reorderPage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
-    if (page == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (page == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final newIndex = (call.arguments['newIndex'] as num?)?.toInt() ?? 0;
     _session.reorderPageWithinParent(parentId: page.parentId, pageId: pageId, newIndex: newIndex);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","newIndex":$newIndex}');
@@ -990,13 +978,13 @@ class FolioToolRegistry {
   AiToolResult _duplicatePage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final source = _pageById(pageId);
-    if (source == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (source == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final parentId = (call.arguments['parentId'] as String?)?.trim();
     final createdId = _session.createPageFromTemplate(
       pageId,
       parentId: (parentId == null || parentId.isEmpty) ? source.parentId : parentId,
     );
-    if (createdId == null) return AiToolResult.error(call.id, 'No se pudo duplicar la página.');
+    if (createdId == null) return AiToolResult.error(call.id, _l10n.mcpErrorDuplicateFailed);
     return AiToolResult.ok(call.id, '{"pageId":"$createdId"}');
   }
 
@@ -1013,7 +1001,7 @@ class FolioToolRegistry {
 
   AiToolResult _setPageEmoji(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final emoji = (call.arguments['emoji'] as String?)?.trim();
     _session.setPageEmoji(pageId, (emoji == null || emoji.isEmpty) ? null : emoji);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
@@ -1033,8 +1021,8 @@ class FolioToolRegistry {
   AiToolResult _addPageTag(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final tag = (call.arguments['tag'] as String?)?.trim() ?? '';
-    if (pageId.isEmpty || tag.isEmpty) return AiToolResult.error(call.id, 'Faltan "pageId" o "tag".');
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (pageId.isEmpty || tag.isEmpty) return AiToolResult.error(call.id, _l10n.mcpErrorMissingPageIdOrTag);
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     _session.addPageTag(pageId, tag);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","tag":${_jsonStr(tag)}}');
   }
@@ -1053,8 +1041,8 @@ class FolioToolRegistry {
   AiToolResult _removePageTag(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final tag = (call.arguments['tag'] as String?)?.trim() ?? '';
-    if (pageId.isEmpty || tag.isEmpty) return AiToolResult.error(call.id, 'Faltan "pageId" o "tag".');
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (pageId.isEmpty || tag.isEmpty) return AiToolResult.error(call.id, _l10n.mcpErrorMissingPageIdOrTag);
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     _session.removePageTag(pageId, tag);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId","tag":${_jsonStr(tag)}}');
   }
@@ -1072,9 +1060,9 @@ class FolioToolRegistry {
 
   AiToolResult _trashPage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     if (!_session.canMovePageToTrash(pageId)) {
-      return AiToolResult.error(call.id, 'No se puede enviar a la papelera (dejaría el vault vacío).');
+      return AiToolResult.error(call.id, _l10n.mcpErrorTrashWouldEmptyVault);
     }
     _session.movePageToTrash(pageId);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
@@ -1093,7 +1081,7 @@ class FolioToolRegistry {
   AiToolResult _restorePage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
-    if (page == null || !page.isTrashed) return AiToolResult.error(call.id, 'Página no está en la papelera: $pageId');
+    if (page == null || !page.isTrashed) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotInTrash(pageId));
     _session.restoreFromTrash(pageId);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
   }
@@ -1118,7 +1106,7 @@ class FolioToolRegistry {
   AiToolResult _permanentlyDeletePage(AiToolCall call) {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
-    if (page == null || !page.isTrashed) return AiToolResult.error(call.id, 'Página no está en la papelera: $pageId');
+    if (page == null || !page.isTrashed) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotInTrash(pageId));
     _session.permanentlyDeleteFromTrash(pageId);
     return AiToolResult.ok(call.id, '{"pageId":"$pageId"}');
   }
@@ -1156,7 +1144,7 @@ class FolioToolRegistry {
   AiToolResult _deleteFolderFlattenChildren(AiToolCall call) {
     final folderId = (call.arguments['folderId'] as String?)?.trim() ?? '';
     final folder = _pageById(folderId);
-    if (folder == null || !folder.isFolder) return AiToolResult.error(call.id, 'Carpeta no encontrada: $folderId');
+    if (folder == null || !folder.isFolder) return AiToolResult.error(call.id, _l10n.mcpErrorFolderNotFound(folderId));
     _session.deleteFolderMoveChildrenToRoot(folderId);
     return AiToolResult.ok(call.id, '{"folderId":"$folderId"}');
   }
@@ -1173,7 +1161,7 @@ class FolioToolRegistry {
 
   AiToolResult _searchPages(AiToolCall call) {
     final query = (call.arguments['query'] as String?)?.trim() ?? '';
-    if (query.isEmpty) return AiToolResult.error(call.id, 'Falta "query".');
+    if (query.isEmpty) return AiToolResult.error(call.id, _l10n.mcpErrorMissingQuery);
     final limit = (call.arguments['limit'] as num?)?.toInt() ?? 10;
     final results = _session.searchIndex.search(query, limit: limit);
     final encoded = results
@@ -1240,9 +1228,9 @@ class FolioToolRegistry {
 
   AiToolResult _insertBlocksAtPosition(AiToolCall call) {
     final pageId = _resolvePageId(call.arguments);
-    if (_pageById(pageId) == null) return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+    if (_pageById(pageId) == null) return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     final blocks = _blocksFromArgs(pageId, call.arguments);
-    if (blocks.isEmpty) return AiToolResult.error(call.id, 'No se especificaron bloques.');
+    if (blocks.isEmpty) return AiToolResult.error(call.id, _l10n.mcpErrorNoBlocksSpecified);
     final position = (call.arguments['position'] as String?)?.trim() ?? 'end';
     if (position == 'start') {
       _session.mutatePageBlocks(pageId, (list) => list.insertAll(0, blocks));
@@ -1429,11 +1417,11 @@ class FolioToolRegistry {
     final pageId = (call.arguments['pageId'] as String?)?.trim() ?? '';
     final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
     if (pageId.isEmpty || blockId.isEmpty) {
-      return AiToolResult.error(call.id, 'pageId y blockId son obligatorios.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMissingPageIdOrBlockId);
     }
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     FolioBlock? block;
     for (final b in page.blocks) {
@@ -1443,11 +1431,11 @@ class FolioToolRegistry {
       }
     }
     if (block == null || block.type != 'task') {
-      return AiToolResult.error(call.id, 'Bloque task no encontrado: $blockId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorTaskBlockNotFound(blockId));
     }
     final current = FolioTaskData.tryParse(block.text);
     if (current == null) {
-      return AiToolResult.error(call.id, 'No se pudo parsear la tarea.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorTaskParseFailed);
     }
     var next = current;
     if (call.arguments.containsKey('title')) {
@@ -1515,22 +1503,18 @@ class FolioToolRegistry {
   Future<AiToolResult> _generateImage(AiToolCall call) async {
     final gen = onGenerateImage;
     if (gen == null) {
-      return AiToolResult.error(
-        call.id,
-        'Este proveedor no soporta generación de imágenes; usa Quill Cloud o '
-        'configura un proveedor BYOK/local compatible con OpenAI.',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorImageProviderUnsupported);
     }
     final prompt = (call.arguments['prompt'] as String?)?.trim() ?? '';
     if (prompt.isEmpty) {
-      return AiToolResult.error(call.id, 'Falta "prompt" para generar la imagen.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMissingImagePrompt);
     }
     final useContext = call.arguments['useCurrentPageContext'] == true;
     try {
       final status = await gen(prompt, useContext);
       return AiToolResult.ok(call.id, status);
     } catch (e) {
-      return AiToolResult.error(call.id, 'No se pudo generar la imagen: $e');
+      return AiToolResult.error(call.id, _l10n.mcpErrorImageGenerationFailed('$e'));
     }
   }
 
@@ -1589,7 +1573,7 @@ class FolioToolRegistry {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
     FolioBlock? block;
@@ -1600,10 +1584,7 @@ class FolioToolRegistry {
       }
     }
     if (block == null || block.type != 'meeting_note') {
-      return AiToolResult.error(
-        call.id,
-        'Bloque meeting_note no encontrado: $blockId',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorMeetingBlockNotFound(blockId));
     }
     final timestampMs = (call.arguments['timestampMs'] as num?)?.toInt() ?? 0;
     final typeRaw = (call.arguments['type'] as String?)?.trim();
@@ -1663,7 +1644,7 @@ class FolioToolRegistry {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
 
     // Fase 23 (privacidad): esta tool revela títulos de OTRAS páginas
@@ -1673,10 +1654,7 @@ class FolioToolRegistry {
     // cliente MCP externo con acceso solo a la página del meeting_note
     // podía enumerar títulos de páginas fuera de su allowlist.
     if (!await _ensureMcpReadAccess(page)) {
-      return AiToolResult.error(
-        call.id,
-        'Lectura no autorizada para la página $pageId.',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorReadUnauthorizedForPage(pageId));
     }
 
     final parent = page.parentId != null ? _pageById(page.parentId!) : null;
@@ -1747,7 +1725,7 @@ class FolioToolRegistry {
     final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     try {
       final prepNotes = await MeetingNotePreparationService.instance.generate(
@@ -1756,18 +1734,14 @@ class FolioToolRegistry {
         blockId: blockId,
       );
       if (prepNotes == null) {
-        return AiToolResult.error(
-          call.id,
-          'No se pudo generar preparación (sin IA activa, o bloque/página '
-          'no encontrados).',
-        );
+        return AiToolResult.error(call.id, _l10n.mcpErrorMeetingPrepNoResult);
       }
       return AiToolResult.ok(
         call.id,
         _jsonMap({'pageId': pageId, 'blockId': blockId, 'prepNotes': prepNotes}),
       );
     } catch (e) {
-      return AiToolResult.error(call.id, 'No se pudo generar preparación: $e');
+      return AiToolResult.error(call.id, _l10n.mcpErrorMeetingPrepFailed('$e'));
     }
   }
 
@@ -1805,17 +1779,13 @@ class FolioToolRegistry {
     final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     try {
       final summary = await MeetingNotePreparationService.instance
           .generateSummary(session: _session, pageId: pageId, blockId: blockId);
       if (summary == null) {
-        return AiToolResult.error(
-          call.id,
-          'No se pudo generar resumen (sin IA activa, transcript vacío, o '
-          'bloque/página no encontrados).',
-        );
+        return AiToolResult.error(call.id, _l10n.mcpErrorSummaryNoResult);
       }
       // `_jsonMap` solo maneja mapas planos (listas de String/num/bool) —
       // `actionItems` es una lista de mapas anidados, así que este
@@ -1825,7 +1795,7 @@ class FolioToolRegistry {
         jsonEncode({'pageId': pageId, 'blockId': blockId, ...summary}),
       );
     } catch (e) {
-      return AiToolResult.error(call.id, 'No se pudo generar resumen: $e');
+      return AiToolResult.error(call.id, _l10n.mcpErrorSummaryFailed('$e'));
     }
   }
 
@@ -1868,17 +1838,14 @@ class FolioToolRegistry {
     final pageId = _resolvePageId(call.arguments);
     final page = _pageById(pageId);
     if (page == null) {
-      return AiToolResult.error(call.id, 'Página no encontrada: $pageId');
+      return AiToolResult.error(call.id, _l10n.mcpErrorPageNotFound(pageId));
     }
     final blockId = (call.arguments['blockId'] as String?)?.trim() ?? '';
     final hasMeetingBlock = page.blocks.any(
       (b) => b.id == blockId && b.type == 'meeting_note',
     );
     if (!hasMeetingBlock) {
-      return AiToolResult.error(
-        call.id,
-        'Bloque meeting_note no encontrado: $blockId',
-      );
+      return AiToolResult.error(call.id, _l10n.mcpErrorMeetingBlockNotFound(blockId));
     }
     final items = (call.arguments['items'] as List?)
             ?.map((e) => '$e'.trim())
@@ -1886,7 +1853,7 @@ class FolioToolRegistry {
             .toList() ??
         const <String>[];
     if (items.isEmpty) {
-      return AiToolResult.error(call.id, 'No se especificaron items.');
+      return AiToolResult.error(call.id, _l10n.mcpErrorNoItemsSpecified);
     }
     final payloads = items
         .map(

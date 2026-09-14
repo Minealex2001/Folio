@@ -44,6 +44,9 @@ class _ScriptedAiService implements AiService {
   bool get supportsImageGeneration => false;
 
   @override
+  bool get supportsVision => false;
+
+  @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
     String? pageContextText,
@@ -217,6 +220,31 @@ void main() {
 
       expect(session.aiTurnHasUndoableChanges(turnId), isFalse);
       expect(session.pages.first.title, 'Cambiado');
+    });
+
+    // Fase 8 de Quill 2.0 — el botón "Deshacer este turno" de la UI ahora se
+    // oculta tras el primer uso (ver `_undoneAiTurnIds` en workspace_page.dart),
+    // apoyándose en que una segunda llamada a `undoAiTurn` con el mismo turnId
+    // ya era, a este nivel, un no-op seguro (no revierte de más, no lanza).
+    test('una segunda llamada a undoAiTurn con el mismo turnId es un no-op seguro', () {
+      final session = VaultSession();
+      session.debugMarkUnlockedForTests();
+      session.addPage(parentId: null);
+      final pageId = session.pages.first.id;
+      session.renamePage(pageId, 'Antes del turno');
+
+      final turnId = session.beginAiTurnUndoGroup();
+      session.renamePage(pageId, 'Durante el turno');
+      session.endAiTurnUndoGroup(turnId);
+      session.undoAiTurn(turnId);
+      expect(session.pages.first.title, 'Antes del turno');
+
+      // Cambio no relacionado con el turno ya deshecho: la segunda llamada
+      // a undoAiTurn(turnId) no debe tocarlo.
+      session.renamePage(pageId, 'Cambio posterior no relacionado');
+      session.undoAiTurn(turnId);
+
+      expect(session.pages.first.title, 'Cambio posterior no relacionado');
     });
   });
 }

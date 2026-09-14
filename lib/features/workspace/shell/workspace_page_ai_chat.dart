@@ -62,8 +62,10 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         _endAiChatCancelToken(cancelToken);
         _setStateSafe(() => _aiChatBusy = false);
         final l10n = AppLocalizations.of(context);
+        final isLocalProvider = widget.appSettings.aiProvider == AiProvider.ollama ||
+            widget.appSettings.aiProvider == AiProvider.lmStudio;
         final msg = e is AiServiceUnreachableException
-            ? l10n.aiServiceUnreachable
+            ? (isLocalProvider ? l10n.aiServiceUnreachable : l10n.aiServiceUnreachableRemote)
             : l10n.aiErrorWithDetails(e);
         _snack(msg, error: true);
       }
@@ -384,6 +386,25 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
+    final supportsVision = _s.aiService?.supportsVision ?? false;
+    // Fase 8 de Quill 2.0 — antes, un adjunto de imagen se enviaba en
+    // silencio aunque el proveedor activo no soportase visión (frecuente en
+    // modelos locales sin visión); ahora se avisa en vez de dejar que
+    // parezca que Quill "vio" algo que en realidad ignoró.
+    if (!supportsVision && attachments.any((a) => a.mimeType.startsWith('image/'))) {
+      if (mounted) {
+        _snack(AppLocalizations.of(context).aiVisionUnsupportedWarning, error: true);
+      }
+    }
+    // Fase 7 de Quill 2.0 — las imágenes ya presentes en las páginas de
+    // contexto (las mismas que ya aportan texto) también se adjuntan, si el
+    // proveedor activo soporta visión. Mismas páginas, ninguna resolución
+    // paralela a la que ya usa `QuillContextEngine` para el texto.
+    if (includePageContext && contextPageIds.isNotEmpty && supportsVision) {
+      attachments.addAll(
+        await _s.buildAiAttachmentsForPageImages(contextPageIds),
+      );
+    }
     final isCloudProvider =
         widget.appSettings.aiProvider == AiProvider.quillCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;

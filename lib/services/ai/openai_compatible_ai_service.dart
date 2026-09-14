@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'ai_http_cancel.dart';
 import 'ai_service.dart';
@@ -35,6 +36,9 @@ class OpenAiCompatibleAiService implements AiService {
   @override
   bool get supportsImageGeneration => true;
 
+  @override
+  bool get supportsVision => modelNameLooksVisionCapable(defaultModel);
+
   /// Genera una imagen vía `POST {baseUrl}/images/generations`. **Riesgo
   /// conocido**: este mismo servicio atiende tanto `openAi` como `gemini`
   /// (BYOK) — el shim "OpenAI-compatible" de Gemini podría no exponer este
@@ -59,9 +63,15 @@ class OpenAiCompatibleAiService implements AiService {
       // `response_format` no es válido para modelos de imagen recientes
       // (p. ej. gpt-image-*) — siempre devuelven b64_json por defecto y
       // rechazan el parámetro con 400 "Unknown parameter: 'response_format'".
+      // Fase 7.5 de Quill 2.0 — para cualquier OTRO modelo (p. ej. dall-e-3,
+      // configurable en `gemini`/`custom`), sí se pide explícitamente
+      // `b64_json`: sin esto, esos modelos devuelven por defecto una `url`
+      // que el parser de abajo nunca leía, reportando "respuesta vacía" para
+      // una generación que en realidad había funcionado.
       final payload = <String, dynamic>{
         'model': model,
         'prompt': combinedPrompt,
+        if (!isGptImageModel(model)) 'response_format': 'b64_json',
       };
       httpReq.write(jsonEncode(payload));
 
@@ -80,9 +90,27 @@ class OpenAiCompatibleAiService implements AiService {
       final first = data.first as Map<String, dynamic>;
       final b64 = first['b64_json'] as String? ?? '';
       if (b64.isEmpty) {
+        // Fase 7.5 — antes esto se reportaba igual que "respuesta vacía",
+        // aunque el proveedor sí hubiera generado la imagen (solo que como
+        // `url` en vez de `b64_json`). No se descarga la URL (evitaría añadir
+        // una segunda llamada de red a esta fase) — se falla con un mensaje
+        // específico en vez de fingir que no se generó nada.
+        final url = first['url'] as String?;
+        if (url != null && url.trim().isNotEmpty) {
+          throw StateError(
+            'Este endpoint devolvió la imagen como URL, no como base64 — no soportado. '
+            'Usa un endpoint que devuelva "b64_json".',
+          );
+        }
         throw StateError('El servicio de IA devolvió una respuesta de imagen vacía');
       }
-      return AiImageGenerationResult(bytes: base64Decode(b64), mimeType: 'image/png');
+      final Uint8List bytes;
+      try {
+        bytes = base64Decode(b64);
+      } on FormatException {
+        throw StateError('La imagen recibida está corrupta o incompleta.');
+      }
+      return AiImageGenerationResult(bytes: bytes, mimeType: 'image/png');
     } finally {
       client.close(force: true);
     }

@@ -788,12 +788,12 @@
   },
   "aiChatPageContextTooltip": "Incluir texto de folios en el contexto del modelo",
   "aiChatChooseContextPagesTooltip": "Elegir qué folios aportan texto al contexto",
-  "aiChatContextPagesDialogTitle": "Folios en el contexto de la nota",
+  "aiChatContextPagesDialogTitle": "Folios en el contexto del chat",
   "aiChatContextPagesClear": "Vaciar lista",
   "aiChatContextPagesApply": "Aplicar",
   "aiTypingSemantics": "Quill está escribiendo",
-  "aiRenameChatTooltip": "Renombrar nota",
-  "aiRenameChatDialogTitle": "Título de la nota",
+  "aiRenameChatTooltip": "Renombrar chat",
+  "aiRenameChatDialogTitle": "Título del chat",
   "aiRenameChatLabel": "Texto en la pestaña",
   "quillWorkspaceTourTitle": "Quill te puede acompañar aquí",
   "quillWorkspaceTourBodyReady": "Tienes el notas de Quill listo para preguntar, editar folios y trabajar con contexto de notas.",
@@ -811,8 +811,8 @@
   "aiCollapse": "Colapsar",
   "sidebarItemExpandedSemantics": "Expandido",
   "sidebarItemCollapsedSemantics": "Colapsado",
-  "aiDeleteCurrentChat": "Borrar nota actual",
-  "aiNewChat": "Nueva nota",
+  "aiDeleteCurrentChat": "Borrar chat actual",
+  "aiNewChat": "Nuevo chat",
   "aiAttach": "Adjuntar",
   "aiPlanModeToggleTooltip": "Modo Plan",
   "aiPlanModeActiveBanner": "Modo Plan: Quill propondrá un plan editable. Puedes ajustarlo, rechazarlo o aprobarlo.",
@@ -829,7 +829,7 @@
   "aiPlanAdjustHint": "Describe qué quieres cambiar y Quill reescribirá el plan (sin ejecutarlo).",
   "aiPlanRevisionFieldHint": "p. ej. No muevas las páginas de inicio; solo crea la carpeta y la página",
   "aiPlanRequestRevision": "Revisar plan",
-  "aiChatEmptyHint": "Empieza una nota.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, folios o esta nota).",
+  "aiChatEmptyHint": "Empieza un chat.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, folios o este chat).",
   "aiChatEmptyFocusComposer": "Escribe un mensaje",
   "aiInputHint": "Escribe tu mensaje. Quill actuará como agente.",
   "aiInputHintCopilot": "Escribe tu mensaje...",
@@ -851,7 +851,8 @@
   "aiContextAutoSelectionSubtitle": "Adjunta la selección del editor en cada envío de este hilo, no solo el próximo",
   "aiContextAutoSelectionChip": "Selección automática",
   "aiContextLastMeetingOnPage": "Incluir última reunión de el folio (próximo envío)",
-  "aiAttachMenuTitle": "Añadir a la nota",
+  "aiAttachMenuTitle": "Añadir al chat",
+  "aiVisionUnsupportedWarning": "El proveedor de IA activo no admite imágenes: las adjuntas se enviarán, pero Quill no podrá verlas.",
   "aiAttachMenuSubtitle": "Contexto, archivos o notas de reunión para esta pregunta",
   "aiAttachMenuBack": "Volver",
   "aiAttachMenuSearchPagesHint": "Buscar folios…",
@@ -882,6 +883,7 @@
     }
   },
   "aiServiceUnreachable": "No se pudo conectar con el servicio de Quill en el endpoint configurado. Inicia Ollama o LM Studio y revisa la URL.",
+  "aiServiceUnreachableRemote": "No se pudo conectar con el servicio de Quill. Comprueba tu conexión a internet o el estado del proveedor.",
   "aiLaunchProviderWithApp": "Abrir app del proveedor de Quill al iniciar Folio",
   "aiLaunchProviderWithAppHint": "Intenta lanzar Ollama o LM Studio en Windows si el endpoint es localhost. En LM Studio puede hacer falta iniciar el servidor manualmente.",
   "settingsMcpServerTitle": "Servidor MCP local (beta)",
@@ -2724,6 +2726,14 @@
   "aiChatSaveFactPermanentSuccess": "Guardado como hecho permanente.",
   "aiChatUndoTurn": "Deshacer",
   "aiChatUndoTurnWithCount": "{count,plural, =1{Deshacer (1 cambio)} other{Deshacer ({count} cambios)}}",
+  "aiChatUndoTurnConfirmed": "{count,plural, =0{Deshecho.} =1{Deshecho: 1 cambio.} other{Deshecho: {count} cambios.}}",
+  "@aiChatUndoTurnConfirmed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "@aiChatUndoTurnWithCount": {
     "placeholders": {
       "count": {
@@ -2743,7 +2753,9 @@
   "vaultMemoryFactsPermanentSection": "Permanentes",
   "vaultMemoryFactsPermanentEmpty": "Ningún hecho permanente.",
   "vaultMemoryFactsClearTemporary": "Vaciar temporales",
+  "vaultMemoryFactsClearTemporaryConfirm": "Se borrarán todos los hechos temporales de esta libreta. Quill dejará de usarlos como contexto. No se puede deshacer.",
   "vaultMemoryFactsDelete": "Borrar",
+  "vaultMemoryFactsDeleteConfirm": "Se borrará este hecho. Quill dejará de usarlo como contexto. No se puede deshacer.",
   "vaultMemoryFactsAddTemporaryTitle": "Nuevo hecho temporal",
   "vaultMemoryFactsAddPermanentTitle": "Nuevo hecho permanente",
   "vaultMemoryFactsAddHint": "Ej.: \"Este proyecto usa Spring Boot y Maven\"",
@@ -3201,7 +3213,7 @@
       "title": {}
     }
   },
-  "aiChatTitleNumbered": "Nota {n}",
+  "aiChatTitleNumbered": "Chat {n}",
   "@aiChatTitleNumbered": {
     "placeholders": {
       "n": {
@@ -5591,6 +5603,7 @@
   "aiGenerateImageGenerating": "Generando imagen…",
   "aiGeneratedImageLabel": "Generado por IA",
   "aiGeneratedImageInsertButton": "Insertar en la página",
+  "aiGeneratedImageInsertedButton": "Insertada",
   "aiGeneratedImageInsertedSnackbar": "Imagen insertada en la página",
   "aiGeneratedImageLoadError": "No se pudo cargar la imagen",
   "aiImageGenerationUnsupportedProvider": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI.",
@@ -7018,6 +7031,118 @@
       }
     }
   },
+  "mcpErrorUnknownTool": "Tool desconocido: {toolName}",
+  "@mcpErrorUnknownTool": {
+    "placeholders": {
+      "toolName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorExecutionFailed": "Error ejecutando {toolName}: {error}",
+  "@mcpErrorExecutionFailed": {
+    "placeholders": {
+      "toolName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorMissingTitleCreatePage": "Falta \"title\" para crear la página.",
+  "mcpErrorCreatePageEmptyBlocks": "Falta contenido: \"blocks\" no puede estar vacío. Vuelve a llamar create_page con título y varios bloques con texto (h2, párrafos, listas; mermaid si piden diagramas).",
+  "mcpErrorPageNotFound": "Página no encontrada: {pageId}",
+  "@mcpErrorPageNotFound": {
+    "placeholders": {
+      "pageId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorNoReplacementBlocks": "No se especificaron bloques de reemplazo.",
+  "mcpErrorNoOperations": "No se especificaron operaciones.",
+  "mcpErrorNoOperationApplied": "Ninguna operación pudo aplicarse.",
+  "mcpErrorReadDeniedNotAllowlisted": "Lectura denegada: la página no está en la allowlist MCP.",
+  "mcpErrorMissingTitleCreateFolder": "Falta \"title\" para create_folder. Elige un nombre concreto (p. ej. \"Física\"); no uses títulos genéricos.",
+  "mcpErrorMissingPageIdOrTitle": "Faltan \"pageId\" o \"title\".",
+  "mcpErrorMoveIntoDescendant": "No se puede mover una página dentro de su propio descendiente.",
+  "mcpErrorDuplicateFailed": "No se pudo duplicar la página.",
+  "mcpErrorMissingPageIdOrTag": "Faltan \"pageId\" o \"tag\".",
+  "mcpErrorTrashWouldEmptyVault": "No se puede enviar a la papelera (dejaría el vault vacío).",
+  "mcpErrorPageNotInTrash": "Página no está en la papelera: {pageId}",
+  "@mcpErrorPageNotInTrash": {
+    "placeholders": {
+      "pageId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorFolderNotFound": "Carpeta no encontrada: {folderId}",
+  "@mcpErrorFolderNotFound": {
+    "placeholders": {
+      "folderId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorMissingQuery": "Falta \"query\".",
+  "mcpErrorNoBlocksSpecified": "No se especificaron bloques.",
+  "mcpErrorMissingPageIdOrBlockId": "pageId y blockId son obligatorios.",
+  "mcpErrorTaskBlockNotFound": "Bloque task no encontrado: {blockId}",
+  "@mcpErrorTaskBlockNotFound": {
+    "placeholders": {
+      "blockId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorTaskParseFailed": "No se pudo parsear la tarea.",
+  "mcpErrorImageProviderUnsupported": "Este proveedor no soporta generación de imágenes; usa Quill Cloud o configura un proveedor BYOK/local compatible con OpenAI.",
+  "mcpErrorMissingImagePrompt": "Falta \"prompt\" para generar la imagen.",
+  "mcpErrorImageGenerationFailed": "No se pudo generar la imagen: {error}",
+  "@mcpErrorImageGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorMeetingBlockNotFound": "Bloque meeting_note no encontrado: {blockId}",
+  "@mcpErrorMeetingBlockNotFound": {
+    "placeholders": {
+      "blockId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorReadUnauthorizedForPage": "Lectura no autorizada para la página {pageId}.",
+  "@mcpErrorReadUnauthorizedForPage": {
+    "placeholders": {
+      "pageId": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorMeetingPrepNoResult": "No se pudo generar preparación (sin IA activa, o bloque/página no encontrados).",
+  "mcpErrorMeetingPrepFailed": "No se pudo generar preparación: {error}",
+  "@mcpErrorMeetingPrepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorSummaryNoResult": "No se pudo generar resumen (sin IA activa, transcript vacío, o bloque/página no encontrados).",
+  "mcpErrorSummaryFailed": "No se pudo generar resumen: {error}",
+  "@mcpErrorSummaryFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpErrorNoItemsSpecified": "No se especificaron items.",
   "meetingNoteSelectNote": "Selecciona la nota:",
   "meetingNoteFallbackTitle": "Nota de reunión",
   "settingsHeroCloudSignedIn": "Sesión iniciada",

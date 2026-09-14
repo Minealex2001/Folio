@@ -76,7 +76,7 @@ extension _WorkspacePageAiWorkflowsModule on _WorkspacePageState {
       icon: Icons.auto_awesome_motion_outlined,
       variables: [
         for (final id in workflow.variableIds)
-          TemplateVariable(id: id, promptOf: (_) => id),
+          TemplateVariable(id: id, promptOf: (_) => humanizeWorkflowVariableId(id)),
       ],
       buildBlocks: (_, _, _) => const [],
     );
@@ -113,4 +113,17 @@ extension _WorkspacePageAiWorkflowsModule on _WorkspacePageState {
     _chatInputController.text = trimmed;
     unawaited(_sendAiChat());
   }
+}
+
+/// Fase 8 de Quill 2.0 — antes, la variable `{{tema}}` de un workflow se
+/// mostraba al usuario tal cual (el id interno), no como una etiqueta
+/// legible. `QuillWorkflow` no guarda metadatos de variable (sería una
+/// feature nueva, no "polish"), así que este es solo un fallback de
+/// formato: guiones/guiones bajos a espacios, primera letra en mayúscula.
+/// Función de nivel superior (no un método de `_WorkspacePageState`) para
+/// poder testearla sin necesitar el árbol de widgets completo.
+String humanizeWorkflowVariableId(String id) {
+  final spaced = id.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+  if (spaced.isEmpty) return id;
+  return spaced[0].toUpperCase() + spaced.substring(1);
 }

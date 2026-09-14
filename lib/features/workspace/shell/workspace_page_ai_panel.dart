@@ -1055,7 +1055,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           Tooltip(
                             message: _aiChatBusy ? l10n.aiStopGenerating : '',
                             child: FilledButton(
-                              onPressed: !aiReady
+                              onPressed: !aiReady || (inkLooksEmpty && !_aiChatBusy)
                                   ? null
                                   : _aiChatBusy
                                       ? _stopAiChat
@@ -1229,11 +1229,22 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                   if (inkCost != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '~$inkCost 💧',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.water_drop_outlined,
+                            size: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '~$inkCost',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   FilledButton(

@@ -214,6 +214,63 @@ extension VaultSessionAi on VaultSession {
     return out;
   }
 
+  /// Techo global (no por página) para las imágenes de página que se
+  /// adjuntan automáticamente al contexto de Quill (Fase 7 de Quill 2.0).
+  /// Elegido en función de los límites de infraestructura reales auditados
+  /// (Tomcat/HttpClient del backend admiten muchísimo más), no del límite
+  /// documentado de ningún proveedor externo concreto (no verificable desde
+  /// aquí) — pensado para quedar muy por debajo de cualquier límite
+  /// razonable, no para acercarse a él.
+  static const int _kMaxPageImageAttachments = 4;
+  static const int _kMaxPageImageAttachmentsTotalBytes = 8 * 1024 * 1024;
+
+  /// Fase 7 de Quill 2.0 — adjunta como `AiFileAttachment`s las imágenes ya
+  /// presentes en [pageIds] (las mismas páginas que ya aportan texto de
+  /// contexto vía `QuillContextEngine`), para que Quill "vea" imágenes que
+  /// ya están en una página de Folio, no solo las adjuntadas a mano en el
+  /// chat. Los topes de cantidad/tamaño son GLOBALES para toda la llamada
+  /// (se acumulan entre páginas, nunca se reinician por página).
+  ///
+  /// Solo procesa imágenes locales gestionadas por el vault
+  /// (`attachments/...`, ver `VaultPaths.attachmentsDirName`) — imágenes
+  /// remotas (`http://`/`https://`) o insertadas vía colaboración en tiempo
+  /// real se excluyen deliberadamente (esa resolución vive en la capa de UI
+  /// del editor, mezclada con lógica de colaboración; fuera de alcance).
+  /// No toca `QuillContextEngine`/`combinedText`: las imágenes viajan
+  /// aparte, como adjuntos, igual que ya hacen los del chat.
+  Future<List<AiFileAttachment>> buildAiAttachmentsForPageImages(
+    List<String> pageIds,
+  ) async {
+    final out = <AiFileAttachment>[];
+    var totalBytes = 0;
+    for (final pageId in pageIds) {
+      final page = _pageById(pageId);
+      if (page == null) continue;
+      for (final block in page.blocks) {
+        if (out.length >= _kMaxPageImageAttachments) return out;
+        if (block.type != 'image') continue;
+        final path = block.text.trim();
+        if (path.isEmpty) continue;
+        if (path.startsWith('http://') || path.startsWith('https://')) continue;
+        if (!path.startsWith('${VaultPaths.attachmentsDirName}/')) continue;
+        final bytes = await VaultPaths.readAttachmentBytes(path);
+        if (bytes == null || bytes.isEmpty) continue;
+        if (totalBytes + bytes.length > _kMaxPageImageAttachmentsTotalBytes) {
+          continue;
+        }
+        totalBytes += bytes.length;
+        out.add(
+          AiFileAttachment(
+            name: path.split('/').last,
+            mimeType: AiSafetyPolicy.detectMimeType(path),
+            content: base64Encode(bytes),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
   Future<({String text, AiTokenUsage? usage})> previewRewriteBlockWithAi({
     required String pageId,
     required String blockId,
@@ -963,7 +1020,7 @@ For images/blocks: use the + button or / command in a paragraph.
       cloudInkOperation: (cloudInkOperation ?? '').trim().isEmpty
           ? 'agent_main'
           : cloudInkOperation!.trim(),
-      tools: registry.definitions,
+      tools: _toolDefinitionsForProvider(registry, ai),
       toolChoice: 'auto',
       maxTokens: wantsCreatePage ? _kAiMaxTokensContent : _kAiMaxTokensChat,
       cancelToken: cancelToken,
@@ -977,7 +1034,7 @@ For images/blocks: use the + button or / command in a paragraph.
     final outcome = await runToolLoop(
       ai: toolAi,
       baseRequest: baseRequest,
-      tools: registry.definitions,
+      tools: _toolDefinitionsForProvider(registry, ai),
       executeTool: registry.execute,
       onEvent: onToolEvent,
       maxSteps: maxSteps,
@@ -1154,7 +1211,7 @@ For images/blocks: use the + button or / command in a paragraph.
         cloudInkOperation: (cloudInkOperation ?? '').trim().isEmpty
             ? 'agent_main'
             : cloudInkOperation!.trim(),
-        tools: registry.definitions,
+        tools: _toolDefinitionsForProvider(registry, ai),
         toolChoice: 'none',
         maxTokens: _kAiMaxTokensChat,
         cancelToken: cancelToken,
@@ -1555,18 +1612,62 @@ Plan mode (proposal only, do not execute):
     return null;
   }
 
+  /// Fase 7.5 de Quill 2.0 — no anuncia `generate_image` a un proveedor que
+  /// no la soporta (`!ai.supportsImageGeneration`, p. ej. Ollama/LM
+  /// Studio/Gemini Nano). No es estrictamente necesario para que el error
+  /// sea claro si de todos modos se invoca (`AiImageGenerationUnsupportedException`
+  /// ya tiene un mensaje humano), pero evita que justo los modelos más
+  /// débiles/locales — los más propensos a devolver texto final vacío tras
+  /// un fallo de tool — intenten esta acción en primer lugar.
+  List<AiToolDefinition> _toolDefinitionsForProvider(
+    FolioToolRegistry registry,
+    AiService ai,
+  ) {
+    if (ai.supportsImageGeneration) return registry.definitions;
+    return registry.definitions.where((d) => d.name != 'generate_image').toList();
+  }
+
+  /// Fase 7.5 de Quill 2.0 — antes, esta función miraba solo los NOMBRES de
+  /// las tools invocadas y siempre asumía éxito: si `generate_image` (u
+  /// otra tool) fallaba y el modelo no añadía texto propio, la burbuja
+  /// decía "He aplicado las acciones solicitadas" aunque hubiera fallado —
+  /// un mensaje de éxito falso, contradicho justo debajo por el chip de
+  /// error real (`AiToolErrorChip`, que ya lee `AgentChatOutcome.toolErrors`
+  /// = `outcome.errors`). Ahora se distingue éxito de fallo por tool en vez
+  /// de asumir que toda invocación tuvo éxito.
   String _summarizeToolLoopOutcome(
     AiToolLoopOutcome outcome, {
     required bool isEs,
   }) {
-    final names = outcome.steps.map((s) => s.call.name).toSet().toList();
-    if (names.isEmpty) {
+    if (outcome.steps.isEmpty) {
       return isEs ? 'Listo.' : 'Done.';
     }
-    final joined = names.join(', ');
+    final succeeded = outcome.steps
+        .where((s) => !s.result.isError)
+        .map((s) => s.call.name)
+        .toSet()
+        .toList();
+    final failed = outcome.steps
+        .where((s) => s.result.isError)
+        .map((s) => s.call.name)
+        .toSet()
+        .toList();
+    if (failed.isEmpty) {
+      final joined = succeeded.join(', ');
+      return isEs
+          ? 'He aplicado las acciones solicitadas ($joined).'
+          : 'I applied the requested actions ($joined).';
+    }
+    final failedJoined = failed.join(', ');
+    if (succeeded.isEmpty) {
+      return isEs
+          ? 'No pude completar la acción ($failedJoined). Revisa el detalle del error abajo.'
+          : 'I could not complete the action ($failedJoined). See the error details below.';
+    }
+    final succeededJoined = succeeded.join(', ');
     return isEs
-        ? 'He aplicado las acciones solicitadas ($joined).'
-        : 'I applied the requested actions ($joined).';
+        ? 'Hice esto: $succeededJoined. Pero no pude completar: $failedJoined (ver el detalle abajo).'
+        : 'I did this: $succeededJoined. But I could not complete: $failedJoined (see details below).';
   }
 
   /// Fase 3 (Q&A fundamentado): si [prompt] tiene forma de pregunta sobre la

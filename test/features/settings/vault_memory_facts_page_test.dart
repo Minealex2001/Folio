@@ -70,6 +70,9 @@ void main() {
     await _pump(tester, settings);
     await tester.tap(find.byIcon(Icons.delete_outline_rounded));
     await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(tester.element(find.byType(VaultMemoryFactsPage)));
+    await tester.tap(find.widgetWithText(FilledButton, l10n.vaultMemoryFactsDelete));
+    await tester.pumpAndSettle();
 
     expect(find.text('Usa Spring Boot'), findsNothing);
     expect(await settings.getVaultMemoryFacts(_vaultId), isEmpty);
@@ -89,7 +92,9 @@ void main() {
 
     await _pump(tester, settings);
     final l10n = AppLocalizations.of(tester.element(find.byType(VaultMemoryFactsPage)));
-    await tester.tap(find.text(l10n.vaultMemoryFactsClearTemporary));
+    await tester.tap(find.widgetWithText(TextButton, l10n.vaultMemoryFactsClearTemporary));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, l10n.vaultMemoryFactsClearTemporary));
     await tester.pumpAndSettle();
 
     expect(find.text('Temporal'), findsNothing);

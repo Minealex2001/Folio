@@ -21,6 +21,9 @@ class AiServiceWithCancelToken implements AiService {
   @override
   bool get supportsImageGeneration => _inner.supportsImageGeneration;
 
+  @override
+  bool get supportsVision => _inner.supportsVision;
+
   AiCompletionRequest _inject(AiCompletionRequest request) {
     if (identical(request.cancelToken, cancelToken)) return request;
     return AiCompletionRequest(

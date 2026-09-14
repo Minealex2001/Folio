@@ -189,7 +189,12 @@ enum _AiContextItemKind {
 
 enum _AiContextMenuView { root, pages }
 
-enum _MeetingNoteAiPayload { transcript, audio, both }
+// Fase 7 de Quill 2.0 — se quitó `audio` (adjuntar solo el .wav sin
+// transcripción): un `.wav` no es imagen ni texto, así que
+// `AiSafetyPolicy.readAttachmentAsContext` solo mandaba una muestra de 1200
+// bytes en base64 sin ningún valor real para el modelo. `transcript`/`both`
+// siguen igual.
+enum _MeetingNoteAiPayload { transcript, both }
 
 class _AiContextItem {
   const _AiContextItem({
@@ -301,6 +306,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
   /// a medio escribir; al asentarse el turno se retira la key y se
   /// re-renderiza como Markdown completo.
   final Set<String> _aiStreamingMessageKeys = <String>{};
+
+  /// Fase 8 de Quill 2.0 — `aiTurnId`/`aiTurnChangeCount` en [AiChatMessage]
+  /// son efímeros (no persistidos) y `VaultSession.undoAiTurn` consume el
+  /// turno la primera vez que se llama; sin este set, el botón "Deshacer
+  /// este turno" seguía visible y con la misma etiqueta para siempre, y un
+  /// segundo click era un no-op silencioso.
+  final Set<String> _undoneAiTurnIds = <String>{};
+
+  /// Fase 8 de Quill 2.0 — antes, el botón "Insertar en la página" de una
+  /// imagen generada seguía activo tras insertarla, así que un segundo click
+  /// (p. ej. al volver a un mensaje antiguo del chat) insertaba un bloque de
+  /// imagen duplicado. `relPath` es único por imagen generada.
+  final Set<String> _insertedGeneratedImagePaths = <String>{};
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
@@ -359,6 +377,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _snack(String message, {bool error = false}) {
     if (!mounted || message.trim().isEmpty) return;
     showFolioSnack(context, message, error: error);
+  }
+
+  /// Fase 8 de Quill 2.0 — ver comentario de [_undoneAiTurnIds]: marca el
+  /// turno como ya deshecho (el botón desaparece) y confirma cuántos cambios
+  /// se revirtieron, en vez de dejar el botón inerte tras el primer uso.
+  void _undoAiTurnAndConfirm(AiChatMessage message) {
+    final turnId = message.aiTurnId;
+    if (turnId == null) return;
+    final count = message.aiTurnChangeCount ?? 0;
+    _s.undoAiTurn(turnId);
+    _setStateSafe(() => _undoneAiTurnIds.add(turnId));
+    _snack(AppLocalizations.of(context).aiChatUndoTurnConfirmed(count));
   }
 
   void _setStateSafe(VoidCallback fn) {
@@ -1285,7 +1315,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   // tuvo cambios de contenido reversibles y
                                   // ninguna tool estructural/destructiva
                                   // (ver `VaultSession.undoAiTurn`).
-                                  if (message.aiTurnId != null)
+                                  if (message.aiTurnId != null &&
+                                      !_undoneAiTurnIds.contains(
+                                        message.aiTurnId,
+                                      ))
                                     IntentAction(
                                       id: 'undo_ai_turn',
                                       label:
@@ -1296,7 +1329,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                           : l10n.aiChatUndoTurn,
                                       icon: Icons.undo_rounded,
                                       onPressed: () =>
-                                          _s.undoAiTurn(message.aiTurnId!),
+                                          _undoAiTurnAndConfirm(message),
                                     ),
                                 ];
                                 if (actions.isEmpty) {

@@ -5680,9 +5680,6 @@ class VaultSession extends ChangeNotifier {
     if (b.aiGenerated == true && b.text != text) {
       b.aiGenerated = null;
     }
-    if (b.aiGenerated == true && b.text != text) {
-      b.aiGenerated = null;
-    }
     b.text = text;
     _scheduleCoalescedTypingNotify();
     _scheduleBlockContentSave(pageId, contentSafe: contentSafe, notify: false);
@@ -5706,8 +5703,30 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     b.text = text;
+    // Fase 7 de Quill 2.0 — este método es de uso exclusivo de la
+    // transcripción en vivo (nunca de tecleo manual, ver el doc comment de
+    // arriba), así que marcarlo aquí no arriesga clasificar una edición
+    // manual como generada por IA.
+    b.aiGenerated = true;
     _scheduleCoalescedTypingNotify();
     _scheduleBlockContentSave(pageId, contentSafe: true, notify: false);
+  }
+
+  /// Fase 7 de Quill 2.0 — marca un bloque existente como `aiGenerated`
+  /// (provenance/transparencia EU AI Act, mismo campo que ya usan los
+  /// bloques que Quill materializa desde el chat o las imágenes generadas).
+  /// Pensado para contenido que se escribe con un método de mutación
+  /// compartido con ediciones manuales (p. ej. `updateBlockText`, que limpia
+  /// `aiGenerated` en cuanto el texto cambia) — se llama justo después de
+  /// esa escritura, no dentro de ella.
+  void markBlockAiGenerated(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.aiGenerated = true;
+    notifyListeners();
+    scheduleSave();
   }
 
   /// Actualiza texto y Delta de un bloque de forma atómica.
@@ -5732,10 +5751,6 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: blockId,
       );
       contentSafe = false; // borró un adjunto gestionado → guardado completo
-    }
-    if (b.aiGenerated == true &&
-        (b.text != text || b.richTextDeltaJson != richTextDeltaJson)) {
-      b.aiGenerated = null;
     }
     if (b.aiGenerated == true &&
         (b.text != text || b.richTextDeltaJson != richTextDeltaJson)) {

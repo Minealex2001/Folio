@@ -46,6 +46,9 @@ class _ScriptedAiService implements AiService {
   bool get supportsImageGeneration => false;
 
   @override
+  bool get supportsVision => false;
+
+  @override
   Future<AiImageGenerationResult> generateImage({
     required String prompt,
     String? pageContextText,
@@ -138,6 +141,55 @@ void main() {
       expect(outcome.toolErrors!.single.toLowerCase(), contains('página no encontrada'));
       expect(outcome.toolCalls, hasLength(1));
       expect(outcome.toolCalls!.single.name, 'rename_page');
+    },
+  );
+
+  test(
+    'Fase 7.5: si una tool falla y el modelo no añade texto propio, el reply nunca '
+    'dice "he aplicado las acciones solicitadas" (falso éxito)',
+    () async {
+      final ai = _ScriptedAiService([
+        const AiCompletionResult(
+          text: '',
+          toolCalls: [
+            AiToolCall(id: 'c1', name: 'rename_page', arguments: {'pageId': 'inexistente', 'title': 'X'}),
+          ],
+        ),
+        // El modelo no añade texto propio tras ver el error de la tool —
+        // exactamente el caso que antes producía un mensaje de éxito falso.
+        const AiCompletionResult(text: ''),
+      ]);
+      final session = _readySession(ai);
+
+      final outcome = await session.agentChatWithAi(
+        messages: const [],
+        prompt: 'Renombra la página inexistente',
+        useToolCalling: true,
+      );
+
+      expect(outcome.toolErrors, isNotNull);
+      expect(outcome.reply, isNot(contains('He aplicado las acciones solicitadas')));
+      expect(outcome.reply, isNot(contains('I applied the requested actions')));
+      // El reply debe reflejar el fallo, no un éxito genérico.
+      expect(outcome.reply, contains('rename_page'));
+    },
+  );
+
+  test(
+    'Fase 7.5: generate_image no se anuncia a un provider sin supportsImageGeneration',
+    () async {
+      final ai = _ScriptedAiService([const AiCompletionResult(text: 'ok')]);
+      final session = _readySession(ai);
+
+      await session.agentChatWithAi(
+        messages: const [],
+        prompt: 'hola',
+        useToolCalling: true,
+      );
+
+      expect(ai.requests, isNotEmpty);
+      final toolNames = ai.requests.first.tools.map((t) => t.name);
+      expect(toolNames, isNot(contains('generate_image')));
     },
   );
 

@@ -3,7 +3,7 @@ part of 'workspace_page.dart';
 extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
   Future<List<AiFileAttachment>> _collectAiAttachments() async {
     final regularPaths = <String>[];
-    final audioOnlyPaths = <String>[];
+    final audioPaths = <String>[];
     final pendingTranscripts = <String>[];
 
     for (final path in _aiAttachmentPaths) {
@@ -13,21 +13,20 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
         continue;
       }
       final transcript = _aiMeetingTranscripts[path] ?? '';
-      if (payload == _MeetingNoteAiPayload.transcript ||
-          payload == _MeetingNoteAiPayload.both) {
-        if (transcript.isNotEmpty) {
-          pendingTranscripts.add(transcript);
-        }
+      if (transcript.isNotEmpty) {
+        pendingTranscripts.add(transcript);
       }
-      if (payload == _MeetingNoteAiPayload.audio ||
-          payload == _MeetingNoteAiPayload.both) {
-        audioOnlyPaths.add(path);
+      // `both` sigue incluyendo también el audio bruto además de la
+      // transcripción (no se toca en esta fase) — solo se quitó la opción
+      // de adjuntar audio SIN transcripción, que era un placebo.
+      if (payload == _MeetingNoteAiPayload.both) {
+        audioPaths.add(path);
       }
     }
 
     final out = await _s.buildAiAttachmentsFromPaths([
       ...regularPaths,
-      ...audioOnlyPaths,
+      ...audioPaths,
     ]);
     for (final text in pendingTranscripts) {
       out.add(
@@ -59,21 +58,27 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
 
   String _meetingNoteChipLabel(AppLocalizations l10n, String path) {
     final payload = _aiMeetingPayloads[path] ?? _MeetingNoteAiPayload.both;
-    final suffix = switch (payload) {
+    // Fase 8 de Quill 2.0 — antes llevaba un prefijo de emoji '🎙 ' propio,
+    // redundante con el `avatar: Icon(Icons.mic_rounded, ...)` que el chip
+    // (InputChip en workspace_page_ai_panel.dart) ya pone junto al texto.
+    return switch (payload) {
       _MeetingNoteAiPayload.transcript => l10n.meetingNoteAiPayloadTranscript,
-      _MeetingNoteAiPayload.audio => l10n.meetingNoteAiPayloadAudio,
       _MeetingNoteAiPayload.both => l10n.meetingNoteAiPayloadBoth,
     };
-    return '🎙 $suffix';
   }
 
   Future<void> _pickMeetingNoteAttachment() async {
     final page = _s.selectedPage;
     if (page == null || !mounted) return;
 
+    // Solo notas con transcripción — sin `audio` (adjuntar solo el .wav), el
+    // resto de opciones (`transcript`/`both`) requieren transcripción.
     final meetingBlocks = page.blocks
         .where(
-          (b) => b.type == 'meeting_note' && (b.url ?? '').trim().isNotEmpty,
+          (b) =>
+              b.type == 'meeting_note' &&
+              (b.url ?? '').trim().isNotEmpty &&
+              _meetingNoteHasTranscriptForAi(b),
         )
         .toList();
     if (meetingBlocks.isEmpty) return;
@@ -81,9 +86,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
     final l10n = AppLocalizations.of(context);
 
     FolioBlock? picked = meetingBlocks.length == 1 ? meetingBlocks.first : null;
-    var payload = (picked != null && _meetingNoteHasTranscriptForAi(picked))
-        ? _MeetingNoteAiPayload.both
-        : _MeetingNoteAiPayload.audio;
+    var payload = _MeetingNoteAiPayload.both;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -118,15 +121,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onTap: () => setS(() {
-                          picked = b;
-                          if (!_meetingNoteHasTranscriptForAi(b)) {
-                            if (payload == _MeetingNoteAiPayload.transcript ||
-                                payload == _MeetingNoteAiPayload.both) {
-                              payload = _MeetingNoteAiPayload.audio;
-                            }
-                          }
-                        }),
+                        onTap: () => setS(() => picked = b),
                       ),
                     ),
                     const Divider(),
@@ -136,45 +131,25 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
                     style: Theme.of(ctx).textTheme.labelMedium,
                   ),
                   const SizedBox(height: 8),
-                  Builder(
-                    builder: (ctx2) {
-                      final canTranscript =
-                          picked != null &&
-                          _meetingNoteHasTranscriptForAi(picked!);
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ChoiceChip(
-                            label: Text(l10n.meetingNoteAiPayloadTranscript),
-                            selected:
-                                payload == _MeetingNoteAiPayload.transcript,
-                            onSelected: canTranscript
-                                ? (_) => setS(
-                                    () => payload =
-                                        _MeetingNoteAiPayload.transcript,
-                                  )
-                                : null,
-                          ),
-                          ChoiceChip(
-                            label: Text(l10n.meetingNoteAiPayloadAudio),
-                            selected: payload == _MeetingNoteAiPayload.audio,
-                            onSelected: (_) => setS(
-                              () => payload = _MeetingNoteAiPayload.audio,
-                            ),
-                          ),
-                          ChoiceChip(
-                            label: Text(l10n.meetingNoteAiPayloadBoth),
-                            selected: payload == _MeetingNoteAiPayload.both,
-                            onSelected: canTranscript
-                                ? (_) => setS(
-                                    () => payload = _MeetingNoteAiPayload.both,
-                                  )
-                                : null,
-                          ),
-                        ],
-                      );
-                    },
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(l10n.meetingNoteAiPayloadTranscript),
+                        selected: payload == _MeetingNoteAiPayload.transcript,
+                        onSelected: (_) => setS(
+                          () => payload = _MeetingNoteAiPayload.transcript,
+                        ),
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.meetingNoteAiPayloadBoth),
+                        selected: payload == _MeetingNoteAiPayload.both,
+                        onSelected: (_) => setS(
+                          () => payload = _MeetingNoteAiPayload.both,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
